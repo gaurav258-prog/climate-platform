@@ -22,11 +22,13 @@ def test_every_adopted_spec_is_fully_covered_by_its_binding():
                 assert cov["complete"], (s["version"], cov)
 
 
-def test_pillar3_2022_to_2024_changed_references_only():
+def test_pillar3_2022_to_2024_changed_references_and_four_printed_cells():
     d = R.diff(R.load("bank_p3esg", "its_2022_2453"), R.load("bank_p3esg", "its_2024_3172"))
-    assert d["kind"] == "references only"
+    assert d["kind"] == "wording"                                   # no row or column added, removed or moved
     assert not d["templates_added"] and not d["templates_removed"]
-    assert all(set(c) <= {"id", "ref"} for c in d["changed"])          # only where each template is printed moved
+    reworded = {(c["id"], a, x["id"]) for c in d["changed"] for a in ("rows", "columns") for x in (c.get(a) or {}).get("relabelled", [])}
+    assert reworded == {("T4", "columns", "b"), ("T6", "columns", "c4"), ("T7", "rows", "25"), ("T8", "rows", "9"),
+                        ("T8", "rows", "11")}                        # the 2024 print shortens these cells (second pass)
     assert d["act"] == {"from": "32022R2453", "to": "32024R3172"}
 
 

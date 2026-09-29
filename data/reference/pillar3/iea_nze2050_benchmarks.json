@@ -1,0 +1,60 @@
+{
+ "_about": "IEA NZE2050 alignment metric and 2030 target per Template 3 sector. target_2030 is set only where a citable value exists; null means 'pending ingest of the licensed IEA Roadmap' — a distance is never shown against a guessed benchmark.",
+ "source": "IEA Net Zero by 2050 (NZE2050) Roadmap — 2030 sector targets. Shipping value cited in ITS (EU) 2022/2453 §39 (NZE2050, 2021 vintage); other sectors pending ingest of the licensed IEA Roadmap Excel.",
+ "sectors": {
+  "power": {
+   "label": "Power generation",
+   "metric": "CO₂ intensity of generation",
+   "unit": "gCO₂/kWh",
+   "target_2030": null
+  },
+  "oil_gas": {
+   "label": "Oil & gas",
+   "metric": "CO₂ intensity of energy supplied",
+   "unit": "gCO₂/MJ",
+   "target_2030": null
+  },
+  "coal": {
+   "label": "Coal",
+   "metric": "CO₂ intensity of energy supplied",
+   "unit": "gCO₂/MJ",
+   "target_2030": null
+  },
+  "iron_steel": {
+   "label": "Iron & steel",
+   "metric": "CO₂ intensity of crude steel",
+   "unit": "tCO₂/t",
+   "target_2030": null
+  },
+  "chemicals": {
+   "label": "Chemicals",
+   "metric": "CO₂ intensity of chemical production",
+   "unit": "tCO₂/t",
+   "target_2030": null
+  },
+  "cement": {
+   "label": "Cement",
+   "metric": "Direct CO₂ intensity of cement",
+   "unit": "tCO₂/t",
+   "target_2030": null
+  },
+  "automotive": {
+   "label": "Automotive",
+   "metric": "CO₂ intensity of new vehicles",
+   "unit": "gCO₂/km",
+   "target_2030": null
+  },
+  "aviation": {
+   "label": "Aviation",
+   "metric": "CO₂ intensity per passenger-km",
+   "unit": "gCO₂/pkm",
+   "target_2030": null
+  },
+  "maritime": {
+   "label": "Maritime transport",
+   "metric": "CO₂ intensity of energy used",
+   "unit": "gCO₂/MJ",
+   "target_2030": 23.4
+  }
+ }
+}

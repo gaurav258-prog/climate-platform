@@ -66,7 +66,10 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
                           ctx: dict = Depends(require_permission("approvals.create"))):
     import json as _json
 
-    from services.governance.pillar3_qualitative import qualitative_structure
+    from services.governance.pillar3_qualitative import qualitative_structure, valid_keys
+    unknown = sorted(set(body.values) - valid_keys())
+    if unknown:
+        raise HTTPException(422, {"error": "unknown_rows", "message": f"Not a row of the governing tables: {', '.join(unknown[:5])}"})
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()
     cur = (_json.loads(row) if isinstance(row, str) else row) or {}
@@ -78,78 +81,6 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
                 action="p3esg.qualitative.author", target_type="organization", target_id=ctx["org"]["org_id"],
                 detail={"rows": list(body.values.keys())})
     return qualitative_structure(cur)
-
-
-class CellPatch(BaseModel):
-    key: str = Field(..., min_length=1, max_length=64)   # '<template>.<row>.<col>', e.g. 't2.3.8'
-    value: str = Field(..., max_length=64)                # the manually-entered value ('' clears it)
-    reason: str = Field("", max_length=280)              # why — required (4-eyes audit)
-
-
-@router.get("/filings/structured/p3esg-cells", summary="Manual entries for integrated Pillar 3 cells (approved + pending)")
-def get_p3esg_cells(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    """`cells` = APPROVED manual values (rendered on the form); `pending` = proposals awaiting 4-eyes."""
-    import json as _json
-
-    from services.governance.filing_overrides import pending_grid_cells
-    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": ctx["org"]["org_id"]}).scalar()
-    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
-    return {"cells": saved.get("cells") or {}, "pending": pending_grid_cells(session, ctx["org"]["org_id"])}
-
-
-@router.patch("/filings/structured/p3esg-cells", summary="Propose a manual value for an integrated Pillar 3 cell (needs 4-eyes)")
-def set_p3esg_cell(body: CellPatch, session: DbSession,
-                   ctx: dict = Depends(require_permission("approvals.create"))):
-    """A preparer enters an aggregate value into an 'integrated' (bank-fed) cell that has no connected feed yet.
-    Task #56: this is a change to a regulatory figure, so it is NOT written directly — it raises a 4-eyes
-    approval request and only lands on the form once a second person approves it (same maker-checker path as a
-    datapoint override). The frozen snapshot is never mutated; the approved value is an audited overlay."""
-    from services.governance import filing_overrides as O
-    try:
-        result = O.propose_grid_cell(session, ctx["org"]["org_id"], ctx["user"]["id"],
-                                     cell_key=body.key, value=body.value, reason=body.reason)
-    except O.OverrideError as e:
-        raise HTTPException(409, {"error": "override_error", "message": str(e)})
-    session.commit()
-    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
-                action="p3esg.cell.manual_entry.propose", target_type="organization", target_id=ctx["org"]["org_id"],
-                detail={"cell": body.key, "value": body.value.strip(), "request_id": result["approval_request_id"]})
-    return result
-
-
-class Template10Patch(BaseModel):
-    rows: list[dict]    # [{kind, instrument, counterparty, gross_eur, risk, qualitative}, ...]
-
-
-@router.get("/filings/structured/p3esg-template10", summary="Pillar 3 ESG Template 10 register + field schema")
-def get_p3esg_template10(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    import json as _json
-
-    from services.governance.pillar3_qualitative import template10_structure
-    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": ctx["org"]["org_id"]}).scalar()
-    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
-    return template10_structure(saved)
-
-
-@router.patch("/filings/structured/p3esg-template10", summary="Author / save the Pillar 3 ESG Template 10 register")
-def set_p3esg_template10(body: Template10Patch, session: DbSession,
-                         ctx: dict = Depends(require_permission("approvals.create"))):
-    import json as _json
-
-    from services.governance.pillar3_qualitative import template10_structure
-    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": ctx["org"]["org_id"]}).scalar()
-    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
-    cur["template10"] = body.rows
-    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
-                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
-    session.commit()
-    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
-                action="p3esg.template10.author", target_type="organization", target_id=ctx["org"]["org_id"],
-                detail={"rows": len(body.rows)})
-    return template10_structure(cur)
 
 
 class BasisPatch(BaseModel):

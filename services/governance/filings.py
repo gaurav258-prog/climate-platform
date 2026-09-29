@@ -128,7 +128,7 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     from services.governance.filing_form import build_form
     from services.governance.reg_reference import reference
     r = session.execute(text("""
-        SELECT rf.framework, rf.status, rf.period_label, s.payload, s.version
+        SELECT rf.framework, rf.status, rf.period_label, rf.period_end, s.payload, s.version
         FROM regulatory_filing rf
         LEFT JOIN report_snapshots s ON s.snapshot_id = rf.snapshot_id
         WHERE rf.org_id = :o AND rf.filing_id = :f
@@ -218,6 +218,7 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
                     "precedence), reconciled against Tellumen's computed baseline. Source-flagged 'provided'."})
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
+            "period_end": r["period_end"].isoformat() if r["period_end"] else None,
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
             "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex,
             "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx"))}
@@ -293,7 +294,7 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
     true (the CRR-safe default — see entities.create_entity) — so "you owe N solo filings + 1 consolidated
     filing" is finally a real, visible fact in the calendar, not an implicit consequence of which entity_id
     someone happened to pick when generating a filing."""
-    period_end = date(date.today().year - 1, 12, 31)
+    period_end = reporting_period_end(session, org_id)
     for f in available_frameworks(org_type):
         fk = f["framework"]
         # entity_id is NULL for org-level obligations; a UNIQUE(...) treats NULLs as distinct, so we can't
@@ -543,7 +544,7 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
         raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
-    period_end = date(date.today().year - 1, 12, 31)
+    period_end = reporting_period_end(session, org_id)
     existing = session.execute(text("""
         SELECT status FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status <> 'superseded'
@@ -555,7 +556,7 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
     from services.governance.figure_views import figures_for
     from services.governance.provided_data import attested_values
     from services.intake.views import preview as views_preview
-    attested = {p["key"].removeprefix("provided."): p for p in attested_values(session, org_id, framework)}
+    attested = {p["key"].removeprefix("provided."): p for p in attested_values(session, org_id, framework, period_end)}
     figures = [{"datapoint": dp, "label": attested[dp]["label"], "unit": attested[dp].get("unit"),
                 "client_value": attested[dp]["value"], "tellumen_value": attested[dp].get("tellumen_value"),
                 "delta_pct": attested[dp].get("delta_pct"), "provider": attested[dp].get("provider")}
@@ -565,6 +566,13 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
             "can_generate": existing is None, "existing_status": existing,
             "entity_scoped": framework in _ENTITY_SCOPED, "confirm_token": token, **summary,
             "views": views_preview(session, org_id), "figures": figures}
+
+
+def reporting_period_end(session: Session, org_id: str) -> date:
+    """The one reporting period end a filing is recorded for, built on and freezes supplied values of: the
+    organisation's configured reporting period (reporting_settings; last calendar year-end when not set)."""
+    from services.governance.reporting_settings import get_settings
+    return date.fromisoformat(str(get_settings(session, org_id)["reporting_period_end"])[:10])
 
 
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
@@ -730,7 +738,7 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         if not _E.get_entity(session, org_id, entity_id):
             raise FilingError("reporting entity not found")
 
-    period_end = date(date.today().year - 1, 12, 31)
+    period_end = reporting_period_end(session, org_id)
     existing = session.execute(text("""
         SELECT filing_id, status FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status <> 'superseded'

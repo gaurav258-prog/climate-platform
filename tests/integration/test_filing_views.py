@@ -91,10 +91,11 @@ def _attest_financed_emissions(s, value: float):
     s.execute(text("""UPDATE provided_datapoint SET status = 'superseded' WHERE org_id = CAST(:o AS uuid)
                       AND framework = 'bank_tcfd' AND datapoint_key = 'financed_emissions' AND status <> 'superseded'"""),
               {"o": BANK_ORG})
+    from services.governance.filings import reporting_period_end
     s.execute(text("""INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, unit, source, provider_name,
-                                                      status, decided_at)
+                                                      status, decided_at, reporting_period_end)
                       VALUES (CAST(:o AS uuid), 'bank_tcfd', 'financed_emissions', :v, 'tCO2e', 'client', 'Audited PCAF',
-                              'attested', now())"""), {"o": BANK_ORG, "v": value})
+                              'attested', now(), :pe)"""), {"o": BANK_ORG, "v": value, "pe": reporting_period_end(s, BANK_ORG)})
 
 
 def test_the_clients_attested_figure_is_reported_by_default_and_ours_on_request(session_rolled_back):

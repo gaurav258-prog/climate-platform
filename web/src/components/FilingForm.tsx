@@ -26,11 +26,11 @@ interface Dp {
   figure?: { reported: 'client' | 'tellumen'; client_value: number | string | null; tellumen_value: number | null; delta_pct: number | null; client_provider: string | null }
 }
 interface Group { group: string; datapoints: Dp[] }
-interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string }
+interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string } }   // supply: a cell the institution enters ('<template>.<row>.<column>')
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string }
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
-interface Form { framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null }
+interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null }
 
 // the currency the frozen filing presents in (fmt 'eur' = a money figure, whatever its currency)
 const CurrencyCtx = createContext('EUR')
@@ -47,15 +47,23 @@ function fmt(v: number | string | null, f: string, ccy = 'EUR'): string {
 const dpLabel = (d: Dp) => d.key.startsWith('hazard.') ? hazardLabel(d.label) : d.label
 const EDITABLE_STATUS = ['draft', 'returned', 'in_review', 'approved']  // never edit a submitted/accepted/superseded filing
 
-// a pending manual grid-cell entry awaiting 4-eyes approval (task #56)
-interface GridPending { value: string; reason?: string; request_id?: string; proposed_by?: string }
+// a supplied template-cell value for this filing's period: attested (lands in the filing on its next refresh) or pending 4-eyes
+interface Supplied { value: string; status: 'pending' | 'attested'; by?: string | null }
+interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null }
 
 export default function FilingForm({ filingId }: { filingId: string }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['filing-form', filingId], queryFn: () => api.get<Form>(`/v1/filings/${filingId}/form`) })
-  const cellsQ = useQuery({ queryKey: ['p3-cells'], queryFn: () => api.get<{ cells: Record<string, string>; pending: Record<string, GridPending> }>('/v1/filings/structured/p3esg-cells'),
-    enabled: q.data?.framework === 'bank_p3esg' })
+  // the values supplied for this filing's period (template cells the institution enters), from the one supplied-value store
+  const suppliedQ = useQuery({ queryKey: ['provided', q.data?.framework], queryFn: () => api.get<{ provided: ProvidedItem[] }>(`/v1/provided?framework=${q.data!.framework}`),
+    enabled: !!q.data?.framework })
+  const supplied: Record<string, Supplied> = {}
+  for (const p of suppliedQ.data?.provided ?? []) {
+    if (p.reporting_period_end !== q.data?.period_end || !['pending', 'attested'].includes(p.status)) continue
+    supplied[p.datapoint_key] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
+  }
+  const onSupplied = () => qc.invalidateQueries({ queryKey: ['provided', q.data?.framework] })
   const [edit, setEdit] = useState<string | null>(null)
   const [view, setView] = useState<'official' | 'datapoints'>('official')
   const d = q.data
@@ -89,9 +97,9 @@ export default function FilingForm({ filingId }: { filingId: string }) {
       {view !== 'official'
         ? <DatapointList groups={d.groups} {...editProps} />
         : d.framework === 'bank_p3esg'
-          ? <P3FormTabs annex={d.annex!} cells={cellsQ.data?.cells ?? {}} pending={cellsQ.data?.pending ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
+          ? <P3FormTabs annex={d.annex!} supplied={supplied} periodEnd={d.period_end} onSupplied={onSupplied} {...editProps} />
           : hasAnnex
-            ? <AnnexView annex={d.annex!} cells={cellsQ.data?.cells ?? {}} pending={cellsQ.data?.pending ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
+            ? <AnnexView annex={d.annex!} supplied={supplied} periodEnd={d.period_end} onSupplied={onSupplied} {...editProps} />
             : <DatapointList groups={d.groups} {...editProps} />}
 
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
@@ -127,50 +135,40 @@ function SrcLegend({ sources }: { sources: string[] }) {
   )
 }
 
-// A bank-fed ('integrated') grid cell with no connected feed shows '—'. A preparer may enter an aggregate value
-// by hand — but (task #56) it is a change to a regulatory figure, so it is NOT written directly: it needs a
-// short reason and goes through 4-eyes approval. An APPROVED value shows with a violet 'manual' dot; a value
-// still AWAITING approval shows amber with a clock. The frozen snapshot is never mutated.
-function ManualCell({ cellKey, saved, pending, placeholder, canEdit, onSaved }:
-  { cellKey: string; saved?: string; pending?: GridPending; placeholder: string; canEdit: boolean; onSaved: () => void }) {
-  const [val, setVal] = useState(saved ?? '')
-  const [reason, setReason] = useState('')
+// A template cell the institution enters itself (e.g. Template 10, Template 3 targets). The value is supplied for THIS
+// filing's reporting period and needs a second person to attest it; the filing shows the values attested when it
+// was prepared (frozen), and a newer attested value lands on the next refresh of the draft.
+function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }:
+  { cell: AnnexCell; supplied?: Supplied; periodEnd: string | null; canEdit: boolean; onSaved: () => void }) {
+  const frozen = cell.text ?? '—'
+  const [val, setVal] = useState('')
   const [busy, setBusy] = useState(false)
-  const dirty = (val || '') !== (saved ?? '')
   const submit = async () => {
-    if (!dirty) return
-    if (!reason.trim()) { toast.error('Add a short reason — it goes to the approver (4-eyes).'); return }
+    if (!val.trim() || !cell.supply || !periodEnd) return
     setBusy(true)
+    const n = Number(val.replace(/,/g, ''))
     try {
-      await api.patch('/v1/filings/structured/p3esg-cells', { key: cellKey, value: val, reason: reason.trim() })
-      toast.success('Sent for 4-eyes approval.'); setReason(''); onSaved()
-    } catch { toast.error('Could not submit this entry.') } finally { setBusy(false) }
+      await api.post('/v1/provided', { framework: cell.supply.framework, datapoint_key: cell.supply.key, reporting_period_end: periodEnd,
+        ...(val.trim() !== '' && !Number.isNaN(n) ? { value_num: n } : { value_text: val.trim() }) })
+      toast.success('Sent for attestation by a second person.'); setVal(''); onSaved()
+    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit this value.') } finally { setBusy(false) }
   }
-  // read-only view (no edit rights, or filing locked)
-  if (!canEdit) {
-    if (pending) return <span title={`Awaiting 4-eyes approval${pending.proposed_by ? ' · proposed by ' + pending.proposed_by : ''}`}
-      className="inline-flex items-center gap-1 justify-end w-full mono text-[10px]" style={{ color: 'var(--color-warn)' }}><Clock size={9} />{pending.value}</span>
-    return <span className="inline-flex items-center gap-1 justify-end w-full">
-      {saved ? <><span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />{saved}</> : <span className="text-[var(--color-faint)]">{placeholder}</span>}</span>
-  }
-  // editable
+  const note = supplied && supplied.value !== frozen
+    ? <span className="mono text-[8.5px] inline-flex items-center gap-0.5" style={{ color: supplied.status === 'pending' ? 'var(--color-warn)' : 'var(--color-viz,#a78bfa)' }}>
+        {supplied.status === 'pending' ? <><Clock size={8} />{supplied.value} awaiting attestation</> : <>{supplied.value} attested · refresh the draft</>}</span>
+    : null
   return (
     <div className="inline-flex flex-col items-end gap-1">
-      <input value={val} onChange={e => setVal(e.target.value)} disabled={busy}
-        placeholder={pending ? pending.value : placeholder}
-        title={pending ? `${pending.value} is awaiting 4-eyes approval — enter a new value to replace it` : 'Manual entry — no bank feed for this cell; needs 4-eyes approval'}
-        className="w-16 text-right mono tabular-nums text-[11px] bg-transparent border-0 border-b border-dashed border-[var(--color-line)] px-0.5 py-0 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] focus:border-solid placeholder:text-[var(--color-faint)]"
-        style={saved ? { color: 'var(--color-viz,#a78bfa)' } : pending ? { color: 'var(--color-warn)' } : undefined} />
-      {pending && !dirty && <span className="mono text-[8.5px] inline-flex items-center gap-0.5" style={{ color: 'var(--color-warn)' }}><Clock size={8} />pending</span>}
-      {dirty && (
+      <span className="inline-flex items-center gap-1">{frozen !== '—' && <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />}{frozen}</span>
+      {note}
+      {canEdit && (
         <div className="flex items-center gap-1">
-          <input value={reason} onChange={e => setReason(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit() }}
-            placeholder="reason…" disabled={busy}
-            className="w-24 text-[10px] bg-transparent border-b border-[var(--color-line)] px-0.5 outline-none text-[var(--color-ink)] placeholder:text-[var(--color-faint)]" />
-          <button onClick={submit} disabled={busy} className="text-[9px] mono px-1.5 py-0.5 rounded"
-            style={{ background: 'color-mix(in oklab, var(--color-sky) 16%, transparent)', color: 'var(--color-sky)' }}>send</button>
-        </div>
-      )}
+          <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit() }} disabled={busy}
+            placeholder="enter…" title="You supply this cell for the filing's reporting period; a second person attests it"
+            className="w-20 text-right mono tabular-nums text-[11px] bg-transparent border-0 border-b border-dashed border-[var(--color-line)] px-0.5 py-0 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] placeholder:text-[var(--color-faint)]" />
+          {val.trim() && <button onClick={submit} disabled={busy} className="text-[9px] mono px-1.5 py-0.5 rounded"
+            style={{ background: 'color-mix(in oklab, var(--color-sky) 16%, transparent)', color: 'var(--color-sky)' }}>send</button>}
+        </div>)}
     </div>
   )
 }
@@ -193,7 +191,7 @@ const P3_TABS: { k: P3Group; label: string; sub: string }[] = [
   { k: 'tax', label: 'Taxonomy & GAR', sub: 'Templates 6–10' },
 ]
 
-function P3FormTabs({ annex, cells, pending, onCells, ...ep }: { annex: Annex; cells: Record<string, string>; pending: Record<string, GridPending>; onCells: () => void } & EditProps) {
+function P3FormTabs({ annex, supplied, periodEnd, onSupplied, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void } & EditProps) {
   const [tab, setTab] = useState<P3Group>('qual')
   const qual = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
   const sectionsOf = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.title) === g) })
@@ -201,8 +199,8 @@ function P3FormTabs({ annex, cells, pending, onCells, ...ep }: { annex: Annex; c
   const badge = (g: P3Group): { t: string; c: string } | null => {
     if (g === 'qual') return qual.data ? { t: `${qual.data.authored}/${qual.data.total_rows}`, c: 'var(--color-viz,#a78bfa)' } : null
     const secs = annex.sections.filter(s => p3Group(s.title) === g)
-    const keys = secs.map(s => s.key).filter(Boolean) as string[]
-    const filled = keys.length > 0 && Object.keys(cells).some(ck => keys.some(k => ck.startsWith(k + '.')))
+    const supplyKeys = secs.flatMap(s => s.rows.flatMap(r => (r.cells ?? []).map(c => c.supply?.key).filter(Boolean))) as string[]
+    const filled = supplyKeys.some(k => supplied[k])
     if (filled) return { t: 'in progress', c: 'var(--color-good,#34d399)' }
     const hasIntegrated = secs.some(s => (s.col_sources ?? []).includes('integrated'))
     if (g === 'phys') return { t: 'engine', c: 'var(--color-sky)' }
@@ -232,14 +230,14 @@ function P3FormTabs({ annex, cells, pending, onCells, ...ep }: { annex: Annex; c
         })}
       </div>
       {tab === 'qual' && <P3Qualitative canEdit={ep.canEdit} />}
-      {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} cells={cells} pending={pending} onCells={onCells} hideName {...ep} />}
-      {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} cells={cells} pending={pending} onCells={onCells} hideName {...ep} />}
-      {tab === 'tax' && <div className="space-y-3"><AnnexView annex={sectionsOf('tax')} cells={cells} pending={pending} onCells={onCells} hideName {...ep} /><P3Template10 canEdit={ep.canEdit} /></div>}
+      {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
+      {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
+      {tab === 'tax' && <AnnexView annex={sectionsOf('tax')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
     </div>
   )
 }
 
-function AnnexView({ annex, cells: cellVals, pending: pendingVals, onCells, hideName, ...ep }: { annex: Annex; cells: Record<string, string>; pending?: Record<string, GridPending>; onCells: () => void; hideName?: boolean } & EditProps) {
+function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void; hideName?: boolean } & EditProps) {
   return (
     <Card className="p-0 overflow-hidden">
       {!hideName && (
@@ -281,11 +279,8 @@ function AnnexView({ annex, cells: cellVals, pending: pendingVals, onCells, hide
                         {cells.map((c, ci) => {
                           const last = ci === cells.length - 1
                           if (c.dp) return <td key={ci} className="px-4 py-1.5 text-right align-top"><CellValue dp={c.dp} {...ep} /></td>
-                          // an integrated / manual grid cell in a keyed section → preparer can enter a value by hand
-                          if (s.key && (c.source === 'integrated' || c.source === 'manual')) {
-                            const ck = `${s.key}.${ri}.${ci}`
-                            return <td key={ci} className="px-4 py-1.5 align-top text-right"><ManualCell cellKey={ck} saved={cellVals[ck]} pending={pendingVals?.[ck]} placeholder={c.text ?? '—'} canEdit={ep.canEdit} onSaved={onCells} /></td>
-                          }
+                          // a cell the institution enters itself (the spec's supplied cells) — never a figure aggregated from loan data
+                          if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[c.supply.key]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} /></td>
                           return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right mono tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                         })}
                       </tr>
@@ -413,7 +408,7 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
     <Card className="p-0 overflow-hidden mt-3">
       <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
         <div>
-          <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3 (Annex XXXIX)</div>
+          <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3</div>
           <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Free-format narrative · <span style={{ color: 'var(--color-sky)' }}>you author</span> · versioned + attested with the filing</div>
         </div>
         <div className="mono text-[10px] text-[var(--color-faint)]">{d.authored}/{d.total_rows} authored</div>
@@ -430,7 +425,7 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
                   <div key={r.key}>
                     {showGroup && <div className="px-4 pt-2.5 pb-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)]">{r.group}</div>}
                     <div className="px-4 py-2">
-                      <div className="text-[12px] text-[var(--color-mute)] mb-1"><span className="mono text-[10px] text-[var(--color-faint)] mr-1.5">({r.row})</span>{r.prompt}</div>
+                      <div className="text-[12px] text-[var(--color-mute)] mb-1"><span className="mono text-[10px] text-[var(--color-faint)] mr-1.5">{r.row}</span>{r.prompt}</div>
                       <QCell row={r} canEdit={canEdit} onSaved={() => qc.invalidateQueries({ queryKey: ['p3-qualitative'] })} />
                     </div>
                   </div>
@@ -465,68 +460,3 @@ function QCell({ row, canEdit, onSaved }: { row: QRow; canEdit: boolean; onSaved
   )
 }
 
-// ── Pillar 3 ESG Template 10 (Annex XXXIX) — the preparer-authored register of climate-mitigating instruments
-// NOT covered by the EU Taxonomy (green/sustainability bonds + specialised green lending). Every field is manual.
-interface T10Field { key: string; label: string; options: string[] | null }
-interface T10Data { fields: T10Field[]; rows: Record<string, string>[]; count: number }
-
-function P3Template10({ canEdit }: { canEdit: boolean }) {
-  const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['p3-template10'], queryFn: () => api.get<T10Data>('/v1/filings/structured/p3esg-template10') })
-  const [rows, setRows] = useState<Record<string, string>[] | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const d = q.data
-  const model = rows ?? d?.rows ?? []
-  if (!d) return null
-
-  const commit = async (next: Record<string, string>[]) => {
-    setRows(next); setSaved(false); setSaving(true)
-    try { await api.patch('/v1/filings/structured/p3esg-template10', { rows: next }); setSaved(true); qc.invalidateQueries({ queryKey: ['p3-template10'] }) }
-    catch { toast.error('Could not save the Template 10 register.') } finally { setSaving(false) }
-  }
-  const addRow = (kind: string) => commit([...model, { kind, instrument: '', counterparty: '', gross_eur: '', risk: '', qualitative: '' }])
-  const editRow = (i: number, key: string, val: string) => { const n = model.map((r, j) => j === i ? { ...r, [key]: val } : r); setRows(n); setSaved(false) }
-  const delRow = (i: number) => commit(model.filter((_, j) => j !== i))
-  const cols = d.fields.filter(f => f.key !== 'kind')
-
-  return (
-    <Card className="p-0 overflow-hidden mt-3">
-      <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[13px] text-[var(--color-ink)]">Template 10 — other climate-mitigating actions not covered by the EU Taxonomy</div>
-          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Green / sustainability bonds + specialised green lending · <span style={{ color: 'var(--color-viz, #a78bfa)' }}>you author</span> · versioned + attested with the filing</div>
-        </div>
-        <div className="mono text-[10px] text-[var(--color-faint)]">{model.length} instrument{model.length === 1 ? '' : 's'}</div>
-      </div>
-      {['Bond', 'Loan'].map(kind => {
-        const group = model.map((r, i) => ({ r, i })).filter(x => x.r.kind === kind)
-        return (
-          <div key={kind} className="border-b border-[var(--color-line)] last:border-0">
-            <div className="px-4 py-2 bg-[var(--color-bg-2)] flex items-center justify-between">
-              <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{kind === 'Bond' ? 'Bonds (banking book)' : 'Loans (banking book)'}</span>
-              {canEdit && <button onClick={() => addRow(kind)} className="mono text-[10px] text-[var(--color-sky)] hover:underline">+ add {kind.toLowerCase()}</button>}
-            </div>
-            {group.length === 0
-              ? <div className="px-4 py-2.5 mono text-[10px] text-[var(--color-faint)] italic">No {kind.toLowerCase()} instruments recorded.</div>
-              : group.map(({ r, i }) => (
-                <div key={i} className="px-4 py-2.5 border-t border-[var(--color-line-2)] grid gap-2" style={{ gridTemplateColumns: '1.4fr 1fr 0.8fr 1fr 1.6fr auto' }}>
-                  {cols.map(f => (
-                    <div key={f.key}>
-                      <div className="mono text-[8.5px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">{f.label}</div>
-                      {canEdit
-                        ? <input value={r[f.key] ?? ''} onChange={e => editRow(i, f.key, e.target.value)} onBlur={() => rows && commit(rows)}
-                            placeholder="—" className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[11.5px] text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)]" />
-                        : <div className="text-[11.5px] text-[var(--color-ink)]">{r[f.key] || <span className="text-[var(--color-faint)]">—</span>}</div>}
-                    </div>
-                  ))}
-                  {canEdit && <button onClick={() => delRow(i)} className="mono text-[10px] text-[var(--color-faint)] hover:text-[var(--color-bad,#fb7185)] self-end pb-1" title="Remove">✕</button>}
-                </div>
-              ))}
-          </div>
-        )
-      })}
-      <div className="px-4 py-1.5 mono text-[9px] h-5">{saving ? <span className="text-[var(--color-faint)]">saving…</span> : saved ? <span style={{ color: 'var(--color-good)' }}>✓ saved</span> : null}</div>
-    </Card>
-  )
-}

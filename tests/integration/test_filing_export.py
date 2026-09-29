@@ -93,8 +93,9 @@ def test_pillar3_xbrl_export_is_well_formed_with_gar_and_emissions():
         assert name.endswith(".xbrl") and media == "application/xml"
         root = ET.fromstring(content)                      # well-formed
         facts = {el.tag.rsplit("}", 1)[-1] for el in root if el.get("contextRef")}
-        # the Pillar 3 headline figures are tagged as facts (GAR grid + financed emissions + physical risk)
-        assert {"GARTotalAssets", "GAREligibleExposure", "GARAlignedExposure"} <= facts
+        # the Pillar 3 headline figures are tagged as facts (Template 7 totals + financed emissions + physical risk); a GAR
+        # figure the book cannot yet support (no exposure placed in a GAR row) is not emitted rather than written as zero
+        assert {"GARTotalAssets", "GARCoveredAssets"} <= facts
         assert {"FinancedEmissionsScope3", "PhysicalRiskSensitiveExposure"} <= facts
         # every fact carries a unit reference (valid xbrli instance)
         assert all(el.get("unitRef") for el in root if el.get("contextRef"))

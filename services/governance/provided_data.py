@@ -58,23 +58,44 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
     return None
 
 
+def _target(framework: str, key: str, period_end) -> dict:
+    """What a supplied value is for: a catalog datapoint, or a template cell of the governing specification."""
+    if key.count(".") == 2:
+        import services.regspec as R
+        if period_end is None:
+            raise ProvidedError("a template cell value needs the reporting period it is for")
+        try:
+            cell = R.supplied_cell(framework, key, period_end)
+        except R.SpecError as e:
+            raise ProvidedError(str(e)) from e
+        return {"key": key, "label": cell["label"], "lane": "provided", "recon_tol": None, "cell": cell}
+    dp = _catalog_dp(framework, key)
+    if not dp:
+        raise ProvidedError(f"unknown datapoint '{key}' for {framework}")
+    return dp
+
+
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
            value_num: float | None = None, value_text: str | None = None, unit: str | None = None,
            source: str = "client", provider_name: str | None = None, data_vintage: str | None = None,
-           period_label: str | None = None) -> dict:
-    """Record a provided value, reconcile it, and raise a 4-eyes attest request."""
-    dp = _catalog_dp(framework, datapoint_key)
-    if not dp:
-        raise ProvidedError(f"unknown datapoint '{datapoint_key}' for {framework}")
+           period_label: str | None = None, reporting_period_end=None) -> dict:
+    """Record a provided value for a reporting period, reconcile it, and raise a 4-eyes attest request. It supersedes
+    only the earlier value for the same datapoint and period."""
+    from datetime import date
+    if not reporting_period_end:
+        raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing")
+    pe = date.fromisoformat(str(reporting_period_end)[:10])
+    dp = _target(framework, datapoint_key, pe)
     if dp["lane"] != "provided" and not dp.get("reconcilable"):
         raise ProvidedError(f"datapoint '{datapoint_key}' cannot be provided (lane={dp['lane']}); it is computed by Tellumen")
+    period_label = period_label or (f"FY{pe.year}" if pe and (pe.month, pe.day) == (12, 31) else pe.isoformat() if pe else None)
     if source not in ("client", "vendor"):
         raise ProvidedError("source must be 'client' or 'vendor'")
     if value_num is None and not (value_text or "").strip():
         raise ProvidedError("a value (numeric or text) is required")
 
     # reconcile against our baseline where one exists
-    base = _baseline(session, org_id, framework, datapoint_key) if value_num is not None else None
+    base = _baseline(session, org_id, framework, datapoint_key) if value_num is not None and "cell" not in dp else None
     tol = dp.get("recon_tol") or DEFAULT_TOL_PCT
     delta_pct = within = note = None
     if base is not None and base != 0 and value_num is not None:
@@ -84,25 +105,28 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     elif value_num is not None:
         note = "No Tellumen counterpart to reconcile against — stored as provided, with provenance."
 
-    # supersede any prior live value for this datapoint
+    # supersede the prior live value for this datapoint and period (another period's value is untouched)
     session.execute(text("""
         UPDATE provided_datapoint SET status='superseded'
         WHERE org_id=:o AND framework=:f AND datapoint_key=:k AND status IN ('pending','attested')
-    """), {"o": org_id, "f": framework, "k": datapoint_key})
+          AND reporting_period_end IS NOT DISTINCT FROM CAST(:pe AS date)
+    """), {"o": org_id, "f": framework, "k": datapoint_key, "pe": pe})
 
     pid = session.execute(text("""
         INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, value_text, unit, source,
-            provider_name, data_vintage, period_label, tellumen_value, delta_pct, within_tolerance, recon_note, submitted_by)
-        VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl,:tv,:dp,:wt,:rn,:by)
+            provider_name, data_vintage, period_label, reporting_period_end, tellumen_value, delta_pct, within_tolerance,
+            recon_note, submitted_by)
+        VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl, CAST(:pe AS date),:tv,:dp,:wt,:rn,:by)
         RETURNING provided_id
     """), {"o": org_id, "f": framework, "k": datapoint_key, "vn": value_num, "vt": (value_text or None),
-           "u": unit, "src": source, "pn": provider_name, "dv": data_vintage or None, "pl": period_label,
+           "u": unit, "src": source, "pn": provider_name, "dv": data_vintage or None, "pl": period_label, "pe": pe,
            "tv": base, "dp": delta_pct, "wt": within, "rn": note, "by": actor}).scalar()
 
     # raise the shared 4-eyes request (checker ≠ maker enforced by the approvals router)
     import json
     payload = {"provided_id": str(pid), "framework": framework, "datapoint_key": datapoint_key,
-               "value_num": value_num, "value_text": value_text, "source": source}
+               "value_num": value_num, "value_text": value_text, "source": source,
+               "reporting_period_end": pe.isoformat() if pe else None}
     title = f"Attest provided value · {dp['label'][:60]}"
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
@@ -125,18 +149,19 @@ def attest(session: Session, org_id: str, payload: dict, decision: str, actor: s
     return {"provided_id": pid, "status": status}
 
 
-def attested_values(session: Session, org_id: str, framework: str) -> list[dict]:
-    """The ATTESTED provided values for a framework — the ones that passed 4-eyes and therefore MAY land in a
-    filing. Returned in a form-datapoint shape so the filing form/annex can surface them as provided datapoints
-    (with their reconciliation vs the Tellumen baseline), instead of dead-ending at the provided-data list view."""
+def attested_values(session: Session, org_id: str, framework: str, period_end=None) -> list[dict]:
+    """The ATTESTED provided values of one reporting period — the ones that passed 4-eyes and therefore land in that
+    period's filing (frozen into its snapshot). A value for another period, or with no period, never does.
+    Returned in a form-datapoint shape so the filing form/annex surfaces them as provided datapoints."""
     rows = session.execute(text("""
-        SELECT p.datapoint_key, p.value_num, p.value_text, p.unit, p.source, p.provider_name,
+        SELECT p.datapoint_key, p.value_num, p.value_text, p.unit, p.source, p.provider_name, p.reporting_period_end,
                p.tellumen_value, p.delta_pct, p.within_tolerance, p.decided_at, du.email AS attested_by
         FROM provided_datapoint p
         LEFT JOIN users du ON du.user_id = p.decided_by
         WHERE p.org_id = :o AND p.framework = :f AND p.status = 'attested'
+          AND p.reporting_period_end = CAST(:pe AS date)
         ORDER BY p.decided_at DESC
-    """), {"o": org_id, "f": framework}).mappings().all()
+    """), {"o": org_id, "f": framework, "pe": period_end}).mappings().all()
     labels = {d["key"]: d["label"] for fw in CATALOG.values() for d in fw}
     units = {d["key"]: d.get("unit") for fw in CATALOG.values() for d in fw}
     out = []
@@ -144,6 +169,7 @@ def attested_values(session: Session, org_id: str, framework: str) -> list[dict]
         val = r["value_num"] if r["value_num"] is not None else r["value_text"]
         out.append({
             "key": f"provided.{r['datapoint_key']}", "label": labels.get(r["datapoint_key"], r["datapoint_key"]),
+            "reporting_period_end": r["reporting_period_end"].isoformat() if r["reporting_period_end"] else None,
             "value": val, "unit": r["unit"] or units.get(r["datapoint_key"]), "source": "provided",
             "provider": r["provider_name"], "attested_by": r["attested_by"],
             "attested_at": r["decided_at"].isoformat() if r["decided_at"] else None,
@@ -159,7 +185,7 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
         SELECT p.provided_id::text AS provided_id, p.framework, p.datapoint_key, p.value_num, p.value_text,
                p.unit, p.source, p.provider_name, p.data_vintage, p.tellumen_value, p.delta_pct,
                p.within_tolerance, p.recon_note, p.status, p.submitted_at, su.email AS submitted_by,
-               du.email AS decided_by
+               du.email AS decided_by, p.period_label, p.reporting_period_end
         FROM provided_datapoint p
         LEFT JOIN users su ON su.user_id = p.submitted_by
         LEFT JOIN users du ON du.user_id = p.decided_by
@@ -167,6 +193,13 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
         ORDER BY p.submitted_at DESC
     """), {"o": org_id, "f": framework}).mappings().all()
     labels = {d["key"]: d["label"] for fw in CATALOG.values() for d in fw}
+    for r in rows:
+        if r["datapoint_key"].count(".") == 2 and r["datapoint_key"] not in labels and r["reporting_period_end"]:
+            try:
+                import services.regspec as R
+                labels[r["datapoint_key"]] = R.supplied_cell(r["framework"], r["datapoint_key"], r["reporting_period_end"])["label"]
+            except Exception:  # noqa: BLE001 — a cell the current spec no longer has keeps its key as label
+                pass
     return [{"provided_id": r["provided_id"], "framework": r["framework"], "datapoint_key": r["datapoint_key"],
              "label": labels.get(r["datapoint_key"], r["datapoint_key"]),
              "value_num": r["value_num"], "value_text": r["value_text"], "unit": r["unit"],
@@ -175,4 +208,6 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
              "tellumen_value": r["tellumen_value"], "delta_pct": r["delta_pct"],
              "within_tolerance": r["within_tolerance"], "recon_note": r["recon_note"], "status": r["status"],
              "submitted_by": r["submitted_by"], "decided_by": r["decided_by"],
-             "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None} for r in rows]
+             "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None,
+             "period_label": r["period_label"],
+             "reporting_period_end": r["reporting_period_end"].isoformat() if r["reporting_period_end"] else None} for r in rows]

@@ -23,6 +23,7 @@ class SubmitBody(BaseModel):
     provider_name: Optional[str] = Field(None, max_length=120)
     data_vintage:  Optional[str] = None          # ISO date
     period_label:  Optional[str] = Field(None, max_length=40)
+    reporting_period_end: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")  # the period the value is for (ISO date)
 
 
 @router.get("/catalog", summary="Datapoints a customer/vendor can provide for a framework")
@@ -42,6 +43,7 @@ def submit(body: SubmitBody, session: DbSession, ctx: dict = Depends(require_per
         return P.submit(session, ctx["org"]["org_id"], ctx["user"]["id"], framework=body.framework,
                         datapoint_key=body.datapoint_key, value_num=body.value_num, value_text=body.value_text,
                         unit=body.unit, source=body.source, provider_name=body.provider_name,
-                        data_vintage=body.data_vintage, period_label=body.period_label)
+                        data_vintage=body.data_vintage, period_label=body.period_label,
+                        reporting_period_end=body.reporting_period_end)
     except P.ProvidedError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})

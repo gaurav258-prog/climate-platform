@@ -1,0 +1,363 @@
+{
+ "_about": "NACE → IEA sector crosswalk for Pillar 3 Template 3, transcribed from the 'List of NACE sectors to be considered' table in Annex XL of Implementing Regulation (EU) 2022/2453 (a scanned image in the Official Journal, read directly). Codes are digit strings matched by longest prefix; single-digit NACE divisions carry their leading zero ('051' = group 05.1, not division 51). Chemicals has no published code list (EBA Q&A 2024_7085; Q&A 2025_7451 rejected): NACE division 20 is used as a declared fallback (chemicals_fallback_division).",
+ "source": "Implementing Regulation (EU) 2022/2453, Annex XL, Template 3 — 'List of NACE sectors to be considered' (OJ L 324, 19.12.2022)",
+ "chemicals_fallback_division": "20",
+ "crosswalk": [
+  {
+   "nace": "301",
+   "sector": "maritime"
+  },
+  {
+   "nace": "3011",
+   "sector": "maritime"
+  },
+  {
+   "nace": "3012",
+   "sector": "maritime"
+  },
+  {
+   "nace": "3315",
+   "sector": "maritime"
+  },
+  {
+   "nace": "50",
+   "sector": "maritime"
+  },
+  {
+   "nace": "501",
+   "sector": "maritime"
+  },
+  {
+   "nace": "5010",
+   "sector": "maritime"
+  },
+  {
+   "nace": "502",
+   "sector": "maritime"
+  },
+  {
+   "nace": "5020",
+   "sector": "maritime"
+  },
+  {
+   "nace": "5222",
+   "sector": "maritime"
+  },
+  {
+   "nace": "5224",
+   "sector": "maritime"
+  },
+  {
+   "nace": "5229",
+   "sector": "maritime"
+  },
+  {
+   "nace": "27",
+   "sector": "power"
+  },
+  {
+   "nace": "2712",
+   "sector": "power"
+  },
+  {
+   "nace": "3314",
+   "sector": "power"
+  },
+  {
+   "nace": "35",
+   "sector": "power"
+  },
+  {
+   "nace": "351",
+   "sector": "power"
+  },
+  {
+   "nace": "3511",
+   "sector": "power"
+  },
+  {
+   "nace": "3512",
+   "sector": "power"
+  },
+  {
+   "nace": "3513",
+   "sector": "power"
+  },
+  {
+   "nace": "3514",
+   "sector": "power"
+  },
+  {
+   "nace": "4321",
+   "sector": "power"
+  },
+  {
+   "nace": "091",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "0910",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "192",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "1920",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "2014",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "352",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "3521",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "3522",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "3523",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "4612",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "4671",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "06",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "061",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "0610",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "062",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "0620",
+   "sector": "oil_gas"
+  },
+  {
+   "nace": "08",
+   "sector": "coal"
+  },
+  {
+   "nace": "09",
+   "sector": "coal"
+  },
+  {
+   "nace": "24",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "241",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2410",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "242",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2420",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2434",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "244",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2442",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2444",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2445",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "245",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2451",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2452",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "25",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "251",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "2511",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "4672",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "07",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "072",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "0729",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "05",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "051",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "0510",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "052",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "0520",
+   "sector": "iron_steel"
+  },
+  {
+   "nace": "235",
+   "sector": "cement"
+  },
+  {
+   "nace": "2351",
+   "sector": "cement"
+  },
+  {
+   "nace": "2352",
+   "sector": "cement"
+  },
+  {
+   "nace": "236",
+   "sector": "cement"
+  },
+  {
+   "nace": "2361",
+   "sector": "cement"
+  },
+  {
+   "nace": "2363",
+   "sector": "cement"
+  },
+  {
+   "nace": "2364",
+   "sector": "cement"
+  },
+  {
+   "nace": "811",
+   "sector": "cement"
+  },
+  {
+   "nace": "089",
+   "sector": "cement"
+  },
+  {
+   "nace": "3030",
+   "sector": "aviation"
+  },
+  {
+   "nace": "3316",
+   "sector": "aviation"
+  },
+  {
+   "nace": "511",
+   "sector": "aviation"
+  },
+  {
+   "nace": "5110",
+   "sector": "aviation"
+  },
+  {
+   "nace": "512",
+   "sector": "aviation"
+  },
+  {
+   "nace": "5121",
+   "sector": "aviation"
+  },
+  {
+   "nace": "5223",
+   "sector": "aviation"
+  },
+  {
+   "nace": "2815",
+   "sector": "automotive"
+  },
+  {
+   "nace": "29",
+   "sector": "automotive"
+  },
+  {
+   "nace": "291",
+   "sector": "automotive"
+  },
+  {
+   "nace": "2910",
+   "sector": "automotive"
+  },
+  {
+   "nace": "292",
+   "sector": "automotive"
+  },
+  {
+   "nace": "2920",
+   "sector": "automotive"
+  },
+  {
+   "nace": "293",
+   "sector": "automotive"
+  },
+  {
+   "nace": "2932",
+   "sector": "automotive"
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+{
+ "_about": "The 20 highest cumulative-emission producers, used to identify Template 4 counterparties (Annex XL: 'top 20 most carbon-intensive corporates worldwide'; example sources include the Carbon Majors Database).",
+ "source": "Carbon Majors database (InfluenceMap / Climate Accountability Institute) — the 20 highest cumulative-emission producers. A real deployment matches on legal identity (LEI); demo books use fictional counterparties, so matches are honestly 0.",
+ "firms": [
+  "Saudi Aramco",
+  "Chevron",
+  "Gazprom",
+  "ExxonMobil",
+  "National Iranian Oil Company",
+  "BP",
+  "Royal Dutch Shell",
+  "Coal India",
+  "Pemex",
+  "Petroleos de Venezuela",
+  "PetroChina",
+  "Peabody Energy",
+  "ConocoPhillips",
+  "Abu Dhabi National Oil Company",
+  "Kuwait Petroleum",
+  "Iraq National Oil Company",
+  "TotalEnergies",
+  "Sonatrach",
+  "BHP",
+  "Petrobras"
+ ]
+}

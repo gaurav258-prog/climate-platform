@@ -5,11 +5,16 @@ only finds it. A framework without a binding has not been moved onto the change 
 """
 from __future__ import annotations
 
+from datetime import date
+
 
 def binding_for(framework: str) -> dict | None:
-    if framework == "bank_p3esg":
-        from services.governance.pillar3_grids import BINDING
-        return BINDING
+    if framework == "bank_p3esg":                     # one binding per template, from the modules that fill them
+        import services.regspec as R
+        from services.governance import pillar3_gar, pillar3_grids, pillar3_other
+        spec = R.governing(framework, period_end=date.today())
+        return {**pillar3_grids.BINDING, **pillar3_gar.BINDING, **pillar3_other.BINDING,
+                **(pillar3_other.tab_bindings(spec) if spec else {})}
     if framework == "sfdr_pai":
         from services.governance.sfdr_binding import BINDING
         return BINDING

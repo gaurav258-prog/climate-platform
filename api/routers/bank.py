@@ -61,11 +61,17 @@ EXT_BANKING_COLUMNS = [
     "x.counterparty_sector", "x.immovable_collateral",
     "CAST(x.accumulated_impairment_eur AS FLOAT) AS accumulated_impairment_eur",
     "x.pab_excluded", "x.ccm_sustainable", "x.emissions_company_reported",
+    # Pillar 3 Templates 2, 7, 8, 9 (GAR / BTAR / energy efficiency of collateral)
+    "x.instrument_type", "x.counterparty_subsector", "x.nfrd_subject", "x.loan_purpose", "x.trading_book",
+    "x.taxonomy_objective", "x.taxonomy_contribution", "x.specialised_lending",
+    "CAST(x.ep_score_kwh_m2 AS FLOAT) AS ep_score_kwh_m2", "x.ep_score_estimated",
 ]
 
 
 _P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable",
-             "emissions_company_reported")
+             "emissions_company_reported", "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose",
+             "trading_book", "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2",
+             "ep_score_estimated")
 
 
 def _ltv_kwargs(row):
@@ -446,10 +452,36 @@ ATTR_TEMPLATE_FIELDS = [
      "description": "True if the exposure is environmentally sustainable for climate change mitigation under the EU Taxonomy — Pillar 3 Template 1 (c).", "example": "false"},
     {"name": "emissions_company_reported", "required": False, "label": "Emissions reported by the company", "kind": "boolean",
      "description": "True if the counterparty's emissions figures come from its own reporting (not estimated) — Pillar 3 Template 1 (k).", "example": "true"},
+    {"name": "instrument_type", "required": False, "label": "Instrument type (FINREP)", "kind": "enum",
+     "allowed": ["loans_and_advances", "debt_securities", "equity_instruments", "derivatives", "on_demand_interbank", "cash", "other_assets"],
+     "description": "The asset's FINREP instrument — Pillar 3 Template 7 / 9.1 rows by instrument and the assets excluded from the GAR numerator.", "example": "loans_and_advances"},
+    {"name": "counterparty_subsector", "required": False, "label": "Other financial corporation type", "kind": "enum",
+     "allowed": ["investment_firm", "management_company", "insurance_undertaking"],
+     "description": "For an other financial corporation: investment firm, management company or insurance undertaking — Pillar 3 Template 7 rows 8-19.", "example": "investment_firm"},
+    {"name": "nfrd_subject", "required": False, "label": "Counterparty subject to NFRD / CSRD disclosure", "kind": "boolean",
+     "description": "True if the counterparty is subject to the non-financial reporting disclosure obligations — decides GAR (Template 7) versus BTAR (Template 9).", "example": "true"},
+    {"name": "loan_purpose", "required": False, "label": "Loan purpose", "kind": "enum",
+     "allowed": ["building_renovation", "motor_vehicle", "housing", "other"],
+     "description": "Building renovation / motor vehicle (household rows) or housing (local-government rows) — Pillar 3 Templates 7 and 9.1.", "example": "building_renovation"},
+    {"name": "trading_book", "required": False, "label": "Held for trading", "kind": "boolean",
+     "description": "True for a trading-book asset — excluded from both the GAR numerator and denominator (Template 7 row 48).", "example": "false"},
+    {"name": "taxonomy_objective", "required": False, "label": "Taxonomy objective", "kind": "enum", "allowed": ["ccm", "cca"],
+     "description": "Climate change mitigation (ccm) or adaptation (cca): the objective a Taxonomy-eligible or aligned exposure contributes to — Template 7 columns b-k.", "example": "ccm"},
+    {"name": "taxonomy_contribution", "required": False, "label": "Taxonomy contribution type", "kind": "enum",
+     "allowed": ["transitional", "enabling", "adaptation", "none"],
+     "description": "For an aligned exposure: transitional, enabling or adaptation activity — Template 7 'of which' columns.", "example": "enabling"},
+    {"name": "specialised_lending", "required": False, "label": "Specialised lending", "kind": "boolean",
+     "description": "True for specialised lending — Template 7 'of which specialised lending' columns.", "example": "false"},
+    {"name": "ep_score_kwh_m2", "required": False, "label": "EP score of the collateral (kWh/m²)", "kind": "number", "range": [0, 5000],
+     "description": "Specific energy consumption of the immovable-property collateral — Pillar 3 Template 2 columns b-g.", "example": "145"},
+    {"name": "ep_score_estimated", "required": False, "label": "EP score estimated", "kind": "boolean",
+     "description": "True if the EP score is your estimate rather than from the EPC — Template 2 column p and rows 5 and 10.", "example": "false"},
 ]
 _ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
               "counterparty_govt_level", "no_stated_maturity", "counterparty_sector", "immovable_collateral",
-              "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable", "emissions_company_reported"}
+              "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable", "emissions_company_reported",
+              "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose", "trading_book",
+              "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2", "ep_score_estimated"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -549,14 +581,19 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         if nsm not in (None, ""):
             sets.append("no_stated_maturity = :nsm")
             params["nsm"] = str(nsm).strip().lower() in ("true", "1", "yes", "y")
-        for k in ("counterparty_sector", "immovable_collateral"):
+        for k in ("counterparty_sector", "immovable_collateral", "instrument_type", "counterparty_subsector", "loan_purpose",
+                  "taxonomy_objective", "taxonomy_contribution"):
             v = row.get(k)
             if v not in (None, ""):
                 sets.append(f"{k} = :{k}"); params[k] = str(v).strip().lower()
-        for k in ("pab_excluded", "ccm_sustainable", "emissions_company_reported"):
+        for k in ("pab_excluded", "ccm_sustainable", "emissions_company_reported", "nfrd_subject", "trading_book",
+                  "specialised_lending", "ep_score_estimated"):
             v = row.get(k)
             if v not in (None, ""):
                 sets.append(f"{k} = :{k}"); params[k] = str(v).strip().lower() in ("true", "1", "yes", "y")
+        ep = row.get("ep_score_kwh_m2")
+        if ep not in (None, ""):
+            sets.append("ep_score_kwh_m2 = :ep"); params["ep"] = float(str(ep).replace(",", ""))
         imp = row.get("accumulated_impairment_eur")
         if imp not in (None, ""):
             ccy = (str(row.get("currency") or "").strip() or currency or "").upper()

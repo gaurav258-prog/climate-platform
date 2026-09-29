@@ -72,7 +72,7 @@ def validate(doc: dict) -> list[str]:
                 if not items:
                     errs.append(f"{tid}: a full template needs its {axis}")
                 keys = [i.get("id") for i in items]
-                if len(keys) != len(set(keys)) or not all(keys) or not all(i.get("label") for i in items):
+                if len(keys) != len(set(keys)) or not all(keys) or not all(i.get("label") or i.get("unlabelled") for i in items):
                     errs.append(f"{tid}: {axis} need unique ids and labels")
     if doc["status"] == "adopted" and "UNVERIFIED" in json.dumps(doc):
         errs.append("an adopted spec may not contain UNVERIFIED fields")
@@ -229,3 +229,30 @@ def coverage(spec: dict, binding: dict) -> dict:
     full = {t["id"] for t in spec["templates"] if t["structure"] == "full"}
     stale += [f"{tid} (template)" for tid in binding if tid not in full]
     return {"complete": not (missing or stale or bad), "missing": missing, "stale": stale, "invalid": bad}
+
+
+# ───────────────────────────── supplied cells: a template cell the institution provides ─────────────────────────────
+
+def supplied_cell(framework: str, key: str, period_end) -> dict:
+    """A spec cell key '<template id>.<row id>.<column id>' (e.g. 'T10.3.c') that the governing spec for `period_end`
+    has and the implementation's binding marks as supplied (input). Raises SpecError otherwise — a supplied value can
+    only ever target a real, suppliable cell."""
+    from services.regspec.bindings import binding_for
+    parts = key.split(".")
+    if len(parts) != 3:
+        raise SpecError(f"'{key}' is not a template cell key (<template>.<row>.<column>)")
+    tid, rid, cid = parts
+    spec = governing(framework, period_end=period_end, disclosure_date=period_end)
+    if spec is None:
+        raise SpecError(f"no adopted {framework} specification governs {period_end}")
+    t = template(spec, tid)
+    row = next((r for r in t.get("rows") or [] if r["id"] == rid), None)
+    col = next((c for c in t.get("columns") or [] if c["id"] == cid), None)
+    if row is None or col is None:
+        raise SpecError(f"{t.get('code') or tid} has no row {rid} / column {cid}")
+    b = (binding_for(framework) or {}).get(tid) or {}
+    if not str(b.get("columns", {}).get(cid, "")).startswith("input") or str(b.get("rows", {}).get(rid, "")) == "n/a":
+        raise SpecError(f"{t.get('code') or tid} row {rid}, column {cid} is not a value the institution supplies")
+    return {"template": tid, "row": rid, "column": cid, "spec": spec["version"],
+            "label": f"{t.get('code') or tid}, row {rid}, column {cid} — {(row['label'].split(' > ')[-1] or '')[:60]} · "
+                     f"{col['label'].split(' > ')[-1][:60]}"}

@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 import services.governance.provided_data as P
 from core.db.session import get_session
+from services.governance.filings import reporting_period_end as _period
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 
@@ -17,10 +18,12 @@ def test_only_provided_lane_keys_accepted():
         maker = _u(s, "admin@meridian.demo")
         # phys_risk is a 'compute'-lane datapoint → cannot be provided
         with pytest.raises(P.ProvidedError):
-            P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="phys_risk", value_num=1)
+            P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="phys_risk", value_num=1,
+                     reporting_period_end=_period(s, BANK_ORG))
         # an unknown key is refused
         with pytest.raises(P.ProvidedError):
-            P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="nope", value_num=1)
+            P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="nope", value_num=1,
+                     reporting_period_end=_period(s, BANK_ORG))
         s.rollback()
 
 
@@ -39,7 +42,8 @@ def test_submit_reconciles_and_attests():
         checker = _u(s, "approver@meridian.demo")
         # financed emissions has a Tellumen baseline → provided value reconciles with a delta
         r = P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="financed_emissions",
-                     value_num=1_700_000, source="client", provider_name="Audited PCAF", data_vintage="2025-12-31")
+                     value_num=1_700_000, source="client", provider_name="Audited PCAF", data_vintage="2025-12-31",
+                     reporting_period_end=_period(s, BANK_ORG))
         assert r["status"] == "pending" and r["approval_request_id"]
         assert r["tellumen_value"] is not None and r["delta_pct"] is not None    # reconciled against our number
         # it appears in the list as pending
@@ -62,7 +66,7 @@ def test_submit_without_baseline_stores_as_provided():
         maker = _u(s, "admin@meridian.demo")
         # GAR alignment has no Tellumen counterpart → stored as provided, no divergence
         r = P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="taxonomy_aligned",
-                     value_num=18.5, unit="%", source="client")
+                     value_num=18.5, unit="%", source="client", reporting_period_end=_period(s, BANK_ORG))
         assert r["status"] == "pending" and r["tellumen_value"] is None and r["delta_pct"] is None
         assert "No Tellumen counterpart" in (r["recon_note"] or "")
         s.rollback()

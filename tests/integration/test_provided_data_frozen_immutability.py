@@ -17,6 +17,7 @@ from sqlalchemy import text
 import services.governance.provided_data as P
 from core.db.session import get_session
 from services.governance import filings as F
+from services.governance.filings import reporting_period_end as _period
 from services.governance.report_snapshots import create_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
@@ -30,7 +31,7 @@ def _u(s, email):
 def _attest_taxonomy_value(s, value: float, maker: str, checker: str) -> dict:
     """Submit + immediately attest a fresh taxonomy_aligned provided value, superseding any live one."""
     r = P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="taxonomy_aligned",
-                value_num=value, unit="%", source="client")
+                value_num=value, unit="%", source="client", reporting_period_end=_period(s, BANK_ORG))
     payload = s.execute(text("SELECT payload FROM approval_requests WHERE request_id=:r"),
                         {"r": r["approval_request_id"]}).scalar()
     return P.attest(s, BANK_ORG, payload, "approved", checker)

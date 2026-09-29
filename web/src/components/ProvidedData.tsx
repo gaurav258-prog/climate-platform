@@ -12,7 +12,7 @@ import { Card, Button, SectionHead } from './ui'
 
 interface Req { framework: string; official_name?: string; label: string }
 interface Providable { key: string; label: string; provider: string | null; note: string | null; kind: string }
-interface Provided { provided_id: string; framework: string; datapoint_key: string; label: string; value_num: number | null; value_text: string | null; unit: string | null; source: string; provider_name: string | null; data_vintage: string | null; tellumen_value: number | null; delta_pct: number | null; within_tolerance: boolean | null; recon_note: string | null; status: string; submitted_by: string | null; decided_by: string | null }
+interface Provided { provided_id: string; framework: string; datapoint_key: string; label: string; value_num: number | null; value_text: string | null; unit: string | null; source: string; provider_name: string | null; data_vintage: string | null; period_label?: string | null; reporting_period_end?: string | null; tellumen_value: number | null; delta_pct: number | null; within_tolerance: boolean | null; recon_note: string | null; status: string; submitted_by: string | null; decided_by: string | null }
 
 export default function ProvidedData() {
   const { profile } = useAuth()
@@ -57,11 +57,15 @@ function Row({ framework, dp, current, canAct }: { framework: string; dp: Provid
   const [open, setOpen] = useState(false)
   const [val, setVal] = useState(''); const [unit, setUnit] = useState(''); const [source, setSource] = useState('client')
   const [provider, setProvider] = useState(''); const [vintage, setVintage] = useState(''); const [busy, setBusy] = useState(false)
+  // the reporting period the value is for — defaults to your reporting period (Reports → basis); required
+  const basisQ = useQuery({ queryKey: ['reporting-basis'], queryFn: () => api.get<{ reporting_period_end: string }>('/v1/filings/reporting-basis') })
+  const [period, setPeriod] = useState('')
+  const periodEnd = period || basisQ.data?.reporting_period_end || ''
   const save = async () => {
     if (!val.trim()) return
     setBusy(true)
     try {
-      await api.post('/v1/provided', { framework, datapoint_key: dp.key, value_num: Number(val), unit: unit || undefined, source, provider_name: provider || undefined, data_vintage: vintage || undefined })
+      await api.post('/v1/provided', { framework, datapoint_key: dp.key, value_num: Number(val), unit: unit || undefined, source, provider_name: provider || undefined, data_vintage: vintage || undefined, reporting_period_end: periodEnd })
       setOpen(false); setVal(''); qc.invalidateQueries({ queryKey: ['provided'] })
     } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit the value.') }
     finally { setBusy(false) }
@@ -79,7 +83,7 @@ function Row({ framework, dp, current, canAct }: { framework: string; dp: Provid
           {current
             ? <div className="mono text-[10px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-[var(--color-ink)]">{fmtNum(current.value_num, current.unit)}</span>
-                <span className="text-[var(--color-faint)]">{current.source}{current.provider_name ? ` · ${current.provider_name}` : ''}{current.data_vintage ? ` · ${current.data_vintage}` : ''}</span>
+                <span className="text-[var(--color-faint)]">{current.source}{current.provider_name ? ` · ${current.provider_name}` : ''}{current.reporting_period_end ? ` · for ${current.period_label ?? current.reporting_period_end}` : ' · period not stated'}{current.data_vintage ? ` · ${current.data_vintage}` : ''}</span>
                 {current.delta_pct != null && <span style={{ color: current.within_tolerance ? 'var(--color-good)' : 'var(--color-bad)' }}>{current.within_tolerance ? <Check size={10} className="inline" /> : <AlertTriangle size={10} className="inline" />} {current.delta_pct > 0 ? '+' : ''}{current.delta_pct}% vs ours</span>}
                 <span className="inline-flex items-center gap-1" style={{ color: st === 'attested' ? 'var(--color-good)' : st === 'rejected' ? 'var(--color-bad)' : 'var(--color-warn)' }}>{st === 'attested' ? <Check size={10} /> : <Clock size={10} />} {st}{st === 'pending' ? ' · awaiting 4-eyes' : current.decided_by ? ` · ${current.decided_by.split('@')[0]}` : ''}</span>
               </div>
@@ -96,6 +100,8 @@ function Row({ framework, dp, current, canAct }: { framework: string; dp: Provid
           <select value={source} onChange={e => setSource(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] outline-none"><option value="client">client</option><option value="vendor">vendor</option></select>
           <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="source name (e.g. carbon tool)"
             className="flex-1 min-w-[140px] bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] outline-none" />
+          <input value={periodEnd} onChange={e => setPeriod(e.target.value)} type="date" title="Reporting period end the value is for"
+            className="w-[140px] rounded-md border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px] text-[var(--color-ink)] outline-none" />
           <input value={vintage} onChange={e => setVintage(e.target.value)} type="date" title="Data vintage"
             className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] mono outline-none" />
           <Button variant="primary" onClick={save} disabled={busy || !val.trim()}><Check size={12} /> submit for attest</Button>

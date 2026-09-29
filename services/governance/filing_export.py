@@ -403,18 +403,21 @@ def p3esg_binding_status() -> dict:
 def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
     from xml.sax.saxutils import escape
 
-    from services.governance.filing_annex import _p3_spec
+    from services.governance import pillar3_gar
+    from services.governance.filing_annex import _p3_spec, _period_end
     from services.governance.pillar3_grids import BINDING
     from services.governance.pillar3_grids import build as p3_build
-    from services.governance.pillar3_templates import gar_grid
 
     who = _identity(session, org_id, entity_id)
     lei = escape(who["lei"])
     period = str(basis.get("reporting_period_end") or "")[:4] or "2024"
     assets = payload.get("assets") or []
     rollup = payload.get("rollup") or {}
-    gar = gar_grid(assets) if assets else {}
     spec = _p3_spec(payload)
+    g = pillar3_gar.build(spec, assets, _period_end(payload)) if assets else {}
+    t7, t8 = g.get("T7") or {}, (g.get("T8") or {}).get("1") or {}
+    gar = {"total_assets": (t7.get("50") or {}).get("a"), "covered_assets": (t7.get("45") or {}).get("a"),
+           "eligible": (t7.get("32") or {}).get("l"), "aligned": (t7.get("32") or {}).get("m"), "gar_stock_pct": t8.get("l")}
     t1 = next((r["values"] for r in p3_build(spec, "T1", assets)["rows"] if BINDING["T1"]["rows"][r["id"]] == "computed:total"), {}) if assets else {}
     # Template 5 has no total row: the sector rows (non-financial corporations) summed — collateral rows are another population
     t5: dict = {}

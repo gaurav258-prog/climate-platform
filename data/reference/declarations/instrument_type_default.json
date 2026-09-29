@@ -1,0 +1,6 @@
+{
+ "_about": "Declared by Tellumen, not a regulatory rule: an exposure on a bank loan tape with no stated instrument_type is read as 'loans_and_advances' (FINREP instrument) — the loan tape records loans. State instrument_type for debt securities, equity instruments and other assets. The form says how many exposures were read this way.",
+ "declared_by": "Tellumen",
+ "declared": "2026-09-29",
+ "default": "loans_and_advances"
+}

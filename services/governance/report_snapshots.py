@@ -241,8 +241,11 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     # afterward for the same framework — a real break in the immutability guarantee every OTHER section of
     # a frozen filing has (sha256-verified, WORM-enforced). Baking it in here makes it hash-verified and
     # genuinely frozen like the rest of the snapshot.
+    from datetime import date as _d
+
     from services.governance.provided_data import attested_values
-    payload["_provided_attested"] = attested_values(session, org_id, report_type)
+    payload["_provided_attested"] = attested_values(session, org_id, report_type,
+                                                    s["reporting_period_end"] or _d(_d.today().year - 1, 12, 31))
     # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
     from services.governance.figure_views import resolve as resolve_figures
     payload["_figures"] = resolve_figures(report_type, payload, figure_sources)

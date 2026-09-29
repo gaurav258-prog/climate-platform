@@ -26,34 +26,315 @@
    "id": "TAB1",
    "code": "Table 1",
    "title": "Table 1 - Qualitative information on Environmental risk",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, pp. 5-6",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/6-7",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "Business strategy and processes"
+    },
+    {
+     "id": "(a)",
+     "label": "Business strategy and processes > Institution's business strategy to integrate environmental factors and risks, taking into account the impact of environmental factors and risks on institution's business environment, business model, strategy and financial planning"
+    },
+    {
+     "id": "(b)",
+     "label": "Business strategy and processes > Objectives, targets and limits to assess and address environmental risk in short-, medium-, and long-term, and performance assessment against these objectives, targets and limits, including forward-looking information about the design of business strategy and processes"
+    },
+    {
+     "id": "(c)",
+     "label": "Business strategy and processes > Current investment activities and (future) investment targets towards environmental objectives and EU Taxonomy-aligned activities"
+    },
+    {
+     "id": "(d)",
+     "label": "Business strategy and processes > Policies and procedures relating to direct and indirect engagement with new or existing counterparties on their strategies to mitigate and reduce environmental risks"
+    },
+    {
+     "id": "h2",
+     "label": "Governance"
+    },
+    {
+     "id": "(e)",
+     "label": "Governance > Responsibilities of the management body for setting the risk framework, supervising and managing the implementation of the objectives, strategy and policies in the context of environmental risk management covering relevant transmission channels"
+    },
+    {
+     "id": "(f)",
+     "label": "Governance > Management body's integration of short-, medium- and long-term effects of environmental factors and risks, organisational structure both within business lines and internal control functions"
+    },
+    {
+     "id": "(g)",
+     "label": "Governance > Integration of measures to manage environmental factors and risks in internal governance arrangements, including the role of committees, the allocation of tasks and responsibilities, and the feedback loop from risk management to the management body covering relevant transmission channels"
+    },
+    {
+     "id": "(h)",
+     "label": "Governance > Lines of reporting and frequency of reporting relating to environmental risk"
+    },
+    {
+     "id": "(i)",
+     "label": "Governance > Alignment of the remuneration policy with institution's environmental risk-related objectives"
+    },
+    {
+     "id": "h3",
+     "label": "Risk management"
+    },
+    {
+     "id": "(j)",
+     "label": "Risk management > Integration of short-, medium- and long-term effects of environmental factors and risks in the risk framework"
+    },
+    {
+     "id": "(k)",
+     "label": "Risk management > Definitions, methodologies and international standards on which the environmental risk management framework is based"
+    },
+    {
+     "id": "(l)",
+     "label": "Risk management > Processes to identify, measure and monitor activities and exposures (and collateral where applicable) sensitive to environmental risks, covering relevant transmission channels"
+    },
+    {
+     "id": "(m)",
+     "label": "Risk management > Activities, commitments and exposures contributing to mitigate environmental risks"
+    },
+    {
+     "id": "(n)",
+     "label": "Risk management > Implementation of tools for identification, measurement and management of environmental risks"
+    },
+    {
+     "id": "(o)",
+     "label": "Risk management > Results and outcome of the risk tools implemented and the estimated impact of environmental risk on capital and liquidity risk profile"
+    },
+    {
+     "id": "(p)",
+     "label": "Risk management > Data availability, quality and accuracy, and efforts to improve these aspects"
+    },
+    {
+     "id": "(q)",
+     "label": "Risk management > Description of limits to environmental risks (as drivers of prudential risks) that are set, and triggering escalation and exclusion in the case of breaching these limits"
+    },
+    {
+     "id": "(r)",
+     "label": "Risk management > Description of the link (transmission channels) between environmental risks with credit risk, liquidity and funding risk, market risk, operational risk and reputational risk in the risk management framework"
+    }
+   ],
+   "columns": [
+    {
+     "id": "r0",
+     "label": "Row number"
+    },
+    {
+     "id": "c1",
+     "label": "Qualitative information - Free format"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Table 1, para 4 [2022/2453 Annex II]",
+     "quote": "Institutions shall use the following instructions to complete Table 1 – ‘Qualitative information on Environmental risk’ as set out in Annex XXXIX to this Regulation to describe the integration of environmental risks"
+    }
+   ]
   },
   {
    "id": "TAB2",
    "code": "Table 2",
    "title": "Table 2 - Qualitative information on Social risk",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, pp. 6-8",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/7-8",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "Business strategy and processes"
+    },
+    {
+     "id": "(a)",
+     "label": "Business strategy and processes > Adjustment of the institution's business strategy to integrate social factors and risks taking into account the impact of social risk on the institution's business environment, business model, strategy and financial planning"
+    },
+    {
+     "id": "(b)",
+     "label": "Business strategy and processes > Objectives, targets and limits to assess and address social risk in short-term, medium-term and long-term, and performance assessment against these objectives, targets and limits, including forward-looking information in the design of business strategy and processes"
+    },
+    {
+     "id": "(c)",
+     "label": "Business strategy and processes > Policies and procedures relating to direct and indirect engagement with new or existing counterparties on their strategies to mitigate and reduce socially harmful activities"
+    },
+    {
+     "id": "h2",
+     "label": "Governance"
+    },
+    {
+     "id": "(d)",
+     "label": "Governance > Responsibilities of the management body for setting the risk framework, supervising and managing the implementation of the objectives, strategy and policies in the context of social risk management covering counterparties' approaches to:"
+    },
+    {
+     "id": "(d)(i)",
+     "label": "Responsibilities of the management body for setting the risk framework, supervising and managing the implementation of the objectives, strategy and policies in the context of social risk management covering counterparties' approaches to: > Activities towards the community and society"
+    },
+    {
+     "id": "(d)(ii)",
+     "label": "Responsibilities of the management body for setting the risk framework, supervising and managing the implementation of the objectives, strategy and policies in the context of social risk management covering counterparties' approaches to: > Employee relationships and labour standards"
+    },
+    {
+     "id": "(d)(iii)",
+     "label": "Responsibilities of the management body for setting the risk framework, supervising and managing the implementation of the objectives, strategy and policies in the context of social risk management covering counterparties' approaches to: > Customer protection and product responsibility"
+    },
+    {
+     "id": "(d)(iv)",
+     "label": "Responsibilities of the management body for setting the risk framework, supervising and managing the implementation of the objectives, strategy and policies in the context of social risk management covering counterparties' approaches to: > Human rights"
+    },
+    {
+     "id": "(e)",
+     "label": "Governance > Integration of measures to manage social factors and risks in internal governance arrangements, including the role of committees, the allocation of tasks and responsibilities, and the feedback loop from risk management to the management body"
+    },
+    {
+     "id": "(f)",
+     "label": "Governance > Lines of reporting and frequency of reporting relating to social risk"
+    },
+    {
+     "id": "(g)",
+     "label": "Governance > Alignment of the remuneration policy in line with institution's social risk-related objectives"
+    },
+    {
+     "id": "h3",
+     "label": "Risk management"
+    },
+    {
+     "id": "(h)",
+     "label": "Risk management > Definitions, methodologies and international standards on which the social risk management framework is based"
+    },
+    {
+     "id": "(i)",
+     "label": "Risk management > Processes to identify, measure and monitor activities and exposures (and collateral where applicable) sensitive to social risk, covering relevant transmission channels"
+    },
+    {
+     "id": "(j)",
+     "label": "Risk management > Activities, commitments and assets contributing to mitigate social risk"
+    },
+    {
+     "id": "(k)",
+     "label": "Risk management > Implementation of tools for identification and management of social risk"
+    },
+    {
+     "id": "(l)",
+     "label": "Risk management > Description of setting limits to social risk and cases to trigger escalation and exclusion in the case of breaching these limits"
+    },
+    {
+     "id": "(m)",
+     "label": "Risk management > Description of the link (transmission channels) between social risks with credit risk, liquidity and funding risk, market risk, operational risk and reputational risk in the risk management framework"
+    }
+   ],
+   "columns": [
+    {
+     "id": "r0",
+     "label": "Row number"
+    },
+    {
+     "id": "c1",
+     "label": "Qualitative information - Free format"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Table 2, para 5 [2022/2453 Annex II]",
+     "quote": "Institutions shall use the following instructions to complete Table 2 – ‘Qualitative Information on Social risk’ set out in Annex XXXIX to this Regulation, in order to describe the integration of social risks"
+    }
+   ]
   },
   {
    "id": "TAB3",
    "code": "Table 3",
    "title": "Table 3 - Qualitative information on Governance risk",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, pp. 8-9",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/8-9",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "Governance"
+    },
+    {
+     "id": "(a)",
+     "label": "Governance > Institution's integration in their governance arrangements of the governance performance of the counterparty, including committees of the highest governance body, committees responsible for decision-making on economic, environmental, and social topics"
+    },
+    {
+     "id": "(b)",
+     "label": "Governance > Institution's accounting of the counterparty's highest governance body’s role in non-financial reporting"
+    },
+    {
+     "id": "(c)",
+     "label": "Governance > Institution's integration in governance arrangements of the governance performance of their counterparties including:"
+    },
+    {
+     "id": "(c)(i)",
+     "label": "Institution's integration in governance arrangements of the governance performance of their counterparties including: > Ethical considerations"
+    },
+    {
+     "id": "(c)(ii)",
+     "label": "Institution's integration in governance arrangements of the governance performance of their counterparties including: > Strategy and risk management"
+    },
+    {
+     "id": "(c)(iii)",
+     "label": "Institution's integration in governance arrangements of the governance performance of their counterparties including: > Inclusiveness"
+    },
+    {
+     "id": "(c)(iv)",
+     "label": "Institution's integration in governance arrangements of the governance performance of their counterparties including: > Transparency"
+    },
+    {
+     "id": "(c)(v)",
+     "label": "Institution's integration in governance arrangements of the governance performance of their counterparties including: > Management of conflict of interest"
+    },
+    {
+     "id": "(c)(vi)",
+     "label": "Institution's integration in governance arrangements of the governance performance of their counterparties including: > Internal communication on critical concerns"
+    },
+    {
+     "id": "h2",
+     "label": "Risk management"
+    },
+    {
+     "id": "(d)",
+     "label": "Risk management > Institution's integration in risk management arrangements the governance performance of their counterparties considering:"
+    },
+    {
+     "id": "(d)(i)",
+     "label": "Institution's integration in risk management arrangements the governance performance of their counterparties considering: > Ethical considerations"
+    },
+    {
+     "id": "(d)(ii)",
+     "label": "Institution's integration in risk management arrangements the governance performance of their counterparties considering: > Strategy and risk management"
+    },
+    {
+     "id": "(d)(iii)",
+     "label": "Institution's integration in risk management arrangements the governance performance of their counterparties considering: > Inclusiveness"
+    },
+    {
+     "id": "(d)(iv)",
+     "label": "Institution's integration in risk management arrangements the governance performance of their counterparties considering: > Transparency"
+    },
+    {
+     "id": "(d)(v)",
+     "label": "Institution's integration in risk management arrangements the governance performance of their counterparties considering: > Management of conflict of interest"
+    },
+    {
+     "id": "(d)(vi)",
+     "label": "Institution's integration in risk management arrangements the governance performance of their counterparties considering: > Internal communication on critical concerns"
+    }
+   ],
+   "columns": [
+    {
+     "id": "r0",
+     "label": "Row number"
+    },
+    {
+     "id": "c1",
+     "label": "Qualitative information - Free format"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Table 3, para 6 [2022/2453 Annex II]",
+     "quote": "Institutions shall use the following instructions to complete Table 3 – Qualitative information on Governance risk set out in Annex XXXIX"
+    }
+   ]
   },
   {
    "id": "T1",
@@ -401,34 +682,326 @@
    "id": "T2",
    "code": "Template 2",
    "title": "Template 2: Banking book - Indicators of potential climate change transition risk: Loans collateralised by immovable property - Energy efficiency of the collateral",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 10",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/10",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Total EU area"
+    },
+    {
+     "id": "2",
+     "label": "Total EU area > Of which Loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "3",
+     "label": "Total EU area > Of which Loans collateralised by residential immovable property"
+    },
+    {
+     "id": "4",
+     "label": "Total EU area > Of which Collateral obtained by taking possession: residential and commercial immovable properties"
+    },
+    {
+     "id": "5",
+     "label": "Total EU area > Of which Level of energy efficiency (EP score in kWh/m² of collateral) estimated"
+    },
+    {
+     "id": "6",
+     "label": "Total non-EU area"
+    },
+    {
+     "id": "7",
+     "label": "Total non-EU area > Of which Loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "8",
+     "label": "Total non-EU area > Of which Loans collateralised by residential immovable property"
+    },
+    {
+     "id": "9",
+     "label": "Total non-EU area > Of which Collateral obtained by taking possession: residential and commercial immovable properties"
+    },
+    {
+     "id": "10",
+     "label": "Total non-EU area > Of which Level of energy efficiency (EP score in kWh/m² of collateral) estimated"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Total gross carrying amount amount (in MEUR)"
+    },
+    {
+     "id": "b",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EP score in kWh/m² of collateral) > 0; <= 100"
+    },
+    {
+     "id": "c",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EP score in kWh/m² of collateral) > > 100; <= 200"
+    },
+    {
+     "id": "d",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EP score in kWh/m² of collateral) > > 200; <= 300"
+    },
+    {
+     "id": "e",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EP score in kWh/m² of collateral) > > 300; <= 400"
+    },
+    {
+     "id": "f",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EP score in kWh/m² of collateral) > > 400; <= 500"
+    },
+    {
+     "id": "g",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EP score in kWh/m² of collateral) > > 500"
+    },
+    {
+     "id": "h",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > A"
+    },
+    {
+     "id": "i",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > B"
+    },
+    {
+     "id": "j",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > C"
+    },
+    {
+     "id": "k",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > D"
+    },
+    {
+     "id": "l",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > E"
+    },
+    {
+     "id": "m",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > F"
+    },
+    {
+     "id": "n",
+     "label": "Total gross carrying amount amount (in MEUR) > Level of energy efficiency (EPC label of collateral) > G"
+    },
+    {
+     "id": "o",
+     "label": "Total gross carrying amount amount (in MEUR) > Without EPC label of collateral"
+    },
+    {
+     "id": "p",
+     "label": "Total gross carrying amount amount (in MEUR) > Without EPC label of collateral > Of which level of energy efficiency (EP score in kWh/m² of collateral) estimated"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 2, para 3 [2022/2453 Annex II]",
+     "quote": "as defined in any relevant local regulation for those exposures outside the Union, where a mapping to the Union EPC label exists (columns (h) to (n))"
+    },
+    {
+     "ref": "Annex XL, Template 2, para 4 [2022/2453 Annex II]",
+     "quote": "in columns (b) to (g), institutions shall disclose the gross carrying amount of exposures by energy efficiency buckets based on the specific energy consumption of the collateral in kWh/m2"
+    },
+    {
+     "ref": "Annex XL, Template 2, para 4 [2022/2453 Annex II]",
+     "quote": "as indicated in the EPC label of the collateral or estimated by institutions in the absence of the EPC label. Institutions shall indicate in rows 5 and 10 of the template the extent to which those data are estimated"
+    },
+    {
+     "ref": "Annex XL, Template 2, para 4 [2022/2453 Annex II]",
+     "quote": "In columns (h) to (n), institutions shall disclose the gross carrying amount of exposures grouped by the EPC label of the collateral for those collaterals where the EPC is available to the institution."
+    },
+    {
+     "ref": "Annex XL, Template 2, para 5 [2022/2453 Annex II]",
+     "quote": "institutions shall disclose separately, in column (o), those exposures for which they do not have the EPC information of the collateral."
+    },
+    {
+     "ref": "Annex XL, Template 2, para 5 [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the total gross carrying amounts by energy consumption level and by EPC label, with a breakdown by location (Union vs non-Union area)"
+    },
+    {
+     "ref": "Annex XL, Template 2, para 6 [2022/2453 Annex II]",
+     "quote": "In the case of exposures to entities located in third countries where there is no EPC label equivalent, institutions shall leave columns (h) to (n) blank."
+    }
+   ]
   },
   {
    "id": "T3",
    "code": "Template 3",
    "title": "Template 3: Banking book - Indicators of potential climate change transition risk: Alignment metrics",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 11",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/11",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Power"
+    },
+    {
+     "id": "2",
+     "label": "Fossil fuel combustion"
+    },
+    {
+     "id": "3",
+     "label": "Automotive"
+    },
+    {
+     "id": "4",
+     "label": "Aviation"
+    },
+    {
+     "id": "5",
+     "label": "Maritime transport"
+    },
+    {
+     "id": "6",
+     "label": "Cement, clinker and lime production"
+    },
+    {
+     "id": "7",
+     "label": "Iron and steel, coke, and metal ore production"
+    },
+    {
+     "id": "8",
+     "label": "Chemicals"
+    },
+    {
+     "id": "9",
+     "label": "… potential additions relevant to the business model of the institution"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Sector"
+    },
+    {
+     "id": "b",
+     "label": "NACE Sectors (a minima)"
+    },
+    {
+     "id": "c",
+     "label": "Portfolio gross carrying amount (Mn EUR)"
+    },
+    {
+     "id": "d",
+     "label": "Alignment metric**"
+    },
+    {
+     "id": "e",
+     "label": "Year of reference"
+    },
+    {
+     "id": "f",
+     "label": "Distance to IEA NZE2050 in % ***"
+    },
+    {
+     "id": "g",
+     "label": "Target (year of reference + 3 years)"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 3, heading [2022/2453 Annex II]",
+     "quote": "Flexible format (fixed columns, flexible rows)."
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(a) [2022/2453 Annex II]",
+     "quote": "these columns contain the sectors (IEA sectors) in column (a) under which rows 1-8 list the mandatory minimum set of sectors, and subsectors (NACE sectors in column (b)"
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(d) [2022/2453 Annex II]",
+     "quote": "Column (c): the gross carrying amount as defined in Part 1 of Annex V to Implementing Regulation (EU) 2021/451 of those exposures towards non-financial corporates in each of the sectors specified in columns (a) and (b)"
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(e) [2022/2453 Annex II]",
+     "quote": "Columns (d) and (e): alignment metric(s) applied by the institution and closest year of reference for the alignment metric(s) for each sector."
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(e) [2022/2453 Annex II]",
+     "quote": "These are to cover emission intensity metrics, technology mix-based metrics and production-based metrics."
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(e) [2022/2453 Annex II]",
+     "quote": "Institutions shall add a row in the template for each relevant combination of sectors disclosed in column (b) and alignment metrics included in column (d)."
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(f) [2022/2453 Annex II]",
+     "quote": "Column (f): the point in time distance of the column (d) metric(s) to the 2030 data points of the Net Zero Emissions by 2050 Scenario (NZE2050), shall be expressed in percentage points."
+    },
+    {
+     "ref": "Annex XL, Template 3, para 4(g) [2022/2453 Annex II]",
+     "quote": "Column (g): institutions’ target for 3 years after the year of reference indicated in column (e) and the alignment metric indicated in column (d)."
+    }
+   ],
+   "flexible_rows": true,
+   "note": "Flexible format: fixed columns; rows 1-8 are the minimum and one row is added per sector and metric."
   },
   {
    "id": "T4",
    "code": "Template 4",
    "title": "Template 4: Banking book - Indicators of potential climate change transition risk: Exposures to top 20 carbon-intensive firms",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 12",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/12",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "",
+     "unlabelled": true
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Gross carrying amount (aggregate)"
+    },
+    {
+     "id": "b",
+     "label": "Gross carrying amount towards the counterparties compared to total gross carrying amount (aggregate) (*)"
+    },
+    {
+     "id": "c",
+     "label": "Of which environmentally sustainable (CCM)"
+    },
+    {
+     "id": "d",
+     "label": "Weighted average maturity"
+    },
+    {
+     "id": "e",
+     "label": "Number of top 20 polluting firms included"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 4, para 2 [2022/2453 Annex II]",
+     "quote": "They shall include aggregated and anonymised information on the gross carrying amount of exposures towards up to 20 counterparties that are among the top 20 most carbon-intensive corporates worldwide."
+    },
+    {
+     "ref": "Annex XL, Template 4, para 2 [2022/2453 Annex II]",
+     "quote": "Examples of data sources to identify the top carbon-intensive companies include the Carbon Majors Database and Reports of the Carbon Disclosure Project and Climate Accountability Institute as well as Thomson Reuters."
+    },
+    {
+     "ref": "Annex XL, Template 4, column a [2022/2453 Annex II]",
+     "quote": "Institutions shall include the aggregate exposures towards up to 20 counterparties of the institution that are among the top 20 most carbon-intensive corporates worldwide."
+    },
+    {
+     "ref": "Annex XL, Template 4, column b [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the percentage resulting from the aggregate gross carrying amount indicated in column (a), divided by the total gross carrying amount of the institutions’ exposures in the banking book"
+    },
+    {
+     "ref": "Annex XL, Template 4, column c [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the aggregate gross carrying amount of environmentally sustainable exposures contributing to the objective of climate change mitigation."
+    },
+    {
+     "ref": "Annex XL, Template 4, column d [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the average maturity of the exposures considered in the computation weighted by the gross carrying amount of the exposure."
+    },
+    {
+     "ref": "Annex XL, Template 4, column e [2022/2453 Annex II]",
+     "quote": "Institutions shall indicate the number of top polluting companies included in the calculation of the aggregate gross carrying amount."
+    }
+   ]
   },
   {
    "id": "T5",
@@ -612,89 +1185,1108 @@
    "id": "T6",
    "code": "Template 6",
    "title": "Template 6. Summary of key performance indicators (KPIs) on the Taxonomy-aligned exposures",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 12",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/12",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "r1",
+     "label": "GAR stock"
+    },
+    {
+     "id": "r2",
+     "label": "GAR flow"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "KPI > Climate change mitigation"
+    },
+    {
+     "id": "c2",
+     "label": "KPI > Climate change adaptation"
+    },
+    {
+     "id": "c3",
+     "label": "KPI > Total (Climate change mitigation + Climate change adaptation)"
+    },
+    {
+     "id": "c4",
+     "label": "% coverage (over total assets) (*)"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 6, para 3 [2022/2453 Annex II]",
+     "quote": "For the stock, GAR (climate change mitigation), GAR (climate change adaptation), GAR (climate change mitigation and climate change adaptation) shall correspond to the KPI included in columns (b), (g) and (l) respectively of Template 8"
+    },
+    {
+     "ref": "Annex XL, Template 6, para 4 [2022/2453 Annex II]",
+     "quote": "Information on the coverage shall be included in Template 8, row 1, column (p) for GAR stock, and (af) for GAR flow."
+    }
+   ]
   },
   {
    "id": "T7",
    "code": "Template 7",
    "title": "Template 7 - Mitigating actions: Assets for the calculation of GAR",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 13",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/13",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "GAR - Covered assets in both numerator and denominator"
+    },
+    {
+     "id": "1",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation"
+    },
+    {
+     "id": "2",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial corporations"
+    },
+    {
+     "id": "3",
+     "label": "Financial corporations > Credit institutions"
+    },
+    {
+     "id": "4",
+     "label": "Credit institutions > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Credit institutions > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Credit institutions > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Financial corporations > Other financial corporations"
+    },
+    {
+     "id": "8",
+     "label": "Other financial corporations > of which investment firms"
+    },
+    {
+     "id": "9",
+     "label": "of which investment firms > Loans and advances"
+    },
+    {
+     "id": "10",
+     "label": "of which investment firms > Debt securities, including UoP"
+    },
+    {
+     "id": "11",
+     "label": "of which investment firms > Equity instruments"
+    },
+    {
+     "id": "12",
+     "label": "Other financial corporations > of which management companies"
+    },
+    {
+     "id": "13",
+     "label": "of which management companies > Loans and advances"
+    },
+    {
+     "id": "14",
+     "label": "of which management companies > Debt securities, including UoP"
+    },
+    {
+     "id": "15",
+     "label": "of which management companies > Equity instruments"
+    },
+    {
+     "id": "16",
+     "label": "Other financial corporations > of which insurance undertakings"
+    },
+    {
+     "id": "17",
+     "label": "of which insurance undertakings > Loans and advances"
+    },
+    {
+     "id": "18",
+     "label": "of which insurance undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "19",
+     "label": "of which insurance undertakings > Equity instruments"
+    },
+    {
+     "id": "20",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial corporations (subject to NFRD disclosure obligations)"
+    },
+    {
+     "id": "21",
+     "label": "Non-financial corporations (subject to NFRD disclosure obligations) > Loans and advances"
+    },
+    {
+     "id": "22",
+     "label": "Non-financial corporations (subject to NFRD disclosure obligations) > Debt securities, including UoP"
+    },
+    {
+     "id": "23",
+     "label": "Non-financial corporations (subject to NFRD disclosure obligations) > Equity instruments"
+    },
+    {
+     "id": "24",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "25",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "26",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "27",
+     "label": "Households > of which motor vehicle loans"
+    },
+    {
+     "id": "28",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local governments financing"
+    },
+    {
+     "id": "29",
+     "label": "Local governments financing > Housing financing"
+    },
+    {
+     "id": "30",
+     "label": "Local governments financing > Other local governments financing"
+    },
+    {
+     "id": "31",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Collateral obtained by taking possession: residential and commercial immovable properties"
+    },
+    {
+     "id": "32",
+     "label": "TOTAL GAR ASSETS"
+    },
+    {
+     "id": "h2",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator)"
+    },
+    {
+     "id": "33",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations)"
+    },
+    {
+     "id": "34",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations) > Loans and advances"
+    },
+    {
+     "id": "35",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations) > Debt securities"
+    },
+    {
+     "id": "36",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations) > Equity instruments"
+    },
+    {
+     "id": "37",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations)"
+    },
+    {
+     "id": "38",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations) > Loans and advances"
+    },
+    {
+     "id": "39",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations) > Debt securities"
+    },
+    {
+     "id": "40",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations) > Equity instruments"
+    },
+    {
+     "id": "41",
+     "label": "Derivatives"
+    },
+    {
+     "id": "42",
+     "label": "On demand interbank loans"
+    },
+    {
+     "id": "43",
+     "label": "Cash and cash-related assets"
+    },
+    {
+     "id": "44",
+     "label": "Other assets (e.g. Goodwill, commodities etc.)"
+    },
+    {
+     "id": "45",
+     "label": "TOTAL ASSETS IN THE DENOMINATOR (GAR)"
+    },
+    {
+     "id": "h3",
+     "label": "Other assets excluded from both the numerator and denominator for GAR calculation"
+    },
+    {
+     "id": "46",
+     "label": "Sovereigns"
+    },
+    {
+     "id": "47",
+     "label": "Central banks exposure"
+    },
+    {
+     "id": "48",
+     "label": "Trading book"
+    },
+    {
+     "id": "49",
+     "label": "TOTAL ASSETS EXCLUDED FROM NUMERATOR AND DENOMINATOR"
+    },
+    {
+     "id": "50",
+     "label": "TOTAL ASSETS"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T > Total gross carrying amount"
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which specialised lending"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which specialised lending"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which adaptation"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which specialised lending"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional/adaptation"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 7, para 2 [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose in this template information on gross carrying amount of institutions’ loans and advances, debt securities and equity instruments on their banking book, with a breakdown of the information by type of counterparty"
+    },
+    {
+     "ref": "Annex XL, Template 7, column a [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the gross carrying amount as defined in Part 1 of Annex V to Implementing Regulation (EU) 2021/451."
+    },
+    {
+     "ref": "Annex XL, Template 7, column b [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the gross carrying amount of eligible exposures towards sectors (4 level NACE codes) relevant for the corresponding environmental objective according to the Taxonomy"
+    },
+    {
+     "ref": "Annex XL, Template 7, column c [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the gross carrying amount of eligible exposures that are environmentally sustainable, as specified in the Annex I to Delegated Regulation (EU) 2021/2139."
+    },
+    {
+     "ref": "Annex XL, Template 7, rows (GAR covered assets) [2022/2453 Annex II]",
+     "quote": "Eligible exposures shall be those that are related to the counterparties and asset classes covered in the scope of the disclosure requirements in accordance with Article 8 of Regulation (EU) 2020/852."
+    },
+    {
+     "ref": "Annex XL, Template 7, row 1 [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose loans and advances, debt securities and equity instruments classified in the banking book, not held for trading and not held for sale"
+    }
+   ]
   },
   {
    "id": "T8",
    "code": "Template 8",
    "title": "Template 8 - GAR (%)",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 13",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/13",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "GAR"
+    },
+    {
+     "id": "2",
+     "label": "GAR > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation"
+    },
+    {
+     "id": "3",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial corporations"
+    },
+    {
+     "id": "4",
+     "label": "Financial corporations > Credit institutions"
+    },
+    {
+     "id": "5",
+     "label": "Financial corporations > Other financial corporations"
+    },
+    {
+     "id": "6",
+     "label": "Other financial corporations > of which investment firms"
+    },
+    {
+     "id": "7",
+     "label": "Other financial corporations > of which management companies"
+    },
+    {
+     "id": "8",
+     "label": "Other financial corporations > of which insurance undertakings"
+    },
+    {
+     "id": "9",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial corporations subject to NFRD disclosure obligations"
+    },
+    {
+     "id": "10",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "11",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "12",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "13",
+     "label": "Households > of which motor vehicle loans"
+    },
+    {
+     "id": "14",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local government financing"
+    },
+    {
+     "id": "15",
+     "label": "Local government financing > Housing financing"
+    },
+    {
+     "id": "16",
+     "label": "Local government financing > Other local governments financing"
+    },
+    {
+     "id": "17",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Collateral obtained by taking possession: residential and commercial immovable properties"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which adaptation"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional/adaptation"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T: KPIs on stock > Proportion of total assets covered"
+    },
+    {
+     "id": "q",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "r",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "s",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "t",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional"
+    },
+    {
+     "id": "u",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "v",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "w",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "x",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "y",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which adaptation"
+    },
+    {
+     "id": "z",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "aa",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "ab",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "ac",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "ad",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional/adaptation"
+    },
+    {
+     "id": "ae",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "af",
+     "label": "Disclosure reference date T: KPIs on flows > Proportion of total new assets covered"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 8, para 2 [2022/2453 Annex II]",
+     "quote": "Based on the information included in template 7, institutions shall disclose in this template the GAR as referred to in Delegated Regulation (EU) 2021/2178."
+    },
+    {
+     "ref": "Annex XL, Template 8, para 4 [2022/2453 Annex II]",
+     "quote": "In this template, institutions shall only disclose the GAR once, based on the turnover alignment of the counterparty for the general purpose lending part only."
+    },
+    {
+     "ref": "Annex XL, Template 8, column a [2022/2453 Annex II]",
+     "quote": "The numerator of the KPI shall be the gross carrying amount of eligible assets funding taxonomy-relevant sectors referred to in Regulation (EU) 2020/852 for the objective of climate change mitigation"
+    },
+    {
+     "ref": "Annex XL, Template 8, column p [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the proportion of total assets covered by the GAR. The item shall be expressed in percentage terms."
+    },
+    {
+     "ref": "Annex XL, Template 8, column q [2022/2453 Annex II]",
+     "quote": "New assets shall be calculated net of repayments and other reductions."
+    }
+   ]
   },
   {
    "id": "T9",
    "code": "Template 9",
    "title": "Template 9 - Mitigating actions: BTAR",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 14",
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/14",
    "structure": "listed",
    "rows": [],
    "columns": [],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 9, para 2 [2022/2453 Annex II]",
+     "quote": "Institutions may choose to include in this template the following information."
+    },
+    {
+     "ref": "Annex XL, Template 9, para 2 (closing) [2022/2453 Annex II]",
+     "quote": "The first disclosure reference date of this template is as of 31 December 2024."
+    }
+   ],
+   "note": "A heading only: the BTAR is disclosed in Templates 9.1, 9.2 and 9.3."
   },
   {
    "id": "T9_1",
    "code": "Template 9.1",
    "title": "Template 9.1 - Mitigating actions: Assets for the calculation of BTAR",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 14",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/14",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Total GAR Assets"
+    },
+    {
+     "id": "h1",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator) but included in the numerator and denominator of the BTAR"
+    },
+    {
+     "id": "2",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations)"
+    },
+    {
+     "id": "3",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations) > Loans and advances"
+    },
+    {
+     "id": "4",
+     "label": "Loans and advances > of which loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "5",
+     "label": "Loans and advances > of which building renovation loans"
+    },
+    {
+     "id": "6",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations) > Debt securities"
+    },
+    {
+     "id": "7",
+     "label": "EU Non-financial corporations (not subject to NFRD disclosure obligations) > Equity instruments"
+    },
+    {
+     "id": "8",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations)"
+    },
+    {
+     "id": "9",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations) > Loans and advances"
+    },
+    {
+     "id": "10",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations) > Debt securities"
+    },
+    {
+     "id": "11",
+     "label": "Non-EU Non-financial corporations (not subject to NFRD disclosure obligations) > Equity instruments"
+    },
+    {
+     "id": "12",
+     "label": "TOTAL BTAR ASSETS"
+    },
+    {
+     "id": "h2",
+     "label": "Assets excluded from the numerator of BTAR (covered in the denominator)"
+    },
+    {
+     "id": "13",
+     "label": "Derivatives"
+    },
+    {
+     "id": "14",
+     "label": "On demand interbank loans"
+    },
+    {
+     "id": "15",
+     "label": "Cash and cash-related assets"
+    },
+    {
+     "id": "16",
+     "label": "Other assets (e.g. Goodwill, commodities etc.)"
+    },
+    {
+     "id": "17",
+     "label": "TOTAL ASSETS IN THE DENOMINATOR"
+    },
+    {
+     "id": "h3",
+     "label": "Other assets excluded from both the numerator and denominator for BTAR calculation"
+    },
+    {
+     "id": "18",
+     "label": "TOTAL ASSETS EXCLUDED FROM NUMERATOR AND DENOMINATOR"
+    },
+    {
+     "id": "19",
+     "label": "TOTAL ASSETS"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T > Total gross carrying amount"
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which specialised lending"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which specialised lending"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which adaptation"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which specialised lending"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional/adaptation"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 9.1, para 1 [2022/2453 Annex II]",
+     "quote": "Institutions may disclose in this template the gross carrying among of the assets relevant for the calculation of the BTAR. This template shall only apply to counterparties that are not subject to disclosure obligations."
+    },
+    {
+     "ref": "Annex XL, Template 9.1, row 1 [2022/2453 Annex II]",
+     "quote": "As disclosed in row 32 of template 7."
+    }
+   ]
   },
   {
    "id": "T9_2",
    "code": "Template 9.2",
    "title": "Template 9.2 - BTAR %",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 14",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/14",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "BTAR"
+    },
+    {
+     "id": "2",
+     "label": "BTAR > GAR"
+    },
+    {
+     "id": "3",
+     "label": "BTAR > EU Non-financial corporations not subject to NFRD disclosure obligations"
+    },
+    {
+     "id": "4",
+     "label": "EU Non-financial corporations not subject to NFRD disclosure obligations > of which loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "5",
+     "label": "EU Non-financial corporations not subject to NFRD disclosure obligations > of which building renovation loans"
+    },
+    {
+     "id": "6",
+     "label": "BTAR > Non-EU country counterparties not subject to NFRD disclosure obligations"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Mitigation (CCM) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which adaptation"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T: KPIs on stock > Climate Change Adaptation (CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional/adaptation"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T: KPIs on stock > TOTAL (CCM + CCA) > Proportion of eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T: KPIs on stock > Proportion of total assets covered"
+    },
+    {
+     "id": "q",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "r",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "s",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "t",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional"
+    },
+    {
+     "id": "u",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Mitigation (CCM) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "v",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "w",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "x",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "y",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which adaptation"
+    },
+    {
+     "id": "z",
+     "label": "Disclosure reference date T: KPIs on flows > Climate Change Adaptation (CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "aa",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors"
+    },
+    {
+     "id": "ab",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable"
+    },
+    {
+     "id": "ac",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which specialised lending"
+    },
+    {
+     "id": "ad",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which transitional/adaptation"
+    },
+    {
+     "id": "ae",
+     "label": "Disclosure reference date T: KPIs on flows > TOTAL (CCM + CCA) > Proportion of new eligible assets funding taxonomy relevant sectors > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "af",
+     "label": "Disclosure reference date T: KPIs on flows > Proportion of total new assets covered"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 9.2 [2022/2453 Annex II]",
+     "quote": "Institutions may disclose in this template the percentage of BTAR assets as disclosed in template 1 compared to the total assets in the denominator of the BTAR as disclosed in row 17 of template 9.1."
+    }
+   ]
   },
   {
    "id": "T9_3",
    "code": "Template 9.3",
    "title": "Template 9.3 - Summary table - BTAR %",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 14",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/14",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "r1",
+     "label": "BTAR stock"
+    },
+    {
+     "id": "r2",
+     "label": "BTAR flow"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "KPI > Climate change mitigation (CCM)"
+    },
+    {
+     "id": "c2",
+     "label": "KPI > Climate change adaptation (CCA)"
+    },
+    {
+     "id": "c3",
+     "label": "KPI > Total (CCM + CCA)"
+    },
+    {
+     "id": "c4",
+     "label": "% coverage (over total assets)*"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 9.3 [2022/2453 Annex II]",
+     "quote": "This template contains a summary of the BTAR KPI, breakdown by climate change environmental objective, and total, and with the breakdown for stock and flow."
+    }
+   ]
   },
   {
    "id": "T10",
    "code": "Template 10",
    "title": "Template 10 - Other climate change mitigating actions that are not covered in Regulation (EU) 2020/852",
-   "ref": "Annex I (inserted as Annex XXXIX to Implementing Regulation (EU) 2021/637), OJ L 324, p. 15",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
+   "ref": "Reg. (EU) 2022/2453 Annex I (Annex XXXIX to Reg. 2021/637), OJ L 324, 19.12.2022, p. L 324/15",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Bonds (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Financial corporations"
+    },
+    {
+     "id": "2",
+     "label": "Bonds (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Non-financial corporations"
+    },
+    {
+     "id": "3",
+     "label": "Bonds (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Non-financial corporations > Of which Loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "4",
+     "label": "Bonds (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Other counterparties"
+    },
+    {
+     "id": "5",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Financial corporations"
+    },
+    {
+     "id": "6",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Non-financial corporations"
+    },
+    {
+     "id": "7",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Non-financial corporations > Of which Loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "8",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Households"
+    },
+    {
+     "id": "9",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Households > Of which Loans collateralised by residential immovable property"
+    },
+    {
+     "id": "10",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Households > Of which building renovation loans"
+    },
+    {
+     "id": "11",
+     "label": "Loans (e.g. green, sustainable, sustainability-linked under standards other than the EU standards) > Other counterparties"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Type of financial instrument"
+    },
+    {
+     "id": "b",
+     "label": "Type of counterparty"
+    },
+    {
+     "id": "c",
+     "label": "Gross carrying amount (million EUR)"
+    },
+    {
+     "id": "d",
+     "label": "Type of risk mitigated (Climate change transition risk)"
+    },
+    {
+     "id": "e",
+     "label": "Type of risk mitigated (Climate change physical risk)"
+    },
+    {
+     "id": "f",
+     "label": "Qualitative information on the nature of the mitigating actions"
+    }
+   ],
    "z_axis": null,
-   "instructions": []
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 10, para 1 [2022/2453 Annex II]",
+     "quote": "Those mitigating actions and activities shall include bonds and loans issued under standards other than the Union standards"
+    },
+    {
+     "ref": "Annex XL, Template 10, column a [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the type of financial instrument as referred to in Annex V to Implementing Regulation (EU) 2021/451."
+    },
+    {
+     "ref": "Annex XL, Template 10, column b [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the type of counterparty as referred to in Part 1, point 42, of Annex V to Implementing Regulation (EU) 2021/451."
+    },
+    {
+     "ref": "Annex XL, Template 10, column c [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the gross carrying amount as referred to in Part 1, point 34, of Annex V to Implementing Regulation (EU) 2021/451."
+    },
+    {
+     "ref": "Annex XL, Template 10, column d [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the type of risk that is being mitigated with that action: climate change transition risk."
+    },
+    {
+     "ref": "Annex XL, Template 10, column e [2022/2453 Annex II]",
+     "quote": "Institutions shall disclose the type of risk that is being mitigated with that action: climate change physical risk."
+    },
+    {
+     "ref": "Annex XL, Template 10, column f [2022/2453 Annex II]",
+     "quote": "Institutions shall describe the nature of the mitigating actions contributing to climate change mitigation referred to in Article 10 of Regulation (EU) 2020/852 and to climate-change adaptation referred to in Article 11"
+    }
+   ]
   }
  ],
  "interpretations": [
@@ -709,6 +2301,12 @@
    "reading": "Row 1 is the subtotal of the section rows printed under it (A, B, C, D, E, F, G, H, I, L); row 53 is the subtotal of rows 54 (K) and 55 (J, M–U); row 56 (TOTAL) is rows 1 + 53. Division, group and class rows (e.g. B.05, D35.11) are 'of which' rows of their section and are not added again.",
    "basis": "The printed template places 'I - Accommodation and food service activities' between H and L inside the row-1 group, while Annex XL, Template 1, point 3 names Sections A to H and L as the sectors that highly contribute to climate change. The template's own layout is followed so that its rows add up; the difference is Section I only.",
    "declared_by": "Tellumen"
+  },
+  {
+   "subject": "T7 rows 32, 45, 49, 50",
+   "reading": "Row 32 (TOTAL GAR ASSETS) equals row 1, the assets covered in both numerator and denominator. Row 45 adds the assets covered in the denominator only (rows 33, 37, 41-44) to row 32. Row 49 adds rows 46-48. Row 50 (TOTAL ASSETS) is every asset in the book: where an asset's facts do not yet place it in a row, it is still counted here, and the form states the amount not yet classified. Template 9.1 row 1 is Template 7 row 32 and row 19 is Template 7 row 50. Flows (Template 8 / 9.2 columns q-af) take the exposures originated in the reporting year at their current balance.",
+   "basis": "The template prints these as totals of the rows above them without a formula in Annex XL; Annex XL, Template 9.1 row 1 reads 'As disclosed in row 32 of template 7'; Template 8 column q says new assets are 'net of repayments and other reductions', which the current balance of a loan originated in the year reflects.",
+   "declared_by": "Tellumen"
   }
  ],
  "capture": {
@@ -718,7 +2316,13 @@
    "by": "independent second-pass agent (no shared working files)",
    "date": "2026-09-28",
    "result": "verified",
-   "checked": "T1 and T5 rows, columns and titles against the rendered Official Journal pages; act, dates, legal basis and every instruction quote verbatim"
+   "checked": "T1 and T5 rows, columns and titles against the rendered Official Journal pages; act, dates, legal basis and every instruction quote verbatim",
+   "templates_2_to_10": {
+    "by": "independent second-pass agent (no shared working files)",
+    "date": "2026-09-29",
+    "result": "verified",
+    "checked": "Tables 1-3 and Templates 2, 3, 4, 6, 7, 8, 9.1-9.3, 10: titles, rows, columns, order and page references against the rendered Official Journal pages; every instruction quote verbatim against Annex XL (2022/2453) and the EBA IT solutions (2024/3172); the four 2024 print differences confirmed"
+   }
   }
  }
 }

@@ -45,12 +45,14 @@ def test_bank_tcfd_falls_back_to_flat_summary_without_assets():
     assert "summary" in gar["title"].lower()
 
 
-def test_gar_grid_shared_helper_matches_between_bank_and_p3esg():
-    # The same helper output feeds both annexes — the grid is identical.
+def test_pillar3_reports_the_gar_in_template_7_not_the_summary_grid():
+    # Pillar 3 reports the GAR in the official Templates 6-8 (pillar3_gar, spec-driven); the bank TCFD annex still uses
+    # the summary grid until the Taxonomy Article 8 templates are moved onto the same engine (docs/ENGINEERING_PROCESS.md,
+    # the route's next run) — the two must then share one computation again.
     bank = _gar(_located_annex({}, {"assets": _ASSETS}))
-    p3 = _gar(_p3esg_annex({}, {"assets": _ASSETS}))
-    direct = _gar_grid_section(_ASSETS)
-    assert bank["rows"] == p3["rows"] == direct["rows"]
+    p3 = _p3esg_annex({}, {"assets": _ASSETS})
+    assert bank["rows"] == _gar_grid_section(_ASSETS)["rows"]
+    assert _gar(p3) is None and any(s.get("key") == "t7" for s in p3)
 
 
 def test_bank_taxonomy_renders_annexvi_t0_and_objective_axis():
