@@ -49,7 +49,7 @@ def sign(session: Session, framework: str, version: str, role: str, user_id: str
         raise SignoffError("the file has changed since you reviewed it — review the current version")
     if role == "engineering":
         from services.regspec.bindings import binding_for
-        b = binding_for(framework)
+        b = binding_for(framework, spec)
         cov = R.coverage(spec, b) if b is not None else None
         if spec["status"] == "adopted" and (cov is None or not cov["complete"]):
             raise SignoffError("the implementation does not cover this spec yet: "
@@ -84,7 +84,7 @@ def overview(session: Session) -> list[dict]:
             st = status(session, fw, s["version"])
             cov = None
             from services.regspec.bindings import binding_for
-            b = binding_for(fw)
+            b = binding_for(fw, s)
             if b is not None:
                 cov = R.coverage(s, b)
             from services.governance.reg_reference import REFERENCE

@@ -206,7 +206,8 @@ def _spec_record(session: Session, family: str, period_end, elections: dict | No
     st = signoff_status(session, family, spec["version"])
     return {"framework": family, "version": spec["version"], "sha256": spec["_sha256"], "celex": spec["act"].get("celex"),
             "act": spec["act"].get("short") or spec["act"]["title"], "basis": spec["applies"]["basis"],
-            "approved": st["approved"], "one_person": st["one_person"], "needs": st["needs"]}
+            "approved": st["approved"], "one_person": st["one_person"], "needs": st["needs"],
+            "disclosed_on": _date.today().isoformat()}   # the disclosure the version was chosen for (phase-ins read it)
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
@@ -222,7 +223,7 @@ def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dic
 def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_id: str,
                     note: str | None = None, entity_ids: list | None = None,
                     value_weights: dict | None = None, translation=None, view: str = "joint",
-                    figure_sources: dict | None = None) -> dict:
+                    figure_sources: dict | None = None, previous_period: dict | None = None) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
@@ -263,6 +264,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
     from services.governance.figure_views import resolve as resolve_figures
     payload["_figures"] = resolve_figures(report_type, payload, figure_sources)
+    # the previous period's frozen book for the same scope, when the templates print T-1 (filings._previous_period_book)
+    if previous_period:
+        payload["_previous_period"] = previous_period
     # CRCS version pinning: the regulation version this filing is prepared under, and whether it still governs the
     # period — live from the EU register, frozen with the rest (hash-verified)
     from datetime import date as _date

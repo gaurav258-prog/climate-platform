@@ -8,7 +8,14 @@ from __future__ import annotations
 from datetime import date
 
 
-def binding_for(framework: str) -> dict | None:
+def binding_for(framework: str, spec: dict | None = None) -> dict | None:
+    """The binding for a framework; for a family whose binding follows each version (the Taxonomy templates, read
+    through a vocabulary), the binding of the given spec (default: the one governing today)."""
+    if framework == "bank_taxonomy":
+        import services.regspec as R
+        from services.governance import taxonomy_gar
+        spec = spec or R.governing(framework, period_end=date.today())
+        return taxonomy_gar.binding(spec) if spec else None
     if framework == "bank_p3esg":                     # one binding per template, from the modules that fill them
         import services.regspec as R
         from services.governance import pillar3_gar, pillar3_grids, pillar3_other

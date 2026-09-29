@@ -122,46 +122,6 @@ def _sfdr_annex(dps: dict, payload: dict) -> list[dict]:
 
 
 # ── EU-Taxonomy Article 8 (GAR summary) + PCAF financed emissions + TCFD physical-risk metrics ─────────────
-def _gar_grid_section(assets: list[dict]) -> dict | None:
-    """The full Green Asset Ratio grid (Pillar 3 Templates 6–8 · Del. Reg. 2021/2178) by counterparty
-    class — gross carrying amount, Taxonomy-eligible + Taxonomy-aligned, the covered-assets denominator (excl.
-    general governments, Art. 7) and the GAR ratio on stock, computed from the per-asset `taxonomy_status`.
-    Shared by the bank TCFD and Pillar-3 annexes so both render the same official grid, not a flat summary.
-    Returns None where there is no per-asset book to compute it from."""
-    if not assets:
-        return None
-    from services.governance.pillar3_templates import gar_grid
-    gg = gar_grid(assets)
-    # When the book is classified only to eligibility (nothing carries an 'aligned' status), the aligned figure
-    # is a floor, not a determined zero — show it as pending the technical screening, not a bare €0.
-    align_pending = gg["aligned"] == 0 and gg["eligible"] > 0
-
-    def _aligned_cell(v):
-        return _txt("pending screening") if align_pending else _num(_eur(v))
-    gar_rows = []
-    for r in gg["rows"]:
-        note = " (excluded from covered assets)" if r["counterparty"] == "General governments" else ""
-        gar_rows.append({"type": "row", "cells": [
-            _txt(r["counterparty"] + note), _num(_eur(r["gross"])), _num(_eur(r["eligible"])), _aligned_cell(r["aligned"])]})
-    gar_rows.append({"type": "row", "cells": [
-        _txt("Covered assets (GAR denominator · excl. general governments)"),
-        _num(_eur(gg["covered_assets"])), _num(_eur(gg["eligible"])), _aligned_cell(gg["aligned"])]})
-    gar_rows.append({"type": "row", "cells": [
-        _txt("Green Asset Ratio — on stock"), _txt("—"),
-        _num(f'{gg["pct_eligible"]}% eligible' if gg["pct_eligible"] is not None else "—"),
-        _txt("pending screening") if align_pending else
-        _num(f'{gg["gar_stock_pct"]}% GAR' if gg["gar_stock_pct"] is not None else "—")]})
-    note = gg["basis"] + " Customer-supplied / not shown: " + " · ".join(gg["customer_columns"]) + "."
-    if align_pending:
-        note += (" This book is classified to Taxonomy ELIGIBILITY; the aligned figure and GAR await the "
-                 "technical-screening-criteria + DNSH confirmation, so both are shown as pending, not zero.")
-    # the Pillar 3 annex retitles this from its governing specification; elsewhere it is the Taxonomy Art. 8 KPI
-    return {"title": "Green Asset Ratio by counterparty (Delegated Regulation (EU) 2021/2178)", "key": "gar",
-            "columns": ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"],
-            "col_sources": ["", "computed", "computed", "integrated"],
-            "rows": gar_rows, "note": note}
-
-
 def _gar_flat_summary_section(dps: dict, total) -> dict | None:
     """Fallback GAR section when there is no per-asset book — the flat eligibility summary."""
     if not any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
@@ -181,87 +141,16 @@ def _gar_flat_summary_section(dps: dict, total) -> dict | None:
                     "for the full counterparty grid)."}
 
 
-# EU-Taxonomy Annex VI (Del. Reg. 2021/2178) — the six environmental objectives, in the official order.
-_TAXONOMY_OBJECTIVES = [
-    ("Climate change mitigation", False),
-    ("Climate change adaptation", True),   # the one objective this platform assesses (via the physical-risk book)
-    ("Water & marine resources", False),
-    ("Circular economy", False),
-    ("Pollution prevention & control", False),
-    ("Biodiversity & ecosystems", False),
-]
-
-
-def _taxonomy_gar_kpi_sections(assets: list[dict]) -> list[dict]:
-    """EU-Taxonomy Art. 8 Annex VI — the T0 Summary of KPIs and the T3 GAR-stock-by-objective template, to sit
-    alongside the counterparty-class grid. T0 is fully computed from the book; T3 renders the official
-    objective axis with Climate-Change-Adaptation ELIGIBILITY computed (this platform's objective) and the
-    per-objective mapping / Turnover-vs-CapEx weighting / alignment (TSC + DNSH) declared customer-supplied —
-    the official structure, nothing fabricated."""
-    if not assets:
-        return []
-    from services.governance.pillar3_templates import gar_grid
-    gg = gar_grid(assets)
-    align_pending = gg["aligned"] == 0 and gg["eligible"] > 0
-
-    # T0 — Summary of KPIs (Annex VI Template 0), computed.
-    t0 = {
-        "title": "Template 0 — Summary of KPIs (Annex VI · Del. Reg. 2021/2178)",
-        "columns": ["KPI", "Amount", "% of covered assets"],
-        "col_sources": ["", "computed", "computed"],
-        "rows": [
-            {"type": "row", "cells": [_txt("Total assets"), _num(_eur(gg["total_assets"])), _txt("")]},
-            {"type": "row", "cells": [_txt("Covered assets (GAR denominator · excl. general governments, Art. 7)"),
-                                      _num(_eur(gg["covered_assets"])), _txt("100%")]},
-            {"type": "row", "cells": [_txt("Taxonomy-eligible"), _num(_eur(gg["eligible"])),
-                                      _txt(f'{gg["pct_eligible"]}%' if gg["pct_eligible"] is not None else "—")]},
-            {"type": "row", "cells": [_txt("Taxonomy-aligned (GAR numerator)"),
-                                      _txt("pending screening") if align_pending else _num(_eur(gg["aligned"])),
-                                      _txt("pending screening") if align_pending
-                                      else _num(f'{gg["gar_stock_pct"]}%' if gg["gar_stock_pct"] is not None else "—")]},
-        ],
-        "note": "Green Asset Ratio (on stock) = Taxonomy-aligned ÷ covered assets; covered assets exclude "
-                "general governments (Art. 7). " + ("This book is classified to eligibility; alignment awaits "
-                "the technical-screening-criteria + DNSH confirmation, shown as pending, not zero." if align_pending else ""),
-    }
-
-    # T3 — GAR KPI (stock) by environmental objective (Annex VI Template 3), the official axis.
-    t3_rows = []
-    for obj, is_cca in _TAXONOMY_OBJECTIVES:
-        if is_cca:
-            # Climate-Change-Adaptation eligibility IS what our physical-risk classifier assesses.
-            elig_cell = _num(_eur(gg["eligible"]))
-            aligned_cell = _txt("pending screening") if align_pending else _num(_eur(gg["aligned"]))
-        else:
-            elig_cell, aligned_cell = _mnum("—", "integrated"), _mnum("—", "integrated")
-        t3_rows.append({"type": "row", "cells": [_txt(obj), elig_cell, aligned_cell]})
-    t3 = {
-        "title": "Template 3 — GAR KPI (stock) by environmental objective",
-        "columns": ["Environmental objective", "Taxonomy-eligible", "Taxonomy-aligned"],
-        "col_sources": ["", "computed", "integrated"],
-        "rows": t3_rows,
-        "note": "This platform assesses the Climate-Change-Adaptation objective (from the physical-risk book), "
-                "so its eligibility is computed; the other five objectives, the per-activity objective mapping, "
-                "the Turnover-KPI vs CapEx-KPI weighting, and alignment (technical screening criteria + DNSH) "
-                "are customer-supplied. Full Annex VI additionally has Templates 1–2 (assets/sector), T4 (flow), "
-                "and T5 (off-balance-sheet).",
-    }
-    return [t0, t3]
-
-
 def _located_annex(dps: dict, payload: dict | None = None) -> list[dict]:
     total = (dps.get("book.total_value_eur") or {}).get("value")
     assets = (payload or {}).get("assets") or []
     sections: list[dict] = []
 
-    # EU-Taxonomy Art. 8 (Annex VI). With a per-asset book: T0 Summary of KPIs, the FULL Templates 6–8 GAR
-    # grid by counterparty class, and the T3 GAR-by-objective template. Without a per-asset book, the flat
-    # eligibility summary.
+    # EU Taxonomy Art. 8 — every template of Annex VI (Del. Reg. 2021/2178) in the version the filing was frozen under,
+    # built from the frozen book (services.governance.taxonomy_forms). Without a per-asset book, the flat eligibility summary.
     if assets:
-        sections += _taxonomy_gar_kpi_sections(assets)
-        gar_section = _gar_grid_section(assets)
-        if gar_section:
-            sections.append(gar_section)
+        from services.governance import taxonomy_forms
+        sections += taxonomy_forms.sections(payload or {}, "bank_tcfd")
     else:
         flat = _gar_flat_summary_section(dps, total)
         if flat:

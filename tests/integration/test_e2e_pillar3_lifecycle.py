@@ -146,3 +146,43 @@ def test_preparing_an_obligation_files_its_own_entity_and_period(api):
     card = next(o for o in api.get("/v1/obligations", headers=maker).json()["obligations"]
                 if o["obligation_id"] == solo["obligation_id"])
     assert card["filing_id"] == r.json()["filing_id"]                        # the card now links to its filing
+
+
+def test_bank_taxonomy_filing_is_built_to_the_governing_version_and_takes_entered_cells(api):
+    """EU Taxonomy Art. 8 end to end: a bank TCFD filing is frozen with the governing bank_taxonomy version and the
+    loan tape's facts; its form renders every Annex VI template of that version (exposures placed, KPIs computed);
+    a cell the institution enters (financial guarantees, CapEx-based) is supplied, attested by a second person, and
+    appears on the refreshed draft."""
+    maker = _login(api, "admin@meridian.demo", "Demo!admin1")
+    checker = _login(api, "approver@meridian.demo", "Demo!approve1")
+    s = api.s
+    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd' "
+                   "AND status NOT IN ('superseded', 'withdrawn')"), {"o": BANK_ORG})
+    pf = api.get("/v1/filings/preflight?framework=bank_tcfd", headers=maker).json()
+    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"]})
+    assert g.status_code == 201, g.text
+    fid = g.json()["filing_id"]
+    frozen = s.execute(text("""SELECT s.payload -> '_specs' -> 'bank_taxonomy' FROM regulatory_filing f
+                               JOIN report_snapshots s ON s.snapshot_id = f.snapshot_id WHERE f.filing_id = CAST(:f AS uuid)"""),
+                       {"f": fid}).scalar()
+    import services.regspec as R
+    governing = R.governing("bank_taxonomy", period_end=pf["basis"]["reporting_period_end"][:10])
+    assert frozen["version"] == governing["version"] and frozen["disclosed_on"]
+    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
+    tx = [x for x in form["annex"]["sections"] if (x.get("spec") or {}).get("framework") == "bank_taxonomy"]
+    assert {x["spec"]["template"] for x in tx} == {t["id"] for t in governing["templates"]}
+    assert "could not be placed" not in " ".join(x["note"] for x in tx)          # the loan tape places every exposure
+    t1c = next(x for x in tx if x["key"] == "taxonomy_t1_capex")
+    cell = next(c for r in t1c["rows"] if r["type"] == "row" for c in r["cells"] if c.get("supply"))
+    r = api.post("/v1/provided", headers=maker, json={"framework": "bank_tcfd", "datapoint_key": cell["key"],
+                                                      "value_num": 7_500_000, "reporting_period_end": form["period_end"]})
+    assert r.status_code == 201, r.text
+    assert api.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=checker,
+                    json={"decision": "approved"}).status_code == 200
+    assert api.post(f"/v1/filings/{fid}/refresh", headers=maker).status_code == 200
+    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
+    t1c = next(x for x in form["annex"]["sections"] if x.get("key") == "taxonomy_t1_capex")
+    shown = next(c for r in t1c["rows"] if r["type"] == "row" for c in r["cells"] if c.get("key") == cell["key"])
+    assert shown["text"] != "—"
+    assert api.post("/v1/provided", headers=maker, json={"framework": "bank_tcfd", "datapoint_key": "T1.4.b",
+                                                         "value_num": 1, "reporting_period_end": form["period_end"]}).status_code == 400

@@ -755,6 +755,29 @@ def _check_scope(session: Session, org_id: str, framework: str, entity_id: str |
             raise FilingError("reporting entity not found")
 
 
+def _previous_period_book(session: Session, org_id: str, framework: str, entity_id: str | None,
+                          period_end: date) -> dict | None:
+    """The previous period's frozen book for the same report and scope — embedded in the new filing when its templates
+    print the previous disclosure reference date (regspec.embeds_previous_period). From the latest live filing of that
+    period (never a superseded or withdrawn one); None when the organisation filed none."""
+    from services.regspec import embeds_previous_period
+    if not embeds_previous_period(framework):
+        return None
+    try:
+        prev_end = period_end.replace(year=period_end.year - 1)
+    except ValueError:                                     # 29 February
+        prev_end = date(period_end.year - 1, 2, 28)
+    row = session.execute(text("""
+        SELECT f.filing_id::text AS filing_id, f.period_end, s.payload -> 'assets' AS assets
+        FROM regulatory_filing f JOIN report_snapshots s ON s.snapshot_id = f.snapshot_id
+        WHERE f.org_id = CAST(:o AS uuid) AND f.framework = :fw AND f.period_end = :pe
+          AND f.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND f.status NOT IN ('superseded', 'withdrawn')
+        ORDER BY f.created_at DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id}).mappings().first()
+    if not row or not row["assets"]:
+        return None
+    return {"filing_id": row["filing_id"], "period_end": row["period_end"].isoformat(), "assets": row["assets"]}
+
+
 def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
             entity_id: str | None, period_end: date, view: str = "joint",
             figure_sources: dict | None = None) -> tuple[dict, str]:
@@ -765,7 +788,8 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
     try:
         snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
                                value_weights=value_weights, translation=translation, view=view,
-                               figure_sources=figure_sources)
+                               figure_sources=figure_sources,
+                               previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end))
     except (TranslationError, RunCheckError, ViewError) as e:
         raise FilingError(str(e)) from e
     return snap, (translation.presentation if translation is not None else "EUR")

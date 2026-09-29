@@ -165,6 +165,11 @@ def families_for(report_type: str) -> list[str]:
     return list(json.loads(_USAGE.read_text())["report_types"].get(report_type, []))
 
 
+def embeds_previous_period(report_type: str) -> bool:
+    """Whether a filing of this report type carries the previous period's frozen book (its templates print T-1)."""
+    return report_type in json.loads(_USAGE.read_text()).get("previous_period", {}).get("report_types", [])
+
+
 def template(spec: dict, template_id: str) -> dict:
     t = next((t for t in spec["templates"] if t["id"] == template_id), None)
     if t is None:
@@ -263,26 +268,39 @@ def coverage(spec: dict, binding: dict) -> dict:
 
 # ───────────────────────────── supplied cells: a template cell the institution provides ─────────────────────────────
 
-def supplied_cell(framework: str, key: str, period_end) -> dict:
-    """A spec cell key '<template id>.<row id>.<column id>' (e.g. 'T10.3.c') that the governing spec for `period_end`
-    has and the implementation's binding marks as supplied (input). Raises SpecError otherwise — a supplied value can
-    only ever target a real, suppliable cell."""
+def supplied_cell(framework: str, key: str, period_end, *, elections: dict | None = None,
+                  disclosure_date=None) -> dict:
+    """A spec cell key '<template id>.<row id>.<column id>' (e.g. 'T10.3.c') that the governing spec for the period has
+    and the implementation's binding marks as supplied (input). `framework` is a report type or a spec family: a report
+    type's cells are those of the family governing it (regspec_usage.json). A template disclosed once per KPI basis
+    names it: 'T1@capex.54.c'. The version is the one governing a disclosure made now (or on disclosure_date), with
+    the organisation's elections. Raises SpecError otherwise — a supplied value only ever targets a real, suppliable
+    cell."""
     from services.regspec.bindings import binding_for
     parts = key.split(".")
     if len(parts) != 3:
         raise SpecError(f"'{key}' is not a template cell key (<template>.<row>.<column>)")
     tid, rid, cid = parts
-    spec = governing(framework, period_end=period_end, disclosure_date=period_end)
+    tid, _, basis = tid.partition("@")
+    family = (families_for(framework) or [framework])[0]
+    pe = date.fromisoformat(str(period_end)[:10])
+    spec = governing(family, period_end=pe, disclosure_date=disclosure_date, elections=elections,
+                     financial_year_start=date(pe.year, 1, 1) if (pe.month, pe.day) == (12, 31) else None)
     if spec is None:
-        raise SpecError(f"no adopted {framework} specification governs {period_end}")
+        raise SpecError(f"no adopted {family} specification governs {period_end}")
     t = template(spec, tid)
     row = next((r for r in t.get("rows") or [] if r["id"] == rid), None)
     col = next((c for c in t.get("columns") or [] if c["id"] == cid), None)
     if row is None or col is None:
         raise SpecError(f"{t.get('code') or tid} has no row {rid} / column {cid}")
-    b = (binding_for(framework) or {}).get(tid) or {}
-    if not str(b.get("columns", {}).get(cid, "")).startswith("input") or str(b.get("rows", {}).get(rid, "")) == "n/a":
+    b = (binding_for(family, spec) or {}).get(tid) or {}
+    if basis and basis not in (b.get("bases") or []):
+        raise SpecError(f"{t.get('code') or tid} is not disclosed per KPI basis '{basis}'")
+    if b.get("bases") and not basis:
+        raise SpecError(f"{t.get('code') or tid} is disclosed turnover-based and CapEx-based: name the basis ('{tid}@turnover.{rid}.{cid}')")
+    row_src, col_src = str(b.get("rows", {}).get(rid, "")), str(b.get("columns", {}).get(cid, ""))
+    if row_src == "n/a" or not (col_src.startswith("input") or row_src.startswith("input")):
         raise SpecError(f"{t.get('code') or tid} row {rid}, column {cid} is not a value the institution supplies")
-    return {"template": tid, "row": rid, "column": cid, "spec": spec["version"],
+    return {"template": tid, "row": rid, "column": cid, "spec": spec["version"], "basis": basis or None,
             "label": f"{t.get('code') or tid}, row {rid}, column {cid} — {(row['label'].split(' > ')[-1] or '')[:60]} · "
                      f"{col['label'].split(' > ')[-1][:60]}"}

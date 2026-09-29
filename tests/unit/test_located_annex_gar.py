@@ -1,35 +1,39 @@
-"""The bank TCFD located annex must render the FULL Green Asset Ratio grid (Templates 6–8, by
-counterparty class) when a per-asset book is present — the same grid Pillar 3 renders — not the flat
-eligibility summary. Falls back to the flat summary only when there is no per-asset book. Pure."""
-from services.governance.filing_annex import (
-    _gar_grid_section,
-    _located_annex,
-    _p3esg_annex,
-)
+"""The bank TCFD filing carries the EU Taxonomy Art. 8 templates of Annex VI (Del. Reg. 2021/2178) in the version the
+filing was frozen under — every template, row for row from the specification (services.governance.taxonomy_forms) —
+and falls back to the flat eligibility summary only when there is no per-asset book. Pure."""
+import services.regspec as R
+from services.governance.filing_annex import _located_annex, _p3esg_annex
+from tests.unit.test_taxonomy_gar import BOOK
 
-_ASSETS = [
-    {"nace_code": "C25", "outstanding_loan_balance_eur": 2_000_000_000, "taxonomy_status": "eligible"},
-    {"nace_code": "C25", "outstanding_loan_balance_eur": 200_000_000, "taxonomy_status": "aligned"},
-    {"nace_code": "T97", "outstanding_loan_balance_eur": 30_000_000, "taxonomy_status": ""},  # household
-    # central govt (Art. 7(1)) — excluded; local/regional govt is NOT excluded, so the govt_level signal matters
-    {"nace_code": "O84", "outstanding_loan_balance_eur": 500_000_000, "taxonomy_status": "", "counterparty_govt_level": "central"},
-]
+V2026 = "da_2021_2178_as_amended_2026_73"
+PAYLOAD = {"assets": BOOK, "reporting_period_end": "2025-12-31",
+           "_specs": {"bank_taxonomy": {"framework": "bank_taxonomy", "version": V2026, "disclosed_on": "2026-04-30"}}}
 
 
 def _gar(sections):
-    return next((s for s in sections if s.get("key") == "gar"), None)       # by key: titles follow the regulation
+    return next((s for s in sections if s.get("key") == "gar"), None)
 
 
-def test_bank_tcfd_renders_full_counterparty_grid_when_assets_present():
-    secs = _located_annex({}, {"assets": _ASSETS})
-    gar = _gar(secs)
-    assert gar is not None
-    # full grid → 4 columns (counterparty / gross / eligible / aligned), not the flat 3-col summary
-    assert gar["columns"] == ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"]
-    assert "counterparty" in gar["title"].lower()
-    # general governments row is present and flagged as excluded from covered assets
-    labels = " ".join(r["cells"][0]["text"] for r in gar["rows"]).lower()
-    assert "general governments" in labels and "excluded from covered assets" in labels
+def test_bank_tcfd_renders_every_template_of_the_frozen_version():
+    secs = [s for s in _located_annex({}, PAYLOAD) if (s.get("spec") or {}).get("framework") == "bank_taxonomy"]
+    spec = R.load("bank_taxonomy", V2026)
+    tids = {s["spec"]["template"] for s in secs}
+    assert tids == {t["id"] for t in spec["templates"]}
+    # Templates 1-4 twice (turnover-based and CapEx-based), titled from the specification
+    t1 = [s for s in secs if s["spec"]["template"] == "T1"]
+    assert {s["spec"]["basis"] for s in t1} == {"turnover", "capex"}
+    assert all(R.template(spec, "T1")["title"] in s["title"] for s in t1)
+    # every printed row of Template 1 is on the form, in order
+    assert len([r for r in t1[0]["rows"] if r["type"] == "row"]) == len(R.template(spec, "T1")["rows"])
+
+
+def test_entered_cells_are_offered_for_supply_with_their_basis():
+    secs = _located_annex({}, PAYLOAD)
+    t1c = next(s for s in secs if s.get("key") == "taxonomy_t1_capex")
+    keys = [c["key"] for r in t1c["rows"] if r["type"] == "row" for c in r["cells"] if c.get("supply")]
+    assert keys and all(k.startswith("T1@capex.") for k in keys)          # financial guarantees, AuM … per basis
+    t5 = next(s for s in secs if s["spec"]["template"] == "T5")
+    assert "Entered by the institution" in t5["note"]
 
 
 def test_bank_tcfd_falls_back_to_flat_summary_without_assets():
@@ -38,36 +42,10 @@ def test_bank_tcfd_falls_back_to_flat_summary_without_assets():
         "taxonomy.not_eligible_value_eur": {"key": "taxonomy.not_eligible_value_eur", "label": "Not eligible", "value": 500_000},
         "book.total_value_eur": {"key": "book.total_value_eur", "label": "Total", "value": 1_500_000},
     }
-    secs = _located_annex(dps, {})  # no assets
-    gar = _gar(secs)
-    assert gar is not None
-    assert gar["columns"] == ["KPI", "Amount", "% of covered assets"]  # the flat summary shape
-    assert "summary" in gar["title"].lower()
+    gar = _gar(_located_annex(dps, {}))
+    assert gar is not None and gar["columns"] == ["KPI", "Amount", "% of covered assets"]
 
 
-def test_pillar3_reports_the_gar_in_template_7_not_the_summary_grid():
-    # Pillar 3 reports the GAR in the official Templates 6-8 (pillar3_gar, spec-driven); the bank TCFD annex still uses
-    # the summary grid until the Taxonomy Article 8 templates are moved onto the same engine (docs/ENGINEERING_PROCESS.md,
-    # the route's next run) — the two must then share one computation again.
-    bank = _gar(_located_annex({}, {"assets": _ASSETS}))
-    p3 = _p3esg_annex({}, {"assets": _ASSETS})
-    assert bank["rows"] == _gar_grid_section(_ASSETS)["rows"]
+def test_pillar3_reports_the_gar_in_template_7():
+    p3 = _p3esg_annex({}, {"assets": BOOK})
     assert _gar(p3) is None and any(s.get("key") == "t7" for s in p3)
-
-
-def test_bank_taxonomy_renders_annexvi_t0_and_objective_axis():
-    from services.governance.filing_annex import _located_annex
-    secs = _located_annex({}, {"assets": _ASSETS})
-    titles = " ".join(s["title"] for s in secs)
-    assert "Template 0 — Summary of KPIs" in titles
-    assert "by environmental objective" in titles
-    t3 = next(s for s in secs if "by environmental objective" in s["title"])
-    labels = [r["cells"][0]["text"] for r in t3["rows"]]
-    # all six official objectives, in order
-    assert labels[0] == "Climate change mitigation" and labels[1] == "Climate change adaptation"
-    assert len(labels) == 6
-    # the adaptation objective (the one we assess) carries a computed eligible amount, not a dash
-    cca = t3["rows"][1]["cells"]
-    assert cca[1]["text"] != "—"
-    # a non-assessed objective is honestly declared "—"
-    assert t3["rows"][0]["cells"][1]["text"] == "—"

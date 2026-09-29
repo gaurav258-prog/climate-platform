@@ -58,14 +58,15 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
     return None
 
 
-def _target(framework: str, key: str, period_end) -> dict:
-    """What a supplied value is for: a catalog datapoint, or a template cell of the governing specification."""
+def _target(framework: str, key: str, period_end, elections: dict | None = None) -> dict:
+    """What a supplied value is for: a catalog datapoint, or a template cell of the governing specification (with the
+    organisation's elections, so the cell is checked against the version its filing is built to)."""
     if key.count(".") == 2:
         import services.regspec as R
         if period_end is None:
             raise ProvidedError("a template cell value needs the reporting period it is for")
         try:
-            cell = R.supplied_cell(framework, key, period_end)
+            cell = R.supplied_cell(framework, key, period_end, elections=elections)
         except R.SpecError as e:
             raise ProvidedError(str(e)) from e
         return {"key": key, "label": cell["label"], "lane": "provided", "recon_tol": None, "cell": cell}
@@ -85,7 +86,8 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     if not reporting_period_end:
         raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing")
     pe = date.fromisoformat(str(reporting_period_end)[:10])
-    dp = _target(framework, datapoint_key, pe)
+    from services.calc_settings import get_calc_settings
+    dp = _target(framework, datapoint_key, pe, get_calc_settings(session, org_id))
     if dp["lane"] != "provided" and not dp.get("reconcilable"):
         raise ProvidedError(f"datapoint '{datapoint_key}' cannot be provided (lane={dp['lane']}); it is computed by Tellumen")
     period_label = period_label or (f"FY{pe.year}" if pe and (pe.month, pe.day) == (12, 31) else pe.isoformat() if pe else None)

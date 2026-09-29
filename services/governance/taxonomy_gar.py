@@ -378,3 +378,24 @@ def _sectors(t: dict, res: dict, cur: list, basis: str, rules: dict, regime: str
             grid[r["id"]] = {cid: amount([(f, x) for f, x in nfc if not f["assessed"]], "gross", "all", basis, rules)
                              for cid, fc in res["columns"].items() if fc.get("measure") == "gross"}
     return grid
+
+
+# ───────────────────────────── the binding (for coverage and supplied cells) ─────────────────────────────
+
+_BASIS_KINDS = ("gar_assets", "sectors", "gar_ratio_stock", "gar_ratio_flow")
+
+
+def binding(spec: dict) -> dict:
+    """How every row and column of this version is filled, for regspec.coverage() and supplied cells: 'input:<why>'
+    (the institution enters it), 'computed:<what>' (from the stated facts), 'n/a' (an elided or heading row). A
+    template disclosed for each KPI basis also carries 'bases', so a supplied cell names the basis ('T1@capex.54.c')."""
+    out = {}
+    for t in spec["templates"]:
+        res = V.resolve(spec, t["id"])
+        rows = {rid: ("n/a" if fr.get("elided") else f"input:{fr['input']}" if fr.get("input") else "computed:filter")
+                for rid, fr in res["rows"].items()}
+        cols = {cid: (f"input:{fc['input']}" if fc.get("input") else
+                      f"computed:{fc.get('measure') or ('coverage' if fc.get('coverage') else 'label' if fc.get('sector') else 'value')}")
+                for cid, fc in res["columns"].items()}
+        out[t["id"]] = {"rows": rows, "columns": cols, **({"bases": ["turnover", "capex"]} if res["kind"] in _BASIS_KINDS else {})}
+    return out

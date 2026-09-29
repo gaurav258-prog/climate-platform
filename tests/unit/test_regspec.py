@@ -15,8 +15,8 @@ def test_every_spec_file_is_valid_and_matches_its_path():
 
 def test_every_adopted_spec_is_fully_covered_by_its_binding():
     for fw in R.frameworks():
-        b = binding_for(fw)
         for s in R.versions(fw):
+            b = binding_for(fw, s)
             if s["status"] == "adopted" and b is not None:
                 cov = R.coverage(s, b)
                 assert cov["complete"], (s["version"], cov)
