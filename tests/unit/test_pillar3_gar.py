@@ -3,7 +3,10 @@ under every adopted version. Rules (Annex XL + the spec's declared readings):
 
   T7 rows by FINREP counterparty, sub-sector and instrument; NFCs only when their NFRD status is stated; row 50 is the
      whole book; rows under 'excluded' headings carry the gross carrying amount only
-  CCM / CCA columns only where exposures state their Taxonomy objective; TOTAL (CCM + CCA) reads the status alone
+  General-purpose lending to an undertaking is valued by the counterparty's turnover KPIs ('based on the turnover
+     alignment of the counterparty for the general purpose lending part only', Annex XL Template 8 para 4 — the one
+     valuation in services.governance.taxonomy_valuation); households and specific-purpose lending by their own status
+  CCM / CCA columns only where the objective is stated (the counterparty's KPI or the exposure's own objective)
   T8 = T7 amount ÷ T7 row 45 (covered assets); flows = exposures originated in the reporting year
   T2 = loans by immovable collateral, EU / non-EU (Eurostat membership), EP-score buckets and EPC labels
 """
@@ -23,12 +26,13 @@ def _a(gross, **kw):
 
 
 BOOK = [
-    # credit institution, loan, CCM aligned + enabling, originated in 2025
-    _a(100, nace_code="64.19", counterparty_sector="credit_institution", taxonomy_status="aligned",
-       taxonomy_objective="ccm", taxonomy_contribution="enabling", loan_origination_date="2025-03-01"),
-    # NFRD corporate, equity, CCA eligible only
+    # credit institution, general-purpose loan, originated in 2025; the counterparty's turnover-based GAR (its KPI):
+    # wholly CCM-aligned and enabling
+    _a(100, nace_code="64.19", counterparty_sector="credit_institution", loan_origination_date="2025-03-01",
+       counterparty_taxonomy_kpi={"turnover:ccm": {"eligible": 100, "aligned": 100, "enabling": 100}}),
+    # NFRD corporate, equity (general purpose); the counterparty's turnover is wholly CCA-eligible, alignment not stated
     _a(200, nace_code="35.11", counterparty_sector="non_financial_corporation", nfrd_subject=True,
-       instrument_type="equity_instruments", taxonomy_status="eligible", taxonomy_objective="cca"),
+       instrument_type="equity_instruments", counterparty_taxonomy_kpi={"turnover:cca": {"eligible": 100}}),
     # household mortgage on residential property, EPC B, EP score 80, estimated
     _a(300, asset_type="residential_real_estate", counterparty_sector="household", immovable_collateral="residential",
        epc_label="B", ep_score_kwh_m2=80, ep_score_estimated=True, taxonomy_status="not_eligible"),

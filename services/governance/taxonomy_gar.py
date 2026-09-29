@@ -25,11 +25,13 @@ from datetime import date
 
 import services.regspec as R
 from services.governance import taxonomy_vocabulary as V
-from services.governance.pillar3_gar import facts as _p3_facts
 from services.governance.pillar3_grids import gross_of
+from services.governance.taxonomy_valuation import UNDERTAKINGS as _UNDERTAKINGS
+from services.governance.taxonomy_valuation import facts
+from services.governance.taxonomy_valuation import general_purpose as _general_purpose
+from services.governance.taxonomy_valuation import value as _value
 from services.reference.taxonomy_objectives import codes as objective_codes
 
-_UNDERTAKINGS = ("credit_institution", "other_financial_corporation", "non_financial_corporation")
 _GAR_INSTRUMENTS = ("loans_and_advances", "debt_securities", "equity_instruments")
 _SCOPES = {"numerator": {"numerator"}, "numerator_excluded": {"numerator_excluded"},
            "covered": {"numerator", "numerator_excluded"}, "not_covered": {"not_covered"}, "total": None}
@@ -39,15 +41,6 @@ NOT_REQUIRED = "not_required"          # a cell a phase-in says is not yet discl
 
 
 # ───────────────────────────── facts ─────────────────────────────
-
-def facts(a: dict, period: tuple[date, date] | None) -> dict:
-    """The Pillar 3 GAR facts of an exposure plus what Annex V also needs: CSRD scope and the counterparty's KPIs."""
-    f = _p3_facts(a, period)
-    f["csrd"] = a.get("csrd_subject")
-    f["kpi"] = a.get("counterparty_taxonomy_kpi") or {}
-    f["nace"] = a.get("nace_code")
-    return f
-
 
 def _regime(spec: dict) -> str:
     """Which disclosure obligation splits undertakings in this version: the CSRD (2026/73) or the NFRD before it."""
@@ -117,16 +110,6 @@ def classify(f: dict, leaves: list, regime: str) -> str | None:
 
 # ───────────────────────────── values ─────────────────────────────
 
-def _kpi_basis(f: dict, basis: str, rules: dict) -> str:
-    if basis == "capex" and f["instr"] == "loans_and_advances":
-        return rules.get("capex_general_lending_uses", "capex")
-    return basis
-
-
-def _general_purpose(f: dict) -> bool:
-    return f["cp"] in _UNDERTAKINGS and f["specialised"] is not True
-
-
 def _objectives(objective: str, measure: str, ph: dict | None) -> tuple[str, ...]:
     """The objectives a column adds up. 'all' is every objective the disclosure covers: while a phase-in says an
     objective is disclosed for eligibility only, its alignment is left out of every aligned total (Art. 10(7))."""
@@ -138,40 +121,6 @@ def _objectives(objective: str, measure: str, ph: dict | None) -> tuple[str, ...
     return objective_codes()
 
 
-def _one(f: dict, x: float, measure: str, objs: tuple[str, ...], basis: str, rules: dict) -> float | None:
-    """This exposure's part of a column over the given objectives (None = the fact it needs is not stated)."""
-    if _general_purpose(f):
-        if measure in ("use_of_proceeds", "adaptation", "transitional_or_adaptation"):
-            return 0.0 if measure == "use_of_proceeds" else None
-        b = _kpi_basis(f, basis, rules)
-        vals = [(f["kpi"].get(f"{b}:{o}") or {}).get(measure) for o in objs]
-        if all(v is None for v in vals):
-            return None
-        return x * sum(float(v) for v in vals if v is not None) / 100.0
-    # a specific-purpose exposure: its own stated status
-    if not f["assessed"]:
-        return None
-    if f["eligible"] and not f["objective"]:
-        return None                                      # eligible, but to which objective is not stated
-    hit = f["eligible"] and f["objective"] in objs
-    if measure == "eligible":
-        return x if hit else 0.0
-    if not f["aligned_known"]:
-        return None
-    aligned = hit and f["aligned"]
-    if measure == "aligned":
-        return x if aligned else 0.0
-    if measure == "use_of_proceeds":
-        return x if aligned and f["specialised"] else 0.0
-    if not aligned:
-        return 0.0
-    if not f["contribution"]:
-        return None
-    want = {"transitional": ("transitional",), "enabling": ("enabling",), "adaptation": ("adaptation",),
-            "transitional_or_adaptation": ("transitional", "adaptation")}[measure]
-    return x if f["contribution"] in want else 0.0
-
-
 def amount(pop: list, measure: str, objective: str, basis: str, rules: dict, ph: dict | None = None) -> float | None:
     if measure == "gross":
         return sum(x for _, x in pop)
@@ -180,7 +129,7 @@ def amount(pop: list, measure: str, objective: str, basis: str, rules: dict, ph:
     objs = _objectives(objective, measure, ph)
     if not objs:
         return None
-    parts = [_one(f, x, measure, objs, basis, rules) for f, x in pop]
+    parts = [_value(f, x, measure, objs, basis) for f, x in pop]
     known = [p for p in parts if p is not None]
     return sum(known) if known else None
 

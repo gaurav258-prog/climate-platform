@@ -12,15 +12,11 @@ counterparty sector and collateral are inferred as in pillar3_grids.
 """
 from __future__ import annotations
 
-import json
 from datetime import date
-from pathlib import Path
 
-from services.governance.pillar3_grids import collateral, counterparty, gross_of
-from services.reference.eu_membership import is_member as eu_member
+from services.governance.pillar3_grids import gross_of
+from services.governance.taxonomy_valuation import facts, total
 
-_DECL = Path(__file__).resolve().parents[2] / "data" / "reference" / "declarations"
-_INSTRUMENT_DEFAULT = json.loads((_DECL / "instrument_type_default.json").read_text())["default"]
 _GAR_INSTRUMENTS = ("loans_and_advances", "debt_securities", "equity_instruments")
 _FIN = ("credit_institution", "other_financial_corporation")
 
@@ -129,28 +125,6 @@ BINDING: dict[str, dict] = {
 
 # ───────────────────────────── facts and filters ─────────────────────────────
 
-def facts(a: dict, period: tuple[date, date] | None = None) -> dict:
-    cp, _ = counterparty(a)
-    col, _ = collateral(a)
-    instr = (a.get("instrument_type") or "").strip().lower() or None
-    status = (a.get("taxonomy_status") or "").strip().lower()
-    orig = str(a.get("loan_origination_date") or "")[:10]
-    return {"cp": cp, "sub": a.get("counterparty_subsector"), "instr": instr or _INSTRUMENT_DEFAULT,
-            "instr_stated": instr is not None, "nfrd": a.get("nfrd_subject"), "purpose": a.get("loan_purpose"),
-            "col": col, "govt": (a.get("counterparty_govt_level") or "").strip().lower() or None,
-            "trading": bool(a.get("trading_book")), "eu": eu_member(a.get("country")),
-            "assessed": status in ("eligible", "aligned", "not_eligible"), "eligible": status in ("eligible", "aligned"),
-            # alignment is known only where it is stated: an 'aligned' status or the client's CCM-sustainable fact. The
-            # Taxonomy classifier establishes eligibility only (it never returns 'aligned'), so 'eligible' ≠ 'not aligned'.
-            "aligned": status == "aligned" or a.get("ccm_sustainable") is True,
-            "aligned_known": status in ("aligned", "not_eligible") or a.get("ccm_sustainable") is not None,
-            "objective": a.get("taxonomy_objective"),
-            "contribution": a.get("taxonomy_contribution"), "specialised": a.get("specialised_lending"),
-            "new": bool(period and orig and period[0].isoformat() <= orig <= period[1].isoformat()),
-            "ep": a.get("ep_score_kwh_m2"), "ep_estimated": a.get("ep_score_estimated"),
-            "epc": (str(a.get("epc_label") or "").strip().upper() or None)}
-
-
 def _in_bucket(e: float, bounds: tuple) -> bool:
     lo, hi = bounds
     return (e >= lo if lo == 0 else e > lo) and (hi is None or e <= hi)
@@ -180,31 +154,12 @@ def _keep(f: dict, rule: dict) -> bool:
 # ───────────────────────────── measures ─────────────────────────────
 
 def _measure(pop: list[tuple[dict, float]], objective, measure) -> float | None:
-    """The amount for one Template 7 / 9.1 column over a row's exposures; None when no exposure states the fact."""
-    if measure == "gross":
-        return sum(x for _, x in pop)
-    if objective in ("ccm", "cca"):
-        # known for this objective: an exposure that states its objective, or one assessed as not eligible (zero for any)
-        known = [f for f, _ in pop if f["objective"] or (f["assessed"] and not f["eligible"])]
-        pop = [(f, x) for f, x in pop if f["objective"] == objective]
-    else:
-        known = [f for f, _ in pop if f["assessed"]]
-    if not known:
-        return None
-    if measure == "eligible":
-        return sum(x for f, x in pop if f["eligible"])
-    if not any(f["aligned_known"] for f, _ in pop) and not any(f["aligned_known"] for f in known):
-        return None                                           # no exposure here has its alignment established
-    aligned = [(f, x) for f, x in pop if f["aligned"]]
-    if measure == "aligned":
-        return sum(x for _, x in aligned)
-    if measure == "specialised":
-        return sum(x for f, x in aligned if f["specialised"]) if any(f["specialised"] is not None for f, _ in aligned) else None
-    want = {"transitional": ("transitional",), "enabling": ("enabling",), "adaptation": ("adaptation",),
-            "transitional_or_adaptation": ("transitional", "adaptation")}[measure]
-    if not any(f["contribution"] for f, _ in aligned):
-        return None
-    return sum(x for f, x in aligned if f["contribution"] in want)
+    """The amount for one Template 7 / 9.1 column over a row's exposures — the one Taxonomy valuation
+    (taxonomy_valuation), turnover-based as the ITS requires ('based on the turnover alignment of the counterparty for
+    the general purpose lending part only', Annex XL Template 8 para 4), over the two climate objectives these templates
+    report. None when no exposure in the row states the fact the column needs."""
+    objectives = ("ccm", "cca") if objective == "all" else (objective,)
+    return total(pop, "use_of_proceeds" if measure == "specialised" else measure, objectives, "turnover")
 
 
 def _assets_grid(spec: dict, tid: str, rows_rule: dict, gross_only_from: str, tagged, t7_values=None) -> dict:

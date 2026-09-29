@@ -144,3 +144,15 @@ def test_every_version_places_every_exposure(version):
     spec = R.load("bank_taxonomy", version)
     out = G.build(spec, BOOK, date(2025, 12, 31), disclosure_date=date.fromisoformat(spec["applies"]["from"]))
     assert out["counts"]["unclassified"] == 0 and out["counts"]["total"] == 630
+
+
+def test_pillar3_and_the_taxonomy_disclose_one_gar():
+    """Pillar 3 (ITS 2024/3172 Template 7) discloses 'the GAR as referred to in Delegated Regulation (EU) 2021/2178',
+    turnover-based: on the same book its GAR assets' CCM-aligned amount is the Taxonomy Template 1 turnover-based one
+    (one valuation, services.governance.taxonomy_valuation)."""
+    from services.governance import pillar3_gar
+    p3 = pillar3_gar.build(R.load("bank_p3esg", "its_2024_3172"), BOOK, date(2025, 12, 31))["T7"]
+    spec, out = _build(V2023, date(2025, 4, 30))
+    gar_rows = _row(spec, "T1", "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation")
+    ccm_aligned = _col(spec, "T1", objective="ccm", measure="aligned")
+    assert p3["32"]["c"] == pytest.approx(out["T1"]["turnover"][gar_rows][ccm_aligned]) == pytest.approx(300)
