@@ -25,7 +25,12 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.governance.entities import METHODS, EntityError, _consolidation_needs_basis, create_entity
+from services.governance.entities import (
+    METHODS,
+    EntityError,
+    _consolidation_needs_basis,
+    create_entity,
+)
 
 VALID_SOURCES = {"manual_csv", "document_extraction"}
 VALID_STATUSES = {"proposed", "edited", "rejected"}

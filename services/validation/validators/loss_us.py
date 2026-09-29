@@ -248,8 +248,8 @@ def _storm_run(hazard: str, kind: str):
                                                                                   n=("BEGIN_LAT", "size"))
             loc = loc[loc.n >= STORM_MIN_LOCATED]
         else:
-            from scripts.backtest_windstorm_noaa import _ABBR, _zone_centroids
             from ml.scoring.windstorm_point import score_windstorm_point as scorer
+            from scripts.backtest_windstorm_noaa import _ABBR, _zone_centroids
             zc = _zone_centroids()
             d = df[df.CZ_TYPE == "Z"].copy()
             d["key"] = [(str(s).upper(), int(z)) for s, z in zip(d.STATE, d.CZ_FIPS.fillna(-1))]

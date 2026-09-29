@@ -5,11 +5,11 @@ and a second, stale requirements file drifted from the first. pyproject.toml is 
 dependency CI installs (core + extras all, dev) is installed at a version that satisfies it."""
 from __future__ import annotations
 
+import tomllib
 from importlib import metadata
 from pathlib import Path
 
 import pytest
-import tomllib
 from packaging.requirements import Requirement
 
 PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"

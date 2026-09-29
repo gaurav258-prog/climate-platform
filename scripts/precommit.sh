@@ -4,9 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 step() { printf '\n── %s\n' "$1"; }
 
-step "lint (changed Python files)"
-changed=$(git diff --name-only --diff-filter=ACMR HEAD -- '*.py'; git ls-files --others --exclude-standard -- '*.py')
-if [ -n "$changed" ]; then venv/bin/ruff check $changed; else echo "no Python changes"; fi   # a lint failure stops the run
+step "lint (whole repository, exactly as CI)"
+venv/bin/ruff check .          # linting only changed files let 50 errors pile up and CI stay red (E26)
 
 step "migration graph"
 venv/bin/python -m scripts.check_migrations

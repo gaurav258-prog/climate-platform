@@ -42,6 +42,18 @@ def require_supervisor(ctx: CurrentUser) -> dict:
     return ctx
 
 
+def _period(period_label: Optional[str]) -> str:
+    """A supervisory period from the caller, as its one canonical label (FY2026); omitted = the last completed year.
+    Anything that is not a financial year is a 422 (services.supervision.deadlines.canonical_period)."""
+    from datetime import date as _date
+
+    from services.supervision.deadlines import canonical_period
+    try:
+        return canonical_period(period_label or str(_date.today().year - 1))[0]
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid_period", "message": str(e)}) from None
+
+
 def _need(ctx: dict, code: str) -> None:
     """Per-endpoint RBAC check — the codes come from the supervision-profile role templates."""
     if code not in (ctx.get("permissions") or []):
@@ -1068,12 +1080,9 @@ class DeadlineSet(BaseModel):
 
 @router.get("/deadlines", summary="This authority's filing calendar for a period: registry rule, set date, published, outstanding entities")
 def get_deadlines(session: DbSession, ctx: Supervisor, period_label: Optional[str] = None):
-    from datetime import date as _date
-
     from services.supervision.deadlines import status_view
     reg = ctx["org"]["org_id"]
-    pl = period_label or f"FY{_date.today().year - 1}"
-    return status_view(session, reg, _config(session, reg), pl)
+    return status_view(session, reg, _config(session, reg), _period(period_label))
 
 
 @router.post("/deadlines/generate", status_code=201, summary="Draft this period's deadlines from the mandate registry (idempotent)")
@@ -1081,6 +1090,7 @@ def generate_deadlines(session: DbSession, ctx: Supervisor, period_label: str):
     from services.supervision.deadlines import generate
     _need(ctx, "supervisor.deadlines.manage")
     reg = ctx["org"]["org_id"]
+    period_label = _period(period_label)
     made = generate(session, reg, _config(session, reg), period_label)
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadlines.generated", target_type="period", target_id=period_label, detail={"n_new": len(made)})
     session.commit()

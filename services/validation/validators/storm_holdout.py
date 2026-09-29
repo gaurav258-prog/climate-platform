@@ -67,7 +67,9 @@ def _run(session: Session, holdout_from: int = HOLDOUT_FROM_YEAR) -> ValidationR
         idx = np.sort(np.random.default_rng(SAMPLE_SEED).choice(idx, SAMPLE_CELLS, replace=False))
     pred = np.array([storm_return_level_score(float(lat[i]), float(lon[i]), max_season=holdout_from - 1)["score"] for i in idx])
     keep = pred > 0                                     # a cell with no storm on the earlier record has no prediction to test
-    from ml.validation.regional import macro_region      # per-region skill: a pooled pass must not hide a failing region
+    from ml.validation.regional import (
+        macro_region,  # per-region skill: a pooled pass must not hide a failing region
+    )
     strata = [macro_region(float(lat[i]), float(lon[i])) for i, k in zip(idx, keep) if k]
     return ValidationResult(hazard_type="storm", kind="rank", predicted=pred[keep].tolist(), observed=peak[idx][keep].tolist(),
                             labels=[cells[i] for i, k in zip(idx, keep) if k], target_source=f"NOAA IBTrACS peak wind, seasons {holdout_from}+ (held out)",

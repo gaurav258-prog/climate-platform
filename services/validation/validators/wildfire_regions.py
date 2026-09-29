@@ -113,6 +113,7 @@ def auc_occurrence(pred, obs) -> Optional[float]:
 def country_mask(lat, lon, iso: str) -> np.ndarray:
     """True where the point lies inside (or within 0.5 deg of) the ISO-2 country polygon."""
     from shapely.geometry import Point
+
     from ml.validation.regional import _index
     tree, geoms, isos = _index()
     out = []
@@ -186,14 +187,16 @@ def _build(kind: str, work: Path) -> ValidationResult:
         ii, jj, la, lo = ii[m], jj[m], la[m], lo[m]
         m = country_mask(la, lo, iso)
         ii, jj = ii[m], jj[m]
-        ha_of = lambda a, b: fires.get((a, b), 0.0)
+        def ha_of(a, b):
+            return fires.get((a, b), 0.0)
         src = {"mtbs": "MTBS perimeters (wildfire, 2021-2024)", "nifc": "NIFC interagency perimeters (wildfire, 2021-2024)",
                "nfdb": "Canada NFDB polygons 2021-2024"}[kind]
     else:
         grid = _gridded_ha(kind, work)
         ii, jj = np.meshgrid(np.arange(grid.shape[0]), np.arange(grid.shape[1]), indexing="ij")
         ii, jj = ii.ravel(), jj.ravel()
-        ha_of = lambda a, b: float(grid[a, b])
+        def ha_of(a, b):
+            return float(grid[a, b])
         iso = None
         src = {"gfed5": "GFED5.1 burned area 2021-2022", "firecci": "ESA FireCCI51 grid burned area 2021-2022"}[kind]
     keep, sc = score_cells(ii, jj)

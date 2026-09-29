@@ -28,7 +28,7 @@ def _real_draft_filing(s, u):
     snap = create_snapshot(s, BANK_ORG, "bank_tcfd", u)
     fid = s.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-        VALUES (:o, 'bank_tcfd', :pe, 'FY2098', 'draft', :snap, :u) RETURNING filing_id
+        VALUES (:o, 'bank_tcfd', :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'draft', :snap, :u) RETURNING filing_id
     """), {"o": BANK_ORG, "pe": FUTURE_PERIOD, "snap": snap["snapshot_id"], "u": u}).scalar()
     return str(fid)
 
@@ -38,7 +38,7 @@ def _unsnapshotted_filing(s, u):
     fails, guaranteeing a real blocking error to prove the gate actually reads it."""
     fid = s.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-        VALUES (:o, 'bank_tcfd', :pe, 'FY2098b', 'draft', NULL, :u) RETURNING filing_id
+        VALUES (:o, 'bank_tcfd', :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'draft', NULL, :u) RETURNING filing_id
     """), {"o": BANK_ORG, "pe": "2097-12-31", "u": u}).scalar()
     return str(fid)
 
@@ -98,7 +98,7 @@ def test_dangling_filing_link_does_not_crash_the_gate():
             "SELECT org_id::text FROM organizations WHERE org_id <> :o LIMIT 1"), {"o": BANK_ORG}).scalar()
         other_fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, created_by)
-            VALUES (CAST(:o AS uuid), 'sfdr_pai', '2096-12-31', 'FY2096-other-org', 'draft', NULL) RETURNING filing_id
+            VALUES (CAST(:o AS uuid), 'sfdr_pai', '2096-12-31', 'FY2096', 'draft', NULL) RETURNING filing_id
         """), {"o": other_org}).scalar()
         t = T.create_task(s, BANK_ORG, u, title="Stale filing link")
         s.execute(text("UPDATE regulatory_task SET filing_id = CAST(:f AS uuid) WHERE task_id = CAST(:t AS uuid)"),

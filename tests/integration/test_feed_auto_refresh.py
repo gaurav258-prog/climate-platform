@@ -12,7 +12,6 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.data import feeds
 
-
 # A feed whose hook calls a live third-party endpoint (GVP WFS, World Bank, EU agri-food) can legitimately
 # fail from a real, transient outage/block on THEIR side even after our own retry-with-backoff (see
 # scripts/fetch_gvp_catalogue.py) — that is a live-network integration test hitting the real internet, not a

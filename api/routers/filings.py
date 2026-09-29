@@ -41,6 +41,7 @@ class GenerateBody(BaseModel):
     # (and is confirming) the CURRENT data, not a stale bare `confirmed: true` (see filings._confirm_token).
     confirm_token: Optional[str] = Field(None, max_length=64)
     entity_id: Optional[str] = None   # scope to one reporting entity; None = whole org (the default)
+    obligation_id: Optional[str] = None   # prepared for this obligation: its entity and period are enforced
     # intake phase 5: which values of the asset facts the engine reads, and per reported figure whose number is reported
     view: Literal["joint", "client", "tellumen"] = "joint"
     figure_sources: dict[str, Literal["client", "tellumen"]] = Field(default_factory=dict)
@@ -290,9 +291,12 @@ def retention_register(session: DbSession, ctx: dict = Depends(require_permissio
 
 
 @router.get("/filings/preflight", summary="Confirm-data step: coverage, headline & gaps before freezing a filing")
-def preflight(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+def preflight(framework: str, session: DbSession, entity_id: Optional[str] = None,
+              ctx: dict = Depends(require_permission("reports.view"))):
+    """entity_id: the scope being filed (a legal entity, or a group consolidated over its subtree); omitted = the
+    whole organisation. The figures and the confirm token are for exactly that book."""
     try:
-        return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework)
+        return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework, entity_id)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
 
@@ -465,7 +469,7 @@ def generate(body: GenerateBody, session: DbSession,
         f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
                               body.framework, ctx["user"]["id"], note=body.note,
                               confirm_token=body.confirm_token, entity_id=body.entity_id, view=body.view,
-                              figure_sources=body.figure_sources)
+                              figure_sources=body.figure_sources, obligation_id=body.obligation_id)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
     _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id,

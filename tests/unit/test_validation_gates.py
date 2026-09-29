@@ -71,6 +71,7 @@ def _rank_result(strata=None):
 
 def test_every_ledger_row_carries_the_gate_spec():
     import json
+
     from services.validation.engine import record_result
     s = _StubSession()
     record_result(s, _rank_result())
@@ -81,6 +82,7 @@ def test_every_ledger_row_carries_the_gate_spec():
 
 def test_strata_are_recorded_per_region_on_the_ledger_row():
     import json
+
     from services.validation.engine import record_result
     s = _StubSession()
     record_result(s, _rank_result(strata=["europe"] * 50 + ["asia"] * 30))
@@ -91,6 +93,7 @@ def test_strata_are_recorded_per_region_on_the_ledger_row():
 
 def test_misaligned_strata_are_rejected():
     import pytest
+
     from services.validation.engine import record_result
     with pytest.raises(ValueError):
         record_result(_StubSession(), _rank_result(strata=["europe"] * 10))

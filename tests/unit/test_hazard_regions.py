@@ -28,7 +28,8 @@ def test_evidence_rows_are_well_formed():
 
 
 def test_scope_claim_follows_the_pre_registered_rule(monkeypatch):
-    v = lambda region: HR.RegionEvidence(region, HR.VALIDATED, "t", "t")
+    def v(region):
+        return HR.RegionEvidence(region, HR.VALIDATED, "t", "t")
     # four regions but all Global North + Oceania: not a global claim
     monkeypatch.setitem(HR.REGIONAL_EVIDENCE, "x", (v("europe"), v("north_america"), v("oceania")))
     assert HR.scope_claim("x") == "multi_region"
@@ -36,7 +37,8 @@ def test_scope_claim_follows_the_pre_registered_rule(monkeypatch):
     monkeypatch.setitem(HR.REGIONAL_EVIDENCE, "x", (v("europe"), v("north_america"), v("oceania"), v("africa")))
     assert HR.scope_claim("x") == "global"
     # 'mixed' regions never count toward a global claim
-    mixed = lambda region: HR.RegionEvidence(region, HR.MIXED, "t", "t")
+    def mixed(region):
+        return HR.RegionEvidence(region, HR.MIXED, "t", "t")
     monkeypatch.setitem(HR.REGIONAL_EVIDENCE, "x", (v("europe"), v("north_america"), mixed("africa"), mixed("asia")))
     assert HR.scope_claim("x") == "multi_region"
     monkeypatch.setitem(HR.REGIONAL_EVIDENCE, "x", (v("europe"),))

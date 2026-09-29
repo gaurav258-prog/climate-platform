@@ -30,7 +30,7 @@ def _actor(session):
 def test_create_entity_defaults_requires_solo_filing_true():
     """The CRR-safe default: assume the individual-reporting duty applies unless waived."""
     with get_session() as s:
-        u = _actor(s)
+        _actor(s)
         e = E.create_entity(s, EMPTY_BANK_ORG, name="Test Sub A", kind="legal_entity")
         assert e["requires_solo_filing"] is True
         assert e["solo_waiver_reason"] is None
@@ -148,7 +148,7 @@ def test_list_obligations_matches_filing_status_per_entity_not_globally():
         # direct insert against a throwaway period, same pattern as test_filing_lifecycle, to avoid needing a
         # populated book just to prove the join)
         pe = "2099-12-31"
-        fid_sub = s.execute(text("""
+        s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, entity_id,
                                            filing_role, created_by)
             VALUES (:o, 'bank_tcfd', :pe, 'FY2099', 'submitted', CAST(:e AS uuid), 'solo', :u)

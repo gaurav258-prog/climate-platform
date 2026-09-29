@@ -13,7 +13,6 @@ Kept simple — a disclosure input, not a claims-management system: one row per 
 Revision ID: ifrs_s2_incurred_20260922
 Revises: d9d0702196df
 """
-import sqlalchemy as sa
 from alembic import op
 
 revision = "ifrs_s2_incurred_20260922"

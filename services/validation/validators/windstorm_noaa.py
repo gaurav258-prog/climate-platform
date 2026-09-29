@@ -85,10 +85,15 @@ def _run_production(session: Session) -> ValidationResult:
     identical to windstorm_noaa: peak reported gust per 0.5 deg cell with >= MIN_EVENTS events, rank, gate 0.35."""
     import glob as _g
 
-    import pandas as pd
-
     from ml.scoring import windstorm_point as W
-    from scripts.backtest_windstorm_noaa import _ABBR, CONUS, FILES, KT_TO_MS, WINDSTORM_TYPES, _zone_centroids
+    from scripts.backtest_windstorm_noaa import (
+        _ABBR,
+        CONUS,
+        FILES,
+        KT_TO_MS,
+        WINDSTORM_TYPES,
+        _zone_centroids,
+    )
     if not _g.glob(FILES):
         return ValidationResult(hazard_type="windstorm", kind="rank", predicted=[], observed=[], labels=[],
                                 target_source="NOAA Storm Events non-convective wind, CONUS 2015–2023", scope="US", method="out_of_sample",

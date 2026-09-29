@@ -13,34 +13,34 @@ import sys
 import services.validation.validators.agri_crop  # noqa: F401 — registers agri_drought/heat/crop_shock
 import services.validation.validators.agri_yield  # noqa: F401 — registers agri_yield_* (ERA5 vs observed yield)
 import services.validation.validators.avalanche_slf  # noqa: F401 — registers avalanche_slf (SLF accidents, Swiss Alps)
+import services.validation.validators.carbon_reversal  # noqa: F401 — registers carbon_reversal_wildfire_pilot
 import services.validation.validators.coastal_erosion_shoreline  # noqa: F401 — registers coastal_erosion_shoreline (Landsat-observed shoreline change)
 import services.validation.validators.coastal_gauges  # noqa: F401 — registers coastal_ewl_holdout/logo, coastal_score_coops
+import services.validation.validators.flood_gfd  # noqa: F401 — registers flood_gfd_global (Global Flood Database)
 import services.validation.validators.flood_jrc  # noqa: F401 — registers flood_jrc_ems
+import services.validation.validators.loss_us  # noqa: F401 — registers loss_us_*
 import services.validation.validators.near_field_events  # noqa: F401 — registers seismic
+import services.validation.validators.parametric_replay  # noqa: F401 — registers storm_parametric
 import services.validation.validators.permafrost_gtnp  # noqa: F401 — registers permafrost_gtnp (GTN-P borehole MAGT)
+import services.validation.validators.permafrost_gtnp_global  # noqa: F401 — registers permafrost_gtnp_global (GTN-P beyond Europe)
 import services.validation.validators.saline_intrusion_pangaea  # noqa: F401 — registers saline_intrusion_pangaea (PANGAEA observed coastal groundwater EC)
+import services.validation.validators.severe_convective_ro  # noqa: F401 — registers severe_convective_ro
 import services.validation.validators.soil_degradation_lpd  # noqa: F401 — registers soil_degradation_lpd (Li et al. 30m LPD dataset)
 import services.validation.validators.soil_erosion_eusedcollab  # noqa: F401 — registers soil_erosion_eusedcollab (EUSEDcollab observed SSY)
 import services.validation.validators.soil_erosion_grilss  # noqa: F401 — registers soil_erosion_grilss (GRILSS observed reservoir sedimentation)
 import services.validation.validators.station_extremes  # noqa: F401 — registers cold_wave/heat_chronic/heavy_precip station tests
+import services.validation.validators.station_extremes_global  # noqa: F401 — registers cold_wave/heat_chronic/heavy_precip_stations_global (GHCN global)
 import services.validation.validators.storm_holdout  # noqa: F401 — registers storm_oos (temporal holdout)
+import services.validation.validators.storm_holdout_regions  # noqa: F401 — registers storm_oos_allbasin (all-basin holdout)
 import services.validation.validators.storm_severity  # noqa: F401 — registers storm (severity)
 import services.validation.validators.subsidence_egms  # noqa: F401 — registers subsidence_egms (InSAR)
 import services.validation.validators.subsidence_egms_holdout  # noqa: F401 — registers subsidence_egms_holdout (v2, in time)
 import services.validation.validators.subsidence_gnss  # noqa: F401 — registers subsidence_gnss[_us/_eu]
 import services.validation.validators.temporal_holdout  # noqa: F401 — registers seismic_oos (temporal holdout)
 import services.validation.validators.water_stress_grace  # noqa: F401 — registers water_stress_grace (GRACE observed storage trend)
+import services.validation.validators.wildfire_regions  # noqa: F401 — registers wildfire_{mtbs,nifc,nfdb,gfed5,firecci}
 import services.validation.validators.windstorm_noaa  # noqa: F401 — registers windstorm_noaa (synoptic field vs NOAA Storm Events)
 import services.validation.validators.windstorm_stations  # noqa: F401 — registers windstorm_stations[_us/_eu] (ISD station gusts)
-import services.validation.validators.carbon_reversal  # noqa: F401 — registers carbon_reversal_wildfire_pilot
-import services.validation.validators.loss_us  # noqa: F401 — registers loss_us_*
-import services.validation.validators.parametric_replay  # noqa: F401 — registers storm_parametric
-import services.validation.validators.severe_convective_ro  # noqa: F401 — registers severe_convective_ro
-import services.validation.validators.wildfire_regions  # noqa: F401 — registers wildfire_{mtbs,nifc,nfdb,gfed5,firecci}
-import services.validation.validators.storm_holdout_regions  # noqa: F401 — registers storm_oos_allbasin (all-basin holdout)
-import services.validation.validators.flood_gfd  # noqa: F401 — registers flood_gfd_global (Global Flood Database)
-import services.validation.validators.permafrost_gtnp_global  # noqa: F401 — registers permafrost_gtnp_global (GTN-P beyond Europe)
-import services.validation.validators.station_extremes_global  # noqa: F401 — registers cold_wave/heat_chronic/heavy_precip_stations_global (GHCN global)
 from core.db.session import get_session
 from services.validation import engine
 

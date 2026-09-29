@@ -35,11 +35,11 @@ MAX_TRIES = 5
 
 def candidates() -> dict:
     inv: dict = collections.defaultdict(dict)
-    for l in open("data/ghcn/ghcnd-inventory.txt"):
-        e = l[31:35]
+    for line in open("data/ghcn/ghcnd-inventory.txt"):
+        e = line[31:35]
         if e in ("TMIN", "TMAX", "PRCP"):
-            inv[l[:11]][e] = (int(l[36:40]), int(l[41:45]), float(l[12:20]), float(l[21:30]))
-    names = {l[:11]: l[41:71].strip() for l in open("data/ghcn/ghcnd-stations.txt")}
+            inv[line[:11]][e] = (int(line[36:40]), int(line[41:45]), float(line[12:20]), float(line[21:30]))
+    names = {line[:11]: line[41:71].strip() for line in open("data/ghcn/ghcnd-stations.txt")}
     boxes: dict = collections.defaultdict(list)
     for sid in sorted(inv):
         d = inv[sid]

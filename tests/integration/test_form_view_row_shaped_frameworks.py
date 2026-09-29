@@ -63,7 +63,7 @@ def test_form_view_assetmgmt_tcfd_does_not_crash():
         snap = create_snapshot(s, AM_ORG, "assetmgmt_tcfd", u)
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-            VALUES (:o, 'assetmgmt_tcfd', '2097-12-31', 'FY2097-formtest', 'draft', :snap, :u)
+            VALUES (:o, 'assetmgmt_tcfd', '2097-12-31', 'FY2097', 'draft', :snap, :u)
             RETURNING filing_id::text
         """), {"o": AM_ORG, "snap": snap["snapshot_id"], "u": u}).scalar()
         out = F.form_view(s, AM_ORG, fid)   # must not raise KeyError
@@ -80,7 +80,7 @@ def test_form_view_still_merges_overrides_for_datapoint_shaped_frameworks():
         snap = create_snapshot(s, "11111111-1111-4111-8111-111111111111", "bank_tcfd", u)
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-            VALUES (:o, 'bank_tcfd', '2096-12-31', 'FY2096-formtest', 'draft', :snap, :u) RETURNING filing_id::text
+            VALUES (:o, 'bank_tcfd', '2096-12-31', 'FY2096', 'draft', :snap, :u) RETURNING filing_id::text
         """), {"o": "11111111-1111-4111-8111-111111111111", "snap": snap["snapshot_id"], "u": u}).scalar()
         out = F.form_view(s, "11111111-1111-4111-8111-111111111111", fid)
         assert out is not None
@@ -92,6 +92,7 @@ def test_form_view_still_merges_overrides_for_datapoint_shaped_frameworks():
 def test_full_http_flow_no_500_for_all_three_frameworks():
     """End-to-end through the real router — the exact symptom the audit reproduced (curl -> 500)."""
     from fastapi.testclient import TestClient
+
     from api.main import app
     client = TestClient(app, raise_server_exceptions=False)
 

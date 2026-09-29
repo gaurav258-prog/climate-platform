@@ -51,7 +51,7 @@ _YEAR = iter(range(2040, 2140))
 def _filing(s, framework="bank_tcfd", entity_id=None):
     snap = s.execute(text("SELECT snapshot_id FROM report_snapshots WHERE org_id = CAST(:o AS uuid) LIMIT 1"), {"o": BANK_ORG}).scalar()
     return s.execute(text("""INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, entity_id)
-                             VALUES (CAST(:o AS uuid), :f, :pe, 'test period', 'draft', :s, CAST(:e AS uuid)) RETURNING filing_id::text"""),
+                             VALUES (CAST(:o AS uuid), :f, :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'draft', :s, CAST(:e AS uuid)) RETURNING filing_id::text"""),
                      {"o": BANK_ORG, "f": framework, "s": snap, "e": entity_id, "pe": date(next(_YEAR), 12, 31)}).scalar()
 
 

@@ -46,20 +46,22 @@ def stage_for(due: date, today: date, r: Optional[dict] = None) -> Optional[str]
     return None
 
 
-def _period_end(period_label: str) -> date:
-    """The year from a label like '2026', 'FY2026' or '2026-Q3'. Matches the first 4-digit RUN, not the last 4
-    digits overall — stripping all digits from '2026-Q3' first (old bug) gives '20263', whose last 4 are '0263':
-    a valid-looking but wrong date (year 263) that silently passed every downstream check."""
-    m = re.search(r"\d{4}", period_label)
+def canonical_period(period: str) -> tuple[str, date]:
+    """The supervisory calendar's periods are financial years (every calendar mandate is annual): '2026' or 'FY2026'
+    → ('FY2026', 2026-12-31). Anything else — '2026-Q3' once became an annual period ending 31 December labelled as a
+    quarter — is refused. The label is derived from the period end by the same rule filings use."""
+    from services.governance.filings import period_label
+    m = re.fullmatch(r"(?:FY)?\s*(\d{4})", period.strip(), re.IGNORECASE)
     if not m:
-        raise ValueError(f"no 4-digit year found in period_label {period_label!r}")
-    return date(int(m.group()), 12, 31)
+        raise ValueError(f"'{period}' is not a financial year — the supervisory calendar is annual; enter e.g. FY2026")
+    pe = date(int(m.group(1)), 12, 31)
+    return period_label(pe), pe
 
 
 # ── the supervisory calendar ────────────────────────────────────────────────────────────────────────────────
 def generate(session, reg_org_id: str, cfg: dict, period_label: str) -> list[dict]:
     """Draft a deadline for every calendar mandate in the profile (per-event mandates such as EUDR have no date)."""
-    pe = _period_end(period_label)
+    period_label, pe = canonical_period(period_label)
     st = settings(session, reg_org_id)
     made = []
     for m in mandates_for(list(cfg["sectors"].keys())):

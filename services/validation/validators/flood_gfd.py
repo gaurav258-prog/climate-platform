@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import zipfile
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -125,9 +124,10 @@ def cap_per_region(df: pd.DataFrame, cap: int, seed: int) -> pd.DataFrame:
 
 
 def _run(session: Session) -> ValidationResult:
+    from scipy.stats import spearmanr
     from shapely.geometry import box
     from sklearn.metrics import roc_auc_score
-    from scipy.stats import spearmanr
+
     from ml.scoring.flood_jrc import TileSet, flood_score
     from ml.validation.regional import macro_region
 

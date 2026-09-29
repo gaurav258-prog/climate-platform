@@ -116,6 +116,14 @@ ON CONFLICT DO NOTHING;
 """
 
 
+
+# A row the pre-migration shape cannot hold: scripts/check_migration_roundtrip.py plants it and requires the downgrade
+# to refuse, leaving the schema untouched (every refusing downgrade must carry one).
+REFUSAL_PROBE = {
+    "setup": """INSERT INTO organizations (org_id, name, type, country) VALUES ('0bbe0bbe-0000-4000-8000-00000000fee1', 'refusal probe', 'bank', 'DE'); INSERT INTO users (user_id, org_id, email, role, status) VALUES ('0bbe0bbe-0000-4000-8000-00000000fee2', '0bbe0bbe-0000-4000-8000-00000000fee1', 'probe@refusal.test', 'analyst', 'invited');""",
+    "cleanup": """DELETE FROM users WHERE user_id = '0bbe0bbe-0000-4000-8000-00000000fee2'; DELETE FROM organizations WHERE org_id = '0bbe0bbe-0000-4000-8000-00000000fee1';""",
+}
+
 def upgrade() -> None:
     op.execute(_DDL)
     op.execute(_PERMS)

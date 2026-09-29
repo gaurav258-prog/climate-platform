@@ -119,8 +119,8 @@ def sla_view(session, regulator_org_id: str, supervised_org_ids: list[str], toda
 def authority_calendar(session, reg_org_id: str, cfg: dict, period_label: str, today: Optional[date] = None) -> dict:
     from services.supervision.deadlines import (
         _filed,
-        _period_end,
         applicable_entities,
+        canonical_period,
         list_deadlines,
     )
     from services.supervision.mandates import (
@@ -132,7 +132,7 @@ def authority_calendar(session, reg_org_id: str, cfg: dict, period_label: str, t
         settings,
     )
     today = today or date.today()
-    pe = _period_end(period_label)
+    period_label, pe = canonical_period(period_label)
     reg = registry()
     st = settings(session, reg_org_id)
     set_by_mandate = {d["mandate_id"]: d for d in list_deadlines(session, reg_org_id, period_label)}

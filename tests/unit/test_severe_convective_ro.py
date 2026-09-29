@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from services.validation.engine import REGISTRY
 import services.validation.validators.severe_convective_ro as m
+from services.validation.engine import REGISTRY
 
 
 def test_registered():

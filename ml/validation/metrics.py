@@ -21,14 +21,18 @@ from typing import Optional
 
 import numpy as np
 
-from core.validation_gates import (   # the pre-registered gates — one source of truth (core/validation_gates.py)
+from core.validation_gates import (  # the pre-registered gates — one source of truth (core/validation_gates.py)
     MIN_N_BANDS,
-    MIN_N_METRIC as MIN_N,
     MONOTONE_FIXED_MIN_POPULATED,
-    MIN_N_REGRESSION_CLAIM as REGRESSION_MIN_N,
     RANK_GATE_SPEARMAN,
     REGRESSION_GATE_R2,
     STRONG_SPEARMAN,
+)
+from core.validation_gates import (
+    MIN_N_METRIC as MIN_N,
+)
+from core.validation_gates import (
+    MIN_N_REGRESSION_CLAIM as REGRESSION_MIN_N,
 )
 
 

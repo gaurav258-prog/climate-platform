@@ -58,7 +58,6 @@ def art8_kpis(properties: list[dict], currency: str = "EUR") -> dict:
     proxy_to = sum(v for v, is_proxy in bases if is_proxy)
 
     elig_idx = [i for i, p in enumerate(properties) if p.get("taxonomy_status") == _ELIGIBLE]
-    elig = [properties[i] for i in elig_idx]
     elig_to = sum(bases[i][0] for i in elig_idx)
 
     # verifiable sub-signals over the ELIGIBLE turnover (evidence toward alignment — never asserted as aligned)

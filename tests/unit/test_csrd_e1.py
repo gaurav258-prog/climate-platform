@@ -6,7 +6,6 @@ sites and upstream sourcing are monkeypatched with canned data (pure-function te
 approach as the other agri unit tests using a tiny fake session for the two raw SQL reads left.
 """
 from dataclasses import dataclass, field
-from typing import Optional
 
 import services.intelligence.csrd_e1 as csrd_e1
 

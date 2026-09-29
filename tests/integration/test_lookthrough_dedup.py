@@ -24,7 +24,7 @@ HELD_ISIN = "US0378331005"                        # Apple Inc., a real current p
 
 @pytest.mark.integration
 def test_lookthrough_subfund_inherits_parent_sfdr_classification_and_currency():
-    from api.routers.funds import LookThroughBody, Holding, expand_look_through
+    from api.routers.funds import Holding, LookThroughBody, expand_look_through
 
     with get_session() as s:
         parent = s.execute(text("SELECT sfdr_classification, base_currency FROM funds WHERE fund_id = :f"),
@@ -50,6 +50,7 @@ def test_duplicate_lookthrough_endpoint_is_gone():
     /look-through route must still resolve (dispatched via a real request, not static route introspection —
     this FastAPI version wraps included routers opaquely on app.routes)."""
     from fastapi.testclient import TestClient
+
     from api.main import app
 
     with TestClient(app) as client:

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X, CheckCircle2, AlertTriangle, Snowflake } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { CheckCircle2, AlertTriangle, Snowflake } from 'lucide-react'
+import { api, apiMessage } from '../lib/api'
 import { balance } from '../lib/money'
-import { Card, Button, SectionHead, StatGrid, type StatItem } from './ui'
+import { Button, StatGrid, type StatItem } from './ui'
+import { Dialog } from './Dialog'
 
 // The confirm-data step: before a filing is frozen, the preparer reviews the basis, the data coverage and
 // the headline figures, sees any gaps honestly, and ticks "I confirm this is the data to file". Only then
@@ -30,11 +31,17 @@ interface Ent { entity_id: string; name: string; kind: string; parent_entity_id:
 
 const eur = (n?: number | null) => balance(n)   // the live book, before freezing: the organisation's currency
 
-export default function FilingPreflight({ framework, onClose, onGenerated }: { framework: string; onClose: () => void; onGenerated: (id: string) => void }) {
-  const q = useQuery({ queryKey: ['preflight', framework], queryFn: () => api.get<Preflight>(`/v1/filings/preflight?framework=${framework}`) })
+// The obligation a filing is being prepared for (from its card): its entity and period are fixed, and the server
+// enforces them (filings._obligation_scope).
+export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; period_label: string }
+
+export default function FilingPreflight({ framework, obligation, onClose, onGenerated }: { framework: string; obligation?: ForObligation; onClose: () => void; onGenerated: (id: string) => void }) {
+  const [entityId, setEntityId] = useState<string>(obligation?.entity_id ?? '')   // '' = whole organisation
+  // the figures and the confirm token are for exactly the scope being filed
+  const q = useQuery({ queryKey: ['preflight', framework, entityId], queryFn: () => api.get<Preflight>(
+    `/v1/filings/preflight?framework=${framework}${entityId ? `&entity_id=${entityId}` : ''}`) })
   const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/filings/entities') })
   const [confirmed, setConfirmed] = useState(false)
-  const [entityId, setEntityId] = useState<string>('')   // '' = whole organisation
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [view, setView] = useState<View>('joint')
@@ -47,39 +54,45 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
     setBusy(true); setErr(null)
     try {
       const f = await api.post<{ filing_id: string }>('/v1/filings',
-        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, view, figure_sources: figs })
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs })
       onGenerated(f.filing_id)
     } catch (e) {
       // A stale token (the book changed since this preflight loaded) surfaces here — refetch so the
       // preparer sees the CURRENT data and can confirm again, rather than silently retrying the old one.
-      setErr(e instanceof ApiError ? e.message : 'Could not freeze the filing.')
+      setErr(apiMessage(e, 'Could not freeze the filing.'))
       q.refetch()
     }
     finally { setBusy(false) }
   }
-  // when a specific entity is chosen the backend's own (entity-aware) guard decides; only block whole-org
-  // generation when a whole-org filing already exists.
-  const blockedByExisting = entityId === '' && !d?.can_generate
+  // one live filing per framework, period and scope — the pre-filing check answers for the scope being filed
+  const blockedByExisting = !!d && !d.can_generate
+  // an obligation for another period cannot be prepared until the reporting period is set to it (one period source)
+  const periodMismatch = !!(obligation && d && obligation.period_end !== d.basis.reporting_period_end.slice(0, 10))
+  const blocked = blockedByExisting || periodMismatch
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <Card className="relative w-full max-w-lg p-0 overflow-hidden" >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]" onClick={e => e.stopPropagation()}>
-          <SectionHead>Confirm the data before filing</SectionHead>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={17} /></button>
-        </div>
-        <div className="p-5 space-y-4 max-h-[78vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <Dialog title="Confirm the data before filing" onClose={onClose}>
+        <div className="space-y-4">
           {!d ? <div className="text-[13px] text-[var(--color-faint)]">checking the book…</div> : (<>
             <div>
               <h3 className="display text-lg font-semibold">{d.label}</h3>
               <div className="mono text-[11px] text-[var(--color-faint)]">{d.period_label} · basis {d.basis.scenario}/{d.basis.horizon} · materiality {d.basis.materiality_threshold}</div>
             </div>
 
-            {entities.length > 0 && d.entity_scoped && (
+            {obligation && (
+              <div>
+                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Reporting scope · set by the obligation</div>
+                <div className="text-[13px]">{obligation.entity_name ? `${obligation.entity_name} — ${obligation.filing_role === 'consolidated' ? 'consolidated' : 'solo'}` : 'Whole organisation'} · {obligation.period_label}</div>
+              </div>
+            )}
+            {periodMismatch && obligation && (
+              <div className="flex gap-2 text-[12.5px] text-[var(--color-warn)]"><AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                <span>This obligation is for {obligation.period_label} (period ending {obligation.period_end}), but your reporting period is set to end {d.basis.reporting_period_end.slice(0, 10)}. Change the reporting period before preparing it.</span></div>
+            )}
+            {!obligation && entities.length > 0 && d.entity_scoped && (
               <div>
                 <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Reporting scope</div>
-                <select value={entityId} onChange={e => setEntityId(e.target.value)}
+                <select value={entityId} onChange={e => { setEntityId(e.target.value); setConfirmed(false) }}
                   className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]">
                   <option value="">Whole organisation</option>
                   {entities.filter(e => e.kind === 'group').map(e => <option key={e.entity_id} value={e.entity_id}>Consolidated — {e.name} (group)</option>)}
@@ -130,7 +143,7 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
 
             {blockedByExisting && (
               <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-warn)]">
-                <AlertTriangle size={14} /> A live {d.label} for {d.period_label} (whole organisation) already exists ({d.existing_status}). Supersede it, or file a specific entity instead.
+                <AlertTriangle size={14} /> A live {d.label} for {d.period_label} already exists for this scope ({d.existing_status}). Supersede it to restate.
               </div>
             )}
 
@@ -161,16 +174,15 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
             {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
 
             <label className="flex items-start gap-2 text-[12.5px] text-[var(--color-ink)] cursor-pointer">
-              <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-0.5 accent-[var(--color-sky)]" disabled={blockedByExisting} />
+              <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-0.5 accent-[var(--color-sky)]" disabled={blocked} />
               I confirm this is the data to file — freeze it as an immutable filing.
             </label>
             <div className="flex items-center gap-3">
-              <Button variant="primary" onClick={freeze} disabled={busy || !confirmed || blockedByExisting}><Snowflake size={14} /> Confirm & freeze filing</Button>
+              <Button variant="primary" onClick={freeze} disabled={busy || !confirmed || blocked}><Snowflake size={14} /> Confirm & freeze filing</Button>
               {confirmed && <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#34d399' }}><CheckCircle2 size={12} /> ready</span>}
             </div>
           </>)}
         </div>
-      </Card>
-    </div>
+    </Dialog>
   )
 }

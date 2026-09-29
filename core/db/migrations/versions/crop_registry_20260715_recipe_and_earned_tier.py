@@ -36,6 +36,14 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+
+# A row the pre-migration shape cannot hold: scripts/check_migration_roundtrip.py plants it and requires the downgrade
+# to refuse, leaving the schema untouched (every refusing downgrade must carry one).
+REFUSAL_PROBE = {
+    "setup": """INSERT INTO sc_model_validation (event, commodity, hazard, skill_note, source) VALUES ('refusal probe', 'x', 'drought', 'probe', 'probe'), ('refusal probe', 'y', 'drought', 'probe', 'probe');""",
+    "cleanup": """DELETE FROM sc_model_validation WHERE event = 'refusal probe';""",
+}
+
 def upgrade() -> None:
     # ── (2) the scoring recipe ────────────────────────────────────────────────
     op.execute("""

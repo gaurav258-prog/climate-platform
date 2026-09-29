@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  PYTHON_VERSION: "3.9"
+  PYTHON_VERSION: "3.14"   # = pyproject requires-python; tests/unit/test_python_version.py keeps them one
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
@@ -110,8 +110,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install ruff (the exact version pyproject.toml pins for dev)
+        run: pip install "$(python -c 'import tomllib; print(next(r for r in tomllib.load(open("pyproject.toml", "rb"))["project"]["optional-dependencies"]["dev"] if r.startswith("ruff")))')"
 
       - name: Run ruff
         # Rule selection + ignores live in pyproject.toml [tool.ruff.lint]

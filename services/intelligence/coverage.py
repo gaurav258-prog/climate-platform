@@ -61,6 +61,7 @@ def eu_taxonomy_coverage() -> dict:
     honest counts, plus the channels we carry BEYOND the list (seismic/volcanic/pollution). Coverage ≠
     calibration — the tier on each hazard says which claim we're making.
     """
+    from core.hazard_regions import regional_view
     from core.hazard_taxonomy import (
         EXTRA_CHANNELS,
         HazardFamily,
@@ -68,8 +69,6 @@ def eu_taxonomy_coverage() -> dict:
         eu_hazards_by_family,
         screening_status,
     )
-
-    from core.hazard_regions import regional_view
 
     def _ser(h) -> dict:
         d = {

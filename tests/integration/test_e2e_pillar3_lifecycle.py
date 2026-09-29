@@ -104,3 +104,44 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     assert "Template 7" in sheets and "Template 10" in sheets and "12500000" in sheets.replace(",", "").replace(".0", "")
     xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)
     assert xb.status_code == 200 and b"GARCoveredAssets" in xb.content
+
+
+def test_preparing_an_obligation_files_its_own_entity_and_period(api):
+    """Prepare on an obligation's card files that obligation: its legal entity, its period — never the whole
+    organisation or a different period (found in the 2026-09-29 walkthrough: the card passed only the framework)."""
+    maker = _login(api, "admin@meridian.demo", "Demo!admin1")
+    s = api.s
+    obs = {(o["entity_name"], o["period_end"]): o for o in
+           api.get("/v1/obligations", headers=maker).json()["obligations"] if o["framework"] == "bank_p3esg"}
+    solo = obs[("Meridian Bank AG", "2025-12-31")]
+    later = next(o for (_, pe), o in obs.items() if pe != "2025-12-31")
+    other = next(o for (n, pe), o in obs.items() if n and n != "Meridian Bank AG" and pe == "2025-12-31")
+
+    def token(entity_id=None):
+        q = f"&entity_id={entity_id}" if entity_id else ""
+        return api.get(f"/v1/filings/preflight?framework=bank_p3esg{q}", headers=maker).json()["confirm_token"]
+
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(),
+                                                     "obligation_id": later["obligation_id"]})
+    assert r.status_code == 409 and "change the reporting period" in r.json()["error"]["message"]
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(),
+                                                     "obligation_id": solo["obligation_id"], "entity_id": other["entity_id"]})
+    assert r.status_code == 409 and "not the obligation's entity" in r.json()["error"]["message"]
+
+    # the pre-filing check is for the scope being filed: its figures are the entity's own book, and a confirmation
+    # of the whole organisation cannot freeze the entity's filing
+    whole = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
+    mine = api.get(f"/v1/filings/preflight?framework=bank_p3esg&entity_id={solo['entity_id']}", headers=maker).json()
+    assert 0 < mine["total_value_eur"] < whole["total_value_eur"]
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": whole["confirm_token"],
+                                                     "obligation_id": solo["obligation_id"]})
+    assert r.status_code == 409 and "another scope" in r.json()["error"]["message"]
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": mine["confirm_token"],
+                                                     "obligation_id": solo["obligation_id"]})
+    assert r.status_code == 201, r.text
+    row = s.execute(text("SELECT entity_id::text, period_end::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid)"),
+                    {"f": r.json()["filing_id"]}).one()
+    assert tuple(row) == (solo["entity_id"], "2025-12-31")
+    card = next(o for o in api.get("/v1/obligations", headers=maker).json()["obligations"]
+                if o["obligation_id"] == solo["obligation_id"])
+    assert card["filing_id"] == r.json()["filing_id"]                        # the card now links to its filing

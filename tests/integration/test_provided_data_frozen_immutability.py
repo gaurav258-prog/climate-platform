@@ -62,7 +62,7 @@ def test_form_view_shows_the_frozen_value_not_a_later_attestation():
         snap = create_snapshot(s, BANK_ORG, "bank_tcfd", maker)
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-            VALUES (:o, 'bank_tcfd', :pe, 'FY2095-provided', 'accepted', :snap, :u) RETURNING filing_id::text
+            VALUES (:o, 'bank_tcfd', :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'accepted', :snap, :u) RETURNING filing_id::text
         """), {"o": BANK_ORG, "pe": FUTURE_PERIOD, "snap": snap["snapshot_id"], "u": maker}).scalar()
 
         # a DIFFERENT value gets attested afterward, for the SAME framework/datapoint
@@ -95,7 +95,7 @@ def test_a_filing_frozen_before_the_fix_shows_nothing_rather_than_being_backfill
         """), {"o": BANK_ORG, "p": json.dumps(payload), "u": maker}).scalar()
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-            VALUES (:o, 'bank_tcfd', :pe, 'FY2093-prefix', 'accepted', :snap, :u) RETURNING filing_id::text
+            VALUES (:o, 'bank_tcfd', :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'accepted', :snap, :u) RETURNING filing_id::text
         """), {"o": BANK_ORG, "pe": "2093-12-31", "snap": str(snap_id), "u": maker}).scalar()
         out = F.form_view(s, BANK_ORG, fid)
         assert not any(g["group"] == "Provided & attested (customer / vendor)" for g in out["groups"])

@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from services.validation.validators.carbon_reversal import (by_stratum, carb_agreement, loss_counts, safe_spearman,
-                                                            tile_name, tiles_for_bounds)
+from services.validation.validators.carbon_reversal import (
+    by_stratum,
+    carb_agreement,
+    loss_counts,
+    safe_spearman,
+    tile_name,
+    tiles_for_bounds,
+)
 
 
 def test_tile_name():

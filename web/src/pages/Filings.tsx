@@ -2,8 +2,8 @@ import { Eyebrow } from '../components/ui'
 import FilingCockpit from '../components/FilingCockpit'
 import ReportTabs from '../components/ReportTabs'
 
-// Agri filing cockpit — the same lifecycle, register, obligations calendar, validation, 4-eyes, attestation
-// and snapshot exports the financial sectors use, over the CSRD/ESRS reports (csrd_e1 · esrs_pack).
+// The filing cockpit for every sector — lifecycle, register, obligations calendar, validation, 4-eyes, attestation and
+// snapshot exports. Which reports appear comes from the organisation's own obligations, never from this page.
 
 export default function Filings() {
   return (
@@ -12,7 +12,7 @@ export default function Filings() {
       <div>
         <Eyebrow>Compliance · filings</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Filings</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Prepare, review, attest and file your CSRD / ESRS reports — the same governed lifecycle (frozen snapshots, 4-eyes, attestation, exports) the financial sectors use.</p>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Prepare, review, attest and file your regulatory reports — every number frozen, reviewed by a second person, attested and exported.</p>
       </div>
       <FilingCockpit />
     </div>

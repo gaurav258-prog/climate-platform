@@ -4,7 +4,8 @@ Builds a throw-away database from nothing, one revision at a time, recording the
 back down one revision at a time: every downgrade must run, and must leave exactly the schema recorded for the
 revision it returns to (tables, columns, constraints, indexes, views, functions, triggers). Finally it builds back up
 to head and requires the head schema to match the first build. So a downgrade that fails, or that "succeeds" but puts
-something back differently from how it was, is named with its revision. (Columns are compared by name, type,
+something back differently from how it was, is named with its revision. A downgrade that refuses when the old shape cannot hold the data must prove it with the
+REFUSAL_PROBE its migration declares. (Columns are compared by name, type,
 nullability and default — not position: Postgres cannot put a re-added column back in its old place, and the
 application always addresses columns by name.)
 
@@ -16,6 +17,7 @@ DATABASE_URL), so the migrations themselves run with the application's own privi
 """
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 import sys
@@ -74,6 +76,31 @@ def _fresh_database(admin: str, owner: str) -> None:
         a.execute(f'CREATE DATABASE {SCRATCH} OWNER "{owner}"')
 
 
+def _refusal_problem(cfg, conn, script, rev: str, at: frozenset[str]) -> str | None:
+    """A downgrade that refuses (RAISE) when the old shape cannot hold the data must prove it: its migration declares
+    REFUSAL_PROBE {setup, cleanup}; we plant the row, require the downgrade to fail and leave the schema untouched."""
+    module = script.get_revision(rev).module
+    refuses = "RAISE EXCEPTION" in inspect.getsource(module.downgrade)
+    probe = getattr(module, "REFUSAL_PROBE", None)
+    if not refuses:
+        return None
+    if not probe:
+        return f"downgrade of {rev} refuses in some cases but its migration declares no REFUSAL_PROBE to prove it"
+    before = _snapshot(conn)
+    conn.execute(probe["setup"])
+    try:
+        parents = script.get_revision(rev).down_revision
+        command.downgrade(cfg, parents[0] if isinstance(parents, tuple) else f"{rev}@-1")
+        return f"downgrade of {rev} did not refuse the row its REFUSAL_PROBE plants"
+    except Exception as e:                                         # noqa: BLE001 — the refusal is the expected outcome
+        if not isinstance(getattr(e, "orig", None), psycopg.errors.RaiseException):
+            return f"downgrade of {rev} failed on its probe for another reason: {type(e).__name__}: {str(e).splitlines()[0]}"
+    if _heads(conn) != at or _snapshot(conn) != before:
+        return f"downgrade of {rev} refused, but not atomically: the version table or schema changed"
+    conn.execute(probe["cleanup"])
+    return None
+
+
 def main() -> int:
     app_url = make_url(os.environ.get("DATABASE_URL") or _app_database_url())
     scratch_url = app_url.set(database=SCRATCH)
@@ -112,7 +139,10 @@ def main() -> int:
         while at := _heads(conn):                                  # down: undo the newest head, mirroring the way up
             newest = max(at, key=rank.__getitem__)
             want = state_before[newest]
-            problem = None
+            problem = _refusal_problem(cfg, conn, script, newest, at)
+            if problem:
+                failures.append(problem)
+                problem = None
             try:
                 parents = script.get_revision(newest).down_revision
                 # a merge has several parents: name one — undoing the merge leaves every parent as a head

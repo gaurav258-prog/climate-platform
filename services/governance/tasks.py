@@ -295,7 +295,7 @@ def _complete_via_approval(session: Session, org_id: str, task_id: str, checker_
         WHERE org_id = :o AND task_id = :t
     """), {"o": org_id, "t": task_id})
     _event(session, task_id, "moved", checker_actor, from_val="review", to_val="done",
-           note=f"4-eyes approved" + (f" · {note.strip()}" if note and note.strip() else ""))
+           note="4-eyes approved" + (f" · {note.strip()}" if note and note.strip() else ""))
     return get_task(session, org_id, task_id)
 
 

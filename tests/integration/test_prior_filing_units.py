@@ -54,7 +54,6 @@ def test_an_upload_declares_its_currency_and_period_end(session_rolled_back):
     from openpyxl import Workbook
 
     import services.governance.prior_filings as PF
-    from sqlalchemy import text
     s = session_rolled_back
     wb = Workbook()
     ws = wb.active

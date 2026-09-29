@@ -6,8 +6,14 @@ plausibility / tie-out logic and the blocking-vs-warning split are pinned.
 from __future__ import annotations
 
 from services.governance.filing_validation import (
-    _arrears_finding, _gl_finding, _validate_bank_tcfd, _validate_csrd_e1, _validate_esrs_pack,
-    _validate_insurer_solvency, _validate_reit_taxonomy, _validate_sfdr_pai,
+    _arrears_finding,
+    _gl_finding,
+    _validate_bank_tcfd,
+    _validate_csrd_e1,
+    _validate_esrs_pack,
+    _validate_insurer_solvency,
+    _validate_reit_taxonomy,
+    _validate_sfdr_pai,
 )
 
 

@@ -84,6 +84,7 @@ def test_full_http_flow_export_endpoints_read_the_frozen_record():
     """End-to-end through the real router: the xlsx/xbrl/json endpoints must all return the frozen sentinel,
     not a live recompute, once a filing exists for the current period."""
     from fastapi.testclient import TestClient
+
     from api.main import app
     client = TestClient(app, raise_server_exceptions=False)
 

@@ -276,8 +276,13 @@ def _due_date(framework: str, period_end: date) -> date:
     return date(period_end.year + 1, m, d)
 
 
-def _period_label(period_end: date) -> str:
+def period_label(period_end: date) -> str:
+    """The one label of a reporting period — derived from its end, never typed (every period here is a financial year;
+    the database checks period_label = 'FY' || year(period_end) on filings, obligations and supervisory deadlines)."""
     return f"FY{period_end.year}"
+
+
+_period_label = period_label
 
 
 # ── obligations calendar (derived live, upserted so history persists) ───
@@ -516,7 +521,7 @@ def _log_event(session: Session, filing_id: str, from_status: str | None, to_sta
 
 # ── lifecycle operations ────────────────────────────────────────────────
 
-def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict) -> str:
+def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict, entity_id: str | None = None) -> str:
     """Bind a preflight result to a token generate_filing() can re-verify. Fixes a real race an independent
     architecture review found: `confirmed` used to be a bare boolean, completely disconnected from the
     specific preflight state a human actually looked at — a human could confirm a clean preflight, the
@@ -525,18 +530,15 @@ def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict) -> s
     The token is a hash of exactly what the preparer saw (org, framework, scope, basis, coverage, gaps,
     headline figures) — generate_filing() recomputes the identical summary fresh and refuses unless the
     hash still matches, i.e. unless nothing relevant has changed since the preflight was shown."""
-    # Deliberately NOT entity_id-bound: the preflight summary itself isn't entity-scoped today (it shows
-    # the same org-wide coverage/headline regardless of which entity the preparer eventually generates
-    # against), so binding the token to entity_id here would make it mismatch on every entity-scoped
-    # generate call for no real safety benefit — the actual entity/consolidation resolution is validated
-    # independently in generate_filing(). If preflight ever becomes entity-aware, entity_id belongs here too.
+    # Bound to the scope too: the summary is computed on the filing's own book (entity, consolidation weights,
+    # presentation currency), so a confirmation of one entity's figures can never freeze another scope.
     import hashlib
-    payload = json.dumps({"org_id": org_id, "framework": framework,
+    payload = json.dumps({"org_id": org_id, "framework": framework, "entity_id": entity_id,
                           "basis": basis, "summary": summary}, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode()).hexdigest()[:32]
 
 
-def preflight(session: Session, org_id: str, org_type: str, framework: str) -> dict:
+def preflight(session: Session, org_id: str, org_type: str, framework: str, entity_id: str | None = None) -> dict:
     """The confirm-data step before freezing: shows the basis, the data coverage, the headline figures and
     any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes
     nothing. Returns a confirm_token binding this exact result — see _confirm_token()."""
@@ -544,15 +546,18 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
         raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    _check_scope(session, org_id, framework, entity_id)
     period_end = reporting_period_end(session, org_id)
     existing = session.execute(text("""
         SELECT status FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status <> 'superseded'
-    """), {"o": org_id, "fk": framework, "pe": period_end}).scalar()
+              AND entity_id IS NOT DISTINCT FROM :ent
+    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id}).scalar()
     from services.governance.reporting_settings import get_settings
     basis = get_settings(session, org_id)
-    summary = _preflight_summary(session, org_id, framework, basis)
-    token = _confirm_token(org_id, framework, basis, summary)
+    summary = _preflight_summary(session, org_id, framework, basis,
+                                 _book_scope(session, org_id, framework, entity_id, period_end))
+    token = _confirm_token(org_id, framework, basis, summary, entity_id)
     from services.governance.figure_views import figures_for
     from services.governance.provided_data import attested_values
     from services.intake.views import preview as views_preview
@@ -564,8 +569,35 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
     return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
             "period_label": _period_label(period_end), "basis": basis,
             "can_generate": existing is None, "existing_status": existing,
-            "entity_scoped": framework in _ENTITY_SCOPED, "confirm_token": token, **summary,
+            "entity_scoped": framework in _ENTITY_SCOPED, "entity_id": entity_id, "confirm_token": token, **summary,
             "views": views_preview(session, org_id), "figures": figures}
+
+
+def _obligation_scope(session: Session, org_id: str, obligation_id: str, framework: str,
+                      entity_id: str | None) -> str | None:
+    """The entity a filing prepared for this obligation is scoped to — after checking the obligation is the
+    organisation's, is for this framework, and falls in the configured reporting period."""
+    import uuid
+    try:
+        uuid.UUID(obligation_id)
+    except ValueError:
+        raise FilingError("that obligation was not found") from None
+    ob = session.execute(text("""SELECT framework, period_end, period_label, entity_id::text AS entity_id
+                                 FROM regulatory_obligation
+                                 WHERE obligation_id = CAST(:i AS uuid) AND org_id = CAST(:o AS uuid)"""),
+                         {"i": obligation_id, "o": org_id}).mappings().first()
+    if ob is None:
+        raise FilingError("that obligation was not found")
+    if ob["framework"] != framework:
+        raise FilingError("that obligation is for a different report")
+    if entity_id is not None and entity_id != ob["entity_id"]:
+        raise FilingError("the chosen scope is not the obligation's entity")
+    period = reporting_period_end(session, org_id)
+    if ob["period_end"] != period:
+        raise FilingError(f"this obligation is for {ob['period_label']} (period ending {ob['period_end'].isoformat()}), "
+                          f"but your reporting period is set to end {period.isoformat()} — change the reporting "
+                          f"period before preparing it")
+    return ob["entity_id"]
 
 
 def reporting_period_end(session: Session, org_id: str) -> date:
@@ -575,12 +607,17 @@ def reporting_period_end(session: Session, org_id: str) -> date:
     return date.fromisoformat(str(get_settings(session, org_id)["reporting_period_end"])[:10])
 
 
-def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
-    """Live coverage + headline for the confirm-data step. Honest gaps, no freeze."""
+def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict,
+                       scope: tuple = (None, None, None)) -> dict:
+    """Live coverage + headline for the confirm-data step, over exactly the book the filing will freeze: `scope` is
+    (entity_ids, value_weights, translation) from _book_scope (whole organisation when all None). Honest gaps, no
+    freeze."""
+    entity_ids, value_weights, translation = scope
     gaps: list[str] = []
     if framework in ("bank_tcfd", "bank_p3esg"):
         from api.routers.bank import build_disclosure_snapshot
-        snap = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])
+        snap = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"],
+                                         entity_ids=entity_ids, value_weights=value_weights, translation=translation)
         r = snap["rollup"]
         n_total, n_done = r.get("n_assets", 0), r.get("n_scored", 0)
         if n_total and n_done < n_total:
@@ -607,7 +644,8 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                 "noun": "positions", "positions": ent.get("positions"), "gaps": gaps}
     if framework == "reit_tcfd":
         from api.routers.realestate import build_disclosure_snapshot
-        r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])["rollup"]
+        r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"], entity_ids=entity_ids,
+                                      value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_properties", 0), r.get("n_scored", 0)
         if n_total and n_done < n_total:
             gaps.append(f"{n_total - n_done} of {n_total} properties not yet scored — excluded from exposure")
@@ -617,7 +655,8 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                 "noun": "properties", "gaps": gaps}
     if framework == "insurer_climate":
         from api.routers.insurance import build_disclosure_snapshot
-        r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])["rollup"]
+        r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"], entity_ids=entity_ids,
+                                      value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_policies", 0), r.get("n_priced", 0)
         if n_total and n_done < n_total:
             gaps.append(f"{n_total - n_done} of {n_total} policies not yet priced")
@@ -666,47 +705,18 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
     return entity_ids, value_weights, translation
 
 
-def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
-            entity_id: str | None, period_end: date, view: str = "joint",
-            figure_sources: dict | None = None) -> tuple[dict, str]:
-    from services.governance.engine_runs import RunCheckError
+def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date) -> tuple:
+    """_book_basis for callers that report to a preparer: a book that cannot be presented is a FilingError."""
     from services.governance.translation import TranslationError
-    from services.intake.views import ViewError
-    entity_ids, value_weights, translation = _book_basis(session, org_id, framework, entity_id, period_end)
     try:
-        snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
-                               value_weights=value_weights, translation=translation, view=view,
-                               figure_sources=figure_sources)
-    except (TranslationError, RunCheckError, ViewError) as e:
+        return _book_basis(session, org_id, framework, entity_id, period_end)
+    except TranslationError as e:
         raise FilingError(str(e)) from e
-    return snap, (translation.presentation if translation is not None else "EUR")
 
 
-def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
-                    actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
-                    entity_id: str | None = None, view: str = "joint", figure_sources: dict | None = None) -> dict:
-    """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
-    (framework, period, entity) — regenerating while one is live is refused (supersede it first).
-    entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
-    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership).
-
-    confirm_token must be the exact token GET /filings/preflight?framework=... just returned for this same
-    (org, framework) — recomputed and compared fresh here, not merely checked for presence. This closes the
-    preflight->generate race: a bare `confirmed: bool` used to let a stale confirmation freeze data the
-    preparer never actually looked at if the book changed in between."""
-    if framework not in FRAMEWORKS or framework not in _BUILDERS:
-        raise FilingError(f"unknown framework '{framework}'")
-    if org_type not in FRAMEWORKS[framework]["sectors"]:
-        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
-    if not confirm_token:
-        raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
-    from services.governance.reporting_settings import get_settings
-    _basis = get_settings(session, org_id)
-    _summary = _preflight_summary(session, org_id, framework, _basis)
-    if confirm_token != _confirm_token(org_id, framework, _basis, _summary):
-        raise FilingError("the data has changed since you last confirmed it (or the token is invalid) — "
-                          "re-run the pre-filing check and confirm again before freezing")
-
+def _check_scope(session: Session, org_id: str, framework: str, entity_id: str | None) -> None:
+    """A per-entity or consolidated scope only for a framework that honours it, and only for the org's own entity.
+    Shared by the pre-filing check and generate, so both refuse the same scopes with the same reasons."""
     # resolve the reporting scope — refuse a per-entity/consolidated scope for a framework that can't honour it
     # (would mislabel a whole-org number). SFDR consolidates by fund; agri CSRD/ESRS has TWO distinct gaps —
     # see the C5 note below, not just the one this used to name.
@@ -738,7 +748,59 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         if not _E.get_entity(session, org_id, entity_id):
             raise FilingError("reporting entity not found")
 
+
+def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
+            entity_id: str | None, period_end: date, view: str = "joint",
+            figure_sources: dict | None = None) -> tuple[dict, str]:
+    from services.governance.engine_runs import RunCheckError
+    from services.governance.translation import TranslationError
+    from services.intake.views import ViewError
+    entity_ids, value_weights, translation = _book_scope(session, org_id, framework, entity_id, period_end)
+    try:
+        snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
+                               value_weights=value_weights, translation=translation, view=view,
+                               figure_sources=figure_sources)
+    except (TranslationError, RunCheckError, ViewError) as e:
+        raise FilingError(str(e)) from e
+    return snap, (translation.presentation if translation is not None else "EUR")
+
+
+def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
+                    actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
+                    entity_id: str | None = None, view: str = "joint", figure_sources: dict | None = None,
+                    obligation_id: str | None = None) -> dict:
+    """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
+    (framework, period, entity) — regenerating while one is live is refused (supersede it first).
+    entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
+    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership).
+
+    confirm_token must be the exact token GET /filings/preflight?framework=... just returned for this same
+    (org, framework) — recomputed and compared fresh here, not merely checked for presence. This closes the
+    preflight->generate race: a bare `confirmed: bool` used to let a stale confirmation freeze data the
+    preparer never actually looked at if the book changed in between."""
+    if framework not in FRAMEWORKS or framework not in _BUILDERS:
+        raise FilingError(f"unknown framework '{framework}'")
+    if org_type not in FRAMEWORKS[framework]["sectors"]:
+        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    if not confirm_token:
+        raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
+
+    # prepared for a specific obligation: the filing takes that obligation's scope, and its period must be the one
+    # the organisation reports for (the single period source) — never silently a different period or entity
+    if obligation_id is not None:
+        entity_id = _obligation_scope(session, org_id, obligation_id, framework, entity_id)
+
+    _check_scope(session, org_id, framework, entity_id)
+
     period_end = reporting_period_end(session, org_id)
+    # the confirmation must be of this scope's book as it is now (see _confirm_token)
+    from services.governance.reporting_settings import get_settings
+    _basis = get_settings(session, org_id)
+    _summary = _preflight_summary(session, org_id, framework, _basis,
+                                  _book_scope(session, org_id, framework, entity_id, period_end))
+    if confirm_token != _confirm_token(org_id, framework, _basis, _summary, entity_id):
+        raise FilingError("the data has changed since you last confirmed it (or the token is invalid, or was for "
+                          "another scope) — re-run the pre-filing check and confirm again before freezing")
     existing = session.execute(text("""
         SELECT filing_id, status FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status <> 'superseded'

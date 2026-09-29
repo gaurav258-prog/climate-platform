@@ -3,7 +3,11 @@ second tenant super-user (an independent architecture review finding: a bank's n
 silently held admin.users.manage and approvals.decide, undermining maker/checker by role design)."""
 from __future__ import annotations
 
-from services.governance.tenant_provisioning import ALL_TENANT_PERMS, DEFAULT_ROLE_PERMS, _ADMIN_AND_DECISION_PERMS
+from services.governance.tenant_provisioning import (
+    _ADMIN_AND_DECISION_PERMS,
+    ALL_TENANT_PERMS,
+    DEFAULT_ROLE_PERMS,
+)
 
 
 def test_analyst_is_a_strict_subset_of_admin():

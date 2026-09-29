@@ -1,7 +1,9 @@
 """Supervisor-set deadlines: the follow-up rule is pure and each stage fires once; registry reminders are configuration."""
 from datetime import date
 
-from services.supervision.deadlines import _period_end, reminders, stage_for
+import pytest
+
+from services.supervision.deadlines import canonical_period, reminders, stage_for
 
 
 def test_follow_up_stages():
@@ -18,13 +20,15 @@ def test_reminder_windows_come_from_the_registry():
     assert r["before_due_days"] > 0 and r["after_due_days"] >= 0
 
 
-def test_period_label_to_period_end():
-    assert _period_end("FY2025") == date(2025, 12, 31) and _period_end("2024") == date(2024, 12, 31)
+def test_a_period_is_a_financial_year_with_a_derived_label():
+    assert canonical_period("FY2025") == ("FY2025", date(2025, 12, 31))
+    assert canonical_period("2024") == ("FY2024", date(2024, 12, 31))
+    assert canonical_period(" fy2026 ") == ("FY2026", date(2026, 12, 31))
 
 
-def test_period_label_with_quarter_suffix_keeps_the_real_year():
-    """Regression for the 2026-09-23 bug: stripping all digits from '2026-Q3' first gives '20263', whose LAST
-    4 digits are '0263' — a valid-looking but wrong date (year 263) that silently passed every downstream
-    check until caught live. Must extract the first 4-digit run instead."""
-    assert _period_end("2026-Q3") == date(2026, 12, 31)
-    assert _period_end("Q3 2026") == date(2026, 12, 31)
+@pytest.mark.parametrize("label", ["2026-Q3", "Q3 2026", "FY26", "20263", ""])
+def test_anything_but_a_financial_year_is_refused(label):
+    """'2026-Q3' was once accepted and became an annual period ending 31 December labelled as a quarter (found in
+    the 2026-09-29 walkthrough); before that, the digits were mis-read as year 263. The calendar is annual."""
+    with pytest.raises(ValueError, match="not a financial year"):
+        canonical_period(label)

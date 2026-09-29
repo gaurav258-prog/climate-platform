@@ -49,9 +49,10 @@ from __future__ import annotations
 
 import random
 
+from sqlalchemy import text
+
 from core.db.session import get_session
 from services.ingest.portfolio_ingest import ingest_bank_assets
-from sqlalchemy import text
 
 random.seed(20260923)   # reproducible
 

@@ -11,7 +11,6 @@ customer-supplied, same honesty discipline as every other field here (never infe
 Revision ID: ifrs_incurred_region_20260922
 Revises: bank_no_stated_maturity_20260922
 """
-import sqlalchemy as sa
 from alembic import op
 
 revision = "ifrs_incurred_region_20260922"

@@ -7,13 +7,12 @@ catch-all in that router (registered first) by living under `/engagement` and `/
 """
 from __future__ import annotations
 
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
 from api.deps import DbSession
-from api.routers.supervisor import Supervisor, _config, _supervised
+from api.routers.supervisor import Supervisor, _config, _period, _supervised
 
 router = APIRouter(prefix="/v1/supervisor", tags=["Regulator portal"])
 
@@ -31,7 +30,4 @@ def engagement_sla(session: DbSession, ctx: Supervisor):
 def obligations_calendar(session: DbSession, ctx: Supervisor, period_label: Optional[str] = None):
     from services.supervision.sla import authority_calendar
     reg = ctx["org"]["org_id"]
-    pl = period_label or f"FY{date.today().year - 1}"
-    if not pl.startswith("FY") or not pl[2:].isdigit():
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": "period_label must look like FY2025."})
-    return authority_calendar(session, reg, _config(session, reg), pl)
+    return authority_calendar(session, reg, _config(session, reg), _period(period_label))

@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
 import services.governance.entity_structure_import as ESI
+from core.db.session import get_session
 
 EMPTY_BANK_ORG = "7ec33d97-e346-4d1a-8c84-e257a43aa95c"
 

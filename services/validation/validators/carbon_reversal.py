@@ -148,8 +148,8 @@ def hansen_loss_share(geom) -> Optional[dict]:
             arr = ds.read(1, window=w, out_shape=(oh, ow), resampling=rasterio.enums.Resampling.nearest)
             tr = ds.window_transform(w) * rasterio.Affine.scale(w.width / ow, w.height / oh)
             mask = ~geometry_mask([mapping(geom)], out_shape=arr.shape, transform=tr, all_touched=False)
-            l, n = loss_counts(arr, mask)
-            loss += l; tot += n
+            lost, n = loss_counts(arr, mask)
+            loss += lost; tot += n
     return {"share": loss / tot, "px": tot} if tot > 0 else None
 
 

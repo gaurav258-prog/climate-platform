@@ -16,6 +16,14 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+
+# A row the pre-migration shape cannot hold: scripts/check_migration_roundtrip.py plants it and requires the downgrade
+# to refuse, leaving the schema untouched (every refusing downgrade must carry one).
+REFUSAL_PROBE = {
+    "setup": """INSERT INTO organizations (org_id, name, type, country) VALUES ('0bbe0bbe-0000-4000-8000-00000000fee1', 'refusal probe', 'bank', 'DE'); INSERT INTO regulatory_task (org_id, title, source) VALUES ('0bbe0bbe-0000-4000-8000-00000000fee1', 'refusal probe', 'supervisor');""",
+    "cleanup": """DELETE FROM regulatory_task WHERE org_id = '0bbe0bbe-0000-4000-8000-00000000fee1'; DELETE FROM organizations WHERE org_id = '0bbe0bbe-0000-4000-8000-00000000fee1';""",
+}
+
 def upgrade() -> None:
     op.execute("""
         CREATE TABLE IF NOT EXISTS supervision_request (
