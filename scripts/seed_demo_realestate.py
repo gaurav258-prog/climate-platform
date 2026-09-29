@@ -121,6 +121,9 @@ def main():
             WHERE e.org_id = :o AND e.vertical = 'realestate'
         """), {"o": STELLAR}).scalar()
         print(f"{scored} of {len(properties)} properties fall in scored cells (rest = no_canonical_score)")
+    # the facts EU Taxonomy activity 7.7 needs (demo only, fills only empty facts)
+    from scripts.seed_demo_reit_facts import main as seed_reit_facts
+    seed_reit_facts()
 
 
 if __name__ == "__main__":

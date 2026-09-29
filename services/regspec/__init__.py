@@ -165,9 +165,11 @@ def families_for(report_type: str) -> list[str]:
     return list(json.loads(_USAGE.read_text())["report_types"].get(report_type, []))
 
 
-def embeds_previous_period(report_type: str) -> bool:
-    """Whether a filing of this report type carries the previous period's frozen book (its templates print T-1)."""
-    return report_type in json.loads(_USAGE.read_text()).get("previous_period", {}).get("report_types", [])
+def embeds_previous_period(report_type: str) -> str | None:
+    """The key a filing of this report type freezes its book under, when it carries the previous period's book (its
+    templates print T-1 / N-1); None otherwise."""
+    pp = json.loads(_USAGE.read_text()).get("previous_period", {})
+    return pp.get("book_key", {}).get(report_type) if report_type in pp.get("report_types", []) else None
 
 
 def template(spec: dict, template_id: str) -> dict:
@@ -299,7 +301,8 @@ def supplied_cell(framework: str, key: str, period_end, *, elections: dict | Non
     if b.get("bases") and not basis:
         raise SpecError(f"{t.get('code') or tid} is disclosed turnover-based and CapEx-based: name the basis ('{tid}@turnover.{rid}.{cid}')")
     row_src, col_src = str(b.get("rows", {}).get(rid, "")), str(b.get("columns", {}).get(cid, ""))
-    if row_src == "n/a" or not (col_src.startswith("input") or row_src.startswith("input")):
+    entered_basis = bool(basis) and basis in (b.get("input_bases") or [])      # e.g. a CapEx copy the undertaking enters
+    if row_src == "n/a" or not (entered_basis or col_src.startswith("input") or row_src.startswith("input")):
         raise SpecError(f"{t.get('code') or tid} row {rid}, column {cid} is not a value the institution supplies")
     return {"template": tid, "row": rid, "column": cid, "spec": spec["version"], "basis": basis or None,
             "label": f"{t.get('code') or tid}, row {rid}, column {cid} — {(row['label'].split(' > ')[-1] or '')[:60]} · "

@@ -1,0 +1,92 @@
+{
+ "activity": "CCM 7.7",
+ "title": "Acquisition and ownership of buildings",
+ "source": "Delegated Regulation (EU) 2021/2139, Annex I, Section 7.7 and Appendix A (OJ L 442, 9.12.2021) — quotes verbatim from the Official Journal text",
+ "substantial_contribution": [
+  {
+   "id": "sc1",
+   "applies": "built_before_2021",
+   "quote": "For buildings built before 31 December 2020, the building has at least an Energy Performance Certificate (EPC) class A. As an alternative, the building is within the top 15 % of the national or regional building stock expressed as operational Primary Energy Demand (PED) and demonstrated by adequate evidence, which at least compares the performance of the relevant asset to the performance of the national or regional stock built before 31 December 2020 and at least distinguishes between residential and non-residential buildings.",
+   "met_by": [
+    "epc_rating == 'A'",
+    "ped_top15_evidence == true"
+   ]
+  },
+  {
+   "id": "sc2",
+   "applies": "built_after_2020",
+   "quote": "For buildings built after 31 December 2020, the building meets the criteria specified in Section 7.1 of this Annex that are relevant at the time of the acquisition.",
+   "met_by": [
+    "meets_new_building_criteria == true"
+   ]
+  },
+  {
+   "id": "sc3",
+   "applies": "large_non_residential",
+   "quote": "Where the building is a large non-residential building (with an effective rated output for heating systems, systems for combined space heating and ventilation, air-conditioning systems or systems for combined air-conditioning and ventilation of over 290 kW) it is efficiently operated through energy performance monitoring and assessment",
+   "large_threshold_kw": 290,
+   "met_by": [
+    "energy_performance_monitoring == true"
+   ]
+  }
+ ],
+ "dnsh": [
+  {
+   "objective": "cca",
+   "quote": "The activity complies with the criteria set out in Appendix A to this Annex.",
+   "appendix_a": [
+    "The physical climate risks that are material to the activity have been identified from those listed in the table in Section II of this Appendix by performing a robust climate risk and vulnerability assessment with the following steps:",
+    "For existing activities and new activities using existing physical assets, the economic operator implements physical and non-physical solutions (‘adaptation solutions’), over a period of time of up to five years, that reduce the most important identified physical climate risks that are material to that activity. An adaptation plan for the implementation of those solutions is drawn up accordingly."
+   ],
+   "met_by": [
+    "climate risk and vulnerability assessment performed",
+    "adaptation_plan_in_place == true"
+   ]
+  },
+  {
+   "objective": "wtr",
+   "quote": "N/A"
+  },
+  {
+   "objective": "ce",
+   "quote": "N/A"
+  },
+  {
+   "objective": "ppc",
+   "quote": "N/A"
+  },
+  {
+   "objective": "bio",
+   "quote": "N/A"
+  }
+ ],
+ "minimum_safeguards": {
+  "ref": "Regulation (EU) 2020/852, Article 18",
+  "met_by": [
+   "minimum_safeguards_status == 'compliant'"
+  ]
+ },
+ "interpretations": [
+  {
+   "subject": "Appendix A assessment",
+   "reading": "The platform's physical-risk assessment of each building (every hazard of the Appendix A table assessed at its location, across scenarios and time horizons) is the climate risk and vulnerability assessment of Appendix A steps (a) and (b). Which risks are material, and the adaptation solutions and plan, are the owner's and are stated per building.",
+   "basis": "Appendix A asks for a robust assessment using state-of-the-art climate projections across the range of future scenarios; the platform's hazard models provide that per location. The adaptation plan cannot be derived from data and is therefore a stated fact.",
+   "declared_by": "Tellumen"
+  }
+ ],
+ "property_types": {
+  "residential": [
+   "multifamily",
+   "residential"
+  ],
+  "non_residential": [
+   "office",
+   "retail",
+   "logistics",
+   "light_industrial",
+   "industrial",
+   "hotel"
+  ],
+  "note": "The platform's property types read against the Regulation's split between residential and non-residential buildings (§7.7 point 3 applies to large non-residential buildings). A type in neither list (e.g. 'property') leaves the split unknown."
+ }
+}

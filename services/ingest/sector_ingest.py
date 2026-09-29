@@ -215,6 +215,11 @@ INSURANCE = Sector("insurance_policies", "entity_name", "primary_value_eur",
 
 # ── real estate: property schedule → portfolio_entities (realestate) + ext_realestate ──
 
+# the facts EU Taxonomy activity 7.7 needs to decide alignment (data/reference/taxonomy/criteria/ccm_7_7.json)
+_TAXONOMY_7_7_FLAGS = ("ped_top15_evidence", "meets_new_building_criteria", "energy_performance_monitoring",
+                       "adaptation_plan_in_place")
+_TAXONOMY_7_7 = _TAXONOMY_7_7_FLAGS + ("heating_rated_output_kw",)
+
 def _rei_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name, ptype = _s(row, "property_name"), _s(row, "property_type")
@@ -231,6 +236,7 @@ def _rei_build(ctx: dict, row: dict) -> dict:
            "number_of_stories": _i(row, "number_of_stories"), "epc_rating": _vocab(row, "epc_rating", "epc_rating"),
            "borrower_entity_id": _s(row, "borrower_entity_id"),
            "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", "safeguards_status"),
+           **{k: _bool(row, k) for k in _TAXONOMY_7_7_FLAGS}, "heating_rated_output_kw": _i(row, "heating_rated_output_kw"),
            "external_ref": _s(row, "external_ref")}
     _plausible_building(rec)
     return rec
@@ -249,8 +255,12 @@ def _rei_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
                 :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid), :external_ref)
     """), recs)
     session.execute(text("""
-        INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating, annual_gross_rental_revenue_eur)
-        VALUES (CAST(:entity_id AS uuid), :annual_noi_eur, :epc_rating, :annual_gross_rental_revenue_eur)
+        INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating, annual_gross_rental_revenue_eur,
+                                    ped_top15_evidence, meets_new_building_criteria, heating_rated_output_kw,
+                                    energy_performance_monitoring, adaptation_plan_in_place)
+        VALUES (CAST(:entity_id AS uuid), :annual_noi_eur, :epc_rating, :annual_gross_rental_revenue_eur,
+                :ped_top15_evidence, :meets_new_building_criteria, :heating_rated_output_kw,
+                :energy_performance_monitoring, :adaptation_plan_in_place)
     """), recs)
 
 
@@ -261,17 +271,24 @@ def _rei_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
                                             "borrower_entity_id", "minimum_safeguards_status"))
     session.execute(text("""
         UPDATE ext_realestate SET annual_noi_eur = :annual_noi_eur, epc_rating = :epc_rating,
-               annual_gross_rental_revenue_eur = :annual_gross_rental_revenue_eur
+               annual_gross_rental_revenue_eur = :annual_gross_rental_revenue_eur,
+               ped_top15_evidence = :ped_top15_evidence, meets_new_building_criteria = :meets_new_building_criteria,
+               heating_rated_output_kw = :heating_rated_output_kw,
+               energy_performance_monitoring = :energy_performance_monitoring, adaptation_plan_in_place = :adaptation_plan_in_place
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
 
 REALESTATE = Sector("realestate_properties", "entity_name", "primary_value_eur",
                     _PE_COMMON + ("entity_type", "construction_type", "year_built", "number_of_stories", "borrower_entity_id",
-                                  "minimum_safeguards_status", "annual_noi_eur", "epc_rating", "annual_gross_rental_revenue_eur"),
+                                  "minimum_safeguards_status", "annual_noi_eur", "epc_rating", "annual_gross_rental_revenue_eur")
+                    + _TAXONOMY_7_7,
                     _default_entity, _rei_build,
                     _pe_existing("realestate", """, CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur, x.epc_rating,
-                                 CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur""",
+                                 CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur,
+                                 x.ped_top15_evidence, x.meets_new_building_criteria,
+                                 CAST(x.heating_rated_output_kw AS FLOAT) AS heating_rated_output_kw,
+                                 x.energy_performance_monitoring, x.adaptation_plan_in_place""",
                                  "LEFT JOIN ext_realestate x ON x.entity_id = e.entity_id"),
                     _rei_insert, _rei_update, group_entities=True)
 

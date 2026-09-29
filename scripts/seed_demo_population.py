@@ -298,6 +298,9 @@ def main() -> None:
     # the cloned bank books carry the per-exposure facts for Pillar 3 Templates 2 and 7-9 (only empty facts are filled)
     from scripts.seed_demo_gar_facts import main as seed_gar_facts
     seed_gar_facts()
+    # the cloned REIT books carry the facts EU Taxonomy activity 7.7 needs (only empty facts are filled)
+    from scripts.seed_demo_reit_facts import main as seed_reit_facts
+    seed_reit_facts()
 
 
 if __name__ == "__main__":

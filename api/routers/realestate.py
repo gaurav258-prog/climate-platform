@@ -51,7 +51,11 @@ from services.portfolio_engine import (
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "x.epc_rating",
-                          "CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur"]
+                          "CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur",
+                          # EU Taxonomy activity 7.7 alignment facts (services.governance.taxonomy_buildings)
+                          "x.ped_top15_evidence", "x.meets_new_building_criteria",
+                          "CAST(x.heating_rated_output_kw AS FLOAT) AS heating_rated_output_kw",
+                          "x.energy_performance_monitoring", "x.adaptation_plan_in_place"]
 
 
 def _realestate_extra(row, headline, hz):
@@ -87,6 +91,8 @@ def _map_property_row(row):
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
         "taxonomy_reasoning": row["taxonomy_reasoning"], "epc_rating": row["epc_rating"],
         "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
+        **{k: row.get(k) for k in ("ped_top15_evidence", "meets_new_building_criteria", "heating_rated_output_kw",
+                                   "energy_performance_monitoring", "adaptation_plan_in_place")},
     }
 
 router = APIRouter(prefix="/v1/realestate", tags=["Real Estate"])
@@ -240,6 +246,8 @@ def property_detail(property_id: str, session: DbSession, caller_org: OrgId):
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
         "taxonomy_reasoning": row["taxonomy_reasoning"], "epc_rating": row["epc_rating"],
         "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
+        **{k: row.get(k) for k in ("ped_top15_evidence", "meets_new_building_criteria", "heating_rated_output_kw",
+                                   "energy_performance_monitoring", "adaptation_plan_in_place")},
     }
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at

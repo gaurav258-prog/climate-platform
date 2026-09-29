@@ -136,7 +136,7 @@ def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_
 def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
     """EU Taxonomy Article 8 KPIs for the REIT property book (on top of the same frozen disclosure snapshot).
 
-    Carries the full `properties` + `by_hazard` alongside `rollup`/`art8` (fixed 2026-09-23 — an independent
+    Carries the full `properties` + `by_hazard` alongside `rollup` (fixed 2026-09-23 — an independent
     architecture review found this framework couldn't be traced back to source: build_disclosure_snapshot()
     computes the full per-property {h3_cell, hazards[]} list right here, in `snap`, and this used to discard
     it, keeping only the rollup aggregate. That made the earlier "documented workaround" — trace the sibling
@@ -147,11 +147,11 @@ def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_we
     the same period is no different in kind from the duplication every WORM version-to-version freeze already
     accepts; see filing_lineage._LIST_CFG."""
     from api.routers.realestate import build_disclosure_snapshot
-    from services.governance.reit_taxonomy import art8_kpis
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
                                      translation=translation)
-    return {"rollup": snap.get("rollup"), "properties": snap.get("properties"), "by_hazard": snap.get("by_hazard"),
-            "art8": art8_kpis(snap.get("properties") or [], currency=translation.presentation if translation else "EUR")}
+    # the EU Taxonomy Art. 8 figures are built from `properties` against the governing specification when the form is
+    # rendered (services.governance.taxonomy_nonfin) — the book is what is frozen
+    return {"rollup": snap.get("rollup"), "properties": snap.get("properties"), "by_hazard": snap.get("by_hazard")}
 
 
 def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):

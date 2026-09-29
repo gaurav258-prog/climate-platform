@@ -67,7 +67,9 @@ PROPERTY_TEMPLATE_FIELDS = _template(
     ("property_type", True), ("construction_type", False), ("year_built", False, {"example": "2011"}),
     ("number_of_stories", False, {"example": "1"}), ("region", False, {"example": "South Holland"}),
     ("country", False, {"example": "NL"}), ("epc_rating", False), ("borrower_entity_id", False),
-    ("minimum_safeguards_status", False), ("external_ref", False, _ref("property")),
+    ("minimum_safeguards_status", False), ("ped_top15_evidence", False), ("meets_new_building_criteria", False),
+    ("heating_rated_output_kw", False), ("energy_performance_monitoring", False), ("adaptation_plan_in_place", False),
+    ("external_ref", False, _ref("property")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
 

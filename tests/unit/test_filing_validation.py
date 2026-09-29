@@ -129,28 +129,21 @@ def test_arrears_overlay_ran_is_reported_but_never_blocks():
 # rulesets, closing the gap the independent review found (only bank_tcfd/sfdr_pai had one) ──
 
 def _good_reit():
-    return {"rollup": {"n_properties": 10, "n_scored": 10, "total_value_eur": 100_000_000},
-            "art8": {"turnover_kpi": {"total_eur": 5_000_000, "noi_proxy_used": False,
-                     "rows": [{"row": "Taxonomy-eligible turnover", "eur": 5_000_000, "pct": 60.0},
-                              {"row": "of which Taxonomy-aligned", "eur": 1_000_000, "pct": 12.0},
-                              {"row": "Taxonomy-non-eligible turnover", "eur": 2_000_000, "pct": 40.0}]},
-                     "capex_kpi": {"status": "computed", "total_eur": 1_200_000}}}
+    from tests.unit.test_taxonomy_nonfin import BOOK
+    return {"rollup": {"n_properties": 5, "n_scored": 5, "total_value_eur": 100_000_000}, "properties": [dict(p) for p in BOOK]}
 
 
 def test_reit_taxonomy_clean_payload_has_no_blockers():
     assert _blocking(_validate_reit_taxonomy(_good_reit())) == []
 
 
-def test_reit_taxonomy_eligible_plus_non_eligible_must_tie_to_100pct():
-    p = _good_reit()
-    p["art8"]["turnover_kpi"]["rows"][2]["pct"] = 10.0   # 60 + 10 = 70, not 100
-    assert any(f["rule"] == "turnover_eligible_ties_to_100pct" for f in _blocking(_validate_reit_taxonomy(p)))
+def test_reit_taxonomy_names_the_facts_missing_to_decide_alignment():
+    f = next(x for x in _validate_reit_taxonomy(_good_reit()) if x["rule"] == "alignment_determined")
+    assert "1 eligible buildings" in f["message"] and "top-15 %" in f["message"]
 
 
-def test_reit_taxonomy_aligned_cannot_exceed_eligible():
-    p = _good_reit()
-    p["art8"]["turnover_kpi"]["rows"][1]["pct"] = 90.0   # aligned 90% > eligible 60% — impossible
-    assert any(f["rule"] == "aligned_within_eligible" for f in _blocking(_validate_reit_taxonomy(p)))
+def test_reit_taxonomy_turnover_proxy_is_a_warning():
+    assert any(x["rule"] == "turnover_basis" for x in _validate_reit_taxonomy(_good_reit()))
 
 
 def test_reit_taxonomy_no_properties_is_blocking():

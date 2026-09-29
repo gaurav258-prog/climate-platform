@@ -761,18 +761,20 @@ def _previous_period_book(session: Session, org_id: str, framework: str, entity_
     print the previous disclosure reference date (regspec.embeds_previous_period). From the latest live filing of that
     period (never a superseded or withdrawn one); None when the organisation filed none."""
     from services.regspec import embeds_previous_period
-    if not embeds_previous_period(framework):
+    book_key = embeds_previous_period(framework)
+    if not book_key:
         return None
     try:
         prev_end = period_end.replace(year=period_end.year - 1)
     except ValueError:                                     # 29 February
         prev_end = date(period_end.year - 1, 2, 28)
     row = session.execute(text("""
-        SELECT f.filing_id::text AS filing_id, f.period_end, s.payload -> 'assets' AS assets
+        SELECT f.filing_id::text AS filing_id, f.period_end, s.payload -> :key AS assets
         FROM regulatory_filing f JOIN report_snapshots s ON s.snapshot_id = f.snapshot_id
         WHERE f.org_id = CAST(:o AS uuid) AND f.framework = :fw AND f.period_end = :pe
           AND f.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND f.status NOT IN ('superseded', 'withdrawn')
-        ORDER BY f.created_at DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id}).mappings().first()
+        ORDER BY f.created_at DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id,
+                                                 "key": book_key}).mappings().first()
     if not row or not row["assets"]:
         return None
     return {"filing_id": row["filing_id"], "period_end": row["period_end"].isoformat(), "assets": row["assets"]}

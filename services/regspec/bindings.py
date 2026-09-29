@@ -16,6 +16,11 @@ def binding_for(framework: str, spec: dict | None = None) -> dict | None:
         from services.governance import taxonomy_gar
         spec = spec or R.governing(framework, period_end=date.today())
         return taxonomy_gar.binding(spec) if spec else None
+    if framework == "nonfin_taxonomy":
+        import services.regspec as R
+        from services.governance import taxonomy_nonfin
+        spec = spec or R.governing(framework, period_end=date.today())
+        return taxonomy_nonfin.binding(spec) if spec else None
     if framework == "bank_p3esg":                     # one binding per template, from the modules that fill them
         import services.regspec as R
         from services.governance import pillar3_gar, pillar3_grids, pillar3_other

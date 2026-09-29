@@ -151,27 +151,15 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                  h.get("taxonomy_status"), h.get("h3_cell")] for h in payload.get("holdings", [])]
         return build_disclosure_workbook(_cur(headers, payload), rows, "Holdings physical risk", _summary_blocks(framework, payload))
     if framework == "reit_taxonomy":
-        # NOTE / assumption: unlike the located FIN books above, this framework's frozen payload is a KPI
-        # SUMMARY, not a per-property book — {"rollup": {...}, "art8": art8_kpis(...)} (see
-        # services/governance/report_snapshots._reit_taxonomy and reit_taxonomy.art8_kpis). There is no
-        # per-property row to disclose here (the property-level physical-risk book is reit_tcfd's own
-        # export); this renders the Article 8 turnover/CapEx/OpEx KPI rows as a single KPI table.
-        art8 = payload.get("art8") or {}
-        tk = art8.get("turnover_kpi") or {}
-        headers = ["kpi", "row", "eur", "pct", "note"]
-        rows = [["Turnover", r.get("row"), r.get("eur"), r.get("pct"), r.get("note") or ""]
-                for r in tk.get("rows", [])]
-        ev = tk.get("alignment_evidence") or {}
-        if ev:
-            rows.append(["Turnover · alignment evidence", "Substantial contribution (EPC A/B)", None,
-                         ev.get("substantial_contribution_epc_ab_pct"), ""])
-            rows.append(["Turnover · alignment evidence", "Climate-adaptation DNSH (favourable)", None,
-                         ev.get("climate_adaptation_dnsh_favourable_pct"), ""])
-            rows.append(["Turnover · alignment evidence", "Minimum safeguards verified", None,
-                         ev.get("minimum_safeguards_verified_pct"), ev.get("note") or ""])
-        for kpi_name, block in (("CapEx", art8.get("capex_kpi") or {}), ("OpEx", art8.get("opex_kpi") or {})):
-            rows.append([kpi_name, block.get("status", "declared_customer_data"), None, None, block.get("note") or ""])
-        return build_export_workbook(_cur(headers, payload), rows, sheet_name="REIT · Art.8 Taxonomy KPIs")
+        # the property book with each building's EU Taxonomy verdict, then the Annex II templates as blocks
+        from services.governance.taxonomy_nonfin import summary
+        sm = summary(payload.get("properties") or [])
+        headers = ["property_name", "turnover_eur", "noi_proxy", "activity", "aligned", "why"]
+        rows = [[b["name"], b["turnover"], b["noi_proxy"], b["activity"],
+                 {True: "aligned", False: "not aligned", None: "not determined"}[b["aligned"]] if b["activity"] else "not eligible",
+                 b["why"]] for b in sm["buildings"]]
+        return build_disclosure_workbook(_cur(headers, payload), rows, "EU Taxonomy Art. 8 — buildings",
+                                         _summary_blocks(framework, payload))
     if framework == "insurer_solvency":
         # NOTE / assumption: this framework's frozen payload is also a KPI summary, not a per-policy book —
         # {"rollup": {...}, "s2601": s2601_natcat(...)} (see report_snapshots._insurer_solvency and

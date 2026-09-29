@@ -186,3 +186,40 @@ def test_bank_taxonomy_filing_is_built_to_the_governing_version_and_takes_entere
     assert shown["text"] != "—"
     assert api.post("/v1/provided", headers=maker, json={"framework": "bank_tcfd", "datapoint_key": "T1.4.b",
                                                          "value_num": 1, "reporting_period_end": form["period_end"]}).status_code == 400
+
+
+def test_reit_taxonomy_filing_builds_annex_ii_from_the_property_book_and_takes_ledger_cells(api):
+    """EU Taxonomy Art. 8 for a building owner, end to end: the filing freezes the governing nonfin_taxonomy version and
+    the property book; the form renders every Annex II template of that version with the buildings placed in A.1 / A.2
+    by the 7.7 criteria; a CapEx figure from the undertaking's ledger is supplied, attested by a second person, and
+    appears on the refreshed draft; a computed turnover cell is refused."""
+    stellar = "33333333-3333-4333-8333-333333333333"
+    maker = _login(api, "admin@stellar.demo", "Demo!admin1")
+    checker = _login(api, "approver@stellar.demo", "Demo!approve1")
+    s = api.s
+    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'reit_taxonomy' "
+                   "AND status NOT IN ('superseded', 'withdrawn')"), {"o": stellar})
+    pf = api.get("/v1/filings/preflight?framework=reit_taxonomy", headers=maker).json()
+    g = api.post("/v1/filings", headers=maker, json={"framework": "reit_taxonomy", "confirm_token": pf["confirm_token"]})
+    assert g.status_code == 201, g.text
+    fid = g.json()["filing_id"]
+    import services.regspec as R
+    governing = R.governing("nonfin_taxonomy", period_end=pf["basis"]["reporting_period_end"][:10])
+    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
+    tx = [x for x in form["annex"]["sections"] if (x.get("spec") or {}).get("framework") == "nonfin_taxonomy"]
+    assert {x["spec"]["template"] for x in tx} == {t["id"] for t in governing["templates"]}
+    summary_rows = next(x for x in tx if x["spec"]["template"] == "T1")["rows"]
+    turnover = next(r for r in summary_rows if r["type"] == "row" and r["cells"][0]["text"].startswith("r1"))
+    assert all(c["text"] != "—" for c in turnover["cells"][1:6])                 # KPI: total, eligible %, aligned
+    capex = next(c for r in summary_rows if r["type"] == "row" for c in r["cells"] if c.get("supply"))
+    r = api.post("/v1/provided", headers=maker, json={"framework": "reit_taxonomy", "datapoint_key": capex["key"],
+                                                      "value_num": 4_200_000, "reporting_period_end": form["period_end"]})
+    assert r.status_code == 201, r.text
+    assert api.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=checker,
+                    json={"decision": "approved"}).status_code == 200
+    assert api.post(f"/v1/filings/{fid}/refresh", headers=maker).status_code == 200
+    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
+    t1 = next(x for x in form["annex"]["sections"] if x.get("key") == "taxonomy_t1")
+    assert next(c for r in t1["rows"] if r["type"] == "row" for c in r["cells"] if c.get("key") == capex["key"])["text"] != "—"
+    assert api.post("/v1/provided", headers=maker, json={"framework": "reit_taxonomy", "datapoint_key": "T1.r1.2",
+                                                         "value_num": 1, "reporting_period_end": form["period_end"]}).status_code == 400

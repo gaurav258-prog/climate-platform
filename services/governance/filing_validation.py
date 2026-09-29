@@ -165,33 +165,20 @@ def _validate_reit_taxonomy(payload: dict) -> list[dict]:
                   f"All {n_total} properties scored ({cov}%)" if n_scored == n_total
                   else f"{n_scored}/{n_total} scored ({cov}%) — the rest are excluded from the KPI"))
 
-    art8 = payload.get("art8") or {}
-    turnover = art8.get("turnover_kpi") or {}
-    rows = {r["row"]: r for r in (turnover.get("rows") or [])}
-    eligible = (rows.get("Taxonomy-eligible turnover") or {}).get("pct")
-    non_eligible = (rows.get("Taxonomy-non-eligible turnover") or {}).get("pct")
-    if eligible is not None and non_eligible is not None:
-        tie = abs((eligible + non_eligible) - 100) <= 0.5
-        out.append(_f("turnover_eligible_ties_to_100pct", "tie_out", "blocking", tie,
-                      f"Eligible + non-eligible turnover = {round(eligible + non_eligible, 1)}% of the book"
-                      if tie else f"Eligible ({eligible}%) + non-eligible ({non_eligible}%) turnover "
-                                  f"= {round(eligible + non_eligible, 1)}% — should tie to 100%"))
-    aligned = (rows.get("of which Taxonomy-aligned") or {}).get("pct")
-    if aligned is not None and eligible is not None:
-        out.append(_f("aligned_within_eligible", "plausibility", "blocking", aligned <= eligible + 0.01,
-                      f"Aligned ({aligned}%) is within eligible ({eligible}%)" if aligned <= eligible + 0.01
-                      else f"Aligned ({aligned}%) EXCEEDS eligible ({eligible}%) — impossible, an aligned "
-                           "activity is by definition also eligible"))
-    if turnover.get("noi_proxy_used"):
-        n_proxy = turnover.get("n_properties_using_noi_proxy", 0)
+    # the EU Taxonomy Art. 8 figures come from the property book (services.governance.taxonomy_nonfin)
+    from services.governance.taxonomy_nonfin import summary
+    sm = summary(payload.get("properties") or [])
+    if sm["n_unknown"]:
+        why = "; ".join(f"{r} ({n})" for r, n in sm["unknown_reasons"])
+        out.append(_f("alignment_determined", "completeness", "warning", False,
+                      f"{sm['n_unknown']} eligible buildings ({_eur(sm['unknown'])} of turnover) lack facts to decide "
+                      f"alignment and are in neither A.1 nor A.2 — {why}"))
+    if sm["noi_proxy"]:
         out.append(_f("turnover_basis", "completeness", "warning", False,
-                      f"{n_proxy} of {n_total} properties have no gross-revenue figure on file — turnover "
-                      "uses the NOI proxy, which UNDERSTATES true gross revenue"))
-    capex = art8.get("capex_kpi") or {}
-    if capex.get("status") == "declared_customer_data" and capex.get("total_eur") is None:
-        out.append(_f("capex_kpi", "completeness", "info", False,
-                      "CapEx KPI not available — requires the undertaking's own capex ledger, not derivable "
-                      "from asset location"))
+                      f"{sm['noi_proxy']} of {sm['n']} buildings have no gross rental revenue on file — turnover uses "
+                      "their NOI, which understates gross revenue"))
+    out.append(_f("capex_opex_ledger", "completeness", "info", False,
+                  "CapEx and OpEx KPIs are entered from the undertaking's own ledger (the Annex II CapEx / OpEx cells)"))
     return out
 
 

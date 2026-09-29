@@ -160,6 +160,22 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        aliases=("deductible",), range=(0, 1)),
     _f("year_built", "Year built", "int", "Year of construction.", "1998", aliases=("built", "year_of_construction", "yearbuilt", "construction_year"),
        range=(1800, 2100)),
+    # EU Taxonomy activity 7.7 (buildings) — Del. Reg. 2021/2139 Annex I §7.7 and Appendix A (criteria/ccm_7_7.json)
+    _f("ped_top15_evidence", "Top 15 % by primary energy demand", "vocab", "True where the building is evidenced to be "
+       "within the top 15 % of the national or regional stock by operational primary energy demand (the alternative to "
+       "EPC class A for a building built before 2021).", "false", vocab="boolean", aliases=("top15_ped", "ped_top_15")),
+    _f("meets_new_building_criteria", "Meets §7.1 (built after 2020)", "vocab", "For a building built after 31 December "
+       "2020: true where it meets the Taxonomy Section 7.1 construction criteria relevant at acquisition.", "true",
+       vocab="boolean", aliases=("meets_7_1", "nzeb_minus_10")),
+    _f("heating_rated_output_kw", "Heating / air-conditioning rated output (kW)", "int", "Effective rated output of the "
+       "heating, ventilation or air-conditioning systems — over 290 kW makes a non-residential building 'large'.", "350",
+       aliases=("hvac_kw", "rated_output_kw"), range=(0, 100000)),
+    _f("energy_performance_monitoring", "Energy-performance monitoring", "vocab", "True where the building is operated "
+       "through energy performance monitoring and assessment (required for a large non-residential building).", "true",
+       vocab="boolean", aliases=("energy_monitoring", "bems")),
+    _f("adaptation_plan_in_place", "Adaptation plan in place", "vocab", "True where adaptation solutions reducing the "
+       "material physical climate risks are implemented under an adaptation plan (Appendix A, existing buildings).",
+       "true", vocab="boolean", aliases=("adaptation_plan",)),
     _f("number_of_stories", "Stories", "int", "Number of stories.", "3", aliases=("stories", "storeys", "floors", "number_of_floors"), range=(0, 200)),
     _f("cresta_zone", "CRESTA zone", "int", "EIOPA/CRESTA risk-zone number (Del. Reg. 2015/35 Annex IX).", "21", aliases=("cresta",), range=(1, 9999)),
     _f("loan_origination_date", "Origination date", "date", "YYYY-MM-DD.", "2022-03-01", aliases=("origination_date", "start_date", "drawdown_date")),

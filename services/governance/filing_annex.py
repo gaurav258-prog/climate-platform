@@ -911,6 +911,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
         sections = _assetmgmt_annex(dps, payload or {})
     elif framework == "bank_tcfd":
         sections = _located_annex(dps, payload or {})
+    elif framework == "reit_taxonomy":
+        from services.governance import taxonomy_nonfin_forms
+        sections = taxonomy_nonfin_forms.sections(payload or {}, "reit_taxonomy")
     else:
         sections = _generic_annex(dps, groups)
     if not sections:

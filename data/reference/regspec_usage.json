@@ -17,7 +17,12 @@
  "previous_period": {
   "note": "Report types whose governing templates print the previous disclosure reference date (T-1): the filing embeds the previous period's frozen book for the same scope when it is frozen, so the T-1 columns are rebuilt from the filing alone.",
   "report_types": [
-   "bank_tcfd"
-  ]
+   "bank_tcfd",
+   "reit_taxonomy"
+  ],
+  "book_key": {
+   "bank_tcfd": "assets",
+   "reit_taxonomy": "properties"
+  }
  }
 }

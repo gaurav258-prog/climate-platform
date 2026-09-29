@@ -156,3 +156,11 @@ def test_pillar3_and_the_taxonomy_disclose_one_gar():
     gar_rows = _row(spec, "T1", "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation")
     ccm_aligned = _col(spec, "T1", objective="ccm", measure="aligned")
     assert p3["32"]["c"] == pytest.approx(out["T1"]["turnover"][gar_rows][ccm_aligned]) == pytest.approx(300)
+
+
+def test_t_minus_1_is_blank_without_a_previous_filing():
+    spec, out = _build(V2023, date(2025, 4, 30))
+    res = V.resolve(spec, "T1")
+    prev_cols = [cid for cid, f in res["columns"].items() if f.get("period") == "previous"]
+    assert prev_cols and all(out["T1"]["turnover"][r][c] is None for r in out["T1"]["turnover"] for c in prev_cols
+                             if isinstance(out["T1"]["turnover"][r], dict) and c in out["T1"]["turnover"][r])

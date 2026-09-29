@@ -224,6 +224,9 @@ def build(spec: dict, assets: list[dict], period_end: date, *, previous_assets: 
                         if fcol.get("input"):
                             row[c["id"]] = {"_input": fcol["input"]}
                             continue
+                        if fcol.get("period") == "previous" and not prev:
+                            row[c["id"]] = None             # no previous filing: T-1 is not known (blank, never 0)
+                            continue
                         if _not_required(ph, m, o):
                             row[c["id"]] = NOT_REQUIRED
                             continue
