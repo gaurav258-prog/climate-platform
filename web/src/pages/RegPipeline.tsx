@@ -1,12 +1,13 @@
 import { frameworkLabel } from '../lib/hazards'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Plus, ExternalLink, X, Radar, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, Plus, ExternalLink, Radar, CheckCircle2 } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
 import SpecRegister from '../components/SpecRegister'
+import { Dialog, CloseButton } from '../components/Dialog'
 
 // INTERNAL delivery pipeline — Tellumen's own "change the bank" board: a rule change tracked from spotted to
 // shipped (identified → analysis → scheduled → in dev → testing → released). This is platform-operator only;
@@ -100,14 +101,13 @@ export default function RegPipeline() {
       <SpecRegister canSign={(profile?.permissions ?? []).includes('platform.admin')} userId={profile?.user.id} />
 
       {sel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSel(null)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <Card className="relative w-full max-w-lg p-0 overflow-hidden" >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]" onClick={e => e.stopPropagation()}>
+        <Dialog bare title={`Regulatory change · ${sel.title}`} onClose={() => setSel(null)} className="w-full max-w-lg">
+          <Card className="p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
               <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Regulatory change · {LABEL[sel.stage]}</span>
-              <button onClick={() => setSel(null)} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={17} /></button>
+              <CloseButton onClick={() => setSel(null)} size={17} />
             </div>
-            <div className="p-5 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="p-5 space-y-3">
               <h3 className="display text-lg font-semibold">{sel.title}</h3>
               <div className="flex flex-wrap gap-2 text-[11px]">
                 {sel.framework && <span className="mono px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{sel.framework}</span>}
@@ -123,7 +123,7 @@ export default function RegPipeline() {
               {sel.is_platform && <p className="text-[11.5px] text-[var(--color-faint)]">Platform-managed change — read-only for your organisation.</p>}
             </div>
           </Card>
-        </div>
+        </Dialog>
       )}
     </div>
   )

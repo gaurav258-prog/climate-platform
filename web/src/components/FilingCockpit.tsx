@@ -5,7 +5,7 @@ const BASIS_VALUE: Record<string, string> = { 'regulation_status:current': 'in f
   'regulation_status:superseded': 'superseded for the period', 'view:joint': 'joint', 'view:client': 'your values only', 'view:tellumen': 'Tellumen where derived' }
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw, Trash2, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
+import { ShieldCheck, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw, Trash2, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
@@ -21,6 +21,8 @@ import DisclosureFlags from './DisclosureFlags'
 import ProvidedData from './ProvidedData'
 import FilingForm from './FilingForm'
 import { actionLabel } from '../lib/actionLabels'
+import { CloseButton } from './Dialog'
+import { Drawer } from './Drawer'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -404,11 +406,10 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
   const reload = () => { q.refetch(); val.refetch(); qc.invalidateQueries({ queryKey: ['filings'] }); qc.invalidateQueries({ queryKey: ['obligations'] }); onChanged() }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)]">
-      <div className="relative w-full max-w-6xl mx-auto min-h-full pb-16">
+    <Drawer placement="full" label={f ? `Filing · ${f.label}` : 'Filing'} onClose={onClose} className="w-full max-w-6xl mx-auto min-h-full pb-16">
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-[var(--color-line)] bg-[var(--color-bg)]/95 backdrop-blur">
           <button onClick={onClose} className="inline-flex items-center gap-1.5 mono text-[11px] uppercase tracking-wide text-[var(--color-mute)] hover:text-[var(--color-ink)]"><ChevronLeft size={15} /> Back to reports</button>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
 
         {!f ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div> : (
@@ -521,9 +522,8 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
             </div>
           </div>
         )}
-      </div>
-    {share && <AssuranceShareDialog filingId={share.id} label={share.label} onClose={() => setShare(null)} />}
-    </div>
+      {share && <AssuranceShareDialog filingId={share.id} label={share.label} onClose={() => setShare(null)} />}
+    </Drawer>
   )
 }
 

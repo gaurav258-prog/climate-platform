@@ -17,6 +17,8 @@ import { filingLink } from '../lib/links'
 import { toast } from '../lib/toast'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
 import { balance, flow, money } from '../lib/money'
+import { CloseButton } from '../components/Dialog'
+import { Drawer } from '../components/Drawer'
 
 // the asset-detail config per bank/REIT framework — lets a KRI exposure row open the full asset drawer
 const DRAWER_CFG: Record<string, DrawerCfg> = {
@@ -293,10 +295,8 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
   const q = useQuery({ queryKey: ['kri-hazard', framework, hazard], queryFn: () => api.get<HazDrill>(`/v1/reg-tasks/kri/hazard?framework=${framework}&hazard=${hazard}`) })
   const d = q.data
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(460)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
+    <Drawer label={`Driving ${hazardLabel(hazard)}`} onClose={onClose} style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(460) }}
+      className="w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto">
         <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
           <div><div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Driving {hazardLabel(hazard)}</div></div>
           <div className="flex items-center gap-3">
@@ -305,7 +305,7 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
                 explore forward <ChevronRight size={11} />
               </button>
             )}
-            <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronRight size={17} className="rotate-180" /></button>
+            <CloseButton onClick={onClose} size={17} icon="back" />
           </div>
         </div>
         {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
@@ -329,8 +329,7 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Drawer>
   )
 }
 
@@ -393,12 +392,11 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
   const tf = (v: number) => d?.trend.fmt === 'eur' ? (d.trend.flow ? flow(v) : balance(v)) : d?.trend.fmt === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
   const compTitle: Record<string, string> = { hazard: 'Exposure by hazard', scope: 'Emissions by scope', coverage: 'Scored vs unscored', taxonomy: 'Eligible vs not eligible', sector: 'Concentration by NACE sector', horizon: 'Projected trajectory by horizon' }
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(460)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
+    <Drawer label="KRI detail" onClose={onClose} style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(460) }}
+      className="w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto">
+        {(!d || !d.supported) && <CloseButton onClick={onClose} size={17} icon="back" className="absolute top-3 right-5" />}
         {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
-          : !d.supported ? <div className="p-6 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No detail for this KRI.'}</div>
+          : !d.supported ? <div className="p-6 pr-12 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No detail for this KRI.'}</div>
           : (() => {
             const k = d.kpi
             const integrated = k.kind === 'integrated' || k.integrated
@@ -413,7 +411,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                   <div className="display text-[26px] leading-none mt-1.5" style={{ color: k.status ? RAG[k.status] : k.tone ?? undefined }}>{value}</div>
                   <div className="text-[13px] text-[var(--color-mute)] mt-1">{k.label}</div>
                 </div>
-                <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] shrink-0"><ChevronRight size={17} className="rotate-180" /></button>
+                <CloseButton onClick={onClose} size={17} icon="back" />
               </div>
               <div className="p-5 space-y-5">
                 {(d.regulator || k.reg) && (
@@ -573,8 +571,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
               </div>
             </>)
           })()}
-      </div>
       {assetId && drawerCfg && <AssetDrawer cfg={drawerCfg} id={assetId} onClose={() => setAssetId(null)} onChanged={() => segQ.refetch()} />}
-    </div>
+    </Drawer>
   )
 }

@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, X, Factory } from 'lucide-react'
+import { ChevronRight, Factory } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { money } from '../lib/money'
 import { Card, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
+import { CloseButton } from './Dialog'
+import { Drawer } from './Drawer'
 
 // The fund's holdings, each drilling to the issuer's full physical footprint (per-facility scores) — the
 // look-through from a fund position to the real assets on the ground that drive its climate risk.
@@ -70,12 +72,10 @@ function IssuerDrawer({ issuerId, onClose }: { issuerId: string; onClose: () => 
   const iss = d?.issuer
   const perHaz = d?.physical?.per_hazard ? Object.entries(d.physical.per_hazard).sort((a, b) => b[1].score - a[1].score) : []
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="relative w-full max-w-lg h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl" onClick={e => e.stopPropagation()}>
+    <Drawer label="Issuer" onClose={onClose} backdropClassName="bg-black/50" className="w-full max-w-lg h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
           <SectionHead>Issuer</SectionHead>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
         {q.isError ? <div className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Issuer not found.')}</div>
           : !d ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div>
@@ -132,7 +132,6 @@ function IssuerDrawer({ issuerId, onClose }: { issuerId: string; onClose: () => 
             )}
           </div>
         )}
-      </div>
-    </div>
+    </Drawer>
   )
 }

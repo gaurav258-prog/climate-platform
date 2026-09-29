@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, X, Rocket, Copy, FileText, Users, CheckCircle2, Building2, ArrowRight } from 'lucide-react'
+import { Plus, Rocket, Copy, FileText, Users, CheckCircle2, Building2, ArrowRight } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, PageHeader } from '../components/ui'
 import OperatorTabs from '../components/OperatorTabs'
+import { Dialog, CloseButton } from '../components/Dialog'
 
 interface IntakeRow {
   intake_id: string; company_name: string; org_type: string; country: string | null; region: string
@@ -94,7 +95,7 @@ function CreateIntakeModal({ onClose, onCreated }: { onClose: () => void; onCrea
   }
 
   return (
-    <Overlay onClose={onClose}>
+    <Overlay title="New client intake" onClose={onClose}>
       {done ? (
         <div>
           <div className="flex items-center gap-2 mb-2"><CheckCircle2 size={20} className="text-[var(--color-good)]" /><h2 className="display text-lg font-semibold m-0">Intake opened</h2></div>
@@ -104,7 +105,7 @@ function CreateIntakeModal({ onClose, onCreated }: { onClose: () => void; onCrea
         </div>
       ) : (
         <div>
-          <div className="flex items-center justify-between mb-4"><h2 className="display text-lg font-semibold m-0">New client intake</h2><button onClick={onClose}><X size={18} className="text-[var(--color-faint)]" /></button></div>
+          <div className="flex items-center justify-between mb-4"><h2 className="display text-lg font-semibold m-0">New client intake</h2></div>
           <div className="space-y-3">
             <Field label="Company name"><input className={inp} value={f.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Meridian Capital Partners" /></Field>
             <div className="grid grid-cols-2 gap-3">
@@ -143,7 +144,7 @@ function IntakeDrawer({ intakeId, onClose, onChanged }: { intakeId: string; onCl
   }
 
   return (
-    <Overlay onClose={onClose} wide>
+    <Overlay title={d ? `Client intake · ${d.company_name}` : 'Client intake'} onClose={onClose} wide>
       {!d ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : result ? (
         <div>
           <div className="flex items-center gap-2 mb-1"><Rocket size={20} className="text-[var(--color-good)]" /><h2 className="display text-lg font-semibold m-0">{result.org_name} is live</h2></div>
@@ -157,8 +158,7 @@ function IntakeDrawer({ intakeId, onClose, onChanged }: { intakeId: string; onCl
       ) : (
         <div>
           <div className="flex items-center justify-between mb-1">
-            <h2 className="display text-lg font-semibold m-0">{d.company_name}</h2>
-            <button onClick={onClose}><X size={18} className="text-[var(--color-faint)]" /></button>
+            <h2 className="display text-lg font-semibold m-0 pr-8">{d.company_name}</h2>
           </div>
           <div className="flex items-center gap-2 mb-4"><Pill status={d.status} /><span className="mono text-[11px] text-[var(--color-faint)]">{d.org_type.replace('_', ' ')} · {d.region}{d.country ? `/${d.country}` : ' · country pending'}</span></div>
 
@@ -226,13 +226,12 @@ function CopyField({ value, small }: { value: string; small?: boolean }) {
     </div>
   )
 }
-function Overlay({ children, onClose, wide }: { children: React.ReactNode; onClose: () => void; wide?: boolean }) {
+function Overlay({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/50" onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} className={`w-full ${wide ? 'max-w-[560px]' : 'max-w-[440px]'} max-h-[88vh] overflow-y-auto`}>
-        <Card className="p-5">{children}</Card>
-      </div>
-    </div>
+    <Dialog bare title={title} onClose={onClose} className={`w-full ${wide ? 'max-w-[560px]' : 'max-w-[440px]'} max-h-[88vh] overflow-y-auto`}>
+      <Card className="p-5">{children}</Card>
+      <CloseButton onClick={onClose} className="absolute top-5 right-5" />
+    </Dialog>
   )
 }
 const Center = ({ children }: { children: React.ReactNode }) => <div className="h-[55vh] grid place-items-center text-[var(--color-faint)] text-sm">{children}</div>

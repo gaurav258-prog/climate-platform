@@ -5,6 +5,7 @@ import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Button, Card, SectionHead } from '../components/ui'
+import { Dialog, CloseButton } from './Dialog'
 
 // Governed remittance — an evidence pack shared onward to another authority, college or committee.
 // Three surfaces share these types: the issuing supervisor (dialog + list + access log + revoke), the supervised
@@ -50,8 +51,8 @@ export function RemitDialog({ orgId, packId, packVersion, onClose }: { orgId: st
     } catch (e) { toast.error((e as Error).message || 'Could not remit the pack.') } finally { setBusy(false) }
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-[640px] max-h-[92vh] overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <Dialog bare title="Remit this case file onward" onClose={onClose} className="w-full max-w-[640px] max-h-[92vh] overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl">
+      <CloseButton onClick={onClose} className="absolute top-4 right-4" />
         <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-blue)] mb-1">Governed remittance · evidence pack v{packVersion}</div>
         <h2 className="display text-lg font-semibold m-0 text-[var(--color-ink)]">Remit this case file onward</h2>
         <p className="text-[12.5px] text-[var(--color-mute)] mt-1 mb-4">{c?.notice ?? 'The recipient gets a scoped, watermarked, time-limited copy under a link that you can revoke; every access is logged and the entity sees the remittance on its audit trail.'}</p>
@@ -102,8 +103,7 @@ export function RemitDialog({ orgId, packId, packVersion, onClose }: { orgId: st
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Dialog>
   )
 }
 

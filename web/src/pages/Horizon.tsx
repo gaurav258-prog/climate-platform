@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Crosshair, Satellite } from 'lucide-react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, Maximize2, Minimize2, Crosshair, Satellite } from 'lucide-react'
 import LiveEarthHero from '../components/LiveEarthHero'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
@@ -9,6 +9,7 @@ import { hazardLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { COAST } from '../lib/coastline'
 import { balance, flow } from '../lib/money'
+import { Dialog, CloseButton } from '../components/Dialog'
 
 interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
@@ -719,38 +720,35 @@ export default function Horizon() {
       {/* granular H3 grid modal — the drill-down beneath the overview globe */}
       {/* click the orbiting satellite → the live downlink from the ISS (reuses the Sen SpaceTV-1 feed) */}
       {issOpen && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-[#04060bee] backdrop-blur-sm p-6" onClick={() => setIssOpen(false)}>
-          <div className="relative w-[min(1120px,94vw)]" onClick={e => e.stopPropagation()}>
+        <Dialog bare title="Live · Earth from the ISS" onClose={() => setIssOpen(false)} overlayClassName="z-40 p-6" backdropClassName="bg-[#04060bee] backdrop-blur-sm" className="w-[min(1120px,94vw)]">
             <div className="flex items-center justify-between mb-3">
               <div className="inline-flex items-center gap-2 mono text-[11px] uppercase tracking-[0.18em] text-white/70">
                 <Satellite size={13} className="text-[#9CC6FF]" /> Live · Earth from the ISS
                 {issRef.current && <span className="text-white/40 normal-case tracking-normal">· {Math.abs(issRef.current.lat).toFixed(1)}°{issRef.current.lat >= 0 ? 'N' : 'S'}, {Math.abs(issRef.current.lon).toFixed(1)}°{issRef.current.lon >= 0 ? 'E' : 'W'} · ~420 km · 27,600 km/h</span>}
               </div>
-              <button onClick={() => setIssOpen(false)} className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><X size={15} /></button>
+              <CloseButton onClick={() => setIssOpen(false)} size={15} look="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]" />
             </div>
             <LiveEarthHero height="66vh" showBadge={false} />
             <div className="mono text-[10.5px] text-white/40 mt-2.5 text-center">A live view from low-Earth orbit. Your risk scores are derived from Earth-observation satellites (Copernicus / Sentinel, NASA, USGS) — not this camera.</div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {hexOpen && sel && (
-        <div className="fixed inset-0 z-30 grid place-items-center bg-[#04060bcc] backdrop-blur-sm p-6" onClick={() => setHexOpen(false)}>
-          <div className="relative w-[min(760px,92vw)] h-[min(560px,82vh)] rounded-2xl overflow-hidden border border-[var(--color-line-2)] bg-[#070b13]" onClick={e => e.stopPropagation()}>
+        <Dialog bare title={`Granular grid · ${sel.name}`} onClose={() => setHexOpen(false)} overlayClassName="z-30 p-6" backdropClassName="bg-[#04060bcc] backdrop-blur-sm"
+          className="w-[min(760px,92vw)] h-[min(560px,82vh)] rounded-2xl overflow-hidden border border-[var(--color-line-2)] bg-[#070b13]">
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3 bg-[#070b13cc] backdrop-blur border-b border-[var(--color-line)]">
               <div>
                 <div className="mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-faint)]">Granular grid · {sel.region} · {sel.kind}</div>
                 <div className="display text-[18px] text-[#F4EFE6] leading-tight">{sel.name}</div>
               </div>
-              <button onClick={() => setHexOpen(false)} className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><X size={15} /></button>
+              <CloseButton onClick={() => setHexOpen(false)} size={15} look="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]" />
             </div>
             <div className="absolute inset-0 pt-[58px]">
               <HexMap lat={sel.lat} lon={sel.lon} assets={assets} selectedId={sel.id}
                 scenario={q.data?.scenario}
                 horizon={viewYear <= 2027 ? 'current' : viewYear <= 2040 ? '2030' : viewYear <= 2075 ? '2050' : '2100'} />
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileSignature, Upload, Download, Trash2, X, ShieldCheck } from 'lucide-react'
+import { FileSignature, Upload, Download, Trash2, ShieldCheck } from 'lucide-react'
 import { api, download, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, PageHeader, Button, SectionHead } from '../components/ui'
+import { Dialog, CloseButton } from '../components/Dialog'
 
 interface Contract {
   contract_id: string; title: string; counterparty: string | null; contract_type: string; status: string
@@ -112,12 +113,11 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-[480px]" onClick={e => e.stopPropagation()}>
+    <Dialog bare title="Upload a signed contract" onClose={onClose} className="w-full max-w-[480px]">
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
             <SectionHead icon={FileSignature}>Upload a signed contract</SectionHead>
-            <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+            <CloseButton onClick={onClose} />
           </div>
           <div className="space-y-3">
             <label className="flex flex-col gap-1">
@@ -162,8 +162,7 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
             </div>
           </div>
         </Card>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 

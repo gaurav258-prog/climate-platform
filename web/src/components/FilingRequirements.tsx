@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
 import { Card, SectionHead } from './ui'
 import FilingForm from './FilingForm'
+import { CloseButton } from './Dialog'
+import { Drawer } from './Drawer'
 
 // What must this org report, to whom, how often, with links to the actual regulation + official form, the
 // data it needs, when it was last filed, and access to every prior submission. The entry point to the
@@ -183,16 +185,14 @@ function RegulationDrawer({ req: r, onClose, onOpenFiling }: { req: Req; onClose
   const { width, setWidth, startResize } = useResizableWidth('tellumen.regdrawerw', 940, 640, 1320, 'right')
   const latest = r.last_filed?.filing_id ?? r.filings[0]?.filing_id ?? null
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(940)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
+    <Drawer label={`Regulation & official form · ${r.official_name || r.label}`} onClose={onClose} style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(940) }}
+      className="w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-hidden flex flex-col">
         <div className="shrink-0 border-b border-[var(--color-line)] px-5 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Regulation &amp; official form</div>
             <div className="text-[15px] font-semibold text-[var(--color-ink)] truncate">{r.official_name || r.label}</div>
           </div>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] shrink-0"><ChevronRight size={17} className="rotate-180" /></button>
+          <CloseButton onClick={onClose} size={17} icon="back" />
         </div>
 
         <div className="flex-1 overflow-hidden grid lg:grid-cols-[minmax(0,380px)_1fr]">
@@ -244,8 +244,7 @@ function RegulationDrawer({ req: r, onClose, onOpenFiling }: { req: Req; onClose
             {latest && <button onClick={() => { onOpenFiling(latest); onClose() }} className="mt-3 inline-flex items-center gap-1.5 mono text-[10.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">open full filing <ChevronRight size={12} /></button>}
           </div>
         </div>
-      </div>
-    </div>
+    </Drawer>
   )
 }
 

@@ -5,6 +5,7 @@ import { toast } from '../lib/toast'
 import { Button, Card, StatGrid, Eyebrow } from '../components/ui'
 import { HBar } from '../components/Charts'
 import ReviewTabs from '../components/ReviewTabs'
+import { Dialog, CloseButton } from '../components/Dialog'
 
 // Model-risk register — a card per model the figures rest on (identity, what it may claim, validation, data,
 // limitations, governance) and the organisation's own review record, bound to the hash of the card reviewed.
@@ -122,8 +123,8 @@ function ReviewDialog({ c, conclusions, onClose }: { c: CardT; conclusions: Reco
     catch (e) { toast.error((e as Error).message || 'Could not record the review.') } finally { setBusy(false) }
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-[520px] rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <Dialog bare title={`Independent review · ${c.name}`} onClose={onClose} className="w-full max-w-[520px] rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl">
+      <CloseButton onClick={onClose} className="absolute top-4 right-4" />
         <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-blue)] mb-1">Independent review · {c.hazard}</div>
         <h2 className="display text-lg font-semibold m-0 text-[var(--color-ink)]">{c.name}</h2>
         <p className="text-[12.5px] text-[var(--color-mute)] mt-1 mb-4">Your conclusion is recorded by name and bound to card hash <span className="mono text-[11px]">{c.card_sha256.slice(0, 16)}…</span>. If the card changes later, this review shows as stale.</p>
@@ -133,7 +134,6 @@ function ReviewDialog({ c, conclusions, onClose }: { c: CardT; conclusions: Reco
           <label className="block text-[11px] mono uppercase tracking-wide text-[var(--color-faint)]">Next review by<input type="date" value={next} onChange={e => setNext(e.target.value)} className={inp + ' mt-1'} /></label>
           <div className="flex justify-end gap-2 pt-1"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={submit} disabled={busy || (conclusion !== 'fit_for_use' && !comment)}>{busy ? 'Recording…' : 'Record review'}</Button></div>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

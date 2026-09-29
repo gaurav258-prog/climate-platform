@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell, ListChecks } from 'lucide-react'
+import { Plus, ChevronRight, ChevronLeft, AlertTriangle, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell, ListChecks } from 'lucide-react'
 import { api, ApiError, upload, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
 import { filingLink } from '../lib/links'
 import { prettify } from '../lib/hazards'
+import { Dialog, CloseButton } from '../components/Dialog'
+import { Drawer } from '../components/Drawer'
 
 // Kanban board for the regulatory workflow — every task (import a file, investigate a failed validation,
 // generate the XBRL, run the 4-eyes approval) as a card you move across columns and assign to a colleague.
@@ -197,15 +199,13 @@ export default function Tasks() {
 function CompletionModal({ task, onClose, onConfirm }: { task: Task; onClose: () => void; onConfirm: (note: string) => void }) {
   const [note, setNote] = useState('')
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="relative w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+    <Dialog bare title="Request completion" onClose={onClose} overlayClassName="z-[60] p-4" className="w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5">
         <div className="flex items-start justify-between gap-3 mb-1">
           <div>
             <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-sky)] flex items-center gap-1.5"><ShieldCheck size={12} /> 4-eyes required</div>
             <h3 className="display text-lg font-semibold mt-1">Request completion</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
         <p className="text-[12.5px] text-[var(--color-mute)] mb-3">
           “{task.title}” moves to Done only once a <b className="text-[var(--color-ink)]">different colleague</b> approves
@@ -217,8 +217,7 @@ function CompletionModal({ task, onClose, onConfirm }: { task: Task; onClose: ()
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button variant="primary" disabled={!note.trim()} onClick={() => onConfirm(note.trim())}><Send size={14} /> Request approval</Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -232,15 +231,13 @@ function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: s
   const allOk = items.every(i => (i.auto ? autoOk(i) : checked[i.id]))
   const confirm = () => onConfirm(items.map(i => i.label))
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="relative w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+    <Dialog bare title={`Move to “${COL_LABEL[target]}”`} onClose={onClose} overlayClassName="z-[60] p-4" className="w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5">
         <div className="flex items-start justify-between gap-3 mb-1">
           <div>
             <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-sky)] flex items-center gap-1.5"><ShieldCheck size={12} /> Stage gate</div>
             <h3 className="display text-lg font-semibold mt-1">Move to “{COL_LABEL[target]}”</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
         <p className="text-[12.5px] text-[var(--color-mute)] mb-3">Complete these mandatory checks before the card can enter this stage.</p>
         <div className="space-y-2">
@@ -260,8 +257,7 @@ function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: s
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button variant="primary" disabled={!allOk} onClick={confirm}><Check size={14} /> Confirm move</Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -333,12 +329,10 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <Drawer label="Task" onClose={onClose} className="w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto">
         <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
           <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Task</span>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={17} /></button>
+          <CloseButton onClick={onClose} size={17} />
         </div>
         {!t ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div> : (
           <div className="p-5 space-y-4">
@@ -407,12 +401,11 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
             </div>
           </div>
         )}
-      </div>
       {t && gate && <GateModal task={t} target={gate} onClose={() => setGate(null)}
         onConfirm={atts => { const target = gate; setGate(null); doMove(target, atts) }} />}
       {t && completing && <CompletionModal task={t} onClose={() => setCompleting(false)}
         onConfirm={note => { setCompleting(false); requestCompletion(note) }} />}
-    </div>
+    </Drawer>
   )
 }
 

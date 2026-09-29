@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Button, Card, SectionHead } from '../components/ui'
+import { Dialog, CloseButton } from './Dialog'
 
 const dt = (s: string | null | undefined) => s ? s.slice(0, 16).replace('T', ' ') : '—'
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)]'
@@ -112,8 +113,8 @@ export function AssuranceShareDialog({ filingId, label, onClose }: { filingId: s
   }
   const revoke = async (s: Share) => { try { await api.post(`/v1/assurance-shares/${s.share_id}/revoke`); await qc.invalidateQueries({ queryKey: ['assurance-shares', filingId] }) } catch (e) { toast.error((e as Error).message) } }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-[620px] max-h-[90vh] overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <Dialog bare title="Share with the auditor" onClose={onClose} className="w-full max-w-[620px] max-h-[90vh] overflow-y-auto rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl">
+      <CloseButton onClick={onClose} className="absolute top-4 right-4" />
         <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-blue)] mb-1">Assurance pack · {label}</div>
         <h2 className="display text-lg font-semibold m-0 text-[var(--color-ink)]">Share with the auditor</h2>
         <p className="text-[12.5px] text-[var(--color-mute)] mt-1 mb-4">The auditor receives a link to the evidence bundle behind this filing: methodology, validation record, four-eyes approvals, provenance, the control register and a hashed manifest. The link expires, counts downloads, can be revoked, and every access is on your audit trail.</p>
@@ -144,7 +145,6 @@ export function AssuranceShareDialog({ filingId, label, onClose }: { filingId: s
               <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">expires {s.expires_at.slice(0, 10)} · {s.n_downloads}{s.max_downloads ? `/${s.max_downloads}` : ''} downloads · {s.accesses.length} accesses</span>
               {s.status === 'active' && <button onClick={() => revoke(s)} className="text-[var(--color-bad)] hover:underline">Revoke</button>}
             </div>))}</div></div>}
-      </div>
-    </div>
+    </Dialog>
   )
 }

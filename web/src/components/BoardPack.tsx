@@ -4,6 +4,7 @@ import { api, download, getToken } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Button, Card, StatGrid } from '../components/ui'
+import { Dialog, CloseButton } from './Dialog'
 
 // Board climate-risk pack — one immutable, hashed document per period that the board reviews, and that named
 // members attest to after re-authenticating. Everything shown is the pack's own stored summary.
@@ -98,8 +99,8 @@ function AttestDialog({ pack, statements, onClose }: { pack: Pack; statements: R
     } catch (e) { setErr((e as Error).message || 'Could not record the attestation.') } finally { setBusy(false) }
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-[560px] rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <Dialog bare title="Attest this pack by name" onClose={onClose} className="w-full max-w-[560px] rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-2xl">
+      <CloseButton onClick={onClose} className="absolute top-4 right-4" />
         <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-blue)] mb-1">Attestation · board pack v{pack.version} · {pack.period_from} → {pack.period_to}</div>
         <h2 className="display text-lg font-semibold m-0 text-[var(--color-ink)]">Attest this pack by name</h2>
         <p className="text-[12.5px] text-[var(--color-mute)] mt-1 mb-4">Your attestation binds you, in the capacity you state, to content hash <span className="mono text-[11px]">{pack.sha256.slice(0, 16)}…</span>. It is recorded on the audit trail and printed on the pack. Re-authenticate to confirm.</p>
@@ -114,7 +115,6 @@ function AttestDialog({ pack, statements, onClose }: { pack: Pack; statements: R
           {err && <div className="text-[12.5px] text-[var(--color-bad)]">{err}</div>}
           <div className="flex justify-end gap-2 pt-1"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={submit} disabled={busy || !capacity || !pw}>{busy ? 'Recording…' : 'Attest'}</Button></div>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

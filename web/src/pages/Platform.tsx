@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2, Building2, Users, MapPin, Sprout, Clock, Plus } from 'lucide-react'
+import { Globe, ChevronRight, LogIn, LifeBuoy, Send, CheckCircle2, Building2, Users, MapPin, Sprout, Clock, Plus } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import OperatorTabs from '../components/OperatorTabs'
 import { actionLabel } from '../lib/actionLabels'
+import { Dialog, CloseButton } from '../components/Dialog'
+import { Drawer } from '../components/Drawer'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -165,12 +167,10 @@ function SupportDrawer({ id, onClose, onChanged }: { id: string; onClose: () => 
     } catch { toast.error('Could not send.') } finally { setBusy(false) }
   }
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-lg h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-6 space-y-4" onClick={e => e.stopPropagation()}>
+    <Drawer label="Support · reply as Tellumen" onClose={onClose} overlayClassName="z-40" className="w-full max-w-lg h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2"><LifeBuoy size={16} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Support · reply as Tellumen</span></div>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
         {!d ? <div className="text-[var(--color-faint)] text-sm">loading…</div> : (<>
           <div>
@@ -203,8 +203,7 @@ function SupportDrawer({ id, onClose, onChanged }: { id: string; onClose: () => 
             </div>
           </div>
         </>)}
-      </div>
-    </div>
+    </Drawer>
   )
 }
 
@@ -215,12 +214,10 @@ function TenantDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }
   const d = q.data
   const enter = async () => { setBusy(true); try { await viewAsTenant(orgId) } catch { setBusy(false) } }
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-md h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-6 space-y-5" onClick={e => e.stopPropagation()}>
+    <Drawer label="Tenant" onClose={onClose} overlayClassName="z-40" className="w-full max-w-md h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2"><Globe size={16} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Tenant</span></div>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
         {!d ? <div className="text-[var(--color-faint)] text-sm">loading…</div> : (<>
           <div>
@@ -262,8 +259,7 @@ function TenantDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }
             </div>
           </div>
         </>)}
-      </div>
-    </div>
+    </Drawer>
   )
 }
 // ─────────────── Provision a new client tenant (onboarding step 1) ───────────────
@@ -306,12 +302,11 @@ function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCrea
   )
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-[560px]" onClick={e => e.stopPropagation()}>
+    <Dialog bare title="Provision a new client tenant" onClose={onClose} className="w-full max-w-[560px]">
       <Card className="max-h-[88vh] overflow-y-auto p-5">
         <div className="flex items-center justify-between mb-1">
           <SectionHead icon={Building2}>Provision a new client tenant</SectionHead>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+          <CloseButton onClick={onClose} />
         </div>
 
         {done ? (
@@ -367,8 +362,7 @@ function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCrea
           </div>
         )}
       </Card>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
