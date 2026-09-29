@@ -9,6 +9,7 @@ import OperatorTabs from '../components/OperatorTabs'
 import { actionLabel } from '../lib/actionLabels'
 import { Dialog, CloseButton } from '../components/Dialog'
 import { Drawer } from '../components/Drawer'
+import { pressable } from '../lib/pressable'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -73,7 +74,7 @@ export default function Platform() {
           </tr></thead>
           <tbody>
             {d.tenants.map(t => (
-              <tr key={t.org_id} onClick={() => setOpen(t.org_id)} className="border-b border-[var(--color-line)] last:border-0 cursor-pointer hover:bg-[var(--color-panel)] transition">
+              <tr key={t.org_id} {...pressable(() => setOpen(t.org_id), { row: true })} className="border-b border-[var(--color-line)] last:border-0 cursor-pointer hover:bg-[var(--color-panel)] transition">
                 <td className="py-2.5 px-4"><span className="text-[var(--color-ink)]">{t.name}</span> <span className="mono text-[10px] text-[var(--color-faint)]">{t.country}</span></td>
                 <td className="px-4 text-[var(--color-mute)] capitalize">{t.type.replace('_', ' ')}</td>
                 <td className="px-4 text-right mono text-[var(--color-mute)]">{t.active_users}/{t.users}</td>
@@ -133,7 +134,7 @@ function SupportQueue() {
             </tr></thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.id} onClick={() => setSel(r.id)} className="border-b border-[var(--color-line)] last:border-0 cursor-pointer hover:bg-[var(--color-panel)] transition">
+                <tr key={r.id} {...pressable(() => setSel(r.id), { row: true })} className="border-b border-[var(--color-line)] last:border-0 cursor-pointer hover:bg-[var(--color-panel)] transition">
                   <td className="py-2.5 px-4 text-[var(--color-ink)]">{r.org_name}</td>
                   <td className="px-4 text-[var(--color-mute)]">{r.subject}{r.awaiting_support && <span className="ml-2 mono text-[9px] px-1.5 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]">needs reply</span>}</td>
                   <td className="px-4 text-[var(--color-faint)] capitalize">{r.category}{r.priority !== 'normal' && <span className="ml-1 text-[var(--color-warn)]">· {r.priority}</span>}</td>

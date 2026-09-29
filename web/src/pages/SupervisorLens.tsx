@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { bucketLabel, hazardLabel, horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { money } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 // The independent lens: the submitted template beside the same template rebuilt from the shadow book, cell by
 // cell, with every gap split into scope / basis / scoring / unmatched (they add up exactly). A flag is a question.
@@ -65,7 +66,7 @@ export default function SupervisorLens() {
               <th className="num">Rebuilt gross</th><th className="num">Rebuilt share</th><th className="num">Coverage</th>
               <th className="w-40">Gap split</th><th className="">Why it differs</th></tr></thead>
             <tbody>{d.cells.map(c => (<>
-              <tr key={c.key} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === c.key ? 'bg-[var(--color-bg-2)]' : ''}`} onClick={() => setOpen(open === c.key ? null : c.key)}>
+              <tr key={c.key} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === c.key ? 'bg-[var(--color-bg-2)]' : ''}`} {...pressable(() => setOpen(open === c.key ? null : c.key), { row: true, expanded: open === c.key })}>
                 <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === c.key ? 'rotate-90' : ''}`} />{c.geography} · {c.sector}</td>
                 <td className="num mono text-[var(--color-mute)]">{money(c.submitted_gross, 'EUR')}</td>
                 <td className="num mono text-[var(--color-mute)]">{c.submitted_share_pct != null ? `${c.submitted_share_pct}%` : '—'}</td>
@@ -132,7 +133,7 @@ function CellDrill({ orgId, geography, sector }: { orgId: string; geography: str
               <th className="py-1.5 px-2">Instrument</th><th className="pr-2">Counterparty</th><th className="pr-2 text-right">Outstanding</th>
               <th className="pr-2">Collateral region</th><th className="pr-2">Precision</th><th className="pr-2">Headline hazard</th><th className="pr-2 text-right">Score</th><th className="pr-2">Sensitive</th></tr></thead>
             <tbody>{r.rows.map((x, i) => (
-              <tr key={i} onClick={() => x.lat != null && setRow(row === x ? null : x)} className={`border-t border-[var(--color-line)] ${x.lat != null ? 'cursor-pointer hover:bg-[var(--color-panel)]' : 'opacity-60'} ${row === x ? 'bg-[var(--color-panel)]' : ''}`}>
+              <tr key={i} {...pressable(x.lat != null && (() => setRow(row === x ? null : x)), { row: true, expanded: row === x })} className={`border-t border-[var(--color-line)] ${x.lat != null ? 'cursor-pointer hover:bg-[var(--color-panel)]' : 'opacity-60'} ${row === x ? 'bg-[var(--color-panel)]' : ''}`}>
                 <td className="py-1 px-2 mono text-[var(--color-mute)]">{x.instrument_id ?? '—'}</td>
                 <td className="pr-2 text-[var(--color-ink)]">{x.name}</td>
                 <td className="pr-2 text-right mono">{money(x.outstanding_eur, 'EUR')}</td>

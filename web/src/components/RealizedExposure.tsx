@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { balance, flow } from '../lib/money'
 import { Card } from './ui'
 import AssetDrawer, { type DrawerCfg } from './AssetDrawer'
+import { pressable } from '../lib/pressable'
 
 // Realized exposure — the real, named climate events that have ALREADY crossed this book (observed, not
 // modelled). The retrospective counterpart to the forward scores; every row is a catalogued storm, earthquake
@@ -85,7 +86,7 @@ export default function RealizedExposure() {
           const open = openIdx === i
           return (
             <div key={i}>
-              <div onClick={() => drillable && setOpenIdx(open ? null : i)}
+              <div {...pressable(drillable && (() => setOpenIdx(open ? null : i)), { expanded: drillable ? open : undefined })}
                 className={`flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[12.5px] ${drillable ? 'cursor-pointer' : ''}`}>
                 {drillable
                   ? <ChevronRight size={13} className={`text-[var(--color-sky)] transition-transform ${open ? 'rotate-90' : ''}`} />
@@ -104,7 +105,7 @@ export default function RealizedExposure() {
               {open && e.assets && (
                 <div className="pl-11 pb-2 space-y-0.5">
                   {e.assets.map(a => (
-                    <div key={a.id} onClick={() => cfg && setDrawerId(a.id)}
+                    <div key={a.id} {...pressable(cfg && (() => setDrawerId(a.id)))}
                       className={`flex items-center gap-2 text-[11.5px] py-0.5 ${cfg ? 'cursor-pointer hover:text-[var(--color-sky)]' : ''}`}>
                       <span className="text-[var(--color-mute)] hover:text-[var(--color-sky)] min-w-0 truncate">{a.name}</span>
                       <span className="flex-1" />

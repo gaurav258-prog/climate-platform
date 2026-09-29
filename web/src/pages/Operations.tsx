@@ -11,6 +11,7 @@ import { BookWithMap, severityHex } from '../components/SiteMap'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 import { balance, flow } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 interface Site {
   site_id: string; name: string; site_type: string; lat: number | null; lon: number | null
@@ -177,7 +178,7 @@ export default function Operations() {
                 </thead>
                 <tbody>
                   {sites.map(s => (
-                    <tr key={s.site_id} onClick={() => setSel(prev => (prev === s.site_id ? null : s.site_id))}
+                    <tr key={s.site_id} {...pressable(() => setSel(prev => (prev === s.site_id ? null : s.site_id)), { row: true, expanded: sel === s.site_id })}
                       className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)] transition ${sel === s.site_id ? 'bg-[var(--color-panel)]' : ''}`}>
                       <td className="py-2 pr-3 text-[var(--color-ink)]">
                         <a href={`/detail/site/${s.site_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}

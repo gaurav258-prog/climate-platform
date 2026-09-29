@@ -8,6 +8,7 @@ import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
 import { balance } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 // the insurer's own DrawerCfg (Portfolio.tsx's SECTORS.insurer) — trigger rows open the SAME drawer
 // Portfolio uses for a policy, not a second one
@@ -107,7 +108,7 @@ function TriggerTable({ title, rows, breached, onOpen }: { title: string; rows: 
       <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">{title}</SectionHead>
       <div className="divide-y divide-[var(--color-line)]">
         {rows.map(p => { const t = p.trigger; const [r, g, b] = col(t.current_score ?? 0); return (
-          <div key={p.policy_id} onClick={() => onOpen(p.policy_id)} className="px-5 py-3 flex items-center gap-4 cursor-pointer hover:bg-[var(--color-bg-2)] transition">
+          <div key={p.policy_id} {...pressable(() => onOpen(p.policy_id))} className="px-5 py-3 flex items-center gap-4 cursor-pointer hover:bg-[var(--color-bg-2)] transition">
             <div className="min-w-0 flex-1">
               <div className="text-[14px] text-[var(--color-ink)] truncate">{p.policy_name}</div>
               <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[p.region, hazardLabel(t.hazard_type)].filter(Boolean).join(' · ')} · band {Math.round(t.attachment_score)}–{Math.round(t.exhaustion_score)}</div>

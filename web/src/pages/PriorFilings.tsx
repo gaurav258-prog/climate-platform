@@ -7,6 +7,7 @@ import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, SectionHead, Button, PageHeader } from '../components/ui'
 import ReportTabs from '../components/ReportTabs'
+import { pressable } from '../lib/pressable'
 
 // Prior filings — bring in ESG reports already filed and accepted. Upload the submitted file itself;
 // the engine reads it into its reported lines, the preparer confirms them, and the figures are stored as
@@ -263,7 +264,7 @@ export default function PriorFilings() {
                   </tr></thead>
                   <tbody>
                     {(list.data?.filings ?? []).map(f => (
-                      <tr key={f.filing_id} onClick={() => setDetailId(f.filing_id)}
+                      <tr key={f.filing_id} {...pressable(() => setDetailId(f.filing_id), { row: true })}
                         className={`border-b border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] transition ${detailId === f.filing_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                         <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-ink)]">{f.period_label}</td>
                         <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.framework_label}</td>

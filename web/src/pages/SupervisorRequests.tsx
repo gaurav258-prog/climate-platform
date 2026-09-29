@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { pressable } from '../lib/pressable'
 
 // Requests & findings: the supervisor's engagement with an entity, tracked to closure on one thread both sides
 // read. Kinds and status flows come from the supervision profile; the page never assumes a flow.
@@ -75,7 +76,7 @@ export default function SupervisorRequests() {
                 <th>Reference</th><th>Entity</th><th>Kind</th><th>Title</th><th>Severity</th>
                 <th className="">Status</th><th className="">Due</th><th className="num">Thread</th></tr></thead>
               <tbody>{rows.map(r => (
-                <tr key={r.request_id} onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${sel === r.request_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                <tr key={r.request_id} {...pressable(() => setSel(sel === r.request_id ? null : r.request_id), { row: true, expanded: sel === r.request_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${sel === r.request_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                   <td className="mono text-[11px] text-[var(--color-mute)] whitespace-nowrap">{r.reference ?? '—'}</td>
                   <td className="text-[var(--color-ink)] whitespace-nowrap">{r.entity}</td>
                   <td className="text-[var(--color-mute)] whitespace-nowrap">{r.kind_label}</td>
@@ -220,7 +221,7 @@ function AuthorityCalendar() {
             <div className="overflow-x-auto"><table className="data-table w-full text-[12.5px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th>Due</th><th>Deliverable</th><th>Channel · rule</th><th>Date from</th><th className="num">Applies</th><th className="num">Filed</th><th className="num">Cannot determine</th></tr></thead>
               <tbody>{g.events.map(e => (<>
-                <tr key={e.mandate_id} onClick={() => setOpen(open === e.mandate_id ? null : e.mandate_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.mandate_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                <tr key={e.mandate_id} {...pressable(() => setOpen(open === e.mandate_id ? null : e.mandate_id), { row: true, expanded: open === e.mandate_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.mandate_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                   <td className="mono text-[11px] whitespace-nowrap" style={{ color: e.overdue ? 'var(--color-bad)' : 'var(--color-ink)' }}>{e.date}{e.overdue ? ' · past due' : ''}</td>
                   <td className="text-[var(--color-ink)]">{e.title}<div className="text-[11px] text-[var(--color-faint)]">{e.mandate_title}</div></td>
                   <td className="text-[var(--color-mute)] text-[11.5px]">{e.sub}{e.due_rule ? <div className="text-[var(--color-faint)]">{e.due_rule}</div> : null}</td>

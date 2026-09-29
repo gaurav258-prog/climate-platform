@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { frameworkLabel } from '../lib/hazards'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { money } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 // The regulatory mandate registry: which regulation, which article (curated excerpt + the official act), who it applies
 // to (criteria over entity attributes), what must be delivered, through which channel and by when, and the version
@@ -182,7 +183,7 @@ function Population() {
           <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
             <th>Entity</th>{cols.map(m => <th key={m.id} className="text-center" title={m.title}>{m.short}</th>)}<th className="num">Applies</th><th>Missing</th></tr></thead>
           <tbody>{d.entities.map(e => (<>
-            <tr key={e.org_id} onClick={() => setOpen(open === e.org_id ? null : e.org_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.org_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+            <tr key={e.org_id} {...pressable(() => setOpen(open === e.org_id ? null : e.org_id), { row: true, expanded: open === e.org_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.org_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
               <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === e.org_id ? 'rotate-90' : ''}`} /><Link to={`/supervised/${e.org_id}`} onClick={ev => ev.stopPropagation()} className="hover:text-[var(--color-sky)] hover:underline">{e.name}</Link><span className="mono text-[10px] text-[var(--color-faint)] ml-2">{e.type.replace(/_/g, ' ')} · {e.country ?? ''}</span></td>
               {cols.map(m => { const c = e.mandates.find(x => x.mandate_id === m.id); return (
                 <td key={m.id} className="text-center">{c ? <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded" style={{ color: SC[c.status], background: `color-mix(in oklab, ${SC[c.status]} 14%, transparent)` }} title={c.tier ? c.tier.label : c.failed.join('; ') || c.missing.join(', ')}>{c.status === 'applies' ? (c.tier?.frequency ?? 'applies') : c.status === 'cannot_determine' ? 'unknown' : 'n/a'}</span> : <span className="text-[var(--color-faint)]">·</span>}</td>) })}
@@ -250,7 +251,7 @@ function Deadlines() {
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
                 <th>Mandate</th><th>Act's rule</th><th>Due date</th><th>Status</th><th className="num">Applies</th><th className="num">Filed</th><th className="num">Outstanding</th><th className="num">Reminded</th><th className="num">Overdue notices</th><th></th></tr></thead>
               <tbody>{d.deadlines.map(x => (<>
-                <tr key={x.deadline_id} onClick={() => setOpen(open === x.deadline_id ? null : x.deadline_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === x.deadline_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                <tr key={x.deadline_id} {...pressable(() => setOpen(open === x.deadline_id ? null : x.deadline_id), { row: true, expanded: open === x.deadline_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === x.deadline_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                   <td className="text-[var(--color-ink)]"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === x.deadline_id ? 'rotate-90' : ''}`} />{x.short}<div className="mono text-[10px] text-[var(--color-faint)]">{frameworkLabel(x.framework)}</div></td>
                   <td className="text-[11.5px] text-[var(--color-mute)]">{x.registry_rule}<div className="mono text-[10px] text-[var(--color-faint)]">→ {x.registry_due}</div></td>
                   <td onClick={e => e.stopPropagation()}>{can ? <span className="flex items-center gap-1.5"><input type="date" value={edit[x.deadline_id] ?? x.due_date} onChange={e => setEdit(f => ({ ...f, [x.deadline_id]: e.target.value }))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 mono text-[11px]" />

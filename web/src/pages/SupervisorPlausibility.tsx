@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { hazardLabel, horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { money } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 // Tier 1: the submitted template judged against what the platform's own hazard layers say about each geography —
 // no granular data needed. A cell is plausible when its sensitive share sits inside the spread of that share across
@@ -70,7 +71,7 @@ export default function SupervisorPlausibility() {
                 <th className="">Cell</th><th className="num">{d.exposure_measure.label}</th><th className="num">Submitted share</th>
                 <th className="">Regional spread</th><th className="">Verdict</th><th className="">Why</th></tr></thead>
               <tbody>{d.rows.map(r => (<>
-                <tr key={r.key} onClick={() => setOpen(open === r.key ? null : r.key)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === r.key ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                <tr key={r.key} {...pressable(() => setOpen(open === r.key ? null : r.key), { row: true, expanded: open === r.key })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === r.key ? 'bg-[var(--color-bg-2)]' : ''}`}>
                   <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === r.key ? 'rotate-90' : ''}`} />{r.geography} · {r.sector}</td>
                   <td className="num mono text-[var(--color-mute)]">{money(r.gross_carrying_amount_eur, 'EUR')}</td>
                   <td className="num mono" style={{ color: VC[r.verdict] }}>{r.submitted_share_pct != null ? `${r.submitted_share_pct}%` : '—'}</td>

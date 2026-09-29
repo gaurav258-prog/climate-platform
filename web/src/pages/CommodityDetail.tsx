@@ -6,6 +6,7 @@ import { Card, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import MiniMap from '../components/MiniMap'
 import { flow } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
@@ -86,7 +87,7 @@ export default function CommodityDetail() {
                 <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left"><th className="font-normal py-1 pr-3">Plot</th><th className="font-normal pr-3">Country</th><th className="font-normal pr-3 text-right">Spend</th><th className="font-normal">Hazard</th></tr></thead>
                 <tbody>
                   {d.plots.map(p => (
-                    <tr key={p.plot_id} onClick={() => window.open(`/detail/plot/${p.plot_id}`, '_blank')} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)]">
+                    <tr key={p.plot_id} {...pressable(() => window.open(`/detail/plot/${p.plot_id}`, '_blank'), { row: true })} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)]">
                       <td className="py-2 pr-3 text-[var(--color-ink)] hover:text-[var(--color-sky)]">{p.plot_name}</td>
                       <td className="pr-3 text-[var(--color-mute)] mono text-[11px]">{p.country ?? '—'}</td>
                       <td className="pr-3 text-right mono text-[var(--color-mute)]">{flow(p.spend_eur)}</td>

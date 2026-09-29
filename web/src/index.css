@@ -148,6 +148,9 @@ select {
 .data-table th.num, .data-table td.num { text-align: right; }
 .data-table thead tr { border-bottom: 1px solid var(--color-line-2); }
 .card { background: var(--color-panel); border: 1px solid var(--color-line); border-radius: 14px; }
+/* keyboard focus on cards, tiles, rows and map shapes made operable by lib/pressable.ts */
+[role="button"][tabindex="0"]:focus-visible, g[tabindex="0"]:focus-visible { outline: 2px solid color-mix(in oklab, var(--color-sky) 70%, transparent); outline-offset: 2px; }
+tr[tabindex="0"]:focus-visible { outline: 2px solid color-mix(in oklab, var(--color-sky) 70%, transparent); outline-offset: -2px; }
 .hairline { border-color: var(--color-line); }
 .glow { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-sky) 30%, transparent),
                     0 8px 40px -12px color-mix(in oklab, var(--color-blue) 40%, transparent); }

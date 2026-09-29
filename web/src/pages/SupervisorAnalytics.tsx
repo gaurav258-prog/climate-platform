@@ -7,6 +7,7 @@ import { Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
 import { SCENARIO_LABEL } from '../lib/hazards'
 import { balance } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 // The horizontal risk analyst's workbench. Every chart is an engine figure under one basis; precision is
 // labelled; projections say which part of the high-risk value actually moves with the scenario.
@@ -42,7 +43,7 @@ function TreeTile(p: { x?: number; y?: number; width?: number; height?: number; 
   const { x = 0, y = 0, width = 0, height = 0, name = '', max_score = null, value = 0, regionKey = '', onOpen } = p
   if (width < 4 || height < 4) return null
   return (
-    <g onClick={() => onOpen?.(regionKey)} style={{ cursor: 'pointer' }} data-region={regionKey}>
+    <g {...pressable(onOpen && (() => onOpen(regionKey)), { label: name })} style={{ cursor: 'pointer' }} data-region={regionKey}>
       <rect x={x} y={y} width={width} height={height} rx={3} fill={severityHex(max_score)} fillOpacity={0.85} stroke="var(--color-bg)" strokeWidth={1.5} />
       {width > 60 && height > 28 && <text x={x + 6} y={y + 16} fontSize={11} fill="#fff" style={{ pointerEvents: 'none' }}>{name.length > width / 6.5 ? name.slice(0, Math.max(3, width / 6.5 - 1)) + '…' : name}</text>}
       {width > 60 && height > 42 && <text x={x + 6} y={y + 30} fontSize={10} fill="#fff" opacity={0.85} style={{ pointerEvents: 'none' }}>{balance(value)}</text>}
@@ -193,7 +194,7 @@ export default function SupervisorAnalytics() {
                 <table className="data-table w-full text-[12px]">
                   <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="">Entity</th><th className="">Filing</th><th className="">Period</th><th className="">Due</th><th className="">State</th><th className="num">Days</th><th className="num">Reached intake</th></tr></thead>
                   <tbody>{tl.data.rows.map((r, i) => (
-                    <tr key={i} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)]" onClick={() => nav(`/supervised/${r.org_id}`)}>
+                    <tr key={i} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)]" {...pressable(() => nav(`/supervised/${r.org_id}`), { row: true })}>
                       <td className="text-[var(--color-ink)] whitespace-nowrap hover:text-[var(--color-sky)] hover:underline">{r.name}</td><td className="text-[var(--color-mute)]">{r.framework_label}</td>
                       <td className="mono text-[11px] text-[var(--color-faint)]">{r.period_label}</td><td className="mono text-[11px] text-[var(--color-faint)]">{r.due_date ?? '—'}</td>
                       <td className="pr-3" style={{ color: STATE_COLOR[r.state] }}>{STATE_LABEL[r.state]}</td>

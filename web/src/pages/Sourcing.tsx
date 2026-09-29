@@ -12,6 +12,7 @@ import AddressAutocomplete, { type Place } from '../components/AddressAutocomple
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 import { flow } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; region: string | null
@@ -187,7 +188,7 @@ export default function Sourcing() {
             </thead>
             <tbody>
               {plots.map(p => (
-                <tr key={p.plot_id} onClick={() => setSel(prev => (prev === p.plot_id ? null : p.plot_id))}
+                <tr key={p.plot_id} {...pressable(() => setSel(prev => (prev === p.plot_id ? null : p.plot_id)), { row: true, expanded: sel === p.plot_id })}
                   className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)] transition ${sel === p.plot_id ? 'bg-[var(--color-panel)]' : ''}`}>
                   <td className="py-2 pr-3 text-[var(--color-ink)]">
                     <a href={`/detail/plot/${p.plot_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}

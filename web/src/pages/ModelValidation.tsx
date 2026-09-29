@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
 import ReviewTabs from '../components/ReviewTabs'
 import { FidelityBadge, type Fidelity } from '../components/FidelityBadge'
+import { pressable } from '../lib/pressable'
 
 // Model validation — the credibility layer. Tests Tellumen's own hazard scores against the observed event
 // catalogues it holds (seismic, storm): do higher-scored locations actually carry more observed near-field
@@ -218,7 +219,7 @@ function StoryRow({ n, title, tag, accent, drill, chips, children }: {
 }) {
   const a = accent || 'var(--color-sky)'
   return (
-    <div onClick={drill}
+    <div {...pressable(drill)}
       className={`group relative flex gap-3.5 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-3.5 ${drill ? 'cursor-pointer lift' : ''}`}>
       <div className="shrink-0 mono text-[12px] font-semibold tabular-nums w-7 h-7 grid place-items-center rounded-lg"
         style={{ color: a, background: `color-mix(in oklab, ${a} 13%, transparent)` }}>{n}</div>

@@ -19,6 +19,7 @@ import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
 import { balance, flow, money } from '../lib/money'
 import { CloseButton } from '../components/Dialog'
 import { Drawer } from '../components/Drawer'
+import { pressable } from '../lib/pressable'
 
 // the asset-detail config per bank/REIT framework — lets a KRI exposure row open the full asset drawer
 const DRAWER_CFG: Record<string, DrawerCfg> = {
@@ -535,7 +536,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                         <table className="w-full text-[11.5px]">
                           <tbody>
                             {dr.items.map((it, i) => (
-                              <tr key={i} onClick={() => it.id && drawerCfg && setAssetId(it.id)} className={`border-b border-[var(--color-line-2)] last:border-0 ${it.id && drawerCfg ? 'cursor-pointer hover:bg-[var(--color-bg-2)]' : ''}`}>
+                              <tr key={i} {...pressable(it.id && drawerCfg && (() => setAssetId(it.id!)), { row: true })} className={`border-b border-[var(--color-line-2)] last:border-0 ${it.id && drawerCfg ? 'cursor-pointer hover:bg-[var(--color-bg-2)]' : ''}`}>
                                 <td className="px-3 py-1.5 text-[var(--color-ink)] truncate max-w-[180px]" title={it.name}>{it.name}</td>
                                 <td className="px-2 py-1.5 text-[var(--color-faint)] mono text-[10px] whitespace-nowrap">{[it.nace, it.country].filter(Boolean).join(' · ')}</td>
                                 <td className="px-2 py-1.5 text-right">{it.hazard && <span className="mono text-[10px]" style={{ color: sevColor(it.score ?? 0) }}>{hazardLabel(it.hazard)}{it.bucket ? ` · ${it.bucket}` : ''}</span>}</td>

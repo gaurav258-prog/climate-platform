@@ -7,6 +7,7 @@ import { Card, PageHeader, HeroBanner, SectionHead, StatGrid, type StatItem } fr
 import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 import { flow } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 interface Commodity {
   commodity: string; eudr_covered: boolean; annual_spend_eur: number; n_plots: number; status: string
@@ -81,7 +82,7 @@ export default function Cogs() {
           return (
             <Card key={c.commodity} className={`p-4 ${cid ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`}
               style={cid ? undefined : undefined}>
-              <div onClick={() => cid && nav(`/detail/commodity/${cid}`)}>
+              <div {...pressable(cid && (() => nav(`/detail/commodity/${cid}`)))}>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-[15px] font-semibold">{c.commodity}</span>
                 {cid && <ChevronRight size={15} className="text-[var(--color-faint)] order-last ml-1" />}

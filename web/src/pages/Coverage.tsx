@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { PageHeader, Card, StatGrid, SectionHead, PlainLead } from '../components/ui'
 import { HBar } from '../components/Charts'
 import ReviewTabs from '../components/ReviewTabs'
+import { pressable } from '../lib/pressable'
 
 // calibrated hazards may link to where a tenant sees them live on their own book — the financial sectors'
 // Portfolio, agri's Cogs. Other sectors (regulator, none) have no book of their own to show, so no link.
@@ -104,7 +105,7 @@ function HazardTile({ h }: { h: HZ }) {
   // horizon=current: the calibrated claim is about today's score, not the operational +3y default
   const open = bookRoute ? () => nav(`${bookRoute}?hazard=${single}&horizon=current`) : undefined
   return (
-    <div onClick={open} className={`rounded-lg border px-3.5 py-3 flex items-start gap-2.5 ${open ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`}
+    <div {...pressable(open)} className={`rounded-lg border px-3.5 py-3 flex items-start gap-2.5 ${open ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`}
       style={{ borderColor: h.phase === 'now' ? TIER[h.tier].c + '44' : 'var(--color-line-2)' }}>
       <span title={h.nature} className="mono text-[9px] font-semibold mt-0.5 rounded px-1.5 py-0.5 shrink-0"
         style={{ color: acute ? 'var(--color-warn)' : 'var(--color-sky)', background: `color-mix(in oklab, ${acute ? 'var(--color-warn)' : 'var(--color-sky)'} 12%, transparent)` }}>

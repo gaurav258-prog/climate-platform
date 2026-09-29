@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import clsx from 'clsx'
+import { pressable } from '../lib/pressable'
 
 // ── Count-up number — the KPI/stat "hooked" micro-moment. Animates from 0 to the value on mount/change,
 // respects prefers-reduced-motion (jumps straight to the value), and renders through a formatter so it works
@@ -87,7 +88,7 @@ export function BrandMark({ size = 28 }: { size?: number }) {
 // `lift` opts a card into the hover-lift micro-interaction (used for clickable/drillable cards). The transform
 // lives only during :hover (see skins.css) so it never leaves a retained transform that would trap fixed drawers.
 export function Card({ className, children, style, onClick, lift }: { className?: string; children: ReactNode; style?: React.CSSProperties; onClick?: () => void; lift?: boolean }) {
-  return <div className={clsx('card', lift && 'lift', className)} style={style} onClick={onClick}>{children}</div>
+  return <div className={clsx('card', lift && 'lift', className)} style={style} {...pressable(onClick)}>{children}</div>
 }
 
 // The page's flow-stage hue tints the eyebrow (Shell sets --stage per route), so a page's header echoes
@@ -171,7 +172,7 @@ export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
         {stat.length > 0 && (
           <div className={clsx('grid gap-3', cols)}>
             {stat.map((t, i) => (
-              <div key={i} onClick={t.onClick}
+              <div key={i} {...pressable(t.onClick)}
                 className={clsx('min-w-0 [container-type:inline-size] rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5 transition',
                   t.onClick && 'cursor-pointer hover:border-[var(--color-line-2)] hover:bg-[color-mix(in_oklab,var(--color-panel)_85%,transparent)]')}>
                 <div className="flex items-center gap-1.5 mb-2">

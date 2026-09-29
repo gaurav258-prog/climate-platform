@@ -6,6 +6,7 @@ import { Eyebrow, Card } from '../components/ui'
 import ReviewTabs from '../components/ReviewTabs'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
 import { balance } from '../lib/money'
+import { pressable } from '../lib/pressable'
 
 // the insurer policy detail is the same drawer Portfolio opens (/v1/insurance/policy/{id}) — reused here so a
 // most-exposed policy or an under-priced flag drills straight into the full per-policy record.
@@ -108,7 +109,7 @@ export default function UnderwritingReview() {
             {d.frequency.under_priced.length > 0 ? (
               <div className="mt-4 divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                 {d.frequency.under_priced.map((f, i) => (
-                  <div key={i} onClick={() => f.policy_id && setDrawerId(f.policy_id)}
+                  <div key={i} {...pressable(f.policy_id && (() => setDrawerId(f.policy_id!)))}
                     className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[12.5px] cursor-pointer hover:bg-[var(--color-panel-2)] -mx-2 px-2 rounded">
                     <span className="font-semibold text-[var(--color-ink)] underline decoration-dotted decoration-[var(--color-line-2)] underline-offset-2">{f.policy_name}</span>
                     <span className="mono text-[10.5px] text-[var(--color-faint)]">{f.region}</span>
@@ -136,7 +137,7 @@ export default function UnderwritingReview() {
               ? <div className="text-[12.5px] text-[var(--color-mute)]">No catalogued storm or earthquake has crossed any located policy.</div>
               : <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                   {d.most_exposed.map((p) => (
-                    <div key={p.policy_id} onClick={() => setDrawerId(p.policy_id)}
+                    <div key={p.policy_id} {...pressable(() => setDrawerId(p.policy_id))}
                       className="py-2.5 cursor-pointer hover:bg-[var(--color-panel-2)] -mx-2 px-2 rounded">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
                         <span className="font-semibold text-[var(--color-ink)] underline decoration-dotted decoration-[var(--color-line-2)] underline-offset-2">{p.policy_name}</span>

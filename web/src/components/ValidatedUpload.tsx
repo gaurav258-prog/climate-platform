@@ -5,6 +5,7 @@ import { upload as uploadFile, download } from '../lib/api'
 import { ControlsPanel, LandingNote, type Controls } from './IntakeControls'
 import MoneyDeclaration from './MoneyDeclaration'
 import MappingEditor, { MappingNote, useTemplateMappings, type MappingReport } from './MappingEditor'
+import { pressable } from '../lib/pressable'
 
 // The one customer-data upload control, used by every sector's book (loan tape, SoV, properties, holdings, plots).
 // It fronts the intake pipeline (services/intake/pipeline.py):
@@ -129,7 +130,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
       )}
       {phase === 'idle' && msg && <div className="mb-2 text-[12px]" style={{ color: 'var(--color-warn)' }}>{msg}</div>}
       {phase !== 'done' && !mapping && (
-        <div onClick={() => inputRef.current?.click()}
+        <div {...pressable(() => inputRef.current?.click())}
           onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) pick(f) }}
           className="rounded-xl border border-dashed border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-4 py-6 text-center cursor-pointer hover:border-[var(--color-sky)] transition">
           <Upload size={18} className="mx-auto text-[var(--color-faint)] mb-2" />

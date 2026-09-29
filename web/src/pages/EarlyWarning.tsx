@@ -8,6 +8,7 @@ import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 import { flow } from '../lib/money'
 import { Radio, ChevronRight, ListPlus } from 'lucide-react'
+import { pressable } from '../lib/pressable'
 
 interface Alert { commodity: string; hazard: string; avg_hazard: number; level: string; spend_eur: number }
 interface Signals { n_alerts: number; alerts: Alert[]; pending: { commodity: string; spend_eur: number }[]; commodity_ids: Record<string, string> }
@@ -68,7 +69,7 @@ export default function EarlyWarning() {
             {d.pending.map((p, i) => {
               const clickable = !!d.commodity_ids?.[p.commodity]
               return (
-              <span key={i} onClick={() => open(p.commodity)}
+              <span key={i} {...pressable(clickable && (() => open(p.commodity)))}
                 className={`mono text-[12px] px-3 py-1.5 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] ${clickable ? 'cursor-pointer hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition' : ''}`}>
                 {p.commodity} <span className="text-[var(--color-faint)]">· {flow(p.spend_eur)}</span>
               </span>
