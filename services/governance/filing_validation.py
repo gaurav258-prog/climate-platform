@@ -278,7 +278,14 @@ def _validate_esrs_pack(payload: dict) -> list[dict]:
 
 _RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai,
              "reit_taxonomy": _validate_reit_taxonomy, "insurer_solvency": _validate_insurer_solvency,
-             "csrd_e1": _validate_csrd_e1, "esrs_pack": _validate_esrs_pack}
+             "csrd_e1": _validate_csrd_e1, "esrs_pack": _validate_esrs_pack,
+             "sfdr_precontractual": lambda p: _validate_sfdr_product(p, "sfdr_precontractual"),
+             "sfdr_periodic": lambda p: _validate_sfdr_product(p, "sfdr_periodic")}
+
+
+def _validate_sfdr_product(payload: dict, report_type: str) -> list[dict]:
+    from services.governance.sfdr_product_forms import checks
+    return checks(payload, report_type)
 
 
 def _arrears_finding(r: dict) -> dict:

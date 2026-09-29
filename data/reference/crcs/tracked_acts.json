@@ -78,6 +78,20 @@
     "title": "EUDR — application-date amendment",
     "role": "amendment"
    }
+  ],
+  "sfdr_precontractual": [
+   {
+    "celex": "32019R2088",
+    "title": "SFDR (base Regulation)",
+    "role": "base"
+   }
+  ],
+  "sfdr_periodic": [
+   {
+    "celex": "32019R2088",
+    "title": "SFDR (base Regulation)",
+    "role": "base"
+   }
   ]
  }
 }

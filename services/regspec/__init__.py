@@ -208,6 +208,11 @@ def phase_in(spec: dict, disclosure_date: date | str) -> dict | None:
 _USAGE = Path(__file__).resolve().parents[2] / "data" / "reference" / "regspec_usage.json"
 
 
+def report_types() -> list[str]:
+    """The report types a specification family governs (data/reference/regspec_usage.json)."""
+    return list(json.loads(_USAGE.read_text())["report_types"])
+
+
 def families_for(report_type: str) -> list[str]:
     """The specification families that govern a report type (data/reference/regspec_usage.json)."""
     return list(json.loads(_USAGE.read_text())["report_types"].get(report_type, []))

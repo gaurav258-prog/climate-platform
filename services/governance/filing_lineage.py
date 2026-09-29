@@ -71,6 +71,11 @@ _ALT_LINEAGE = {
                "sourcing; own-site exposure is in this filing's own material-hazard rows directly.",
     "esrs_pack": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
                  "sourcing; own-site exposure is in this filing's own material-hazard/E3/E4 rows directly.",
+    "sfdr_precontractual": "Item by item: every item of the frozen template carries its source (computed from the "
+                           "fund / the manager's answer / printed wording); per holding, GET /v1/issuers/{issuer_id}.",
+    "sfdr_periodic": "Item by item: every item of the frozen template carries its source; the frozen holdings (each "
+                     "position date of the reference period, with the investee's own Taxonomy KPIs) are in the "
+                     "filing; per holding, GET /v1/issuers/{issuer_id}.",
 }
 
 

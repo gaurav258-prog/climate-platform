@@ -147,8 +147,8 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
     CapEx KPI of investee companies") requires TWO separate Taxonomy-aligned KPIs shown side by side —
     turnover-based and CapEx-based — never blended into one figure. (Annex IV is the accompanying template,
     not a second normative source — the requirement itself is entirely in Annex III.)
-    issuer_esg_metrics.taxonomy_aligned_pct is (and always was) the
-    TURNOVER-based figure; taxonomy_aligned_capex_pct is its CapEx companion. Both
+    The investee's turnover-based KPI and its CapEx-based companion come from the one store of
+    issuer Taxonomy KPIs (services.issuer_taxonomy). Both
     are value-weighted the same way, over the same DNSH/minimum-safeguards gate,
     each independently disclosing its own coverage — a fund can have full turnover
     coverage and zero CapEx coverage (or vice versa), so they must not be averaged
@@ -158,25 +158,23 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
         org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
     if fund_ids is None:
         fund_ids = fund_descendant_ids(session, fund_id)
-    rows = session.execute(text("""
-        SELECT CAST(p.market_value_eur AS FLOAT) AS mv, i.nace_code,
-               CAST(e.taxonomy_eligible_pct AS FLOAT) AS elig,
-               CAST(e.taxonomy_aligned_pct AS FLOAT) AS aligned,
-               CAST(e.taxonomy_aligned_capex_pct AS FLOAT) AS aligned_capex,
-               e.dnsh_ok, e.min_safeguards_ok
+    rows = [dict(r) for r in session.execute(text("""
+        SELECT CAST(p.market_value_eur AS FLOAT) AS mv, i.nace_code, i.issuer_id::text AS issuer_id
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers   i ON i.issuer_id = s.issuer_id
-        LEFT   JOIN LATERAL (
-            SELECT taxonomy_eligible_pct, taxonomy_aligned_pct, taxonomy_aligned_capex_pct,
-                   dnsh_ok, min_safeguards_ok
-            FROM issuer_esg_metrics
-            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
-            ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
-        ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_ids, "org": org_id}).mappings().all()
+    """), {"fids": fund_ids}).mappings().all()]
+    # the investee's own KPIs and the DNSH / safeguards gate, from the one store (services.issuer_taxonomy)
+    from services.issuer_taxonomy import gate_failures
+    from services.issuer_taxonomy import kpis as investee_kpis
+    ids = sorted({r["issuer_id"] for r in rows})
+    k, failing = investee_kpis(session, org_id, ids), gate_failures(session, org_id, ids)
+    for r in rows:
+        t, c = (k.get(r["issuer_id"]) or {}).get("turnover") or {}, (k.get(r["issuer_id"]) or {}).get("capex") or {}
+        r.update(elig=t.get("eligible"), aligned=t.get("aligned"), aligned_capex=c.get("aligned"),
+                 gate_failed=r["issuer_id"] in failing)
     total = sum(r["mv"] for r in rows) or 0.0
     with_nace = sum(r["mv"] for r in rows if r["nace_code"])
     # Value-weighted alignment/eligibility over holdings that supplied the issuer's
@@ -185,7 +183,7 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
     # FALSE cannot count as aligned (a known controversy overrides the reported %).
     # A NULL flag means "not separately assessed" → the reported figure stands.
     def _dnsh_fail(r):
-        return r["dnsh_ok"] is False or r["min_safeguards_ok"] is False
+        return r["gate_failed"]
 
     def _kpi(field: str) -> dict:
         """One Taxonomy-aligned KPI (turnover or capex), value-weighted with the

@@ -33,9 +33,20 @@ def am():
         c.checker = _login(c, "admin@nordkap.demo", "Demo!admin1")
         with get_session() as s:
             c.org, c.fund = s.execute(text("SELECT org_id::text, fund_id::text FROM funds WHERE name = 'Nordkap Global Equity Fund'")).first()
+            # the fund's own template answers are kept exactly: the test may answer items, and puts them back after
+            kept = [dict(r) for r in s.execute(text("""SELECT item_id, CAST(value AS text) AS value FROM fund_sfdr_answers
+                                                      WHERE fund_id = CAST(:f AS uuid) AND document = 'precontractual'"""),
+                                               {"f": c.fund}).mappings()]
         _cleanup(c.org)
         yield c
         _cleanup(c.org)
+        with get_session() as s:
+            s.execute(text("DELETE FROM fund_sfdr_answers WHERE fund_id = CAST(:f AS uuid) AND document = 'precontractual'"), {"f": c.fund})
+            for k in kept:
+                s.execute(text("""INSERT INTO fund_sfdr_answers (fund_id, document, item_id, value)
+                                  VALUES (CAST(:f AS uuid), 'precontractual', :i, CAST(:v AS jsonb))"""),
+                          {"f": c.fund, "i": k["item_id"], "v": k["value"]})
+            s.commit()
 
 
 def _cleanup(org):
@@ -93,14 +104,33 @@ def test_the_eet_workflow_end_to_end(am):
     assert {x["field"] for x in r["refused"]} == {"20180_Financial_Instrument_Products_Minimal_Proportion_Of_Sustainable_Investments_Art_8"}
     assert "only while the book has no figure" in r["note"]                     # a book figure wins over a typed one
     fl = {f["name"]: f for f in c.get(f"/v1/eet/fields?uses={uses}&only=required", headers=c.maker).json()["fields"]}
-    need = [b["field"] for b in comp["blocking"]]
-    org_vals = {n: _valid(fl[n]) for n in need if fl[n]["scope"] == "organisation"}
-    fund_vals = {n: _valid(fl[n]) for n in need if fl[n]["scope"] == "fund"}
-    for body in ({"values": org_vals}, {"fund_id": c.fund, "values": fund_vals}):
-        r = c.put("/v1/eet/answers", headers=c.maker, json=body).json()
-        assert not r["refused"], r["refused"]
-    after = c.get(f"/v1/eet/draft?uses={uses}", headers=c.maker).json()
-    assert after["completeness"]["ready"]
+    # answer what blocks, in rounds (an answer can make a conditional field required, as for a real preparer): a
+    # commitment the fund's SFDR pre-contractual template states is answered there, once — the EET reads it
+    from services.eet.sfdr_items import mapping
+    blocking = [b["field"] for b in comp["blocking"]]
+    for _ in range(4):
+        template = {n: mapping()["fields"][n]["article_8"] for n in blocking if n in mapping()["fields"]}
+        items: dict = {}
+        for rule in template.values():
+            if rule["take"] == "values":
+                items.setdefault(rule["item"], {"values": {}})["values"].update({lbl: 10 for lbl in rule["labels"]})
+            else:
+                items[rule["item"]] = {"ticked": True, **({"percent": 20} if rule["take"] == "percent" else {})}
+        if items:
+            r = c.put(f"/v1/funds/{c.fund}/sfdr-documents/precontractual/answers", headers=c.maker, json={"answers": items}).json()
+            assert not r["refused"], r["refused"]
+        org_vals = {n: _valid(fl[n]) for n in blocking if fl[n]["scope"] == "organisation"}
+        fund_vals = {n: _valid(fl[n]) for n in blocking if fl[n]["scope"] == "fund" and n not in template}
+        for body in ({"values": org_vals}, {"fund_id": c.fund, "values": fund_vals}):
+            r = c.put("/v1/eet/answers", headers=c.maker, json=body).json()
+            assert not r["refused"], r["refused"]
+        after = c.get(f"/v1/eet/draft?uses={uses}", headers=c.maker).json()
+        blocking = [b["field"] for b in after["completeness"]["blocking"]]
+        if not blocking:
+            break
+    assert after["completeness"]["ready"], blocking
+    template_field = "20180_Financial_Instrument_Products_Minimal_Proportion_Of_Sustainable_Investments_Art_8"
+    assert after["rows"][0]["values"].get(template_field) in (None, "0.2")     # when asked for, read from the template
     assert after["rows"][0]["values"]["30020_GHG_Emissions_Scope_1_Value"] != "1"      # the book's figure, not the typed 1
 
     # prepare → the maker can't approve → the approver approves → published

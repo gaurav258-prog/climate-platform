@@ -53,8 +53,9 @@ _ESG_FIELDS = {
     "energy_consumption_gwh", "non_renewable_consumption_pct", "non_renewable_production_pct",
     "emissions_to_water_tonnes", "hazardous_waste_tonnes", "ungc_oecd_violation",
     "ungc_oecd_no_monitoring", "gender_pay_gap_pct", "board_female_pct", "controversial_weapons",
-    "taxonomy_eligible_pct", "taxonomy_aligned_pct",
 }
+# an issuer's own Taxonomy KPIs — written to the one store of them (services.issuer_taxonomy), not the ESG metrics
+_TAXONOMY_FIELDS = ("taxonomy_eligible_pct", "taxonomy_aligned_pct")
 _BOOL_FIELDS = {"biodiversity_sensitive_ops", "ungc_oecd_violation", "ungc_oecd_no_monitoring", "controversial_weapons"}
 
 
@@ -148,6 +149,9 @@ def ingest_vendor_extract(session, org_id: str, rows: list[dict], *, profile: st
                    "rev": emis["revenue_eur"], "evic": emis["evic_eur"]})
             emission_writes += 1
 
+        from services.issuer_taxonomy import write_stated
+        if write_stated(session, issuer_id, org_id, year, {f: val(f) for f in _TAXONOMY_FIELDS}, source="vendor"):
+            client_conflicts += 1
         esg = {f: val(f) for f in _ESG_FIELDS}
         if any(v is not None for v in esg.values()):
             cols = ", ".join(esg)

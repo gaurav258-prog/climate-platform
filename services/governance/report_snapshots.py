@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -91,6 +92,9 @@ _BUILDERS = {
                       lambda s, o, sc, hz, m, ei, vw, tr: _reit_taxonomy(s, o, sc, hz, ei, vw, tr), ("reit",)),
     "insurer_solvency": ("Solvency II · Nat-Cat SCR (S.26.01)",
                          lambda s, o, sc, hz, m, ei, vw, tr: _insurer_solvency(s, o, sc, hz, ei, vw, tr), ("insurer",)),
+    # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
+    "sfdr_precontractual": ("SFDR pre-contractual disclosure (RTS 2022/1288 Annex II / III)", None, ("asset_manager",)),
+    "sfdr_periodic": ("SFDR periodic disclosure (RTS 2022/1288 Annex IV / V)", None, ("asset_manager",)),
 }
 
 
@@ -223,13 +227,15 @@ def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dic
 def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_id: str,
                     note: str | None = None, entity_ids: list | None = None,
                     value_weights: dict | None = None, translation=None, view: str = "joint",
-                    figure_sources: dict | None = None, previous_period: dict | None = None) -> dict:
+                    figure_sources: dict | None = None, previous_period: dict | None = None,
+                    fund_id: str | None = None) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
     translation (services.governance.translation.plan) presents the money in the filing's currency and eliminates
     group-internal exposures; its record — currency, every rate used, per-entity translation, eliminations — is frozen
-    in the payload as `_fx` (hash-verified). Books that don't take one (CSRD/ESRS, SFDR) present in EUR, and say so."""
+    in the payload as `_fx` (hash-verified). Books that don't take one (CSRD/ESRS, SFDR) present in EUR, and say so.
+    fund_id: the financial product a per-product report (sfdr_precontractual / sfdr_periodic) is about."""
     if report_type not in _BUILDERS:
         raise ValueError(f"unknown report_type '{report_type}'")
     s = get_settings(session, org_id)
@@ -241,6 +247,15 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     from services.intake.views import in_view
 
     def compute():
+        if _BUILDERS[report_type][1] is None:            # a per-product report: the fund's own book and answers
+            from services.governance import product_filings, sfdr_product
+            if fund_id is None:
+                raise ValueError(f"{report_type} is disclosed per financial product — a fund is required")
+            pe = (date.fromisoformat(str(s["reporting_period_end"])[:10]) if s["reporting_period_end"]
+                  else date(date.today().year - 1, 12, 31))     # the same period the filing is recorded for
+            out = sfdr_product.freeze(session, org_id, fund_id, product_filings.PRODUCT_SCOPED[report_type]["document"], pe)
+            return out, engine_runs.inputs(session, org_id, report_type, None, fund_id=fund_id,
+                                           as_of_dates=out["position_dates"])
         out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
                                         entity_ids, value_weights, translation)
         return out, engine_runs.inputs(session, org_id, report_type, entity_ids)

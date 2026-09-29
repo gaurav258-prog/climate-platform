@@ -74,7 +74,12 @@ def value(f: dict, x: float, measure: str, objectives: tuple[str, ...], basis: s
         b = _kpi_basis(f, basis)
         vals = [(f["kpi"].get(f"{b}:{o}") or {}).get(measure) for o in objectives]
         if all(v is None for v in vals):
-            return None
+            # a total the counterparty does not split by objective answers only the all-objectives figure
+            from services.reference.taxonomy_objectives import codes
+            total = (f["kpi"].get(f"{b}:all") or {}).get(measure)
+            if total is None or set(objectives) != set(codes()):
+                return None
+            return x * float(total) / 100.0
         return x * sum(float(v) for v in vals if v is not None) / 100.0
     # a specific-purpose exposure: its own stated status
     if not f["assessed"]:

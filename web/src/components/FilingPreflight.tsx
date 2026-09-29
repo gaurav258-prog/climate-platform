@@ -19,6 +19,9 @@ interface Preflight {
   // Binds this exact preflight result — generate must echo it back, and the backend re-verifies it's still
   // fresh (the book hasn't changed since). Never a bare "I confirm" boolean; see filings._confirm_token.
   confirm_token: string
+  // a per-product report (SFDR Annexes II–V): the fund it discloses — chosen here when no obligation fixes it
+  product_scoped?: boolean; needs_fund?: boolean; funds?: { fund_id: string; name: string; sfdr_classification: string }[]
+  fund?: { fund_id: string; name: string; template: string }
   // intake phase 5: how far each view of the asset facts is from the book; and the figures where both the client's
   // attested number and ours exist
   views?: Record<'joint' | 'client' | 'tellumen', { label: string; facts_changed: number; by_field: Record<string, number> }>
@@ -33,13 +36,14 @@ const eur = (n?: number | null) => balance(n)   // the live book, before freezin
 
 // The obligation a filing is being prepared for (from its card): its entity and period are fixed, and the server
 // enforces them (filings._obligation_scope).
-export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; period_label: string }
+export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; period_label: string; fund_id?: string | null; fund_name?: string | null }
 
-export default function FilingPreflight({ framework, obligation, onClose, onGenerated }: { framework: string; obligation?: ForObligation; onClose: () => void; onGenerated: (id: string) => void }) {
+export default function FilingPreflight({ framework, obligation, fund, onClose, onGenerated }: { framework: string; obligation?: ForObligation; fund?: { fund_id: string; name: string }; onClose: () => void; onGenerated: (id: string) => void }) {
   const [entityId, setEntityId] = useState<string>(obligation?.entity_id ?? '')   // '' = whole organisation
+  const [fundId, setFundId] = useState<string>(obligation?.fund_id ?? fund?.fund_id ?? '')   // a per-product report's fund
   // the figures and the confirm token are for exactly the scope being filed
-  const q = useQuery({ queryKey: ['preflight', framework, entityId], queryFn: () => api.get<Preflight>(
-    `/v1/filings/preflight?framework=${framework}${entityId ? `&entity_id=${entityId}` : ''}`) })
+  const q = useQuery({ queryKey: ['preflight', framework, entityId, fundId], queryFn: () => api.get<Preflight>(
+    `/v1/filings/preflight?framework=${framework}${entityId ? `&entity_id=${entityId}` : ''}${fundId ? `&fund_id=${fundId}` : ''}`) })
   const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/filings/entities') })
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -54,7 +58,7 @@ export default function FilingPreflight({ framework, obligation, onClose, onGene
     setBusy(true); setErr(null)
     try {
       const f = await api.post<{ filing_id: string }>('/v1/filings',
-        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs })
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs })
       onGenerated(f.filing_id)
     } catch (e) {
       // A stale token (the book changed since this preflight loaded) surfaces here — refetch so the
@@ -65,10 +69,10 @@ export default function FilingPreflight({ framework, obligation, onClose, onGene
     finally { setBusy(false) }
   }
   // one live filing per framework, period and scope — the pre-filing check answers for the scope being filed
-  const blockedByExisting = !!d && !d.can_generate
+  const blockedByExisting = !!d && !d.can_generate && !d.needs_fund
   // an obligation for another period cannot be prepared until the reporting period is set to it (one period source)
   const periodMismatch = !!(obligation && d && obligation.period_end !== d.basis.reporting_period_end.slice(0, 10))
-  const blocked = blockedByExisting || periodMismatch
+  const blocked = blockedByExisting || periodMismatch || !!d?.needs_fund     // a per-product report waits for its fund
 
   return (
     <Dialog title="Confirm the data before filing" onClose={onClose}>
@@ -82,12 +86,26 @@ export default function FilingPreflight({ framework, obligation, onClose, onGene
             {obligation && (
               <div>
                 <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Reporting scope · set by the obligation</div>
-                <div className="text-[13px]">{obligation.entity_name ? `${obligation.entity_name} — ${obligation.filing_role === 'consolidated' ? 'consolidated' : 'solo'}` : 'Whole organisation'} · {obligation.period_label}</div>
+                <div className="text-[13px]">{obligation.fund_name ? `${obligation.fund_name} — financial product` : obligation.entity_name ? `${obligation.entity_name} — ${obligation.filing_role === 'consolidated' ? 'consolidated' : 'solo'}` : 'Whole organisation'} · {obligation.period_label}</div>
               </div>
             )}
             {periodMismatch && obligation && (
               <div className="flex gap-2 text-[12.5px] text-[var(--color-warn)]"><AlertTriangle size={15} className="shrink-0 mt-0.5" />
                 <span>This obligation is for {obligation.period_label} (period ending {obligation.period_end}), but your reporting period is set to end {d.basis.reporting_period_end.slice(0, 10)}. Change the reporting period before preparing it.</span></div>
+            )}
+            {d.product_scoped && !obligation && (
+              <div>
+                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Financial product</div>
+                {fund ? <div className="text-[13px]">{fund.name}</div> : (
+                  <select value={fundId} onChange={e => { setFundId(e.target.value); setConfirmed(false) }}
+                    className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]">
+                    <option value="">Choose the fund…</option>
+                    {(d.funds ?? []).map(f => <option key={f.fund_id} value={f.fund_id}>{f.name} ({f.sfdr_classification.replace('article_', 'Art. ')})</option>)}
+                  </select>
+                )}
+                {d.fund && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">disclosed on {d.fund.template.replace('A', 'Annex ')} — the template for its SFDR article</div>}
+                {d.needs_fund && (d.funds ?? []).length === 0 && <div className="text-[12px] text-[var(--color-warn)] mt-1">No fund is classified Article 8 or 9 yet.</div>}
+              </div>
             )}
             {!obligation && entities.length > 0 && d.entity_scoped && (
               <div>
@@ -101,7 +119,7 @@ export default function FilingPreflight({ framework, obligation, onClose, onGene
                 <div className="mono text-[10px] text-[var(--color-faint)] mt-1">a group consolidates its whole subtree (proportional lines ownership‑weighted); a legal entity files its own book.</div>
               </div>
             )}
-            {entities.length > 0 && !d.entity_scoped && (
+            {entities.length > 0 && !d.entity_scoped && !d.product_scoped && (
               <div className="mono text-[10px] text-[var(--color-faint)]">Files at whole-organisation level{d.framework === 'sfdr_pai' ? ' — per-fund SFDR statements are in the Funds workspace.' : '.'}</div>
             )}
 

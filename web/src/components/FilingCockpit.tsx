@@ -29,9 +29,9 @@ import { Drawer } from './Drawer'
 // prepare → review (4-eyes) → attest → submit → accept — with the full append-only history and the
 // hash-verified frozen snapshot behind each number.
 
-interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number; overdue: boolean; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string }
+interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number; overdue: boolean; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; fund_id?: string | null; fund_name?: string | null }
 interface Framework { framework: string; label: string; frequency: string; regulator: string; basis: string }
-interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; note: string | null; created_by: string | null; created_at: string; updated_at: string; entity_name?: string | null; scope?: string; filing_role?: string | null }
+interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; note: string | null; created_by: string | null; created_at: string; updated_at: string; entity_name?: string | null; scope?: string; filing_role?: string | null; fund_name?: string | null }
 interface FilingEvent { from: string | null; to: string; action: string; detail: Record<string, unknown>; at: string; actor: string | null; actor_email: string | null }
 interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
@@ -63,12 +63,13 @@ const Chip = ({ status }: { status: string }) => {
   const s = ST[status] ?? ST.not_started
   return <span className="mono text-[10.5px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap" style={{ color: s.fg, background: s.bg }}>{s.label}</span>
 }
-// who a filing or obligation is for: one legal entity on its own (solo), or a group consolidated over its subtree.
-// `role` is the stamped filing_role (solo | consolidated | whole_org); filings frozen before it existed fall back to
-// their inferred scope. A whole-organisation filing needs no chip.
+// who a filing or obligation is for: one legal entity on its own (solo), a group consolidated over its subtree, or a
+// financial product (a fund's SFDR template). `role` is the stamped filing_role (solo | consolidated | whole_org |
+// product); filings frozen before it existed fall back to their inferred scope. A whole-organisation filing needs no chip.
 const ScopeChip = ({ role, scope, name }: { role?: string | null; scope?: string; name?: string | null }) => {
   const r = role ?? (scope === 'consolidated' ? 'consolidated' : scope === 'entity' ? 'solo' : 'whole_org')
   if (r === 'whole_org') return null
+  if (r === 'product') return <span className="mono text-[9.5px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap" style={{ color: '#34d399', background: '#34d39922' }} title={name ?? undefined}>fund{name ? ` · ${name}` : ''}</span>
   const consolidated = r === 'consolidated'
   const c = consolidated ? '#a78bfa' : '#5cc8ff'
   return <span className="mono text-[9.5px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap" style={{ color: c, background: `${c}22` }} title={name ?? undefined}>{consolidated ? '⤳ consolidated' : 'solo'}{name ? ` · ${name}` : ''}</span>
@@ -249,7 +250,7 @@ function FilingCard({ o, regulator, canPrepare, onOpen, onPrepare }:
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-2.5">
             <span className="text-[15px] text-[var(--color-ink)] font-medium">{o.label}</span>
-            <ScopeChip role={o.filing_role} name={o.entity_name} />
+            <ScopeChip role={o.filing_role} name={o.fund_name ?? o.entity_name} />
             <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{regulator ?? 'EBA'} · {o.frequency}</span>
             {filed
               ? <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full" style={{ color: 'var(--color-good)', background: 'color-mix(in oklab, var(--color-good) 16%, transparent)' }}>filed</span>
@@ -355,7 +356,7 @@ function DetailsTabs({ filings, onOpen }: { filings: FilingSummary[]; onOpen: (i
                   <button key={f.filing_id} onClick={() => onOpen(f.filing_id)}
                     className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition rounded">
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] text-[var(--color-ink)] truncate flex items-center gap-2">{f.label} <span className="text-[var(--color-faint)]">· {f.period_label}</span><ScopeChip role={f.filing_role} scope={f.scope} name={f.entity_name} /></div>
+                      <div className="text-[13.5px] text-[var(--color-ink)] truncate flex items-center gap-2">{f.label} <span className="text-[var(--color-faint)]">· {f.period_label}</span><ScopeChip role={f.filing_role} scope={f.scope} name={f.fund_name ?? f.entity_name} /></div>
                       <div className="mono text-[10.5px] text-[var(--color-faint)]">v{f.snapshot_version ?? '—'} · {f.created_by ?? '—'} · {fmtDate(f.created_at)}{f.submission_ref ? ` · ref ${f.submission_ref}` : ''}</div>
                     </div>
                     <Chip status={f.status} />
@@ -417,7 +418,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
             <div>
               <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <h2 className="display text-xl font-semibold">{f.label}</h2><Chip status={f.status} />
-                <ScopeChip role={f.filing_role} scope={f.scope} name={f.entity_name} />
+                <ScopeChip role={f.filing_role} scope={f.scope} name={f.fund_name ?? f.entity_name} />
               </div>
               <div className="mono text-[11px] text-[var(--color-faint)]">{f.period_label} · {f.basis ?? frameworkLabel(f.framework)}{f.regulator ? ` · ${f.regulator}` : ''}{f.scope === 'organisation' ? ' · whole organisation' : ''}</div>
             </div>

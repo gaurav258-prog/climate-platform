@@ -144,7 +144,34 @@ def build_form(framework: str, payload: dict) -> list[dict]:
         return _assetmgmt_tcfd_form(payload)
     if framework == "sfdr_pai":
         return _sfdr_form(payload)
+    if framework in ("sfdr_precontractual", "sfdr_periodic"):
+        return _sfdr_product_form(framework, payload)
     return _generic_form(payload)
+
+
+def _sfdr_product_form(framework: str, payload: dict) -> list[dict]:
+    """A fund's SFDR document — the figures computed from its frozen holdings (periodic) and how far the template is
+    answered; the document itself is the official-form tab."""
+    from services.governance import sfdr_product as S
+    from services.governance.sfdr_product_forms import items, missing
+    if not payload.get("fund"):
+        return []
+    spec, tid, built = items(payload, framework)
+    todo = [i for i in built if i["source"] != "fixed"]
+    groups = [{"group": f"{payload['fund']['name']} — {tid} of {spec['act']['short']}", "datapoints": [
+        _dp("items.total", "Template items to fill", len(todo)),
+        _dp("items.missing", "Items without an answer", len(missing(built))),
+        _dp("holdings", "Investee holdings frozen", len({h['issuer_id'] for h in payload.get('holdings') or []}))]}]
+    if S.document_of(tid) == "periodic":
+        tax = S.taxonomy(payload)
+        groups.append({"group": "EU Taxonomy alignment of investments (%, from investees' own KPIs)", "datapoints": [
+            _dp(f"taxonomy.{scope}.{b}.{k}", f"{'incl.' if scope == 'incl' else 'excl.'} sovereign bonds · {b} · {k.replace('_', ' ')}",
+                tax[scope][b][k], "num", unit="%")
+            for scope in ("incl", "excl") for b in S.BASES for k in ("aligned", "fossil_gas", "nuclear", "kpi_coverage")]})
+        sec = S.sectors(payload)
+        groups.append({"group": "Sectors", "datapoints": [_dp("sectors.fossil_fuel", "Investments in the fossil fuel sector",
+                                                              sec["fossil_fuel_pct"], "num", unit="%")]})
+    return groups
 
 
 def _assetmgmt_tcfd_form(payload: dict) -> list[dict]:

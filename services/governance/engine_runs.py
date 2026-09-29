@@ -81,8 +81,11 @@ def _value_of(row: dict) -> float:
     return 0.0
 
 
-def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional[list] = None) -> tuple[dict, dict]:
-    """(manifest, the in-scope rows by book) — the manifest is stored, the rows feed the identity / tie checks."""
+def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional[list] = None,
+           fund_id: Optional[str] = None, as_of_dates: Optional[list] = None) -> tuple[dict, dict]:
+    """(manifest, the in-scope rows by book) — the manifest is stored, the rows feed the identity / tie checks.
+    fund_id: a per-product report reads that fund's (and its sub-funds') positions on the position dates it froze
+    (as_of_dates); their value is the average over those dates, as the document computes it."""
     if report_type in LOCATED:
         keys = (_VERTICAL_BOOK[LOCATED[report_type][0]],)
     elif report_type in ("csrd_e1", "esrs_pack"):
@@ -97,15 +100,22 @@ def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional
         ids += [r["entity_id"] for r in rows]
         books.append({"book": k, "n_assets": len(rows), "total_value_eur": round(sum(_value_of(r) for r in rows), 2),
                       "facts_sha256": _sha(rows)})
-    if report_type == "sfdr_pai":
+    if report_type == "sfdr_pai" or fund_id is not None:
+        from services.asset_manager_engine import fund_descendant_ids
         pos = [dict(r) for r in session.execute(text("""
             SELECT p.position_id::text, p.fund_id::text, p.security_id::text, CAST(p.market_value_eur AS FLOAT) AS market_value_eur,
                    p.as_of_date::text AS as_of_date
             FROM fund_positions p JOIN funds f ON f.fund_id = p.fund_id WHERE f.org_id = CAST(:o AS uuid)
+              AND (CAST(:ids AS uuid[]) IS NULL OR p.fund_id = ANY(CAST(:ids AS uuid[])))
+              AND (CAST(:d AS date[]) IS NULL OR p.as_of_date = ANY(CAST(:d AS date[])))
             ORDER BY p.position_id
-        """), {"o": org_id}).mappings().all()]
-        books.append({"book": "fund_positions", "n_assets": len(pos),
-                      "total_value_eur": round(sum(p["market_value_eur"] or 0 for p in pos), 2), "facts_sha256": _sha(pos)})
+        """), {"o": org_id, "ids": fund_descendant_ids(session, fund_id) if fund_id else None,
+               "d": list(as_of_dates) if fund_id and as_of_dates is not None else None}).mappings().all()]
+        n_dates = len({p["as_of_date"] for p in pos}) or 1
+        total = sum(p["market_value_eur"] or 0 for p in pos) / (n_dates if fund_id else 1)
+        books.append({"book": "fund_positions", "n_assets": len({p["security_id"] for p in pos}) if fund_id else len(pos),
+                      "total_value_eur": round(total, 2), "facts_sha256": _sha(pos),
+                      **({"position_dates": n_dates} if fund_id else {})})
     for rows in rows_by_book.values():
         cells |= {r["h3_cell"] for r in rows if r.get("h3_cell")}
     sc = session.execute(text("""

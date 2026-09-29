@@ -27,6 +27,11 @@ def binding_for(framework: str, spec: dict | None = None) -> dict | None:
         spec = R.governing(framework, period_end=date.today())
         return {**pillar3_grids.BINDING, **pillar3_gar.BINDING, **pillar3_other.BINDING,
                 **(pillar3_other.tab_bindings(spec) if spec else {})}
+    if framework == "sfdr_product":
+        import services.regspec as R
+        from services.governance import sfdr_product
+        spec = spec or R.governing(framework, period_end=date.today())
+        return sfdr_product.binding(spec) if spec else None
     if framework == "sfdr_pai":
         from services.governance.sfdr_binding import BINDING
         return BINDING

@@ -40,6 +40,7 @@ try:
     from api.routers import platform as platform_router
     from api.routers import realestate as realestate_router
     from api.routers import realized as realized_router
+    from api.routers import sfdr_documents as sfdr_documents_router
     from api.routers import source_systems as source_systems_router
     from api.routers import supply as supply_router
     ROUTERS_AVAILABLE = True
@@ -268,6 +269,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(realestate_router.router)
     app.include_router(assetmgmt_router.router)
     app.include_router(funds_router.router)
+    app.include_router(sfdr_documents_router.router)
     app.include_router(calc_settings_router.router)
     app.include_router(realized_router.router)
     app.include_router(source_systems_router.router)

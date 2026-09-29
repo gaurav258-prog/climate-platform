@@ -6,7 +6,10 @@ Where each value comes from (nothing is invented; an empty field stays empty and
                          (ISIN, name, currency), the SFDR article, fund NAV (EUR), and every principal-adverse-impact
                          figure with its coverage and eligible-asset share — from the fund's SFDR PAI statement: the
                          FILED statement for its reference year when there is one, else the live draft (said so).
-  stated by the manager  everything Tellumen can't know (commitments, minimum proportions, exclusions, links):
+  from the template      the commitments the product's SFDR pre-contractual template answers (minimum sustainable
+                         investment shares, planned asset allocation, minimum Taxonomy alignment — services.eet.sfdr_items):
+                         stated once there, never retyped here
+  stated by the manager  everything else Tellumen can't know (exclusions, links, other commitments):
                          org_eet_answers for manufacturer fields (codes below 20000), fund_eet_answers per fund.
                          A computed field can't be overridden by an answer.
 
@@ -80,6 +83,8 @@ def computed_names() -> set[str]:
                     out.add(stems[base + suffix])
     for t in R.load()["taxonomy_values"]:
         out.update({t["incl_sovereign"], t["excl_sovereign"]})
+    from services.eet.sfdr_items import names as template_fields
+    out |= template_fields()                  # stated once, in the product's SFDR pre-contractual template
     return out & set(F.by_name())
 
 
@@ -199,6 +204,7 @@ def _conditional_applies(name: str, sfdr: str, fund_type: Optional[str] = None, 
 
 def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Optional[list[str]] = None) -> dict:
     from ml.regulatory.sfdr_pai import frozen_or_live_statement
+    from services.eet.sfdr_items import values as sfdr_template_values
     from services.fund_disclosure import fund_esg_pai  # company figures that look like unit slips
     uses = tuple(u for u in F.USES if u in uses) or ("entity",)
     now = datetime.now(timezone.utc)
@@ -230,6 +236,8 @@ def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Option
                 "70010_Financial_Instrument_Total_Fund_NAV_Or_Notional": ent.get("total_value_eur"),
                 **_taxonomy_fields(st),
                 **pai,
+                # the product's commitments, as answered in its SFDR pre-contractual template (services.eet.sfdr_items)
+                **sfdr_template_values(session, c["fund_id"], c["sfdr_classification"]),
             }
             checks += [{**o, "fund_id": c["fund_id"], "fund_name": ent.get("fund_name")}
                        for o in (fund_esg_pai(session, c["fund_id"]) or {}).get("energy_outliers", [])]

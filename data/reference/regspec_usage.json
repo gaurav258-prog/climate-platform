@@ -12,6 +12,12 @@
   ],
   "reit_taxonomy": [
    "nonfin_taxonomy"
+  ],
+  "sfdr_precontractual": [
+   "sfdr_product"
+  ],
+  "sfdr_periodic": [
+   "sfdr_product"
   ]
  },
  "previous_period": {

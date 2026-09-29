@@ -69,13 +69,17 @@ EXT_BANKING_COLUMNS = [
     # counterparty in the issuer reference, and its own KPIs — the latest year stated, per basis:objective — frozen
     # with the filing (services.governance.taxonomy_gar values general-purpose exposures by them)
     "x.csrd_subject", "x.counterparty_issuer_id::text AS counterparty_issuer_id",
+    # the one store of an issuer's KPIs (services.issuer_taxonomy): the latest year stated; the organisation's own figure
+    # over a shared vendor one; 'all' is a total whose split by objective is not stated
     """(SELECT jsonb_object_agg(k.basis || ':' || k.objective, jsonb_build_object(
             'eligible', k.eligible_pct, 'aligned', k.aligned_pct, 'transitional', k.transitional_pct,
             'enabling', k.enabling_pct, 'year', k.reporting_year))
-        FROM issuer_taxonomy_kpi k
-        WHERE k.issuer_id = x.counterparty_issuer_id AND k.org_id = e.org_id
-          AND k.reporting_year = (SELECT max(k2.reporting_year) FROM issuer_taxonomy_kpi k2
-                                  WHERE k2.issuer_id = x.counterparty_issuer_id AND k2.org_id = e.org_id)
+        FROM (SELECT DISTINCT ON (k1.basis, k1.objective) k1.* FROM issuer_taxonomy_kpi k1
+              WHERE k1.issuer_id = x.counterparty_issuer_id AND (k1.org_id = e.org_id OR k1.org_id IS NULL)
+                AND k1.reporting_year = (SELECT max(k2.reporting_year) FROM issuer_taxonomy_kpi k2
+                                         WHERE k2.issuer_id = x.counterparty_issuer_id
+                                           AND (k2.org_id = e.org_id OR k2.org_id IS NULL))
+              ORDER BY k1.basis, k1.objective, (k1.org_id IS NULL)) k
        ) AS counterparty_taxonomy_kpi""",
 ]
 

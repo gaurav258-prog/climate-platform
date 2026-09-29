@@ -23,10 +23,13 @@ def _seed(s, *, aligned_turnover=None, aligned_capex=None, dnsh_ok=None, safegua
         "INSERT INTO securities (isin,name,issuer_id,asset_class,source) "
         "VALUES ('DE00DUALKPI1','Dual KPI Sec',:i,'equity','manual') RETURNING security_id"), {"i": iid}).scalar())
     s.execute(text(
-        "INSERT INTO issuer_esg_metrics (issuer_id,org_id,reporting_year,taxonomy_eligible_pct,"
-        "taxonomy_aligned_pct,taxonomy_aligned_capex_pct,dnsh_ok,min_safeguards_ok,source) "
-        "VALUES (:i,:o,2023,90,:t,:c,:d,:m,'client')"),
-        {"i": iid, "o": DEMO_ORG, "t": aligned_turnover, "c": aligned_capex, "d": dnsh_ok, "m": safeguards_ok})
+        "INSERT INTO issuer_esg_metrics (issuer_id,org_id,reporting_year,dnsh_ok,min_safeguards_ok,source) "
+        "VALUES (:i,:o,2023,:d,:m,'client')"),
+        {"i": iid, "o": DEMO_ORG, "d": dnsh_ok, "m": safeguards_ok})
+    # the issuer's own Taxonomy KPIs live in the one store of them (services.issuer_taxonomy)
+    from services.issuer_taxonomy import write_stated
+    write_stated(s, iid, DEMO_ORG, 2023, {"taxonomy_eligible_pct": 90, "taxonomy_aligned_pct": aligned_turnover,
+                                          "taxonomy_aligned_capex_pct": aligned_capex})
     s.execute(text(
         "INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
         "VALUES (:f,:s,1000000,100,'2026-07-12')"), {"f": fid, "s": sid})

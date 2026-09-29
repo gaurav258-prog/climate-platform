@@ -61,6 +61,11 @@ def set_answers(session: Session, org_id: str, fund_id: Optional[str], values: d
         if name not in F.by_name():
             refused.append({"field": name, "reason": f"not an EET {F.version()} field"})
             continue
+        from services.eet.sfdr_items import names as template_fields
+        if name in template_fields():            # stated once, in the product's SFDR pre-contractual template
+            refused.append({"field": name, "reason": "answered in the fund's SFDR pre-contractual template "
+                                                     "(Annex II / III) — the EET reads it from there"})
+            continue
         if name in computed:     # accepted, but a figure from the book takes precedence whenever the book has one
             from_book.append(name)
         scope = _scope(name)

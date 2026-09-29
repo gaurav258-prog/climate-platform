@@ -27,8 +27,6 @@ from ml.regulatory.sfdr_pai import (
     sfdr_pai_statement,
     sfdr_pai_statement_xlsx,
 )
-from ml.regulatory.sfdr_periodic import periodic_report
-from ml.regulatory.sfdr_precontractual import build_precontractual
 from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_xbrl
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
 from ml.regulatory.voluntary_pai import catalog as voluntary_catalog
@@ -278,9 +276,6 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         "gender_pay_gap_pct": h.gender_pay_gap_pct,
         "board_female_pct": h.board_female_pct,
         "controversial_weapons": h.controversial_weapons,
-        "taxonomy_eligible_pct": h.taxonomy_eligible_pct,
-        "taxonomy_aligned_pct": h.taxonomy_aligned_pct,
-        "taxonomy_aligned_capex_pct": h.taxonomy_aligned_capex_pct,
         "dnsh_ok": h.taxonomy_dnsh_ok,
         "min_safeguards_ok": h.taxonomy_min_safeguards_ok,
     }
@@ -295,6 +290,13 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
             DO UPDATE SET {updates}, data_vintage = now()
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year, **esg_fields})
         wrote["esg"] = True
+    # the issuer's own Taxonomy KPIs — to the one store of them (services.issuer_taxonomy)
+    from services.issuer_taxonomy import write_stated
+    stated = {"taxonomy_eligible_pct": h.taxonomy_eligible_pct, "taxonomy_aligned_pct": h.taxonomy_aligned_pct,
+              "taxonomy_aligned_capex_pct": h.taxonomy_aligned_capex_pct}
+    if any(v is not None for v in stated.values()):
+        write_stated(session, issuer_id, org_id, h.reporting_year or date.today().year, stated)
+        wrote["taxonomy"] = True
 
     # Voluntary (additional) PAI values — org-scoped. Each must be an adoptable indicator of the governing spec with a
     # value of the kind its metric needs (yes/no for a share, a number otherwise); anything else is refused and reported
@@ -542,80 +544,8 @@ def file_sfdr_statement(fund_id: str, session: DbSession, org_id: WriterOrgId):
             "filed": f"FY{ref_year} statement frozen for {st['entity']['fund_name']}"}
 
 
-@router.get("/funds/{fund_id}/periodic-report", summary="SFDR Article 8/9 periodic disclosure (RTS Annex IV/V)")
-def sfdr_periodic_report(fund_id: str, session: DbSession, org_id: OrgId):
-    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    return periodic_report(session, fund_id)
-
-
-@router.get("/funds/{fund_id}/precontractual", summary="SFDR Article 8/9 pre-contractual disclosure (RTS Annex II/III)")
-def sfdr_precontractual(fund_id: str, session: DbSession, org_id: OrgId):
-    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    return build_precontractual(session, fund_id)
-
-
-@router.get("/funds/{fund_id}/precontractual.html", summary="Pre-contractual disclosure as the actual Annex II/III document, ready to annex to the prospectus")
-def sfdr_precontractual_html(fund_id: str, session: DbSession, org_id: OrgId):
-    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    built = build_precontractual(session, fund_id)
-    if built.get("error"):
-        return built
-    from ml.regulatory.sfdr_precontractual_doc import precontractual_annex_html
-    doc = precontractual_annex_html(built)
-    fname = f"SFDR_Precontractual_{built['entity']['fund_name'].replace(' ', '_')}.html"
-    return StreamingResponse(
-        iter([doc]), media_type="text/html",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
-
-
-class PrecontractualUpdate(BaseModel):
-    # Every field here is the manager's own declared narrative/forward-commitment —
-    # never computed, never fabricated. See ml/regulatory/sfdr_precontractual.py for
-    # how each is surfaced (or flagged missing) in the assembled template.
-    proportion_investments_planned_pct: Optional[float] = Field(None, ge=0, le=100)
-    sustainable_investment_objective: Optional[str] = None   # Article 9
-    characteristics_promoted: Optional[str] = None            # Article 8
-    makes_sustainable_investments: Optional[bool] = None       # Article 8 partial-SI tick (ESAs Q&A V.29)
-    env_sustainable_pct: Optional[float] = Field(None, ge=0, le=100)
-    taxonomy_kpi_basis: Optional[str] = None    # 'turnover' (default) / 'capex' / 'opex' — Art. 15(3)/19(3)
-    additional_indicators: Optional[list[str]] = None
-    methodology: Optional[str] = None
-    data_sources: Optional[str] = None
-    limitations: Optional[str] = None
-    dnsh_methodology: Optional[str] = None
-    oecd_un_alignment: Optional[str] = None    # OECD Guidelines / UN Guiding Principles alignment (real Annex II/III field)
-    investment_strategy: Optional[str] = None
-    binding_elements: Optional[str] = None
-    investment_scope_reduction_min_pct: Optional[float] = Field(None, ge=0, le=100)  # real Annex II/III field
-    good_governance_policy: Optional[str] = None
-    due_diligence: Optional[str] = None
-    monitoring_process: Optional[str] = None
-    planned_taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
-    planned_sustainable_pct: Optional[float] = Field(None, ge=0, le=100)
-    derivatives_use: Optional[str] = None
-    transitional_enabling_share_pct: Optional[float] = Field(None, ge=0, le=100)
-    env_not_taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
-    social_sustainable_pct: Optional[float] = Field(None, ge=0, le=100)
-    other_investments_purpose: Optional[str] = None
-    reference_benchmark_name: Optional[str] = None
-    benchmark_alignment_methodology: Optional[str] = None
-    benchmark_vs_broad_market: Optional[str] = None
-    benchmark_methodology_url: Optional[str] = None
-    more_info_url: Optional[str] = None
-
-
-@router.put("/funds/{fund_id}/precontractual", summary="Set the fund's declared pre-contractual disclosure fields")
-def set_sfdr_precontractual(fund_id: str, body: PrecontractualUpdate, session: DbSession, org_id: WriterOrgId):
-    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    import json as _json
-    merged = {k: v for k, v in body.model_dump().items() if v is not None}
-    session.execute(text("""
-        UPDATE funds
-           SET sfdr_precontractual = COALESCE(sfdr_precontractual, '{}'::jsonb) || CAST(:patch AS jsonb),
-               updated_at = now()
-         WHERE fund_id = :f
-    """), {"f": fund_id, "patch": _json.dumps(merged)})
-    return {"ok": True, "fields_set": list(merged.keys())}
+# The SFDR pre-contractual and periodic templates (Annexes II–V) are served item by item from the governing
+# specification by api/routers/sfdr_documents.py and filed as report types sfdr_precontractual / sfdr_periodic.
 
 
 @router.get("/funds/{fund_id}/sfdr-filings", summary="Prior SFDR filings for this fund (year-on-year history)")

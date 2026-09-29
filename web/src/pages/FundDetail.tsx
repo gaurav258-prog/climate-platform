@@ -9,7 +9,8 @@ import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 import { SfdrBadge } from './Funds'
 import FundPositions from '../components/FundPositions'
 import ShareClasses from '../components/ShareClasses'
-import { OnboardHoldings, VoluntaryPai, PrecontractualDisclosure } from '../components/FundOnboard'
+import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
+import SfdrDocument from '../components/SfdrDocument'
 
 // One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
 // mandatory indicators + taxonomy + narratives) ready to download or freeze as the official filing.
@@ -208,9 +209,10 @@ export default function FundDetail() {
       {/* voluntary PAI selection */}
       {st && !st.error && <VoluntaryPai fundId={id} selected={st.additional_indicators?.selected ?? []} onDone={refreshAll} />}
 
-      {/* SFDR Article 8/9 pre-contractual disclosure — Annex II/III, distinct from the PAI statement above */}
-      {(s.fund.sfdr_classification === 'article_8' || s.fund.sfdr_classification === 'article_9') && s.positions > 0 && (
-        <PrecontractualDisclosure fundId={id} onDone={refreshAll} />
+      {/* SFDR Article 8/9 product templates — pre-contractual (Annex II/III) and periodic (Annex IV/V), item by item from
+          the governing specification; distinct from the PAI statement above */}
+      {(s.fund.sfdr_classification === 'article_8' || s.fund.sfdr_classification === 'article_9') && (
+        <SfdrDocument fundId={id} fundName={s.fund.name} />
       )}
 
       {/* share classes — one European ESG Template row each (the EET itself is on the Funds page) */}

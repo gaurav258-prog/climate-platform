@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, FileSpreadsheet, Pencil, Check, X, Clock } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { DocumentItems, type DocItem } from './SfdrDocumentItems'
 import { Card } from './ui'
 import { hazardLabel } from '../lib/hazards'
 import { toast } from '../lib/toast'
@@ -28,7 +29,7 @@ interface Dp {
 interface Group { group: string; datapoints: Dp[] }
 interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string } }   // supply: a cell the institution enters ('<template>.<row>.<column>')
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
-interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string }
+interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string; kind?: 'document'; items?: DocItem[] }   // kind 'document': a template printed as a document (SFDR Annexes II–V)
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
 interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null }
 
@@ -249,6 +250,7 @@ function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, ...ep }: 
       {annex.sections.map((s, si) => (
         <div key={si} className={si > 0 ? 'border-t border-[var(--color-line)]' : ''}>
           <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{s.title}</div>
+          {s.kind === 'document' ? <DocumentItems items={s.items ?? []} /> : <>
           {s.col_sources && <SrcLegend sources={s.col_sources} />}
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
@@ -292,7 +294,7 @@ function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, ...ep }: 
                 })}
               </tbody>
             </table>
-          </div>
+          </div></>}
           {s.note && <div className="px-4 py-2 mono text-[9.5px] text-[var(--color-faint)] leading-relaxed border-t border-[var(--color-line)]">{s.note}</div>}
         </div>
       ))}

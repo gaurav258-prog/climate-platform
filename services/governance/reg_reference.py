@@ -78,6 +78,31 @@ REFERENCE: dict[str, dict] = {
         "inputs": "Holdings by ISIN with market value; issuer GHG (Scope 1–3), revenue / EVIC, and the voluntary-PAI "
                   "attributes; fund look-through where a fund is held.",
     },
+    "sfdr_precontractual": {
+        "official_name": "SFDR pre-contractual disclosure of a financial product (Art. 8 / Art. 9)",
+        "authority": "National competent authority (ESAs — ESMA / EBA / EIOPA)",
+        # the RTS, its templates and its link come from the governing specification (family sfdr_product)
+        "legal_basis": "SFDR Regulation (EU) 2019/2088, Arts. 8 and 9",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019R2088",
+        "summary": "For each product that promotes environmental or social characteristics (Art. 8) or has a sustainable "
+                   "investment objective (Art. 9), the template annexed to its prospectus: what it promotes or pursues, "
+                   "its strategy, planned asset allocation, minimum Taxonomy alignment and sustainable investment shares.",
+        "official_form": "Annex II / III template of the regulatory technical standards in force",
+        "form_url": None,
+        "inputs": "The fund's SFDR classification and LEI; the manager's commitments and answers to each template item.",
+    },
+    "sfdr_periodic": {
+        "official_name": "SFDR periodic disclosure of a financial product (Art. 8 / Art. 9)",
+        "authority": "National competent authority (ESAs — ESMA / EBA / EIOPA)",
+        "legal_basis": "SFDR Regulation (EU) 2019/2088, Art. 11",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019R2088",
+        "summary": "Annexed to the product's annual report: how far its characteristics or objective were met over the "
+                   "reference period, its top investments, asset allocation, sectors, and Taxonomy alignment (turnover, "
+                   "CapEx and OpEx, with fossil gas and nuclear shown separately).",
+        "official_form": "Annex IV / V template of the regulatory technical standards in force",
+        "form_url": None,
+        "inputs": "Holdings over the reference period by issuer; each investee's own Taxonomy KPIs; the manager's answers.",
+    },
     "csrd_e1": {
         "official_name": "CSRD — ESRS E1 Climate Change disclosure",
         "authority": "National competent authority (CSRD transposition)",

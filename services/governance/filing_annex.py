@@ -534,9 +534,12 @@ _BEFORE_SPECS = {"bank_p3esg": _P3_SPEC_BEFORE_SPECS, "sfdr_pai": "rts_2022_1288
 def _frozen_spec(framework: str, payload: dict) -> dict | None:
     """The specification a filing was prepared under: its frozen _spec, else the version in use before specs existed."""
     import services.regspec as R
+    p = payload or {}
+    family = (R.families_for(framework) or [framework])[0]
+    if family != framework and family in R.frameworks() and ((p.get("_specs") or {}).get(family) or {}).get("version"):
+        return R.load(family, p["_specs"][family]["version"])      # a report type governed by another family's spec
     if framework not in R.frameworks():
         return None
-    p = payload or {}
     rec = (p.get("_specs") or {}).get(framework) or (p.get("_spec") if (p.get("_spec") or {}).get("framework") in (None, framework) else None)
     version = (rec or {}).get("version") or _BEFORE_SPECS.get(framework)
     return R.load(framework, version) if version else None
@@ -922,6 +925,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     elif framework == "reit_taxonomy":
         from services.governance import taxonomy_nonfin_forms
         sections = taxonomy_nonfin_forms.sections(payload or {}, "reit_taxonomy")
+    elif framework in ("sfdr_precontractual", "sfdr_periodic"):
+        from services.governance import sfdr_product_forms
+        sections = sfdr_product_forms.sections(payload or {}, framework)
     else:
         sections = _generic_annex(dps, groups)
     if not sections:
@@ -930,7 +936,7 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     frozen = _frozen_spec(framework, payload or {})
     if frozen:                                        # the act the filing was prepared under, from its frozen spec
         from services.governance.reg_reference import REFERENCE, with_spec
-        ref = with_spec(REFERENCE[framework], frozen)
+        ref = with_spec(REFERENCE[framework], frozen) if framework in REFERENCE else ref
     return {
         "official_name": ref.get("official_name", framework),
         "authority": ref.get("authority"),

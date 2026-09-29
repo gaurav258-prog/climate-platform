@@ -388,6 +388,20 @@
     "eudr_4_3"
    ],
    "national": false
+  },
+  "sfdr_precontractual": {
+   "document": "prospectus_annex",
+   "rules": [
+    "sfdr_none"
+   ],
+   "national": false
+  },
+  "sfdr_periodic": {
+   "document": "annual_report_annex",
+   "rules": [
+    "sfdr_none"
+   ],
+   "national": false
   }
  }
 }

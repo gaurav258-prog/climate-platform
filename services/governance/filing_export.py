@@ -74,6 +74,17 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
         doc = _ixbrl(session, org_id, filing["framework"], payload, basis)
         return f"{stem}.xhtml", "application/xhtml+xml", doc.encode("utf-8")
 
+    if fmt == "html":                                  # a document template (SFDR Annexes II–V): the annex as filed
+        from services.governance import sfdr_product_forms
+        from services.governance.sfdr_product_html import render
+        if not payload.get("fund"):
+            raise ExportError("this filing froze no fund")
+        spec, tid, built = sfdr_product_forms.items(payload, filing["framework"])
+        import services.regspec as R
+        doc = render(R.template(spec, tid)["title"], R.citation(spec, tid), payload["fund"], built,
+                     payload["period"]["end"] if payload.get("document") == "periodic" else None)
+        return f"{stem}.html", "text/html", doc.encode("utf-8")
+
     raise ExportError(f"unknown format '{fmt}'")
 
 
