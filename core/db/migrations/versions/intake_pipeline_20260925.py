@@ -139,10 +139,29 @@ def downgrade() -> None:
     op.execute("ALTER TABLE ingest_batches DROP CONSTRAINT IF EXISTS ck_ingest_batch_4eyes")
     op.execute("ALTER TABLE ingest_batches DROP CONSTRAINT IF EXISTS ck_ingest_batch_awaiting")
     op.execute("ALTER TABLE ingest_batches DROP CONSTRAINT IF EXISTS ck_ingest_batch_state")
+    # the old shape cannot hold a batch that is held, rejected, blocked or approved by a second person — refuse
+    # rather than silently delete it
+    op.execute("""DO $$ BEGIN
+                    IF EXISTS (SELECT 1 FROM ingest_batches WHERE n_total IS NULL OR n_valid IS NULL OR n_rejected IS NULL
+                               OR receipt IS NULL OR transform IS NULL OR gate_status IS NULL OR gate_status NOT IN ('pass')
+                               OR state NOT IN ('checked', 'imported')) THEN
+                      RAISE EXCEPTION 'ingest_batches holds batches the pre-pipeline shape cannot represent; resolve them first';
+                    END IF;
+                  END $$""")
+    op.execute("""ALTER TABLE ingest_batches ADD COLUMN IF NOT EXISTS signoff_by UUID, ADD COLUMN IF NOT EXISTS signoff_reason TEXT,
+                  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'accepted'""")
+    op.execute("UPDATE ingest_batches SET status = CASE WHEN state = 'imported' THEN 'imported' ELSE 'accepted' END")
+    op.execute("DROP INDEX IF EXISTS ix_ingest_batches_state")
+    op.execute("ALTER TABLE ingest_batches DROP CONSTRAINT IF EXISTS ck_ingest_batch_gate")
     op.execute("""ALTER TABLE ingest_batches DROP COLUMN IF EXISTS file_id, DROP COLUMN IF EXISTS state,
                   DROP COLUMN IF EXISTS state_changed_at, DROP COLUMN IF EXISTS token_id, DROP COLUMN IF EXISTS maker_reason,
                   DROP COLUMN IF EXISTS approval_request_id, DROP COLUMN IF EXISTS rejected_reason, DROP COLUMN IF EXISTS ingest_notes,
-                  ADD COLUMN IF NOT EXISTS signoff_by UUID, ADD COLUMN IF NOT EXISTS signoff_reason TEXT,
-                  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'accepted'""")
+                  ALTER COLUMN n_total SET NOT NULL, ALTER COLUMN n_valid SET NOT NULL, ALTER COLUMN n_rejected SET NOT NULL,
+                  ALTER COLUMN receipt SET NOT NULL, ALTER COLUMN transform SET NOT NULL, ALTER COLUMN gate_status SET NOT NULL""")
+    # the constraints exactly as ingest_batches_20260925 created them
+    op.execute("ALTER TABLE ingest_batches ADD CONSTRAINT ck_ingest_batch_status CHECK (status IN ('accepted', 'imported'))")
+    op.execute("ALTER TABLE ingest_batches ADD CONSTRAINT ck_ingest_batch_gate CHECK (gate_status IN ('pass', 'needs_signoff'))")
+    op.execute("""ALTER TABLE ingest_batches ADD CONSTRAINT ck_ingest_batch_signoff CHECK (gate_status = 'pass'
+                  OR (signoff_by IS NOT NULL AND length(btrim(signoff_reason)) >= 10))""")
     op.execute("DROP TABLE IF EXISTS intake_files")
     op.execute("DROP FUNCTION IF EXISTS protect_intake_file()")

@@ -4,12 +4,22 @@ Root-zone water stress (from the soil-moisture anomaly) is a distinct hazard cha
 meteorological drought (SPEI): it captures antecedent/deep soil water a rainfall index misses,
 and is the validated driver for dryland cereals (Spanish durum wheat: soil-moisture r²=0.42 vs
 SPEI 0.36). Kept as its own hazard_type so a cell can carry BOTH (olive→drought, wheat→soil_water)
-without one retiring the other. Same drop-and-re-add-from-core.types.HAZARD_VALUES pattern as the
+without one retiring the other. Same drop-and-re-add pattern as the
 pollution/volcanic additions.
 """
 from alembic import op
 
-from core.types import HAZARD_VALUES
+# Frozen vocabulary (self-contained migration — never import app code): core.types.HAZARD_VALUES as of commit 3fedbcc.
+_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
+    'pollution', 'frost', 'soil_water',
+)
+
+# The vocabulary in force at down_revision (ranged_floor_20260718 = d5e6f7a8b9c0's list) — what downgrade() restores.
+_PRIOR_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
+    'pollution', 'frost',
+)
 
 revision = "soil_water_hazard_vocab_20260718"
 down_revision = "ranged_floor_20260718"
@@ -30,13 +40,12 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
         op.execute(
             f"ALTER TABLE {table} "
-            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, HAZARD_VALUES)}) NOT VALID"
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _HAZARD_VALUES)}) NOT VALID"
         )
 
 
 def downgrade() -> None:
-    # Re-add without soil_water (drop it from the current vocab).
-    values = [v for v in HAZARD_VALUES if v != "soil_water"]
+    # Restore the pre-soil_water CHECK constraints exactly as d5e6f7a8b9c0 (frost) left them.
     for table, name, column in [
         ("canonical_scores", "ck_canonical_hazard_vocab", "hazard_type"),
         ("satellite_observations", "ck_obs_hazard_vocab", "hazard_type"),
@@ -44,5 +53,5 @@ def downgrade() -> None:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
         op.execute(
             f"ALTER TABLE {table} "
-            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, values)}) NOT VALID"
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _PRIOR_HAZARD_VALUES)}) NOT VALID"
         )

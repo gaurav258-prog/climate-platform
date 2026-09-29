@@ -41,15 +41,18 @@ END;
 $$ LANGUAGE plpgsql;
 """
 
+# exactly as regulatory_filings_20260803 defined it (body read back from a database built to that revision,
+# comments included — they are part of the stored function source)
 ORIGINAL = """
 CREATE OR REPLACE FUNCTION guard_filing_transition() RETURNS trigger AS $$
 BEGIN
+    -- once filed with the regulator, the record is frozen: only supersession (restatement) may touch it.
     IF OLD.status IN ('submitted','accepted') THEN
         IF NEW.status = OLD.status
            AND NEW.snapshot_id IS NOT DISTINCT FROM OLD.snapshot_id
            AND NEW.period_end = OLD.period_end
            AND NEW.framework = OLD.framework THEN
-            RETURN NEW;
+            RETURN NEW;                         -- no-op / metadata touch allowed
         END IF;
         IF NEW.status <> 'superseded' THEN
             RAISE EXCEPTION 'filing % is % and can only be superseded by a restatement, not changed to %',

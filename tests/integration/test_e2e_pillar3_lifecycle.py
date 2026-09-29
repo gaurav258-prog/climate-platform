@@ -1,0 +1,106 @@
+"""End to end, through the HTTP API: a Pillar 3 filing built to its specification, from the loan tape to the export.
+
+  loan-tape facts (attributes upload) → qualitative authoring (unknown rows refused) → pre-flight → generate (freeze,
+  with the governing spec) → the form: Template 7 placed by the stated facts, Template 10 offering its cells for entry →
+  a Template 10 cell supplied for the filing's period → a second person attests it → the draft is refreshed → the value
+  is frozen on the form → XLSX / JSON / XBRL exports.
+
+The API runs with its database session replaced by one rolled-back transaction (commits are flushes), so the whole
+lifecycle — including the append-only snapshot and engine-run records — leaves nothing behind.
+"""
+from __future__ import annotations
+
+import csv
+import io
+import json
+import zipfile
+
+import pytest
+from sqlalchemy import text
+
+from tests.integration.conftest import login as _login
+from tests.integration.test_intake_pipeline import BANK_ORG
+
+pytestmark = pytest.mark.integration
+
+
+def _csv(rows: list[dict]) -> bytes:
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=list(rows[0]))
+    w.writeheader()
+    w.writerows(rows)
+    return buf.getvalue().encode()
+
+
+def test_pillar3_from_the_loan_tape_to_the_export(api):
+    maker = _login(api, "admin@meridian.demo", "Demo!admin1")
+    checker = _login(api, "approver@meridian.demo", "Demo!approve1")
+    s = api.s
+
+    # 1 · the loan tape states the new facts for two exposures (attributes upload, matched by asset name)
+    names = s.execute(text("""SELECT e.entity_name FROM portfolio_entities e JOIN ext_banking x ON x.entity_id = e.entity_id
+                              WHERE e.org_id = CAST(:o AS uuid) AND e.vertical = 'banking' AND e.source = 'own'
+                              GROUP BY e.entity_name HAVING count(*) = 1 ORDER BY e.entity_name LIMIT 2"""),
+                      {"o": BANK_ORG}).scalars().all()
+    rows = [{"asset_name": names[0], "counterparty_sector": "credit_institution", "instrument_type": "debt_securities",
+             "nfrd_subject": "", "taxonomy_objective": "ccm", "ccm_sustainable": "true", "specialised_lending": "false"},
+            {"asset_name": names[1], "counterparty_sector": "non_financial_corporation", "instrument_type": "equity_instruments",
+             "nfrd_subject": "true", "taxonomy_objective": "cca", "ccm_sustainable": "false", "specialised_lending": ""}]
+    r = api.post("/v1/bank/assets/attributes/upload", headers=maker, files={"file": ("facts.csv", _csv(rows), "text/csv")})
+    assert r.status_code == 200 and r.json()["n_updated"] == 2, r.text
+    stored = s.execute(text("""SELECT x.counterparty_sector, x.instrument_type, x.taxonomy_objective, x.ccm_sustainable
+                               FROM ext_banking x JOIN portfolio_entities e ON e.entity_id = x.entity_id
+                               WHERE e.entity_name = :n AND e.org_id = CAST(:o AS uuid)"""), {"n": names[0], "o": BANK_ORG}).one()
+    assert tuple(stored) == ("credit_institution", "debt_securities", "ccm", True)
+
+    # 2 · qualitative authoring: a row the governing tables do not have is refused; a printed sub-row is accepted
+    assert api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {"table9.z": "x"}}).status_code == 422
+    r = api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {"table2.d_i": "Community engagement policy."}})
+    assert r.status_code == 200
+    rows_ = {x["key"]: x["value"] for t in r.json()["tables"] for x in t["rows"]}
+    assert rows_["table2.d_i"] == "Community engagement policy."
+
+    # 3 · pre-flight and generate: the draft freezes the governing specification
+    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg'"),
+              {"o": BANK_ORG})
+    pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
+    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"]})
+    assert g.status_code == 201, g.text
+    fid = g.json()["filing_id"]
+    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
+    assert form["period_end"] and "2024/3172" in form["annex"]["legal_basis"]
+    sec = {x.get("key"): x for x in form["annex"]["sections"]}
+    t7_row = {r["cells"][0]["text"].split(" · ")[0]: r for r in sec["t7"]["rows"] if r["type"] == "row"}
+    assert t7_row["32"]["cells"][1]["text"] not in ("—", "")               # GAR assets placed from the stated facts
+    t10_cells = [c for r in sec["t10"]["rows"] if r["type"] == "row" for c in r["cells"] if c.get("supply")]
+    assert len(t10_cells) == 11 * 4                                        # 11 printed rows × columns c-f to enter
+
+    # 4 · supply a Template 10 cell for the filing's period; a second person attests it
+    r = api.post("/v1/provided", headers=maker, json={"framework": "bank_p3esg", "datapoint_key": "T10.1.c",
+                                                      "value_num": 12500000, "reporting_period_end": form["period_end"]})
+    assert r.status_code == 201, r.text
+    assert api.post("/v1/provided", headers=maker, json={"framework": "bank_p3esg", "datapoint_key": "T7.4.a", "value_num": 1,
+                                                         "reporting_period_end": form["period_end"]}).status_code == 400
+    assert api.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=maker,
+                    json={"decision": "approved"}).status_code == 422                 # the maker cannot attest their own (4-eyes)
+    d = api.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=checker, json={"decision": "approved"})
+    assert d.status_code == 200, d.text
+
+    # 5 · refresh the draft: the attested value is frozen into the filing and shown in its cell
+    assert api.post(f"/v1/filings/{fid}/refresh", headers=maker).status_code == 200
+    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
+    t10 = next(x for x in form["annex"]["sections"] if x.get("key") == "t10")
+    cell = next(c for r in t10["rows"] if r["type"] == "row" for c in r["cells"] if c.get("key") == "T10.1.c")
+    assert "12.5m" in cell["text"]
+
+    # 6 · exports carry the templates and the supplied value
+    js = json.loads(api.get(f"/v1/filings/{fid}/export?format=json", headers=maker).content)
+    frozen = {p["key"]: p["value"] for p in js.get("payload", js).get("_provided_attested", [])} if isinstance(js, dict) else {}
+    assert frozen.get("provided.T10.1.c") == 12500000
+    xl = api.get(f"/v1/filings/{fid}/export?format=xlsx", headers=maker)
+    assert xl.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(xl.content)) as z:
+        sheets = " ".join(z.read(n).decode("utf-8", "ignore") for n in z.namelist() if n.startswith("xl/"))
+    assert "Template 7" in sheets and "Template 10" in sheets and "12500000" in sheets.replace(",", "").replace(".0", "")
+    xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)
+    assert xb.status_code == 200 and b"GARCoveredAssets" in xb.content

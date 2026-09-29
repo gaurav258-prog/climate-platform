@@ -15,15 +15,23 @@ a point-source event, not a smooth climate field):
     honestly-labeled hand-curated table, not something live-ingested wholesale.
 
 Also extends the hazard_type CHECK constraints (added in b7c1a2d3e4f5) to
-include 'volcanic', re-importing the current HAZARD_VALUES from core.types
-so the DB and Python enum stay the single source of truth.
+include 'volcanic', from a vocabulary list frozen in this file (the
+core.types.HAZARD_VALUES of the commit that added it).
 """
 from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
 
-from core.types import HAZARD_VALUES
+# Frozen vocabulary (self-contained migration — never import app code): core.types.HAZARD_VALUES as of commit 07320da.
+_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
+)
+
+# The vocabulary in force at down_revision (b7c1a2d3e4f5) — what downgrade() restores.
+_PRIOR_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+)
 
 revision: str = 'd3e4f5a6b7c8'
 down_revision: Union[str, None] = 'b8c9d0e1f2a3'
@@ -81,7 +89,7 @@ def upgrade() -> None:
     op.create_index('idx_volcanic_zones_volcano', 'volcanic_hazard_zones', ['volcano_number'], postgresql_using='btree')
 
     # Extend the hazard_type CHECK constraints to include 'volcanic' — drop and
-    # re-add from the current core.types.HAZARD_VALUES (now includes VOLCANIC).
+    # re-add from the frozen _HAZARD_VALUES (now includes VOLCANIC).
     for table, name, column in [
         ("canonical_scores", "ck_canonical_hazard_vocab", "hazard_type"),
         ("satellite_observations", "ck_obs_hazard_vocab", "hazard_type"),
@@ -89,12 +97,20 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
         op.execute(
             f"ALTER TABLE {table} "
-            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, HAZARD_VALUES)}) NOT VALID"
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _HAZARD_VALUES)}) NOT VALID"
         )
 
 
 def downgrade() -> None:
     op.drop_table('volcanic_hazard_zones')
     op.drop_table('volcanic_events')
-    # Note: does not restore the pre-volcanic CHECK constraint (would need the
-    # prior HAZARD_VALUES snapshot); re-run b7c1a2d3e4f5's logic manually if needed.
+    # Restore the pre-volcanic CHECK constraints exactly as b7c1a2d3e4f5 left them.
+    for table, name, column in [
+        ("canonical_scores", "ck_canonical_hazard_vocab", "hazard_type"),
+        ("satellite_observations", "ck_obs_hazard_vocab", "hazard_type"),
+    ]:
+        op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
+        op.execute(
+            f"ALTER TABLE {table} "
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _PRIOR_HAZARD_VALUES)}) NOT VALID"
+        )

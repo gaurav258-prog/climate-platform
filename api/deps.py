@@ -182,3 +182,34 @@ def require_permission(code: str):
             )
         return ctx
     return _dep
+
+
+# ── Tenant scoping for the sector APIs ─────────────────────────────────
+
+def tenant_resolver(demo_org: str):
+    """The caller's organisation: a valid user JWT's org (real tenant isolation); a caller without one sees only the
+    sector's public demo organisation — never an org named in the request. One implementation for every sector API."""
+    def resolve_org(credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None) -> str:
+        token = credentials.credentials if credentials else None
+        if token and not token.startswith("cp_live_"):
+            from api.security import decode_access_token
+            payload = decode_access_token(token)
+            if payload and payload.get("org_id"):
+                return payload["org_id"]
+        return demo_org
+    return resolve_org
+
+
+def own_or_404(session: Session, table: str, id_col: str, target_id: str, org_id: str, label: str) -> None:
+    """A record addressed by id is served only to its own organisation; any other caller gets 404 — the same answer as
+    for an id that does not exist, so a record's existence is never revealed across tenants. Table and column names
+    come from code, never from the request."""
+    from sqlalchemy import text as _text
+    try:
+        row = session.execute(_text(f"SELECT 1 FROM {table} WHERE {id_col} = CAST(:i AS uuid) AND org_id = CAST(:o AS uuid)"),
+                              {"i": target_id, "o": org_id}).first()
+    except Exception:   # noqa: BLE001 — a malformed id is simply not found
+        session.rollback()
+        row = None
+    if not row:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"{label} not found."})

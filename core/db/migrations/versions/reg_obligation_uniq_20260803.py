@@ -42,3 +42,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ux_reg_obligation_key")
+    # the UNIQUE constraint exactly as reg_filing_guard_fix_20260803 had it (same name, same columns).
+    # It is NULL-distinct, so it is strictly weaker than the index just dropped — no row can violate it.
+    op.execute("""ALTER TABLE regulatory_obligation
+                  ADD CONSTRAINT regulatory_obligation_org_id_framework_period_end_entity_id_key
+                  UNIQUE (org_id, framework, period_end, entity_id)""")

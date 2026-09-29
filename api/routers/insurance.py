@@ -23,11 +23,11 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from core.types import HAZARD_VALUES
 from ml.scoring.cat_accumulation import catastrophe_accumulation
@@ -54,23 +54,7 @@ DEMO_ORG = "22222222-2222-4222-8222-222222222222"  # Iberia Mutual (demo)
 _bearer = HTTPBearer(auto_error=False)
 
 
-def resolve_org(
-    org_id: Optional[str] = Query(None),
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
-) -> str:
-    """User JWT's org wins (tenant isolation); else query param; else the demo insurer."""
-    token = credentials.credentials if credentials else None
-    if token and not token.startswith("cp_live_"):
-        from api.security import decode_access_token
-        payload = decode_access_token(token)
-        if payload and payload.get("org_id"):
-            return payload["org_id"]
-    # SECURITY: a caller without a valid user JWT can ONLY ever see the public
-    # demo org — never an arbitrary org_id. Dropping the query-param fallback
-    # closes the cross-tenant read (an anonymous ?org_id=<other-tenant> IDOR).
-    return DEMO_ORG
-
-
+resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
@@ -494,14 +478,13 @@ def triggers(session: DbSession, org_id: OrgId,
 
 
 @router.get("/policy/{policy_id}", summary="One policy — full projection + pricing + trigger, provenance")
-def policy_detail(policy_id: str, session: DbSession):
+def policy_detail(policy_id: str, session: DbSession, caller_org: OrgId):
     """The per-policy drill-through every other vertical already has (bank's
     /asset/{id}, real estate's /property/{id}, asset mgmt's /holding/{id}) --
     insurance was the one sector missing it, so "Most exposed policies" and
     both ParametricTriggers.jsx lists had nowhere to click through to."""
+    own_or_404(session, "portfolio_entities", "entity_id", policy_id, caller_org, "Policy")   # only your own org's record
     org_id = get_entity_org(session, policy_id)
-    if not org_id:
-        return {"error": "policy not found"}
     _st = get_calc_settings(session, org_id)
     return_period_model = _st["insurance_return_period_model"]
     trigger_row = session.execute(text("""

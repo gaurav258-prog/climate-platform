@@ -8,8 +8,10 @@ The bank-vertical tables previously existed only in a hand-written file
 (the .sql carried three dead tables no Python code uses). This migration makes
 Alembic build the bank schema from the ORM, ending the split.
 
-Tables are created via metadata.create_all from the ORM definitions (not
-hand-copied DDL, so they can't drift from the models). The two views and the
+Tables were first created via metadata.create_all from the ORM. That made this migration build whatever the models
+say TODAY rather than its own schema, so history could not be replayed or undone faithfully (error log E25). The DDL
+it produced is now frozen in sql/d9e3f4a5b6c7_bank_vertical_tables.sql (read from a scratch database built to this
+revision); the ORM is no longer consulted. The two views and the
 two seed inserts that depend on live tables are ported from the .sql file. The
 .sql-only tables (compliance_status, compliance_requirements,
 materiality_assessments) and the view that needs them are intentionally NOT
@@ -21,12 +23,10 @@ Revises: b7c1a2d3e4f5
 Create Date: 2026-06-26
 
 """
+import pathlib
 from typing import Sequence, Union
 
 from alembic import op
-
-import core.db.models_regulatory_complete  # noqa: F401  (registers bank tables)
-from core.db.models import Base
 
 revision: str = "d9e3f4a5b6c7"
 # Bank tables must exist BEFORE c8d2's v_bank_asset_physical_risk view (which
@@ -37,7 +37,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 # The 22 bank-vertical tables (everything in models_regulatory_complete that is
-# not a platform table). Explicit list = auditable; create_all orders by FK deps.
+# not a platform table). Explicit list = auditable; the frozen DDL creates exactly these.
 BANK_TABLES = [
     "organizations", "users", "bank_assets", "climate_hazard_exposure",
     "climate_risk_scores", "climate_scenarios", "scenario_financial_impact",
@@ -108,9 +108,7 @@ SEED = [
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    tables = [Base.metadata.tables[name] for name in BANK_TABLES]
-    Base.metadata.create_all(bind=bind, tables=tables)  # ORM-sourced, FK-ordered
+    op.get_bind().exec_driver_sql((pathlib.Path(__file__).parent / "sql" / "d9e3f4a5b6c7_bank_vertical_tables.sql").read_text())   # verbatim, no bind parsing
     for view_sql in VIEWS:
         op.execute(view_sql)
     for seed_sql in SEED:
@@ -120,6 +118,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP VIEW IF EXISTS v_scenario_financial_summary")
     op.execute("DROP VIEW IF EXISTS v_asset_climate_risk_summary")
-    bind = op.get_bind()
-    tables = [Base.metadata.tables[name] for name in BANK_TABLES]
-    Base.metadata.drop_all(bind=bind, tables=tables)
+    op.execute("DROP TABLE " + ", ".join(BANK_TABLES))       # one statement: FKs among them resolve, no CASCADE

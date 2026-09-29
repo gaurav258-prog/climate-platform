@@ -43,6 +43,18 @@ from services.tasks.heartbeat import on_worker_ready, on_worker_shutdown  # noqa
 worker_ready.connect(on_worker_ready)
 worker_shutdown.connect(on_worker_shutdown)
 
+
+def _sync_hazard_relevance(**_):
+    """The worker reads the physical-risk views, which read hazard_relevance: mirror the registry before any job."""
+    from core.db.session import get_session
+    from core.hazard_relevance import sync_table
+    with get_session() as s:
+        sync_table(s)
+        s.commit()
+
+
+worker_ready.connect(_sync_hazard_relevance)
+
 # Run record + scheduler liveness (services/tasks/schedule_health.py): a stopped scheduler or failing job shows up.
 from celery.signals import beat_init, task_failure, task_postrun, task_prerun  # noqa: E402
 

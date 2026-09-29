@@ -14,6 +14,7 @@ from sqlalchemy import text
 from api.main import app
 from core.db.session import get_session
 from services.reference.fx import FxError, to_eur
+from tests.integration.conftest import login
 
 DEMO_ORG = "44444444-4444-4444-8444-444444444444"
 
@@ -65,7 +66,8 @@ def test_onboarding_converts_native_currency_and_stores_base():
 
     try:
         client = TestClient(app)
-        r = client.post(f"/v1/funds/{created['fid']}/holdings", json={
+        mgr = login(client, "admin@nordkap.demo", "Demo!admin1")         # fund writes need a signed-in user (E24)
+        r = client.post(f"/v1/funds/{created['fid']}/holdings", headers=mgr, json={
             "as_of_date": "2024-03-01",
             "holdings": [
                 {"isin": "US00FXTEST01", "market_value": 1_000_000, "currency": "USD"},

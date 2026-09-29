@@ -77,3 +77,30 @@ def session_rolled_back():
                     os.remove(storage._path_for(sha))
                 except OSError:
                     pass
+
+
+@pytest.fixture()
+def api(session_rolled_back):
+    """The real HTTP API with its database session replaced by one rolled-back transaction: end-to-end through every
+    layer, leaving nothing behind (append-only records included). `api.s` is the session."""
+    from fastapi.testclient import TestClient
+
+    from api.deps import db_session
+    from api.main import app
+
+    def _same_session():
+        yield session_rolled_back
+    app.dependency_overrides[db_session] = _same_session
+    try:
+        with TestClient(app, raise_server_exceptions=True) as c:
+            c.s = session_rolled_back
+            yield c
+    finally:
+        app.dependency_overrides.pop(db_session, None)
+
+
+def login(c, email: str, pw: str) -> dict:
+    r = c.post("/v1/auth/login", json={"email": email, "password": pw})
+    assert r.status_code == 200, r.text
+    return {"Authorization": "Bearer " + r.json()["access_token"]}
+

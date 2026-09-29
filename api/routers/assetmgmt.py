@@ -20,11 +20,11 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.valuation_discount import monte_carlo_var
@@ -80,23 +80,7 @@ DEMO_ORG = "44444444-4444-4444-8444-444444444444"  # Nordkap Asset Management (d
 _bearer = HTTPBearer(auto_error=False)
 
 
-def resolve_org(
-    org_id: Optional[str] = Query(None),
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
-) -> str:
-    """User JWT's org wins (tenant isolation); else query param; else the demo asset manager."""
-    token = credentials.credentials if credentials else None
-    if token and not token.startswith("cp_live_"):
-        from api.security import decode_access_token
-        payload = decode_access_token(token)
-        if payload and payload.get("org_id"):
-            return payload["org_id"]
-    # SECURITY: a caller without a valid user JWT can ONLY ever see the public
-    # demo org — never an arbitrary org_id. Dropping the query-param fallback
-    # closes the cross-tenant read (an anonymous ?org_id=<other-tenant> IDOR).
-    return DEMO_ORG
-
-
+resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
@@ -235,10 +219,9 @@ REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["req
 
 
 @router.get("/holding/{holding_id}", summary="One holding — full projection + provenance")
-def holding_detail(holding_id: str, session: DbSession):
+def holding_detail(holding_id: str, session: DbSession, caller_org: OrgId):
+    own_or_404(session, "portfolio_entities", "entity_id", holding_id, caller_org, "Holding")   # only your own org's record
     org_id = get_entity_org(session, holding_id)
-    if not org_id:
-        return {"error": "holding not found"}
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     row = get_entity_with_risk(session, holding_id, "baseline", "current", severity_model,
                                 extra_calc=_assetmgmt_extra)

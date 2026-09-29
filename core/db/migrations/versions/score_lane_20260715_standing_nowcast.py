@@ -170,5 +170,29 @@ def downgrade() -> None:
         JOIN   canonical_scores cs
           ON   cs.h3_cell::text = p.h3_cell::text AND cs.valid_to IS NULL
         WHERE  cs.hazard_type::text <> 'heat_acute'::text;
+
+        -- the upgrade also pinned the bank and real-estate views to the standing lane: restore them as they were
+        -- before it (definitions read from the schema at sc_calibration_20260715), else the column cannot be dropped
+        CREATE OR REPLACE VIEW v_bank_asset_physical_risk AS
+        SELECT DISTINCT ON (ba.asset_id, cs.hazard_type, cs.scenario, cs.time_horizon)
+               ba.org_id, ba.asset_id, ba.h3_cell, cs.hazard_type, cs.scenario, cs.time_horizon,
+               cs.risk_score AS physical_risk_score, cs.risk_bucket, cs.model_version, cs.scored_at,
+               'canonical_scores'::text AS risk_source
+        FROM   bank_assets ba
+        JOIN   canonical_scores cs ON cs.h3_cell::text = ba.h3_cell::text
+        WHERE  cs.valid_to IS NULL
+          AND  cs.hazard_type::text <> 'heat_acute'::text
+        ORDER  BY ba.asset_id, cs.hazard_type, cs.scenario, cs.time_horizon, cs.scored_at DESC;
+
+        CREATE OR REPLACE VIEW v_realestate_property_physical_risk AS
+        SELECT DISTINCT ON (p.property_id, cs.hazard_type, cs.scenario, cs.time_horizon)
+               p.org_id, p.property_id, p.h3_cell, cs.hazard_type,
+               cs.risk_score::double precision AS physical_risk_score, cs.risk_bucket,
+               cs.scenario, cs.time_horizon, cs.model_version, cs.scored_at
+        FROM   realestate_properties p
+        JOIN   canonical_scores cs ON cs.h3_cell::text = p.h3_cell::text AND cs.valid_to IS NULL
+        WHERE  cs.hazard_type::text <> 'heat_acute'::text
+        ORDER  BY p.property_id, cs.hazard_type, cs.scenario, cs.time_horizon, cs.scored_at DESC;
+
         ALTER TABLE canonical_scores DROP COLUMN IF EXISTS score_lane;
     """)

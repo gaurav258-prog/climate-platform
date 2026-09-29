@@ -73,5 +73,31 @@ def upgrade() -> None:
     _apply(with_ci=True)
 
 
+# v_bank_asset_physical_risk exactly as sc_crop_calendar_202608 defined it (read back from the catalog of a
+# database built to that revision): its column order differs from _mk's, and physical_risk_score was the raw
+# numeric(5,2) canonical_scores.risk_score — no double-precision cast.
+_BANK_VIEW_PRIOR = """
+CREATE VIEW v_bank_asset_physical_risk AS
+ SELECT DISTINCT ON (ba.asset_id, cs.hazard_type, cs.scenario, cs.time_horizon) ba.org_id,
+    ba.asset_id,
+    ba.h3_cell,
+    cs.hazard_type,
+    cs.scenario,
+    cs.time_horizon,
+    cs.risk_score AS physical_risk_score,
+    cs.risk_bucket,
+    cs.model_version,
+    cs.scored_at,
+    'canonical_scores'::text AS risk_source
+   FROM bank_assets ba
+     JOIN canonical_scores cs ON cs.h3_cell::text = ba.h3_cell::text
+  WHERE cs.valid_to IS NULL AND cs.score_lane::text = 'standing'::text AND cs.hazard_type::text <> 'heat_acute'::text
+  ORDER BY ba.asset_id, cs.hazard_type, cs.scenario, cs.time_horizon, cs.scored_at DESC;
+"""
+
+
 def downgrade() -> None:
     _apply(with_ci=False)
+    # a column's type cannot change under CREATE OR REPLACE VIEW: drop (no CASCADE) and re-create
+    op.execute("DROP VIEW v_bank_asset_physical_risk;")
+    op.execute(_BANK_VIEW_PRIOR)

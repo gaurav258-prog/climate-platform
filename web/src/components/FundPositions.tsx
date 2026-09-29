@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, X, Factory } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, apiMessage } from '../lib/api'
 import { money } from '../lib/money'
 import { Card, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
@@ -19,7 +19,6 @@ interface Pos {
 interface Facility { facility_id: string; name: string; facility_type: string | null; country: string | null; region: string | null
   lat: number | null; lon: number | null; materiality_weight: number | null; scores: { hazard: string; score: number; bucket: string }[] }
 interface Issuer {
-  error?: string
   issuer?: { issuer_id: string; lei: string | null; name: string; issuer_type: string | null; country: string | null; sector: string | null; nace_code: string | null }
   physical?: { headline_score?: number | null; headline_bucket?: string | null; headline_hazard?: string | null; per_hazard?: Record<string, { score: number; bucket: string }>; n_facilities?: number; n_scored_facilities?: number }
   transition?: { transition_risk_score: number | null; carbon_intensity_tco2e_per_meur: number | null } | null
@@ -78,8 +77,9 @@ function IssuerDrawer({ issuerId, onClose }: { issuerId: string; onClose: () => 
           <SectionHead>Issuer</SectionHead>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
         </div>
-        {!d ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div>
-          : d.error || !iss ? <div className="p-8 text-[13px] text-[var(--color-bad)]">{d.error ?? 'Issuer not found.'}</div>
+        {q.isError ? <div className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Issuer not found.')}</div>
+          : !d ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div>
+          : !iss ? <div className="p-8 text-[13px] text-[var(--color-bad)]">Issuer not found.</div>
           : (
           <div className="p-6 space-y-6">
             <div>

@@ -60,3 +60,18 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS supervision_request_message")
     op.execute("DROP TABLE IF EXISTS supervision_request")
+    # the old check cannot hold supervisor-sourced tasks — refuse rather than silently delete them
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM regulatory_task WHERE source = 'supervisor') THEN
+                RAISE EXCEPTION 'cannot downgrade sup_requests_20260907: % regulatory_task row(s) have source=''supervisor'', '
+                                'which the prior check does not allow — resolve them first',
+                                (SELECT count(*) FROM regulatory_task WHERE source = 'supervisor');
+            END IF;
+        END $$;
+    """)
+    # exactly as sup_assign_20260907 defined it
+    op.execute("ALTER TABLE regulatory_task DROP CONSTRAINT IF EXISTS regulatory_task_source_check")
+    op.execute("""ALTER TABLE regulatory_task ADD CONSTRAINT regulatory_task_source_check
+                  CHECK (source IN ('manual','validation','exception','obligation','regulatory_change','decision','kri'))""")

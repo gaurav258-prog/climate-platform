@@ -17,6 +17,15 @@ export function setRefreshToken(t: string | null) {
   else localStorage.removeItem(REFRESH_KEY)
 }
 
+/** The human message of a refused request, whatever the endpoint's error shape ({error:{message}}, {detail}, {message}). */
+export function apiMessage(e: unknown, fallback: string): string {
+  if (!(e instanceof ApiError)) return fallback
+  const b = e.body as { error?: { message?: string } | string; detail?: { message?: string } | string; message?: string } | string | null
+  if (typeof b === 'string') return b || fallback
+  const pick = (v: unknown) => (typeof v === 'string' ? v : (v as { message?: string } | undefined)?.message)
+  return pick(b?.error) ?? pick(b?.detail) ?? b?.message ?? fallback
+}
+
 export class ApiError extends Error {
   status: number
   body: unknown

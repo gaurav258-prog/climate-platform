@@ -65,4 +65,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # CREATE OR REPLACE cannot remove the CI columns; drop and recreate (no CASCADE: dependents fail loudly)
+    op.execute("DROP VIEW IF EXISTS v_sc_plot_physical_risk")
     op.execute(_WITHOUT_CI)

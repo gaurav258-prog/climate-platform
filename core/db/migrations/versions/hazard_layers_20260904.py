@@ -1,9 +1,9 @@
 """hazard_layers — subsidence / permafrost / soil_erosion / coastal_erosion
 
 Two things, one migration:
-  (1) Extend the hazard_type CHECK constraints to the current core.types.HAZARD_VALUES — now including the four
+  (1) Extend the hazard_type CHECK constraints to the vocabulary frozen below — now including the four
       EU-Taxonomy solid-mass / erosion channels SUBSIDENCE, PERMAFROST, SOIL_EROSION, COASTAL_EROSION (same
-      drop-and-re-add-from-HAZARD_VALUES pattern as changing_wind_vocab / heavy_precip_vocab). NOT VALID so
+      drop-and-re-add pattern as changing_wind_vocab / heavy_precip_vocab). NOT VALID so
       existing rows aren't re-scanned.
   (2) Create coastal_erosion_cell — the preprocessed H3 lookup for the Vousdoukas et al. (2020, JRC LISCOAST)
       global shoreline-retreat projections: per H3 cell × RCP × year, the median (P50) long-term shoreline
@@ -17,7 +17,20 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from core.types import HAZARD_VALUES
+# Frozen vocabulary (self-contained migration — never import app code): core.types.HAZARD_VALUES as of commit aeea078.
+_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'coastal_flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+    'volcanic', 'pollution', 'frost', 'soil_water', 'heavy_precip', 'landslide', 'temp_variability',
+    'precip_variability', 'changing_temp', 'changing_precip', 'changing_wind', 'subsidence', 'permafrost',
+    'soil_erosion', 'coastal_erosion',
+)
+
+# The vocabulary in force at down_revision (changing_wind_vocab_20260903) — what downgrade() restores.
+_PRIOR_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'coastal_flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+    'volcanic', 'pollution', 'frost', 'soil_water', 'heavy_precip', 'landslide', 'temp_variability',
+    'precip_variability', 'changing_temp', 'changing_precip', 'changing_wind',
+)
 
 revision: str = "hazard_layers_20260904"
 down_revision: Union[str, None] = "changing_wind_vocab_20260903"
@@ -38,7 +51,7 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
         op.execute(
             f"ALTER TABLE {table} "
-            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, HAZARD_VALUES)}) NOT VALID"
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _HAZARD_VALUES)}) NOT VALID"
         )
 
     op.execute("""
@@ -55,4 +68,13 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS coastal_erosion_cell")
-    # Does not restore the pre-hazard_layers CHECK (would need the prior HAZARD_VALUES snapshot).
+    # Restore the pre-hazard_layers CHECK constraints exactly as changing_wind_vocab_20260903 left them.
+    for table, name, column in [
+        ("canonical_scores", "ck_canonical_hazard_vocab", "hazard_type"),
+        ("satellite_observations", "ck_obs_hazard_vocab", "hazard_type"),
+    ]:
+        op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
+        op.execute(
+            f"ALTER TABLE {table} "
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _PRIOR_HAZARD_VALUES)}) NOT VALID"
+        )

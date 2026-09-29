@@ -19,11 +19,11 @@ import h3
 import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession, require_permission
+from api.deps import CurrentUser, DbSession, own_or_404, require_permission, tenant_resolver
 from api.services.rbac import write_audit
 from services.ingest.templates import PLOT_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.intelligence.company_sites import (
@@ -48,7 +48,7 @@ from services.templates.workbook import build_export_workbook, build_template_wo
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
 
-DEMO_ORG = "33333333-3333-4333-8333-333333333333"   # Terra Foods (demo)
+DEMO_ORG = "55555555-5555-4555-8555-555555555555"   # Terra Foods (demo) — was the REIT demo by mistake
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -62,23 +62,7 @@ def _valid_id(v: str) -> str:
         raise HTTPException(status_code=404, detail="not found")
 
 
-def resolve_org(
-    org_id: Optional[str] = Query(None),
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
-) -> str:
-    """User JWT's org wins (tenant isolation); else query param; else the demo CPG."""
-    token = credentials.credentials if credentials else None
-    if token and not token.startswith("cp_live_"):
-        from api.security import decode_access_token
-        payload = decode_access_token(token)
-        if payload and payload.get("org_id"):
-            return payload["org_id"]
-    # SECURITY: a caller without a valid user JWT can ONLY ever see the public
-    # demo org — never an arbitrary org_id. Dropping the query-param fallback
-    # closes the cross-tenant read (an anonymous ?org_id=<other-tenant> IDOR).
-    return DEMO_ORG
-
-
+resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
@@ -291,8 +275,9 @@ def sites(session: DbSession, org_id: OrgId):
 
 
 @router.get("/site/{site_id}", summary="One operational site — record + all hazards + adaptation actions")
-def site_detail(site_id: str, session: DbSession):
+def site_detail(site_id: str, session: DbSession, caller_org: OrgId):
     site_id = _valid_id(site_id)
+    own_or_404(session, "sc_company_sites", "site_id", site_id, caller_org, "Site")   # only your own org's record
     from services.intelligence.adaptation import actions_for
     from services.intelligence.company_sites import bi_downtime_fraction
     row = session.execute(text("""
@@ -469,19 +454,12 @@ def _money_changes(session, org_id: str, kind: str, changes: dict):
         raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
 
 
-def _own_or_404(session, table, id_col, target_id, org_id, label):
-    row = session.execute(text(f"SELECT 1 FROM {table} WHERE {id_col}=:i AND org_id=:o"),
-                          {"i": target_id, "o": org_id}).first()
-    if not row:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"{label} not found."})
-
-
 @router.patch("/site/{site_id}", summary="Edit an operational site (material edits need 4-eyes approval)")
 def update_site(site_id: str, body: SiteUpdate, session: DbSession,
                 ctx: dict = Depends(require_permission("supply.locations.write"))):
     from services.governance.location_governance import submit_or_apply
     org_id = ctx["org"]["org_id"]
-    _own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
+    own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     changes.pop("commodity", None)  # not a site field
     changes, ms = _money_changes(session, org_id, "site", changes)
@@ -497,7 +475,7 @@ def delete_site(site_id: str, session: DbSession,
                 ctx: dict = Depends(require_permission("supply.locations.write"))):
     from services.governance.location_governance import submit_or_apply
     org_id = ctx["org"]["org_id"]
-    _own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
+    own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
     return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                            request_type="supply.site.delete", target_id=site_id, title=f"Delete site {site_id[:8]}")
 
@@ -507,7 +485,7 @@ def update_plot(plot_id: str, body: PlotUpdate, session: DbSession,
                 ctx: dict = Depends(require_permission("supply.locations.write"))):
     from services.governance.location_governance import submit_or_apply
     org_id = ctx["org"]["org_id"]
-    _own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
+    own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
     data = body.model_dump(exclude_unset=True, exclude_none=True)
     commodity = data.pop("commodity", None)
     data, ms = _money_changes(session, org_id, "plot", data)
@@ -523,13 +501,14 @@ def delete_plot(plot_id: str, session: DbSession,
                 ctx: dict = Depends(require_permission("supply.locations.write"))):
     from services.governance.location_governance import submit_or_apply
     org_id = ctx["org"]["org_id"]
-    _own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
+    own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
     return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                            request_type="supply.plot.delete", target_id=plot_id, title=f"Delete plot {plot_id[:8]}")
 
 
 @router.get("/geocode", summary="Address autocomplete — ranked place candidates (preview, no write)")
-def geocode_preview(session: DbSession, q: str = Query(..., min_length=2), limit: int = Query(5, ge=1, le=10)):
+def geocode_preview(session: DbSession, ctx: CurrentUser, q: str = Query(..., min_length=2), limit: int = Query(5, ge=1, le=10)):
+    # signed-in users only: every miss calls an external geocoding provider (never an open proxy)
     """Live address lookup returning ranked candidates so the UI can offer a pick-list
     (the user selects the right place instead of trusting a single best-match). Cache-aware, and each
     candidate carries a confidence/precision + low_confidence flag so the UI can warn on a coarse hit."""
@@ -592,8 +571,9 @@ async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = 
 
 
 @router.get("/plot/{plot_id}", summary="One sourcing plot — projection + provenance")
-def plot_detail(plot_id: str, session: DbSession):
+def plot_detail(plot_id: str, session: DbSession, caller_org: OrgId):
     plot_id = _valid_id(plot_id)
+    own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, caller_org, "Plot")   # only your own org's record
     p = session.execute(text("""
         SELECT p.plot_id::text AS plot_id, p.org_id::text AS org_id, p.plot_name,
                co.name AS commodity, co.eudr_covered, s.name AS supplier, p.country, p.region,

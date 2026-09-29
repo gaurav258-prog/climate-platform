@@ -17,11 +17,11 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
@@ -114,27 +114,7 @@ BUCKET_RANK = {"VH": 4, "H": 3, "M": 2, "L": 1}
 _bearer = HTTPBearer(auto_error=False)
 
 
-def resolve_org(
-    org_id: Optional[str] = Query(None),
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
-) -> str:
-    """
-    Tenant scoping: a user JWT's org wins (real isolation); otherwise fall back to
-    the org_id query param, and finally to DEMO_ORG so the public marketing/demo
-    path keeps working without a token.
-    """
-    token = credentials.credentials if credentials else None
-    if token and not token.startswith("cp_live_"):
-        from api.security import decode_access_token
-        payload = decode_access_token(token)
-        if payload and payload.get("org_id"):
-            return payload["org_id"]
-    # SECURITY: a caller without a valid user JWT can ONLY ever see the public
-    # demo org — never an arbitrary org_id. Dropping the query-param fallback
-    # closes the cross-tenant read (an anonymous ?org_id=<other-tenant> IDOR).
-    return DEMO_ORG
-
-
+resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
@@ -300,10 +280,9 @@ def disclosure(session: DbSession, org_id: OrgId,
 
 
 @router.get("/asset/{asset_id}", summary="One asset — full projection + provenance")
-def asset_detail(asset_id: str, session: DbSession):
+def asset_detail(asset_id: str, session: DbSession, caller_org: OrgId):
+    own_or_404(session, "portfolio_entities", "entity_id", asset_id, caller_org, "Asset")   # only your own org's record
     org_id = get_entity_org(session, asset_id)
-    if not org_id:
-        return {"error": "asset not found"}
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     # Pre-existing quirk, preserved exactly: this endpoint has no scenario/horizon
     # params, so its headline is picked across EVERY scenario/horizon this asset

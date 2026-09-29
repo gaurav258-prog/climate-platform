@@ -130,3 +130,17 @@ def downgrade() -> None:
     op.execute("ALTER TABLE users DROP COLUMN IF EXISTS mfa_secret")
     op.execute("ALTER TABLE users DROP COLUMN IF EXISTS mfa_enrolled_at")
     op.execute("ALTER TABLE organizations DROP COLUMN IF EXISTS region")
+    # the prior check cannot hold activation-pending users — refuse rather than silently delete/alter them
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM users WHERE status = 'invited') THEN
+                RAISE EXCEPTION 'cannot downgrade client_onboarding_20260826: % user(s) have status=''invited'', '
+                                'which the prior check does not allow — activate or disable them first',
+                                (SELECT count(*) FROM users WHERE status = 'invited');
+            END IF;
+        END $$;
+    """)
+    # exactly as customer_contracts_20260826 had it (name included)
+    op.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check")
+    op.execute("ALTER TABLE users ADD CONSTRAINT users_status_chk CHECK (status IN ('active','disabled'))")

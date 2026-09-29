@@ -155,16 +155,46 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # UNIQUE(event) can only come back if each event has one validation row again. The one duplicate this
+    # upgrade itself created — the Ghana leg of 'Cocoa 2023/24' — is removed (reversing its own insert);
+    # any OTHER duplicate was written after the upgrade, so refuse rather than silently delete evidence.
     op.execute("""
+        DELETE FROM sc_model_validation v
+        USING sc_commodities co
+        WHERE v.event = 'Cocoa 2023/24' AND v.origin = 'GH'
+          AND co.commodity_id = v.commodity_id AND co.name = 'Cocoa';
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM sc_model_validation GROUP BY event HAVING count(*) > 1) THEN
+                RAISE EXCEPTION 'cannot downgrade crop_registry_20260715: sc_model_validation has several rows for one '
+                                'event (%), which the prior UNIQUE(event) cannot hold — resolve them first',
+                                (SELECT string_agg(DISTINCT event, ', ') FROM (
+                                    SELECT event FROM sc_model_validation GROUP BY event HAVING count(*) > 1) d);
+            END IF;
+        END $$;
+    """)
+    # calibration_tier comes back as the typed column score_lane_20260715 had (VARCHAR(12) NOT NULL DEFAULT
+    # 'indicative' + its CHECK), carrying the tier the view derived rather than resetting every row.
+    op.execute("""
+        ALTER TABLE sc_commodity_calibration
+            ADD COLUMN calibration_tier VARCHAR(12) NOT NULL DEFAULT 'indicative';
+        UPDATE sc_commodity_calibration c SET calibration_tier = v.calibration_tier
+        FROM v_sc_commodity_calibration v
+        WHERE v.commodity_id = c.commodity_id AND v.origin = c.origin;
+        ALTER TABLE sc_commodity_calibration
+            ADD CONSTRAINT sc_commodity_calibration_calibration_tier_check
+            CHECK (calibration_tier IN ('backtested','indicative'));
         DROP VIEW IF EXISTS v_sc_commodity_calibration;
         ALTER TABLE sc_commodity_calibration
-            ADD COLUMN calibration_tier VARCHAR(12) NOT NULL DEFAULT 'indicative',
             DROP COLUMN IF EXISTS region_key, DROP COLUMN IF EXISTS season_months,
             DROP COLUMN IF EXISTS scoring_model, DROP COLUMN IF EXISTS baseline_from,
             DROP COLUMN IF EXISTS baseline_to;
-        DROP INDEX IF EXISTS ix_sc_model_validation_key;
+        DROP INDEX IF EXISTS ix_sc_model_validation_passed;
+        DROP INDEX IF EXISTS ux_sc_model_validation_key;
         ALTER TABLE sc_model_validation
             DROP COLUMN IF EXISTS commodity_id, DROP COLUMN IF EXISTS origin,
             DROP COLUMN IF EXISTS passed, DROP COLUMN IF EXISTS model_prod_shock_pct,
             DROP COLUMN IF EXISTS tolerance_pct, DROP COLUMN IF EXISTS impact_version;
+        -- exactly as score_lane_20260715 had it
+        ALTER TABLE sc_model_validation ADD CONSTRAINT sc_model_validation_event_key UNIQUE (event);
     """)

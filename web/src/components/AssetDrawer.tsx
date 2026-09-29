@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, ShieldCheck, RotateCcw, Save, Clock, MapPin, ExternalLink } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { api, ApiError, apiMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
 import { Card, Button, SectionHead } from './ui'
@@ -140,8 +140,8 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
         </div>
 
-        {q.isLoading || !d ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div>
-          : d.error ? <div className="p-8 text-[13px] text-[var(--color-bad)]">{String(d.error)}</div>
+        {q.isError ? <div className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Not found.')}</div>
+          : q.isLoading || !d ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div>
           : (
           <div className="p-6 space-y-6">
             <div>

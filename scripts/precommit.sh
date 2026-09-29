@@ -11,6 +11,9 @@ if [ -n "$changed" ]; then venv/bin/ruff check $changed; else echo "no Python ch
 step "migration graph"
 venv/bin/python -m scripts.check_migrations
 
+step "migration round-trip (every revision up and down, on a scratch database)"
+venv/bin/python -m scripts.check_migration_roundtrip
+
 step "web build"
 (cd web && npm run build >/tmp/precommit-web.log 2>&1) || { tail -30 /tmp/precommit-web.log; exit 1; }
 echo ok

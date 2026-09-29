@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from sqlalchemy import text
 
-from api.deps import CustomerId, DbSession, Pagination
+from api.deps import CurrentUser, CustomerId, DbSession, Pagination
 from api.schemas.scores import ScoreListResponse, ScoreResponse, VelocityAlert
 
 router = APIRouter(prefix="/v1/scores", tags=["Scores"])
@@ -280,10 +280,10 @@ def get_compound_events(
         "Per-hazard aggregates of the current golden source (valid_to IS NULL): "
         "cell count, bucket distribution, score range, the model version and data "
         "vintage, and the top-risk cells. Powers the platform overview and the "
-        "industry modules. No auth — read-only aggregate."
+        "industry modules. Signed-in users only — read-only aggregate."
     ),
 )
-def get_scores_summary(session: DbSession):
+def get_scores_summary(session: DbSession, ctx: CurrentUser):   # signed-in users: a heavy aggregate, never open to anonymous load
     rows = session.execute(text("""
         SELECT cs.hazard_type,
                cs.model_version,

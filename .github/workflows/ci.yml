@@ -80,11 +80,17 @@ jobs:
         # (to select the integration-marked ones), so every import dep must be present.
         run: pip install -e ".[all,dev]"
 
-      - name: Build schema (create_all — the app's real startup path)
-        # The running app builds its schema via init_db() → Base.metadata.create_all
-        # (see core/db/config.py, called from the FastAPI lifespan). We build the
-        # integration DB the same way so CI validates exactly the schema the product
-        # ships — not the separate Alembic chain, which has drifted from the models.
+      - name: Migration round-trip (every revision up and down, schema restored exactly)
+        # Builds a scratch database from nothing one revision at a time, then undoes each step and requires the exact
+        # prior schema (scripts/check_migration_roundtrip.py, error log E25). Runs here with TimescaleDB present, so
+        # the hypertable branches of the migrations are exercised too.
+        env:
+          MIGCHECK_ADMIN_URL: postgresql://platform:devpassword@localhost:5433/postgres
+        run: python -m scripts.check_migration_roundtrip
+
+      - name: Build schema (migrations to head — the app's real startup path)
+        # The running app builds its schema via init_db() → alembic upgrade head (core/db/config.py, called from the
+        # FastAPI lifespan); migrations are the source of truth. CI builds the integration DB the same way.
         run: python -c "from core.db.config import init_db; init_db()"
 
       - name: Run integration tests

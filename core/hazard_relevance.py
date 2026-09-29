@@ -133,13 +133,11 @@ def is_headline_eligible(hazard: str, asset_class: str = BUILDINGS, model_versio
 
 
 def sync_table(session) -> int:
-    """Mirror the registry into hazard_relevance (idempotent). Called at API start and by the migration."""
+    """Mirror the registry into hazard_relevance (idempotent). Called at API start and at worker start.
+
+    Data only: the table's shape is owned by the migrations (hazard_relevance_20260909, relevance_model_version_20260912).
+    A migration must never call this — it would build the table in today's shape, not its own (error log E25)."""
     from sqlalchemy import text
-    session.execute(text("""CREATE TABLE IF NOT EXISTS hazard_relevance (hazard_type TEXT NOT NULL, asset_class TEXT NOT NULL,
-                            model_version_prefix TEXT NOT NULL DEFAULT '', headline BOOLEAN NOT NULL, scale_kind TEXT, note TEXT,
-                            PRIMARY KEY (hazard_type, asset_class, model_version_prefix))"""))
-    session.execute(text("ALTER TABLE hazard_relevance ADD COLUMN IF NOT EXISTS scale_kind TEXT"))
-    session.execute(text("ALTER TABLE hazard_relevance ADD COLUMN IF NOT EXISTS model_version_prefix TEXT NOT NULL DEFAULT ''"))
     n = 0
     for r in registry():
         session.execute(text("""INSERT INTO hazard_relevance (hazard_type, asset_class, model_version_prefix, headline, scale_kind, note)

@@ -2,7 +2,7 @@
 
 Adds 'heavy_precip' to HazardType (core/types.py) and extends the hazard_type CHECK constraints — same
 pattern as d5e6f7a8b9c0 (frost) and a2b3c4d5e6f7 (pollution): drop and re-add each constraint from the
-current core.types.HAZARD_VALUES (now including HEAVY_PRECIP). NOT VALID so existing rows aren't re-scanned.
+vocabulary frozen below (now including HEAVY_PRECIP). NOT VALID so existing rows aren't re-scanned.
 
 Heavy precipitation is the first EU-Taxonomy Phase-1 channel (docs/board/path_to_28.html) — a Screening-tier
 extreme-rainfall indicator scored from the wettest-month precipitation climatology (climatology_baseline),
@@ -15,7 +15,23 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from core.types import HAZARD_VALUES
+# Frozen vocabulary (self-contained migration — never import app code): core.types.HAZARD_VALUES as of commit 87e6bea.
+_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'coastal_flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+    'volcanic', 'pollution', 'frost', 'soil_water', 'heavy_precip',
+)
+
+# In force at down_revision on canonical_scores — coastal_exposure_202608 added 'coastal_flood' there only.
+_PRIOR_CANONICAL_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'coastal_flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+    'volcanic', 'pollution', 'frost', 'soil_water',
+)
+
+# In force at down_revision on satellite_observations — last rebuilt by soil_water_hazard_vocab_20260718.
+_PRIOR_OBS_HAZARD_VALUES: tuple[str, ...] = (
+    'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
+    'pollution', 'frost', 'soil_water',
+)
 
 revision: str = "heavy_precip_vocab_20260831"
 down_revision: Union[str, None] = "validation_framework_20260828"
@@ -36,10 +52,18 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
         op.execute(
             f"ALTER TABLE {table} "
-            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, HAZARD_VALUES)}) NOT VALID"
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, _HAZARD_VALUES)}) NOT VALID"
         )
 
 
 def downgrade() -> None:
-    # Does not restore the pre-heavy_precip CHECK (would need the prior HAZARD_VALUES snapshot).
-    pass
+    # Restore the pre-heavy_precip CHECK constraints exactly — the two tables differed at down_revision.
+    for table, name, column, values in [
+        ("canonical_scores", "ck_canonical_hazard_vocab", "hazard_type", _PRIOR_CANONICAL_HAZARD_VALUES),
+        ("satellite_observations", "ck_obs_hazard_vocab", "hazard_type", _PRIOR_OBS_HAZARD_VALUES),
+    ]:
+        op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {name}")
+        op.execute(
+            f"ALTER TABLE {table} "
+            f"ADD CONSTRAINT {name} CHECK ({_in_list(column, values)}) NOT VALID"
+        )

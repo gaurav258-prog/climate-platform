@@ -46,8 +46,8 @@ _VIEW_BEFORE = """
            COALESCE(hr.headline, TRUE) AS headline_eligible
     FROM portfolio_entities e
     JOIN canonical_scores cs ON cs.h3_cell::text = e.h3_cell::text AND cs.valid_to IS NULL AND cs.score_lane::text = 'standing'::text
-    LEFT JOIN hazard_relevance hr ON hr.hazard_type = cs.hazard_type::text AND hr.asset_class = 'buildings' AND hr.model_version_prefix = ''
-"""
+    LEFT JOIN hazard_relevance hr ON hr.hazard_type = cs.hazard_type::text AND hr.asset_class = 'buildings'
+"""   # exactly as prisk_view_pushdown_20260910 left it — before the per-model-version column existed
 
 
 def upgrade() -> None:
@@ -57,10 +57,7 @@ def upgrade() -> None:
     op.execute(_FUNCTION)
     op.execute("DROP VIEW IF EXISTS v_portfolio_entity_physical_risk")
     op.execute(_VIEW)
-    from sqlalchemy.orm import Session
-
-    from core.hazard_relevance import sync_table
-    sync_table(Session(bind=op.get_bind()))
+    # rows (including the per-model-version ones) are synced from the registry at API and worker start
 
 
 def downgrade() -> None:
@@ -70,3 +67,4 @@ def downgrade() -> None:
     op.execute("DELETE FROM hazard_relevance WHERE model_version_prefix <> ''")
     op.execute("ALTER TABLE hazard_relevance DROP CONSTRAINT IF EXISTS hazard_relevance_pkey")
     op.execute("ALTER TABLE hazard_relevance ADD PRIMARY KEY (hazard_type, asset_class)")
+    op.execute("ALTER TABLE hazard_relevance DROP COLUMN IF EXISTS model_version_prefix")

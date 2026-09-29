@@ -19,11 +19,11 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.epc_stranding import epc_stranding, stranding_rollup
@@ -96,23 +96,7 @@ REALESTATE_NACE = "68.20"  # every property IS real estate -- same NACE code, sa
 _bearer = HTTPBearer(auto_error=False)
 
 
-def resolve_org(
-    org_id: Optional[str] = Query(None),
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
-) -> str:
-    """User JWT's org wins (tenant isolation); else query param; else the demo REIT."""
-    token = credentials.credentials if credentials else None
-    if token and not token.startswith("cp_live_"):
-        from api.security import decode_access_token
-        payload = decode_access_token(token)
-        if payload and payload.get("org_id"):
-            return payload["org_id"]
-    # SECURITY: a caller without a valid user JWT can ONLY ever see the public
-    # demo org — never an arbitrary org_id. Dropping the query-param fallback
-    # closes the cross-tenant read (an anonymous ?org_id=<other-tenant> IDOR).
-    return DEMO_ORG
-
-
+resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
@@ -237,10 +221,9 @@ REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["r
 
 
 @router.get("/property/{property_id}", summary="One property — full projection + provenance")
-def property_detail(property_id: str, session: DbSession):
+def property_detail(property_id: str, session: DbSession, caller_org: OrgId):
+    own_or_404(session, "portfolio_entities", "entity_id", property_id, caller_org, "Property")   # only your own org's record
     org_id = get_entity_org(session, property_id)
-    if not org_id:
-        return {"error": "property not found"}
     _st = get_calc_settings(session, org_id)
     severity_model = _st["severity_model"]
     row = get_entity_with_risk(session, property_id, "baseline", "current", severity_model,

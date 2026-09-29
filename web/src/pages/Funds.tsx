@@ -4,7 +4,7 @@ import { money } from '../lib/money'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Pencil, BadgeCheck, AlertTriangle } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { api, apiMessage } from '../lib/api'
 import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 
 // The asset-manager's SFDR front door: the manager's filing identity (LEI / legal name / contact — required
@@ -16,7 +16,7 @@ interface Fund {
   total_value_eur: number; base?: Base | null; positions: number; physical_score: number | null; transition_score: number | null; waci: number | null
 }
 interface Narratives { policies?: string; actions?: string; engagement?: string; standards?: string }
-interface Profile { name?: string; legal_name?: string; lei?: string; filing_contact_email?: string; country?: string; sfdr_narratives?: Narratives | null; error?: string }
+interface Profile { name?: string; legal_name?: string; lei?: string; filing_contact_email?: string; country?: string; sfdr_narratives?: Narratives | null }
 const NARR: { key: keyof Narratives; label: string; hint: string }[] = [
   { key: 'policies', label: 'Policies', hint: 'How principal adverse impacts are identified & prioritised' },
   { key: 'actions', label: 'Actions', hint: 'Actions taken / planned this period to mitigate the PAIs' },
@@ -104,10 +104,9 @@ function FilingIdentity() {
   const save = async () => {
     setBusy(true); setErr(null)
     try {
-      const r = await api.put<{ error?: string; detail?: string }>('/v1/manager/filing-profile', { lei: lei.trim(), legal_name: legal.trim() || undefined, filing_contact_email: email.trim() || undefined })
-      if (r.error) { setErr(r.detail || r.error); return }
+      await api.put('/v1/manager/filing-profile', { lei: lei.trim(), legal_name: legal.trim() || undefined, filing_contact_email: email.trim() || undefined })
       qc.invalidateQueries({ queryKey: ['manager-profile'] }); setEdit(false)
-    } catch (e) { setErr(e instanceof ApiError ? (typeof e.body === 'object' && e.body && 'detail' in e.body ? String((e.body as { detail: unknown }).detail) : e.message) : 'Could not save.') }
+    } catch (e) { setErr(apiMessage(e, 'Could not save.')) }
     finally { setBusy(false) }
   }
 
@@ -160,10 +159,9 @@ function SfdrNarratives() {
   const save = async () => {
     setBusy(true); setErr(null)
     try {
-      const r = await api.put<{ error?: string; detail?: string }>('/v1/manager/filing-profile', { lei: p.lei, narratives: form })
-      if (r.error) { setErr(r.detail || r.error); return }
+      await api.put('/v1/manager/filing-profile', { lei: p.lei, narratives: form })
       qc.invalidateQueries({ queryKey: ['manager-profile'] }); qc.invalidateQueries({ queryKey: ['fund-sfdr'] }); setEdit(false)
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save.') }
+    } catch (e) { setErr(apiMessage(e, 'Could not save.')) }
     finally { setBusy(false) }
   }
   const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[12.5px] outline-none focus:border-[var(--color-sky)] resize-none'

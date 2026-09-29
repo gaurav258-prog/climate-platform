@@ -74,5 +74,6 @@ def downgrade() -> None:
     op.execute("ALTER TABLE fx_rates DROP CONSTRAINT IF EXISTS ck_fx_basis")
     op.execute("ALTER TABLE fx_rates DROP CONSTRAINT IF EXISTS fx_rates_pkey")
     op.execute("DELETE FROM fx_rates WHERE basis <> 'reference_daily' AND source <> 'seed'")
+    op.execute("ALTER TABLE fx_rates ALTER COLUMN source TYPE VARCHAR(20)")       # as created in fx_rates_20260712
     op.execute("ALTER TABLE fx_rates ADD CONSTRAINT fx_rates_pkey PRIMARY KEY (ccy, rate_date)")
     op.execute("ALTER TABLE fx_rates DROP COLUMN IF EXISTS basis")

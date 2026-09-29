@@ -2,12 +2,13 @@
 
 The live CRCS runs on reg_source_snapshot / reg_detected_change / reg_alert (EU register, daily) and the version,
 impact and readiness services. These tables were created by the bank-vertical migration from the ORM and stayed
-empty (regulatory_frameworks held six seed rows only the retired code read). Their ORM classes stay in
-core/db/models_regulatory_complete.py solely so that historic migration replays unchanged.
+empty (regulatory_frameworks held six seed rows only the retired code read). The downgrade restores the tables exactly
+as they stood (frozen DDL in sql/crcs_legacy_tables_20260928.sql), not their rows.
 
 Revision ID: crcs_legacy_retire_20260928
 Revises: filing_views_20260928
 """
+import pathlib
 from typing import Sequence, Union
 
 from alembic import op
@@ -28,6 +29,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    from core.db.models_regulatory_complete import Base
-    bind = op.get_bind()
-    Base.metadata.create_all(bind=bind, tables=[Base.metadata.tables[t] for t in reversed(LEGACY)])
+    op.get_bind().exec_driver_sql((pathlib.Path(__file__).parent / "sql" / "crcs_legacy_tables_20260928.sql").read_text())   # verbatim, no bind parsing

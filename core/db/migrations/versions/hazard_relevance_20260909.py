@@ -15,11 +15,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    from sqlalchemy.orm import Session
-
-    from core.hazard_relevance import sync_table
-    with Session(bind=op.get_bind()) as s:
-        sync_table(s); s.commit()
+    # the table as this revision defines it (frozen; never the live code's shape). Its rows mirror the registry in
+    # core.hazard_relevance and are synced by core.hazard_relevance.sync_table at API and worker start.
+    op.execute("""CREATE TABLE IF NOT EXISTS hazard_relevance (hazard_type TEXT NOT NULL, asset_class TEXT NOT NULL,
+                  headline BOOLEAN NOT NULL, note TEXT, scale_kind TEXT, PRIMARY KEY (hazard_type, asset_class))""")
     # the engine's view gains the eligibility flag for buildings (every portfolio vertical is a built asset)
     op.execute("""
         CREATE OR REPLACE VIEW v_portfolio_entity_physical_risk AS
@@ -35,8 +34,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # the upgrade added columns; CREATE OR REPLACE cannot remove view columns, so drop and recreate (no CASCADE: a
+    # dependent object must fail the downgrade loudly, never be dropped silently)
+    op.execute("DROP VIEW IF EXISTS v_portfolio_entity_physical_risk")
     op.execute("""
-        CREATE OR REPLACE VIEW v_portfolio_entity_physical_risk AS
+        CREATE VIEW v_portfolio_entity_physical_risk AS
         SELECT DISTINCT ON (e.entity_id, cs.hazard_type, cs.scenario, cs.time_horizon) e.org_id, e.entity_id, e.vertical, e.h3_cell, cs.hazard_type,
                cs.risk_score::double precision AS physical_risk_score, cs.risk_bucket, cs.scenario, cs.time_horizon, cs.model_version, cs.scored_at,
                cs.score_ci_lower::double precision AS physical_risk_ci_lower, cs.score_ci_upper::double precision AS physical_risk_ci_upper

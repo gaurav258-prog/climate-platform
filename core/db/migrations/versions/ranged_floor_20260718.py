@@ -49,5 +49,34 @@ def upgrade():
     op.execute(_view(f"f.r2 >= {_FLOOR}"))
 
 
+# exactly as ranged_tier_20260718 left it: any stored fit makes the crop 'ranged' (no r² condition at all)
+_PRIOR_VIEW = """
+CREATE OR REPLACE VIEW v_sc_commodity_calibration AS
+ SELECT commodity_id,
+    origin,
+    sensitivity,
+    world_share,
+    hazard_driver,
+    event_ref,
+    source_note,
+    impact_version,
+    region_key,
+    season_months,
+    scoring_model,
+    baseline_from,
+    baseline_to,
+        CASE
+            WHEN (EXISTS ( SELECT 1
+               FROM sc_model_validation v
+              WHERE v.commodity_id = c.commodity_id AND v.origin::text = c.origin::text AND v.passed AND v.hazard::text = c.hazard_driver::text)) THEN 'backtested'::text
+            WHEN (EXISTS ( SELECT 1
+               FROM sc_commodity_fit f
+              WHERE f.commodity_id = c.commodity_id AND f.origin::text = c.origin::text AND f.hazard_driver::text = c.hazard_driver::text)) THEN 'ranged'::text
+            ELSE 'indicative'::text
+        END AS calibration_tier
+   FROM sc_commodity_calibration c;
+"""
+
+
 def downgrade():
-    op.execute(_view("TRUE"))
+    op.execute(_PRIOR_VIEW)

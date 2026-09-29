@@ -16,11 +16,11 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
-from api.deps import DbSession
+from api.deps import DbSession, own_or_404, require_permission, tenant_resolver
 from ml.regulatory.sfdr_pai import (
     entity_pai_statement,
     frozen_or_live_statement,
@@ -54,22 +54,18 @@ DEMO_ORG = "44444444-4444-4444-8444-444444444444"  # Nordkap Asset Management (d
 _bearer = HTTPBearer(auto_error=False)
 
 
-def resolve_org(
-    org_id: Optional[str] = Query(None),
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
-) -> str:
-    """User JWT's org wins (tenant isolation). SECURITY: a caller without a valid
-    user JWT can ONLY ever see the demo org — never an arbitrary org_id."""
-    token = credentials.credentials if credentials else None
-    if token and not token.startswith("cp_live_"):
-        from api.security import decode_access_token
-        payload = decode_access_token(token)
-        if payload and payload.get("org_id"):
-            return payload["org_id"]
-    return DEMO_ORG
+resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
 
 
 OrgId = Annotated[str, Depends(resolve_org)]
+
+
+def _writer_org(ctx: dict = Depends(require_permission("approvals.create"))) -> str:
+    """A change to fund data needs a signed-in preparer; anonymous demo access is read-only (error log E24)."""
+    return ctx["org"]["org_id"]
+
+
+WriterOrgId = Annotated[str, Depends(_writer_org)]
 
 
 @router.get("/funds", summary="List the org's funds with a headline risk summary")
@@ -99,22 +95,14 @@ def list_funds(session: DbSession, org_id: OrgId,
 @router.get("/funds/{fund_id}", summary="Fund climate report — physical + transition + SFDR PAI")
 def fund_detail(fund_id: str, session: DbSession, org_id: OrgId,
                 scenario: str = Query("baseline"), horizon: str = Query("current")):
-    owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
-    if not owner:
-        return {"error": "fund not found"}
-    if owner != org_id:
-        return {"error": "forbidden"}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     return fund_climate_summary(session, fund_id, scenario, horizon)
 
 
 @router.get("/funds/{fund_id}/positions", summary="Fund positions, each with issuer physical + transition risk")
 def fund_positions(fund_id: str, session: DbSession, org_id: OrgId,
                    scenario: str = Query("baseline"), horizon: str = Query("current")):
-    owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
-    if not owner:
-        return {"error": "fund not found"}
-    if owner != org_id:
-        return {"error": "forbidden"}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     positions = fund_positions_with_risk(session, fund_id, scenario, horizon)
     positions.sort(key=lambda p: -(p["physical"]["headline_score"] or 0))
     return {"fund_id": fund_id, "scenario": scenario, "horizon": horizon, "positions": positions}
@@ -308,14 +296,23 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year, **esg_fields})
         wrote["esg"] = True
 
-    # Voluntary (additional) PAI values — org-scoped, only for catalog keys.
+    # Voluntary (additional) PAI values — org-scoped. Each must be an adoptable indicator of the governing spec with a
+    # value of the kind its metric needs (yes/no for a share, a number otherwise); anything else is refused and reported
+    # back to the uploader, never silently dropped (error log E24).
     if h.voluntary_pai:
         yr = h.reporting_year or date.today().year
         for key, val in h.voluntary_pai.items():
-            if key not in _VOLUNTARY_CATALOG:
-                continue  # unknown indicator key — surfaced upstream, never stored
-            num = val if isinstance(val, (int, float)) and not isinstance(val, bool) else None
-            flag = val if isinstance(val, bool) else None
+            entry = _VOLUNTARY_CATALOG.get(key)
+            if entry is None:
+                wrote.setdefault("voluntary_rejected", []).append({"key": key, "reason": "not an adoptable indicator"})
+                continue
+            wants_flag = entry["agg"] == "share"
+            if wants_flag != isinstance(val, bool) or (not wants_flag and not isinstance(val, (int, float))):
+                wrote.setdefault("voluntary_rejected", []).append(
+                    {"key": key, "reason": "needs yes/no (true/false)" if wants_flag else "needs a number"})
+                continue
+            num = val if not wants_flag else None
+            flag = val if wants_flag else None
             session.execute(text("""
                 INSERT INTO issuer_voluntary_pai (issuer_id, org_id, indicator_key, reporting_year, value_num, value_bool, source)
                 VALUES (:i, :org, :k, :yr, :num, :flag, 'client')
@@ -356,7 +353,7 @@ def holdings_template():
 
 
 @router.post("/funds/{fund_id}/holdings", summary="Onboard holdings by ISIN — resolve, locate, and value-weight into the fund")
-def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org_id: OrgId):
+def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org_id: WriterOrgId):
     """The 'upload ISINs alone' action.
 
     For each holding we (1) resolve the ISIN to an issuer+security from open data
@@ -369,13 +366,9 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     an early-access upload of tens of holdings but not thousands — that path
     should queue (same Celery pattern the gridded hazards already use).
     """
-    owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
-    if not owner:
-        return {"error": "fund not found"}
-    if owner != org_id:
-        return {"error": "forbidden"}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     if not body.holdings:
-        return {"error": "no holdings supplied"}
+        raise _fail(422, "No holdings supplied.")
 
     as_of = body.as_of_date or date.today()
 
@@ -431,6 +424,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
     enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0, "voluntary": 0}
+    voluntary_rejected: list[dict] = []
     for isin, h in by_isin.items():
         res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class or "equity", currency=h.currency)
         resolutions.append(res.to_dict())
@@ -456,6 +450,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             enriched["esg"] += 1
         if wrote["voluntary"]:
             enriched["voluntary"] += 1
+        voluntary_rejected += [{"isin": h.isin, **x} for x in wrote.get("voluntary_rejected", [])]
 
         # Seed the issuer's footprint if it has none yet, so physical risk is
         # computable. Keyed on "has no facility" (NOT on resolved-vs-cached): an
@@ -498,6 +493,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         "fund_id": fund_id, "as_of_date": as_of.isoformat(),
         "holdings_submitted": len(body.holdings), "distinct_isins": len(by_isin),
         "positions_created": positions_created,
+        "voluntary_rejected": voluntary_rejected,   # indicator values refused (unknown indicator / wrong kind of value)
         "coverage": {
             "matched": matched,
             "match_rate_pct": round(100.0 * matched / len(by_isin), 1) if by_isin else 0.0,
@@ -521,18 +517,16 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
 
 
 @router.post("/funds/{fund_id}/sfdr-statement/file", summary="Freeze the current SFDR statement as the official filing for its reference year")
-def file_sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
+def file_sfdr_statement(fund_id: str, session: DbSession, org_id: WriterOrgId):
     """Snapshot the current statement immutably for its reference year, so next
     year's statement can show the year-on-year comparison against what was filed."""
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     st = sfdr_pai_statement(session, fund_id)
     if st.get("error"):
         return st
     ref_year = st["summary"].get("reference_year")
     if not ref_year:
-        return {"error": "no reference year — supply issuer emissions with a reporting year before filing"}
+        raise _fail(422, "No reference year — supply issuer emissions with a reporting year before filing.")
     import json
     session.execute(text("""
         INSERT INTO fund_sfdr_filings (fund_id, org_id, reference_year, period_start, period_end,
@@ -550,25 +544,19 @@ def file_sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
 
 @router.get("/funds/{fund_id}/periodic-report", summary="SFDR Article 8/9 periodic disclosure (RTS Annex IV/V)")
 def sfdr_periodic_report(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     return periodic_report(session, fund_id)
 
 
 @router.get("/funds/{fund_id}/precontractual", summary="SFDR Article 8/9 pre-contractual disclosure (RTS Annex II/III)")
 def sfdr_precontractual(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     return build_precontractual(session, fund_id)
 
 
 @router.get("/funds/{fund_id}/precontractual.html", summary="Pre-contractual disclosure as the actual Annex II/III document, ready to annex to the prospectus")
 def sfdr_precontractual_html(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     built = build_precontractual(session, fund_id)
     if built.get("error"):
         return built
@@ -617,10 +605,8 @@ class PrecontractualUpdate(BaseModel):
 
 
 @router.put("/funds/{fund_id}/precontractual", summary="Set the fund's declared pre-contractual disclosure fields")
-def set_sfdr_precontractual(fund_id: str, body: PrecontractualUpdate, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+def set_sfdr_precontractual(fund_id: str, body: PrecontractualUpdate, session: DbSession, org_id: WriterOrgId):
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     import json as _json
     merged = {k: v for k, v in body.model_dump().items() if v is not None}
     session.execute(text("""
@@ -634,9 +620,7 @@ def set_sfdr_precontractual(fund_id: str, body: PrecontractualUpdate, session: D
 
 @router.get("/funds/{fund_id}/sfdr-filings", summary="Prior SFDR filings for this fund (year-on-year history)")
 def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     rows = session.execute(text("""
         SELECT reference_year, filed_at, filed_by, status FROM fund_sfdr_filings
         WHERE fund_id = :f ORDER BY reference_year DESC
@@ -658,7 +642,7 @@ class BatchCreate(BaseModel):
 
 
 @router.post("/entity/sfdr-batch", summary="Generate SFDR statements across ALL the manager's funds (resumable batch)")
-def create_sfdr_batch(body: BatchCreate, session: DbSession, org_id: OrgId):
+def create_sfdr_batch(body: BatchCreate, session: DbSession, org_id: WriterOrgId):
     batch_id = create_batch(session, org_id, body.reference_year)
     if body.run:
         return run_batch(session, batch_id, limit=body.limit)
@@ -666,23 +650,15 @@ def create_sfdr_batch(body: BatchCreate, session: DbSession, org_id: OrgId):
 
 
 @router.post("/entity/sfdr-batch/{batch_id}/run", summary="Resume a batch — process the funds still pending/errored")
-def resume_sfdr_batch(batch_id: str, session: DbSession, org_id: OrgId,
+def resume_sfdr_batch(batch_id: str, session: DbSession, org_id: WriterOrgId,
                       limit: Optional[int] = Query(None)):
-    owner = session.execute(text("SELECT org_id::text FROM sfdr_batch_runs WHERE batch_id=:b"), {"b": batch_id}).scalar()
-    if not owner:
-        return {"error": "batch not found"}
-    if owner != org_id:
-        return {"error": "forbidden"}
+    own_or_404(session, "sfdr_batch_runs", "batch_id", batch_id, org_id, "Batch")
     return run_batch(session, batch_id, limit=limit)
 
 
 @router.get("/entity/sfdr-batch/{batch_id}", summary="Batch progress + per-fund status")
 def get_sfdr_batch(batch_id: str, session: DbSession, org_id: OrgId):
-    owner = session.execute(text("SELECT org_id::text FROM sfdr_batch_runs WHERE batch_id=:b"), {"b": batch_id}).scalar()
-    if not owner:
-        return {"error": "batch not found"}
-    if owner != org_id:
-        return {"error": "forbidden"}
+    own_or_404(session, "sfdr_batch_runs", "batch_id", batch_id, org_id, "Batch")
     return batch_status(session, batch_id)
 
 
@@ -704,11 +680,11 @@ def vendor_profiles():
 
 
 @router.post("/vendor/ingest", summary="Ingest a vendor ESG/PAI extract and reconcile against our reference layer")
-def vendor_ingest(body: VendorIngest, session: DbSession, org_id: OrgId):
+def vendor_ingest(body: VendorIngest, session: DbSession, org_id: WriterOrgId):
     """Map a vendor's columns to our fields, match rows to issuers by ISIN/LEI, and
     store as source='vendor' (own > vendor > global precedence). Honest reconciliation."""
     if not body.rows:
-        return {"error": "no rows supplied"}
+        raise _fail(422, "No rows supplied.")
     return ingest_vendor_extract(session, org_id, body.rows, profile=body.profile,
                                  mapping=body.mapping, reporting_year=body.reporting_year)
 
@@ -718,13 +694,11 @@ class VoluntaryPaiSelection(BaseModel):
 
 
 @router.put("/funds/{fund_id}/voluntary-pai", summary="Set the additional PAI indicators a fund adopts (≥1 env + ≥1 social)")
-def set_voluntary_pai(fund_id: str, body: VoluntaryPaiSelection, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+def set_voluntary_pai(fund_id: str, body: VoluntaryPaiSelection, session: DbSession, org_id: WriterOrgId):
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     bad = validate_keys(body.indicator_keys)
     if bad:
-        return {"error": f"unknown indicator keys: {bad}", "catalog": list(_VOLUNTARY_CATALOG)}
+        raise _fail(422, f"Not an adoptable indicator: {', '.join(bad)}.", code="unknown_indicator", catalog=list(_VOLUNTARY_CATALOG))
     session.execute(text("DELETE FROM fund_voluntary_pai WHERE fund_id = :f"), {"f": fund_id})
     for key in dict.fromkeys(body.indicator_keys):   # de-dup, preserve order
         session.execute(text("""
@@ -744,13 +718,11 @@ class LookThroughBody(BaseModel):
 
 
 @router.post("/funds/{fund_id}/look-through", summary="Expand a held fund/ETF to its constituents (look-through)")
-def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession, org_id: OrgId):
+def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession, org_id: WriterOrgId):
     """Replace a held fund/ETF position with a sub-fund holding its constituents,
     so the underlying issuers flow into the PAI (no double-count — the wrapper
     position is removed, constituent values are scaled to preserve total exposure)."""
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     isin = (body.isin or "").strip().upper()
     pos = session.execute(text("""
         SELECT p.position_id::text AS pid, CAST(p.market_value_eur AS FLOAT) AS mv, p.as_of_date,
@@ -760,9 +732,9 @@ def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession,
           AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = :f)
     """), {"f": fund_id, "i": isin}).mappings().first()
     if not pos:
-        return {"error": f"{isin} is not a current holding of this fund"}
+        raise _fail(422, f"{isin} is not a current holding of this fund.")
     if not body.constituents:
-        return {"error": "no constituents supplied"}
+        raise _fail(422, "No constituents supplied.")
 
     wrapper_value = pos["mv"]
     # Scale constituents so their values sum to the wrapper's value (preserve exposure).
@@ -794,20 +766,17 @@ def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession,
     }
 
 
-def _fund_owned_or_error(session, fund_id: str, org_id: str):
-    owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
-    if not owner:
-        return "not found"
-    if owner != org_id:
-        return "forbidden"
-    return None
+_CODES = {404: "not_found", 403: "forbidden", 422: "invalid"}
+
+
+def _fail(status: int, message: str, code: str | None = None, **extra) -> HTTPException:
+    """A refusal as a real HTTP error ({error, message}), never a 200 carrying an 'error' field."""
+    return HTTPException(status, {"error": code or _CODES.get(status, "error"), "message": message, **extra})
 
 
 @router.get("/funds/{fund_id}/sfdr-statement", summary="SFDR PAI statement — the filed record if one exists for the current period, else the live draft")
 def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     statement, is_frozen = frozen_or_live_statement(session, fund_id)
     if not statement.get("error"):
         statement["filing_status"] = "filed" if is_frozen else "draft_not_yet_filed"
@@ -816,9 +785,7 @@ def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
 
 @router.get("/funds/{fund_id}/sfdr-statement.xlsx", summary="Download the SFDR PAI statement as a filing-shaped .xlsx")
 def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     # Fixed 2026-09-24 (E2E audit): this used to recompute live on every request, so a downloaded export
     # could silently drift from what was actually filed — reads the FROZEN record now, same discipline as
     # services/governance/filing_export.py. is_frozen=False only for a fund that hasn't filed yet (a
@@ -836,9 +803,7 @@ def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
 
 @router.get("/funds/{fund_id}/sfdr-statement.xbrl", summary="Download the SFDR PAI statement as a machine-readable XBRL instance")
 def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
     if statement.get("error"):
         return statement
@@ -855,9 +820,7 @@ def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
 
 @router.get("/funds/{fund_id}/sfdr-statement.ixbrl", summary="SFDR PAI statement as an Inline XBRL (iXBRL) report — human + machine readable")
 def sfdr_statement_ixbrl(fund_id: str, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
     if statement.get("error"):
         return statement
@@ -904,11 +867,11 @@ def get_filing_profile(session: DbSession, org_id: OrgId):
 
 
 @router.put("/manager/filing-profile", summary="Set the manager LEI + legal name + contact (LEI validated vs GLEIF)")
-def set_filing_profile(body: FilingProfile, session: DbSession, org_id: OrgId):
+def set_filing_profile(body: FilingProfile, session: DbSession, org_id: WriterOrgId):
     lei = (body.lei or "").strip().upper()
     rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
     if not rec:
-        return {"error": "invalid_lei", "detail": "LEI not found in GLEIF — supply a valid 20-character LEI"}
+        raise _fail(422, "LEI not found in GLEIF — supply a valid 20-character LEI.", code="invalid_lei")
     # Default the legal name to GLEIF's authoritative name if the caller didn't give one.
     import json as _json
     session.execute(text("""
@@ -926,14 +889,12 @@ def set_filing_profile(body: FilingProfile, session: DbSession, org_id: OrgId):
 
 
 @router.put("/funds/{fund_id}/lei", summary="Set a fund's own LEI (optional; validated vs GLEIF)")
-def set_fund_lei(fund_id: str, body: FilingProfile, session: DbSession, org_id: OrgId):
-    err = _fund_owned_or_error(session, fund_id, org_id)
-    if err:
-        return {"error": err}
+def set_fund_lei(fund_id: str, body: FilingProfile, session: DbSession, org_id: WriterOrgId):
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     lei = (body.lei or "").strip().upper()
     rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
     if not rec:
-        return {"error": "invalid_lei", "detail": "LEI not found in GLEIF"}
+        raise _fail(422, "LEI not found in GLEIF.", code="invalid_lei")
     session.execute(text("UPDATE funds SET lei = :lei, updated_at = now() WHERE fund_id = :f"),
                     {"lei": lei, "f": fund_id})
     return {"ok": True, "lei": lei, "validated_name": rec.name}
@@ -950,7 +911,7 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
         WHERE s.issuer_id = :i AND f.org_id = :o LIMIT 1
     """), {"i": issuer_id, "o": org_id}).first()
     if not held:
-        return {"error": "issuer not found in your holdings"}
+        raise _fail(404, "That issuer is not in your holdings.")
 
     issuer = session.execute(text("""
         SELECT issuer_id::text AS issuer_id, lei, name, issuer_type, country, sector, nace_code

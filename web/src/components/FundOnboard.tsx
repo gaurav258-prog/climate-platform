@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, FileSpreadsheet, Check } from 'lucide-react'
-import { api, ApiError, download } from '../lib/api'
+import { api, apiMessage, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, SectionHead } from './ui'
 
@@ -33,7 +33,7 @@ function coerce(v: string): string | number | boolean | undefined {
 }
 
 interface OnboardResp { holdings_submitted: number; distinct_isins: number; positions_created: number
-  coverage: { matched: number; match_rate_pct: number; unmatched: string[] }; note?: string; error?: string }
+  coverage: { matched: number; match_rate_pct: number; unmatched: string[] }; note?: string; voluntary_rejected?: { isin: string; key: string; reason: string }[] }
 
 export function OnboardHoldings({ fundId, onDone }: { fundId: string; onDone: () => void }) {
   const [open, setOpen] = useState(false)
@@ -49,9 +49,8 @@ export function OnboardHoldings({ fundId, onDone }: { fundId: string; onDone: ()
       const holdings = rows.map(r => { const o: Record<string, unknown> = {}; for (const k in r) { const c = coerce(r[k]); if (c !== undefined) o[k] = c } return o }).filter(h => h.isin)
       if (!holdings.length) { setErr('No rows had an ISIN.'); return }
       const r = await api.post<OnboardResp>(`/v1/funds/${fundId}/holdings`, { holdings })
-      if (r.error) { setErr(r.error); return }
       setRes(r); onDone()
-    } catch (e) { setErr(e instanceof ApiError ? String(e.body ?? e.message) : 'Could not onboard the holdings.') }
+    } catch (e) { setErr(apiMessage(e, 'Could not onboard the holdings.')) }
     finally { setBusy(false) }
   }
 
@@ -69,6 +68,7 @@ export function OnboardHoldings({ fundId, onDone }: { fundId: string; onDone: ()
             <div className="text-[12px] text-[var(--color-good)]">
               Onboarded {res.positions_created} position{res.positions_created === 1 ? '' : 's'} · {res.coverage.matched}/{res.distinct_isins} ISINs matched ({Math.round(res.coverage.match_rate_pct)}%).
               {res.coverage.unmatched?.length ? <span className="text-[var(--color-warn)]"> Unmatched: {res.coverage.unmatched.slice(0, 6).join(', ')}{res.coverage.unmatched.length > 6 ? '…' : ''}</span> : null}
+              {res.voluntary_rejected?.length ? <span className="text-[var(--color-warn)]"> {res.voluntary_rejected.length} indicator value{res.voluntary_rejected.length === 1 ? '' : 's'} refused: {res.voluntary_rejected.slice(0, 3).map(v => `${v.isin} ${v.key} (${v.reason})`).join('; ')}{res.voluntary_rejected.length > 3 ? '…' : ''}</span> : null}
             </div>
           )}
           <div className="flex items-center gap-3">
@@ -101,10 +101,9 @@ export function VoluntaryPai({ fundId, selected, onDone }: { fundId: string; sel
   const save = async () => {
     setBusy(true); setErr(null); setOk(false)
     try {
-      const r = await api.put<{ error?: string }>(`/v1/funds/${fundId}/voluntary-pai`, { indicator_keys: sel })
-      if (r.error) { setErr(r.error); return }
+      await api.put(`/v1/funds/${fundId}/voluntary-pai`, { indicator_keys: sel })
       setOk(true); qc.invalidateQueries({ queryKey: ['fund-sfdr', fundId] }); onDone()
-    } catch (e) { setErr(e instanceof ApiError ? String(e.body ?? e.message) : 'Could not save.') }
+    } catch (e) { setErr(apiMessage(e, 'Could not save.')) }
     finally { setBusy(false) }
   }
 
@@ -157,7 +156,7 @@ interface PCField {
   key?: string | null; keys?: string[] | null
 }
 interface PCResp {
-  error?: string; template?: string
+  template?: string
   sections?: PCField[]
   coverage_summary?: { fields: number; computed: number; declared: number; not_available: number; note: string }
 }
@@ -218,7 +217,7 @@ export function PrecontractualDisclosure({ fundId, onDone }: { fundId: string; o
   const [err, setErr] = useState<string | null>(null)
 
   const data = pc.data
-  if (pc.isLoading || !data || data.error) return null
+  if (pc.isLoading || pc.isError || !data) return null
   const sections = data.sections ?? []
   const cov = data.coverage_summary
 
@@ -244,10 +243,9 @@ export function PrecontractualDisclosure({ fundId, onDone }: { fundId: string; o
         else patch[k] = raw
       }
       if (!Object.keys(patch).length) { setEditing(null); return }
-      const r = await api.put<{ error?: string }>(`/v1/funds/${fundId}/precontractual`, patch)
-      if (r.error) { setErr(r.error); return }
+      await api.put(`/v1/funds/${fundId}/precontractual`, patch)
       setEditing(null); qc.invalidateQueries({ queryKey: ['fund-precontractual', fundId] }); onDone()
-    } catch (e) { setErr(e instanceof ApiError ? String(e.body ?? e.message) : 'Could not save.') }
+    } catch (e) { setErr(apiMessage(e, 'Could not save.')) }
     finally { setBusy(false) }
   }
 
