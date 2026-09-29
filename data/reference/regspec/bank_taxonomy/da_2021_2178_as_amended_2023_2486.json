@@ -1,0 +1,2805 @@
+{
+ "framework": "bank_taxonomy",
+ "version": "da_2021_2178_as_amended_2023_2486",
+ "act": {
+  "celex": "32023R2486",
+  "title": "Commission Delegated Regulation (EU) 2023/2486 of 27 June 2023 supplementing Regulation (EU) 2020/852 of the European Parliament and of the Council by establishing the technical screening criteria for determining the conditions under which an economic activity qualifies as contributing substantially to the sustainable use and protection of water and marine resources, to the transition to a circular economy, to pollution prevention and control, or to the protection and restoration of biodiversity and ecosystems and for determining whether that economic activity causes no significant harm to any of the other environmental objectives and amending Commission Delegated Regulation (EU) 2021/2178 as regards specific public disclosures for those economic activities",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02021R2178-20240101",
+  "short": "Taxonomy Disclosures DA as amended by the Environmental DA – credit institutions"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 4 and Article 8(6)-(8) of Delegated Regulation (EU) 2021/2178; Annex VI replaced by Article 5(4) of Delegated Regulation (EU) 2023/2486; Article 8(6)-(8) and Annex XII added by Delegated Regulation (EU) 2022/1214",
+  "templates_in": "Annex VI to Delegated Regulation (EU) 2023/2486, OJ L, 2023/2486, 21.11.2023, pp. 151-160/164; Annex XII (added by Annex III to Delegated Regulation (EU) 2022/1214), OJ L 188, 15.7.2022, pp. 41-45",
+  "instructions_in": "Annex V to Delegated Regulation (EU) 2021/2178 as amended by Annex V to Delegated Regulation (EU) 2023/2486; Article 7; Article 8(6)-(8); Annex XII introductory sentence",
+  "quote": "Annex VI is replaced by the text set out in Annex VI to this Regulation;"
+ },
+ "applies": {
+  "from": "2024-01-01",
+  "until": "2025-12-31",
+  "basis": "disclosure_date",
+  "quote": "It shall apply from 1 January 2024."
+ },
+ "templates": [
+  {
+   "id": "T0",
+   "code": "0",
+   "title": "Summary of KPIs to be disclosed by credit institutions under Article 8 Taxonomy Regulation",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 151/164",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "r1",
+     "label": "Main KPI > Green asset ratio (GAR) stock",
+     "note": "Unnumbered; sub-table 1 (column c1 headed 'Total environmentally sustainable assets')."
+    },
+    {
+     "id": "r2",
+     "label": "Additional KPIs > GAR (flow)",
+     "note": "Unnumbered; sub-table 2 (column c1 headed 'Total environmentally sustainable activities')."
+    },
+    {
+     "id": "r3",
+     "label": "Additional KPIs > Trading book",
+     "note": "Footnote (*1)."
+    },
+    {
+     "id": "r4",
+     "label": "Additional KPIs > Financial guarantees"
+    },
+    {
+     "id": "r5",
+     "label": "Additional KPIs > Assets under management"
+    },
+    {
+     "id": "r6",
+     "label": "Additional KPIs > Fees and commissions income",
+     "note": "Footnote (*2)."
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "Total environmentally sustainable assets",
+     "note": "Unlettered; in sub-table 2 headed 'Total environmentally sustainable activities'."
+    },
+    {
+     "id": "c2",
+     "label": "KPI",
+     "note": "Footnote (*4) in sub-table 1: based on the Turnover KPI of the counterparty."
+    },
+    {
+     "id": "c3",
+     "label": "KPI",
+     "note": "Footnote (*5) in sub-table 1: based on the CapEx KPI of the counterparty, except for general lending (Turnover KPI)."
+    },
+    {
+     "id": "c4",
+     "label": "% coverage (over total assets)",
+     "note": "Footnote (*3) in sub-table 1. Black shading of rows r3-r6 not recoverable from the HTML text."
+    },
+    {
+     "id": "c5",
+     "label": "% of assets excluded from the numerator of the GAR (Article 7(2) and (3) and Section 1.1.2 of Annex V)"
+    },
+    {
+     "id": "c6",
+     "label": "% of assets excluded from the denominator of the GAR (Article 7(1) and Section 1.2.4 of Annex V)"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 0, Note 1",
+     "quote": "Across the reporting templates: cells shaded in black should not be reported."
+    },
+    {
+     "ref": "Annex VI, Template 0, Note 2",
+     "quote": "Fees and Commissions (sheet 6) and Trading Book (sheet 7) KPIs shall only apply starting 2026. SMEs’ inclusion in these KPI will only apply subject to a positive result of an impact assessment."
+    },
+    {
+     "ref": "Annex VI, Template 0, footnote (*1)",
+     "quote": "For credit institutions that do not meet the conditions of Article 94(1) of the CRR or the conditions set out in Article 325a(1) of the CRR."
+    },
+    {
+     "ref": "Annex VI, Template 0, footnote (*2)",
+     "quote": "Instutitons shall disclose forward-looking information for these KPIs, including information in terms of targets, together with relevant explanations on the methodology applied."
+    },
+    {
+     "ref": "Annex VI, Template 0, footnote (*5)",
+     "quote": "Based on the CapEx KPI of the counterparty, except for lending activities where for general lending Turnover KPI is used."
+    },
+    {
+     "ref": "Annex V, 1.2.1 (as replaced by 2023/2486 Annex V point (b))",
+     "quote": "In addition to GAR, credit institutions shall disclose the percentage of their total assets that are excluded from the numerator of the GAR in accordance with Article 7(2) and (3) of this Regulation and point 1.1.2 of this Annex."
+    },
+    {
+     "ref": "Article 10(7) of 2021/2178 (added by 2023/2486 Art 5(2))",
+     "quote": "From 1 January 2024 until 31 December 2025, financial undertakings shall only disclose:"
+    },
+    {
+     "ref": "Delegated Regulation (EU) 2026/73, final article (end of this version)",
+     "quote": "Undertakings may, however, apply Delegated Regulations (EU) 2021/2178, (EU) 2021/2139 and (EU) 2023/2486 as applicable on 31 December 2025 for the financial year that starts between 1 January and 31 December 2025."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": false,
+    "note": "Same 6 KPI rows. Two columns added: '% of assets excluded from the numerator of the GAR (Article 7(2) and (3) and Section 1.1.2 of Annex V)' and '% of assets excluded from the denominator of the GAR (Article 7(1) and Section 1.2.4 of Annex V)'. Template 0 now an HTML table (footnotes in text)."
+   }
+  },
+  {
+   "id": "T1",
+   "code": "1",
+   "title": "Assets for the calculation of GAR",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 152-153/164",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "GAR – Covered assets in both numerator and denominator",
+     "note": "Unnumbered heading row; all data columns shaded black."
+    },
+    {
+     "id": "1",
+     "label": "GAR – Covered assets in both numerator and denominator > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation"
+    },
+    {
+     "id": "2",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial undertakings"
+    },
+    {
+     "id": "3",
+     "label": "Financial undertakings > Credit institutions"
+    },
+    {
+     "id": "4",
+     "label": "Credit institutions > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Credit institutions > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Credit institutions > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Financial undertakings > Other financial corporations"
+    },
+    {
+     "id": "8",
+     "label": "Other financial corporations > of which investment firms"
+    },
+    {
+     "id": "9",
+     "label": "of which investment firms > Loans and advances"
+    },
+    {
+     "id": "10",
+     "label": "of which investment firms > Debt securities, including UoP"
+    },
+    {
+     "id": "11",
+     "label": "of which investment firms > Equity instruments"
+    },
+    {
+     "id": "12",
+     "label": "Other financial corporations > of which management companies"
+    },
+    {
+     "id": "13",
+     "label": "of which management companies > Loans and advances"
+    },
+    {
+     "id": "14",
+     "label": "of which management companies > Debt securities, including UoP"
+    },
+    {
+     "id": "15",
+     "label": "of which management companies > Equity instruments"
+    },
+    {
+     "id": "16",
+     "label": "Other financial corporations > of which insurance undertakings"
+    },
+    {
+     "id": "17",
+     "label": "of which insurance undertakings > Loans and advances"
+    },
+    {
+     "id": "18",
+     "label": "of which insurance undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "19",
+     "label": "of which insurance undertakings > Equity instruments"
+    },
+    {
+     "id": "20",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial undertakings"
+    },
+    {
+     "id": "21",
+     "label": "Non-financial undertakings > Loans and advances"
+    },
+    {
+     "id": "22",
+     "label": "Non-financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "23",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "24",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "25",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "26",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "27",
+     "label": "Households > of which motor vehicle loans",
+     "note": "Shaded black for all objectives other than CCM."
+    },
+    {
+     "id": "28",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local governments financing"
+    },
+    {
+     "id": "29",
+     "label": "Local governments financing > Housing financing"
+    },
+    {
+     "id": "30",
+     "label": "Local governments financing > Other local government financing"
+    },
+    {
+     "id": "31",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Collateral obtained by taking possession: residential and commercial immovable properties",
+     "note": "Bold, printed at the indentation level of row 2; parent assigned from indentation."
+    },
+    {
+     "id": "32",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator)"
+    },
+    {
+     "id": "33",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator) > Financial and Non-financial undertakings",
+     "note": "Rows 33-47: all columns after column a shaded black."
+    },
+    {
+     "id": "34",
+     "label": "Financial and Non-financial undertakings > SMEs and NFCs (other than SMEs) not subject to NFRD disclosure obligations"
+    },
+    {
+     "id": "35",
+     "label": "SMEs and NFCs (other than SMEs) not subject to NFRD disclosure obligations > Loans and advances"
+    },
+    {
+     "id": "36",
+     "label": "Loans and advances > of which loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "37",
+     "label": "Loans and advances > of which building renovation loans"
+    },
+    {
+     "id": "38",
+     "label": "SMEs and NFCs (other than SMEs) not subject to NFRD disclosure obligations > Debt securities"
+    },
+    {
+     "id": "39",
+     "label": "SMEs and NFCs (other than SMEs) not subject to NFRD disclosure obligations > Equity instruments"
+    },
+    {
+     "id": "40",
+     "label": "Financial and Non-financial undertakings > Non-EU country counterparties not subject to NFRD disclosure obligations"
+    },
+    {
+     "id": "41",
+     "label": "Non-EU country counterparties not subject to NFRD disclosure obligations > Loans and advances"
+    },
+    {
+     "id": "42",
+     "label": "Non-EU country counterparties not subject to NFRD disclosure obligations > Debt securities"
+    },
+    {
+     "id": "43",
+     "label": "Non-EU country counterparties not subject to NFRD disclosure obligations > Equity instruments"
+    },
+    {
+     "id": "44",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator) > Derivatives"
+    },
+    {
+     "id": "45",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator) > On demand interbank loans"
+    },
+    {
+     "id": "46",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator) > Cash and cash-related assets"
+    },
+    {
+     "id": "47",
+     "label": "Assets excluded from the numerator for GAR calculation (covered in the denominator) > Other categories of assets (e.g. goodwill, commodities, etc.)"
+    },
+    {
+     "id": "48",
+     "label": "Total GAR assets"
+    },
+    {
+     "id": "49",
+     "label": "Assets not covered for GAR calculation"
+    },
+    {
+     "id": "50",
+     "label": "Assets not covered for GAR calculation > Central governments and Supranational issuers"
+    },
+    {
+     "id": "51",
+     "label": "Assets not covered for GAR calculation > Central banks exposure"
+    },
+    {
+     "id": "52",
+     "label": "Assets not covered for GAR calculation > Trading book"
+    },
+    {
+     "id": "53",
+     "label": "Total assets"
+    },
+    {
+     "id": "h2",
+     "label": "Off-balance sheet exposures – Undertakings subject to NFRD disclosure obligations",
+     "note": "Unnumbered grey section header; in the second image part (T-1 block) it is printed truncated as 'Off-balance sheet exposures –'."
+    },
+    {
+     "id": "54",
+     "label": "Off-balance sheet exposures – Undertakings subject to NFRD disclosure obligations > Financial guarantees"
+    },
+    {
+     "id": "55",
+     "label": "Off-balance sheet exposures – Undertakings subject to NFRD disclosure obligations > Assets under management"
+    },
+    {
+     "id": "56",
+     "label": "Assets under management > Of which debt securities"
+    },
+    {
+     "id": "57",
+     "label": "Assets under management > Of which equity instruments"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T > Total [gross] carrying amount",
+     "note": "Stub header 'Million EUR'. Column letter 'y' is not printed (w, x, z, aa ...) in the T block; the T-1 block runs ag-bk without gaps (31 + 31 columns). Image footnotes 1-4 identical in substance to the 2021 template (footnote 4 now complete: '...after the date of application of the disclosure.')."
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "q",
+     "label": "Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "r",
+     "label": "Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "s",
+     "label": "Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "t",
+     "label": "Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "u",
+     "label": "Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "v",
+     "label": "Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "w",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "x",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "z",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "aa",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "ab",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO)",
+     "note": "The eligible-level header cell above this column is printed empty in the T block (the T-1 block reads 'Of which towards taxonomy relevant sectors (Taxonomy-eligible)')."
+    },
+    {
+     "id": "ac",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ad",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ae",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "af",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "ag",
+     "label": "Disclosure reference date T-1 > Total [gross] carrying amount"
+    },
+    {
+     "id": "ah",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "ai",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "aj",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ak",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "al",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "am",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "an",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ao",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ap",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "aq",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "ar",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "as",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "at",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "au",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "av",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "aw",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ax",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "ay",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "az",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ba",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "bb",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "bc",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "bd",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "be",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "bf",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "bg",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "bh",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "bi",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "bj",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "bk",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (Taxonomy-eligible) > Of which environmentally sustainable (Taxonomy-aligned) > Of which enabling"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex V, 1.1.2 (third paragraph as replaced by 2023/2486)",
+     "quote": "(c) exposures to undertakings that are not obliged to publish non-financial information pursuant to Article 19a or 29a of Directive 2013/34/EU; (d) derivatives; (e) cash and cash-related assets; (f) other categories of assets (such as goodwill, commodities, etc.)."
+    },
+    {
+     "ref": "Annex V, 1.1.2",
+     "quote": "The exposures referred to in Article 7(1) of this Regulation shall be excluded from the coverage of the GAR."
+    },
+    {
+     "ref": "Article 7(1)",
+     "quote": "The exposures to central governments, central banks and supranational issuers shall be excluded from the calculation of the numerator and denominator of key performance indicators of financial undertakings."
+    },
+    {
+     "ref": "Annex V, 1.1.2",
+     "quote": "The calculation of KPIs for off-balance sheet exposures shall consider financial guarantees granted by the credit institution and assets under management for guarantee and investee non-financial undertakings."
+    },
+    {
+     "ref": "Annex V, 1.2.1.1(i) (as replaced by 2023/2486)",
+     "quote": "(1)(c)(1) represents loans and advances where the use of proceeds is known, including specialised lending as referred to in Article 147(8) of Regulation (EU) No 575/2013;"
+    },
+    {
+     "ref": "Annex V (point (s) of 2023/2486 Annex V)",
+     "quote": "in Annex V, the words ‘equity holdings’ are replaced by the words ‘equity instruments’;"
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "Rows renumbered 1-57 (heading row now unnumbered): 'Financial corporations'/'Non-financial corporations' -> 'undertakings'; row 'NFCs subject to NFRD disclosure obligations' removed; new row 'Housing financing' under local governments; order under local governments changed (2021: 30 Local governments financing, 31 Collateral obtained..., 32 Other local government financing; 2023: 28 Local governments financing, 29 Housing financing, 30 Other local government financing, 31 Collateral obtained...); 'Sovereigns' -> 'Central governments and Supranational issuers'; 'Other assets (e.g. Goodwill...)' -> 'Other categories of assets (e.g. goodwill, commodities, etc.)'; off-balance header 'Corporates' -> 'Undertakings'. Columns: 3 objective blocks (CCM, CCA, TOTAL) -> 7 blocks (6 objectives + TOTAL); 'Of which specialised lending' -> 'Of which Use of Proceeds'; CCA 'Of which adaptation' dropped; 'Total gross carrying amount' -> 'Total [gross] carrying amount'; 32 -> 62 columns (a-bk, 'y' not printed)."
+   }
+  },
+  {
+   "id": "T2",
+   "code": "2",
+   "title": "GAR sector information",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 154/164",
+   "structure": "full",
+   "source_form": "image",
+   "flexible_rows": true,
+   "flexible_note": "Rows are printed 1, 2, 3, 4, ... : one row per NACE 4-digit sector (code and label) reported in the unlettered breakdown column.",
+   "rows": [
+    {
+     "id": "1",
+     "label": "1"
+    },
+    {
+     "id": "2",
+     "label": "2"
+    },
+    {
+     "id": "3",
+     "label": "3"
+    },
+    {
+     "id": "4",
+     "label": "4"
+    },
+    {
+     "id": "…",
+     "label": "…",
+     "note": "Ellipsis row as printed: further sectors."
+    }
+   ],
+   "columns": [
+    {
+     "id": "c0",
+     "label": "Breakdown by sector – NACE 4 digits level (code and label)",
+     "note": "Unlettered in 2023 (was column 'a' in 2021). Image footnotes 1-2 as in 2021 (not in OJ text)."
+    },
+    {
+     "id": "a",
+     "label": "Climate Change Mitigation (CCM) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "b",
+     "label": "Climate Change Mitigation (CCM) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (CCM)"
+    },
+    {
+     "id": "c",
+     "label": "Climate Change Mitigation (CCM) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "d",
+     "label": "Climate Change Mitigation (CCM) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (CCM)",
+     "note": "Cells shaded black."
+    },
+    {
+     "id": "e",
+     "label": "Climate Change Adaptation (CCA) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "f",
+     "label": "Climate Change Adaptation (CCA) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (CCA)"
+    },
+    {
+     "id": "g",
+     "label": "Climate Change Adaptation (CCA) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "h",
+     "label": "Climate Change Adaptation (CCA) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (CCA)",
+     "note": "Cells shaded black."
+    },
+    {
+     "id": "i",
+     "label": "Water and marine resources (WTR) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "j",
+     "label": "Water and marine resources (WTR) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (WTR)"
+    },
+    {
+     "id": "k",
+     "label": "Water and marine resources (WTR) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "l",
+     "label": "Water and marine resources (WTR) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (WTR)",
+     "note": "Cells shaded black."
+    },
+    {
+     "id": "m",
+     "label": "Circular economy (CE) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "n",
+     "label": "Circular economy (CE) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (CE)"
+    },
+    {
+     "id": "o",
+     "label": "Circular economy (CE) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "p",
+     "label": "Circular economy (CE) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (CE)",
+     "note": "Cells shaded black."
+    },
+    {
+     "id": "q",
+     "label": "Pollution (PPC) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "r",
+     "label": "Pollution (PPC) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (PPC)"
+    },
+    {
+     "id": "s",
+     "label": "Pollution (PPC) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "t",
+     "label": "Pollution (PPC) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (PPC)",
+     "note": "Cells shaded black."
+    },
+    {
+     "id": "u",
+     "label": "Biodiversity and Ecosystems (BIO) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "v",
+     "label": "Biodiversity and Ecosystems (BIO) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (BIO)"
+    },
+    {
+     "id": "w",
+     "label": "Biodiversity and Ecosystems (BIO) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "x",
+     "label": "Biodiversity and Ecosystems (BIO) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (BIO)",
+     "note": "Cells shaded black."
+    },
+    {
+     "id": "y",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Non-Financial corporates (Subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD')."
+    },
+    {
+     "id": "z",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Non-Financial corporates (Subject > [Gross] carrying amount > Of which environmentally sustainable (CCM + CCA + WTR + CE + PPC + BIO)"
+    },
+    {
+     "id": "aa",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > SMEs and other NFC not subject > [Gross] carrying amount > Mn EUR",
+     "note": "Header printed clipped (cell text cut: 'Non-Financial corporates (Subject' / 'SMEs and other NFC not subject'; 2021 read '... (Subject to NFRD)' / '... not subject to NFRD'). Cells shaded black. Cells shaded black."
+    },
+    {
+     "id": "ab",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > SMEs and other NFC not subject > [Gross] carrying amount > Of which environmentally sustainable (CCM + CCA + WTR + CE + PPC + BIO)",
+     "note": "Cells shaded black."
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex V, 1.2.1.1(i), (1)(b)",
+     "quote": "towards companies carrying out taxonomy-eligible economic activities (where available, 4 level Nomenclature of Economic Activities (NACE) codes) relevant for each environmental objective."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": false,
+    "note": "Same flexible NACE rows. Columns extended from 3 to 7 blocks (13 -> 29 columns); breakdown column now unlettered and letters run a-ab contiguously; 'Gross carrying amount' -> '[Gross] carrying amount'."
+   }
+  },
+  {
+   "id": "T3",
+   "code": "3",
+   "title": "GAR KPI stock",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 155-156/164",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "GAR – Covered assets in both numerator and denominator",
+     "note": "Unnumbered heading row; all data columns shaded black."
+    },
+    {
+     "id": "1",
+     "label": "GAR – Covered assets in both numerator and denominator > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation"
+    },
+    {
+     "id": "2",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial undertakings"
+    },
+    {
+     "id": "3",
+     "label": "Financial undertakings > Credit institutions"
+    },
+    {
+     "id": "4",
+     "label": "Credit institutions > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Credit institutions > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Credit institutions > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Financial undertakings > Other financial corporations"
+    },
+    {
+     "id": "8",
+     "label": "Other financial corporations > of which investment firms"
+    },
+    {
+     "id": "9",
+     "label": "of which investment firms > Loans and advances"
+    },
+    {
+     "id": "10",
+     "label": "of which investment firms > Debt securities, including UoP"
+    },
+    {
+     "id": "11",
+     "label": "of which investment firms > Equity instruments"
+    },
+    {
+     "id": "12",
+     "label": "Other financial corporations > of which management companies"
+    },
+    {
+     "id": "13",
+     "label": "of which management companies > Loans and advances"
+    },
+    {
+     "id": "14",
+     "label": "of which management companies > Debt securities, including UoP"
+    },
+    {
+     "id": "15",
+     "label": "of which management companies > Equity instruments"
+    },
+    {
+     "id": "16",
+     "label": "Other financial corporations > of which insurance undertakings"
+    },
+    {
+     "id": "17",
+     "label": "of which insurance undertakings > Loans and advances"
+    },
+    {
+     "id": "18",
+     "label": "of which insurance undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "19",
+     "label": "of which insurance undertakings > Equity instruments"
+    },
+    {
+     "id": "20",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial undertakings"
+    },
+    {
+     "id": "21",
+     "label": "Non-financial undertakings > Loans and advances"
+    },
+    {
+     "id": "22",
+     "label": "Non-financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "23",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "24",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "25",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "26",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "27",
+     "label": "Households > of which motor vehicle loans",
+     "note": "Shaded black for all objectives other than CCM in the T block (CCM columns a-e open); in the T-1 block the whole row (ag onwards, including CCM) is shaded black."
+    },
+    {
+     "id": "28",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local government financing",
+     "note": "Printed 'Local government financing' (Template 1 reads 'Local governments financing')."
+    },
+    {
+     "id": "29",
+     "label": "Local government financing > Housing financing"
+    },
+    {
+     "id": "30",
+     "label": "Local government financing > Other local government financing"
+    },
+    {
+     "id": "31",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Collateral obtained by taking possession: residential and commercial immovable properties",
+     "note": "Bold, printed at the indentation level of row 2; parent assigned from indentation."
+    },
+    {
+     "id": "32",
+     "label": "Total GAR assets"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)",
+     "note": " Stub header '% (compared to total covered assets in the denominator)'. Column letter 'y' not printed in the T block (x, z, aa ...); the T-1 block runs ag-bk."
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Of which Use of Proceeds"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "q",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "r",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "s",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "t",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "u",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "v",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "w",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "x",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Of which Use of Proceeds"
+    },
+    {
+     "id": "z",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "aa",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "ab",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "ac",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ad",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "ae",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "af",
+     "label": "Disclosure reference date T > Proportion of total assets covered"
+    },
+    {
+     "id": "ag",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "ah",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "ai",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "aj",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "ak",
+     "label": "Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "al",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "am",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "an",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which specialised lending",
+     "note": "Printed 'Of which specialised lending' here, although all other blocks read 'Of which Use of Proceeds'."
+    },
+    {
+     "id": "ao",
+     "label": "Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "ap",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "aq",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "ar",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "as",
+     "label": "Disclosure reference date T-1 > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "at",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "au",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "av",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "aw",
+     "label": "Disclosure reference date T-1 > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "ax",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "ay",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "az",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ba",
+     "label": "Disclosure reference date T-1 > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "bb",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "bc",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)",
+     "note": "Header text printed clipped after '(Taxonomy-' (cell too narrow)."
+    },
+    {
+     "id": "bd",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "be",
+     "label": "Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy- > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "bf",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "bg",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "bh",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "bi",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "bj",
+     "label": "Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "bk",
+     "label": "Disclosure reference date T-1 > Proportion of total assets covered"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 3, note 1",
+     "quote": "Institution shall dislcose in this template the GAR KPIs on stock of loans calculated based on the data disclosed in template 1, on covered assets, and by applying the formulas proposed in this template"
+    },
+    {
+     "ref": "Annex VI, Template 3, note 2",
+     "quote": "Information on the GAR (green asset ratio of ‘eligible’ activities) shall be accompanied with information on the proportion of total assets covered by the GAR"
+    },
+    {
+     "ref": "Annex VI, Template 3, note 4",
+     "quote": "Credit institutions shall duplicate this template for revenue-based and CapEx-based disclosures"
+    },
+    {
+     "ref": "Annex V, 1.2.1.1(i) (as replaced by 2023/2486)",
+     "quote": "GAR L&A (for each environmental objective) = (1)(c)/(1)(a). Credit institutions shall disclose the GAR based on CapEx and turnover KPIs and separately the part of the KPI that refers to enabling and transitional activities, where relevant."
+    },
+    {
+     "ref": "Annex V, 1.2.1.1(i)",
+     "quote": "in terms of stock, based on the total gross carrying amount of loans and advances as of the disclosure reference date;"
+    },
+    {
+     "ref": "Annex V, 1.2.1.2 (as replaced by 2023/2486)",
+     "quote": "This GAR shall contain disclosures for all the environmental objectives, with a breakdown for enabling activities. For the climate change mitigation, the GAR shall also contain disclosures of transitional activities."
+    },
+    {
+     "ref": "Annex V, 1.2.1.6(c) (as replaced by 2023/2486)",
+     "quote": "GAR for residential real estate exposures, including house renovation loans, for the objectives of climate change mitigation, climate change adaptation, and circular economy;"
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "Rows as Template 1 changes (h1 + 1-31 + 32 'Total GAR assets', previously 1-32 + 49); row 28 printed 'Local government financing'. Columns: 3 -> 7 blocks per date, 'specialised lending' -> 'Use of Proceeds' (except T-1 CCA), CCA/other objectives only UoP + enabling; 32 -> 62 columns."
+   }
+  },
+  {
+   "id": "T4",
+   "code": "4",
+   "title": "GAR KPI flow",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 157/164",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "GAR – Covered assets in both numerator and denominator",
+     "note": "Unnumbered heading row; all data columns shaded black."
+    },
+    {
+     "id": "1",
+     "label": "GAR – Covered assets in both numerator and denominator > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation"
+    },
+    {
+     "id": "2",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial undertakings"
+    },
+    {
+     "id": "3",
+     "label": "Financial undertakings > Credit institutions"
+    },
+    {
+     "id": "4",
+     "label": "Credit institutions > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Credit institutions > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Credit institutions > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Financial undertakings > Other financial corporations"
+    },
+    {
+     "id": "8",
+     "label": "Other financial corporations > of which investment firms"
+    },
+    {
+     "id": "9",
+     "label": "of which investment firms > Loans and advances"
+    },
+    {
+     "id": "10",
+     "label": "of which investment firms > Debt securities, including UoP"
+    },
+    {
+     "id": "11",
+     "label": "of which investment firms > Equity instruments"
+    },
+    {
+     "id": "12",
+     "label": "Other financial corporations > of which management companies"
+    },
+    {
+     "id": "13",
+     "label": "of which management companies > Loans and advances"
+    },
+    {
+     "id": "14",
+     "label": "of which management companies > Debt securities, including UoP"
+    },
+    {
+     "id": "15",
+     "label": "of which management companies > Equity instruments"
+    },
+    {
+     "id": "16",
+     "label": "Other financial corporations > of which insurance undertakings"
+    },
+    {
+     "id": "17",
+     "label": "of which insurance undertakings > Loans and advances"
+    },
+    {
+     "id": "18",
+     "label": "of which insurance undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "19",
+     "label": "of which insurance undertakings > Equity instruments"
+    },
+    {
+     "id": "20",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial undertakings"
+    },
+    {
+     "id": "21",
+     "label": "Non-financial undertakings > Loans and advances"
+    },
+    {
+     "id": "22",
+     "label": "Non-financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "23",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "24",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "25",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "26",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "27",
+     "label": "Households > of which motor vehicle loans",
+     "note": "Shaded black for all objectives other than CCM."
+    },
+    {
+     "id": "28",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local government financing",
+     "note": "Printed 'Local government financing' (Template 1 reads 'Local governments financing')."
+    },
+    {
+     "id": "29",
+     "label": "Local government financing > Housing financing"
+    },
+    {
+     "id": "30",
+     "label": "Local government financing > Other local government financing"
+    },
+    {
+     "id": "31",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Collateral obtained by taking possession: residential and commercial immovable properties",
+     "note": "Bold, printed at the indentation level of row 2; parent assigned from indentation."
+    },
+    {
+     "id": "32",
+     "label": "Total GAR assets"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)",
+     "note": "Stub header '% (compared to flow of total eligible assets)'. Only the T block. Column letter 'y' not printed. Image notes above the table (not in OJ text): 1. GAR KPIs on flow of loans (new loans on a net basis) from template 1 data; 2. 'Credit institutions shall duplicate this template for revenue-based and CapEx-based disclosures'."
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "q",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "r",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "s",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "t",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "u",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "v",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "w",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "x",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "z",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "aa",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "ab",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "ac",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ad",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "ae",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "af",
+     "label": "Disclosure reference date T > Proportion of total new assets covered"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex V, 1.2.1.1(i)",
+     "quote": "in terms of flow, based on the gross carrying amount of new loans and advances during the year prior to the disclosure reference date;"
+    },
+    {
+     "ref": "Annex V, 1.2.1.1(ii)",
+     "quote": "in terms of flow, based on the gross carrying amount of new debt securities during the year prior to the disclosure reference date;"
+    },
+    {
+     "ref": "Annex V, 1.2.1.2 (as replaced by 2023/2486)",
+     "quote": "Credit institutions shall also provide disclosures of stock and flow."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "Rows as Template 3. Columns 16 -> 31 (7 blocks + 'Proportion of total new assets covered'), UoP replaces specialised lending."
+   }
+  },
+  {
+   "id": "T5",
+   "code": "5",
+   "title": "KPI off-balance-sheet exposures",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 158/164",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Financial guarantees (FinGuar KPI)"
+    },
+    {
+     "id": "2",
+     "label": "Assets under management (AuM KPI)"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)",
+     "note": "Stub header '% (compared to total eligible off-balance-sheet assets)'. Column letter 'y' not printed. Image notes (not in OJ text): 1. KPIs for off-balance-sheet exposures calculated from template 1 data; 2. 'Institutions shall duplicate this template to disclose stock and flow KPIs for off-balance- sheet exposures.' A stray 'x' is printed below the table."
+    },
+    {
+     "id": "b",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "c",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "d",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "e",
+     "label": "Disclosure reference date T > Climate Change Mitigation (CCM) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "f",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "g",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "h",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "i",
+     "label": "Disclosure reference date T > Climate Change Adaptation (CCA) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "j",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "k",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "l",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "m",
+     "label": "Disclosure reference date T > Water and marine resources (WTR) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "n",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "o",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "p",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "q",
+     "label": "Disclosure reference date T > Circular economy (CE) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "r",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "s",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "t",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "u",
+     "label": "Disclosure reference date T > Pollution (PPC) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "v",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "w",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "x",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "z",
+     "label": "Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "aa",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)"
+    },
+    {
+     "id": "ab",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)"
+    },
+    {
+     "id": "ac",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which Use of Proceeds"
+    },
+    {
+     "id": "ad",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "ae",
+     "label": "Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible) > Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned) > Of which enabling"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex V, 1.2.2.1 (as replaced by 2023/2486)",
+     "quote": "a proportion of financial guarantees supporting loans and advances and debt securities financing Taxonomy-aligned economic activities compared to all financial guarantees supporting loans and advances and debt securities to undertakings."
+    },
+    {
+     "ref": "Annex V, 1.2.2.2 (as replaced by 2023/2486)",
+     "quote": "The green ratio for assets under management shall be the proportion of assets under management (equity, debt instruments and real estate) from undertakings financing Taxonomy-aligned economic activities, compared to total assets under management (equity, debt instruments and other assets)."
+    },
+    {
+     "ref": "Annex V, 1.2.2.1 (as replaced by 2023/2486)",
+     "quote": "This shall include disclosures of stock and flow, for all the environmental objectives. For climate change mitigation, this shall also include disclosures of which are enabling and transitional activities."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": false,
+    "note": "Same 2 rows. Columns 15 -> 30 (7 blocks), UoP replaces specialised lending; non-CCM objectives drop 'transitional'. New note: duplicate for stock and flow."
+   }
+  },
+  {
+   "id": "T6",
+   "code": "6",
+   "title": "KPI on fees and commissions income from services other than lending and asset management",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 159/164",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Fees and commission income from NFRD corporates – Services other than lending"
+    },
+    {
+     "id": "2",
+     "label": "Fees and commission income from NFRD corporates – Services other than lending > Services towards financial undertakings"
+    },
+    {
+     "id": "3",
+     "label": "Services towards financial undertakings > Credit institutions"
+    },
+    {
+     "id": "4",
+     "label": "Services towards financial undertakings > Other financial undertakings"
+    },
+    {
+     "id": "5",
+     "label": "Other financial undertakings > of which investment firms"
+    },
+    {
+     "id": "6",
+     "label": "Other financial undertakings > of which management companies"
+    },
+    {
+     "id": "7",
+     "label": "Other financial undertakings > of which insurance insurance unertakings",
+     "note": "Typo 'insurance insurance unertakings' kept as printed."
+    },
+    {
+     "id": "8",
+     "label": "Fees and commission income from NFRD corporates – Services other than lending > Non-financial undertakings"
+    },
+    {
+     "id": "9",
+     "label": "Fees and commission income from NFRD corporates – Services other than lending > Counterparties not subject to NFRD disclosure obligations, including third-country counterparties",
+     "note": "Bold, printed at the indentation level of row 2."
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "F&C KPI - Disclosure reference date T > Total (Million EUR)",
+     "note": "Column letter 'y' not printed (x is followed by z, which opens the T-1 block). Image note (not in OJ text): 1. percentage of fees and commission income related to taxonomy relevant sectors and environmentally sustainable activities compared to total fees and commission income from NFRD corporates for services other than lending and asset management."
+    },
+    {
+     "id": "b",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy-relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "c",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy-relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned)"
+    },
+    {
+     "id": "d",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy-relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "e",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Mitigation (CCM) > Of which towards taxonomy-relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "f",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (%) (Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "g",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (%) (Taxonomy- > Of which environmentally sustainable",
+     "note": "Printed without '(%)(Taxonomy-aligned)'."
+    },
+    {
+     "id": "h",
+     "label": "F&C KPI - Disclosure reference date T > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (%) (Taxonomy- > Of which environmentally sustainable > Of which enabling"
+    },
+    {
+     "id": "i",
+     "label": "F&C KPI - Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "j",
+     "label": "F&C KPI - Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "k",
+     "label": "F&C KPI - Disclosure reference date T > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "l",
+     "label": "F&C KPI - Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "m",
+     "label": "F&C KPI - Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "n",
+     "label": "F&C KPI - Disclosure reference date T > Circular economy (CE) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "o",
+     "label": "F&C KPI - Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "p",
+     "label": "F&C KPI - Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "q",
+     "label": "F&C KPI - Disclosure reference date T > Pollution (PPC) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "r",
+     "label": "F&C KPI - Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "s",
+     "label": "F&C KPI - Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "t",
+     "label": "F&C KPI - Disclosure reference date T > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "u",
+     "label": "F&C KPI - Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "v",
+     "label": "F&C KPI - Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned)"
+    },
+    {
+     "id": "w",
+     "label": "F&C KPI - Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "x",
+     "label": "F&C KPI - Disclosure reference date T > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "z",
+     "label": "F&C KPI - Disclosure reference date T-1 > Total (Million EUR)"
+    },
+    {
+     "id": "aa",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "ab",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned)"
+    },
+    {
+     "id": "ac",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "ad",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Mitigation (CCM) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which enabling"
+    },
+    {
+     "id": "ae",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "af",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "ag",
+     "label": "F&C KPI - Disclosure reference date T-1 > Climate Change Adaptation (CCA) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "ah",
+     "label": "F&C KPI - Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "ai",
+     "label": "F&C KPI - Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "aj",
+     "label": "F&C KPI - Disclosure reference date T-1 > Water and marine resources (WTR) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "ak",
+     "label": "F&C KPI - Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "al",
+     "label": "F&C KPI - Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "am",
+     "label": "F&C KPI - Disclosure reference date T-1 > Circular economy (CE) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "an",
+     "label": "F&C KPI - Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "ao",
+     "label": "F&C KPI - Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "ap",
+     "label": "F&C KPI - Disclosure reference date T-1 > Pollution (PPC) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "aq",
+     "label": "F&C KPI - Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "ar",
+     "label": "F&C KPI - Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-",
+     "note": "Header printed clipped after '(Taxonomy-'."
+    },
+    {
+     "id": "as",
+     "label": "F&C KPI - Disclosure reference date T-1 > Biodiversity and Ecosystems (BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy- > Of which enabling"
+    },
+    {
+     "id": "at",
+     "label": "F&C KPI - Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)"
+    },
+    {
+     "id": "au",
+     "label": "F&C KPI - Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned)"
+    },
+    {
+     "id": "av",
+     "label": "F&C KPI - Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which transitional"
+    },
+    {
+     "id": "aw",
+     "label": "F&C KPI - Disclosure reference date T-1 > TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible) > Of which environmentally sustainable (%)(Taxonomy-aligned) > Of which enabling"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex V, 1.2.3",
+     "quote": "The denominator shall be the total amount of fees and commission income from undertakings from products or services other than lending and asset management."
+    },
+    {
+     "ref": "Annex V, 1.2.3 (point (r) of 2023/2486 Annex V)",
+     "quote": "in Section 1.2.3, second and third paragraphs, the words ‘Implementing Regulation (EU) 680/2014’ are replaced by the words ‘Implementing Regulation (EU) 2021/451’;"
+    },
+    {
+     "ref": "Article 10(5), second subparagraph",
+     "quote": "Sections 1.2.3 and 1.2.4 of Annex V shall apply from 1 January 2026."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "Same 9 rows but 'corporations' -> 'undertakings' (rows 2, 4, 8) and '-' -> '–' in row 1. Columns 26 -> 48 (7 blocks per date); 'adaptation' breakdown dropped (CCA/others: enabling only)."
+   }
+  },
+  {
+   "id": "T7",
+   "code": "7",
+   "title": "KPI Trading book portfolio",
+   "ref": "Annex VI to Delegated Regulation (EU) 2023/2486 (replacing Annex VI to 2021/2178), OJ L, 2023/2486, 21.11.2023, p. 160/164",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Financial assets held for trading (debt securities and equity instruments) – NFRD corporates"
+    },
+    {
+     "id": "2",
+     "label": "Financial assets held for trading (debt securities and equity instruments) – NFRD corporates > Financial undertakings"
+    },
+    {
+     "id": "3",
+     "label": "Financial undertakings > Credit institutions"
+    },
+    {
+     "id": "4",
+     "label": "Credit institutions > Debt securities"
+    },
+    {
+     "id": "5",
+     "label": "Credit institutions > Equity instruments"
+    },
+    {
+     "id": "6",
+     "label": "Financial undertakings > Other financial undertakings"
+    },
+    {
+     "id": "7",
+     "label": "Other financial undertakings > of which investment firms"
+    },
+    {
+     "id": "8",
+     "label": "of which investment firms > Debt securities"
+    },
+    {
+     "id": "9",
+     "label": "of which investment firms > Equity instruments"
+    },
+    {
+     "id": "10",
+     "label": "Other financial undertakings > of which asset managers"
+    },
+    {
+     "id": "11",
+     "label": "of which asset managers > Debt securities"
+    },
+    {
+     "id": "12",
+     "label": "of which asset managers > Equity instruments"
+    },
+    {
+     "id": "13",
+     "label": "Other financial undertakings > of which insurance companies"
+    },
+    {
+     "id": "14",
+     "label": "of which insurance companies > Debt securities"
+    },
+    {
+     "id": "15",
+     "label": "of which insurance companies > Equity instruments"
+    },
+    {
+     "id": "16",
+     "label": "Financial assets held for trading (debt securities and equity instruments) – NFRD corporates > Non-financial undertakings"
+    },
+    {
+     "id": "17",
+     "label": "Non-financial undertakings > Debt securities"
+    },
+    {
+     "id": "18",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "19",
+     "label": "Financial assets held for trading (debt securities and equity instruments) – NFRD corporates > Counterparties not subject to NFRD disclosure obligations, including third-country counterparties"
+    },
+    {
+     "id": "20",
+     "label": "Counterparties not subject to NFRD disclosure obligations, including third-country counterparties > Debt securities"
+    },
+    {
+     "id": "21",
+     "label": "Counterparties not subject to NFRD disclosure obligations, including third-country counterparties > Equity instruments"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Fair value",
+     "note": "Printed in two image parts (p. 160); the second part repeats column 'ad' (CE Trading KPI) at its left edge. Column letter 'y' is not printed (x, z, aa ...)."
+    },
+    {
+     "id": "b",
+     "label": "Climate Change Mitigation (CCM) > Absolute purchases"
+    },
+    {
+     "id": "c",
+     "label": "Climate Change Mitigation (CCM) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "d",
+     "label": "Climate Change Mitigation (CCM) > Absolute sales"
+    },
+    {
+     "id": "e",
+     "label": "Climate Change Mitigation (CCM) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "f",
+     "label": "Climate Change Mitigation (CCM) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "g",
+     "label": "Climate Change Mitigation (CCM) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "h",
+     "label": "Climate Change Mitigation (CCM) > Trading KPI"
+    },
+    {
+     "id": "i",
+     "label": "Climate Change Adaptation (CCA) > Absolute purchases"
+    },
+    {
+     "id": "j",
+     "label": "Climate Change Adaptation (CCA) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "k",
+     "label": "Climate Change Adaptation (CCA) > Absolute sales"
+    },
+    {
+     "id": "l",
+     "label": "Climate Change Adaptation (CCA) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "m",
+     "label": "Climate Change Adaptation (CCA) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "n",
+     "label": "Climate Change Adaptation (CCA) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "o",
+     "label": "Climate Change Adaptation (CCA) > Trading KPI"
+    },
+    {
+     "id": "p",
+     "label": "Water and marine resources (WTR) > Absolute purchases"
+    },
+    {
+     "id": "q",
+     "label": "Water and marine resources (WTR) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "r",
+     "label": "Water and marine resources (WTR) > Absolute sales"
+    },
+    {
+     "id": "s",
+     "label": "Water and marine resources (WTR) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "t",
+     "label": "Water and marine resources (WTR) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "u",
+     "label": "Water and marine resources (WTR) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "v",
+     "label": "Water and marine resources (WTR) > Trading KPI"
+    },
+    {
+     "id": "w",
+     "label": "Circular economy (CE) > Absolute purchases"
+    },
+    {
+     "id": "x",
+     "label": "Circular economy (CE) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "z",
+     "label": "Circular economy (CE) > Absolute sales"
+    },
+    {
+     "id": "aa",
+     "label": "Circular economy (CE) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ab",
+     "label": "Circular economy (CE) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "ac",
+     "label": "Circular economy (CE) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ad",
+     "label": "Circular economy (CE) > Trading KPI"
+    },
+    {
+     "id": "ae",
+     "label": "Pollution (PPC) > Absolute purchases",
+     "note": "Letter 'ae' printed twice as the headers of the first two PPC columns (misprint)."
+    },
+    {
+     "id": "ae_2",
+     "label": "Pollution (PPC) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)",
+     "note": "Second of two columns printed 'ae' (misprint; the next column is 'af'): addressed as ae_2, shown as printed.",
+     "printed_id": "ae"
+    },
+    {
+     "id": "af",
+     "label": "Pollution (PPC) > Absolute sales"
+    },
+    {
+     "id": "ag",
+     "label": "Pollution (PPC) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ah",
+     "label": "Pollution (PPC) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "ai",
+     "label": "Pollution (PPC) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "aj",
+     "label": "Pollution (PPC) > Trading KPI"
+    },
+    {
+     "id": "ak",
+     "label": "Biodiversity and Ecosystems (BIO) > Absolute purchases"
+    },
+    {
+     "id": "al",
+     "label": "Biodiversity and Ecosystems (BIO) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "am",
+     "label": "Biodiversity and Ecosystems (BIO) > Absolute sales"
+    },
+    {
+     "id": "an",
+     "label": "Biodiversity and Ecosystems (BIO) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ao",
+     "label": "Biodiversity and Ecosystems (BIO) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "ap",
+     "label": "Biodiversity and Ecosystems (BIO) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "aq",
+     "label": "Biodiversity and Ecosystems (BIO) > Trading KPI"
+    },
+    {
+     "id": "ar",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Absolute purchases"
+    },
+    {
+     "id": "as",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Absolute purchases > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "at",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Absolute sales"
+    },
+    {
+     "id": "au",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "av",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Absolute purchases plus absolute sales"
+    },
+    {
+     "id": "aw",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Absolute purchases plus absolute sales > Of which environmentally sustainable (Taxonomy-aligned)"
+    },
+    {
+     "id": "ax",
+     "label": "TOTAL (CCM + CCA + WTR + CE + PPC + BIO) > Trading KPI"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex V, 1.2.4",
+     "quote": "The trading portfolio shall be excluded from the denominator and coverage of the total GAR."
+    },
+    {
+     "ref": "Annex V, 1.2.4(a)",
+     "quote": "total trading during the disclosure period in Taxonomy-aligned instruments, including absolute purchases plus absolute sales of environmentally sustainable securities;"
+    },
+    {
+     "ref": "Annex V, 1.2.4",
+     "quote": "Absolute purchases plus absolute sales of environmentally sustainable securities shall be included in the numerator of the specific GAR for the trading Portfolio of the credit institution."
+    },
+    {
+     "ref": "Article 10(5), second subparagraph",
+     "quote": "Sections 1.2.3 and 1.2.4 of Annex V shall apply from 1 January 2026."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "Same 21 rows; wording 'equity holdings' -> 'equity instruments' (row 1) and 'Financial/Other financial/NFCs subject to NFRD disclosure obligations' -> 'Financial undertakings/Other financial undertakings/Non-financial undertakings' (rows 2, 6, 16). Columns 22 -> 50 (7 blocks of 7)."
+   }
+  },
+  {
+   "id": "XII_T1",
+   "code": "Template 1",
+   "title": "Nuclear and fossil gas related activities",
+   "ref": "Annex XII to Delegated Regulation (EU) 2021/2178 (added by Article 2(2) and Annex III of Delegated Regulation (EU) 2022/1214), OJ L 188, 15.7.2022, p. 41",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "Nuclear energy related activities"
+    },
+    {
+     "id": "1",
+     "label": "Nuclear energy related activities > The undertaking carries out, funds or has exposures to research, development, demonstration and deployment of innovative electricity generation facilities that produce energy from nuclear processes with minimal waste from the fuel cycle."
+    },
+    {
+     "id": "2",
+     "label": "Nuclear energy related activities > The undertaking carries out, funds or has exposures to construction and safe operation of new nuclear installations to produce electricity or process heat, including for the purposes of district heating or industrial processes such as hydrogen production, as well as their safety upgrades, using best available technologies."
+    },
+    {
+     "id": "3",
+     "label": "Nuclear energy related activities > The undertaking carries out, funds or has exposures to safe operation of existing nuclear installations that produce electricity or process heat, including for the purposes of district heating or industrial processes such as hydrogen production from nuclear energy, as well as their safety upgrades."
+    },
+    {
+     "id": "h2",
+     "label": "Fossil gas related activities"
+    },
+    {
+     "id": "4",
+     "label": "Fossil gas related activities > The undertaking carries out, funds or has exposures to construction or operation of electricity generation facilities that produce electricity using fossil gaseous fuels."
+    },
+    {
+     "id": "5",
+     "label": "Fossil gas related activities > The undertaking carries out, funds or has exposures to construction, refurbishment, and operation of combined heat/cool and power generation facilities using fossil gaseous fuels."
+    },
+    {
+     "id": "6",
+     "label": "Fossil gas related activities > The undertaking carries out, funds or has exposures to construction, refurbishment and operation of heat generation facilities that produce heat/cool using fossil gaseous fuels."
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "YES/NO",
+     "note": "unheaded answer column; each row's cell is printed 'YES/NO'. Header row reads 'Row | Nuclear energy related activities' (the section heading doubles as the label-column header). Annex XII prints one set of templates for non-financial and financial undertakings alike; there are no separate lines or variants for the KPIs of financial undertakings or credit institutions. Row wording 'carries out, funds or has exposures to' and 'applicable KPI' covers them; the templates are completed once per applicable KPI (for a credit institution: each KPI of Annex VI, e.g. GAR stock turnover-/CapEx-based, GAR flow, off-balance-sheet, fees and commissions, trading book)."
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XII, introductory sentence",
+     "quote": "The information referred to in Article 8(6) and (7) shall be presented as follows, for each applicable key performance indicator (KPI)."
+    },
+    {
+     "ref": "Article 8(8)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annex XII to this Regulation."
+    },
+    {
+     "ref": "Article 8(6)",
+     "quote": "Non-financial undertakings and financial undertakings shall disclose the amount and proportion of:"
+    },
+    {
+     "ref": "Article 8(6)(c)",
+     "quote": "the taxonomy-non-eligible nuclear energy related activities in the denominator of their key performance indicators."
+    },
+    {
+     "ref": "Article 8(7)(c)",
+     "quote": "the taxonomy-non-eligible fossil gas related activities in the denominator of their key performance indicators."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": true,
+    "note": "Annex XII not amended by Delegated Regulation (EU) 2023/2486 (it remained in force until deleted by Delegated Regulation (EU) 2026/73)."
+   }
+  },
+  {
+   "id": "XII_T2",
+   "code": "Template 2",
+   "title": "Taxonomy-aligned economic activities (denominator)",
+   "ref": "Annex XII to Delegated Regulation (EU) 2021/2178 (added by Article 2(2) and Annex III of Delegated Regulation (EU) 2022/1214), OJ L 188, 15.7.2022, pp. 41-42",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.26 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "2",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.27 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "3",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.28 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "4",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.29 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "5",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.30 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "6",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.31 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "7",
+     "label": "Amount and proportion of other taxonomy-aligned economic activities not referred to in rows 1 to 6 above in the denominator of the applicable KPI"
+    },
+    {
+     "id": "8",
+     "label": "Total applicable KPI"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > CCM + CCA > Amount",
+     "note": "In rows 1-7 the data cells are merged per objective group (one cell spanning Amount and %) in the OJ HTML table. Annex XII prints one set of templates for non-financial and financial undertakings alike; there are no separate lines or variants for the KPIs of financial undertakings or credit institutions. Row wording 'carries out, funds or has exposures to' and 'applicable KPI' covers them; the templates are completed once per applicable KPI (for a credit institution: each KPI of Annex VI, e.g. GAR stock turnover-/CapEx-based, GAR flow, off-balance-sheet, fees and commissions, trading book)."
+    },
+    {
+     "id": "c2",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > CCM + CCA > %"
+    },
+    {
+     "id": "c3",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change mitigation (CCM) > Amount"
+    },
+    {
+     "id": "c4",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change mitigation (CCM) > %"
+    },
+    {
+     "id": "c5",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change adaptation (CCA) > Amount"
+    },
+    {
+     "id": "c6",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change adaptation (CCA) > %"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XII, introductory sentence",
+     "quote": "The information referred to in Article 8(6) and (7) shall be presented as follows, for each applicable key performance indicator (KPI)."
+    },
+    {
+     "ref": "Article 8(8)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annex XII to this Regulation."
+    },
+    {
+     "ref": "Article 8(6)(a)",
+     "quote": "the taxonomy-aligned economic activities referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139 in the denominator and the numerator of their key performance indicators;"
+    },
+    {
+     "ref": "Article 8(7)(a)",
+     "quote": "the taxonomy-aligned economic activities referred to in Sections 4.29, 4.30 and 4.31 of Annexes I and II to Delegated Regulation (EU) 2021/2139 in the denominator and the numerator of their key performance indicators;"
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": true,
+    "note": "Annex XII not amended by Delegated Regulation (EU) 2023/2486 (it remained in force until deleted by Delegated Regulation (EU) 2026/73)."
+   }
+  },
+  {
+   "id": "XII_T3",
+   "code": "Template 3",
+   "title": "Taxonomy-aligned economic activities (numerator)",
+   "ref": "Annex XII to Delegated Regulation (EU) 2021/2178 (added by Article 2(2) and Annex III of Delegated Regulation (EU) 2022/1214), OJ L 188, 15.7.2022, pp. 42-43",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.26 of Annexes I and II to Delegated Regulation 2021/2139 in the numerator of the applicable KPI"
+    },
+    {
+     "id": "2",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.27 of Annexes I and II to Delegated Regulation 2021/2139 in the numerator of the applicable KPI"
+    },
+    {
+     "id": "3",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.28 of Annexes I and II to Delegated Regulation 2021/2139 in the numerator of the applicable KPI"
+    },
+    {
+     "id": "4",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.29 of Annexes I and II to Delegated Regulation 2021/2139 in the numerator of the applicable KPI"
+    },
+    {
+     "id": "5",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.30 of Annexes I and II to Delegated Regulation 2021/2139 in the numerator of the applicable KPI"
+    },
+    {
+     "id": "6",
+     "label": "Amount and proportion of taxonomy-aligned economic activity referred to in Section 4.31 of Annexes I and II to Delegated Regulation 2021/2139 in the numerator of the applicable KPI"
+    },
+    {
+     "id": "7",
+     "label": "Amount and proportion of other taxonomy-aligned economic activities not referred to in rows 1 to 6 above in the numerator of the applicable KPI"
+    },
+    {
+     "id": "8",
+     "label": "Total amount and proportion of taxonomy-aligned economic activities in the numerator of the applicable KPI",
+     "note": "row 8 has separate Amount and % cells for (CCM+CCA); '100 %' is pre-printed in the (CCM+CCA) % cell (c2)"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > (CCM+CCA) > Amount",
+     "note": "In rows 1-7 the data cells are merged per objective group (one cell spanning Amount and %) in the OJ HTML table. Annex XII prints one set of templates for non-financial and financial undertakings alike; there are no separate lines or variants for the KPIs of financial undertakings or credit institutions. Row wording 'carries out, funds or has exposures to' and 'applicable KPI' covers them; the templates are completed once per applicable KPI (for a credit institution: each KPI of Annex VI, e.g. GAR stock turnover-/CapEx-based, GAR flow, off-balance-sheet, fees and commissions, trading book)."
+    },
+    {
+     "id": "c2",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > (CCM+CCA) > %"
+    },
+    {
+     "id": "c3",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change mitigation > Amount"
+    },
+    {
+     "id": "c4",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change mitigation > %"
+    },
+    {
+     "id": "c5",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change adaptation > Amount"
+    },
+    {
+     "id": "c6",
+     "label": "Amount and proportion (the information is to be presented in monetary amounts and as percentages) > Climate change adaptation > %"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XII, introductory sentence",
+     "quote": "The information referred to in Article 8(6) and (7) shall be presented as follows, for each applicable key performance indicator (KPI)."
+    },
+    {
+     "ref": "Article 8(8)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annex XII to this Regulation."
+    },
+    {
+     "ref": "Article 8(6)(a)",
+     "quote": "the taxonomy-aligned economic activities referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139 in the denominator and the numerator of their key performance indicators;"
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": true,
+    "note": "Annex XII not amended by Delegated Regulation (EU) 2023/2486 (it remained in force until deleted by Delegated Regulation (EU) 2026/73)."
+   }
+  },
+  {
+   "id": "XII_T4",
+   "code": "Template 4",
+   "title": "Taxonomy-eligible but not taxonomy-aligned economic activities",
+   "ref": "Annex XII to Delegated Regulation (EU) 2021/2178 (added by Article 2(2) and Annex III of Delegated Regulation (EU) 2022/1214), OJ L 188, 15.7.2022, pp. 43-44",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Amount and proportion of taxonomy-eligible but not taxonomy-aligned economic activity referred to in Section 4.26 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "2",
+     "label": "Amount and proportion of taxonomy-eligible but not taxonomy-aligned economic activity referred to in Section 4.27 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "3",
+     "label": "Amount and proportion of taxonomy-eligible but not taxonomy-aligned economic activity referred to in Section 4.28 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "4",
+     "label": "Amount and proportion of taxonomy-eligible but not taxonomy-aligned economic activity referred to in Section 4.29 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "5",
+     "label": "Amount and proportion of taxonomy-eligible but not taxonomy-aligned economic activity referred to in Section 4.30 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "6",
+     "label": "Amount and proportion of taxonomy-eligible but not taxonomy-aligned economic activity referred to in Section 4.31 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "7",
+     "label": "Amount and proportion of other taxonomy-eligible but not taxonomy-aligned economic activities not referred to in rows 1 to 6 above in the denominator of the applicable KPI"
+    },
+    {
+     "id": "8",
+     "label": "Total amount and proportion of taxonomy eligible but not taxonomy-aligned economic activities in the denominator of the applicable KPI"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "Proportion (the information is to be presented in monetary amounts and as percentages) > (CCM+CCA) > Amount",
+     "note": "In rows 1-7 the data cells are merged per objective group (one cell spanning Amount and %) in the OJ HTML table. Top header reads 'Proportion (...)' rather than 'Amount and proportion (...)' as printed. All data cells, including row 8, are merged per objective group. Annex XII prints one set of templates for non-financial and financial undertakings alike; there are no separate lines or variants for the KPIs of financial undertakings or credit institutions. Row wording 'carries out, funds or has exposures to' and 'applicable KPI' covers them; the templates are completed once per applicable KPI (for a credit institution: each KPI of Annex VI, e.g. GAR stock turnover-/CapEx-based, GAR flow, off-balance-sheet, fees and commissions, trading book)."
+    },
+    {
+     "id": "c2",
+     "label": "Proportion (the information is to be presented in monetary amounts and as percentages) > (CCM+CCA) > %"
+    },
+    {
+     "id": "c3",
+     "label": "Proportion (the information is to be presented in monetary amounts and as percentages) > Climate change mitigation > Amount"
+    },
+    {
+     "id": "c4",
+     "label": "Proportion (the information is to be presented in monetary amounts and as percentages) > Climate change mitigation > %"
+    },
+    {
+     "id": "c5",
+     "label": "Proportion (the information is to be presented in monetary amounts and as percentages) > Climate change adaptation > Amount"
+    },
+    {
+     "id": "c6",
+     "label": "Proportion (the information is to be presented in monetary amounts and as percentages) > Climate change adaptation > %"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XII, introductory sentence",
+     "quote": "The information referred to in Article 8(6) and (7) shall be presented as follows, for each applicable key performance indicator (KPI)."
+    },
+    {
+     "ref": "Article 8(8)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annex XII to this Regulation."
+    },
+    {
+     "ref": "Article 8(6)(b)",
+     "quote": "the taxonomy-eligible, but not taxonomy-aligned, economic activities referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139 in the denominator of their key performance indicators;"
+    },
+    {
+     "ref": "Article 8(7)(b)",
+     "quote": "the taxonomy-eligible, but not taxonomy-aligned, economic activities referred to in Sections 4.29, 4.30 and 4.31 of Annexes I and II to Delegated Regulation (EU) 2021/2139 in the denominator of their key performance indicators;"
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": true,
+    "note": "Annex XII not amended by Delegated Regulation (EU) 2023/2486 (it remained in force until deleted by Delegated Regulation (EU) 2026/73)."
+   }
+  },
+  {
+   "id": "XII_T5",
+   "code": "Template 5",
+   "title": "Taxonomy non-eligible economic activities",
+   "ref": "Annex XII to Delegated Regulation (EU) 2021/2178 (added by Article 2(2) and Annex III of Delegated Regulation (EU) 2022/1214), OJ L 188, 15.7.2022, p. 45",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Amount and proportion of economic activity referred to in row 1 of Template 1 that is taxonomy-non-eligible in accordance with Section 4.26 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "2",
+     "label": "Amount and proportion of economic activity referred to in row 2 of Template 1 that is taxonomy-non-eligible in accordance with Section 4.27 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "3",
+     "label": "Amount and proportion of economic activity referred to in row 3 of Template 1 that is taxonomy-non-eligible in accordance with Section 4.28 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "4",
+     "label": "Amount and proportion of economic activity referred to in row 4 of Template 1 that is taxonomy-non-eligible in accordance with Section 4.29 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "5",
+     "label": "Amount and proportion of economic activity referred to in row 5 of Template 1 that is taxonomy-non-eligible in accordance with Section 4.30 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "6",
+     "label": "Amount and proportion of economic activity referred to in row 6 of Template 1 that is taxonomy-non-eligible in accordance with Section 4.31 of Annexes I and II to Delegated Regulation 2021/2139 in the denominator of the applicable KPI"
+    },
+    {
+     "id": "7",
+     "label": "Amount and proportion of other taxonomy-non-eligible economic activities not referred to in rows 1 to 6 above in the denominator of the applicable KPI"
+    },
+    {
+     "id": "8",
+     "label": "Total amount and proportion of taxonomy-non-eligible economic activities in the denominator of the applicable KPI"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "Amount",
+     "note": "Annex XII prints one set of templates for non-financial and financial undertakings alike; there are no separate lines or variants for the KPIs of financial undertakings or credit institutions. Row wording 'carries out, funds or has exposures to' and 'applicable KPI' covers them; the templates are completed once per applicable KPI (for a credit institution: each KPI of Annex VI, e.g. GAR stock turnover-/CapEx-based, GAR flow, off-balance-sheet, fees and commissions, trading book)."
+    },
+    {
+     "id": "c2",
+     "label": "Percentage"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XII, introductory sentence",
+     "quote": "The information referred to in Article 8(6) and (7) shall be presented as follows, for each applicable key performance indicator (KPI)."
+    },
+    {
+     "ref": "Article 8(8)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annex XII to this Regulation."
+    },
+    {
+     "ref": "Article 8(6)(c)",
+     "quote": "the taxonomy-non-eligible nuclear energy related activities in the denominator of their key performance indicators."
+    },
+    {
+     "ref": "Article 8(7)(c)",
+     "quote": "the taxonomy-non-eligible fossil gas related activities in the denominator of their key performance indicators."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": true,
+    "columns": true,
+    "note": "Annex XII not amended by Delegated Regulation (EU) 2023/2486 (it remained in force until deleted by Delegated Regulation (EU) 2026/73)."
+   }
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-29",
+  "second_pass": {
+   "by": "independent agent re-reading the OJ source (images tile by tile)",
+   "checked": "2026-09-29",
+   "changes": [
+    "added XII_T1-XII_T5 (Annex XII of 2021/2178 as added by 2022/1214): Article 8(6)-(8) apply to financial undertakings and Annex XII stayed in force until deleted by 2026/73; legal_basis article/templates_in/instructions_in extended accordingly",
+    "T2 columns c, g, k, o, s, w, aa: note added that these cells are also shaded black (first pass flagged only d, h, l, p, t, x, ab)",
+    "T3 row 27: note corrected - in the T-1 block the whole row including CCM is shaded black",
+    "T0-T7: all other row ids/labels and column ids/header chains re-read from the high-res images (T0 from the HTML table) tile by tile; no differences from the first pass",
+    "T7: the second column printed 'ae' is addressed as 'ae_2' (ids must be unique) with printed_id 'ae'"
+   ]
+  }
+ }
+}

@@ -1,0 +1,1422 @@
+{
+ "framework": "bank_taxonomy",
+ "version": "da_2021_2178_as_amended_2026_73",
+ "act": {
+  "celex": "32026R0073",
+  "title": "Commission Delegated Regulation (EU) 2026/73 of 4 July 2025 amending Delegated Regulation (EU) 2021/2178 as regards the simplification of the content and presentation of information to be disclosed concerning environmentally sustainable activities and Delegated Regulations (EU) 2021/2139 and (EU) 2023/2486 as regards simplification of certain technical screening criteria for determining whether economic activities cause no significant harm to environmental objectives",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02021R2178-20260101",
+  "short": "Taxonomy Disclosures DA as amended by the Simplification DA (EU) 2026/73"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 8 of Regulation (EU) 2020/852; Articles 4, 7, 8 and 10(5) and Annexes V and VI of Delegated Regulation (EU) 2021/2178 as amended by Article 1(3),(6),(7),(8),(13),(14) of Delegated Regulation (EU) 2026/73",
+  "templates_in": "Annex VI to Delegated Regulation (EU) 2026/73 (new Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, pp. 21-35",
+  "instructions_in": "Annex V to Delegated Regulation (EU) 2021/2178 as amended by Annex V to Delegated Regulation (EU) 2026/73; explanatory notes and footnotes within Annex VI",
+  "quote": "Annex VI is replaced by the text in Annex VI to this Regulation;"
+ },
+ "applies": {
+  "from": "2026-01-01",
+  "until": null,
+  "basis": "disclosure_date",
+  "quote": "It shall apply from 1 January 2026."
+ },
+ "templates": [
+  {
+   "id": "T0",
+   "code": "0",
+   "title": "Summary of KPIs to be disclosed by credit institutions under Article 8 Taxonomy Regulation",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, pp. 21-22",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "r1",
+     "label": "Main KPI > Green asset ratio (GAR) stock",
+     "note": "unnumbered row"
+    },
+    {
+     "id": "r2",
+     "label": "Additional KPIs > GAR (flow)",
+     "note": "unnumbered row"
+    },
+    {
+     "id": "r3",
+     "label": "Additional KPIs > Trading book",
+     "note": "unnumbered row; Note 2: applies only from 2028"
+    },
+    {
+     "id": "r4",
+     "label": "Additional KPIs > Financial guarantees",
+     "note": "unnumbered row"
+    },
+    {
+     "id": "r5",
+     "label": "Additional KPIs > Assets under management",
+     "note": "unnumbered row"
+    },
+    {
+     "id": "r6",
+     "label": "Additional KPIs > Fees and commissions income",
+     "note": "unnumbered row; footnote (5): 'Fee and commission income from services other than lending and AuM.'; Note 2: applies only from 2028"
+    }
+   ],
+   "columns": [
+    {
+     "id": "c1",
+     "label": "Total exposure to Taxonomy-aligned activities (currency) > Turnover-based",
+     "note": "columns unlettered in the template"
+    },
+    {
+     "id": "c2",
+     "label": "Total exposure to Taxonomy-aligned activities (currency) > CapEx-based",
+     "note": "columns unlettered in the template"
+    },
+    {
+     "id": "c3",
+     "label": "KPI (%) > Turnover-based",
+     "note": "header printed with an embedded footnote reference ('(1)'-'(4)') between the text and the unit '(%)'; kept in the label so the label is a contiguous verbatim string; footnote (1): 'Based on the Turnover KPI of the counterparty.'; columns unlettered in the template",
+     "printed": "KPI (1) (%) > Turnover-based"
+    },
+    {
+     "id": "c4",
+     "label": "KPI (%) > CapEx-based",
+     "note": "header printed with an embedded footnote reference ('(1)'-'(4)') between the text and the unit '(%)'; kept in the label so the label is a contiguous verbatim string; footnote (2): 'Based on the CapEx KPI of the counterparty.'; columns unlettered in the template",
+     "printed": "KPI (2) (%) > CapEx-based"
+    },
+    {
+     "id": "c5",
+     "label": "% coverage (over total assets) (%)",
+     "note": "header printed with an embedded footnote reference ('(1)'-'(4)') between the text and the unit '(%)'; kept in the label so the label is a contiguous verbatim string; footnote (3): '% of assets covered by the KPI over banks' total assets.'; columns unlettered in the template",
+     "printed": "% coverage (over total assets) (3) (%)"
+    },
+    {
+     "id": "c6",
+     "label": "Non-assessed exposures (% of covered assets) (%) > Turnover-based",
+     "note": "header printed with an embedded footnote reference ('(1)'-'(4)') between the text and the unit '(%)'; kept in the label so the label is a contiguous verbatim string; columns unlettered in the template",
+     "printed": "Non-assessed exposures (% of covered assets) (4) (%) > Turnover-based"
+    },
+    {
+     "id": "c7",
+     "label": "Non-assessed exposures (% of covered assets) (%) > CapEx-based",
+     "note": "header printed with an embedded footnote reference ('(1)'-'(4)') between the text and the unit '(%)'; kept in the label so the label is a contiguous verbatim string; columns unlettered in the template",
+     "printed": "Non-assessed exposures (% of covered assets) (4) (%) > CapEx-based"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 0, Note 1",
+     "quote": "Across the reporting templates: cells shaded in black should not be reported."
+    },
+    {
+     "ref": "Annex VI, Template 0, Note 2",
+     "quote": "Fee and Commission (sheet 6) and Trading Book (sheet 7) KPIs shall only apply starting 2028."
+    },
+    {
+     "ref": "Annex VI, Template 0, footnote (4) (column Non-assessed exposures)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Article 10(5), second subparagraph, of Delegated Regulation (EU) 2021/2178 as replaced by Article 1(8) of Delegated Regulation (EU) 2026/73",
+     "quote": "Sections 1.2.3 and 1.2.4 of Annex V shall apply from 1 January 2028."
+    },
+    {
+     "ref": "Article 4(1f) of Delegated Regulation (EU) 2021/2178 as inserted by Article 1(3) of Delegated Regulation (EU) 2026/73",
+     "quote": "a credit institution may omit reporting the KPIs referred to in Annex V where the cumulative value of the net turnover generated by the activities covered by those KPIs is below 10 % of the total net turnover"
+    },
+    {
+     "ref": "Article 7(9) of Delegated Regulation (EU) 2021/2178 as added by Article 1(6)(e) of Delegated Regulation (EU) 2026/73",
+     "quote": "Until 31 December 2027, with the exception of Article 8(2) and this paragraph 9, Articles 2 to 8 shall not apply to financial undertakings that do not claim under Articles 3 and 9 of Regulation (EU) 2020/852"
+    },
+    {
+     "ref": "Article 7(9) of Delegated Regulation (EU) 2021/2178 (standard statement)",
+     "quote": "No activities are claimed as being associated with economic activities that qualify as environmentally sustainable under Articles 3 and 9 of Regulation (EU) 2020/852 (Taxonomy Regulation)"
+    },
+    {
+     "ref": "Article 7(8)(c) of Delegated Regulation (EU) 2021/2178 as added by Article 1(6)(e) of Delegated Regulation (EU) 2026/73",
+     "quote": "activities, exposures and investment that the reporting undertakings consider to be non-material in accordance with Article 3(1a), Article 4(1a) to (1e), Article 5(1a) and (1b), Article 6(1a) and (1b), as applicable;"
+    },
+    {
+     "ref": "Article 8(8) of Delegated Regulation (EU) 2021/2178 as replaced by Article 1(7) of Delegated Regulation (EU) 2026/73 (gas/nuclear)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annexes II, IV, VI, VIII, and X to this Regulation."
+    },
+    {
+     "ref": "Article 4, third paragraph, of Delegated Regulation (EU) 2026/73 (transitional option)",
+     "quote": "Undertakings may, however, apply Delegated Regulations (EU) 2021/2178, (EU) 2021/2139 and (EU) 2023/2486 as applicable on 31 December 2025 for the financial year that starts between 1 January and 31 December 2025."
+    },
+    {
+     "ref": "Article 1(20) of Delegated Regulation (EU) 2026/73 (Annex XII nuclear/gas templates deleted; nuclear and fossil gas exposures are now rows 11-12 of Template 2 under Article 8(6)-(8))",
+     "quote": "Annex XII is deleted."
+    }
+   ],
+   "source_form": "html_table"
+  },
+  {
+   "id": "T1",
+   "code": "1",
+   "title": "Assets for the calculation of GAR",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, pp. 23-27",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "GAR – Covered assets in both numerator and denominator"
+    },
+    {
+     "id": "2",
+     "label": "GAR – Covered assets in both numerator and denominator > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation",
+     "note": "nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "3",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial undertakings"
+    },
+    {
+     "id": "4",
+     "label": "Financial undertakings > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Financial undertakings > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial undertakings"
+    },
+    {
+     "id": "8",
+     "label": "Non-financial undertakings > Loans and advances"
+    },
+    {
+     "id": "9",
+     "label": "Non-financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "10",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "11",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "12",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "13",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "14",
+     "label": "Households > of which motor vehicle loans"
+    },
+    {
+     "id": "15",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local government financing"
+    },
+    {
+     "id": "16",
+     "label": "Local government financing > Housing financing"
+    },
+    {
+     "id": "17",
+     "label": "Local government financing > Other local government financing"
+    },
+    {
+     "id": "18",
+     "label": "GAR – Covered assets in both numerator and denominator > Collateral obtained by taking possession: residential and commercial immovable properties",
+     "note": "nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "19",
+     "label": "GAR – Covered assets in both numerator and denominator > Exposures included on a voluntary basis",
+     "note": "footnote: 'In accordance with Article 7(3) of this Regulation.'; nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "20",
+     "label": "Total GAR assets",
+     "note": "row 20; columns b-l shaded black (only a and m-p reported)"
+    },
+    {
+     "id": "21",
+     "label": "Assets not covered for GAR calculation",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "22",
+     "label": "Assets not covered for GAR calculation > Central governments and Supranational issuers",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "23",
+     "label": "Assets not covered for GAR calculation > Central banks exposure",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "24",
+     "label": "Assets not covered for GAR calculation > Trading book",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "25",
+     "label": "Assets not covered for GAR calculation > Undertakings and entities not subject to CSRD",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "26",
+     "label": "Undertakings and entities not subject to CSRD > SMEs and undertakings (other than SMEs) not subject to CSRD disclosure obligations",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "27",
+     "label": "SMEs and undertakings (other than SMEs) not subject to CSRD disclosure obligations > Loans and advances",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "28",
+     "label": "Loans and advances > of which loans collateralised by commercial immovable property",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "29",
+     "label": "Loans and advances > of which building renovation loans",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "30",
+     "label": "SMEs and undertakings (other than SMEs) not subject to CSRD disclosure obligations > Debt securities",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "31",
+     "label": "SMEs and undertakings (other than SMEs) not subject to CSRD disclosure obligations > Equity instruments",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "32",
+     "label": "Undertakings and entities not subject to CSRD > Non-EU country counterparties not subject to CSRD disclosure obligations",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "33",
+     "label": "Non-EU country counterparties not subject to CSRD disclosure obligations > Loans and advances",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "34",
+     "label": "Non-EU country counterparties not subject to CSRD disclosure obligations > Debt securities",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "35",
+     "label": "Non-EU country counterparties not subject to CSRD disclosure obligations > Equity instruments",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "36",
+     "label": "Assets not covered for GAR calculation > Derivatives",
+     "note": "only column a reported (columns b-p shaded black); bold like rows 22-25 and treated as a child of row 21, although the PDF prints it at the same indent as rows 26/32"
+    },
+    {
+     "id": "37",
+     "label": "Assets not covered for GAR calculation > On demand interbank loans",
+     "note": "only column a reported (columns b-p shaded black); bold like rows 22-25 and treated as a child of row 21, although the PDF prints it at the same indent as rows 26/32"
+    },
+    {
+     "id": "38",
+     "label": "Assets not covered for GAR calculation > Cash and cash-related assets",
+     "note": "only column a reported (columns b-p shaded black); bold like rows 22-25 and treated as a child of row 21, although the PDF prints it at the same indent as rows 26/32"
+    },
+    {
+     "id": "39",
+     "label": "Assets not covered for GAR calculation > Other categories of assets (e.g. Goodwill, commodities etc.)",
+     "note": "only column a reported (columns b-p shaded black); bold like rows 22-25 and treated as a child of row 21, although the PDF prints it at the same indent as rows 26/32"
+    },
+    {
+     "id": "40",
+     "label": "Total assets",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "h1",
+     "label": "Off-balance sheet exposures (stock) to Undertakings subject to CSRD disclosure obligations and local governments",
+     "note": "section header row (unnumbered)"
+    },
+    {
+     "id": "41",
+     "label": "Off-balance sheet exposures (stock) to Undertakings subject to CSRD disclosure obligations and local governments > Financial guarantees"
+    },
+    {
+     "id": "42",
+     "label": "Off-balance sheet exposures (stock) to Undertakings subject to CSRD disclosure obligations and local governments > Assets under management"
+    },
+    {
+     "id": "43",
+     "label": "Assets under management > of which debt securities"
+    },
+    {
+     "id": "44",
+     "label": "Assets under management > of which equity instruments"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Total [gross] carrying amount"
+    },
+    {
+     "id": "b",
+     "label": "Of which Taxonomy-eligible"
+    },
+    {
+     "id": "c",
+     "label": "Of which Taxonomy-aligned",
+     "note": "columns c-l sit under a blank spanning header cell beside column b (breakdown of the Taxonomy-eligible amount)"
+    },
+    {
+     "id": "d",
+     "label": "Breakdown per environmental objective > Climate Change Mitigation (CCM)"
+    },
+    {
+     "id": "e",
+     "label": "Breakdown per environmental objective > Climate Change Adaptation (CCA)"
+    },
+    {
+     "id": "f",
+     "label": "Breakdown per environmental objective > Water and marine resources (WTR)"
+    },
+    {
+     "id": "g",
+     "label": "Breakdown per environmental objective > Circular economy (CE)"
+    },
+    {
+     "id": "h",
+     "label": "Breakdown per environmental objective > Pollution (PPC)"
+    },
+    {
+     "id": "i",
+     "label": "Breakdown per environmental objective > Biodiversity and Ecosystems (BIO)"
+    },
+    {
+     "id": "j",
+     "label": "Of which Use of Proceeds"
+    },
+    {
+     "id": "k",
+     "label": "Of which transitional"
+    },
+    {
+     "id": "l",
+     "label": "Of which enabling"
+    },
+    {
+     "id": "m",
+     "label": "Non-assessed exposures",
+     "note": "columns n-p sit under a blank spanning header cell beside column m"
+    },
+    {
+     "id": "n",
+     "label": "Of which financing non-material activities of counterparties",
+     "note": "footnote (1): 'In accordance with Article 7(8)(a) and (b) of this Regulation.'"
+    },
+    {
+     "id": "o",
+     "label": "Of which exposures financing counterparties reporting in accordance with Article 7(9)"
+    },
+    {
+     "id": "p",
+     "label": "Of which not assessed considered non-material by the credit institution",
+     "note": "footnote (2): 'In accordance with Article 4(1a) of this Regulation.'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 1, explanatory note 1",
+     "quote": "The following accounting categories of financial assets should be considered: Financial assets at amortised cost, financial assets at fair value through other comprehensive income, investments in subsidiaries, joint ventures and associates,"
+    },
+    {
+     "ref": "Annex VI, Template 1, explanatory note 1 (cont.)",
+     "quote": "financial assets designated at fair value through profit or loss and non-trading financial assets mandatorily at fair value through profit or loss, and real estate collaterals obtained by credit institutions by taking possession in exchange for cancellation of debts."
+    },
+    {
+     "ref": "Annex VI, Template 1, explanatory note 2",
+     "quote": "Credit institutions shall duplicate this template for reporting on stocks for the calculation of GAR stock, and reporting on new assets for the calculation of GAR flow."
+    },
+    {
+     "ref": "Annex VI, Template 1, explanatory note 3",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 1, footnote (1) (column n)",
+     "quote": "In accordance with Article 7(8)(a) and (b) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 1, footnote (2) (column p)",
+     "quote": "In accordance with Article 4(1a) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 1, footnote (3) (row 19)",
+     "quote": "In accordance with Article 7(3) of this Regulation."
+    },
+    {
+     "ref": "Article 4(1a) of Delegated Regulation (EU) 2021/2178 as inserted by Article 1(3) of Delegated Regulation (EU) 2026/73",
+     "quote": "credit institutions may omit assessing whether the on-balance sheet assets whose use of proceeds is known are taxonomy-eligible or taxonomy-aligned where the cumulative value of those assets is below 10 %"
+    },
+    {
+     "ref": "Article 4(1a), second subparagraph",
+     "quote": "The assets to which the first subparagraph is applied shall be reported separately as non-material assets."
+    },
+    {
+     "ref": "Article 7(2) of Delegated Regulation (EU) 2021/2178 as replaced by Article 1(6)(a) of Delegated Regulation (EU) 2026/73",
+     "quote": "Derivatives, cash and cash equivalents, on demand interbank loans, and other categories of assets that are not referred to in Article 7(6), including goodwill and commodities, shall be excluded from the denominator of key performance indicators of financial undertakings."
+    },
+    {
+     "ref": "Article 7(3), first subparagraph, as replaced by Article 1(6)(a) of Delegated Regulation (EU) 2026/73",
+     "quote": "All exposures to undertakings that are not obliged to include sustainability information in their management report pursuant to Article 19a or Article 29a of Directive 2013/34/EU,"
+    },
+    {
+     "ref": "Article 7(3), first subparagraph (cont.)",
+     "quote": "during the financial year, shall be excluded from the denominator of key performance indicators of financial undertakings."
+    },
+    {
+     "ref": "Article 7(3), second subparagraph (SPV exception)",
+     "quote": "By way of derogation from the first subparagraph, exposures to Special Purpose Vehicles (SPVs) shall be included in the denominator of key performance indicators of financial undertakings where those SPVs finance:"
+    },
+    {
+     "ref": "Article 7(3), third subparagraph (voluntary inclusion)",
+     "quote": "By way of derogation from the first subparagraph, financial undertakings may include in the denominator of their key performance indicators the following exposures:"
+    },
+    {
+     "ref": "Article 7(3), third subparagraph, point (a)",
+     "quote": "exposures to undertakings as referred to in the first subparagraph where those undertakings report on a voluntary basis the key performance indicators in accordance with Annexes I to XI to this Regulation;"
+    },
+    {
+     "ref": "Article 7(3), third subparagraph, point (b)",
+     "quote": "exposures to undertakings referred to in the first subparagraph whose use of proceeds is known."
+    },
+    {
+     "ref": "Article 7(3), fourth subparagraph, point (b)",
+     "quote": "shall be included in the numerator of key performance indicators of financial undertakings up to the full value of taxonomy-aligned economic activities that those exposures finance, on the basis of information provided by their counterparties."
+    },
+    {
+     "ref": "Annex V, Section 1.1.2, third paragraph, as replaced by Annex V point (1) of Delegated Regulation (EU) 2026/73",
+     "quote": "The following assets shall be excluded from the numerator and the denominator of the GAR:"
+    },
+    {
+     "ref": "Annex V, Section 1.1.2, third paragraph, point (c)",
+     "quote": "exposures to undertakings that are not obliged to publish non-financial information pursuant to Article 19a or 29a of Directive 2013/34/EU;"
+    },
+    {
+     "ref": "Annex V, Section 1.1.2, third paragraph, point (f)",
+     "quote": "other categories of assets (such as goodwill, commodities, etc.)."
+    }
+   ],
+   "source_form": "html_table"
+  },
+  {
+   "id": "T2",
+   "code": "2",
+   "title": "GAR sector information",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, p. 28",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution",
+     "unlabelled": true
+    },
+    {
+     "id": "2",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution",
+     "unlabelled": true
+    },
+    {
+     "id": "3",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution",
+     "unlabelled": true
+    },
+    {
+     "id": "4",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution; rows 4-9 are elided with '…' in the printed template",
+     "unlabelled": true
+    },
+    {
+     "id": "5",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution; rows 4-9 are elided with '…' in the printed template",
+     "unlabelled": true
+    },
+    {
+     "id": "6",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution; rows 4-9 are elided with '…' in the printed template",
+     "unlabelled": true
+    },
+    {
+     "id": "7",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution; rows 4-9 are elided with '…' in the printed template",
+     "unlabelled": true
+    },
+    {
+     "id": "8",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution; rows 4-9 are elided with '…' in the printed template",
+     "unlabelled": true
+    },
+    {
+     "id": "9",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution; rows 4-9 are elided with '…' in the printed template",
+     "unlabelled": true
+    },
+    {
+     "id": "10",
+     "label": "",
+     "note": "sector slot: blank label, NACE 4-digit sector code and label to be filled in by the institution",
+     "unlabelled": true
+    },
+    {
+     "id": "11",
+     "label": "Nuclear activities",
+     "note": "footnote (1): 'Referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139.'; columns e-j shaded black"
+    },
+    {
+     "id": "12",
+     "label": "Fossil gas activities",
+     "note": "footnote (2): 'Referred to in Sections 4.29, 4.30 and 4.31 of Annexes I and II to Delegated Regulation (EU) 2021/2139.'; columns e-j shaded black"
+    },
+    {
+     "id": "13",
+     "label": "Of which non-assessed exposures",
+     "note": "footnote (3): 'In accordance with Article 7(8) of this Regulation.'; only column b reported"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Breakdown by sector – NACE 4 digits level (code and label) (Million EUR)",
+     "note": "column a is the row-label column (sector code and label entered by the institution)"
+    },
+    {
+     "id": "b",
+     "label": "Total [Gross] carrying amount"
+    },
+    {
+     "id": "c",
+     "label": "Of which Taxonomy-eligible"
+    },
+    {
+     "id": "d",
+     "label": "Of which Taxonomy-aligned"
+    },
+    {
+     "id": "e",
+     "label": "Climate Change Mitigation (CCM)",
+     "note": "no spanning header over the objective columns in this template"
+    },
+    {
+     "id": "f",
+     "label": "Climate Change Adaptation (CCA)",
+     "note": "no spanning header over the objective columns in this template"
+    },
+    {
+     "id": "g",
+     "label": "Water and marine resources (WTR)",
+     "note": "no spanning header over the objective columns in this template"
+    },
+    {
+     "id": "h",
+     "label": "Circular economy (CE)",
+     "note": "no spanning header over the objective columns in this template"
+    },
+    {
+     "id": "i",
+     "label": "Pollution (PPC)",
+     "note": "no spanning header over the objective columns in this template"
+    },
+    {
+     "id": "j",
+     "label": "Biodiversity and Ecosystems (BIO)",
+     "note": "no spanning header over the objective columns in this template"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 2, explanatory note 1",
+     "quote": "Credit institutions shall disclose in this template information on top ten exposures in the banking book towards top ten sectors covered by the Taxonomy (NACE sectors 4 levels of detail),"
+    },
+    {
+     "ref": "Annex VI, Template 2, explanatory note 1 (cont.)",
+     "quote": "using the relevant NACE Codes on the basis of the principal activity of the counterparty."
+    },
+    {
+     "ref": "Annex VI, Template 2, explanatory note 2",
+     "quote": "The counterparty NACE sector allocation shall be based exclusively on the nature of the immediate counterparty."
+    },
+    {
+     "ref": "Annex VI, Template 2, explanatory note 2 (cont.)",
+     "quote": "Institutions shall disclose information by NACE codes with the level of disaggregation required in the template."
+    },
+    {
+     "ref": "Annex VI, Template 2, explanatory note 3",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 2, footnote (1) (row 11)",
+     "quote": "Referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139."
+    },
+    {
+     "ref": "Annex VI, Template 2, footnote (2) (row 12)",
+     "quote": "Referred to in Sections 4.29, 4.30 and 4.31 of Annexes I and II to Delegated Regulation (EU) 2021/2139."
+    },
+    {
+     "ref": "Annex VI, Template 2, footnote (3) (row 13)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Article 8(6) of Delegated Regulation (EU) 2021/2178 as replaced by Article 1(7) of Delegated Regulation (EU) 2026/73",
+     "quote": "Where performing or financing the economic activities as referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139, non-financial undertakings and financial undertakings shall disclose the proportion of:"
+    }
+   ],
+   "source_form": "html_table",
+   "flexible_rows": true,
+   "flexible_note": "the printed template has 8 body rows: 1, 2, 3, '…', 10, 11, 12, 13; the '…' row stands for the elided slots 4-9, so rows 1-10 are the institution's top ten NACE 4-digit sectors (explanatory note 1: 'top ten exposures ... towards top ten sectors') and 11-13 are fixed rows; captured as 13 rows"
+  },
+  {
+   "id": "T3",
+   "code": "3",
+   "title": "GAR KPI stock",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, pp. 29-30",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "GAR – Covered assets in both numerator and denominator"
+    },
+    {
+     "id": "2",
+     "label": "GAR – Covered assets in both numerator and denominator > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation",
+     "note": "nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "3",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial undertakings"
+    },
+    {
+     "id": "4",
+     "label": "Financial undertakings > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Financial undertakings > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial undertakings"
+    },
+    {
+     "id": "8",
+     "label": "Non-financial undertakings > Loans and advances"
+    },
+    {
+     "id": "9",
+     "label": "Non-financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "10",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "11",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "12",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "13",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "14",
+     "label": "Households > of which motor vehicle loans"
+    },
+    {
+     "id": "15",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local government financing"
+    },
+    {
+     "id": "16",
+     "label": "Local government financing > Housing financing"
+    },
+    {
+     "id": "17",
+     "label": "Local government financing > Other local government financing"
+    },
+    {
+     "id": "18",
+     "label": "GAR – Covered assets in both numerator and denominator > Collateral obtained by taking possession: residential and commercial immovable properties",
+     "note": "nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "19",
+     "label": "GAR – Covered assets in both numerator and denominator > Exposures included on a voluntary basis",
+     "note": "footnote (2): 'In accordance with Article 7(3) of this Regulation.'; column m shaded black; nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "20",
+     "label": "GAR – Total GAR assets"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Taxonomy-eligible",
+     "note": "columns b-k sit under a blank spanning header cell beside column a"
+    },
+    {
+     "id": "b",
+     "label": "Taxonomy-aligned"
+    },
+    {
+     "id": "c",
+     "label": "Breakdown per environmental objective > Climate Change Mitigation (CCM)"
+    },
+    {
+     "id": "d",
+     "label": "Breakdown per environmental objective > Climate Change Adaptation (CCA)"
+    },
+    {
+     "id": "e",
+     "label": "Breakdown per environmental objective > Water and marine resources (WTR)"
+    },
+    {
+     "id": "f",
+     "label": "Breakdown per environmental objective > Circular economy (CE)"
+    },
+    {
+     "id": "g",
+     "label": "Breakdown per environmental objective > Pollution (PPC)"
+    },
+    {
+     "id": "h",
+     "label": "Breakdown per environmental objective > Biodiversity and Ecosystems (BIO)"
+    },
+    {
+     "id": "i",
+     "label": "Of which Use of Proceeds"
+    },
+    {
+     "id": "j",
+     "label": "Of which transitional"
+    },
+    {
+     "id": "k",
+     "label": "Of which enabling"
+    },
+    {
+     "id": "l",
+     "label": "Proportion of Taxonomy aligned in Taxonomy eligible"
+    },
+    {
+     "id": "m",
+     "label": "Non-assessed exposures",
+     "note": "footnote (1): 'In accordance with Article 7(8) of this Regulation.'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 3, explanatory note 1",
+     "quote": "Institutions shall disclose in this template the GAR KPIs on stock of exposures calculated based on the data disclosed in template 1, on covered assets."
+    },
+    {
+     "ref": "Annex VI, Template 3, explanatory note 2",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 3, footnote (1) (column m)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 3, footnote (2) (row 19)",
+     "quote": "In accordance with Article 7(3) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 3, row-header cell (unit)",
+     "quote": "% (compared to corresponding total covered assets in the denominator)"
+    }
+   ],
+   "source_form": "html_table"
+  },
+  {
+   "id": "T4",
+   "code": "4",
+   "title": "GAR KPI flow",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, pp. 31-32",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "GAR – Covered assets in both numerator and denominator"
+    },
+    {
+     "id": "2",
+     "label": "GAR – Covered assets in both numerator and denominator > Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation",
+     "note": "nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "3",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Financial undertakings"
+    },
+    {
+     "id": "4",
+     "label": "Financial undertakings > Loans and advances"
+    },
+    {
+     "id": "5",
+     "label": "Financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "6",
+     "label": "Financial undertakings > Equity instruments"
+    },
+    {
+     "id": "7",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Non-financial undertakings"
+    },
+    {
+     "id": "8",
+     "label": "Non-financial undertakings > Loans and advances"
+    },
+    {
+     "id": "9",
+     "label": "Non-financial undertakings > Debt securities, including UoP"
+    },
+    {
+     "id": "10",
+     "label": "Non-financial undertakings > Equity instruments"
+    },
+    {
+     "id": "11",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Households"
+    },
+    {
+     "id": "12",
+     "label": "Households > of which loans collateralised by residential immovable property"
+    },
+    {
+     "id": "13",
+     "label": "Households > of which building renovation loans"
+    },
+    {
+     "id": "14",
+     "label": "Households > of which motor vehicle loans"
+    },
+    {
+     "id": "15",
+     "label": "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation > Local government financing"
+    },
+    {
+     "id": "16",
+     "label": "Local government financing > Housing financing"
+    },
+    {
+     "id": "17",
+     "label": "Local government financing > Other local government financing"
+    },
+    {
+     "id": "18",
+     "label": "GAR – Covered assets in both numerator and denominator > Collateral obtained by taking possession: residential and commercial immovable properties",
+     "note": "nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "19",
+     "label": "GAR – Covered assets in both numerator and denominator > Exposures included on a voluntary basis",
+     "note": "footnote (2): 'In accordance with Article 7(3) of this Regulation.'; column m shaded black; nested under row 1 per the PDF indentation (rows 2, 18, 19 indented one level below rows 1 and 20)"
+    },
+    {
+     "id": "20",
+     "label": "GAR – Total GAR assets"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Taxonomy-eligible",
+     "note": "columns b-k sit under a blank spanning header cell beside column a"
+    },
+    {
+     "id": "b",
+     "label": "Taxonomy-aligned"
+    },
+    {
+     "id": "c",
+     "label": "Breakdown per environmental objective > Climate Change Mitigation (CCM)"
+    },
+    {
+     "id": "d",
+     "label": "Breakdown per environmental objective > Climate Change Adaptation (CCA)"
+    },
+    {
+     "id": "e",
+     "label": "Breakdown per environmental objective > Water and marine resources (WTR)"
+    },
+    {
+     "id": "f",
+     "label": "Breakdown per environmental objective > Circular economy (CE)"
+    },
+    {
+     "id": "g",
+     "label": "Breakdown per environmental objective > Pollution (PPC)"
+    },
+    {
+     "id": "h",
+     "label": "Breakdown per environmental objective > Biodiversity and Ecosystems (BIO)"
+    },
+    {
+     "id": "i",
+     "label": "Of which Use of Proceeds"
+    },
+    {
+     "id": "j",
+     "label": "Of which transitional"
+    },
+    {
+     "id": "k",
+     "label": "Of which enabling"
+    },
+    {
+     "id": "l",
+     "label": "Proportion of Taxonomy-aligned in Taxonomy-eligible"
+    },
+    {
+     "id": "m",
+     "label": "Non-assessed exposures",
+     "note": "footnote (1): 'In accordance with Article 7(8) of this Regulation.'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 4, explanatory note 1",
+     "quote": "Institutions shall disclose in this template the GAR KPIs on flow of new loans and advances, debt securities, equity instruments, and repossessed collateral during the financial year prior to the disclosure reference date"
+    },
+    {
+     "ref": "Annex VI, Template 4, explanatory note 1 (cont.)",
+     "quote": "calculated based on the data disclosed in template 1, on covered assets."
+    },
+    {
+     "ref": "Annex VI, Template 4, explanatory note 2",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 4, footnote (1) (column m)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 4, footnote (2) (row 19)",
+     "quote": "In accordance with Article 7(3) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 4, row-header cell (unit)",
+     "quote": "% (compared to corresponding total covered assets in the denominator)"
+    }
+   ],
+   "source_form": "html_table"
+  },
+  {
+   "id": "T5",
+   "code": "5",
+   "title": "KPI off-balance sheet exposures",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, p. 33",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Financial guarantees (FinGuar KPI)"
+    },
+    {
+     "id": "2",
+     "label": "Assets under management (AuM KPI)"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Taxonomy-eligible",
+     "note": "columns b-k sit under a blank spanning header cell beside column a"
+    },
+    {
+     "id": "b",
+     "label": "Taxonomy-aligned"
+    },
+    {
+     "id": "c",
+     "label": "Breakdown per environmental objective > Climate Change Mitigation (CCM)"
+    },
+    {
+     "id": "d",
+     "label": "Breakdown per environmental objective > Climate Change Adaptation (CCA)"
+    },
+    {
+     "id": "e",
+     "label": "Breakdown per environmental objective > Water and marine resources (WTR)"
+    },
+    {
+     "id": "f",
+     "label": "Breakdown per environmental objective > Circular economy (CE)"
+    },
+    {
+     "id": "g",
+     "label": "Breakdown per environmental objective > Pollution (PPC)"
+    },
+    {
+     "id": "h",
+     "label": "Breakdown per environmental objective > Biodiversity and Ecosystems (BIO)"
+    },
+    {
+     "id": "i",
+     "label": "Of which Use of Proceeds"
+    },
+    {
+     "id": "j",
+     "label": "Of which transitional"
+    },
+    {
+     "id": "k",
+     "label": "Of which enabling"
+    },
+    {
+     "id": "l",
+     "label": "Non-assessed exposures",
+     "note": "footnote (1): 'In accordance with Article 7(8) of this Regulation.'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 5, explanatory note 1",
+     "quote": "Institutions shall disclose in this template the KPIs for off-balance sheet exposures (financial guarantees and AuM) calculated based on the data disclosed in template 1, on covered assets."
+    },
+    {
+     "ref": "Annex VI, Template 5, explanatory note 2",
+     "quote": "Institutions shall duplicate this template to disclose stock and flow KPIs for off-balance sheet exposures."
+    },
+    {
+     "ref": "Annex VI, Template 5, explanatory note 3",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 5, footnote (1) (column l)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 5, row-header cell (unit)",
+     "quote": "% (compared to corresponding total off-balance sheet assets)"
+    },
+    {
+     "ref": "Article 4(1b) of Delegated Regulation (EU) 2021/2178 as inserted by Article 1(3) of Delegated Regulation (EU) 2026/73",
+     "quote": "The financial guarantees to which the first subparagraph is applied shall be reported separately as non-material financial guarantees."
+    },
+    {
+     "ref": "Article 4(1c) of Delegated Regulation (EU) 2021/2178 as inserted by Article 1(3) of Delegated Regulation (EU) 2026/73",
+     "quote": "The assets under management to which the first subparagraph is applied shall be reported separately as non-material assets under management."
+    }
+   ],
+   "source_form": "html_table"
+  },
+  {
+   "id": "T6",
+   "code": "6",
+   "title": "KPI on fee and commission income from services other than lending and asset management",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, p. 34",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Fees and commissions income from CSRD corporates – Services other than lending",
+     "note": "index table of Annex VI names Template 6 'KPI on fees and commissions income from services other than lending and asset management'; template heading reads as in title"
+    },
+    {
+     "id": "2",
+     "label": "Fees and commissions income from CSRD corporates – Services other than lending > Services towards financial undertakings"
+    },
+    {
+     "id": "3",
+     "label": "Fees and commissions income from CSRD corporates – Services other than lending > Non-financial undertakings"
+    },
+    {
+     "id": "4",
+     "label": "Counterparties not subject to CSRD disclosure obligations, including third-country counterparties",
+     "note": "only column a reported (columns b-m shaded black)"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Total > Mn EUR",
+     "note": "unit row: column a 'Mn EUR', columns b-m '%'"
+    },
+    {
+     "id": "b",
+     "label": "Taxonomy-eligible > %",
+     "note": "columns c-l sit under a blank spanning header cell beside column b"
+    },
+    {
+     "id": "c",
+     "label": "Taxonomy-aligned > %"
+    },
+    {
+     "id": "d",
+     "label": "Breakdown per environmental objective > Climate Change Mitigation (CCM) > %"
+    },
+    {
+     "id": "e",
+     "label": "Breakdown per environmental objective > Climate Change Adaptation (CCA) > %"
+    },
+    {
+     "id": "f",
+     "label": "Breakdown per environmental objective > Water and marine resources (WTR) > %"
+    },
+    {
+     "id": "g",
+     "label": "Breakdown per environmental objective > Circular economy (CE) > %"
+    },
+    {
+     "id": "h",
+     "label": "Breakdown per environmental objective > Pollution (PPC) > %"
+    },
+    {
+     "id": "i",
+     "label": "Breakdown per environmental objective > Biodiversity and Ecosystems (BIO) > %"
+    },
+    {
+     "id": "j",
+     "label": "Of which Use of Proceeds > %"
+    },
+    {
+     "id": "k",
+     "label": "Of which transitional > %"
+    },
+    {
+     "id": "l",
+     "label": "Of which enabling > %"
+    },
+    {
+     "id": "m",
+     "label": "Of which non-assessed fees and commissions income > %",
+     "note": "footnote (1): 'In accordance with Article 7(8) of this Regulation.'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 6, explanatory note 1",
+     "quote": "Institutions shall disclose in this template information on the percentage (%) of fee and commission income related to taxonomy relevant sectors and Taxonomy-aligned activities (with breakdown for transitional and enabling activities)"
+    },
+    {
+     "ref": "Annex VI, Template 6, explanatory note 1 (cont.)",
+     "quote": "compared to total fees and commission income from CSRD corporates for services other than lending and asset management."
+    },
+    {
+     "ref": "Annex VI, Template 6, explanatory note 2",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 6, footnote (1) (column m)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 0, Note 2",
+     "quote": "Fee and Commission (sheet 6) and Trading Book (sheet 7) KPIs shall only apply starting 2028."
+    },
+    {
+     "ref": "Article 4(1d) of Delegated Regulation (EU) 2021/2178 as inserted by Article 1(3) of Delegated Regulation (EU) 2026/73",
+     "quote": "The fees and commission income to which the first subparagraph is applied shall be reported separately as non-material fees and commissions."
+    }
+   ],
+   "source_form": "html_table"
+  },
+  {
+   "id": "T7",
+   "code": "7",
+   "title": "KPI Trading book portfolio",
+   "ref": "Annex VI to Delegated Regulation (EU) 2026/73 (replacing Annex VI to Delegated Regulation (EU) 2021/2178), OJ L, 2026/73, 8.1.2026, p. 35",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Financial assets held for trading (debt securities and equity holdings) – CSRD corporates"
+    },
+    {
+     "id": "2",
+     "label": "Financial assets held for trading (debt securities and equity holdings) – CSRD corporates > Financial corporates"
+    },
+    {
+     "id": "3",
+     "label": "Financial corporates > Debt securities"
+    },
+    {
+     "id": "4",
+     "label": "Financial corporates > Equity instruments"
+    },
+    {
+     "id": "5",
+     "label": "Financial assets held for trading (debt securities and equity holdings) – CSRD corporates > Non-financial corporates"
+    },
+    {
+     "id": "6",
+     "label": "Non-financial corporates > Debt securities"
+    },
+    {
+     "id": "7",
+     "label": "Non-financial corporates > Equity instruments"
+    },
+    {
+     "id": "8",
+     "label": "Counterparties not subject to CSRD disclosure obligations, including third-country counterparties",
+     "note": "only column a reported (columns b-p shaded black)"
+    },
+    {
+     "id": "9",
+     "label": "Counterparties not subject to CSRD disclosure obligations, including third-country counterparties > Debt securities",
+     "note": "only column a reported"
+    },
+    {
+     "id": "10",
+     "label": "Counterparties not subject to CSRD disclosure obligations, including third-country counterparties > Equity instruments",
+     "note": "only column a reported"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Absolute purchases plus absolute sales (Fair value)",
+     "note": "no header text of its own in column a; in the PDF the 'Absolute purchases plus absolute sales (Fair value)' header spans columns a-i (the HTML table places it over b-i only)"
+    },
+    {
+     "id": "b",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which non-assessed exposures",
+     "note": "footnote (1): 'In accordance with Article 7(8) of this Regulation.'"
+    },
+    {
+     "id": "c",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned",
+     "note": "no header text of its own in column c; in the PDF 'Of which Taxonomy-aligned' spans c-i (HTML: d-i)"
+    },
+    {
+     "id": "d",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned > Of which CCM"
+    },
+    {
+     "id": "e",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned > Of which CCA"
+    },
+    {
+     "id": "f",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned > Of which WTR"
+    },
+    {
+     "id": "g",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned > Of which CE"
+    },
+    {
+     "id": "h",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned > Of which PPC"
+    },
+    {
+     "id": "i",
+     "label": "Absolute purchases plus absolute sales (Fair value) > Of which Taxonomy-aligned > Of which BIO"
+    },
+    {
+     "id": "j",
+     "label": "Trading KPI",
+     "note": "no header text of its own in column j; in the PDF 'Trading KPI' spans j-p (HTML: k-p)"
+    },
+    {
+     "id": "k",
+     "label": "Trading KPI > Of which CCM"
+    },
+    {
+     "id": "l",
+     "label": "Trading KPI > Of which CCA"
+    },
+    {
+     "id": "m",
+     "label": "Trading KPI > Of which WTR"
+    },
+    {
+     "id": "n",
+     "label": "Trading KPI > Of which CE"
+    },
+    {
+     "id": "o",
+     "label": "Trading KPI > Of which PPC"
+    },
+    {
+     "id": "p",
+     "label": "Trading KPI > Of which BIO"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex VI, Template 7, explanatory note 1",
+     "quote": "Credit institutions shall duplicate this template for turnover-based and CapEx-based disclosures."
+    },
+    {
+     "ref": "Annex VI, Template 7, footnote (1) (column b)",
+     "quote": "In accordance with Article 7(8) of this Regulation."
+    },
+    {
+     "ref": "Annex VI, Template 0, Note 2",
+     "quote": "Fee and Commission (sheet 6) and Trading Book (sheet 7) KPIs shall only apply starting 2028."
+    },
+    {
+     "ref": "Article 4(1e) of Delegated Regulation (EU) 2021/2178 as inserted by Article 1(3) of Delegated Regulation (EU) 2026/73",
+     "quote": "credit institutions may omit assessing whether financial assets whose use of proceeds is known held for trading are taxonomy-eligible or taxonomy-aligned where the cumulative value of those assets is below 10 %"
+    },
+    {
+     "ref": "Annex V, Section 1.2.4, third paragraph, as replaced by Annex V point (2) of Delegated Regulation (EU) 2026/73",
+     "quote": "Credit institutions shall disclose quantitative information and KPIs that show to what extent the institution is trading with environmentally sustainable assets and to what extent it is contributing to promoting the trading of this type of assets."
+    }
+   ],
+   "source_form": "html_table"
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-29",
+  "second_pass": {
+   "by": "independent agent re-reading the OJ source (images tile by tile)",
+   "checked": "2026-09-29",
+   "changes": [
+    "applies.quote: cut to the application sentence of Art 4 of 2026/73; the Art 4 transitional option (pre-amendment rules for FY starting in 2025) moved to T0 instructions",
+    "T0 instructions: added Art 4 third paragraph (transitional option for FY starting in 2025) and Art 1(20) 'Annex XII is deleted.' (no XII templates for this version)",
+    "T0 c3-c7: labels now the printed header strings incl. the embedded footnote reference before '(%)' (e.g. 'KPI (1) (%)'), since dropping it made the label non-contiguous (5 verify MISS)",
+    "T1, T3, T4 rows 2, 18, 19: now nested under row 1 'GAR – Covered assets in both numerator and denominator' (PDF indents them one level below rows 1/20)",
+    "T1 rows 36-39: note added on PDF indentation ambiguity (kept under row 21)",
+    "T2: row count dispute settled from the OJ PDF p. 28 and HTML: 8 printed rows (1,2,3,…,10,11,12,13) = 13 logical rows (slots 1-10 + 11-13); first-pass 13 kept, flexible_note made explicit",
+    "T0 c3-c7: label without the footnote marker (the rule); the text exactly as printed, marker included, kept in 'printed' and verified verbatim"
+   ]
+  }
+ }
+}

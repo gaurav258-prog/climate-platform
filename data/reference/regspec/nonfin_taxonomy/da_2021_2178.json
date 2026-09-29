@@ -1,0 +1,703 @@
+{
+ "framework": "nonfin_taxonomy",
+ "version": "da_2021_2178",
+ "act": {
+  "celex": "32021R2178",
+  "title": "Commission Delegated Regulation (EU) 2021/2178 of 6 July 2021 supplementing Regulation (EU) 2020/852 of the European Parliament and of the Council by specifying the content and presentation of information to be disclosed by undertakings subject to Articles 19a or 29a of Directive 2013/34/EU concerning environmentally sustainable economic activities, and specifying the methodology to comply with that disclosure obligation",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
+  "short": "Disclosures Delegated Act (EU) 2021/2178"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 2(2) of Delegated Regulation (EU) 2021/2178 (Article 8(2) and (4) of Regulation (EU) 2020/852)",
+  "templates_in": "Annex II, OJ L 443, 10.12.2021, pp. 23-32",
+  "instructions_in": "Annex I (OJ L 443, pp. 17-23)",
+  "quote": "The information referred to in paragraph 1 shall be presented in tabular form by using the templates set out in Annex II to this Regulation."
+ },
+ "applies": {
+  "from": "2022-01-01",
+  "until": "2022-12-31",
+  "basis": "disclosure_date",
+  "quote": "From 1 January 2022 until 31 December 2022, non-financial undertakings shall only disclose the proportion of Taxonomy-eligible and Taxonomy non-eligible economic activities in their total turnover, capital and operational expenditure"
+ },
+ "templates": [
+  {
+   "id": "T_turnover",
+   "code": "Template",
+   "title": "Proportion of turnover from products or services associated with Taxonomy-aligned economic activities – disclosure covering year N",
+   "ref": "Annex II, OJ L 443, 10.12.2021, pp. 24-26",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES",
+     "note": "'%' printed in column 4 of this heading row (turnover template only)"
+    },
+    {
+     "id": "h2",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES > A.1. Environmentally sustainable activities (Taxonomy-aligned)"
+    },
+    {
+     "id": "r1",
+     "label": "A.1. Environmentally sustainable activities (Taxonomy-aligned) > Activity 1",
+     "note": "illustrative activity row (open-ended); footnote (1) attached"
+    },
+    {
+     "id": "r2",
+     "label": "A.1. Environmentally sustainable activities (Taxonomy-aligned) > Activity 2",
+     "note": "illustrative activity row (open-ended)"
+    },
+    {
+     "id": "r3",
+     "label": "Turnover of environmentally sustainable activities (Taxonomy-aligned) (A.1)",
+     "note": "subtotal A.1"
+    },
+    {
+     "id": "h3",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES > A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities)"
+    },
+    {
+     "id": "r4",
+     "label": "A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) > Activity 1",
+     "note": "illustrative activity row (open-ended); columns 5-21 shaded (whole row right of column 4)"
+    },
+    {
+     "id": "r5",
+     "label": "A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) > Activity 3",
+     "note": "illustrative activity row as printed (numbering skips 'Activity 2'); columns 5-21 shaded (whole row right of column 4)"
+    },
+    {
+     "id": "r6",
+     "label": "Turnover of Taxonomy-eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) (A.2)",
+     "note": "subtotal A.2; columns 5-17 shaded"
+    },
+    {
+     "id": "r7",
+     "label": "Total (A.1 + A.2)",
+     "note": "columns 5-17 shaded; % printed in columns 4, 18 and 20"
+    },
+    {
+     "id": "h4",
+     "label": "B. TAXONOMY-NON-ELIGIBLE ACTIVITIES"
+    },
+    {
+     "id": "r8",
+     "label": "Turnover of Taxonomy-non-eligible activities (B)",
+     "note": "only columns 1-4 drawn"
+    },
+    {
+     "id": "r9",
+     "label": "Total (A + B)",
+     "note": "only columns 1-4 drawn"
+    }
+   ],
+   "columns": [
+    {
+     "id": "1",
+     "label": "Economic activities"
+    },
+    {
+     "id": "2",
+     "label": "Code(s)"
+    },
+    {
+     "id": "3",
+     "label": "Absolute turnover",
+     "note": "unit printed: 'Currency'"
+    },
+    {
+     "id": "4",
+     "label": "Proportion of turnover",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "5",
+     "label": "Substantial contribution criteria > Climate change mitigation",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "6",
+     "label": "Substantial contribution criteria > Climate change adaptation",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "7",
+     "label": "Substantial contribution criteria > Water and marine resources",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "8",
+     "label": "Substantial contribution criteria > Circular economy",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "9",
+     "label": "Substantial contribution criteria > Pollution",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "10",
+     "label": "Substantial contribution criteria > Biodiversity and ecosystems",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "11",
+     "label": "DNSH criteria (‘Does Not Significantly Harm’) > Climate change mitigation",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "12",
+     "label": "DNSH criteria (‘Does Not Significantly Harm’) > Climate change adaptation",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "13",
+     "label": "DNSH criteria (‘Does Not Significantly Harm’) > Water and marine resources",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "14",
+     "label": "DNSH criteria (‘Does Not Significantly Harm’) > Circular economy",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "15",
+     "label": "DNSH criteria (‘Does Not Significantly Harm’) > Pollution",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "16",
+     "label": "DNSH criteria (‘Does Not Significantly Harm’) > Biodiversity and ecosystems",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "17",
+     "label": "Minimum safeguards",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "18",
+     "label": "Taxonomy-aligned proportion of turnover, year N",
+     "note": "unit printed: 'Percent'"
+    },
+    {
+     "id": "19",
+     "label": "Taxonomy-aligned proportion of turnover, year N-1",
+     "note": "unit printed: 'Percent'"
+    },
+    {
+     "id": "20",
+     "label": "Category (enabling activity or)",
+     "note": "printed hyphenated across lines 'Catego ry (enabli ng activity or)'; value printed: 'E'"
+    },
+    {
+     "id": "21",
+     "label": "Category ‘(transitional activity)’",
+     "note": "curly quote marks placed around the parenthesis as printed; value printed: 'T'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex I, point 1.1.1",
+     "quote": "shall be calculated as the part of the net turnover derived from products or services, including intangibles, associated with Taxonomy-aligned economic activities (numerator), divided by the net turnover (denominator) as defined in Article 2, point (5), of Directive 2013/34/EU."
+    },
+    {
+     "ref": "Annex I, point 1.1.1",
+     "quote": "The turnover shall cover the revenue recognised pursuant to International Accounting Standard (IAS) 1, paragraph 82(a), as adopted by Commission Regulation (EC) No 1126/2008"
+    },
+    {
+     "ref": "Annex I, point 1.1.1, second subparagraph",
+     "quote": "shall exclude from its numerator the part of the net turnover derived from products and services associated with economic activities that have been adapted to climate change in line with Article 11(1), point (a) of Regulation (EU) 2020/852"
+    },
+    {
+     "ref": "Annex II, note below turnover template",
+     "quote": "Column 21 should be filled in for transitional activities contributing to the climate change mitigation."
+    },
+    {
+     "ref": "Annex II, note below template",
+     "quote": "For activities listed under A2, columns 5 to 17 may be filled in on a voluntary basis by non-financial undertakings"
+    },
+    {
+     "ref": "Annex I, point 2(a)",
+     "quote": "non-financial undertakings shall identify each economic activity, including a subset of transitional and enabling economic activities;"
+    },
+    {
+     "ref": "Annex I, point 2(e)",
+     "quote": "non-financial undertakings shall identify Taxonomy-non-eligible economic activities and disclose the proportion in the denominator of the turnover KPI of those economic activities at the level of the undertaking or group;"
+    },
+    {
+     "ref": "Annex I, point 2(c)",
+     "quote": "non-financial undertakings shall disclose the KPIs set out in points 1.1.1, 1.1.2 and 1.1.3 of this Annex for each environmental objective and the total KPIs for all environmental objectives"
+    },
+    {
+     "ref": "Article 8(5)",
+     "quote": "The key performance indicators shall cover only the objectives of climate change mitigation and climate change adaptation until 12 months after the date of application of the delegated regulations"
+    },
+    {
+     "ref": "Article 10(4)",
+     "quote": "The key performance indicators of non-financial undertakings, including any accompanying information to be disclosed pursuant to Annexes I and II to this Regulation, shall be disclosed from 1 January 2023."
+    }
+   ],
+   "flexible_rows": true,
+   "flexible_note": "Activity rows ('Activity 1', 'Activity 2', 'Activity 3') are illustrative placeholders: the undertaking lists each of its economic activities under A.1 and A.2; section headers, subtotals (A.1), (A.2), Total (A.1 + A.2), (B) and Total (A + B) are fixed. Footnote (1) printed below the template (image only, not in extracted text): Activity 1 is Taxonomy-eligible in its entirety but only a proportion is Taxonomy-aligned, so it may be reported under both A1 and A2; only the A1 proportion counts as Taxonomy-aligned in the turnover KPI. Parenthesised numbers in column headers (1)-(21) are the column numbers. Labels read from the OJ images (pdfimg a2178_nf-*); they are not in the extracted text, so verify.py --labels cannot match them."
+  },
+  {
+   "id": "T_capex",
+   "code": "Template",
+   "title": "Proportion of CapEx from products or services associated with Taxonomy-aligned economic activities – disclosure covering year N",
+   "ref": "Annex II, OJ L 443, 10.12.2021, pp. 27-29",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES"
+    },
+    {
+     "id": "h2",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES > A.1. Environmentally sustainable activities (Taxonomy-aligned)"
+    },
+    {
+     "id": "r1",
+     "label": "A.1. Environmentally sustainable activities (Taxonomy-aligned) > Activity 1",
+     "note": "illustrative activity row (open-ended); footnote (1) attached"
+    },
+    {
+     "id": "r2",
+     "label": "A.1. Environmentally sustainable activities (Taxonomy-aligned) > Activity 2",
+     "note": "illustrative activity row (open-ended)"
+    },
+    {
+     "id": "r3",
+     "label": "CapEx of environmentally sustainable activities (Taxonomy-aligned) (A.1)",
+     "note": "subtotal A.1"
+    },
+    {
+     "id": "h3",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES > A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities)"
+    },
+    {
+     "id": "r4",
+     "label": "A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) > Activity 1",
+     "note": "illustrative activity row (open-ended); columns 5-21 shaded (whole row right of column 4)"
+    },
+    {
+     "id": "r5",
+     "label": "A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) > Activity 3",
+     "note": "illustrative activity row as printed (numbering skips 'Activity 2'); columns 5-21 shaded (whole row right of column 4)"
+    },
+    {
+     "id": "r6",
+     "label": "CapEx of Taxonomy-eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) (A.2)",
+     "note": "subtotal A.2; columns 5-17 shaded"
+    },
+    {
+     "id": "r7",
+     "label": "Total (A.1 + A.2)",
+     "note": "columns 5-17 shaded; % printed in columns 4, 18 and 20"
+    },
+    {
+     "id": "h4",
+     "label": "B. TAXONOMY-NON-ELIGIBLE ACTIVITIES"
+    },
+    {
+     "id": "r8",
+     "label": "Turnover of Taxonomy-non-eligible activities (B)",
+     "note": "only columns 1-4 drawn; label reads 'Turnover' (not 'CapEx') as printed in the CapEx template"
+    },
+    {
+     "id": "r9",
+     "label": "Total (A + B)",
+     "note": "only columns 1-4 drawn"
+    }
+   ],
+   "columns": [
+    {
+     "id": "1",
+     "label": "Economic activities"
+    },
+    {
+     "id": "2",
+     "label": "Code(s)"
+    },
+    {
+     "id": "3",
+     "label": "Absolute CapEx",
+     "note": "unit printed: 'Currency'"
+    },
+    {
+     "id": "4",
+     "label": "Proportion of CapEx",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "5",
+     "label": "Substantial contribution criteria > Climate change mitigation",
+     "note": "unit printed: '&' (misprint for '%', as printed in the OJ image)"
+    },
+    {
+     "id": "6",
+     "label": "Substantial contribution criteria > Climate change adaptation",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "7",
+     "label": "Substantial contribution criteria > Water and marine resources",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "8",
+     "label": "Substantial contribution criteria > Circular economy",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "9",
+     "label": "Substantial contribution criteria > Pollution",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "10",
+     "label": "Substantial contribution criteria > Biodiversity and ecosystems",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "11",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Climate change mitigation",
+     "note": "unit printed: 'Y/N'; DNSH group header printed with only a closing quote: (Does Not Significantly Harm’)"
+    },
+    {
+     "id": "12",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Climate change adaptation",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "13",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Water and marine resources",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "14",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Circular economy",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "15",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Pollution",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "16",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Biodiversity and ecosystems",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "17",
+     "label": "Minimum safeguards",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "18",
+     "label": "Taxonomy-aligned proportion of CapEx, year N",
+     "note": "unit printed: 'Percent'"
+    },
+    {
+     "id": "19",
+     "label": "Taxonomy-aligned proportion of CapEx, year N-1",
+     "note": "unit printed: 'Percent'"
+    },
+    {
+     "id": "20",
+     "label": "Category (enabling activity)",
+     "note": "value printed: 'E'"
+    },
+    {
+     "id": "21",
+     "label": "Category (transitional activity",
+     "note": "closing parenthesis missing as printed; value printed: 'T'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex I, point 1.1.2.1",
+     "quote": "The denominator shall cover additions to tangible and intangible assets during the financial year considered before depreciation, amortisation and any re-measurements, including those resulting from revaluations and impairments, for the relevant financial year and excluding fair value changes."
+    },
+    {
+     "ref": "Annex I, point 1.1.2.1",
+     "quote": "The denominator shall also cover additions to tangible and intangible assets resulting from business combinations."
+    },
+    {
+     "ref": "Annex I, point 1.1.2.1",
+     "quote": "Leases that do not lead to the recognition of a right-of-use over the asset shall not be counted as CapEx."
+    },
+    {
+     "ref": "Annex I, point 1.1.2.2",
+     "quote": "The numerator equals to the part of the capital expenditure included in the denominator that is any of the following:"
+    },
+    {
+     "ref": "Annex I, point 1.1.2.2(b)",
+     "quote": "part of a plan to expand Taxonomy-aligned economic activities or to allow Taxonomy-eligible economic activities to become Taxonomy-aligned (‘CapEx plan’) under the conditions specified in the second subparagraph of this point 1.1.2.2;"
+    },
+    {
+     "ref": "Annex II, note below template",
+     "quote": "For activities listed under A2, columns 5 to 17 may be filled in on a voluntary basis by non-financial undertakings"
+    },
+    {
+     "ref": "Annex I, point 2(a)",
+     "quote": "non-financial undertakings shall identify each economic activity, including a subset of transitional and enabling economic activities;"
+    },
+    {
+     "ref": "Annex I, point 2(c)",
+     "quote": "non-financial undertakings shall disclose the KPIs set out in points 1.1.1, 1.1.2 and 1.1.3 of this Annex for each environmental objective and the total KPIs for all environmental objectives"
+    },
+    {
+     "ref": "Article 8(5)",
+     "quote": "The key performance indicators shall cover only the objectives of climate change mitigation and climate change adaptation until 12 months after the date of application of the delegated regulations"
+    },
+    {
+     "ref": "Article 10(4)",
+     "quote": "The key performance indicators of non-financial undertakings, including any accompanying information to be disclosed pursuant to Annexes I and II to this Regulation, shall be disclosed from 1 January 2023."
+    }
+   ],
+   "flexible_rows": true,
+   "flexible_note": "Activity rows ('Activity 1', 'Activity 2', 'Activity 3') are illustrative placeholders: the undertaking lists each of its economic activities under A.1 and A.2; section headers, subtotals (A.1), (A.2), Total (A.1 + A.2), (B) and Total (A + B) are fixed. Footnote (1) printed below the template (image only, not in extracted text): Activity 1 is Taxonomy-eligible in its entirety but only a proportion is Taxonomy-aligned, so it may be reported under both A1 and A2; only the A1 proportion counts as Taxonomy-aligned in the CapEx KPI. Parenthesised numbers in column headers (1)-(21) are the column numbers. Labels read from the OJ images (pdfimg a2178_nf-*); they are not in the extracted text, so verify.py --labels cannot match them."
+  },
+  {
+   "id": "T_opex",
+   "code": "Template",
+   "title": "Proportion of OpEx from products or services associated with Taxonomy-aligned economic activities – disclosure covering year N",
+   "ref": "Annex II, OJ L 443, 10.12.2021, pp. 30-32",
+   "structure": "full",
+   "source_form": "image",
+   "rows": [
+    {
+     "id": "h1",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES"
+    },
+    {
+     "id": "h2",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES > A.1. Environmentally sustainable activities (Taxonomy-aligned)"
+    },
+    {
+     "id": "r1",
+     "label": "A.1. Environmentally sustainable activities (Taxonomy-aligned) > Activity 1",
+     "note": "illustrative activity row (open-ended); footnote (1) attached"
+    },
+    {
+     "id": "r2",
+     "label": "A.1. Environmentally sustainable activities (Taxonomy-aligned) > Activity 2",
+     "note": "illustrative activity row (open-ended)"
+    },
+    {
+     "id": "r3",
+     "label": "OpEx of environmentally sustainable activities (Taxonomy-aligned) (A.1)",
+     "note": "subtotal A.1"
+    },
+    {
+     "id": "h3",
+     "label": "A. TAXONOMY-ELIGIBLE ACTIVITIES > A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities)"
+    },
+    {
+     "id": "r4",
+     "label": "A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) > Activity 1",
+     "note": "illustrative activity row (open-ended); columns 5-21 shaded (whole row right of column 4)"
+    },
+    {
+     "id": "r5",
+     "label": "A.2 Taxonomy-Eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) > Activity 3",
+     "note": "illustrative activity row as printed (numbering skips 'Activity 2'); columns 5-21 shaded (whole row right of column 4)"
+    },
+    {
+     "id": "r6",
+     "label": "OpEx of Taxonomy-eligible but not environmentally sustainable activities (not Taxonomy-aligned activities) (A.2)",
+     "note": "subtotal A.2; columns 5-17 shaded"
+    },
+    {
+     "id": "r7",
+     "label": "Total (A.1 + A.2)",
+     "note": "columns 5-17 shaded; % printed in columns 4, 18 and 20"
+    },
+    {
+     "id": "h4",
+     "label": "B. TAXONOMY-NON-ELIGIBLE ACTIVITIES"
+    },
+    {
+     "id": "r8",
+     "label": "Turnover of Taxonomy-non-eligible activities (B)",
+     "note": "only columns 1-4 drawn; label reads 'Turnover' (not 'OpEx') as printed in the OpEx template"
+    },
+    {
+     "id": "r9",
+     "label": "Total (A + B)",
+     "note": "only columns 1-4 drawn"
+    }
+   ],
+   "columns": [
+    {
+     "id": "1",
+     "label": "Economic activities"
+    },
+    {
+     "id": "2",
+     "label": "Code(s)"
+    },
+    {
+     "id": "3",
+     "label": "Absolute OpEx",
+     "note": "unit printed: 'Currency'"
+    },
+    {
+     "id": "4",
+     "label": "Proportion of OpEx",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "5",
+     "label": "Substantial contribution criteria > Climate change mitigation",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "6",
+     "label": "Substantial contribution criteria > Climate change adaptation",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "7",
+     "label": "Substantial contribution criteria > Water and marine resources",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "8",
+     "label": "Substantial contribution criteria > Circular economy",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "9",
+     "label": "Substantial contribution criteria > Pollution",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "10",
+     "label": "Substantial contribution criteria > Biodiversity and ecosystems",
+     "note": "unit printed: '%'"
+    },
+    {
+     "id": "11",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Climate change mitigation",
+     "note": "unit printed: 'Y/N'; DNSH group header printed with only a closing quote: (Does Not Significantly Harm’)"
+    },
+    {
+     "id": "12",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Climate change adaptation",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "13",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Water and marine resources",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "14",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Circular economy",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "15",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Pollution",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "16",
+     "label": "DNSH criteria (Does Not Significantly Harm’) > Biodiversity and ecosystems",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "17",
+     "label": "Minimum safeguards",
+     "note": "unit printed: 'Y/N'"
+    },
+    {
+     "id": "18",
+     "label": "Taxonomy-aligned proportion of OpEx, year N",
+     "note": "unit printed: 'Percent'"
+    },
+    {
+     "id": "19",
+     "label": "Taxonomy-aligned proportion of OpEx, year N-1",
+     "note": "unit printed: 'Percent'"
+    },
+    {
+     "id": "20",
+     "label": "Category (enabling activity)",
+     "note": "value printed: 'E'"
+    },
+    {
+     "id": "21",
+     "label": "Category (transitional activity",
+     "note": "closing parenthesis missing as printed; value printed: 'T'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex I, point 1.1.3.1",
+     "quote": "The denominator shall cover direct non-capitalised costs that relate to research and development, building renovation measures, short-term lease, maintenance and repair, and any other direct expenditures relating to the day-to-day servicing of assets of property, plant and equipment"
+    },
+    {
+     "ref": "Annex I, point 1.1.3.2",
+     "quote": "The numerator equals to the part of the operating expenditure included in the denominator that is any of the following:"
+    },
+    {
+     "ref": "Annex I, point 1.1.3.2",
+     "quote": "Research and development costs already accounted for in the CapEx KPI shall not be counted as OpEx."
+    },
+    {
+     "ref": "Annex I, point 1.1.3.2, OpEx not material (a)",
+     "quote": "be exempted from the calculation of the numerator of the OpEX KPI in accordance with point 1.1.3.2 and disclose that numerator as being equal to zero;"
+    },
+    {
+     "ref": "Annex II, note below template",
+     "quote": "For activities listed under A2, columns 5 to 17 may be filled in on a voluntary basis by non-financial undertakings"
+    },
+    {
+     "ref": "Annex I, point 2(a)",
+     "quote": "non-financial undertakings shall identify each economic activity, including a subset of transitional and enabling economic activities;"
+    },
+    {
+     "ref": "Annex I, point 2(c)",
+     "quote": "non-financial undertakings shall disclose the KPIs set out in points 1.1.1, 1.1.2 and 1.1.3 of this Annex for each environmental objective and the total KPIs for all environmental objectives"
+    },
+    {
+     "ref": "Article 8(5)",
+     "quote": "The key performance indicators shall cover only the objectives of climate change mitigation and climate change adaptation until 12 months after the date of application of the delegated regulations"
+    },
+    {
+     "ref": "Article 10(4)",
+     "quote": "The key performance indicators of non-financial undertakings, including any accompanying information to be disclosed pursuant to Annexes I and II to this Regulation, shall be disclosed from 1 January 2023."
+    }
+   ],
+   "flexible_rows": true,
+   "flexible_note": "Activity rows ('Activity 1', 'Activity 2', 'Activity 3') are illustrative placeholders: the undertaking lists each of its economic activities under A.1 and A.2; section headers, subtotals (A.1), (A.2), Total (A.1 + A.2), (B) and Total (A + B) are fixed. Footnote (1) printed below the template (image only, not in extracted text): Activity 1 is Taxonomy-eligible in its entirety but only a proportion is Taxonomy-aligned, so it may be reported under both A1 and A2; only the A1 proportion counts as Taxonomy-aligned in the CapEx KPI [sic, as printed in the OpEx template]. Parenthesised numbers in column headers (1)-(21) are the column numbers. Labels read from the OJ images (pdfimg a2178_nf-*); they are not in the extracted text, so verify.py --labels cannot match them."
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-29",
+  "second_pass": {
+   "by": "independent agent re-reading the OJ source (images tile by tile)",
+   "checked": "2026-09-29",
+   "changes": [
+    "T_turnover rows r4, r5 (A.2 Activity 1 / Activity 3): note corrected, shading covers columns 5-21, not 5-17 (r6 and r7 are shaded 5-17 only)",
+    "T_turnover columns 11-16 and 21: straight quotes replaced by the curly quote marks as printed (‘Does Not Significantly Harm’, ‘(transitional activity)’); h1: note added that '%' is printed in column 4",
+    "T_capex rows r4, r5 (A.2 Activity 1 / Activity 3): note corrected, shading covers columns 5-21, not 5-17 (r6 and r7 are shaded 5-17 only)",
+    "T_capex columns 11-16: closing quote mark set to the curly ’ as printed",
+    "T_opex rows r4, r5 (A.2 Activity 1 / Activity 3): note corrected, shading covers columns 5-21, not 5-17 (r6 and r7 are shaded 5-17 only)",
+    "T_opex columns 11-16: closing quote mark set to the curly ’ as printed",
+    "T_opex column 5: unit note corrected to '%' (first pass said '&'; the '&' misprint occurs only in the CapEx template, pp. 27-29)"
+   ]
+  }
+ }
+}

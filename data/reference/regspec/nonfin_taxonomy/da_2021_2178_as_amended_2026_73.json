@@ -1,0 +1,480 @@
+{
+ "framework": "nonfin_taxonomy",
+ "version": "da_2021_2178_as_amended_2026_73",
+ "act": {
+  "celex": "32026R0073",
+  "title": "Commission Delegated Regulation (EU) 2026/73 of 4 July 2025 amending Delegated Regulation (EU) 2021/2178 as regards the simplification of the content and presentation of information to be disclosed concerning environmentally sustainable activities and Delegated Regulations (EU) 2021/2139 and (EU) 2023/2486 as regards simplification of certain technical screening criteria for determining whether economic activities cause no significant harm to environmental objectives",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02021R2178-20260101",
+  "short": "Taxonomy simplification Delegated Act (Omnibus)"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 8(2) of Regulation (EU) 2020/852; Article 2(2) of Delegated Regulation (EU) 2021/2178 as amended by Delegated Regulation (EU) 2026/73 (incl. Art 2(1a)-(1d) 10 % materiality); Article 8(6)-(8) as replaced",
+  "templates_in": "Annex II (as replaced by Annex II to Delegated Regulation (EU) 2026/73), OJ L, 2026/73, 8.1.2026, pp. 13-16/50 (Template 1 p. 13-14, Template 2 p. 15-16)",
+  "instructions_in": "Annex I (as amended by Annex I to Delegated Regulation (EU) 2026/73) and the explanatory notes to Templates 1 and 2",
+  "quote": "The information referred to in paragraph 1 shall be presented in tabular form by using the templates set out in Annex II to this Regulation."
+ },
+ "applies": {
+  "from": "2026-01-01",
+  "until": null,
+  "basis": "disclosure_date",
+  "quote": "It shall apply from 1 January 2026."
+ },
+ "templates": [
+  {
+   "id": "T1",
+   "code": "Template 1",
+   "title": "Proportion of turnover, CapEx, OpEx from products or services associated with Taxonomy-eligible or Taxonomy-aligned economic activities – disclosure covering year (N) (summary KPIs)",
+   "ref": "Annex II (as replaced by Annex II to Delegated Regulation (EU) 2026/73), OJ L 2026/73, p. 13-14/50",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "r1",
+     "label": "Turnover",
+     "note": "'%' printed in (3), (5)-(14), (16); (2), (4), (15) blank (currency)"
+    },
+    {
+     "id": "r2",
+     "label": "CapEx",
+     "note": "as Turnover row"
+    },
+    {
+     "id": "r3",
+     "label": "OpEx",
+     "note": "as Turnover row"
+    }
+   ],
+   "columns": [
+    {
+     "id": "1",
+     "label": "KPI",
+     "note": "unit row: 'Text'. Above the table: fill-in cell 'Financial year (N)'"
+    },
+    {
+     "id": "2",
+     "label": "Total",
+     "note": "unit row: 'Currency'; blank in the KPI rows (monetary denominator)"
+    },
+    {
+     "id": "3",
+     "label": "Proportion of Taxonomy-eligible activities",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "4",
+     "label": "Taxonomy-aligned activities",
+     "note": "unit row: 'Currency'"
+    },
+    {
+     "id": "5",
+     "label": "Proportion of Taxonomy-aligned activities",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "6",
+     "label": "Breakdown by environmental objectives of Taxonomy-aligned activities > Climate Change Mitigation",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "7",
+     "label": "Breakdown by environmental objectives of Taxonomy-aligned activities > Climate Change Adaptation",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "8",
+     "label": "Breakdown by environmental objectives of Taxonomy-aligned activities > Water",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "9",
+     "label": "Breakdown by environmental objectives of Taxonomy-aligned activities > Circular Economy",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "10",
+     "label": "Breakdown by environmental objectives of Taxonomy-aligned activities > Pollution",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "11",
+     "label": "Breakdown by environmental objectives of Taxonomy-aligned activities > Biodiversity",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "12",
+     "label": "Proportion of enabling activities",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "13",
+     "label": "Proportion of transitional activities",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "14",
+     "label": "Not assessed activities considered non-material",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "15",
+     "label": "Taxonomy-aligned activities in previous financial year (N-1)",
+     "note": "unit row: 'Currency'"
+    },
+    {
+     "id": "16",
+     "label": "Proportion of Taxonomy-aligned activities in previous financial year (N-1)",
+     "note": "unit row: '%'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "2026/73 Article 4, second paragraph (application)",
+     "quote": "It shall apply from 1 January 2026."
+    },
+    {
+     "ref": "Art 2(1a) of 2021/2178 (inserted by 2026/73 Art 1(1)) - turnover materiality",
+     "quote": "non-financial undertakings may omit assessing whether some of their economic activities are taxonomy-eligible or taxonomy-aligned where the cumulative turnover resulting from those economic activities is below 10 % of the denominator of that turnover KPI"
+    },
+    {
+     "ref": "Art 2(1b) - CapEx materiality",
+     "quote": "non-financial undertakings may omit assessing whether some of their economic activities are taxonomy-eligible or taxonomy-aligned where the cumulative capital expenditure related to those economic activities is below 10 % of the denominator of the CapEx KPI"
+    },
+    {
+     "ref": "Art 2(1c) first subparagraph - OpEx not material for business model",
+     "quote": "where the operational expenditure is not material for the business model of non-financial undertakings, those undertakings may omit assessing whether operational expenditure related to all their economic activities is taxonomy-eligible or taxonomy-aligned, provided that they:"
+    },
+    {
+     "ref": "Art 2(1c) first subparagraph, point (a)",
+     "quote": "disclose the total value of the OpEx KPI denominator referred to in Section 1.1.3.1 of Annex I to this Regulation;"
+    },
+    {
+     "ref": "Art 2(1c) first subparagraph, point (b)",
+     "quote": "explain why the operational expenditure is not material for their business model."
+    },
+    {
+     "ref": "Art 2(1c) second subparagraph - OpEx 10% threshold",
+     "quote": "those non-financial undertakings may omit assessing whether some of their economic activities are taxonomy-eligible or taxonomy-aligned where the cumulative operational expenditure related to those activities is below 10 % of the denominator of the OpEx KPI"
+    },
+    {
+     "ref": "Art 2(1d)",
+     "quote": "The turnover, capital expenditure and operational expenditure related to the activities to which paragraphs 1a to 1c are applied shall be reported separately as non-material turnover, capital expenditure or operational expenditure."
+    },
+    {
+     "ref": "Art 8(6) of 2021/2178 (as replaced by 2026/73 Art 1(7)) - nuclear",
+     "quote": "Where performing or financing the economic activities as referred to in Sections 4.26, 4.27 and 4.28 of Annexes I and II to Delegated Regulation (EU) 2021/2139, non-financial undertakings and financial undertakings shall disclose the proportion of:"
+    },
+    {
+     "ref": "Art 8(7) (as replaced) - fossil gas",
+     "quote": "Where performing or financing the economic activities as referred to in Sections 4.29, 4.30 and 4.31 of Annexes I and II to Delegated Regulation (EU) 2021/2139, non-financial undertakings and financial undertakings shall disclose the proportion of:"
+    },
+    {
+     "ref": "Art 8(8) (as replaced) - gas/nuclear now presented in Annex II templates (no separate rows printed)",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annexes II, IV, VI, VIII, and X to this Regulation."
+    },
+    {
+     "ref": "2026/73 Art 1(20) - Annex XII (nuclear/gas Templates 1-5) deleted; no XII templates in this version",
+     "quote": "Annex XII is deleted."
+    },
+    {
+     "ref": "2026/73 Art 4 third paragraph - optional FY2025 use of pre-amendment rules",
+     "quote": "Undertakings may, however, apply Delegated Regulations (EU) 2021/2178, (EU) 2021/2139 and (EU) 2023/2486 as applicable on 31 December 2025 for the financial year that starts between 1 January and 31 December 2025."
+    },
+    {
+     "ref": "Annex I, Section 1.1.1 (unchanged)",
+     "quote": "The proportion of turnover referred to in Article 8(2), point (a), of Regulation (EU) 2020/852 shall be calculated as the part of the net turnover derived from products or services, including intangibles, associated with Taxonomy-aligned economic activities (numerator),"
+    },
+    {
+     "ref": "Annex I, Section 1.1.1 (unchanged)",
+     "quote": "divided by the net turnover (denominator) as defined in Article 2, point (5), of Directive 2013/34/EU. The turnover shall cover the revenue recognised pursuant to International Accounting Standard (IAS) 1, paragraph 82(a),"
+    },
+    {
+     "ref": "Annex I, Section 1.1.2 (unchanged)",
+     "quote": "The proportion of CapEx referred to in Article 8(2), point (b), of Regulation (EU) 2020/852 shall be calculated as the numerator divided by the denominator as specified in points 1.1.2.1 and 1.1.2.2 of this Annex."
+    },
+    {
+     "ref": "Annex I, Section 1.1.2.1 Denominator (unchanged)",
+     "quote": "The denominator shall cover additions to tangible and intangible assets during the financial year considered before depreciation, amortisation and any re-measurements, including those resulting from revaluations and impairments, for the relevant financial year and excluding fair value changes."
+    },
+    {
+     "ref": "Annex I, Section 1.1.2.2 (as amended by 2023/2486, unchanged by 2026/73)",
+     "quote": "The numerator shall contain the part of CapEx referred to in the first paragraph of this point that contributes substantially to any of the environmental objectives."
+    },
+    {
+     "ref": "Annex I, Section 1.1.3.1 Denominator (unchanged)",
+     "quote": "The denominator shall cover direct non-capitalised costs that relate to research and development, building renovation measures, short-term lease, maintenance and repair, and any other direct expenditures relating to the day-to-day servicing of assets of property, plant and equipment"
+    },
+    {
+     "ref": "Annex I, Section 1.1.3.2 (as amended by 2023/2486, unchanged by 2026/73)",
+     "quote": "The numerator shall include the part of OpEx referred to in the first paragraph of this point that contributes substantially to any of the environmental objectives."
+    },
+    {
+     "ref": "2026/73 Annex I point (1) - OpEx materiality exemption in Annex I removed (now Art 2(1c))",
+     "quote": "in Section 1.1.3.2, the last paragraph is deleted;"
+    },
+    {
+     "ref": "Annex I, Section 1.2.3.1, point (d) (added by 2026/73 Annex I point (2))",
+     "quote": "information on the sector of economic activities considered as non-material according to Article 2 (1a), and an explanation of the absence of materiality of those economic activities."
+    },
+    {
+     "ref": "Annex I, Section 1.2.3.2, point (d) (added by 2026/73 Annex I point (3))",
+     "quote": "information on the sector of economic activities considered non-material according to Article 2 (1b) and an explanation of the absence of materiality of those economic activities."
+    },
+    {
+     "ref": "Annex I, Section 1.2.3.3, point (d) (added by 2026/73 Annex I point (4))",
+     "quote": "information on the sector of economic activities considered non-material according to Article 2 (1c) and an explanation of the absence of materiality of those economic activities."
+    },
+    {
+     "ref": "Template 1, explanatory note 1",
+     "quote": "Columns (2) to (14) shall pertain to the financial year (N). (N-1) Indicates the previous financial year. If no data was reported for financial year N-1, leave columns (15) and (16) empty."
+    },
+    {
+     "ref": "Template 1, explanatory note 2",
+     "quote": "Column (2) shall contain the denominator of the respective KPI."
+    },
+    {
+     "ref": "Template 1, explanatory note 3",
+     "quote": "Column (3) shall contain the proportion of the denominator of the respective KPI that is associated with total Taxonomy-eligible economic activities regardless of whether those activities are taxonomy-aligned or not."
+    },
+    {
+     "ref": "Template 1, explanatory note 4",
+     "quote": "Column (5) shall contain the proportion of the denominator of the respective KPI that is associated with total Taxonomy-aligned economic activities."
+    },
+    {
+     "ref": "Template 1, explanatory note 5",
+     "quote": "Columns (6) to (11) shall contain the proportion of the denominator of the respective KPI that is associated with Taxonomy-aligned economic activities that contribute substantially to the respective environmental objective."
+    },
+    {
+     "ref": "Template 1, explanatory note 5",
+     "quote": "For the respective KPI, the sum of the proportions in columns (6) to (11) shall equal to the figure in the column (5)."
+    },
+    {
+     "ref": "Template 1, explanatory note 6",
+     "quote": "Column (12) shall contain the proportion of the denominator of the respective KPI that is associated with Taxonomy-aligned economic activities that are enabling economic activities."
+    },
+    {
+     "ref": "Template 1, explanatory note 7",
+     "quote": "Column (13) shall contain the proportion of the denominator of the respective KPI that is associated with Taxonomy-aligned economic activities that are transitional economic activities."
+    },
+    {
+     "ref": "Template 1, explanatory note 8",
+     "quote": "economic activities that are considered non-material with respect to the respective KPI and not assessed for Taxonomy-eligibility and Taxonomy-alignment in accordance with Article 2(1a), (1b), and (1c), respectively."
+    },
+    {
+     "ref": "Template 1, explanatory note 8",
+     "quote": "For an economic activity considered material with respect to a KPI (turnover, CapEx, or OpEx), undertakings shall assess the Taxonomy-eligibility and alignment of that KPI pertaining to that activity in its entirety"
+    },
+    {
+     "ref": "Template 1, explanatory note 8",
+     "quote": "Column (14) shall not include any portion of turnover, CapEx, or OpEx associated with material economic activities."
+    },
+    {
+     "ref": "Template 1, explanatory note 9",
+     "quote": "Column (16) shall contain the proportion of the denominator of the respective KPI, pertaining to the financial year (N-1), that is associated with total Taxonomy-aligned economic activities pertaining to the financial year (N-1)."
+    },
+    {
+     "ref": "Template 1, explanatory note 10",
+     "quote": "Columns (5) to (11) to avoid double counting: if the figure in column (5) contains Taxonomy-aligned economic activities that contribute substantially to more than one environmental objective at the same time,"
+    },
+    {
+     "ref": "Template 1, explanatory note 10",
+     "quote": "should be indicated under the respective environmental objectives in columns (6) to (11) of Template 2 on respective activity rows, but should not be double counted in columns (5) to (11) of Template 1."
+    }
+   ],
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "New summary template; no counterpart in the 2023/2486 Annex II. Mapping from the previous per-KPI templates (T1 turnover/T2 CapEx/T3 OpEx): row per KPI = the old template of that KPI; (2) Total = old column (3) monetary denominator; (3) = old column (4) on row 'A. ... Taxonomy-eligible activities (A.1+A.2)'; (4)/(5) = old A.1 subtotal row (monetary (3) / proportion (4)); (6)-(11) = old A.1 subtotal SC columns (5)-(10) (objective order now Water, Circular Economy, Pollution vs previously Water, Pollution, Circular Economy); (12)/(13) = old rows 'Of which enabling'/'Of which transitional' column (4); (15)/(16) = old column (18) N-1 (now aligned only); (14) non-material is new (Art 2(1a)-(1d)). No non-eligible (B.) or TOTAL rows, no DNSH or minimum safeguards columns, no separate nuclear/gas rows (Annex XII deleted; Art 8(8) points to Annex II)."
+   }
+  },
+  {
+   "id": "T2",
+   "code": "Template 2",
+   "title": "Proportion of turnover, CapEx, OpEx from products or services associated with Taxonomy-eligible or Taxonomy-aligned economic activities – disclosure covering year (N) (activity breakdown)",
+   "ref": "Annex II (as replaced by Annex II to Delegated Regulation (EU) 2026/73), OJ L 2026/73, p. 15-16/50",
+   "structure": "full",
+   "source_form": "html_table",
+   "rows": [
+    {
+     "id": "r1",
+     "label": "Activity 1",
+     "note": "illustrative activity row; '%' in (5)-(11) and (14)"
+    },
+    {
+     "id": "r2",
+     "label": "Activity 2",
+     "note": "illustrative activity row; '%' in (5)-(11) and (14)"
+    },
+    {
+     "id": "r3",
+     "label": "Sum of alignment per objective",
+     "note": "'%' in (6)-(11) only; (2)-(5) and (12)-(14) shaded"
+    },
+    {
+     "id": "r4",
+     "label": "Total KPI (Turnover/CapEx/OpEx)",
+     "note": "'%' in (5)-(14); (2)-(4) blank"
+    }
+   ],
+   "columns": [
+    {
+     "id": "1",
+     "label": "Economic Activities",
+     "note": "unit row: 'Text'. Above the table: fill-in cells 'Reported KPI (Turnover/CapEx/OpEx)' and 'Financial year (N)'"
+    },
+    {
+     "id": "2",
+     "label": "Code",
+     "note": "no unit printed"
+    },
+    {
+     "id": "3",
+     "label": "Taxonomy-eligible KPI (Proportion of Taxonomy-eligible Turnover/CapEx/OpEx)",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "4",
+     "label": "Taxonomy-aligned KPI (monetary value of Turnover/ CapEx/OpEx)",
+     "note": "unit row: 'Currency'"
+    },
+    {
+     "id": "5",
+     "label": "Taxonomy-aligned KPI (Proportion of Taxonomy-aligned Turnover, CapEx, OpEx",
+     "note": "unit row: '%'; closing parenthesis missing as printed in the OJ"
+    },
+    {
+     "id": "6",
+     "label": "Environmental objective of Taxonomy-aligned activities > Climate Change Mitigation",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "7",
+     "label": "Environmental objective of Taxonomy-aligned activities > Climate Change Adaptation",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "8",
+     "label": "Environmental objective of Taxonomy-aligned activities > Water",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "9",
+     "label": "Environmental objective of Taxonomy-aligned activities > Circular Economy",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "10",
+     "label": "Environmental objective of Taxonomy-aligned activities > Pollution",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "11",
+     "label": "Environmental objective of Taxonomy-aligned activities > Biodiversity",
+     "note": "unit row: '%'"
+    },
+    {
+     "id": "12",
+     "label": "Enabling activity",
+     "note": "unit row: '(E where applicable)'"
+    },
+    {
+     "id": "13",
+     "label": "Transitional activity",
+     "note": "unit row: '(T where applicable)'"
+    },
+    {
+     "id": "14",
+     "label": "Proportion of Taxonomy-aligned in Taxonomy-eligible",
+     "note": "unit row: '%'"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Template 2, explanatory note 1",
+     "quote": "Non-financial undertakings shall duplicate this template to disclose separately the turnover, the CapEx and the OpEx KPIs, clearly indicating in the title of each table which KPI the table refers to."
+    },
+    {
+     "ref": "Template 2, explanatory note 1",
+     "quote": "Where non-financial undertakings disclose zero Taxonomy-eligible KPI (turnover, CapEx, or OpEx, respectively), in Template 1, column (3), they may omit disclosing Template 2 for that KPI."
+    },
+    {
+     "ref": "Template 2, explanatory note 2",
+     "quote": "(N) indicates the financial year that the reported data refers to. Columns (2) to (14) pertain to financial year (N)."
+    },
+    {
+     "ref": "Template 2, explanatory note 3",
+     "quote": "For activity rows, column (2): The Code constitutes the abbreviation of the relevant objective to which the economic activity is eligible to make a substantial contribution, as well as the Section number of the activity"
+    },
+    {
+     "ref": "Template 2, explanatory note 3",
+     "quote": "Where activities are eligible to make a substantial contribution to more than one objective, the codes for all objectives should be indicated."
+    },
+    {
+     "ref": "Template 2, explanatory note 4",
+     "quote": "For activity rows, column (3) shall contain the proportion of the denominator of the respective KPI, as reported in Template 1, that is associated with a Taxonomy-eligible economic activity"
+    },
+    {
+     "ref": "Template 2, explanatory note 5",
+     "quote": "For activity rows, column (5) shall contain the proportion of the denominator of the respective KPI, as reported in Template 1, that is associated with a Taxonomy-aligned economic activity, or with the Taxonomy-aligned portion of a Taxonomy-eligible activity."
+    },
+    {
+     "ref": "Template 2, explanatory note 6",
+     "quote": "Columns corresponding to the environmental objectives for which the economic activity is not Taxonomy-eligible should be left empty."
+    },
+    {
+     "ref": "Template 2, explanatory note 6",
+     "quote": "In other words, where an activity contributes substantially to more than one environmental objective at the same time, its substantial contribution should be indicated under multiple environmental objectives in the row pertaining to that economic activity."
+    },
+    {
+     "ref": "Template 2, explanatory note 7",
+     "quote": "Column (14) shall contain the ratio of the figure in column (5) divided by the figure in column (3) in the respective rows."
+    },
+    {
+     "ref": "Template 2, explanatory note 8",
+     "quote": "columns (6) to (11) shall contain the sum of figures for all reported activities under the respective columns. The sum of columns (6) to (11) on this row might possibly result in more than 100 %."
+    },
+    {
+     "ref": "Template 2, explanatory note 9",
+     "quote": "Row “Total KPI”: columns (3) to (13) shall contain the sum of figures for all reported activities under the respective columns."
+    },
+    {
+     "ref": "Template 2, explanatory note 9",
+     "quote": "non-financial undertakings shall not double count the contributions to multiple environmental objectives and include only the environmental objective they deem the most relevant."
+    },
+    {
+     "ref": "Template 2, explanatory note 9",
+     "quote": "The figures reported in the row “Total KPI” in columns (3) to (13) in Template 2 shall equal to the figures reported in corresponding columns (3) to (13) in the Template 1."
+    },
+    {
+     "ref": "Art 8(8) (as replaced by 2026/73 Art 1(7)) - nuclear/gas via Annex II",
+     "quote": "The information referred to in paragraphs 6 and 7 shall be presented in tabular form by using the templates set out in Annexes II, IV, VI, VIII, and X to this Regulation."
+    }
+   ],
+   "flexible_rows": true,
+   "flexible_note": "'Activity 1'/'Activity 2' are illustrative: one row per Taxonomy-eligible economic activity; fixed rows are 'Sum of alignment per objective' and 'Total KPI'. Captured once; duplicated per KPI (turnover, CapEx, OpEx) per explanatory note 1.",
+   "same_as_previous_version": {
+    "rows": false,
+    "columns": false,
+    "note": "Restructured successor of the 2023/2486 per-KPI templates T1/T2/T3 (one generic template duplicated per KPI). Kept: Economic Activities (1), Code (2), SC objective columns (6)-(11) (now % per objective instead of Y; N; N/EL codes; order Water, Circular Economy, Pollution), Enabling (12)/Transitional (13) (old (19)/(20)). Changed/new: (3) eligible proportion and (5) aligned proportion per activity replace old (3) monetary + (4) proportion; (4) aligned monetary value; (14) aligned-in-eligible ratio new. Removed: DNSH columns (11)-(16), Minimum Safeguards (17), N-1 column (18) (moved to Template 1 (15)/(16)); sections A./A.1/A.2/B., subtotals, 'Of which enabling/transitional', 'TOTAL'. New rows 'Sum of alignment per objective' (replaces the old per-objective proportion tables T1a/T2a/T3a, aligned only; eligibility per objective no longer tabulated) and 'Total KPI'. Non-material activities are not rows here; they appear only as Template 1 column (14)."
+   }
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-29",
+  "second_pass": {
+   "by": "independent agent re-reading the OJ source (images tile by tile)",
+   "checked": "2026-09-29",
+   "changes": [
+    "legal_basis: article narrowed to Art 2(2) (source of the quote, 2021/2178 Art 2(2), unchanged by 2026/73); templates_in page split added",
+    "T1 instructions: added Art 2(1c)(b) quote (ref previously claimed (a)-(b) but quoted only (a)); added Annex I 1.2.3.2(d) and 1.2.3.3(d) non-material disclosures (only 1.2.3.1(d) was captured); added Art 4 application sentence next to the existing Art 4 transitional-option quote",
+    "T2 same_as_previous_version.note: per-objective tables referenced as T1a/T2a/T3a (ids used in the 2023/2486 spec), not T1b/T2b/T3b",
+    "T2 instructions: added Art 8(8) quote (nuclear/gas activities CCM/CCA 4.26-4.31 now reported through the Annex II templates; the new Annex II prints no dedicated nuclear/gas rows or template - checked OJ text, PDF pp. 13-16 and consolidated 02021R2178-20260101)"
+   ]
+  },
+  "note": "Second pass: new Annex II of 2026/73 prints exactly two templates (Template 1 summary KPIs 3x16; Template 2 activity breakdown 4x14, duplicated per KPI) and explanatory notes; no per-objective proportion tables, no DNSH/minimum-safeguards columns, no nuclear/gas lines (Annex XII deleted by Art 1(20)). Above Template 2 the OJ prints two fill-in caption cells 'Reported KPI (Turnover/CapEx/OpEx)' and 'Financial year (N)' (recorded in column (1) note; z_axis kept null per schema). Content identical in consolidated text 02021R2178-20260101 (only quote-mark style differs). applies.from 2026-01-01 (Art 4); undertakings may apply the rules as applicable on 31.12.2025 for the financial year starting in 2025 (Art 4 third paragraph)."
+ }
+}
