@@ -86,3 +86,26 @@ def test_the_xbrl_export_emits_exactly_the_listed_facts():
     body = src[start:end if end > 0 else len(src)]
     emitted = set(re.findall(r'\bfact\("(\w+)"', body))
     assert emitted == set(p3esg_facts())
+
+
+def _doc_spec(items):
+    return {"framework": "x", "version": "v", "act": {"celex": "3"}, "status": "adopted", "legal_basis": {"a": 1},
+            "applies": {"from": "2023-01-01", "until": None, "basis": "disclosure_date"},
+            "templates": [{"id": "AII", "title": "t", "ref": "r", "structure": "document", "items": items}]}
+
+
+def test_a_document_template_is_validated_diffed_and_covered_by_item():
+    """A template printed as a document to complete (SFDR Annexes II–V): items in reading order, each with a kind."""
+    items = [{"id": "h", "kind": "heading", "label": "Environmental and/or social characteristics"},
+             {"id": "q", "kind": "question", "label": "Does this financial product have a sustainable investment objective?", "parent": "h"},
+             {"id": "q.yes", "kind": "choice", "label": "Yes", "parent": "q"},
+             {"id": "d", "kind": "definition", "label": "Sustainable investment means …"}]
+    old = _doc_spec(items)
+    assert R.validate(old) == []
+    assert R.validate(_doc_spec(items + [{"id": "z", "kind": "banner", "label": "x", "parent": "nope"}])) != []
+    new = _doc_spec(items[:2] + [{**items[2], "label": "Yes, it does"}, items[3], {"id": "q.no", "kind": "choice", "label": "No", "parent": "q"}])
+    d = R.diff(old, new)
+    assert d["changed"][0]["items"]["added"] == ["q.no"] and d["changed"][0]["items"]["relabelled"][0]["id"] == "q.yes"
+    assert d["kind"] == "template change"
+    cov = R.coverage(new, {"AII": {"items": {"q": "computed", "q.yes": "computed"}}})
+    assert cov["missing"] == ["AII.items.q.no"] and not cov["complete"]     # headings and definitions are printed, not bound

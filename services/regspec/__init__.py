@@ -2,7 +2,9 @@
 
 A spec file (data/reference/regspec/<framework>/<version>.json) is the regulation, captured from the official text:
 the act, its status (adopted / draft), when it applies, the legal basis and every template — for a template built
-to the letter ("structure": "full") every row and column exactly as printed, with the instruction paragraphs quoted.
+to the letter ("structure": "full") every row and column exactly as printed, with the instruction paragraphs quoted;
+for a template printed as a document to complete (questions, tick boxes, fill-in blanks, charts: "structure":
+"document") every printed item in reading order, with its kind and its parent.
 Nothing about our implementation lives in it; how each cell is filled is a separate binding (coverage() checks the
 binding covers every row and column of the spec, and names anything stale).
 
@@ -22,6 +24,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2] / "data" / "reference" / "regspec"
 STATUSES = ("adopted", "draft")
+STRUCTURES = ("full", "listed", "document")
+# what a printed item of a document template is (see the capture brief): the kinds a binding fills are FILLED
+ITEM_KINDS = ("heading", "field", "question", "choice", "chart", "chart_label", "table", "table_column", "definition", "text")
+FIXED_KINDS = ("heading", "definition", "text", "chart_label", "table_column")
 BASES = ("disclosure_date", "period_end")
 
 
@@ -83,8 +89,10 @@ def validate(doc: dict) -> list[str]:
         tid = t.get("id")
         if not t.get("title") or not t.get("ref"):
             errs.append(f"{tid}: title and ref are required")
-        if t.get("structure") not in ("full", "listed"):
-            errs.append(f"{tid}: structure must be 'full' or 'listed'")
+        if t.get("structure") not in STRUCTURES:
+            errs.append(f"{tid}: structure must be one of {STRUCTURES}")
+        if t.get("structure") == "document":
+            errs += _document_errors(t)
         if t.get("structure") == "full":
             for axis in ("rows", "columns"):
                 items = t.get(axis) or []
@@ -96,6 +104,29 @@ def validate(doc: dict) -> list[str]:
     if doc["status"] == "adopted" and "UNVERIFIED" in json.dumps(doc):
         errs.append("an adopted spec may not contain UNVERIFIED fields")
     return errs
+
+
+def _document_errors(t: dict) -> list[str]:
+    tid, items = t["id"], t.get("items") or []
+    if not items:
+        return [f"{tid}: a document template needs its items"]
+    errs = []
+    ids = [i.get("id") for i in items]
+    # an element printed without a title (a table, a tree, a free-standing instruction) says so: a note or its instruction
+    if len(ids) != len(set(ids)) or not all(ids) or not all(i.get("label") or i.get("instruction") or i.get("note") for i in items):
+        errs.append(f"{tid}: items need unique ids and labels (an untitled item carries its instruction or a note)")
+    bad = sorted({str(i.get("kind")) for i in items} - set(ITEM_KINDS))
+    if bad:
+        errs.append(f"{tid}: unknown item kinds {bad}")
+    orphans = [i["id"] for i in items if i.get("parent") and i["parent"] not in set(ids)]
+    if orphans:
+        errs.append(f"{tid}: items whose parent is not an item: {orphans[:5]}")
+    return errs
+
+
+def items_to_fill(t: dict) -> list[dict]:
+    """The items of a document template a binding must say how it fills (not fixed printed wording)."""
+    return [i for i in t.get("items") or [] if i["kind"] not in FIXED_KINDS]
 
 
 def sha256_of(path: Path) -> str:
@@ -239,7 +270,7 @@ def diff(old: dict, new: dict) -> dict:
         for f in ("title", "ref", "structure", "z_axis"):
             if a.get(f) != b.get(f):
                 c[f] = {"from": a.get(f), "to": b.get(f)}
-        for axis in ("rows", "columns"):
+        for axis in ("rows", "columns", "items"):
             d = _axis_diff(a.get(axis), b.get(axis))
             if any(d.values()):
                 c[axis] = d
@@ -248,8 +279,9 @@ def diff(old: dict, new: dict) -> dict:
              for f in ("article", "templates_in", "instructions_in") if old["legal_basis"].get(f) != new["legal_basis"].get(f)}
     structural = bool([k for k in nt if k not in ot] or [k for k in ot if k not in nt]
                       or any(set(c) & {"structure", "z_axis"} for c in changed)
-                      or any((c.get(a) or {}).get(k) for c in changed for a in ("rows", "columns") for k in ("added", "removed", "moved")))
-    wording = any("title" in c or (c.get("rows") or {}).get("relabelled") or (c.get("columns") or {}).get("relabelled")
+                      or any((c.get(a) or {}).get(k) for c in changed for a in ("rows", "columns", "items")
+                             for k in ("added", "removed", "moved")))
+    wording = any("title" in c or any((c.get(a) or {}).get("relabelled") for a in ("rows", "columns", "items"))
                   for c in changed)
     return {"from": old["version"], "to": new["version"],
             "act": {"from": old["act"].get("celex"), "to": new["act"].get("celex")},
@@ -266,21 +298,29 @@ SOURCES = ("computed", "input", "n/a")
 
 
 def coverage(spec: dict, binding: dict) -> dict:
-    """binding = {template_id: {"rows": {row_id: source}, "columns": {col_id: source}}}, source one of SOURCES
+    """binding = {template_id: {"rows": {row_id: source}, "columns": {col_id: source}}} ({"items": {item_id: source}}
+    for a document template), source one of SOURCES
     (a prefix: 'computed:gross'). Returns what the spec has that the binding does not map, what the binding maps
     that the spec no longer has, and sources that are not one of the three kinds."""
     missing, stale, bad = [], [], []
     for t in spec["templates"]:
+        b = binding.get(t["id"]) or {}
+        if t["structure"] == "document":              # every item to fill is mapped; fixed wording is printed as is
+            ids = {i["id"] for i in items_to_fill(t)}
+            mapped = b.get("items") or {}
+            missing += [f"{t['id']}.items.{i}" for i in sorted(ids - set(mapped))]
+            stale += [f"{t['id']}.items.{i}" for i in sorted(set(mapped) - ids)]
+            bad += [f"{t['id']}.items.{i}={s}" for i, s in mapped.items() if str(s).split(":", 1)[0] not in SOURCES]
+            continue
         if t["structure"] != "full":
             continue
-        b = binding.get(t["id"]) or {}
         for axis in ("rows", "columns"):
             ids = {i["id"] for i in t[axis]}
             mapped = b.get(axis) or {}
             missing += [f"{t['id']}.{axis}.{i}" for i in sorted(ids - set(mapped))]
             stale += [f"{t['id']}.{axis}.{i}" for i in sorted(set(mapped) - ids)]
             bad += [f"{t['id']}.{axis}.{i}={s}" for i, s in mapped.items() if str(s).split(":", 1)[0] not in SOURCES]
-    full = {t["id"] for t in spec["templates"] if t["structure"] == "full"}
+    full = {t["id"] for t in spec["templates"] if t["structure"] in ("full", "document")}
     stale += [f"{tid} (template)" for tid in binding if tid not in full]
     return {"complete": not (missing or stale or bad), "missing": missing, "stale": stale, "invalid": bad}
 

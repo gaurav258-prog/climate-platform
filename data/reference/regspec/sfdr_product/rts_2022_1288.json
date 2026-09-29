@@ -1,0 +1,2418 @@
+{
+ "framework": "sfdr_product",
+ "version": "rts_2022_1288",
+ "act": {
+  "celex": "32022R1288",
+  "title": "Commission Delegated Regulation (EU) 2022/1288 of 6 April 2022 supplementing Regulation (EU) 2019/2088 of the European Parliament and of the Council with regard to regulatory technical standards specifying the details of the content and presentation of the information in relation to the principle of ‘do no significant harm’, specifying the content, methodologies and presentation of information in relation to sustainability indicators and adverse sustainability impacts, and the content and presentation of the information in relation to the promotion of environmental or social characteristics and sustainable investment objectives in pre-contractual documents, on websites and in periodic reports",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R1288",
+  "short": "SFDR RTS (EU) 2022/1288"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Articles 14, 18, 50 and 58 of Delegated Regulation (EU) 2022/1288 (Articles 8, 9 and 11 of Regulation (EU) 2019/2088)",
+  "templates_in": "Annexes II to V to Delegated Regulation (EU) 2022/1288, OJ L 196, 25.7.2022",
+  "instructions_in": "Chapters III (pre-contractual) and V (periodic) of Delegated Regulation (EU) 2022/1288; red instructions within each template",
+  "quote": "in the format of the template set out in Annex II to this Regulation."
+ },
+ "applies": {
+  "from": "2023-01-01",
+  "until": "2023-02-19",
+  "basis": "disclosure_date",
+  "quote": "This Regulation shall apply from 1 January 2023."
+ },
+ "templates": [
+  {
+   "id": "AII",
+   "code": "Annex II",
+   "title": "Template pre-contractual disclosure for the financial products referred to in Article 8, paragraphs 1, 2 and 2a, of Regulation (EU) 2019/2088 and Article 6, first paragraph, of Regulation (EU) 2020/852",
+   "ref": "Annex II to Delegated Regulation (EU) 2022/1288, OJ L 196, 25.7.2022, p. 1 (Annex II at pp. 52-56)",
+   "structure": "document",
+   "source_form": "image",
+   "items": [
+    {
+     "id": "product_name",
+     "kind": "field",
+     "label": "Product name:",
+     "parent": null,
+     "instruction": "complete",
+     "blank": "text"
+    },
+    {
+     "id": "lei",
+     "kind": "field",
+     "label": "Legal entity identifier:",
+     "parent": null,
+     "instruction": "complete",
+     "blank": "text"
+    },
+    {
+     "id": "h_es",
+     "kind": "heading",
+     "label": "Environmental and/or social characteristics",
+     "parent": null
+    },
+    {
+     "id": "q_sust_obj",
+     "kind": "question",
+     "label": "Does this financial product have a sustainable investment objective?",
+     "parent": "h_es",
+     "instruction": "tick and fill in as relevant, the percentage figure represents the minimum commitment to sustainable investments"
+    },
+    {
+     "id": "q_sust_obj.yes",
+     "kind": "choice",
+     "label": "Yes",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.yes.env_min",
+     "kind": "choice",
+     "label": "It will make a minimum of sustainable investments with an environmental objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.yes.env_min.taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env_min"
+    },
+    {
+     "id": "q_sust_obj.yes.env_min.non_taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env_min"
+    },
+    {
+     "id": "q_sust_obj.yes.soc_min",
+     "kind": "choice",
+     "label": "It will make a minimum of sustainable investments with a social objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no",
+     "kind": "choice",
+     "label": "No",
+     "parent": "q_sust_obj",
+     "note": "The template prints this box already ticked (X), since Annex II is for Article 8 products."
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si",
+     "kind": "choice",
+     "label": "It promotes Environmental/Social (E/S) characteristics and while it does not have as its objective a sustainable investment, it will have a minimum proportion of ___% of sustainable investments",
+     "parent": "q_sust_obj.no",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_non_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.social",
+     "kind": "choice",
+     "label": "with a social objective",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_no_si",
+     "kind": "choice",
+     "label": "It promotes E/S characteristics, but will not make any sustainable investments",
+     "parent": "q_sust_obj.no"
+    },
+    {
+     "id": "q_es_chars",
+     "kind": "question",
+     "label": "What environmental and/or social characteristics are promoted by this financial product?",
+     "parent": "h_es",
+     "instruction": "indicate the environmental and/or social characteristics promoted by the financial product and whether a reference benchmark has been designated for the purpose of attaining the environmental or social characteristics promoted by the financial product"
+    },
+    {
+     "id": "q_es_chars.indicators",
+     "kind": "question",
+     "label": "What sustainability indicators are used to measure the attainment of each of the environmental or social characteristics promoted by this financial product?",
+     "parent": "q_es_chars"
+    },
+    {
+     "id": "q_es_chars.si_objectives",
+     "kind": "question",
+     "label": "What are the objectives of the sustainable investments that the financial product partially intends to make and how does the sustainable investment contribute to such objectives?",
+     "parent": "q_es_chars",
+     "instruction": "include, for financial products that make sustainable investments, a description of the objectives and how the sustainable investments contribute to the sustainable investment objective. For the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852, list the environmental objectives set out in Article 9 of that Regulation to which the sustainable investment underlying the financial product contributes"
+    },
+    {
+     "id": "def_sustainable_investment",
+     "kind": "definition",
+     "label": "Sustainable investment means an investment in an economic activity that contributes to an environmental or social objective, provided that the investment does not significantly harm any environmental or social objective and that the investee companies follow good governance practices.",
+     "parent": null
+    },
+    {
+     "id": "def_eu_taxonomy",
+     "kind": "definition",
+     "label": "The EU Taxonomy is a classification system laid down in Regulation (EU) 2020/852, establishing a list of environmentally sustainable economic activities. That Regulation does not lay down a list of socially sustainable economic activities. Sustainable investments with an environmental objective might be aligned with the Taxonomy or not.",
+     "parent": null
+    },
+    {
+     "id": "def_sustainability_indicators",
+     "kind": "definition",
+     "label": "Sustainability indicators measure how the environmental or social characteristics promoted by the financial product are attained.",
+     "parent": null
+    },
+    {
+     "id": "q_es_chars.dnsh",
+     "kind": "question",
+     "label": "How do the sustainable investments that the financial product partially intends to make, not cause significant harm to any environmental or social sustainable investment objective?",
+     "parent": "q_es_chars",
+     "instruction": "include a description for the financial product that partially intends to make sustainable investments"
+    },
+    {
+     "id": "q_es_chars.dnsh.pai",
+     "kind": "question",
+     "label": "How have the indicators for adverse impacts on sustainability factors been taken into account?",
+     "parent": "q_es_chars.dnsh",
+     "instruction": "include an explanation of how the indicators for adverse impacts in Table 1 of Annex I and any relevant indicators in Tables 2 and 3 of Annex I, are taken into account"
+    },
+    {
+     "id": "q_es_chars.dnsh.oecd",
+     "kind": "question",
+     "label": "How are the sustainable investments aligned with the OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human Rights? Details:",
+     "parent": "q_es_chars.dnsh",
+     "instruction": "include an explanation on the alignment with the OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human Rights, including the principles and rights set out in the eight fundamental conventions identified in the Declaration of the International Labour Organisation on Fundamental Principles and Rights at Work and the International Bill of Human Rights"
+    },
+    {
+     "id": "dnsh_stmt.1",
+     "kind": "text",
+     "label": "The EU Taxonomy sets out a “do not significant harm” principle by which Taxonomy-aligned investments should not significantly harm EU Taxonomy objectives and is accompanied by specific EU criteria.",
+     "parent": "q_es_chars.dnsh",
+     "instruction": "Include statement for financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852",
+     "note": "'do not significant harm' is printed as such (sic). Statement in a shaded box."
+    },
+    {
+     "id": "dnsh_stmt.2",
+     "kind": "text",
+     "label": "The “do no significant harm” principle applies only to those investments underlying the financial product that take into account the EU criteria for environmentally sustainable economic activities. The investments underlying the remaining portion of this financial product do not take into account the EU criteria for environmentally sustainable economic activities.",
+     "parent": "q_es_chars.dnsh"
+    },
+    {
+     "id": "dnsh_stmt.3",
+     "kind": "text",
+     "label": "Any other sustainable investments must also not significantly harm any environmental or social objectives.",
+     "parent": "q_es_chars.dnsh"
+    },
+    {
+     "id": "q_pai",
+     "kind": "question",
+     "label": "Does this financial product consider principal adverse impacts on sustainability factors?",
+     "parent": "h_es"
+    },
+    {
+     "id": "q_pai.yes",
+     "kind": "choice",
+     "label": "Yes, ______",
+     "parent": "q_pai",
+     "instruction": "if the financial product considers principal adverse impacts on sustainability factors, include a clear and reasoned explanation of how it considers principal adverse impacts on sustainability factors. Indicate where, in the information to be disclosed pursuant to Article 11(2) of Regulation (EU) 2019/2088, the information on principal adverse impacts on sustainability factors is available",
+     "blank": "text"
+    },
+    {
+     "id": "q_pai.no",
+     "kind": "choice",
+     "label": "No",
+     "parent": "q_pai"
+    },
+    {
+     "id": "q_strategy",
+     "kind": "question",
+     "label": "What investment strategy does this financial product follow?",
+     "parent": "h_es",
+     "instruction": "provide a description of the investment strategy and indicate how the strategy is implemented in the investment process on a continuous basis"
+    },
+    {
+     "id": "def_pai",
+     "kind": "definition",
+     "label": "Principal adverse impacts are the most significant negative impacts of investment decisions on sustainability factors relating to environmental, social and employee matters, respect for human rights, anti-corruption and anti-bribery matters.",
+     "parent": null
+    },
+    {
+     "id": "q_strategy.binding",
+     "kind": "question",
+     "label": "What are the binding elements of the investment strategy used to select the investments to attain each of the environmental or social characteristics promoted by this financial product?",
+     "parent": "q_strategy"
+    },
+    {
+     "id": "q_strategy.min_rate",
+     "kind": "question",
+     "label": "What is the committed minimum rate to reduce the scope of the investments considered prior to the application of that investment strategy?",
+     "parent": "q_strategy",
+     "instruction": "include an indication of the rate, where there is a commitment to reduce the scope of investments by a minimum rate"
+    },
+    {
+     "id": "q_strategy.governance",
+     "kind": "question",
+     "label": "What is the policy to assess good governance practices of the investee companies?",
+     "parent": "q_strategy",
+     "instruction": "include a short description of the policy to assess good governance practices of the investee companies"
+    },
+    {
+     "id": "q_asset_alloc",
+     "kind": "question",
+     "label": "What is the asset allocation planned for this financial product?",
+     "parent": "h_es",
+     "instruction": "include a narrative explanation of the investments of the financial product, including the minimum proportion of the investments of the financial product used to meet the environmental or social characteristics promoted by the financial product in accordance with the binding elements of the investment strategy, including the minimum proportion of sustainable investments of the financial product where that financial products commits to making sustainable investments, and the purpose of the remaining proportion of the investments, including a description of any minimum environmental or social safeguards",
+     "note": "'where that financial products commits' printed as such (sic)."
+    },
+    {
+     "id": "q_asset_alloc.derivatives",
+     "kind": "question",
+     "label": "How does the use of derivatives attain the environmental or social characteristics promoted by the financial product?",
+     "parent": "q_asset_alloc",
+     "instruction": "for financial products that use derivatives as defined in Article 2(1), point (29), of Regulation (EU) No 600/2014 to attain the environmental or social characteristics they promote, describe how the use of those derivatives meets those characteristics",
+     "note": "In V1 this sub-question is printed before the asset-allocation box (V2 moves it after the box)."
+    },
+    {
+     "id": "chart_asset_alloc",
+     "kind": "chart",
+     "label": "",
+     "parent": "q_asset_alloc",
+     "instruction": "Include only relevant boxes, remove irrelevant ones for the financial product",
+     "note": "Asset-allocation tree diagram; it has no printed title (label left empty). Printed in a shaded box."
+    },
+    {
+     "id": "chart_asset_alloc.investments",
+     "kind": "chart_label",
+     "label": "Investments",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.aligned_es",
+     "kind": "chart_label",
+     "label": "#1 Aligned with E/S characteristics",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.other",
+     "kind": "chart_label",
+     "label": "#2 Other",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.sustainable_1a",
+     "kind": "chart_label",
+     "label": "#1A Sustainable",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.other_es_1b",
+     "kind": "chart_label",
+     "label": "#1B Other E/S characteristics",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.taxonomy_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.other_env",
+     "kind": "chart_label",
+     "label": "Other environmental",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.social",
+     "kind": "chart_label",
+     "label": "Social",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "aa_note.aligned",
+     "kind": "text",
+     "label": "#1 Aligned with E/S characteristics includes the investments of the financial product used to attain the environmental or social characteristics promoted by the financial product.",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "aa_note.other",
+     "kind": "text",
+     "label": "#2Other includes the remaining investments of the financial product which are neither aligned with the environmental or social characteristics, nor are qualified as sustainable investments.",
+     "parent": "chart_asset_alloc",
+     "note": "'#2Other' printed without a space (verified at zoom)."
+    },
+    {
+     "id": "aa_note.category",
+     "kind": "text",
+     "label": "The category #1 Aligned with E/S characteristics covers:",
+     "parent": "chart_asset_alloc",
+     "instruction": "include the note below where the financial product commits to making sustainable investments"
+    },
+    {
+     "id": "aa_note.category.1a",
+     "kind": "text",
+     "label": "- The sub-category #1A Sustainable covers sustainable investments with environmental or social objectives.",
+     "parent": "aa_note.category"
+    },
+    {
+     "id": "aa_note.category.1b",
+     "kind": "text",
+     "label": "- The sub-category #1B Other E/S characteristics covers investments aligned with the environmental or social characteristics that do not qualify as sustainable investments.",
+     "parent": "aa_note.category"
+    },
+    {
+     "id": "def_investment_strategy",
+     "kind": "definition",
+     "label": "The investment strategy guides investment decisions based on factors such as investment objectives and risk tolerance.",
+     "parent": null
+    },
+    {
+     "id": "def_good_governance",
+     "kind": "definition",
+     "label": "Good governance practices include sound management structures, employee relations, remuneration of staff and tax compliance.",
+     "parent": null
+    },
+    {
+     "id": "def_asset_allocation",
+     "kind": "definition",
+     "label": "Asset allocation describes the share of investments in specific assets.",
+     "parent": null
+    },
+    {
+     "id": "def_taxonomy_kpis",
+     "kind": "definition",
+     "label": "Taxonomy-aligned activities are expressed as a share of:\n- turnover reflecting the share of revenue from green activities of investee companies\n- capital expenditure (CapEx) showing the green investments made by investee companies, e.g. for a transition to a green economy.\n- operational expenditure (OpEx) reflecting green operational activities of investee companies.",
+     "parent": null,
+     "instruction": "include note only for financial products referred to in Article 6 of Regulation (EU) 2020/852",
+     "note": "The printed red instruction has no closing square bracket."
+    },
+    {
+     "id": "q_taxonomy",
+     "kind": "question",
+     "label": "To what minimum extent are sustainable investments with an environmental objective aligned with the EU Taxonomy?",
+     "parent": "h_es",
+     "instruction": "include a section for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852 and include the graphical representation referred to in Article 15(1), point (a), of this Regulation, the description referred to in Article 15(1), point (b), of this Regulation, a clear explanation as referred to in Article 15(1), point (c), of this Regulation, a narrative explanation as referred to in Article 15(1), point (d), of this Regulation and the information referred to in Article 15(3) of this Regulation"
+    },
+    {
+     "id": "text_taxonomy_graphs",
+     "kind": "text",
+     "label": "The two graphs below show in green the minimum percentage of investments that are aligned with the EU Taxonomy. As there is no appropriate methodology to determine the Taxonomy-alignment of sovereign bonds*, the first graph shows the Taxonomy alignment in relation to all the investments of the financial product including sovereign bonds, while the second graph shows the Taxonomy alignment only in relation to the investments of the financial product other than sovereign bonds.",
+     "parent": "q_taxonomy",
+     "note": "Printed in a shaded box."
+    },
+    {
+     "id": "chart_taxonomy_incl",
+     "kind": "chart",
+     "label": "1. Taxonomy-alignment of investments including sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "Pie chart; title printed on two lines."
+    },
+    {
+     "id": "chart_taxonomy_incl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_taxonomy_incl"
+    },
+    {
+     "id": "chart_taxonomy_incl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_taxonomy_incl"
+    },
+    {
+     "id": "chart_taxonomy_incl.value_aligned",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_incl",
+     "note": "segment value placeholder (Taxonomy-aligned)"
+    },
+    {
+     "id": "chart_taxonomy_incl.value_other",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_incl",
+     "note": "segment value placeholder (other investments)"
+    },
+    {
+     "id": "chart_taxonomy_excl",
+     "kind": "chart",
+     "label": "2. Taxonomy-alignment of investments excluding sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "Pie chart; title printed on two lines."
+    },
+    {
+     "id": "chart_taxonomy_excl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_taxonomy_excl"
+    },
+    {
+     "id": "chart_taxonomy_excl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_taxonomy_excl"
+    },
+    {
+     "id": "chart_taxonomy_excl.value_aligned",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_excl",
+     "note": "segment value placeholder (Taxonomy-aligned)"
+    },
+    {
+     "id": "chart_taxonomy_excl.value_other",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_excl",
+     "note": "segment value placeholder (other investments)"
+    },
+    {
+     "id": "text_sovereign_footnote",
+     "kind": "text",
+     "label": "* For the purpose of these graphs, ‘sovereign bonds’ consist of all sovereign exposures",
+     "parent": "q_taxonomy",
+     "note": "Printed under both graphs; applies to both charts. No final full stop in V1."
+    },
+    {
+     "id": "q_taxonomy.transitional",
+     "kind": "question",
+     "label": "What is the minimum share of investments in transitional and enabling activities?",
+     "parent": "q_taxonomy",
+     "instruction": "include section for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852"
+    },
+    {
+     "id": "q_env_non_taxonomy",
+     "kind": "question",
+     "label": "What is the minimum share of sustainable investments with an environmental objective that are not aligned with the EU Taxonomy?",
+     "parent": "h_es",
+     "instruction": "include section only for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852 where the financial product invests in economic activities that are not environmentally sustainable economic activities and explain why the financial product invests in sustainable investments with an environmental objective in economic activities that are not Taxonomy-aligned"
+    },
+    {
+     "id": "q_social",
+     "kind": "question",
+     "label": "What is the minimum share of socially sustainable investments?",
+     "parent": "h_es",
+     "instruction": "include section only where the financial product includes sustainable investments with a social objective"
+    },
+    {
+     "id": "q_other",
+     "kind": "question",
+     "label": "What investments are included under “#2 Other”, what is their purpose and are there any minimum environmental or social safeguards?",
+     "parent": "h_es"
+    },
+    {
+     "id": "def_enabling",
+     "kind": "definition",
+     "label": "Enabling activities directly enable other activities to make a substantial contribution to an environmental objective.",
+     "parent": null,
+     "instruction": "include note only for the financial products referred to in Article 6 , first paragraph, of Regulation (EU) 2020/852",
+     "note": "Red instruction printed with a space before the comma ('Article 6 ,') and no closing square bracket; it heads the Enabling + Transitional block."
+    },
+    {
+     "id": "def_transitional",
+     "kind": "definition",
+     "label": "Transitional activities are activities for which low-carbon alternatives are not yet available and among others have greenhouse gas emission levels corresponding to the best performance.",
+     "parent": null
+    },
+    {
+     "id": "def_env_non_taxonomy",
+     "kind": "definition",
+     "label": "are sustainable investments with an environmental objective that do not take into account the criteria for environmentally sustainable economic activities under the EU Taxonomy.",
+     "parent": null,
+     "instruction": "include note for financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852 that invest in environmental economic activities that are not environmentally sustainable economic activities",
+     "note": "Sentence starts with an icon (crossed-out EU Taxonomy symbol) that stands for the subject."
+    },
+    {
+     "id": "q_benchmark",
+     "kind": "question",
+     "label": "Is a specific index designated as a reference benchmark to determine whether this financial product is aligned with the environmental and/or social characteristics that it promotes?",
+     "parent": "h_es",
+     "instruction": "include section where an index has been designated as a reference benchmark for the purpose of attaining the environmental or social characteristics promoted by the financial product and indicate where the methodology used for the calculation of the designated index can be found"
+    },
+    {
+     "id": "q_benchmark.continuous_alignment",
+     "kind": "question",
+     "label": "How is the reference benchmark continuously aligned with each of the environmental or social characteristics promoted by the financial product?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.alignment",
+     "kind": "question",
+     "label": "How is the alignment of the investment strategy with the methodology of the index ensured on a continuous basis?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.differ",
+     "kind": "question",
+     "label": "How does the designated index differ from a relevant broad market index?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.methodology",
+     "kind": "question",
+     "label": "Where can the methodology used for the calculation of the designated index be found?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_online",
+     "kind": "question",
+     "label": "Where can I find more product specific information online?",
+     "parent": "h_es"
+    },
+    {
+     "id": "text_website",
+     "kind": "text",
+     "label": "More product-specific information can be found on the website:",
+     "parent": "q_online",
+     "instruction": "include a hyperlink to the website referred to in Article 23 of this Regulation",
+     "blank": "text"
+    },
+    {
+     "id": "def_reference_benchmarks",
+     "kind": "definition",
+     "label": "Reference benchmarks are indexes to measure whether the financial product attains the environmental or social characteristics that they promote.",
+     "parent": null,
+     "instruction": "include note for financial products where an index has been designated as a reference benchmark for the purpose of attaining the environmental or social characteristics promoted by the financial product"
+    }
+   ],
+   "instructions": [
+    {
+     "ref": "Article 14(1)",
+     "quote": "Financial market participants shall present the information to be disclosed pursuant to Article 8(1), (2) and (2a) of Regulation (EU) 2019/2088 in the format of the template set out in Annex II to this Regulation."
+    },
+    {
+     "ref": "Article 15(1)",
+     "quote": "financial market participants shall provide, in the section ‘To what minimum extent are sustainable investments with an environmental objective aligned with the EU Taxonomy?’ in the template set out in Annex II, all of the following:"
+    },
+    {
+     "ref": "Article 16",
+     "quote": "financial market participants shall include in the section ‘What is the asset allocation planned for this financial product?’ in the template set out in Annex II the minimum share of those sustainable investments."
+    },
+    {
+     "ref": "Article 68 (V1 application)",
+     "quote": "This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union. This Regulation shall apply from 1 January 2023."
+    }
+   ],
+   "second_pass": {
+    "by": "independent agent re-reading the OJ page images",
+    "checked": "2026-09-29",
+    "changes": []
+   },
+   "capture_notes": [
+    "ids aligned with AIII for the same printed items (tools/harmonise.py)",
+    "assembly id alignment across annexes: taxo_sovereign_fn -> text_sovereign_footnote; q_non_taxo_env -> q_env_non_taxonomy"
+   ]
+  },
+  {
+   "id": "AIII",
+   "code": "Annex III",
+   "title": "Template pre-contractual disclosure for the financial products referred to in Article 9, paragraphs 1 to 4a, of Regulation (EU) 2019/2088 and Article 5, first paragraph, of Regulation (EU) 2020/852",
+   "ref": "Annex III to Delegated Regulation (EU) 2022/1288, OJ L 196, 25.7.2022, p. 1",
+   "structure": "document",
+   "source_form": "image",
+   "items": [
+    {
+     "id": "product_name",
+     "kind": "field",
+     "label": "Product name:",
+     "parent": null,
+     "blank": "text",
+     "note": "printed red '[complete]'"
+    },
+    {
+     "id": "lei",
+     "kind": "field",
+     "label": "Legal entity identifier:",
+     "parent": null,
+     "blank": "text",
+     "note": "printed red '[complete]'"
+    },
+    {
+     "id": "h_sust_obj",
+     "kind": "heading",
+     "label": "Sustainable investment objective",
+     "parent": null
+    },
+    {
+     "id": "q_sust_obj",
+     "kind": "question",
+     "label": "Does this financial product have a sustainable investment objective?",
+     "parent": "h_sust_obj",
+     "instruction": "tick and fill in as relevant, the percentage figure represents the minimum commitment to sustainable investments"
+    },
+    {
+     "id": "q_sust_obj.yes",
+     "kind": "choice",
+     "label": "Yes",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.yes.env_min",
+     "kind": "choice",
+     "label": "It will make a minimum of sustainable investments with an environmental objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.yes.env_min.taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env_min"
+    },
+    {
+     "id": "q_sust_obj.yes.env_min.non_taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env_min"
+    },
+    {
+     "id": "q_sust_obj.yes.soc_min",
+     "kind": "choice",
+     "label": "It will make a minimum of sustainable investments with a social objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no",
+     "kind": "choice",
+     "label": "No",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si",
+     "kind": "choice",
+     "label": "It promotes Environmental/Social (E/S) characteristics and while it does not have as its objective a sustainable investment, it will have a minimum proportion of ___% of sustainable investments",
+     "parent": "q_sust_obj.no",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_non_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.social",
+     "kind": "choice",
+     "label": "with a social objective",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_no_si",
+     "kind": "choice",
+     "label": "It promotes E/S characteristics, but will not make any sustainable investments",
+     "parent": "q_sust_obj.no"
+    },
+    {
+     "id": "q_objective",
+     "kind": "question",
+     "label": "What is the sustainable investment objective of this financial product?",
+     "parent": null,
+     "instruction": "indicate the investment objective pursued by the financial product, describe how the sustainable investments contribute to a sustainable investment objective and indicate whether a reference benchmark has been designated for the purpose of attaining the sustainable investment objective. For financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852, in respect of sustainable investments with environmental objectives, list the environmental objectives set out in Article 9 of that Regulation to which the sustainable investment underlying the financial product contributes. For financial products referred to in Article 9(3) of Regulation (EU) 2019/2088, indicate that the financial product has the objective of reducing carbon emissions and explain that the reference benchmark qualifies as an EU Climate Transition Benchmark or an EU Paris-aligned Benchmark under Title III, Chapter 3a, of Regulation (EU) 2016/1011 and indicate where the methodology used for the calculation of that benchmark can be found. Where no EU Climate Transition Benchmark or EU Paris-aligned Benchmark as qualified in accordance with Regulation (EU) 2016/1011 is available, describe that fact, how the continued effort of attaining the objective of reducing carbon emissions is ensured in view of achieving the objectives of the Paris Agreement and the extent to which the financial product complies with the methodological requirements set out in Commission Delegated Regulation (EU) 2020/1818"
+    },
+    {
+     "id": "def_sustainable_investment",
+     "kind": "definition",
+     "label": "Sustainable investment means an investment in an economic activity that contributes to an environmental or social objective, provided that the investment does not significantly harm any environmental or social objective and that the investee companies follow good governance practices.",
+     "parent": null
+    },
+    {
+     "id": "def_eu_taxonomy",
+     "kind": "definition",
+     "label": "The EU Taxonomy is a classification system laid down in Regulation (EU) 2020/852, establishing a list of environmentally sustainable economic activities. That Regulation does not include a list of socially sustainable economic activities. Sustainable investments with an environmental objective might be aligned with the Taxonomy or not.",
+     "parent": null
+    },
+    {
+     "id": "def_sustainability_indicators",
+     "kind": "definition",
+     "label": "Sustainability indicators measure how the sustainable objectives of this financial product are attained.",
+     "parent": null
+    },
+    {
+     "id": "q_objective.indicators",
+     "kind": "question",
+     "label": "What sustainability indicators are used to measure the attainment of the sustainable investment objective of this financial product?",
+     "parent": "q_objective"
+    },
+    {
+     "id": "q_objective.dnsh",
+     "kind": "question",
+     "label": "How do sustainable investments not cause significant harm to any environmental or social sustainable investment objective?",
+     "parent": "q_objective"
+    },
+    {
+     "id": "q_objective.dnsh.pai",
+     "kind": "question",
+     "label": "How have the indicators for adverse impacts on sustainability factors been taken into account?",
+     "parent": "q_objective.dnsh",
+     "instruction": "explain how the indicators for adverse impacts in Table 1 of Annex I and any relevant indicators in Tables 2 and 3 of Annex I are taken into account"
+    },
+    {
+     "id": "q_objective.dnsh.oecd",
+     "kind": "question",
+     "label": "How are the sustainable investments aligned with the OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human Rights?",
+     "parent": "q_objective.dnsh",
+     "instruction": "include an explanation on the alignment with the OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human Rights, including the principles and rights set out in the eight fundamental conventions identified in the Declaration of the International Labour Organisation on Fundamental Principles and Rights at Work and the International Bill of Human Rights"
+    },
+    {
+     "id": "q_pai",
+     "kind": "question",
+     "label": "Does this financial product consider principal adverse impacts on sustainability factors?",
+     "parent": null
+    },
+    {
+     "id": "q_pai.yes",
+     "kind": "choice",
+     "label": "Yes",
+     "parent": "q_pai",
+     "instruction": "if the financial product considers principal adverse impacts on sustainability factors, include a clear and reasoned explanation of how it considers principal adverse impacts on sustainability factors. Indicate where, in the information to be disclosed pursuant to Article 11(2) of Regulation (EU) 2019/2088, the information on principal adverse impacts on sustainability factors is available"
+    },
+    {
+     "id": "q_pai.no",
+     "kind": "choice",
+     "label": "No",
+     "parent": "q_pai"
+    },
+    {
+     "id": "q_strategy",
+     "kind": "question",
+     "label": "What investment strategy does this financial product follow?",
+     "parent": null,
+     "instruction": "provide a description of the investment strategy and indicate how the strategy is implemented in the investment process on a continuous basis"
+    },
+    {
+     "id": "q_strategy.binding",
+     "kind": "question",
+     "label": "What are the binding elements of the investment strategy used to select the investments to attain the sustainable investment objective?",
+     "parent": "q_strategy"
+    },
+    {
+     "id": "def_pai",
+     "kind": "definition",
+     "label": "Principal adverse impacts are the most significant negative impacts of investment decisions on sustainability factors relating to environmental, social and employee matters, respect for human rights, anti-corruption and anti-bribery matters.",
+     "parent": null
+    },
+    {
+     "id": "def_investment_strategy",
+     "kind": "definition",
+     "label": "The investment strategy guides investment decisions based on factors such as investment objectives and risk tolerance.",
+     "parent": null
+    },
+    {
+     "id": "q_strategy.governance",
+     "kind": "question",
+     "label": "What is the policy to assess good governance practices of the investee companies?",
+     "parent": "q_strategy"
+    },
+    {
+     "id": "q_asset_alloc",
+     "kind": "question",
+     "label": "What is the asset allocation and the minimum share of sustainable investments?",
+     "parent": null,
+     "instruction": "include a narrative explanation of the investments of the financial product including the minimum proportion of the investments of the financial product used to meet the sustainable investment objective in accordance with the binding elements of the investment strategy"
+    },
+    {
+     "id": "chart_asset_alloc",
+     "kind": "chart",
+     "label": "",
+     "parent": "q_asset_alloc",
+     "instruction": "Include only relevant boxes, remove irrelevant ones for the financial product",
+     "note": "asset-allocation tree; no printed title (label left empty)"
+    },
+    {
+     "id": "chart_asset_alloc.investments",
+     "kind": "chart_label",
+     "label": "Investments",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.sustainable",
+     "kind": "chart_label",
+     "label": "#1 Sustainable",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.not_sustainable",
+     "kind": "chart_label",
+     "label": "#2 Not sustainable",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.environmental",
+     "kind": "chart_label",
+     "label": "Environmental",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.social",
+     "kind": "chart_label",
+     "label": "Social",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.taxonomy_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.other",
+     "kind": "chart_label",
+     "label": "Other",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.legend_sustainable",
+     "kind": "chart_label",
+     "label": "#1 Sustainable covers sustainable investments with environmental or social objectives.",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.legend_not_sustainable",
+     "kind": "chart_label",
+     "label": "#2 Not sustainable includes investments which do not qualify as sustainable investments.",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "q_asset_alloc.derivatives",
+     "kind": "question",
+     "label": "How does the use of derivatives attain the sustainable investment objective?",
+     "parent": "q_asset_alloc",
+     "instruction": "for financial product that use derivatives as defined in Article 2(1), point (29), of Regulation (EU) No 600/2014 to attain their sustainable investment objective, describe how the use of those derivatives attains that sustainable investment objective"
+    },
+    {
+     "id": "q_taxonomy",
+     "kind": "question",
+     "label": "To what minimum extent are sustainable investments with an environmental objective aligned with the EU Taxonomy?",
+     "parent": null,
+     "instruction": "include the section for financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852 and include the graphical representation referred to in Article 19(1), point (a), of this Regulation, the description referred to in Article 19(1), point (b), of this Regulation, the clear explanation referred to in Article 19(1), point (c), of this Regulation, the narrative explanation referred to in Article 19(1), point (d), of this Regulation and the information referred to in Article 15(4) of this Regulation"
+    },
+    {
+     "id": "def_good_governance",
+     "kind": "definition",
+     "label": "Good governance practices include sound management structures, employee relations, remuneration of staff and tax compliance.",
+     "parent": null
+    },
+    {
+     "id": "def_asset_allocation",
+     "kind": "definition",
+     "label": "Asset allocation describes the share of investments in specific assets.",
+     "parent": null
+    },
+    {
+     "id": "def_taxonomy_kpis",
+     "kind": "definition",
+     "label": "Taxonomy-aligned activities are expressed as a share of: - turnover reflecting the share of revenue from green activities of investee companies - capital expenditure (CapEx) showing the green investments made by investee companies, e.g. for a transition to a green economy. - operational expenditure (OpEx) reflecting green operational activities of investee companies.",
+     "parent": null,
+     "instruction": "include note only for financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852"
+    },
+    {
+     "id": "text_taxonomy_graphs",
+     "kind": "text",
+     "label": "The two graphs below show in green the minimum percentage of investments that are aligned with the EU Taxonomy. As there is no appropriate methodology to determine the taxonomy-alignment of sovereign bonds*, the first graph shows the Taxonomy alignment in relation to all the investments of the financial product including sovereign bonds, while the second graph shows the Taxonomy alignment only in relation to the investments of the financial product other than sovereign bonds.",
+     "parent": "q_taxonomy"
+    },
+    {
+     "id": "chart_taxonomy_incl",
+     "kind": "chart",
+     "label": "1. Taxonomy-alignment of investments including sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "pie chart"
+    },
+    {
+     "id": "chart_taxonomy_incl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_taxonomy_incl"
+    },
+    {
+     "id": "chart_taxonomy_incl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_taxonomy_incl"
+    },
+    {
+     "id": "chart_taxonomy_incl.value_aligned",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_incl"
+    },
+    {
+     "id": "chart_taxonomy_incl.value_other",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_incl"
+    },
+    {
+     "id": "chart_taxonomy_excl",
+     "kind": "chart",
+     "label": "2. Taxonomy-alignment of investments excluding sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "pie chart"
+    },
+    {
+     "id": "chart_taxonomy_excl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_taxonomy_excl"
+    },
+    {
+     "id": "chart_taxonomy_excl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_taxonomy_excl"
+    },
+    {
+     "id": "chart_taxonomy_excl.value_other",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_excl"
+    },
+    {
+     "id": "chart_taxonomy_excl.value_aligned",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_taxonomy_excl"
+    },
+    {
+     "id": "text_sovereign_footnote",
+     "kind": "text",
+     "label": "*For the purpose of these graphs, ‘sovereign bonds’ consist of all sovereign exposures",
+     "parent": "chart_taxonomy_incl",
+     "note": "asterisk note printed under both graphs; applies to chart_taxonomy_incl and chart_taxonomy_excl"
+    },
+    {
+     "id": "q_taxonomy.transitional",
+     "kind": "question",
+     "label": "What is the minimum share of investments in transitional and enabling activities?",
+     "parent": "q_taxonomy",
+     "instruction": "include section for the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852"
+    },
+    {
+     "id": "q_env_non_taxonomy",
+     "kind": "question",
+     "label": "What is the minimum share of sustainable investments with an environmental objective that are not aligned with the EU Taxonomy?",
+     "parent": null,
+     "instruction": "include section only for the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852 where the financial product invests in environmental economic activities that are not environmentally sustainable economic activities and explain why the financial product invests in sustainable investments with an environmental objective in economic activities that are not Taxonomy-aligned"
+    },
+    {
+     "id": "q_social",
+     "kind": "question",
+     "label": "What is the minimum share of sustainable investments with a social objective?",
+     "parent": null,
+     "instruction": "include section only where the financial product includes sustainable investments with a social objective"
+    },
+    {
+     "id": "q_not_sustainable",
+     "kind": "question",
+     "label": "What investments are included under “#2 Not sustainable”, what is their purpose and are there any minimum environmental or social safeguards?",
+     "parent": null,
+     "instruction": "describe the purpose of the remaining proportion of the investments of the financial product, including a description of any minimum environmental or social safeguards, how their proportion and use does not affect the delivery of the sustainable investment objective on a continuous basis and whether those investments are used for hedging or relate to cash held as ancillary liquidity"
+    },
+    {
+     "id": "def_enabling",
+     "kind": "definition",
+     "label": "Enabling activities directly enable other activities to make a substantial contribution to an environmental objective.",
+     "parent": null,
+     "instruction": "include note only for financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852",
+     "note": "same margin box as def_transitional; the bracketed instruction heads the box"
+    },
+    {
+     "id": "def_transitional",
+     "kind": "definition",
+     "label": "Transitional activities are activities for which low-carbon alternatives are not yet available and among others have greenhouse gas emission levels corresponding to the best performance.",
+     "parent": null,
+     "instruction": "include note only for financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852",
+     "note": "same margin box as def_enabling; the bracketed instruction heads the box"
+    },
+    {
+     "id": "def_env_non_taxonomy",
+     "kind": "definition",
+     "label": "are environmentally sustainable investments that do not take into account the criteria for environmentally sustainable economic activities under the EU Taxonomy.",
+     "parent": null,
+     "instruction": "include note for financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852 that invest in environmental economic activities that are not environmentally sustainable economic activities",
+     "note": "sentence begins with an icon (EU Taxonomy symbol struck through), not captured"
+    },
+    {
+     "id": "q_benchmark",
+     "kind": "question",
+     "label": "Is a specific index designated as a reference benchmark to meet the sustainable investment objective?",
+     "parent": null,
+     "instruction": "include section only for the financial products referred to in Article 9(1) of Regulation (EU) 2019/2088 and indicate where the methodology used for the calculation of the designated index can be found"
+    },
+    {
+     "id": "q_benchmark.sust_factors",
+     "kind": "question",
+     "label": "How does the reference benchmark take into account sustainability factors in a way that is continuously aligned with the sustainable investment objective?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.alignment",
+     "kind": "question",
+     "label": "How is the alignment of the investment strategy with the methodology of the index ensured on a continuous basis?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.differ",
+     "kind": "question",
+     "label": "How does the designated index differ from a relevant broad market index?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.methodology",
+     "kind": "question",
+     "label": "Where can the methodology used for the calculation of the designated index be found?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_online",
+     "kind": "question",
+     "label": "Where can I find more product specific information online?",
+     "parent": null
+    },
+    {
+     "id": "text_website",
+     "kind": "text",
+     "label": "More product-specific information can be found on the website:",
+     "parent": "q_online",
+     "instruction": "include a hyperlink to the website referred to in Article 23 of this Regulation"
+    },
+    {
+     "id": "def_reference_benchmarks",
+     "kind": "definition",
+     "label": "Reference benchmarks are indexes to measure whether the financial product attains the sustainable investment objective.",
+     "parent": null,
+     "instruction": "include note for financial products referred to in Article 9(1) of Regulation (EU) 2019/2088"
+    }
+   ],
+   "instructions": [
+    {
+     "ref": "Article 18(1)",
+     "quote": "They shall present that information in the format of the template set out in Annex III to this Regulation."
+    },
+    {
+     "ref": "Article 18(3)",
+     "quote": "Financial market participants shall include at the beginning of the annex to the document or the information referred to in Article 6(3) of Regulation (EU) 2019/2088 a statement that the financial product has sustainable investment as its objective."
+    },
+    {
+     "ref": "Article 19(1)",
+     "quote": "financial market participants shall include in the section ‘What is the asset allocation and the minimum share of sustainable investments?’ in the template set out in Annex III all of the following information:"
+    },
+    {
+     "ref": "Article 19(1)(a)",
+     "quote": "a graphical representation in the form of a pie chart:"
+    },
+    {
+     "ref": "Article 19(4)",
+     "quote": "For financial products that invest in an economic activity that contributes to a social objective, financial market participants shall include in the section ‘What is the asset allocation and the minimum share of sustainable investments?’ in the template set out in Annex III the minimum share of those investments."
+    },
+    {
+     "ref": "Article 68 (Delegated Regulation (EU) 2022/1288)",
+     "quote": "This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union. This Regulation shall apply from 1 January 2023."
+    }
+   ],
+   "second_pass": {
+    "by": "independent agent re-reading the OJ page images",
+    "checked": "2026-09-29",
+    "changes": []
+   }
+  },
+  {
+   "id": "AIV",
+   "code": "Annex IV",
+   "title": "Template periodic disclosure for the financial products referred to in Article 8, paragraphs 1, 2 and 2a, of Regulation (EU) 2019/2088 and Article 6, first paragraph, of Regulation (EU) 2020/852",
+   "ref": "Annex IV to Delegated Regulation (EU) 2022/1288, OJ L 196, 25.7.2022, pp. 62-67",
+   "structure": "document",
+   "source_form": "image",
+   "items": [
+    {
+     "id": "product_name",
+     "kind": "field",
+     "label": "Product name:",
+     "parent": null,
+     "instruction": "complete",
+     "blank": "text"
+    },
+    {
+     "id": "lei",
+     "kind": "field",
+     "label": "Legal entity identifier:",
+     "parent": null,
+     "instruction": "complete",
+     "blank": "text"
+    },
+    {
+     "id": "h_es_characteristics",
+     "kind": "heading",
+     "label": "Environmental and/or social characteristics",
+     "parent": null
+    },
+    {
+     "id": "q_sust_obj",
+     "kind": "question",
+     "label": "Did this financial product have a sustainable investment objective?",
+     "parent": "h_es_characteristics",
+     "instruction": "tick and fill in as relevant, the percentage figure represents the minimum commitment to sustainable investments"
+    },
+    {
+     "id": "q_sust_obj.yes",
+     "kind": "choice",
+     "label": "Yes",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.no",
+     "kind": "choice",
+     "label": "No",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.yes.env",
+     "kind": "choice",
+     "label": "It made sustainable investments with an environmental objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.yes.env.taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env"
+    },
+    {
+     "id": "q_sust_obj.yes.env.non_taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env"
+    },
+    {
+     "id": "q_sust_obj.yes.social",
+     "kind": "choice",
+     "label": "It made sustainable investments with a social objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si",
+     "kind": "choice",
+     "label": "It promoted Environmental/Social (E/S) characteristics and while it did not have as its objective a sustainable investment, it had a proportion of ___% of sustainable investments",
+     "parent": "q_sust_obj.no",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_non_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.social",
+     "kind": "choice",
+     "label": "with a social objective",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_no_si",
+     "kind": "choice",
+     "label": "It promoted E/S characteristics, but did not make any sustainable investments",
+     "parent": "q_sust_obj.no"
+    },
+    {
+     "id": "q_es_met",
+     "kind": "question",
+     "label": "To what extent were the environmental and/or social characteristics promoted by this financial product met?",
+     "parent": null,
+     "instruction": "list the environmental and/or social characteristics promoted by the financial product. For the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852, in respect of sustainable investments with environmental objectives, list the environmental objectives set out in Article 9 of that Regulation to which the sustainable investment underlying the financial product contributed. For financial products that made sustainable investments with social objectives, list the social objectives"
+    },
+    {
+     "id": "q_es_met.indicators",
+     "kind": "question",
+     "label": "How did the sustainability indicators perform?",
+     "parent": "q_es_met"
+    },
+    {
+     "id": "def_sustainable_investment",
+     "kind": "definition",
+     "label": "Sustainable investment means an investment in an economic activity that contributes to an environmental or social objective, provided that the investment does not significantly harm any environmental or social objective and that the investee companies follow good governance practices.",
+     "parent": null
+    },
+    {
+     "id": "def_eu_taxonomy",
+     "kind": "definition",
+     "label": "The EU Taxonomy is a classification system laid down in Regulation (EU) 2020/852, establishing a list of environmentally sustainable economic activities. That Regulation does not lay down a list of socially sustainable economic activities. Sustainable investments with an environmental objective might be aligned with the Taxonomy or not.",
+     "parent": null
+    },
+    {
+     "id": "def_sustainability_indicators",
+     "kind": "definition",
+     "label": "Sustainability indicators measure how the environmental or social characteristics promoted by the financial product are attained.",
+     "parent": null
+    },
+    {
+     "id": "q_es_met.previous",
+     "kind": "question",
+     "label": "…and compared to previous periods?",
+     "parent": "q_es_met",
+     "instruction": "include for financial products where at least one previous periodic report was provided"
+    },
+    {
+     "id": "q_es_met.si_objectives",
+     "kind": "question",
+     "label": "What were the objectives of the sustainable investments that the financial product partially made and how did the sustainable investment contribute to such objectives?",
+     "parent": "q_es_met",
+     "instruction": "include for financial products that made sustainable investments, where not included in the reply to the above question, describe the objectives. Describe how the sustainable investments contributed to the sustainable investment objective. For the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852, list the environmental objectives set out in Article 9 of that Regulation to which the sustainable investment underlying the financial product contributed"
+    },
+    {
+     "id": "q_es_met.dnsh",
+     "kind": "question",
+     "label": "How did the sustainable investments that the financial product partially made not cause significant harm to any environmental or social sustainable investment objective?",
+     "parent": "q_es_met",
+     "instruction": "include where the financial product includes sustainable investments"
+    },
+    {
+     "id": "q_es_met.dnsh.pai",
+     "kind": "question",
+     "label": "How were the indicators for adverse impacts on sustainability factors taken into account?",
+     "parent": "q_es_met.dnsh"
+    },
+    {
+     "id": "q_es_met.dnsh.oecd",
+     "kind": "question",
+     "label": "Were sustainable investments aligned with the OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human Rights? Details:",
+     "parent": "q_es_met.dnsh"
+    },
+    {
+     "id": "text_dnsh_taxonomy_statement",
+     "kind": "text",
+     "label": "The EU Taxonomy sets out a “do not significant harm” principle by which Taxonomy-aligned investments should not significantly harm EU Taxonomy objectives and is accompanied by specific Union criteria.\n\nThe “do no significant harm” principle applies only to those investments underlying the financial product that take into account the Union criteria for environmentally sustainable economic activities. The investments underlying the remaining portion of this financial product do not take into account the Union criteria for environmentally sustainable economic activities.\n\nAny other sustainable investments must also not significantly harm any environmental or social objectives.",
+     "parent": "q_es_met.dnsh",
+     "instruction": "Include a statement for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852",
+     "note": "Printed in a shaded box; three paragraphs joined with blank lines. 'do not significant harm' (1st paragraph) is printed as such."
+    },
+    {
+     "id": "def_pai",
+     "kind": "definition",
+     "label": "Principal adverse impacts are the most significant negative impacts of investment decisions on sustainability factors relating to environmental, social and employee matters, respect for human rights, anti-corruption and anti-bribery matters.",
+     "parent": null
+    },
+    {
+     "id": "q_pai",
+     "kind": "question",
+     "label": "How did this financial product consider principal adverse impacts on sustainability factors?",
+     "parent": null,
+     "instruction": "include section if the financial product considered principal adverse impacts on sustainability factors"
+    },
+    {
+     "id": "q_top_inv",
+     "kind": "question",
+     "label": "What were the top investments of this financial product?",
+     "parent": null
+    },
+    {
+     "id": "table_top_inv",
+     "kind": "table",
+     "label": "",
+     "parent": "q_top_inv",
+     "note": "Table has no printed title; header row only, body blank."
+    },
+    {
+     "id": "table_top_inv.largest",
+     "kind": "table_column",
+     "label": "Largest investments",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "table_top_inv.sector",
+     "kind": "table_column",
+     "label": "Sector",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "table_top_inv.assets",
+     "kind": "table_column",
+     "label": "% Assets",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "table_top_inv.country",
+     "kind": "table_column",
+     "label": "Country",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "def_top_inv_list",
+     "kind": "definition",
+     "label": "The list includes the investments constituting the greatest proportion of investments of the financial product during the reference period which is:",
+     "parent": null,
+     "instruction": "complete",
+     "blank": "text"
+    },
+    {
+     "id": "q_proportion",
+     "kind": "question",
+     "label": "What was the proportion of sustainability-related investments?",
+     "parent": null
+    },
+    {
+     "id": "q_proportion.asset_alloc",
+     "kind": "question",
+     "label": "What was the asset allocation?",
+     "parent": "q_proportion"
+    },
+    {
+     "id": "def_asset_allocation",
+     "kind": "definition",
+     "label": "Asset allocation describes the share of investments in specific assets.",
+     "parent": null
+    },
+    {
+     "id": "chart_asset_alloc",
+     "kind": "chart",
+     "label": "",
+     "parent": "q_proportion.asset_alloc",
+     "instruction": "Include only relevant boxes, remove irrelevant ones for the financial product",
+     "note": "Asset-allocation tree; no printed title."
+    },
+    {
+     "id": "chart_asset_alloc.investments",
+     "kind": "chart_label",
+     "label": "Investments",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.n1_aligned",
+     "kind": "chart_label",
+     "label": "#1 Aligned with E/S characteristics",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.n2_other",
+     "kind": "chart_label",
+     "label": "#2 Other",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.n1a_sustainable",
+     "kind": "chart_label",
+     "label": "#1A Sustainable",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.n1b_other_es",
+     "kind": "chart_label",
+     "label": "#1B Other E/S characteristics",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.taxonomy_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.other_environmental",
+     "kind": "chart_label",
+     "label": "Other environmental",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.social",
+     "kind": "chart_label",
+     "label": "Social",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "text_n1_aligned",
+     "kind": "text",
+     "label": "#1 Aligned with E/S characteristics includes the investments of the financial product used to attain the environmental or social characteristics promoted by the financial product.",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "text_n2_other",
+     "kind": "text",
+     "label": "#2Other includes the remaining investments of the financial product which are neither aligned with the environmental or social characteristics, nor are qualified as sustainable investments.",
+     "parent": "chart_asset_alloc",
+     "note": "'#2Other' printed without a space."
+    },
+    {
+     "id": "text_n1_subcategories",
+     "kind": "text",
+     "label": "The category #1 Aligned with E/S characteristics covers:\n- The sub-category #1A Sustainable covers environmentally and socially sustainable investments.\n- The sub-category #1B Other E/S characteristics covers investments aligned with the environmental or social characteristics that do not qualify as sustainable investments.",
+     "parent": "chart_asset_alloc",
+     "instruction": "include the note below where the financial product made sustainable investments"
+    },
+    {
+     "id": "q_proportion.sectors",
+     "kind": "question",
+     "label": "In which economic sectors were the investments made?",
+     "parent": "q_proportion"
+    },
+    {
+     "id": "q_taxonomy",
+     "kind": "question",
+     "label": "To what extent were the sustainable investments with an environmental objective aligned with the EU Taxonomy?",
+     "parent": "q_proportion",
+     "instruction": "include section for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852 and include information in accordance with Article 51 of this Regulation"
+    },
+    {
+     "id": "text_graphs_intro",
+     "kind": "text",
+     "label": "The graphs below show in green the percentage of investments that were aligned with the EU Taxonomy. As there is no appropriate methodology to determine the taxonomy-alignment of sovereign bonds*, the first graph shows the Taxonomy alignment in relation to all the investments of the financial product including sovereign bonds, while the second graph shows the Taxonomy alignment only in relation to the investments of the financial product other than sovereign bonds.",
+     "parent": "q_taxonomy"
+    },
+    {
+     "id": "chart_tax_incl",
+     "kind": "chart",
+     "label": "1. Taxonomy-alignment of investments including sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "Horizontal stacked bar chart; title printed on two lines."
+    },
+    {
+     "id": "chart_tax_incl.turnover",
+     "kind": "chart_label",
+     "label": "Turnover",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.capex",
+     "kind": "chart_label",
+     "label": "CapEx",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.opex",
+     "kind": "chart_label",
+     "label": "OpEx",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.axis_0",
+     "kind": "chart_label",
+     "label": "0%",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.axis_50",
+     "kind": "chart_label",
+     "label": "50%",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.axis_100",
+     "kind": "chart_label",
+     "label": "100%",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.x_pct",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_tax_incl",
+     "blank": "percent",
+     "note": "Placeholder printed on each green bar."
+    },
+    {
+     "id": "chart_tax_incl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy aligned investments",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_excl",
+     "kind": "chart",
+     "label": "2. Taxonomy-alignment of investments excluding sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "Horizontal stacked bar chart; title printed on two lines."
+    },
+    {
+     "id": "chart_tax_excl.turnover",
+     "kind": "chart_label",
+     "label": "Turnover",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.capex",
+     "kind": "chart_label",
+     "label": "CapEx",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.opex",
+     "kind": "chart_label",
+     "label": "OpEx",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_0",
+     "kind": "chart_label",
+     "label": "0%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_20",
+     "kind": "chart_label",
+     "label": "20%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_40",
+     "kind": "chart_label",
+     "label": "40%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_60",
+     "kind": "chart_label",
+     "label": "60%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_80",
+     "kind": "chart_label",
+     "label": "80%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_100",
+     "kind": "chart_label",
+     "label": "100%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.x_pct",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_tax_excl",
+     "blank": "percent",
+     "note": "Placeholder printed on each green bar."
+    },
+    {
+     "id": "chart_tax_excl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy aligned investments",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "text_sovereign_footnote",
+     "kind": "text",
+     "label": "*For the purpose of these graphs, ‘sovereign bonds’ consist of all sovereign exposures",
+     "parent": "q_taxonomy",
+     "note": "Printed under both graphs (applies to chart_taxo_incl and chart_taxo_excl). No final full stop printed."
+    },
+    {
+     "id": "def_taxonomy_kpis",
+     "kind": "definition",
+     "label": "Taxonomy-aligned activities are expressed as a share of:\n- turnover reflects the “greenness” of investee companies today.\n- capital expenditure (CapEx) shows the green investments made by investee companies, relevant for a transition to a green economy.\n- operational expenditure (OpEx) reflects the green operational activities of investee companies.",
+     "parent": null,
+     "instruction": "include note for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852",
+     "note": "Printed instruction has no closing square bracket."
+    },
+    {
+     "id": "q_taxonomy.transitional_enabling",
+     "kind": "question",
+     "label": "What was the share of investments made in transitional and enabling activities?",
+     "parent": "q_taxonomy",
+     "instruction": "include a breakdown of the proportions of investments during the reference period"
+    },
+    {
+     "id": "q_taxonomy.previous",
+     "kind": "question",
+     "label": "How did the percentage of investments that were aligned with the EU Taxonomy compare with previous reference periods?",
+     "parent": "q_taxonomy",
+     "instruction": "include where at least one previous periodic report was provided"
+    },
+    {
+     "id": "q_env_not_aligned",
+     "kind": "question",
+     "label": "What was the share of sustainable investments with an environmental objective not aligned with the EU Taxonomy?",
+     "parent": "q_proportion",
+     "instruction": "include section only for the financial products referred to in Article 6, first subparagraph, of Regulation (EU) 2020/852 where the financial product included sustainable investments with an environmental objective that invested in economic activities that are not environmentally sustainable economic activities, and explain why the financial product invested in economic activities that were not Taxonomy-aligned"
+    },
+    {
+     "id": "q_social",
+     "kind": "question",
+     "label": "What was the share of socially sustainable investments?",
+     "parent": "q_proportion",
+     "instruction": "include only where the financial product included sustainable investments with a social objective"
+    },
+    {
+     "id": "q_other",
+     "kind": "question",
+     "label": "What investments were included under “other”, what was their purpose and were there any minimum environmental or social safeguards?",
+     "parent": "q_proportion"
+    },
+    {
+     "id": "q_actions",
+     "kind": "question",
+     "label": "What actions have been taken to meet the environmental and/or social characteristics during the reference period?",
+     "parent": null,
+     "instruction": "list the actions taken within in the period covered by the periodic report to meet the environmental or social characteristics promoted by the financial product, including shareholder engagement as referred to in Article 3g of Directive 2007/36/EC and any other engagement relating to the environmental or social characteristics promoted by the financial product",
+     "note": "'within in the period' as printed."
+    },
+    {
+     "id": "def_enabling_transitional",
+     "kind": "definition",
+     "label": "Enabling activities directly enable other activities to make a substantial contribution to an environmental objective.\n\nTransitional activities are activities for which low-carbon alternatives are not yet available and among others have greenhouse gas emission levels corresponding to the best performance.",
+     "parent": null,
+     "instruction": "include note only for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852"
+    },
+    {
+     "id": "def_env_not_aligned",
+     "kind": "definition",
+     "label": "are sustainable investments with an environmental objective that do not take into account the criteria for environmentally sustainable economic activities under Regulation (EU) 2020/852.",
+     "parent": null,
+     "instruction": "include note for the financial products referred to in Article 6, first paragraph, of Regulation (EU) 2020/852 that invest in environmental economic activities that are not environmentally sustainable economic activities",
+     "note": "Text begins after an icon (crossed-out EU Taxonomy symbol) standing for the subject of the sentence."
+    },
+    {
+     "id": "q_benchmark",
+     "kind": "question",
+     "label": "How did this financial product perform compared to the reference benchmark?",
+     "parent": null,
+     "instruction": "include section where an index has been designated as a reference benchmark for the purpose of attaining the environmental or social characteristics promoted by the financial product and indicate where the methodology used for the calculation of the designated index can be found"
+    },
+    {
+     "id": "q_benchmark.vs_broad_def",
+     "kind": "question",
+     "label": "How does the reference benchmark differ from a broad market index?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.indicators",
+     "kind": "question",
+     "label": "How did this financial product perform with regard to the sustainability indicators to determine the alignment of the reference benchmark with the environmental or social characteristics promoted?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.vs_benchmark",
+     "kind": "question",
+     "label": "How did this financial product perform compared with the reference benchmark?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.vs_broad",
+     "kind": "question",
+     "label": "How did this financial product perform compared with the broad market index?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "def_reference_benchmark",
+     "kind": "definition",
+     "label": "Reference benchmarks are indexes to measure whether the financial product attains the environmental or social characteristics that they promote.",
+     "parent": null,
+     "instruction": "include note for financial products where an index has been designated as a reference benchmark for the purpose of attaining the environmental or social characteristics promoted by the financial product"
+    }
+   ],
+   "instructions": [
+    {
+     "ref": "Article 50(1)",
+     "quote": "financial market participants shall present the information referred to in Article 11(1) of Regulation (EU) 2019/2088 in an annex to the document or information referred to in Article 11(2) of that Regulation in the form of the template set out in Annex IV to this Regulation."
+    },
+    {
+     "ref": "Article 52(1)",
+     "quote": "The section ‘What were the top investments of this financial product?’ in the template set out in Annex IV to this Regulation shall contain a list, in descending order of size, of the fifteen investments constituting the largest proportion of investments"
+    },
+    {
+     "ref": "Article 53",
+     "quote": "In the section ‘What was the asset allocation?’ in the template set out in Annex IV to this Regulation, financial market participants shall provide a description of the investments of the financial product"
+    },
+    {
+     "ref": "Article 54",
+     "quote": "In the section ‘In which economic sectors were the investments made?’ in the template set out in Annex IV to this Regulation, financial market participants shall provide information on the proportion of investments during the period covered by the periodic report in different sectors and sub-sectors"
+    },
+    {
+     "ref": "Article 56",
+     "quote": "the section ‘What was the proportion of sustainability-related investments?’ in the template set out in Annex IV shall contain the share of those sustainable investments."
+    },
+    {
+     "ref": "Article 57(1)",
+     "quote": "In the section ‘How did this financial product perform compared to the designated reference benchmark?’ in the template set out in Annex IV to this Regulation, financial market participants shall"
+    },
+    {
+     "ref": "Article 55(1)",
+     "quote": "the section ‘What was the proportion of sustainability-related investments?’ in the template set out in Annex IV shall contain all of the following information:"
+    },
+    {
+     "ref": "Article 65(3)",
+     "quote": "Financial market participants shall present the information referred to in paragraph 2, point (a), in the form of the template set out in Annex IV"
+    },
+    {
+     "ref": "Article 68 (entry into force and application; published OJ L 196, 25.7.2022)",
+     "quote": "This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union. This Regulation shall apply from 1 January 2023."
+    }
+   ],
+   "second_pass": {
+    "by": "independent agent re-reading the OJ page images",
+    "checked": "2026-09-29",
+    "changes": []
+   },
+   "capture_notes": [
+    "ids aligned with AV for the same printed items (tools/harmonise.py)",
+    "assembly id alignment across annexes: q_not_aligned -> q_env_not_aligned; def_not_aligned -> def_env_not_aligned; q_benchmark.differ -> q_benchmark.vs_broad_def; def_reference_benchmarks -> def_reference_benchmark"
+   ],
+   "source_images": [
+    "src2/img/32022R1288_16.jpg",
+    "src2/img/32022R1288_17.jpg",
+    "src2/img/32022R1288_18.jpg",
+    "src2/img/32022R1288_19.jpg",
+    "src2/img/32022R1288_20.jpg",
+    "src2/img/32022R1288_21.jpg"
+   ]
+  },
+  {
+   "id": "AV",
+   "code": "Annex V",
+   "title": "Template periodic disclosure for the financial products referred to in Article 9, paragraphs 1 to 4a, of Regulation (EU) 2019/2088 and Article 5, first paragraph, of Regulation (EU) 2020/852",
+   "ref": "Annex V to Delegated Regulation (EU) 2022/1288, OJ L 196, 25.7.2022, p. 68",
+   "structure": "document",
+   "source_form": "image",
+   "items": [
+    {
+     "id": "product_name",
+     "kind": "field",
+     "label": "Product name:",
+     "parent": null,
+     "blank": "text",
+     "note": "'[complete]' printed in red"
+    },
+    {
+     "id": "lei",
+     "kind": "field",
+     "label": "Legal entity identifier:",
+     "parent": null,
+     "blank": "text",
+     "note": "'[complete]' printed in red"
+    },
+    {
+     "id": "h_sust_obj",
+     "kind": "heading",
+     "label": "Sustainable investment objective",
+     "parent": null
+    },
+    {
+     "id": "q_sust_obj",
+     "kind": "question",
+     "label": "Did this financial product have a sustainable investment objective?",
+     "parent": "h_sust_obj",
+     "instruction": "tick and fill in as relevant, the percentage figure represents the minimum commitment to sustainable investments"
+    },
+    {
+     "id": "q_sust_obj.yes",
+     "kind": "choice",
+     "label": "Yes",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.yes.env",
+     "kind": "choice",
+     "label": "It made sustainable investments with an environmental objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.yes.env.taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env"
+    },
+    {
+     "id": "q_sust_obj.yes.env.non_taxonomy",
+     "kind": "choice",
+     "label": "in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.yes.env"
+    },
+    {
+     "id": "q_sust_obj.yes.social",
+     "kind": "choice",
+     "label": "It made sustainable investments with a social objective: ___%",
+     "parent": "q_sust_obj.yes",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no",
+     "kind": "choice",
+     "label": "No",
+     "parent": "q_sust_obj"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si",
+     "kind": "choice",
+     "label": "It promoted Environmental/Social (E/S) characteristics and while it did not have as its objective a sustainable investment, it had a proportion of ___% of sustainable investments",
+     "parent": "q_sust_obj.no",
+     "blank": "percent"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.env_non_taxonomy",
+     "kind": "choice",
+     "label": "with an environmental objective in economic activities that do not qualify as environmentally sustainable under the EU Taxonomy",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_with_si.social",
+     "kind": "choice",
+     "label": "with a social objective",
+     "parent": "q_sust_obj.no.es_with_si"
+    },
+    {
+     "id": "q_sust_obj.no.es_no_si",
+     "kind": "choice",
+     "label": "It promoted E/S characteristics, but did not make any sustainable investments",
+     "parent": "q_sust_obj.no"
+    },
+    {
+     "id": "q_sio_met",
+     "kind": "question",
+     "label": "To what extent was the sustainable investment objective of this financial product met?",
+     "parent": null,
+     "instruction": "list the sustainable investment objective of this financial product, and describe how the sustainable investments contributed to the sustainable investment objective. For the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852, in respect of sustainable investments with environmental objectives, indicate to which environmental objectives set out in Article 9 of Regulation (EU) 2020/852 to the investment underlying the financial product contributed to. For the financial products referred to in Article 9(3) of Regulation (EU) 2019/2088, indicate how the objective of a reduction in carbon emissions was aligned with the Paris Agreement"
+    },
+    {
+     "id": "q_sio_met.indicators",
+     "kind": "question",
+     "label": "How did the sustainability indicators perform?",
+     "parent": "q_sio_met"
+    },
+    {
+     "id": "def_sustainable_investment",
+     "kind": "definition",
+     "label": "Sustainable investment means an investment in an economic activity that contributes to an environmental or social objective, provided that the investment does not significantly harm any environmental or social objective and that the investee companies follow good governance practices.",
+     "parent": null
+    },
+    {
+     "id": "def_eu_taxonomy",
+     "kind": "definition",
+     "label": "The EU Taxonomy is a classification system laid down in Regulation (EU) 2020/852 establishing a list of environmentally sustainable economic activities. That Regulation does not lay down a list of socially sustainable economic activities. Sustainable investments with an environmental objective might be aligned with the Taxonomy or not.",
+     "parent": null
+    },
+    {
+     "id": "def_sustainability_indicators",
+     "kind": "definition",
+     "label": "Sustainability indicators measure how the sustainable objectives of this financial product are attained.",
+     "parent": null
+    },
+    {
+     "id": "q_sio_met.previous",
+     "kind": "question",
+     "label": "…and compared to previous periods?",
+     "parent": "q_sio_met",
+     "instruction": "include for financial products where at least one previous periodic report was provided"
+    },
+    {
+     "id": "q_sio_met.dnsh",
+     "kind": "question",
+     "label": "How did the sustainable investments not cause significant harm to any sustainable investment objective?",
+     "parent": "q_sio_met",
+     "instruction": "include where the financial product includes sustainable investments"
+    },
+    {
+     "id": "q_sio_met.dnsh.pai",
+     "kind": "question",
+     "label": "How were the indicators for adverse impacts on sustainability factors taken into account?",
+     "parent": "q_sio_met.dnsh"
+    },
+    {
+     "id": "q_sio_met.dnsh.oecd",
+     "kind": "question",
+     "label": "Were sustainable investments aligned with the OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human Rights? Details:",
+     "parent": "q_sio_met.dnsh"
+    },
+    {
+     "id": "q_pai",
+     "kind": "question",
+     "label": "How did this financial product consider principal adverse impacts on sustainability factors?",
+     "parent": null,
+     "instruction": "include section if the financial product considered principal adverse impacts on sustainability factors"
+    },
+    {
+     "id": "q_top_inv",
+     "kind": "question",
+     "label": "What were the top investments of this financial product?",
+     "parent": null
+    },
+    {
+     "id": "table_top_inv",
+     "kind": "table",
+     "label": "Largest investments | Sector | % Assets | Country",
+     "parent": "q_top_inv",
+     "note": "Label is the concatenated column headers; see table_column children."
+    },
+    {
+     "id": "table_top_inv.largest",
+     "kind": "table_column",
+     "label": "Largest investments",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "table_top_inv.sector",
+     "kind": "table_column",
+     "label": "Sector",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "table_top_inv.assets",
+     "kind": "table_column",
+     "label": "% Assets",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "table_top_inv.country",
+     "kind": "table_column",
+     "label": "Country",
+     "parent": "table_top_inv"
+    },
+    {
+     "id": "def_pai",
+     "kind": "definition",
+     "label": "Principal adverse impacts are the most significant negative impacts of investment decisions on sustainability factors relating to environmental, social and employee matters, respect for human rights, anti-corruption and anti-bribery matters.",
+     "parent": null
+    },
+    {
+     "id": "def_top_inv_list",
+     "kind": "definition",
+     "label": "The list includes the investments constituting the greatest proportion of investments of the financial product during the reference period which is:",
+     "parent": null,
+     "blank": "text",
+     "note": "'[complete]' printed in red after the text"
+    },
+    {
+     "id": "q_proportion",
+     "kind": "question",
+     "label": "What was the proportion of sustainability-related investments?",
+     "parent": null
+    },
+    {
+     "id": "q_proportion.asset_alloc",
+     "kind": "question",
+     "label": "What was the asset allocation?",
+     "parent": "q_proportion"
+    },
+    {
+     "id": "chart_asset_alloc",
+     "kind": "chart",
+     "label": "Asset allocation tree",
+     "parent": "q_proportion.asset_alloc",
+     "instruction": "Include only relevant boxes, remove irrelevant ones for the financial product",
+     "note": "Label is descriptive (no printed title); printed box texts are the chart_label children."
+    },
+    {
+     "id": "chart_asset_alloc.investments",
+     "kind": "chart_label",
+     "label": "Investments",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.sustainable",
+     "kind": "chart_label",
+     "label": "#1 Sustainable",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.not_sustainable",
+     "kind": "chart_label",
+     "label": "#2 Not sustainable",
+     "parent": "chart_asset_alloc"
+    },
+    {
+     "id": "chart_asset_alloc.environmental",
+     "kind": "chart_label",
+     "label": "Environmental",
+     "parent": "chart_asset_alloc",
+     "note": "child of #1 Sustainable"
+    },
+    {
+     "id": "chart_asset_alloc.social",
+     "kind": "chart_label",
+     "label": "Social",
+     "parent": "chart_asset_alloc",
+     "note": "child of #1 Sustainable"
+    },
+    {
+     "id": "chart_asset_alloc.taxonomy_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy-aligned",
+     "parent": "chart_asset_alloc",
+     "note": "child of Environmental"
+    },
+    {
+     "id": "chart_asset_alloc.other",
+     "kind": "chart_label",
+     "label": "Other",
+     "parent": "chart_asset_alloc",
+     "note": "child of Environmental"
+    },
+    {
+     "id": "chart_asset_alloc.legend_sustainable",
+     "kind": "chart_label",
+     "label": "#1 Sustainable covers sustainable investments with environmental or social objectives.",
+     "parent": "chart_asset_alloc",
+     "note": "legend text printed at right of the tree"
+    },
+    {
+     "id": "chart_asset_alloc.legend_not_sustainable",
+     "kind": "chart_label",
+     "label": "#2 Not sustainable includes investments which do not qualify as sustainable investments.",
+     "parent": "chart_asset_alloc",
+     "note": "legend text printed at right of the tree"
+    },
+    {
+     "id": "q_proportion.sectors",
+     "kind": "question",
+     "label": "In which economic sectors were the investments made?",
+     "parent": "q_proportion"
+    },
+    {
+     "id": "q_taxonomy",
+     "kind": "question",
+     "label": "To what extent were sustainable investments with an environmental objective aligned with the EU Taxonomy?",
+     "parent": null,
+     "instruction": "include section for the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852 and include information in accordance with Article 59 of this Regulation",
+     "note": "V1 cross-refers to Article 59 (which in the V1 articles concerns attainment of the objective; the Taxonomy content is Article 62)."
+    },
+    {
+     "id": "text_graphs_intro",
+     "kind": "text",
+     "label": "The graphs below show in green the percentage of investments that were aligned with the EU Taxonomy. As there is no appropriate methodology to determine the taxonomy-alignment of sovereign bonds*, the first graph shows the Taxonomy alignment in relation to all the investments of the financial product including sovereign bonds, while the second graph shows the Taxonomy alignment only in relation to the investments of the financial product other than sovereign bonds.",
+     "parent": "q_taxonomy"
+    },
+    {
+     "id": "def_asset_allocation",
+     "kind": "definition",
+     "label": "Asset allocation describes the share of investments in specific assets.",
+     "parent": null
+    },
+    {
+     "id": "def_taxonomy_kpis",
+     "kind": "definition",
+     "label": "Taxonomy-aligned activities are expressed as a share of: - turnover reflecting the share of revenue from green activities of investee companies - capital expenditure (CapEx) showing the green investments made by investee companies, e.g. for a transition to a green economy. - operational expenditure (OpEx) reflecting green operational activities of investee companies.",
+     "parent": null,
+     "instruction": "include note only for the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852"
+    },
+    {
+     "id": "chart_tax_incl",
+     "kind": "chart",
+     "label": "1. Taxonomy-alignment of investments including sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "Horizontal bar chart; title printed on two lines."
+    },
+    {
+     "id": "chart_tax_incl.turnover",
+     "kind": "chart_label",
+     "label": "Turnover",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.capex",
+     "kind": "chart_label",
+     "label": "CapEx",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.opex",
+     "kind": "chart_label",
+     "label": "OpEx",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.x_pct",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_tax_incl",
+     "note": "one 'x%' placeholder per bar (3)"
+    },
+    {
+     "id": "chart_tax_incl.axis_0",
+     "kind": "chart_label",
+     "label": "0%",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.axis_50",
+     "kind": "chart_label",
+     "label": "50%",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.axis_100",
+     "kind": "chart_label",
+     "label": "100%",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy aligned investments",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_incl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_tax_incl"
+    },
+    {
+     "id": "chart_tax_excl",
+     "kind": "chart",
+     "label": "2. Taxonomy-alignment of investments excluding sovereign bonds*",
+     "parent": "q_taxonomy",
+     "note": "Horizontal bar chart; title printed on two lines."
+    },
+    {
+     "id": "chart_tax_excl.turnover",
+     "kind": "chart_label",
+     "label": "Turnover",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.capex",
+     "kind": "chart_label",
+     "label": "CapEx",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.opex",
+     "kind": "chart_label",
+     "label": "OpEx",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.x_pct",
+     "kind": "chart_label",
+     "label": "x%",
+     "parent": "chart_tax_excl",
+     "note": "one 'x%' placeholder per bar (3)"
+    },
+    {
+     "id": "chart_tax_excl.axis_0",
+     "kind": "chart_label",
+     "label": "0%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_20",
+     "kind": "chart_label",
+     "label": "20%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_40",
+     "kind": "chart_label",
+     "label": "40%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_60",
+     "kind": "chart_label",
+     "label": "60%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_80",
+     "kind": "chart_label",
+     "label": "80%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.axis_100",
+     "kind": "chart_label",
+     "label": "100%",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.legend_aligned",
+     "kind": "chart_label",
+     "label": "Taxonomy aligned investments",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "chart_tax_excl.legend_other",
+     "kind": "chart_label",
+     "label": "Other investments",
+     "parent": "chart_tax_excl"
+    },
+    {
+     "id": "text_sovereign_footnote",
+     "kind": "text",
+     "label": "*For the purpose of these graphs, ‘sovereign bonds’ consist of all sovereign exposures",
+     "parent": "chart_tax_incl",
+     "note": "Printed once below both graphs; applies to both."
+    },
+    {
+     "id": "q_taxonomy.transitional_enabling",
+     "kind": "question",
+     "label": "What was the share of investments made in transitional and enabling activities?",
+     "parent": "q_taxonomy",
+     "instruction": "include a breakdown of the proportions of investments during the reference period"
+    },
+    {
+     "id": "q_taxonomy.previous",
+     "kind": "question",
+     "label": "How did the percentage of investments aligned with the EU Taxonomy compare with previous reference periods?",
+     "parent": "q_taxonomy",
+     "instruction": "include where at least one previous periodic report was provided"
+    },
+    {
+     "id": "q_env_not_aligned",
+     "kind": "question",
+     "label": "What was the share of sustainable investments with an environmental objective that were not aligned with the EU Taxonomy?",
+     "parent": null,
+     "instruction": "include only for the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852 where the financial product included investments with an environmental objective that invested in economic activities that are not environmentally sustainable economic activities and explain why the financial product invested in economic activities that were not taxonomy-aligned"
+    },
+    {
+     "id": "q_social",
+     "kind": "question",
+     "label": "What was the share of socially sustainable investments?",
+     "parent": null,
+     "instruction": "include only where the financial product includes sustainable investments with a social objective"
+    },
+    {
+     "id": "def_enabling",
+     "kind": "definition",
+     "label": "Enabling activities directly enable other activities to make a substantial contribution to an environmental objective",
+     "parent": null,
+     "instruction": "include note for the financial products referred to in Article 5 , first paragraph, of Regulation (EU) 2020/852.",
+     "note": "Same grey box as def_transitional."
+    },
+    {
+     "id": "def_transitional",
+     "kind": "definition",
+     "label": "Transitional activities are economic activities for which low-carbon alternatives are not yet available and that have greenhouse gas emission levels corresponding to the best performance.",
+     "parent": null
+    },
+    {
+     "id": "def_env_not_aligned",
+     "kind": "definition",
+     "label": "are sustainable investments with an environmental objective that do not take into account the criteria for environmentally sustainable economic activities under the EU Taxonomy.",
+     "parent": null,
+     "instruction": "include note for the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852 that invest in environmental economic activities that are not environmentally sustainable economic activities",
+     "note": "Text is preceded by the 'not Taxonomy-aligned' icon, which stands as the subject of the sentence."
+    },
+    {
+     "id": "q_not_sustainable",
+     "kind": "question",
+     "label": "What investments were included under “not sustainable”, what was their purpose and were there any minimum environmental or social safeguards?",
+     "parent": null
+    },
+    {
+     "id": "q_actions",
+     "kind": "question",
+     "label": "What actions have been taken to attain the sustainable investment objective during the reference period?",
+     "parent": null,
+     "instruction": "list the actions taken within the period covered by the periodic report to attain the sustainable investment objective of the financial product, including shareholder engagement as referred to in Article 3g of Directive 2007/36/EC and any other engagement relating to the sustainable investment objective"
+    },
+    {
+     "id": "q_benchmark",
+     "kind": "question",
+     "label": "How did this financial product perform compared to the reference sustainable benchmark?",
+     "parent": null,
+     "instruction": "include section only for the financial products referred to in Article 9(1) of Regulation (EU) 2019/2088 and indicate where the methodology used for the calculation of the designated index can be found"
+    },
+    {
+     "id": "q_benchmark.vs_broad_def",
+     "kind": "question",
+     "label": "How did the reference benchmark differ from a broad market index?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.indicators",
+     "kind": "question",
+     "label": "How did this financial product perform with regard to the sustainability indicators to determine the alignment of the reference benchmark with the sustainable investment objective?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.vs_benchmark",
+     "kind": "question",
+     "label": "How did this financial product perform compared with the reference benchmark?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "q_benchmark.vs_broad",
+     "kind": "question",
+     "label": "How did this financial product perform compared with the broad market index?",
+     "parent": "q_benchmark"
+    },
+    {
+     "id": "def_reference_benchmark",
+     "kind": "definition",
+     "label": "Reference benchmarks are indexes to measure whether the financial product attains the sustainable objective.",
+     "parent": null,
+     "instruction": "include note for the financial products referred to in Article 9(1) of Regulation (EU) 2019/2088"
+    }
+   ],
+   "instructions": [
+    {
+     "ref": "Article 58",
+     "quote": "For financial products that have sustainable investment as their objective, financial market participants shall present the information referred to in Article 11(1) of Regulation (EU) 2019/2088 in an annex to the document or information referred to in Article 11(2)"
+    },
+    {
+     "ref": "Article 59",
+     "quote": "In the section ‘To what extent was the sustainable investment objective of this financial product met?’ in the template set out in Annex V, financial market participants shall provide all of the following information:"
+    },
+    {
+     "ref": "Article 60(1)",
+     "quote": "In the section ‘What were the top investments of this financial product?’ in the template set out in Annex V, financial market participants shall list, in descending order of size, the fifteen investments constituting the largest proportion of investments"
+    },
+    {
+     "ref": "Article 61(c)",
+     "quote": "(c) the proportion of investments during the period covered by the periodic report in different sectors and sub-sectors."
+    },
+    {
+     "ref": "Article 62(1)",
+     "quote": "For the financial products referred to in Article 5, first paragraph, of Regulation (EU) 2020/852, the section ‘What was the proportion of sustainability-related investments?’ in the template set out in Annex V shall contain all of the following information:"
+    },
+    {
+     "ref": "Article 68 (V1 application)",
+     "quote": "This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union . This Regulation shall apply from 1 January 2023."
+    }
+   ],
+   "second_pass": {
+    "by": "independent agent re-reading the OJ page images",
+    "checked": "2026-09-29",
+    "changes": []
+   }
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the OJ page images by one agent per annex (both versions, shared ids), every text-layer quote machine-checked verbatim against the OJ text; ids aligned across the Art. 8 and Art. 9 annexes for the same printed items",
+  "captured": "2026-09-29",
+  "second_pass": {
+   "by": "independent agent per annex re-reading the OJ page images",
+   "checked": "2026-09-29",
+   "changes": []
+  }
+ }
+}
