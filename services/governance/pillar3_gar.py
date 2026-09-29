@@ -140,7 +140,11 @@ def facts(a: dict, period: tuple[date, date] | None = None) -> dict:
             "col": col, "govt": (a.get("counterparty_govt_level") or "").strip().lower() or None,
             "trading": bool(a.get("trading_book")), "eu": eu_member(a.get("country")),
             "assessed": status in ("eligible", "aligned", "not_eligible"), "eligible": status in ("eligible", "aligned"),
-            "aligned": status == "aligned", "objective": a.get("taxonomy_objective"),
+            # alignment is known only where it is stated: an 'aligned' status or the client's CCM-sustainable fact. The
+            # Taxonomy classifier establishes eligibility only (it never returns 'aligned'), so 'eligible' ≠ 'not aligned'.
+            "aligned": status == "aligned" or a.get("ccm_sustainable") is True,
+            "aligned_known": status in ("aligned", "not_eligible") or a.get("ccm_sustainable") is not None,
+            "objective": a.get("taxonomy_objective"),
             "contribution": a.get("taxonomy_contribution"), "specialised": a.get("specialised_lending"),
             "new": bool(period and orig and period[0].isoformat() <= orig <= period[1].isoformat()),
             "ep": a.get("ep_score_kwh_m2"), "ep_estimated": a.get("ep_score_estimated"),
@@ -180,14 +184,17 @@ def _measure(pop: list[tuple[dict, float]], objective, measure) -> float | None:
     if measure == "gross":
         return sum(x for _, x in pop)
     if objective in ("ccm", "cca"):
+        # known for this objective: an exposure that states its objective, or one assessed as not eligible (zero for any)
+        known = [f for f, _ in pop if f["objective"] or (f["assessed"] and not f["eligible"])]
         pop = [(f, x) for f, x in pop if f["objective"] == objective]
-        stated = [f for f, _ in pop]
     else:
-        stated = [f for f, _ in pop if f["assessed"]]
-    if not stated:
+        known = [f for f, _ in pop if f["assessed"]]
+    if not known:
         return None
     if measure == "eligible":
         return sum(x for f, x in pop if f["eligible"])
+    if not any(f["aligned_known"] for f, _ in pop) and not any(f["aligned_known"] for f in known):
+        return None                                           # no exposure here has its alignment established
     aligned = [(f, x) for f, x in pop if f["aligned"]]
     if measure == "aligned":
         return sum(x for _, x in aligned)
@@ -221,7 +228,8 @@ def _assets_grid(spec: dict, tid: str, rows_rule: dict, gross_only_from: str, ta
                            for c, (o, m) in _COLS_ASSETS.items()}
         values[r["id"]]["_n"] = len(pop)
         values[r["id"]]["_gross_only"] = gross_only
-    gross_only_rows = {rid for rid, v in values.items() if v.get("_gross_only")}
+    order = [r["id"] for r in t["rows"]]
+    gross_only_rows = set(order[order.index(gross_only_from):]) if gross_only_from in order else set()
 
     def total(rid: str, seen: tuple = ()) -> dict:
         """A total row: the sum of the rows it names, each resolved first (a total may name a total printed below it)."""
@@ -231,8 +239,9 @@ def _assets_grid(spec: dict, tid: str, rows_rule: dict, gross_only_from: str, ta
             return values[rid]
         parts = [total(i, seen + (rid,)) for i in rows_rule[rid]["sum"]]
         values[rid] = {c: (sum(p[c] for p in parts if p.get(c) is not None)
-                           if any(p.get(c) is not None for p in parts) else None) for c in _COLS_ASSETS}
-        values[rid]["_gross_only"] = rid in gross_only_rows or all(p.get("_gross_only") for p in parts)
+                           if any(p.get(c) is not None for p in parts) and (c == "a" or rid not in gross_only_rows) else None)
+                       for c in _COLS_ASSETS}
+        values[rid]["_gross_only"] = rid in gross_only_rows
         return values[rid]
     for r in t["rows"]:
         if "sum" in rows_rule[r["id"]]:
@@ -295,6 +304,7 @@ def build(spec: dict, assets: list[dict], period_end: date | None = None) -> dic
     counts = {"exposures": len(tagged), "new_in_period": len(new),
               "instrument_assumed": sum(1 for f, _ in tagged if not f["instr_stated"]),
               "objective_stated": sum(1 for f, _ in tagged if f["objective"]),
+              "eligible_alignment_unknown": sum(1 for f, _ in tagged if f["eligible"] and not f["aligned_known"]),
               "nfc_nfrd_unstated": sum(1 for f, _ in tagged if f["cp"] == "non_financial_corporation" and f["nfrd"] is None),
               "unclassified_gross": ((t7.get("50") or {}).get("a") or 0) - ((t7.get("45") or {}).get("a") or 0)
                                     - ((t7.get("49") or {}).get("a") or 0),

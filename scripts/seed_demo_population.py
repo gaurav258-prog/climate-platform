@@ -295,6 +295,9 @@ def main() -> None:
         for typ, name, n in created:
             print(f"  {typ:14s} {name:32s} {n:4d} book rows")
         print(f"population seeded: {len(created)} new entities; each supervisory body now has 8")
+    # the cloned bank books carry the per-exposure facts for Pillar 3 Templates 2 and 7-9 (only empty facts are filled)
+    from scripts.seed_demo_gar_facts import main as seed_gar_facts
+    seed_gar_facts()
 
 
 if __name__ == "__main__":

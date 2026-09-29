@@ -201,6 +201,9 @@ def main():
             WHERE e.org_id = :o AND e.vertical = 'banking'
         """), {"o": DEMO_ORG}).scalar()
         print(f"{scored} of {len(assets)} assets fall in scored cells (rest = no_canonical_score)")
+    # the per-exposure facts a real loan tape carries for Pillar 3 Templates 2 and 7-9
+    from scripts.seed_demo_gar_facts import main as seed_gar_facts
+    seed_gar_facts()
 
 
 if __name__ == "__main__":

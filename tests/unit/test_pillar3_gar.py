@@ -56,7 +56,8 @@ def test_template7_golden_book(version):
     assert t7["45"]["a"] == 1050 and t7["46"]["a"] == 70 and t7["49"]["a"] == 70
     assert t7["50"]["a"] == 1150                                        # every asset, incl. the unclassified 30
     assert (t7["32"]["b"], t7["32"]["c"], t7["32"]["f"]) == (100, 100, 100)     # CCM eligible / aligned / enabling
-    assert (t7["32"]["g"], t7["32"]["h"]) == (200, 0)                   # CCA eligible, not aligned
+    assert (t7["32"]["g"], t7["32"]["h"]) == (200, 0)                   # CCA eligible; the row's alignment is established elsewhere
+    assert t7["20"]["m"] is None and t7["20"]["l"] == 200               # eligible only: alignment unknown, blank — never 0
     assert (t7["32"]["l"], t7["32"]["m"]) == (300, 100)                 # TOTAL eligible / aligned
     assert t7["33"]["b"] is None and t7["33"].get("_gross_only")        # excluded rows: gross only
 

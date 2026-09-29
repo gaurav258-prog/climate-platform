@@ -687,6 +687,10 @@ def _gar_note(counts: dict, tid: str) -> str:
         if counts["nfc_nfrd_unstated"]:
             bits.append(f"{counts['nfc_nfrd_unstated']:,} corporate exposures do not state whether the counterparty is subject "
                         "to NFRD disclosure, so they sit in no GAR or BTAR row — state nfrd_subject on the loan tape")
+        if counts.get("eligible_alignment_unknown"):
+            bits.append(f"{counts['eligible_alignment_unknown']:,} eligible exposures have no alignment established (technical "
+                        "screening, DNSH and minimum safeguards), so the aligned columns stay blank for them — state "
+                        "ccm_sustainable or an aligned status")
         if not counts["objective_stated"]:
             bits.append("no exposure states its Taxonomy objective, so the CCM and CCA columns stay blank; the total "
                         "(CCM + CCA) columns read the Taxonomy status alone")
