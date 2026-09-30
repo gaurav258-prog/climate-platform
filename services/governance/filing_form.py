@@ -272,7 +272,7 @@ def _sf_natcat_sections(sf: dict | None, e) -> list[dict]:
     head = [{"label": "Natural catastrophe risk — after risk mitigation", "value": e(sf.get("natcat_scr_eur")),
              "note": f"before mitigation {e(sf.get('natcat_scr_before_mitigation_eur'))} · reinsurance: "
                      f"{'attested treaty' if sf.get('treaty_basis') == 'attested' else 'none attested — no mitigation'}"},
-            {"label": "Version of the Regulation", "value": sf.get("version"), "note": sf.get("version_source")}]
+            {"label": "Version of the Regulation", "value": sf.get("version_name") or sf.get("version"), "note": sf.get("version_source")}]
     if not sf.get("complete", True):
         head += [{"label": "Incomplete", "value": x} for x in sf.get("incomplete", [])]
     head += [{"label": f"Reading — {r['subject']}", "value": "declared", "note": r["reading"]} for r in sf.get("readings", [])]

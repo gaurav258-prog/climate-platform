@@ -90,6 +90,18 @@ def name_lookup(session: Session, org_id: str) -> dict[str, str]:
     return out
 
 
+def root_of(session: Session, org_id: str, entity_ids: list | None) -> str | None:
+    """The entity a scoped book is for — the one in the set whose parent is outside it (a solo entity, or a group's top);
+    None for the whole organisation."""
+    if not entity_ids:
+        return None
+    ids = {str(e) for e in entity_ids}
+    rows = session.execute(text("SELECT entity_id::text, parent_entity_id::text FROM reporting_entities "
+                                "WHERE org_id = :o AND entity_id::text = ANY(:ids)"), {"o": org_id, "ids": list(ids)}).all()
+    tops = [e for e, p in rows if p not in ids]
+    return tops[0] if len(tops) == 1 else None
+
+
 def subtree_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
     """The entity + all its descendants (recursive) — the set of reporting entities a consolidated filing
     at `entity_id` covers. Tenant-scoped."""
@@ -328,7 +340,14 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
     return {"ok": True}
 
 
-def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None) -> dict[str, float]:
+# Solvency II group solvency, method 1 (Del. Reg. (EU) 2015/35 Art. 335(1)): subsidiaries fully consolidated (a),
+# jointly managed undertakings proportionally (c), holdings in other related undertakings by the adjusted equity method
+# (d) — their data are not consolidated, so their risks are not in the group's catastrophe figures. Not a switch.
+SOLVENCY2_METHOD1 = {"full": "full", "proportional": "proportional", "equity": "excluded"}
+
+
+def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None,
+                      regime: Optional[str] = None) -> dict[str, float]:
     """entity_id -> the fraction of its book that consolidates into `root_entity_id` (default: the top of the tree).
 
     Each entity's own link to its parent carries a factor by its consolidation method:
@@ -339,9 +358,12 @@ def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[st
     The weight is the PRODUCT of those factors along the path from the entity up to the root — a 60% stake held
     through a 50%-owned joint operation counts 30%, not 60% — and the root itself is 1.0: a sub-group's own
     consolidated filing takes its own book in full, whatever its parent holds of it. (Fixed 2026-09-26: each entity
-    used to carry only its own direct factor, and the filing root was scaled by its stake in its parent.)"""
+    used to carry only its own direct factor, and the filing root was scaled by its stake in its parent.)
+    regime='solvency2_method1': the equity method contributes nothing, whatever the switch (Art. 335(1)(d))."""
     from services.calc_settings import get_calc_settings
     equity_mode = get_calc_settings(session, org_id).get("equity_consolidation", "economic_share")
+    if regime == "solvency2_method1":
+        equity_mode = SOLVENCY2_METHOD1["equity"]
     rows = session.execute(text("""
         SELECT entity_id::text, parent_entity_id::text, ownership_pct::float, consolidation_method
         FROM reporting_entities WHERE org_id = :o

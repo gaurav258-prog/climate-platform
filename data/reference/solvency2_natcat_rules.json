@@ -19,7 +19,8 @@
     "hail": 5.0
    },
    "subsidence": "france_art_125_2019",
-   "source": "02015R0035-20241114 — every factor, weight and correlation verified cell by cell against the EU text (2026-09-30)"
+   "source": "02015R0035-20241114 — every factor, weight and correlation verified cell by cell against the EU text (2026-09-30)",
+   "name": "Delegated Regulation (EU) 2015/35 as amended by Delegated Regulation (EU) 2019/981"
   },
   {
    "id": "da_2015_35_as_2026_269",
@@ -38,7 +39,8 @@
     "hail": 10.0
    },
    "subsidence": "regional",
-   "source": "Delegated Regulation (EU) 2026/269 (CELEX 32026R0269), cross-checked cell by cell against 02015R0035-20270130"
+   "source": "Delegated Regulation (EU) 2026/269 (CELEX 32026R0269), cross-checked cell by cell against 02015R0035-20270130",
+   "name": "Delegated Regulation (EU) 2015/35 as amended by Delegated Regulation (EU) 2026/269"
   }
  ],
  "selection": {

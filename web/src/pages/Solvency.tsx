@@ -26,14 +26,10 @@ interface PerilBlock {
   before_eur?: number; after_eur?: number; diversification_after_eur?: number; complete?: boolean; incomplete?: string[]
 }
 interface SF {
-  available: boolean; version?: string; version_source?: string; reference_date?: string; treaty_basis?: 'attested' | 'none'
+  available: boolean; version?: string; version_name?: string; version_source?: string; reference_date?: string; treaty_basis?: 'attested' | 'none'
   natcat_scr_eur?: number; natcat_scr_before_mitigation_eur?: number; diversification_between_perils_after_eur?: number
   scr_by_peril_eur?: Record<string, number>; perils?: Record<string, PerilBlock>
   complete?: boolean; incomplete?: string[]; simplification_art_90b?: boolean; readings?: { subject: string; reading: string }[]
-}
-const VERSION_LABEL: Record<string, string> = {
-  da_2015_35_as_2019_981: 'Del. Reg. 2015/35 as amended by 2019/981',
-  da_2015_35_as_2026_269: 'Del. Reg. 2015/35 as amended by 2026/269 (from 30 Jan 2027)',
 }
 const METHOD: Record<SFRegion['method'], string> = { exact_zonal: 'exact zones', grouped_art90b: 'grouped · Art. 90b', single_zone: 'one zone' }
 interface ScrResp {
@@ -125,7 +121,7 @@ export default function Solvency() {
 
         {/* standard formula */}
         <Card>
-          <SectionHead icon={ShieldCheck} hint={VERSION_LABEL[sf?.version ?? ''] ?? 'Del. Reg. 2015/35'}>Standard formula</SectionHead>
+          <SectionHead icon={ShieldCheck} hint={sf?.version_name ?? 'Del. Reg. 2015/35'}>Standard formula</SectionHead>
           {sf?.available ? (
             <div className="mt-3">
               <StatGrid cols={2} items={[

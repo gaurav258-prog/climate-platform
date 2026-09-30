@@ -27,11 +27,11 @@ interface Dp {
   figure?: { reported: 'client' | 'tellumen'; client_value: number | string | null; tellumen_value: number | null; delta_pct: number | null; client_provider: string | null }
 }
 interface Group { group: string; datapoints: Dp[] }
-interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string }; greyed?: boolean }   // supply: a cell the institution enters ('<template>.<row>.<column>')
+interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null }; greyed?: boolean; frozen_value?: number | string | null }   // supply: a cell the institution enters ('<template>.<row>.<column>')
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string; kind?: 'document'; items?: DocItem[] }   // kind 'document': a template printed as a document (SFDR Annexes II–V)
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
-interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null }
+interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; reporting_entity_id?: string | null }
 
 // the currency the frozen filing presents in (fmt 'eur' = a money figure, whatever its currency)
 const CurrencyCtx = createContext('EUR')
@@ -50,7 +50,7 @@ const EDITABLE_STATUS = ['draft', 'returned', 'in_review', 'approved']  // never
 
 // a supplied template-cell value for this filing's period: attested (lands in the filing on its next refresh) or pending 4-eyes
 interface Supplied { value: string; status: 'pending' | 'attested'; by?: string | null }
-interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null }
+interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null }
 
 export default function FilingForm({ filingId }: { filingId: string }) {
   const { profile } = useAuth()
@@ -62,6 +62,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   const supplied: Record<string, Supplied> = {}
   for (const p of suppliedQ.data?.provided ?? []) {
     if (p.reporting_period_end !== q.data?.period_end || !['pending', 'attested'].includes(p.status)) continue
+    if ((p.reporting_entity_id ?? null) !== (q.data?.reporting_entity_id ?? null)) continue   // the filing's own entity's values
     supplied[p.datapoint_key] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
   }
   const onSupplied = () => qc.invalidateQueries({ queryKey: ['provided', q.data?.framework] })
@@ -149,12 +150,14 @@ function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }:
     setBusy(true)
     const n = Number(val.replace(/,/g, ''))
     try {
-      await api.post('/v1/provided', { framework: cell.supply.framework, datapoint_key: cell.supply.key, reporting_period_end: periodEnd,
+      await api.post('/v1/provided', { framework: cell.supply.framework, datapoint_key: cell.supply.key, reporting_period_end: periodEnd, reporting_entity_id: cell.supply.reporting_entity_id ?? undefined,
         ...(val.trim() !== '' && !Number.isNaN(n) ? { value_num: n } : { value_text: val.trim() }) })
       toast.success('Sent for attestation by a second person.'); setVal(''); onSaved()
     } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit this value.') } finally { setBusy(false) }
   }
-  const note = supplied && supplied.value !== frozen
+  // the value frozen in the filing (raw), not its display text: '5000000' and '€5.0m' are the same figure
+  const same = (a: string, b: unknown) => b != null && (a === String(b) || (a.trim() !== '' && !Number.isNaN(Number(a)) && Number(a) === Number(b)))
+  const note = supplied && !same(supplied.value, cell.frozen_value)
     ? <span className="mono text-[8.5px] inline-flex items-center gap-0.5" style={{ color: supplied.status === 'pending' ? 'var(--color-warn)' : 'var(--color-viz,#a78bfa)' }}>
         {supplied.status === 'pending' ? <><Clock size={8} />{supplied.value} awaiting attestation</> : <>{supplied.value} attested · refresh the draft</>}</span>
     : null

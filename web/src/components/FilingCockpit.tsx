@@ -404,7 +404,8 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
   const q = useQuery({ queryKey: ['filing', filingId], queryFn: () => api.get<FilingDetail>(`/v1/filings/${filingId}`) })
   const val = useQuery({ queryKey: ['filing-validation', filingId], queryFn: () => api.get<Validation>(`/v1/filings/${filingId}/validation`) })
   const f = q.data
-  const reload = () => { q.refetch(); val.refetch(); qc.invalidateQueries({ queryKey: ['filings'] }); qc.invalidateQueries({ queryKey: ['obligations'] }); onChanged() }
+  // a lifecycle action can re-freeze the filing (refresh, restate): its form and supplied values are re-read too
+  const reload = () => { q.refetch(); val.refetch(); qc.invalidateQueries({ queryKey: ['filings'] }); qc.invalidateQueries({ queryKey: ['obligations'] }); qc.invalidateQueries({ queryKey: ['filing-form', filingId] }); qc.invalidateQueries({ queryKey: ['provided'] }); onChanged() }
 
   return (
     <Drawer placement="full" label={f ? `Filing · ${f.label}` : 'Filing'} onClose={onClose} className="w-full max-w-6xl mx-auto min-h-full pb-16">
@@ -672,7 +673,7 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
       <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Next step</div>
       {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
 
-      {(f.status === 'draft' || f.status === 'returned') && (
+      {(f.status === 'draft' || f.status === 'returned') && canReview && (
         <div className="flex items-center gap-2 mb-2">
           <Button variant="ghost" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/refresh`, {}))} disabled={busy}>
             <RefreshCw size={13} /> Refresh data

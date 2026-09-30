@@ -38,6 +38,11 @@ def coverage_source(lane: str) -> str:
             "provided": "integrated", "report": "client"}.get(lane, "out_of_scope")
 
 
+# Report types whose provided values belong to one undertaking: Solvency II states own funds, the SCR, the reinsurance in
+# force and the nat-cat premiums per insurance undertaking and, separately, for the group (Directive 2009/138/EC Arts 100,
+# 218 ff.) — a solo filing uses its entity's own figures, a group filing the group's; never borrowed across.
+PER_ENTITY_REPORTS = frozenset({"insurer_solvency"})
+
 CATALOG: dict[str, list[dict]] = {
     "bank_tcfd": [
         _dp("phys_risk", "Physical climate-risk exposure — value at risk by hazard, scenario × horizon",

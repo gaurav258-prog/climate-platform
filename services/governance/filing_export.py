@@ -174,8 +174,12 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
     if framework == "insurer_solvency":
         # the frozen payload is a summary, not a per-policy book: {"rollup", "s2701"} (report_snapshots._insurer_solvency,
         # insurer_solvency.s2701_natcat; 's2601' in filings frozen before the template was corrected)
+        from services.governance import s2701_forms
         from services.governance.insurer_solvency import TEMPLATE, natcat_block
         from services.governance.solvency2_natcat import lines
+        laid_out = s2701_forms.workbook(payload)            # the template as Annex I prints it (spec-frozen filings)
+        if laid_out is not None:
+            return laid_out
         nb = natcat_block(payload)
         headers = ["section", "line", "exposure_eur", "specified_gross_loss_eur", "scenario", "before_mitigation_eur",
                    "risk_mitigation_eur", "reinstatement_premiums_eur", "after_mitigation_eur", "note"]

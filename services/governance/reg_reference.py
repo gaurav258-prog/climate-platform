@@ -139,6 +139,19 @@ REFERENCE: dict[str, dict] = {
         "inputs": "Statement of Values / policy book: insured location, sum insured, peril coverage, and "
                   "attachment / exhaustion where parametric.",
     },
+    "insurer_solvency": {
+        "official_name": "Solvency II — natural catastrophe risk (S.27.01.01, non-life and health catastrophe risk)",
+        "authority": "National competent authority (Solvency II supervisor) / EIOPA",
+        "legal_basis": "Directive 2009/138/EC Art. 35 · Delegated Regulation (EU) 2015/35 Arts 90b, 119-126, 304, 312",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32015R0035",
+        "summary": "An insurance undertaking reports its standard-formula natural catastrophe risk — windstorm, earthquake, "
+                   "flood, hail and subsidence, region by region, before and after risk mitigation — in the annual "
+                   "quantitative templates, 14 weeks after its financial year end.",
+        "official_form": "ITS (EU) 2023/894 — template S.27.01.01",
+        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R0894",
+        "inputs": "Statement of Values with each risk's postal code; own funds, SCR and the reinsurance in force; premiums "
+                  "to be earned for risks outside the Annex XIII regions — stated and attested per undertaking.",
+    },
     # EUDR is filed through the agri Disclosure page (TRACES DDS), but included for completeness of the reference.
     "eudr_dds": {
         "official_name": "EU Deforestation Regulation — Due Diligence Statement (TRACES)",

@@ -96,7 +96,7 @@ def _check_unit(dp: dict, value_num: float | None) -> None:
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
            value_num: float | None = None, value_text: str | None = None, unit: str | None = None,
            source: str = "client", provider_name: str | None = None, data_vintage: str | None = None,
-           period_label: str | None = None, reporting_period_end=None) -> dict:
+           period_label: str | None = None, reporting_period_end=None, reporting_entity_id: str | None = None) -> dict:
     """Record a provided value for a reporting period, reconcile it, and raise a 4-eyes attest request. It supersedes
     only the earlier value for the same datapoint and period."""
     from datetime import date
@@ -113,6 +113,7 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     if value_num is None and not (value_text or "").strip():
         raise ProvidedError("a value (numeric or text) is required")
     _check_unit(dp, value_num)
+    entity = _entity_scope(session, org_id, framework, reporting_entity_id)
 
     # reconcile against our baseline where one exists
     base = _baseline(session, org_id, framework, datapoint_key) if value_num is not None and "cell" not in dp else None
@@ -130,23 +131,24 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
         UPDATE provided_datapoint SET status='superseded'
         WHERE org_id=:o AND framework=:f AND datapoint_key=:k AND status IN ('pending','attested')
           AND reporting_period_end IS NOT DISTINCT FROM CAST(:pe AS date)
-    """), {"o": org_id, "f": framework, "k": datapoint_key, "pe": pe})
+          AND reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid)
+    """), {"o": org_id, "f": framework, "k": datapoint_key, "pe": pe, "e": entity})
 
     pid = session.execute(text("""
         INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, value_text, unit, source,
             provider_name, data_vintage, period_label, reporting_period_end, tellumen_value, delta_pct, within_tolerance,
-            recon_note, submitted_by)
-        VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl, CAST(:pe AS date),:tv,:dp,:wt,:rn,:by)
+            recon_note, submitted_by, reporting_entity_id)
+        VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl, CAST(:pe AS date),:tv,:dp,:wt,:rn,:by, CAST(:e AS uuid))
         RETURNING provided_id
     """), {"o": org_id, "f": framework, "k": datapoint_key, "vn": value_num, "vt": (value_text or None),
            "u": unit, "src": source, "pn": provider_name, "dv": data_vintage or None, "pl": period_label, "pe": pe,
-           "tv": base, "dp": delta_pct, "wt": within, "rn": note, "by": actor}).scalar()
+           "tv": base, "dp": delta_pct, "wt": within, "rn": note, "by": actor, "e": entity}).scalar()
 
     # raise the shared 4-eyes request (checker ≠ maker enforced by the approvals router)
     import json
     payload = {"provided_id": str(pid), "framework": framework, "datapoint_key": datapoint_key,
                "value_num": value_num, "value_text": value_text, "source": source,
-               "reporting_period_end": pe.isoformat() if pe else None}
+               "reporting_period_end": pe.isoformat() if pe else None, "reporting_entity_id": entity}
     title = f"Attest provided value · {dp['label'][:60]}"
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
@@ -169,10 +171,30 @@ def attest(session: Session, org_id: str, payload: dict, decision: str, actor: s
     return {"provided_id": pid, "status": status}
 
 
-def attested_values(session: Session, org_id: str, framework: str, period_end=None) -> list[dict]:
+def _entity_scope(session: Session, org_id: str, framework: str, reporting_entity_id: str | None) -> str | None:
+    """The entity a value is stated for: one of the organisation's reporting entities, only for a report type whose
+    figures belong to an undertaking (PER_ENTITY_REPORTS); None = the organisation as a whole."""
+    if reporting_entity_id is None:
+        return None
+    from services.governance.datapoint_catalog import PER_ENTITY_REPORTS
+    if framework not in PER_ENTITY_REPORTS:
+        raise ProvidedError(f"{framework} values are stated for the organisation as a whole, not per entity")
+    ok = session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) AND org_id = :o"),
+                         {"e": reporting_entity_id, "o": org_id}).first()
+    if not ok:
+        raise ProvidedError("no such reporting entity in this organisation")
+    return str(reporting_entity_id)
+
+
+def attested_values(session: Session, org_id: str, framework: str, period_end=None,
+                    reporting_entity_id: str | None = None) -> list[dict]:
     """The ATTESTED provided values of one reporting period — the ones that passed 4-eyes and therefore land in that
     period's filing (frozen into its snapshot). A value for another period, or with no period, never does.
+    reporting_entity_id: the entity the filing is for — a report type whose figures belong to an undertaking reads
+    exactly that entity's values (None = the organisation's own); any other reads the organisation's.
     Returned in a form-datapoint shape so the filing form/annex surfaces them as provided datapoints."""
+    from services.governance.datapoint_catalog import PER_ENTITY_REPORTS
+    entity = str(reporting_entity_id) if (reporting_entity_id and framework in PER_ENTITY_REPORTS) else None
     rows = session.execute(text("""
         SELECT p.datapoint_key, p.value_num, p.value_text, p.unit, p.source, p.provider_name, p.reporting_period_end,
                p.tellumen_value, p.delta_pct, p.within_tolerance, p.decided_at, du.email AS attested_by
@@ -180,8 +202,9 @@ def attested_values(session: Session, org_id: str, framework: str, period_end=No
         LEFT JOIN users du ON du.user_id = p.decided_by
         WHERE p.org_id = :o AND p.framework = :f AND p.status = 'attested'
           AND p.reporting_period_end = CAST(:pe AS date)
+          AND p.reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid)
         ORDER BY p.decided_at DESC
-    """), {"o": org_id, "f": framework, "pe": period_end}).mappings().all()
+    """), {"o": org_id, "f": framework, "pe": period_end, "e": entity}).mappings().all()
     labels = {d["key"]: d["label"] for fw in CATALOG.values() for d in fw}
     units = {d["key"]: d.get("unit") for fw in CATALOG.values() for d in fw}
     out = []
@@ -194,7 +217,7 @@ def attested_values(session: Session, org_id: str, framework: str, period_end=No
             "provider": r["provider_name"], "attested_by": r["attested_by"],
             "attested_at": r["decided_at"].isoformat() if r["decided_at"] else None,
             "tellumen_value": r["tellumen_value"], "delta_pct": r["delta_pct"],
-            "within_tolerance": r["within_tolerance"],
+            "within_tolerance": r["within_tolerance"], "reporting_entity_id": entity,
         })
     return out
 
@@ -205,7 +228,7 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
         SELECT p.provided_id::text AS provided_id, p.framework, p.datapoint_key, p.value_num, p.value_text,
                p.unit, p.source, p.provider_name, p.data_vintage, p.tellumen_value, p.delta_pct,
                p.within_tolerance, p.recon_note, p.status, p.submitted_at, su.email AS submitted_by,
-               du.email AS decided_by, p.period_label, p.reporting_period_end
+               du.email AS decided_by, p.period_label, p.reporting_period_end, p.reporting_entity_id::text AS reporting_entity_id
         FROM provided_datapoint p
         LEFT JOIN users su ON su.user_id = p.submitted_by
         LEFT JOIN users du ON du.user_id = p.decided_by
@@ -230,4 +253,5 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
              "submitted_by": r["submitted_by"], "decided_by": r["decided_by"],
              "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None,
              "period_label": r["period_label"],
-             "reporting_period_end": r["reporting_period_end"].isoformat() if r["reporting_period_end"] else None} for r in rows]
+             "reporting_period_end": r["reporting_period_end"].isoformat() if r["reporting_period_end"] else None,
+             "reporting_entity_id": r["reporting_entity_id"]} for r in rows]

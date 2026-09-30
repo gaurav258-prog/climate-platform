@@ -243,6 +243,7 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "period_end": r["period_end"].isoformat() if r["period_end"] else None,
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
             "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex,
+            "reporting_entity_id": ((r["payload"] or {}).get("_scope") or {}).get("reporting_entity_id"),
             "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx"))}
 
 
@@ -799,7 +800,8 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
         from services.governance import entities as _E
         entity_ids = _E.subtree_ids(session, org_id, entity_id)
         if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
-            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id)
+            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id,
+                                                 regime="solvency2_method1" if framework == "insurer_solvency" else None)
     if framework in _ENTITY_SCOPED:
         from services.governance.translation import plan
         translation = plan(session, org_id, entity_id, period_end, scope=entity_ids, weights=value_weights)

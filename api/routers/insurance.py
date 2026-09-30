@@ -138,17 +138,18 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
     return [_map_policy_row(r) for r in rows]
 
 
-def standard_formula_inputs(session, org_id: str, translation=None) -> dict:
+def standard_formula_inputs(session, org_id: str, translation=None, entity_id: str | None = None) -> dict:
     """What the Solvency II nat-cat standard formula takes besides the book, for the organisation's reporting date:
     the date (it selects the version of the Regulation), the ATTESTED reinsurance (the illustrative programme never
     mitigates a regulatory figure), the attested premiums and DIV for risks outside Annex XIII, and the governed UK
-    reading. Amounts are stated in EUR and follow the book's presentation currency."""
+    reading. Amounts are stated in EUR and follow the book's presentation currency. entity_id: the undertaking (or the
+    group's top entity) the book is for — its own attested figures; None = the organisation's."""
     from services.governance.reporting_settings import get_settings
     from services.insurer_capital import natcat_other_regions, programme
     pe = get_settings(session, org_id)["reporting_period_end"]
     ref = date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31)
-    treaty, basis = programme(session, org_id, ref)
-    other = natcat_other_regions(session, org_id, ref)
+    treaty, basis = programme(session, org_id, ref, entity_id)
+    other = natcat_other_regions(session, org_id, ref, entity_id)
     if translation is not None and translation.presentation != "EUR":
         from services.governance.translation import from_eur
         treaty = {k: from_eur(session, translation, v) if k.endswith("_eur") and v is not None else v for k, v in treaty.items()}
@@ -267,7 +268,7 @@ def zones_of(policies: list) -> dict:
 
 
 def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
-                              zones=None):
+                              zones=None, reporting_entity_id=None):
     """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
     loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view.
     entity_ids / value_weights scope + consolidation-weight the book (None = whole org). zones: accumulation zones held
@@ -299,7 +300,11 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     from services.governance.reporting_settings import get_settings
     from services.insurer_capital import programme
     pe = get_settings(session, org_id)["reporting_period_end"]
-    prog, prog_basis = programme(session, org_id, date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31))
+    if reporting_entity_id is None and entity_ids:          # the undertaking (or group top) this scoped book is for
+        from services.governance.entities import root_of
+        reporting_entity_id = root_of(session, org_id, entity_ids)
+    prog, prog_basis = programme(session, org_id, date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31),
+                                 reporting_entity_id)
     if translation is not None and translation.presentation != "EUR":      # treaty layers are stated in EUR
         from services.governance.translation import from_eur
         prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur") and v is not None}}
@@ -308,7 +313,8 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     cat = rollup.get("catastrophe") or {}
     return {
         "rollup": rollup, "policies": policies, "by_hazard": hazards,
-        "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon, standard_formula_inputs(session, org_id, translation)),
+        "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon,
+                                      standard_formula_inputs(session, org_id, translation, reporting_entity_id)),
         "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": prog_basis},
         "investments": _investments_block(session, org_id, scenario, horizon, _st, translation=translation),
     }

@@ -660,7 +660,8 @@ def _spec_values_section(spec: dict, tid: str, values: dict, key: str, binding: 
             elif how == "input:cell":
                 got = (supplied or {}).get(cell_key)
                 shown = "—" if got is None else (fmt(c["id"], got) if isinstance(got, (int, float)) else str(got))
-                cells.append({**_mnum(shown, "manual"), "key": cell_key, "supply": {"framework": framework, "key": cell_key}})
+                cells.append({**_mnum(shown, "manual"), "key": cell_key, "frozen_value": got,
+                              "supply": {"framework": framework, "key": cell_key}})
             elif val is not None:
                 cells.append(_mnum(fmt(c["id"], val), "computed" if how.startswith("computed") else "integrated"))
             else:

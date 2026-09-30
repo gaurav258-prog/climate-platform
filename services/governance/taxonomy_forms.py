@@ -128,7 +128,8 @@ def _section(spec: dict, t: dict, basis: str | None, grid: dict, supplied: dict,
             if fr.get("input") or fc.get("input") or (isinstance(v, dict) and "_input" in v) or "_input" in vals:
                 got = supplied.get(key)
                 shown = "—" if got is None else (_fmt(got, fc, res["kind"]) if isinstance(got, (int, float)) else str(got))
-                cells.append({**_mnum(shown, "manual"), "key": key, "supply": {"framework": report_type, "key": key}})
+                cells.append({**_mnum(shown, "manual"), "key": key, "frozen_value": got,
+                              "supply": {"framework": report_type, "key": key}})
             elif fc.get("sector"):
                 cells.append(_txt(vals.get("_sector") or "—"))
             elif v == G.NOT_REQUIRED:

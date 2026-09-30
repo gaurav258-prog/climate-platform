@@ -26,11 +26,25 @@ export function apiMessage(e: unknown, fallback: string): string {
   return pick(b?.error) ?? pick(b?.detail) ?? b?.message ?? fallback
 }
 
+// The server's own reason, whichever shape it arrives in ({error: {message}}, {message}, {detail: {message} | string})
+// — a person sees why, never just a status code.
+function reasonOf(body: unknown): string | null {
+  if (typeof body === 'string') return body || null
+  if (!body || typeof body !== 'object') return null
+  const b = body as Record<string, unknown>
+  for (const k of ['error', 'detail']) {
+    const v = b[k]
+    if (typeof v === 'string' && v) return v
+    if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).message === 'string') return (v as Record<string, string>).message
+  }
+  return typeof b.message === 'string' ? b.message : null
+}
+
 export class ApiError extends Error {
   status: number
   body: unknown
   constructor(status: number, body: unknown) {
-    super(typeof body === 'string' ? body : `HTTP ${status}`)
+    super(reasonOf(body) ?? `HTTP ${status}`)
     this.status = status
     this.body = body
   }

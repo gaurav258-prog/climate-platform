@@ -261,7 +261,7 @@ def natcat_scr(policies: list[dict], *, ref_date: date | None = None, treaty: di
     applied += ["United Kingdom"] if any(r["region"] == "UK" for p in on.values() for r in p["regions"]) else []
     return {
         "available": bool(on), "basis": "solvency_ii_standard_formula", "template": "S.27.01.01",
-        "regulation": REGULATION, "version": v["id"], "version_source": v["source"],
+        "regulation": REGULATION, "version": v["id"], "version_name": v["name"], "version_source": v["source"],
         "reference_date": (ref_date or date.today()).isoformat(),
         "treaty_basis": "attested" if treaty else "none",
         "natcat_scr_before_mitigation_eur": round(before), "natcat_scr_eur": round(after),

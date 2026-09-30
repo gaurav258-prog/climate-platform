@@ -124,7 +124,7 @@ def _row(res, t, label, vals, key_tid, rid, supplied, report_type, entered) -> d
         elif entered or fc.get("input") or isinstance(v, dict):
             key = f"{key_tid}.{rid}.{c['id']}"
             got = supplied.get(key)
-            cells.append({**_mnum("—" if got is None else _fmt(got, fc), "manual"), "key": key,
+            cells.append({**_mnum("—" if got is None else _fmt(got, fc), "manual"), "key": key, "frozen_value": got,
                           "supply": {"framework": report_type, "key": key}})
         elif v is None:
             cells.append(_mnum("—", "computed"))
