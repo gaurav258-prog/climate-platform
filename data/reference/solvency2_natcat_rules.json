@@ -1,0 +1,203 @@
+{
+ "about": "The rules of the Solvency II standard-formula natural-catastrophe risk sub-module that are not factor tables: the scenarios of each peril, how a region's charge is selected, the premium-based charge for risks outside Annex XIII, the grouped-zone simplification and the subsidence scope. Quoted from the EU consolidated text; the factor and zone tables are the versioned files listed under 'versions'. Read by services/governance/solvency2_natcat.",
+ "_source": "Commission Delegated Regulation (EU) 2015/35, consolidated text 02015R0035-20241114 (EU Publications Office), Articles 90b and 120-125, Annexes III and XIII",
+ "versions": [
+  {
+   "id": "da_2015_35_as_2019_981",
+   "applies": {
+    "from": "2020-01-01",
+    "until": "2027-01-29"
+   },
+   "files": {
+    "windstorm": "solvency2_windstorm_annex_v.json",
+    "natcat": "solvency2_natcat_annexes.json",
+    "zonal": "solvency2_zonal.json",
+    "annex_ix": "solvency2_annex_ix.json"
+   },
+   "motor": {
+    "flood": 1.5,
+    "hail": 5.0
+   },
+   "subsidence": "france_art_125_2019",
+   "source": "02015R0035-20241114 — every factor, weight and correlation verified cell by cell against the EU text (2026-09-30)"
+  },
+  {
+   "id": "da_2015_35_as_2026_269",
+   "applies": {
+    "from": "2027-01-30",
+    "until": null
+   },
+   "files": {
+    "windstorm": "solvency2_windstorm_annex_v.2027.json",
+    "natcat": "solvency2_natcat_annexes.2027.json",
+    "zonal": "solvency2_zonal.2027.json",
+    "annex_ix": "solvency2_annex_ix.2027.json"
+   },
+   "motor": {
+    "flood": 1.5,
+    "hail": 10.0
+   },
+   "subsidence": "regional",
+   "source": "Delegated Regulation (EU) 2026/269 (CELEX 32026R0269), cross-checked cell by cell against 02015R0035-20270130"
+  }
+ ],
+ "selection": {
+  "rule": "larger_of_scenarios_after_mitigation",
+  "quote": "For all regions set out in Annex V the capital requirement for windstorm risk in a particular region r shall be the larger of the following two capital requirements:",
+  "loss_in_basic_own_funds": "shall be equal to the loss in basic own funds of insurance and reinsurance undertakings that would result from the following sequence of events:",
+  "note": "Each event is set gross ('without deduction of the amounts recoverable from reinsurance contracts and special purpose vehicles'); the capital requirement is the resulting loss in basic own funds, i.e. after the recoveries and the reinstatement premiums of the undertaking's own reinsurance."
+ },
+ "scenarios": {
+  "windstorm": {
+   "A": [
+    0.8,
+    0.4
+   ],
+   "B": [
+    1.0,
+    0.2
+   ],
+   "ref": "Art. 121(2)-(4)"
+  },
+  "flood": {
+   "A": [
+    0.65,
+    0.45
+   ],
+   "B": [
+    1.0,
+    0.1
+   ],
+   "ref": "Art. 123(2)-(4)"
+  },
+  "hail": {
+   "A": [
+    0.7,
+    0.5
+   ],
+   "B": [
+    1.0,
+    0.2
+   ],
+   "ref": "Art. 124(2)-(4)"
+  },
+  "earthquake": {
+   "single": [
+    1.0
+   ],
+   "ref": "Art. 122(2)"
+  },
+  "subsidence": {
+   "single": [
+    1.0
+   ],
+   "ref": "Art. 125(1)"
+  }
+ },
+ "scenario_quote": "an instantaneous loss of an amount that, without deduction of the amounts recoverable from reinsurance contracts and special purpose vehicles, is equal to 80 % of the specified windstorm loss in region r",
+ "other_regions": {
+  "annex_xiii": {
+   "eu_member_states": true,
+   "iso2": [
+    "AD",
+    "IS",
+    "LI",
+    "MC",
+    "NO",
+    "SM",
+    "CH",
+    "VA"
+   ],
+   "quote": "LIST OF REGIONS FOR WHICH NATURAL CATASTROPHE RISK IS NOT CALCULATED BASED ON PREMIUMS"
+  },
+  "factor": {
+   "windstorm": 1.75,
+   "earthquake": 1.2,
+   "flood": 1.1,
+   "hail": 0.3
+  },
+  "formula": "L(peril, other) = factor · (0,5 · DIV(peril) + 0,5) · P(peril) — Art. 121(9), 122(6), 123(9), 124(9) (formula images)",
+  "p_quote": "is an estimate of the premiums to be earned by insurance and reinsurance undertakings for each contract that covers the obligations referred to in paragraph 8 during the following 12 months: for this purpose premiums shall be gross, without deduction of premiums",
+  "div_quote": "based on the premiums in relation to the obligations referred to in paragraph 8 and restricted to the regions 5 to 18 set out in point (8) of Annex III",
+  "inputs": "P and DIV rest on the undertaking's premium and reserve volumes by line of business and region (Annex III) — stated by it (attested Solvency II inputs), never estimated here"
+ },
+ "grouped_zones": {
+  "quote": "the risk weight for windstorm risk referred to in point (a) of Article 121(6) shall be the risk weight for windstorm risk in the risk zone within that group with the highest risk weight for windstorm risk set out in Annex X.",
+  "ref": "Art. 90b(1)-(5)",
+  "note": "A risk whose zone is not stated is grouped with its region's zones at the region's highest Annex X weight; its charge is then bounded above by adding it in full (correlation 1) to the zoned exposure."
+ },
+ "payment_limit_cap": {
+  "ref": "Art. 121(6), 122(3), 123(6), 124(6), 125(2)",
+  "optional": true,
+  "quote": "the insurance or reinsurance undertaking may, as an alternative calculation, determine the weighted sum insured for windstorm risk in that risk zone as the lower amount.",
+  "applied": false,
+  "note": "An undertaking election; not applied (policy payment limits are not held)."
+ },
+ "subsidence": {
+  "factor": 0.0005,
+  "countries": [
+   "FR"
+  ],
+  "lines_of_business": [
+   7,
+   19
+  ],
+  "quote": "SI(subsidence,i) denotes the sum insured of the insurance or reinsurance undertaking for lines of business 7 and 19 as set out in Annex I in relation to contracts that cover subsidence risk of residential buildings in subsidence zone i.",
+  "applies_to_version": "da_2015_35_as_2019_981",
+  "note": "Under 2026/269 (from 2027-01-30) subsidence is regional (FR, BE — Annex VIIIa) and read from the version's natcat file."
+ },
+ "interpretations": [
+  {
+   "subject": "United Kingdom",
+   "declared_by": "Tellumen",
+   "switch": "sii_natcat_uk_other_regions",
+   "reading": "The United Kingdom is a region of Annexes V (windstorm) and VII (flood) but, since it left the Union, not listed in Annex XIII. Read literally, a UK risk would bear both the regional charge and the premium-based charge for regions outside Annex XIII. Default ('region_only'): the regional charge only, since the Annex specifies a factor for the region; 'region_and_premium' applies the literal reading."
+  },
+  {
+   "subject": "Outermost regions",
+   "declared_by": "Tellumen",
+   "reading": "Guadeloupe, Martinique, Réunion, French Guiana, Mayotte and Saint-Martin are part of France (TFEU Art. 355(1), Art. 349), so a risk there is within 'Member States of the European Union' in Annex XIII.",
+   "iso2": [
+    "GP",
+    "MQ",
+    "RE",
+    "GF",
+    "YT",
+    "MF"
+   ]
+  },
+  {
+   "subject": "Single-zone regions",
+   "declared_by": "Tellumen",
+   "reading": "Annex IX makes LU, MT, Guadeloupe, Martinique, St Martin and Réunion one zone each, and Annex X gives them no risk weight; the region is its one zone with risk weight 1, so WSI = Q · SI."
+  },
+  {
+   "subject": "Order of the reinsurance",
+   "declared_by": "Tellumen",
+   "reading": "The attested quota share cedes a share of every loss; the catastrophe excess of loss protects the retained part, per event (the structure the undertaking states: 'Reinsurance in force' in the insurer_solvency catalog). An illustrative programme is never used in the standard formula: without an attested treaty the charge after mitigation equals the charge before it."
+  },
+  {
+   "subject": "Reinstatements (Art. 126(2))",
+   "declared_by": "Tellumen",
+   "reading": "Where the treaty's reinstatements are not stated, none is assumed: the limit used by the first event is not available to the second. Where reinstatements are stated but the premium to reinstate is not, the same conservative reading applies. With both stated, the limit is reinstated for the second event and the reinstatement premium (pro rata to the limit used) is added to the loss."
+  },
+  {
+   "subject": "Residential cover (subsidence)",
+   "declared_by": "Tellumen",
+   "reading": "Art. 125 counts residential buildings (lines of business 7 and 19) only. A risk whose occupancy is not stated is included — the reading that cannot understate — and the count is shown."
+  },
+  {
+   "subject": "Subsidence outside Annex XIII (from 2027)",
+   "declared_by": "Tellumen",
+   "reading": "Art. 125(1) as replaced by 2026/269 names SCR(subsidence,other) but no paragraph gives its calculation; no amount is computed and the exposure outside Annex XIII is shown."
+  },
+  {
+   "subject": "Premiums and DIV for other regions",
+   "declared_by": "Tellumen",
+   "reading": "P and DIV are the undertaking's own figures (premiums to be earned in the following 12 months by line and region, Annex III); they are stated and attested under insurer_solvency. Where exposure lies outside Annex XIII and they are not stated, the peril's charge is incomplete and says so — never computed on a zero premium."
+  }
+ ],
+ "zone_labels": {
+  "note": "A region whose zonal table says labels_verified=false (its zone-correlation labels could not be matched to Annex IX from the text alone) is always calculated on the Art. 90b grouping of all its zones: its highest Annex X weight, correlation 1 — an upper bound that does not depend on the labels."
+ }
+}

@@ -76,6 +76,23 @@ def _target(framework: str, key: str, period_end, elections: dict | None = None)
     return dp
 
 
+# the range a value in each catalog unit can take — checked where the value enters (a DIV of 5 or a negative premium
+# would otherwise flow into a capital requirement)
+_UNIT_RANGE = {"%": (0.0, 100.0), "ratio": (0.0, 1.0), "EUR": (0.0, None), "count": (0.0, None)}
+
+
+def _check_unit(dp: dict, value_num: float | None) -> None:
+    unit = dp.get("unit")
+    if value_num is None or unit not in _UNIT_RANGE:
+        return
+    lo, hi = _UNIT_RANGE[unit]
+    if value_num < lo or (hi is not None and value_num > hi):
+        raise ProvidedError(f"'{dp.get('key')}' is in {unit}: the value must be "
+                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"))
+    if unit == "count" and value_num != int(value_num):
+        raise ProvidedError(f"'{dp.get('key')}' is a count: give a whole number")
+
+
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
            value_num: float | None = None, value_text: str | None = None, unit: str | None = None,
            source: str = "client", provider_name: str | None = None, data_vintage: str | None = None,
@@ -95,6 +112,7 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
         raise ProvidedError("source must be 'client' or 'vendor'")
     if value_num is None and not (value_text or "").strip():
         raise ProvidedError("a value (numeric or text) is required")
+    _check_unit(dp, value_num)
 
     # reconcile against our baseline where one exists
     base = _baseline(session, org_id, framework, datapoint_key) if value_num is not None and "cell" not in dp else None

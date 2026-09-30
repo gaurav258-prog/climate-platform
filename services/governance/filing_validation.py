@@ -196,8 +196,9 @@ def _validate_insurer_solvency(payload: dict) -> list[dict]:
     out.append(_f("total_sum_insured_positive", "plausibility", "blocking", total > 0,
                   f"Total sum insured {_eur(total)}" if total > 0 else "Total sum insured is zero"))
 
-    s2601 = payload.get("s2601") or {}
-    scr = s2601.get("natcat_scr") or {}
+    from services.governance.insurer_solvency import natcat_block
+    nb = natcat_block(payload)
+    scr = nb.get("natcat_scr") or {}
     gross = scr.get("gross_1_in_200_eur")
     net = scr.get("net_of_reinsurance_1_in_200_eur")
     mean = scr.get("mean_annual_loss_eur")
@@ -219,10 +220,19 @@ def _validate_insurer_solvency(payload: dict) -> list[dict]:
                       if cat["mean_reconciles"] else
                       "Per-zone independent EALs do NOT reconcile to the portfolio mean annual loss — "
                       "an internal engine inconsistency, not a data gap"))
-    sf = s2601.get("standard_formula_natcat") or {}
+    sf = nb.get("standard_formula_natcat") or {}
     out.append(_f("standard_formula_available", "completeness", "info", bool(sf.get("available")),
-                  "Prescribed standard-formula NatCat SCR (Art. 120-125) computed alongside the internal model"
-                  if sf.get("available") else "Standard-formula NatCat SCR not computed for this book"))
+                  "Standard-formula nat-cat risk (Del. Reg. 2015/35 Arts 119-126) computed beside the internal model"
+                  if sf.get("available") else "Standard-formula nat-cat risk not computed for this book"))
+    if sf.get("available") and "complete" in sf:
+        out.append(_f("standard_formula_complete", "completeness", "blocking", bool(sf["complete"]),
+                      "Every exposure is charged" if sf["complete"] else
+                      "Standard formula incomplete: " + "; ".join(sf.get("incomplete", []))))
+        worse = [f"{p} {g['region']}" for p, r in (sf.get("perils") or {}).items() for g in r.get("regions", [])
+                 if g["after_eur"] > g["before_eur"] + g["reinstatement_eur"] + 1]
+        out.append(_f("mitigation_never_adds", "plausibility", "blocking", not worse,
+                      "After mitigation never exceeds before mitigation plus reinstatement premiums" if not worse else
+                      "After mitigation exceeds before plus reinstatement premiums: " + ", ".join(worse)))
     return out
 
 

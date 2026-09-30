@@ -14,6 +14,7 @@ Values are built at the precision the book stores them (money to the cent), so a
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any, Callable
 
@@ -138,6 +139,17 @@ BANK = Sector("bank_assets", "entity_name", "primary_value_eur",
 
 # ── insurance: Statement of Values → portfolio_entities (insurance) + ext_insurance ──
 
+def _postal_code(row: dict) -> str | None:
+    """A postal code as the country writes it, in capitals with single spaces (ck_portfolio_entities_postal_code)."""
+    v = _s(row, "postal_code")
+    if not v:
+        return None
+    v = " ".join(str(v).upper().split())
+    if not re.fullmatch(r"[0-9A-Z][0-9A-Z -]{0,11}", v):
+        raise RowIssue(f"postal_code '{v}' is not a postal code (letters, digits, spaces or '-', at most 12)")
+    return v
+
+
 def _ins_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name = _s(row, "policy_name")
@@ -160,7 +172,7 @@ def _ins_build(ctx: dict, row: dict) -> dict:
            "construction_type": _vocab(row, "construction_type", "construction_type"), "year_built": _i(row, "year_built"),
            "number_of_stories": _i(row, "number_of_stories"), "external_ref": _s(row, "external_ref"),
            "deductible_pct": ded, "building_value_eur": b, "contents_value_eur": c,
-           "business_interruption_value_eur": bi, "cresta_zone": _i(row, "cresta_zone"),
+           "business_interruption_value_eur": bi, "postal_code": _postal_code(row),
            "motor_sum_insured_eur": _m(row, "motor_sum_insured_eur")}
     _plausible_building(rec)
     return rec
@@ -174,28 +186,28 @@ def _ins_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
         r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
-                                        region, country, primary_value_eur, construction_type, year_built, number_of_stories,
-                                        reporting_entity_id, external_ref)
+                                        region, country, postal_code, primary_value_eur, construction_type, year_built,
+                                        number_of_stories, reporting_entity_id, external_ref)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), 'insurance', :entity_name, :entity_type, :latitude, :longitude, :h3_cell,
-                :region, :country, :primary_value_eur, :construction_type, :year_built, :number_of_stories,
+                :region, :country, :postal_code, :primary_value_eur, :construction_type, :year_built, :number_of_stories,
                 CAST(:reporting_entity_id AS uuid), :external_ref)
     """), recs)
     session.execute(text("""
         INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,
-                                   business_interruption_value_eur, cresta_zone, motor_sum_insured_eur)
+                                   business_interruption_value_eur, motor_sum_insured_eur)
         VALUES (CAST(:entity_id AS uuid), :deductible_pct, :building_value_eur, :contents_value_eur,
-                :business_interruption_value_eur, :cresta_zone, :motor_sum_insured_eur)
+                :business_interruption_value_eur, :motor_sum_insured_eur)
     """), recs)
 
 
 def _ins_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r["org_id"] = org_id
-    _pe_update(session, recs, _PE_COMMON + ("entity_type", "construction_type", "year_built", "number_of_stories"))
+    _pe_update(session, recs, _PE_COMMON + ("entity_type", "postal_code", "construction_type", "year_built", "number_of_stories"))
     session.execute(text("""
         UPDATE ext_insurance SET deductible_pct = :deductible_pct, building_value_eur = :building_value_eur,
                contents_value_eur = :contents_value_eur, business_interruption_value_eur = :business_interruption_value_eur,
-               cresta_zone = :cresta_zone, motor_sum_insured_eur = :motor_sum_insured_eur
+               motor_sum_insured_eur = :motor_sum_insured_eur
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
@@ -203,11 +215,11 @@ def _ins_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
 INSURANCE = Sector("insurance_policies", "entity_name", "primary_value_eur",
                    _PE_COMMON + ("entity_type", "construction_type", "year_built", "number_of_stories", "deductible_pct",
                                  "building_value_eur", "contents_value_eur", "business_interruption_value_eur",
-                                 "cresta_zone", "motor_sum_insured_eur"),
+                                 "postal_code", "motor_sum_insured_eur"),
                    _default_entity, _ins_build,
                    _pe_existing("insurance", """, CAST(x.deductible_pct AS FLOAT) AS deductible_pct,
                                 CAST(x.building_value_eur AS FLOAT) AS building_value_eur, CAST(x.contents_value_eur AS FLOAT) AS contents_value_eur,
-                                CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur, x.cresta_zone,
+                                CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur, e.postal_code,
                                 CAST(x.motor_sum_insured_eur AS FLOAT) AS motor_sum_insured_eur""",
                                 "LEFT JOIN ext_insurance x ON x.entity_id = e.entity_id"),
                    _ins_insert, _ins_update, group_entities=True)

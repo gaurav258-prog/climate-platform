@@ -55,7 +55,8 @@ def _parse(raw: bytes, detected: str, via: str) -> pd.DataFrame:
         elif detected == "xlsx":
             df = pd.read_excel(io.BytesIO(raw))
         else:
-            df = pd.read_csv(io.BytesIO(raw), encoding_errors="replace")
+            # every cell as written: each field's kind parses its own values (a postal code keeps its leading zero)
+            df = pd.read_csv(io.BytesIO(raw), encoding_errors="replace", dtype=str)
     except Exception as e:  # noqa: BLE001 — any parser failure is the customer's to fix, reported plainly
         raise IntakeError(400, {"error": "unreadable", "message": f"We couldn't read the file as a table ({type(e).__name__})."})
     # column names as a person reads them: our own template marks required columns "name *"

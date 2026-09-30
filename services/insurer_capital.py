@@ -16,6 +16,7 @@ FRAMEWORK = "insurer_solvency"
 CAPITAL = ("eligible_own_funds_scr", "scr_total", "mcr_total")
 TREATY = {"ri_quota_share_pct": "quota_share_pct", "ri_xol_attachment_eur": "xol_attachment_eur",
           "ri_xol_limit_eur": "xol_limit_eur"}
+REINSTATEMENT = {"ri_xol_reinstatements": "xol_reinstatements", "ri_xol_reinstatement_premium_eur": "xol_reinstatement_premium_eur"}
 ILLUSTRATIVE_PROGRAMME = {"quota_share_pct": 20.0, "xol_attachment_eur": 50_000_000, "xol_limit_eur": 100_000_000}
 
 
@@ -43,4 +44,16 @@ def programme(session: Session, org_id: str, period_end: date) -> tuple[dict, st
     if not any(k in a for k in TREATY):
         return dict(ILLUSTRATIVE_PROGRAMME), "illustrative_standard"
     prog = {name: float(a[k]["value"]) if k in a and a[k]["value"] is not None else 0.0 for k, name in TREATY.items()}
+    # reinstatements: absent stays absent (None) — the nat-cat scenarios then assume none (declared reading)
+    prog.update({name: float(a[k]["value"]) if k in a and a[k]["value"] is not None else None
+                 for k, name in REINSTATEMENT.items()})
     return prog, "attested"
+
+
+def natcat_other_regions(session: Session, org_id: str, period_end: date) -> dict:
+    """{peril: {premium_eur, div}} — the attested P and DIV of Del. Reg. 2015/35 Arts 121-124 for risks outside Annex
+    XIII; a value not attested is None (the standard formula then marks the peril incomplete, never charges zero)."""
+    a = _attested(session, org_id, period_end)
+    num = lambda k: float(a[k]["value"]) if k in a and a[k]["value"] is not None else None   # noqa: E731
+    return {p: {"premium_eur": num(f"natcat_premium_other_{p}_eur"), "div": num(f"natcat_div_other_{p}")}
+            for p in ("windstorm", "earthquake", "flood", "hail")}

@@ -144,9 +144,9 @@ def clone_financial_book(s, template_org: str, org_id: str, name: str, home: str
                        "ol": round(value * rng.uniform(0.5, 0.9), 2), "od": x.get("loan_origination_date"), "rm": x.get("residual_maturity_years"), "epc": x.get("epc_label"), "st": x.get("ifrs9_stage"), "ei": x.get("emission_intensity")})
         elif t["vertical"] == "insurance" and ext_i:
             x = ext_i[i % len(ext_i)]
-            s.execute(text("""INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur, business_interruption_value_eur, cresta_zone)
-                              VALUES (CAST(:id AS uuid), :d, :b, :c, :bi, :z)"""),
-                      {"id": eid, "d": x.get("deductible_pct"), "b": round(value * 0.7, 2), "c": round(value * 0.2, 2), "bi": round(value * 0.1, 2), "z": x.get("cresta_zone") if cc == "ES" else None})
+            s.execute(text("""INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur, business_interruption_value_eur)
+                              VALUES (CAST(:id AS uuid), :d, :b, :c, :bi)"""),
+                      {"id": eid, "d": x.get("deductible_pct"), "b": round(value * 0.7, 2), "c": round(value * 0.2, 2), "bi": round(value * 0.1, 2)})
         elif t["vertical"] == "realestate" and ext_r:
             x = ext_r[i % len(ext_r)]
             s.execute(text("INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating) VALUES (CAST(:id AS uuid), :noi, :epc)"),

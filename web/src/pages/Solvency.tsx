@@ -11,20 +11,31 @@ import { balance, flow } from '../lib/money'
 
 // Solvency II capital for a property insurer — the catastrophe SCR on TWO labelled bases:
 //  · internal-model: our common-shock cat engine's 1-in-200 (99.5% VaR), gross & net of reinsurance
-//  · standard formula: EIOPA's prescribed per-region factors (Del. Reg. 2015/35, Art. 120-125), all five
-//    nat-cat perils + the Art. 120 aggregation — a cited regulatory calc, not our hazard model.
+//  · standard formula: Del. Reg. 2015/35 Arts 90b, 119-126 in the version in force on the reporting date — region by
+//    region, before and after the attested reinsurance, as S.27.01.01 reports it (services/governance/solvency2_natcat).
 
-interface PerRegion { region: string; region_name: string; sum_insured_eur: number; n_policies: number; risk_factor_q: number; scr_region_eur: number }
+interface SFRegion {
+  region: string; region_name: string; n_policies: number; exposure_eur: number; specified_gross_loss_eur: number
+  charge_factor: number | null; scenario: 'A' | 'B' | null; before_eur: number; mitigation_eur: number
+  reinstatement_eur: number; after_eur: number; method: 'exact_zonal' | 'grouped_art90b' | 'single_zone'; method_reason: string
+}
+interface SFOther { exposure_eur: number; status: 'computed' | 'missing_input' | 'not_calculated'; premium_eur?: number; before_eur?: number; after_eur?: number; reason?: string }
 interface PerilBlock {
-  available: boolean; peril: string; scr_eur?: number; citation?: string
-  per_region?: PerRegion[]; other_regions_sum_insured_eur?: number
-  undiversified_scr_eur?: number; regional_diversification_benefit_eur?: number; reason?: string
+  available: boolean; peril: string; citation?: string; reason?: string
+  regions?: SFRegion[]; other_regions?: SFOther | null; not_charged_exposure_eur?: number
+  before_eur?: number; after_eur?: number; diversification_after_eur?: number; complete?: boolean; incomplete?: string[]
 }
 interface SF {
-  available: boolean; regulation?: string; natcat_scr_eur?: number; undiversified_sum_eur?: number
-  cross_peril_diversification_benefit_eur?: number; scr_by_peril_eur?: Record<string, number>
-  perils?: Record<string, PerilBlock>; aggregation?: string; note?: string
+  available: boolean; version?: string; version_source?: string; reference_date?: string; treaty_basis?: 'attested' | 'none'
+  natcat_scr_eur?: number; natcat_scr_before_mitigation_eur?: number; diversification_between_perils_after_eur?: number
+  scr_by_peril_eur?: Record<string, number>; perils?: Record<string, PerilBlock>
+  complete?: boolean; incomplete?: string[]; simplification_art_90b?: boolean; readings?: { subject: string; reading: string }[]
 }
+const VERSION_LABEL: Record<string, string> = {
+  da_2015_35_as_2019_981: 'Del. Reg. 2015/35 as amended by 2019/981',
+  da_2015_35_as_2026_269: 'Del. Reg. 2015/35 as amended by 2026/269 (from 30 Jan 2027)',
+}
+const METHOD: Record<SFRegion['method'], string> = { exact_zonal: 'exact zones', grouped_art90b: 'grouped · Art. 90b', single_zone: 'one zone' }
 interface ScrResp {
   available: boolean; reason?: string; scr_basis?: string
   natcat_scr_eur?: number; aep_1_in_200_eur?: number; oep_1_in_200_eur?: number
@@ -73,7 +84,7 @@ export default function Solvency() {
   const im = d.natcat_scr_eur
   const imNet = ((reins.data?.net?.net_aep_eur) || {}).rp_200 ?? reins.data?.net?.net_pml_eur
   const heroStats: { label: string; value: string; tone?: string }[] = [
-    { label: 'Standard formula · NatCat SCR', value: balance(sf?.natcat_scr_eur), tone: 'sky' },
+    { label: 'Standard formula · after mitigation', value: balance(sf?.natcat_scr_eur), tone: 'sky' },
     { label: 'Internal model · 1-in-200 gross', value: balance(im) },
     { label: 'Net of reinsurance', value: balance(imNet) },
     { label: 'SCR / sum insured', value: `${d.scr_pct_of_sum_insured ?? '—'}%` },
@@ -87,10 +98,10 @@ export default function Solvency() {
   return (
     <div className="fadeup space-y-5 max-w-5xl">
       <PageHeader eyebrow="Assess · Solvency II" title="Catastrophe capital"
-        lead="Your natural-catastrophe SCR on two labelled bases — our internal-model 1-in-200, and the prescribed EIOPA standard formula (Del. Reg. 2015/35, Art. 120-125). Every number is computed from your book; the standard-formula factors are the regulator’s own, cited." />
+        lead="Your natural-catastrophe SCR on two labelled bases — our internal-model 1-in-200, and the prescribed standard formula (Del. Reg. 2015/35 Arts 119-126, the version in force on your reporting date). Every number is computed from your book; the standard-formula tables are the Regulation’s own." />
 
       <HeroBanner eyebrow="Disclose · catastrophe SCR" title="What you must hold against a bad cat year."
-        lead={sf?.available ? 'The standard-formula NatCat SCR combines five prescribed perils; the internal model is shown beside it.' : 'Internal-model catastrophe SCR (standard-formula factors pending).'}
+        lead={sf?.available ? 'The standard formula combines five prescribed perils, after your attested reinsurance; the internal model is shown beside it.' : 'Internal-model catastrophe SCR.'}
         stat={heroStats} />
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -114,21 +125,26 @@ export default function Solvency() {
 
         {/* standard formula */}
         <Card>
-          <SectionHead icon={ShieldCheck} hint="EIOPA prescribed factors — cited, not modelled">Standard formula</SectionHead>
+          <SectionHead icon={ShieldCheck} hint={VERSION_LABEL[sf?.version ?? ''] ?? 'Del. Reg. 2015/35'}>Standard formula</SectionHead>
           {sf?.available ? (
             <div className="mt-3">
               <StatGrid cols={2} items={[
-                { label: 'NatCat SCR (√Σ SCR_peril²)', value: balance(sf.natcat_scr_eur, { full: true }), accent: 'var(--color-sky)' },
-                { label: 'Undiversified (Σ perils)', value: balance(sf.undiversified_sum_eur, { full: true }) },
-                { label: 'Cross-peril diversification', value: balance(sf.cross_peril_diversification_benefit_eur, { full: true }) },
-                { label: 'Basis', value: 'gross of reinsurance' },
+                { label: 'Nat-cat SCR — after risk mitigation', value: balance(sf.natcat_scr_eur, { full: true }), accent: 'var(--color-sky)' },
+                { label: 'Before risk mitigation', value: balance(sf.natcat_scr_before_mitigation_eur, { full: true }) },
+                { label: 'Diversification between perils', value: balance(sf.diversification_between_perils_after_eur, { full: true }) },
+                { label: 'Reinsurance', value: sf.treaty_basis === 'attested' ? 'your attested treaty' : 'none attested — no mitigation' },
               ]} />
+              {sf.complete === false && (
+                <div className="mt-3 rounded-lg border border-[var(--color-warn)] bg-[var(--color-bg-2)] px-3.5 py-2.5 text-[12px] text-[var(--color-ink)]">
+                  <b>Incomplete.</b> {sf.incomplete?.join(' ')} State them under <i>Your data → Provided values (Solvency II)</i>; until then those risks carry no charge here.
+                </div>
+              )}
               <div className="mt-3">
-                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SCR by peril</div>
+                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SCR by peril · after mitigation</div>
                 <HBar data={perilBars} format={balance} />
               </div>
             </div>
-          ) : <div className="mt-3 text-[12.5px] text-[var(--color-mute)]">Standard-formula factors not loaded.</div>}
+          ) : <div className="mt-3 text-[12.5px] text-[var(--color-mute)]">No exposure in a nat-cat region.</div>}
         </Card>
       </div>
 
@@ -141,7 +157,8 @@ export default function Solvency() {
       <Card>
         <div className="text-[11.5px] text-[var(--color-mute)] leading-relaxed">
           <b className="text-[var(--color-ink)]">How to read this.</b> The two bases have different scope. The <b className="text-[var(--color-ink)]">internal model</b> is our 1-in-200 across <i>every</i> climate hazard your book is scored on (flood, heat, convective, windstorm…) at the modelled severity. The <b className="text-[var(--color-ink)]">standard formula</b> is the prescribed EIOPA charge for the five nat-cat perils only, at the regulator’s fixed per-region factors — so the two can differ materially, and comparing them is itself a useful calibration check.
-          {sf?.available && <> The standard formula is a country-level approximation: the region factors and inter-region correlation are the exact Annex values, but the intra-country CRESTA-zone weights/diversification and the flood/hail motor component are not applied — an approximation of the exact zonal figure. Man-made catastrophe is out of climate scope.</>}
+          {sf?.simplification_art_90b && <> Where a risk has no postal code — or its region’s zones cannot be read from one — the region’s zones are grouped at their highest risk weight (Art. 90b): an upper bound. Add postal codes to your Statement of Values for the exact zonal figure.</>}
+          {!!sf?.readings?.length && <> Readings the platform declares where the text leaves a point open: {sf.readings.map(r => r.subject).join(', ')} (details in the filing).</>} Man-made catastrophe is out of climate scope.
         </div>
       </Card>
     </div>
@@ -149,60 +166,71 @@ export default function Solvency() {
 }
 
 function PerilDetail({ sf }: { sf: SF }) {
-  const [open, setOpen] = useState<string | null>('earthquake')
-  const perils = ['windstorm', 'earthquake', 'flood', 'hail'].map(k => ({ k, b: sf.perils?.[k] })).filter(x => x.b?.available && x.b.per_region?.length)
+  const [open, setOpen] = useState<string | null>('windstorm')
+  const perils = ['windstorm', 'earthquake', 'flood', 'hail', 'subsidence'].map(k => ({ k, b: sf.perils?.[k] }))
+    .filter(x => x.b?.available && (x.b.regions?.length || x.b.other_regions))
   if (!perils.length) return null
   return (
     <Card>
-      <SectionHead icon={Layers} hint="prescribed Annex factors × your sums insured">SCR by peril &amp; region</SectionHead>
+      <SectionHead icon={Layers} hint="S.27.01.01 · before and after risk mitigation">SCR by peril &amp; region</SectionHead>
       <div className="mt-3 space-y-2">
         {perils.map(({ k, b }) => {
           const isOpen = open === k
+          const o = b!.other_regions
           return (
             <div key={k} className="rounded-lg border border-[var(--color-line)] overflow-hidden">
-              <button onClick={() => setOpen(isOpen ? null : k)}
+              <button onClick={() => setOpen(isOpen ? null : k)} aria-expanded={isOpen}
                 className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-[var(--color-bg-2)] transition">
                 <ChevronRight size={14} className={`text-[var(--color-faint)] transition ${isOpen ? 'rotate-90' : ''}`} />
                 <span className="w-2 h-2 rounded-full" style={{ background: PERIL_COLOR[k] }} />
                 <span className="text-[13px] font-medium text-[var(--color-ink)]">{PERIL_LABEL[k]}</span>
-                <span className="mono text-[10px] text-[var(--color-faint)] ml-1">{b!.citation}</span>
-                <span className="ml-auto mono text-[12.5px] text-[var(--color-ink)]">{balance(b!.scr_eur, { full: true })}</span>
+                {b!.complete === false && <span className="mono text-[10px] text-[var(--color-warn)]">incomplete</span>}
+                <span className="ml-auto mono text-[12.5px] text-[var(--color-ink)]">{balance(b!.after_eur, { full: true })}</span>
               </button>
               {isOpen && (
-                <div className="border-t border-[var(--color-line)]">
-                  <div className="px-3.5 pt-3 pb-1">
-                    <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SCR by region</div>
-                    <HBar data={b!.per_region!.map(r => ({ label: r.region, value: r.scr_region_eur, sub: `Q ${(r.risk_factor_q * 100).toFixed(1)}%`, color: PERIL_COLOR[k] }))} format={balance} height={14} />
-                  </div>
+                <div className="border-t border-[var(--color-line)] overflow-x-auto">
                   <table className="w-full text-[12px]">
                     <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase">
                       <th className="text-left font-normal px-3.5 py-1.5">Region</th>
-                      <th className="text-right font-normal px-3.5 py-1.5">Sum insured</th>
-                      <th className="text-right font-normal px-3.5 py-1.5">Factor Q</th>
-                      <th className="text-right font-normal px-3.5 py-1.5">SCR</th>
+                      <th className="text-right font-normal px-3 py-1.5">Exposure</th>
+                      <th className="text-right font-normal px-3 py-1.5">Specified loss</th>
+                      <th className="text-center font-normal px-3 py-1.5">Scen.</th>
+                      <th className="text-right font-normal px-3 py-1.5">Before</th>
+                      <th className="text-right font-normal px-3.5 py-1.5">After</th>
                     </tr></thead>
                     <tbody>
-                      {b!.per_region!.map(r => (
+                      {b!.regions!.map(r => (
                         <tr key={r.region} className="border-t border-[var(--color-line-2)]">
-                          <td className="px-3.5 py-1.5 text-[var(--color-ink)]">{r.region} · <span className="text-[var(--color-mute)]">{r.region_name}</span></td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-mute)]">{balance(r.sum_insured_eur, { full: true })}</td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-mute)]">{(r.risk_factor_q * 100).toFixed(2)}%</td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-ink)]">{balance(r.scr_region_eur, { full: true })}</td>
+                          <td className="px-3.5 py-1.5 text-[var(--color-ink)]">
+                            {r.region} · <span className="text-[var(--color-mute)]">{r.region_name}</span>
+                            <span className="ml-2 mono text-[10px] text-[var(--color-faint)]" title={r.method_reason}>{METHOD[r.method]}</span>
+                          </td>
+                          <td className="px-3 py-1.5 text-right mono text-[var(--color-mute)]">{balance(r.exposure_eur, { full: true })}</td>
+                          <td className="px-3 py-1.5 text-right mono text-[var(--color-mute)]">{balance(r.specified_gross_loss_eur, { full: true })}</td>
+                          <td className="px-3 py-1.5 text-center mono text-[var(--color-faint)]">{r.scenario ?? '—'}</td>
+                          <td className="px-3 py-1.5 text-right mono text-[var(--color-mute)]">{balance(r.before_eur, { full: true })}</td>
+                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-ink)]">{balance(r.after_eur, { full: true })}</td>
                         </tr>
                       ))}
-                      {b!.other_regions_sum_insured_eur ? (
+                      {o && (
                         <tr className="border-t border-[var(--color-line-2)]">
-                          <td className="px-3.5 py-1.5 text-[var(--color-faint)] italic" colSpan={3}>outside Annex regions (not in the charge)</td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-faint)]">{balance(b!.other_regions_sum_insured_eur, { full: true })} SI</td>
+                          <td className="px-3.5 py-1.5 text-[var(--color-mute)] italic">Other regions (outside Annex XIII)</td>
+                          <td className="px-3 py-1.5 text-right mono text-[var(--color-mute)]">{balance(o.exposure_eur, { full: true })}</td>
+                          <td className="px-3 py-1.5 text-[var(--color-faint)] text-[11px]" colSpan={2}>
+                            {o.status === 'computed' ? `on premiums ${balance(o.premium_eur, { full: true })}` : o.status === 'missing_input' ? 'premium and DIV not stated' : 'no method in the Regulation'}
+                          </td>
+                          <td className="px-3 py-1.5 text-right mono text-[var(--color-mute)]">{o.before_eur != null ? balance(o.before_eur, { full: true }) : '—'}</td>
+                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-ink)]">{o.after_eur != null ? balance(o.after_eur, { full: true }) : '—'}</td>
                         </tr>
-                      ) : null}
+                      )}
+                      <tr className="border-t border-[var(--color-line)]">
+                        <td className="px-3.5 py-1.5 text-[var(--color-ink)] font-medium" colSpan={4}>Total after diversification between regions</td>
+                        <td className="px-3 py-1.5 text-right mono text-[var(--color-mute)]">{balance(b!.before_eur, { full: true })}</td>
+                        <td className="px-3.5 py-1.5 text-right mono text-[var(--color-ink)] font-medium">{balance(b!.after_eur, { full: true })}</td>
+                      </tr>
                     </tbody>
                   </table>
-                  {(b!.regional_diversification_benefit_eur ?? 0) > 0 && (
-                    <div className="px-3.5 py-2 border-t border-[var(--color-line-2)] mono text-[10.5px] text-[var(--color-faint)]">
-                      regional diversification benefit {balance(b!.regional_diversification_benefit_eur, { full: true })} · undiversified {balance(b!.undiversified_scr_eur, { full: true })}
-                    </div>
-                  )}
+                  <div className="px-3.5 py-2 border-t border-[var(--color-line-2)] mono text-[10.5px] text-[var(--color-faint)]">{b!.citation}</div>
                 </div>
               )}
             </div>

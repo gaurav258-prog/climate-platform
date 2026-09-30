@@ -172,38 +172,36 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
         return build_disclosure_workbook(_cur(headers, payload), rows, "EU Taxonomy Art. 8 — buildings",
                                          _summary_blocks(framework, payload))
     if framework == "insurer_solvency":
-        # NOTE / assumption: this framework's frozen payload is also a KPI summary, not a per-policy book —
-        # {"rollup": {...}, "s2601": s2601_natcat(...)} (see report_snapshots._insurer_solvency and
-        # insurer_solvency.s2601_natcat). Renders the S.26.01 internal-model NatCat SCR, the per-peril
-        # accumulation, and — where computed — the prescribed standard-formula NatCat SCR breakdown.
-        s2601 = payload.get("s2601") or {}
-        headers = ["section", "metric", "value_eur", "note"]
+        # the frozen payload is a summary, not a per-policy book: {"rollup", "s2701"} (report_snapshots._insurer_solvency,
+        # insurer_solvency.s2701_natcat; 's2601' in filings frozen before the template was corrected)
+        from services.governance.insurer_solvency import TEMPLATE, natcat_block
+        from services.governance.solvency2_natcat import lines
+        nb = natcat_block(payload)
+        headers = ["section", "line", "exposure_eur", "specified_gross_loss_eur", "scenario", "before_mitigation_eur",
+                   "risk_mitigation_eur", "reinstatement_premiums_eur", "after_mitigation_eur", "note"]
         rows: list[list] = []
-        if s2601.get("available", True):
-            nc = s2601.get("natcat_scr") or {}
-            rows.append(["Internal model (99.5% VaR)", "Gross NatCat SCR — 1-in-200", nc.get("gross_1_in_200_eur"), ""])
-            rows.append(["Internal model (99.5% VaR)", "Net of reinsurance — 1-in-200", nc.get("net_of_reinsurance_1_in_200_eur"), ""])
-            rows.append(["Internal model (99.5% VaR)", "Mean annual loss", nc.get("mean_annual_loss_eur"), ""])
-            rows.append(["Internal model (99.5% VaR)", "Risk load", nc.get("risk_load_eur"), ""])
-            rows.append(["Internal model (99.5% VaR)", "SCR % of sum insured", nc.get("scr_pct_of_sum_insured"), ""])
-            for p in s2601.get("perils", []):
-                rows.append(["Peril accumulation", p.get("peril"), p.get("exposed_value_eur"),
-                            f"{p.get('n_exposed', 0)} policies exposed"])
-            sf = s2601.get("standard_formula_natcat") or {}
-            if sf.get("available"):
-                rows.append(["Standard formula (Del. Reg. (EU) 2015/35, Art. 120-125)",
-                            "Aggregate NatCat SCR (√Σ SCR_peril²)", sf.get("natcat_scr_eur"), sf.get("aggregation") or ""])
-                rows.append(["Standard formula", "Undiversified sum of peril SCRs", sf.get("undiversified_sum_eur"), ""])
-                rows.append(["Standard formula", "Cross-peril diversification benefit",
-                            sf.get("cross_peril_diversification_benefit_eur"), ""])
-                for pk, v in (sf.get("scr_by_peril_eur") or {}).items():
-                    rows.append(["Standard formula · by peril", pk, v, ""])
-            declared = s2601.get("declared") or {}
-            if declared:
-                rows.append(["Declared / external", "; ".join(declared.get("items", [])), None, declared.get("note") or ""])
+        if nb.get("available", True):
+            nc = nb.get("natcat_scr") or {}
+            im = "Internal model (99.5% VaR)"
+            rows += [[im, "Nat-cat SCR — gross, 1-in-200", None, None, None, nc.get("gross_1_in_200_eur"), None, None, None, ""],
+                     [im, "Nat-cat SCR — net of reinsurance", None, None, None, None, None, None, nc.get("net_of_reinsurance_1_in_200_eur"), ""],
+                     [im, "Mean annual loss", None, None, None, nc.get("mean_annual_loss_eur"), None, None, None, ""]]
+            for p in nb.get("perils", []):
+                rows.append(["Peril accumulation", p.get("peril"), p.get("exposed_value_eur"), None, None, None, None, None,
+                             None, f"{p.get('n_exposed', 0)} policies exposed"])
+            sf = nb.get("standard_formula_natcat") or {}
+            if sf.get("available") and "perils" in sf and "version" in sf:
+                for ln in lines(sf):
+                    rows.append([f"Standard formula · {ln['peril']}", ln["line"], ln.get("exposure_eur"),
+                                 ln.get("specified_gross_loss_eur"), ln.get("scenario"), ln.get("before_eur"),
+                                 ln.get("mitigation_eur"), ln.get("reinstatement_eur"), ln.get("after_eur"), ln.get("note") or ""])
+                rows += [["Standard formula", "Incomplete", None, None, None, None, None, None, None, x] for x in sf.get("incomplete", [])]
+            elif sf.get("available"):                       # a filing frozen before the standard formula was rebuilt
+                rows.append(["Standard formula (as frozen)", "Nat-cat SCR", None, None, None, None, None, None,
+                             sf.get("natcat_scr_eur"), "gross of reinsurance, country level (superseded method)"])
         else:
-            rows.append(["Unavailable", s2601.get("reason", "no scored policies"), None, ""])
-        return build_export_workbook(_cur(headers, payload), rows, sheet_name="Solvency II · S.26.01 SCR")
+            rows.append(["Unavailable", nb.get("reason", "no scored policies"), None, None, None, None, None, None, None, ""])
+        return build_export_workbook(_cur(headers, payload), rows, sheet_name=f"Solvency II · {TEMPLATE}")
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 

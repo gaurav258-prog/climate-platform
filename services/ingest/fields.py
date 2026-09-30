@@ -177,7 +177,9 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        "material physical climate risks are implemented under an adaptation plan (Appendix A, existing buildings).",
        "true", vocab="boolean", aliases=("adaptation_plan",)),
     _f("number_of_stories", "Stories", "int", "Number of stories.", "3", aliases=("stories", "storeys", "floors", "number_of_floors"), range=(0, 200)),
-    _f("cresta_zone", "CRESTA zone", "int", "EIOPA/CRESTA risk-zone number (Del. Reg. 2015/35 Annex IX).", "21", aliases=("cresta",), range=(1, 9999)),
+    _f("postal_code", "Postal code", "text", "The risk's postal code as written locally (10115, SW1A 1AA). Solvency II "
+       "places each risk in its nat-cat risk zone by it (Del. Reg. 2015/35 Annex IX); without it the region's zones are "
+       "grouped at their highest weight.", "10115", aliases=("postcode", "zip", "zip_code", "plz", "cap", "code_postal", "cp")),
     _f("loan_origination_date", "Origination date", "date", "YYYY-MM-DD.", "2022-03-01", aliases=("origination_date", "start_date", "drawdown_date")),
     _f("plot_geojson", "Plot boundary (GeoJSON)", "geojson", "EUDR plot boundary as a GeoJSON Polygon — required over 4 ha.",
        '{"type":"Polygon","coordinates":[[[-1.606,6.694],[-1.604,6.694],[-1.604,6.696],[-1.606,6.696],[-1.606,6.694]]]}',

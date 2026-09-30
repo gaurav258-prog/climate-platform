@@ -1,18 +1,13 @@
-"""Solvency II — SCR Non-Life catastrophe risk (template S.26.01.01), natural-catastrophe sub-module.
+"""Solvency II — the natural-catastrophe risk block of the non-life catastrophe risk template S.27.01.01 (Implementing
+Regulation (EU) 2023/894, Annexes I-II), from a frozen insurer disclosure snapshot. It re-runs nothing.
 
-Regulation: Commission Delegated Regulation (EU) 2015/35 (Solvency II), Title I Chapter V Section 2
-(catastrophe risk); reported on QRT S.26.01.01. The insurer snapshot already runs one correlated cat
-distribution and carries `solvency_scr`, `reinsurance` and `by_hazard`; this maps them into the S.26.01
-natural-catastrophe structure — it does not re-run anything.
+Two labelled bases side by side: the INTERNAL-MODEL nat-cat figure (the modelled 1-in-200 / 99.5 % VaR annual-aggregate
+loss, gross and net of the reinsurance in force) with the per-peril exposure that drives it, and the PRESCRIBED
+STANDARD FORMULA (Del. Reg. (EU) 2015/35 Arts 90b, 119-126, in the version in force on the reporting date) region by
+region, before and after risk mitigation — see services/governance/solvency2_natcat.py.
 
-Honesty discipline (same as the banking Pillar 3 build): we report our INTERNAL-MODEL NatCat SCR (the modelled
-1-in-200 / 99.5 % VaR annual-aggregate loss, gross and net of the illustrative reinsurance programme) and the
-per-peril exposure that drives it, ALONGSIDE the PRESCRIBED STANDARD-FORMULA NatCat SCR — all five sub-modules
-(windstorm, earthquake, flood, hail, subsidence), computed from EIOPA's own per-region factors (Del. Reg.
-2015/35, Art. 120-125 and Annexes V-VIII — see services/governance/solvency2_natcat.py). Both bases are cited
-and labelled. The only remaining external dependency is intra-country: the EXACT zonal SCR (Annex IX risk
-zones) needs postcode/administrative boundary geodata to assign each location to its zone — a bounded,
-declared external dependency, like the bank's EBA DPM binding, not the aggregate SCR itself.
+Earlier filings froze this block under the key 's2601' (it was mislabelled as S.26.01, the market-risk template);
+natcat_block() reads either, so a frozen filing is never rewritten.
 
 GROUP-SCOPE HONESTY (C3, 2026-09-23 independent consolidation-scope review): when this is computed for a
 consolidated (parent/group) scope, what's built is a NatCat sub-module figure on the ownership-weighted POOL
@@ -23,14 +18,19 @@ health, life, non-life underwriting, default, catastrophe, aggregated through th
 or Method 2 (Art 233: deduction and aggregation — parent's solo SCR plus its proportional share of each
 related undertaking's own solo SCR, which does NOT capture diversification benefit). Neither group own funds,
 the other Basic SCR modules, nor the Art 230/233 aggregation formula exist in this codebase — this function
-computes one input a Method 1/2 calculation would need, not the calculation itself. s2601_natcat() discloses
+computes one input a Method 1/2 calculation would need, not the calculation itself. s2701_natcat() discloses
 this explicitly via `group_method_note` whenever `group_scope=True`; it never silently presents the pooled
 NatCat SCR as a group solvency figure.
 """
 from __future__ import annotations
 
-# our hazard channel -> the Solvency II S.26.01 natural-catastrophe peril line
-_S2601_PERIL = {
+KEY = "s2701"
+_LEGACY_KEY = "s2601"
+TEMPLATE = "S.27.01.01"
+REGULATION = "Commission Implementing Regulation (EU) 2023/894, template S.27.01.01 — non-life catastrophe risk"
+
+# our hazard channel -> the Solvency II natural-catastrophe peril
+_PERIL = {
     "windstorm": "Windstorm", "storm": "Windstorm",
     "flood": "Flood", "coastal_flood": "Flood",
     "seismic": "Earthquake",
@@ -39,8 +39,13 @@ _S2601_PERIL = {
 }
 
 
-def s2601_natcat(snapshot: dict, group_scope: bool = False) -> dict:
-    """Build the S.26.01.01 natural-catastrophe block from a frozen insurer disclosure snapshot.
+def natcat_block(payload: dict) -> dict:
+    """The frozen nat-cat block of an insurer_solvency filing payload (either key)."""
+    return payload.get(KEY) or payload.get(_LEGACY_KEY) or {}
+
+
+def s2701_natcat(snapshot: dict, group_scope: bool = False) -> dict:
+    """Build the S.27.01.01 natural-catastrophe block from a frozen insurer disclosure snapshot.
 
     group_scope=True means this was computed over an ownership-weighted pool of a group's subtree (see the
     module docstring's GROUP-SCOPE HONESTY note) — stamps group_method_note disclosing that this is one
@@ -52,12 +57,12 @@ def s2601_natcat(snapshot: dict, group_scope: bool = False) -> dict:
     if not scr.get("available", True) or scr.get("natcat_scr_eur") is None:
         return {"framework": "insurer_solvency", "available": False,
                 "reason": scr.get("reason", "no scored policies to run the catastrophe distribution"),
-                "regulation": "Commission Delegated Regulation (EU) 2015/35, S.26.01.01"}
+                "regulation": REGULATION, "template": TEMPLATE}
 
     # per-peril exposure that drives the aggregate NatCat SCR (from the already-computed accumulation)
     perils: dict[str, dict] = {}
     for hz, agg in by_hazard.items():
-        peril = _S2601_PERIL.get(hz)
+        peril = _PERIL.get(hz)
         if not peril:
             continue
         row = perils.setdefault(peril, {"peril": peril, "exposed_value_eur": 0.0, "n_exposed": 0, "channels": []})
@@ -86,7 +91,7 @@ def s2601_natcat(snapshot: dict, group_scope: bool = False) -> dict:
         }
     return {
         "framework": "insurer_solvency",
-        "regulation": "Commission Delegated Regulation (EU) 2015/35 — SCR Non-Life catastrophe risk (S.26.01.01)",
+        "regulation": REGULATION, "template": TEMPLATE,
         "basis": scr.get("scr_basis", "internal_model_99_5_var"),
         "group_method_note": group_method_note,
         "natcat_scr": {
@@ -100,16 +105,12 @@ def s2601_natcat(snapshot: dict, group_scope: bool = False) -> dict:
         "note": scr.get("note"),
         # prescribed STANDARD-FORMULA NatCat SCR — all five sub-modules from EIOPA's own factors (Art. 120-125), cited
         "standard_formula_natcat": scr.get("standard_formula_natcat"),
-        # what is still declared-external rather than computed
+        # what the standard formula could not place exactly, and what is out of scope
         "declared": {
-            "status": "declared_external",
-            "items": ["Intra-country risk-zone weights & diversification (Annex IX/X/XXII-XXVI) for the EXACT zonal "
-                      "figure — needs postcode/administrative boundary geodata to assign each location to its zone",
-                      "Man-made catastrophe sub-modules (out of climate scope)"],
-            "note": "All five nat-cat standard-formula sub-modules (windstorm, earthquake, flood, hail, subsidence) "
-                    "are computed above from the official OJ Annex factors (cited), at country level, INCLUDING the "
-                    "Art. 123(7)/124(7) flood/hail motor term where present. The only remaining approximation is "
-                    "intra-country: the exact zonal SCR needs external boundary geodata to map locations to the "
-                    "Annex IX risk zones — a bounded external dependency, like the bank EBA DPM binding.",
+            "status": "declared",
+            "items": ["Man-made catastrophe, non-proportional property reinsurance and health catastrophe risk: other "
+                      "S.27.01.01 sub-modules, outside climate scope"],
+            "note": "Risks without a postal code, and regions whose zones cannot be read from one, are charged on the "
+                    "Art. 90b grouping of the region's zones (its highest risk weight) — an upper bound, shown per region.",
         },
     }

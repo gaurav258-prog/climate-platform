@@ -444,8 +444,7 @@ def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
                          "fitted vendor cat model.")})
 
     # 6 — Solvency II NatCat SCR: internal-model basis (99.5% VaR) side by side with the prescribed
-    # standard formula (EIOPA's own per-region factors, computed via services/governance/solvency2_natcat.py
-    # and already served on the /solvency-scr endpoint — see api/routers/insurance.py::_scr_from_cat).
+    # standard formula (services/governance/solvency2_natcat.py, served on /solvency-scr — _scr_from_cat).
     scr = (payload or {}).get("solvency_scr") or {}
     if scr.get("available"):
         sf = scr.get("standard_formula_natcat") or {}
@@ -457,23 +456,26 @@ def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
             {"type": "row", "cells": [_txt("Risk load (capital above expected loss)"), _mnum(_eur(scr.get("risk_load_eur")), "computed")]},
             {"type": "row", "cells": [_txt("SCR as % of gross sum insured"), _num(f"{scr.get('scr_pct_of_sum_insured')}%" if scr.get("scr_pct_of_sum_insured") is not None else "—")]},
         ]
-        if sf.get("available"):
-            rows.append({"type": "subheader", "label": "Standard formula — Del. Reg. (EU) 2015/35, Art. 120-125 (EIOPA's own per-region factors, cited)"})
-            rows.append({"type": "row", "cells": [_txt("NatCat SCR — standard formula (√Σ SCR_peril²)"), _mnum(_eur(sf.get("natcat_scr_eur")), "computed")]})
-            rows.append({"type": "row", "cells": [_txt("Undiversified sum of peril SCRs"), _mnum(_eur(sf.get("undiversified_sum_eur")), "computed")]})
-            rows.append({"type": "row", "cells": [_txt("Cross-peril diversification benefit"), _mnum(_eur(sf.get("cross_peril_diversification_benefit_eur")), "computed")]})
-            for pk, v in (sf.get("scr_by_peril_eur") or {}).items():
-                rows.append({"type": "row", "cells": [_txt(f"  · {pk.title()}"), _mnum(_eur(v), "computed")]})
+        if sf.get("available") and "version" in sf:
+            from services.governance.solvency2_natcat import lines
+            rows.append({"type": "subheader", "label": f"Standard formula — Del. Reg. (EU) 2015/35 ({sf['version']}), "
+                                                      "after risk mitigation (before in brackets)"})
+            for ln in lines(sf):
+                if ln.get("total") or ln["line"].startswith("Diversification") or ln["peril"] == "Natural catastrophe":
+                    lbl = f"{ln['line']}" if ln["peril"] == "Natural catastrophe" else f"  · {ln['line']}"
+                    rows.append({"type": "row", "cells": [_txt(f"{lbl} ({_eur(ln.get('before_eur'))})"),
+                                                         _mnum(_eur(ln.get("after_eur")), "computed")]})
+            for x in sf.get("incomplete", []):
+                rows.append({"type": "row", "cells": [_txt(f"Incomplete — {x}"), _num("—")]})
         sections.append({
             "title": "Solvency II — NatCat SCR (internal-model basis, 99.5% VaR"
                      + (" · standard formula" if sf.get("available") else "") + ")",
             "columns": ["Component", "Amount"], "rows": rows,
             "note": ("Internal-model-basis NatCat SCR = modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
                      "loss from our own accumulation model. " +
-                     ("The prescribed standard-formula NatCat SCR (EIOPA Delegated Reg. (EU) 2015/35, Art. 120-125, "
-                      "Annexes V-VIII) is computed above from EIOPA's own per-region factors — a cited regulatory "
-                      "calculation, not a platform model — and shown alongside it; both bases are labelled and, at "
-                      "country level, both are live (no external ingest pending)."
+                     ("The prescribed standard formula (Del. Reg. (EU) 2015/35 Arts 90b, 119-126, the version in force "
+                      "on the reporting date) is shown alongside it, region by region in the S.27.01.01 export, before "
+                      "and after the attested reinsurance — a regulatory calculation, not a platform model."
                       if sf.get("available") else
                       "The prescribed standard-formula NatCat SCR (EIOPA Delegated Reg. (EU) 2015/35, Art. 120-125) "
                       "could not be computed for this book."))})

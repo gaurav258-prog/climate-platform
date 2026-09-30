@@ -63,7 +63,7 @@ EXT_INSURANCE_COLUMNS = [
     "CAST(x.building_value_eur AS FLOAT) AS building_value_eur",
     "CAST(x.contents_value_eur AS FLOAT) AS contents_value_eur",
     "CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur",
-    "CAST(x.cresta_zone AS INTEGER) AS cresta_zone",
+    "e.postal_code AS postal_code",
     "CAST(x.motor_sum_insured_eur AS FLOAT) AS motor_sum_insured_eur",
 ]
 
@@ -105,7 +105,7 @@ def _map_policy_row(row):
         "deductible_pct": row["deductible_pct"], "building_value_eur": row["building_value_eur"],
         "contents_value_eur": row["contents_value_eur"],
         "business_interruption_value_eur": row["business_interruption_value_eur"],
-        "cresta_zone": row["cresta_zone"], "motor_sum_insured_eur": row["motor_sum_insured_eur"],
+        "postal_code": row["postal_code"], "motor_sum_insured_eur": row["motor_sum_insured_eur"],
         "construction_type": row["construction_type"], "year_built": row["year_built"],
         "number_of_stories": row["number_of_stories"],
         "hazards": row["hazards"], "headline_score": row["headline_score"],
@@ -138,9 +138,30 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
     return [_map_policy_row(r) for r in rows]
 
 
-def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dict:
+def standard_formula_inputs(session, org_id: str, translation=None) -> dict:
+    """What the Solvency II nat-cat standard formula takes besides the book, for the organisation's reporting date:
+    the date (it selects the version of the Regulation), the ATTESTED reinsurance (the illustrative programme never
+    mitigates a regulatory figure), the attested premiums and DIV for risks outside Annex XIII, and the governed UK
+    reading. Amounts are stated in EUR and follow the book's presentation currency."""
+    from services.governance.reporting_settings import get_settings
+    from services.insurer_capital import natcat_other_regions, programme
+    pe = get_settings(session, org_id)["reporting_period_end"]
+    ref = date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31)
+    treaty, basis = programme(session, org_id, ref)
+    other = natcat_other_regions(session, org_id, ref)
+    if translation is not None and translation.presentation != "EUR":
+        from services.governance.translation import from_eur
+        treaty = {k: from_eur(session, translation, v) if k.endswith("_eur") and v is not None else v for k, v in treaty.items()}
+        other = {p: {**x, "premium_eur": from_eur(session, translation, x["premium_eur"]) if x["premium_eur"] is not None else None}
+                 for p, x in other.items()}
+    return {"ref_date": ref, "treaty": treaty, "treaty_basis": basis, "other_inputs": other,
+            "uk_reading": get_calc_settings(session, org_id)["sii_natcat_uk_other_regions"]}
+
+
+def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str, sf_inputs: dict) -> dict:
     """Solvency II NatCat SCR (internal-model 99.5% basis) derived from an already-run cat distribution — the
-    single source shared by the /solvency-scr endpoint and the frozen disclosure snapshot."""
+    single source shared by the /solvency-scr endpoint and the frozen disclosure snapshot — beside the prescribed
+    standard formula (services.governance.solvency2_natcat) on the inputs of standard_formula_inputs()."""
     if not cat or not cat.get("available"):
         return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book.")}
     aep200 = (cat.get("aep_eur") or {}).get("rp_200")
@@ -148,7 +169,7 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
     gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
     mean_al = cat.get("mean_annual_loss_eur")
     # prescribed standard-formula NatCat SCR — ALL five sub-modules (Del. Reg. 2015/35 Art. 120-125, official factors)
-    sf_natcat = natcat_scr(policies)
+    sf_natcat = natcat_scr(policies, **sf_inputs)
     return {
         "available": True, "scenario": scenario, "horizon": horizon,
         "scr_basis": "internal_model_99_5_var",
@@ -162,9 +183,10 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
         "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
                  "loss from the catastrophe accumulation model (geographic accumulation correlated). Alongside it, "
                  "the prescribed standard-formula NatCat SCR — all five sub-modules (windstorm, earthquake, flood, "
-                 "hail, subsidence) — is computed with EIOPA's own per-region factors (Del. Reg. 2015/35, "
-                 "Art. 120-125 and Annexes V-VIII), a cited regulatory calculation rather than a platform hazard model. "
-                 "Both bases are labelled; man-made catastrophe is out of scope."),
+                 "hail, subsidence), before and after the attested reinsurance — on the version of Del. Reg. 2015/35 in "
+                 "force on the reporting date (Arts 90b, 119-126; Annexes III, V-X, XIII, XXII-XXVI), a regulatory "
+                 "calculation rather than a platform hazard model. Both bases are labelled; man-made catastrophe is out "
+                 "of scope."),
     }
 
 
@@ -280,13 +302,13 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     prog, prog_basis = programme(session, org_id, date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31))
     if translation is not None and translation.presentation != "EUR":      # treaty layers are stated in EUR
         from services.governance.translation import from_eur
-        prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur")}}
+        prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur") and v is not None}}
     rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"], reinsurance=prog,
                      zones_of=zones)
     cat = rollup.get("catastrophe") or {}
     return {
         "rollup": rollup, "policies": policies, "by_hazard": hazards,
-        "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon),
+        "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon, standard_formula_inputs(session, org_id, translation)),
         "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": prog_basis},
         "investments": _investments_block(session, org_id, scenario, horizon, _st, translation=translation),
     }
@@ -320,14 +342,14 @@ def solvency_scr(session: DbSession, org_id: OrgId,
     """The catastrophe capital an insurer must hold, on TWO labelled bases. Primary figure: the INTERNAL-MODEL
     NatCat SCR — our modelled 1-in-200 (99.5% VaR) annual-aggregate loss, from the same common-shock cat
     engine that drives the PML. Alongside it, under `standard_formula_natcat`: the PRESCRIBED STANDARD-FORMULA
-    SCR, computed from EIOPA's own per-region catastrophe factors (Delegated Regulation 2015/35, Art. 120-125,
-    Annexes V-VIII — see services/governance/solvency2_natcat.py::natcat_scr) — a cited regulatory calculation,
-    not fabricated. Both are labelled as such."""
+    SCR on the version of Delegated Regulation 2015/35 in force on the reporting date (Arts 90b, 119-126 — see
+    services/governance/solvency2_natcat.py::natcat_scr), before and after the attested reinsurance. Both are
+    labelled as such."""
     _st = get_calc_settings(session, org_id)
     policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
                                    expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     cat = catastrophe_accumulation(policies, org_id, scenario, horizon, pml_return_period=200)
-    return _scr_from_cat(cat, policies, scenario, horizon)
+    return _scr_from_cat(cat, policies, scenario, horizon, standard_formula_inputs(session, org_id))
 
 
 @router.get("/reinsurance", summary="Net-of-reinsurance retention — gross catastrophe loss after ceding")
@@ -374,7 +396,7 @@ def _modeled_for_incurred(session, org_id: str, scenario: str, horizon: str) -> 
                                    expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])
     cat = rollup.get("catastrophe") or {}
-    scr = _scr_from_cat(cat, policies, scenario, horizon)
+    scr = _scr_from_cat(cat, policies, scenario, horizon, standard_formula_inputs(session, org_id))
     sf = scr.get("standard_formula_natcat") or {}
     return {
         "regulation": "IFRS S2 paragraph 16(c)-(d) — anticipated financial effects",

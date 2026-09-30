@@ -159,20 +159,20 @@ def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_we
 
 
 def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
-    """Solvency II S.26.01.01 NatCat SCR, mapped from the insurer disclosure snapshot (no re-run).
+    """Solvency II S.27.01.01 natural-catastrophe risk, mapped from the insurer disclosure snapshot (no re-run).
 
-    Carries the full `policies` + `by_hazard` alongside `rollup`/`s2601` — same fix and same reasoning as
-    _reit_taxonomy() above.
+    Carries the full `policies` + `by_hazard` alongside `rollup` and the nat-cat block — same fix and same reasoning
+    as _reit_taxonomy() above.
 
     value_weights is set by generate_filing() only when scoping to a parent/group with more than itself in
     its subtree — the exact same condition entities.filing_role_for() calls 'consolidated'. That's the
-    signal s2601_natcat() needs to know whether to disclose the C3 group-method gap (see its docstring)."""
+    signal s2701_natcat() needs to know whether to disclose the C3 group-method gap (see its docstring)."""
     from api.routers.insurance import build_disclosure_snapshot
-    from services.governance.insurer_solvency import s2601_natcat
+    from services.governance.insurer_solvency import KEY, s2701_natcat
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
                                      translation=translation)
     return {"rollup": snap.get("rollup"), "policies": snap.get("policies"), "by_hazard": snap.get("by_hazard"),
-            "s2601": s2601_natcat(snap, group_scope=value_weights is not None)}
+            KEY: s2701_natcat(snap, group_scope=value_weights is not None)}
 
 
 def _fx_record(session: Session, org_id: str, translation) -> dict:

@@ -1,205 +1,160 @@
-"""Solvency II standard-formula NatCat — all five perils + Art. 120 aggregation (Del. Reg. 2015/35)."""
+"""Golden book for the Solvency II nat-cat standard formula (Del. Reg. (EU) 2015/35 Arts 90b, 119-126), worked by hand.
+
+Table values used (Annex V, Annex X, Annex XXII, Annex XXVI — 02015R0035-20241114; asserted below as held):
+  windstorm DE: Q = 0,07 %; zone 01 W = 0,9; zone 20 W = 1,4; Corr(01,20) = 0,25; highest W in DE = 2,9
+  subsidence FR: zone 75 W = 0,3; zone 13 W = 2,5; Corr(75,13) = 1; factor 0,0005
+
+1  exact zones   SI 100m in zone 01, 200m in zone 20
+                 WSI = 0,0007·0,9·100m = 63 000 and 0,0007·1,4·200m = 196 000
+                 L = √(63 000² + 196 000² + 2·0,25·63 000·196 000) = √48 559 000 000 = 220 361,07
+                 gross, either scenario: 1,2·L = 264 433
+2  treaty        quota share 30 %; excess of loss 50 000 xs 100 000 per event
+   scenario A    event 1 = 0,8·L = 176 288,85: QS 52 886,66, retained 123 402,20, layer 23 402,20
+                 event 2 = 0,4·L =  88 144,43: QS 26 443,33, retained  61 701,10, layer 0
+                 recovered 102 732,18 → loss 264 433,28 − 102 732,18 = 161 701
+   scenario B    event 1 = L: QS 66 108,32, layer 50 000 (limit used); event 2 = 0,2·L: QS 13 221,66
+                 recovered 129 329,98 → loss 135 103 — A is the larger: 161 701
+   reinstated    one reinstatement at 10 000 for the full limit: A pays 10 000 · 23 402,20/50 000 = 4 680 → 166 382;
+                 B pays 10 000 → 145 103; A again
+3  Art. 90b      100m in zone 01 and 100m without a postal code → all DE zones one group at W 2,9:
+                 L = 0,0007·2,9·200m = 406 000; gross 487 200
+4  subsidence    1bn in zone 75, 1bn in zone 13: WSI 150 000 and 1 250 000, Corr 1 → L = 1 400 000 (single scenario)
+5  other regions US risk; P(windstorm) = 10m, DIV = 0,5 → L = 1,75·(0,5·0,5 + 0,5)·10m = 13 125 000
+"""
+from __future__ import annotations
+
 import json
-import math
+from datetime import date
 
-from services.governance.solvency2_natcat import natcat_scr, standard_formula_peril, subsidence_scr
+import pytest
 
+from services.governance import solvency2_natcat_tables as T
+from services.governance.solvency2_natcat import natcat_scr, peril_scr
 
-def _pol(country, si):
-    return {"country": country, "sum_insured_eur": si}
-
-
-def test_gross_factors_per_peril():
-    # SCR_r = gross · Q_r · SI_r for a single region; verifies each peril's prescribed gross factor
-    si = 1_000_000_000
-    # 2019/981-amended Annex V-VIII factors: DE windstorm 0.07%, IT earthquake 0.77%, DE flood 0.20% (unchanged),
-    # AT hail 0.08% (unchanged)
-    assert standard_formula_peril([_pol("DE", si)], "windstorm")["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0007 * si)
-    assert standard_formula_peril([_pol("IT", si)], "earthquake")["per_region"][0]["scr_region_eur"] == round(1.00 * 0.0077 * si)
-    assert standard_formula_peril([_pol("DE", si)], "flood")["per_region"][0]["scr_region_eur"] == round(1.10 * 0.0020 * si)
-    assert standard_formula_peril([_pol("AT", si)], "hail")["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0008 * si)
+D24, D27 = date(2025, 12, 31), date(2027, 6, 30)
+TREATY = {"quota_share_pct": 30, "xol_attachment_eur": 100_000, "xol_limit_eur": 50_000}
 
 
-def test_earthquake_covers_southern_europe_that_windstorm_misses():
-    # Greece has no windstorm factor but a high earthquake factor (1.75%, 2019/981-amended)
-    assert standard_formula_peril([_pol("GR", 1e9)], "windstorm")["available"] is False
-    eq = standard_formula_peril([_pol("GR", 1e9)], "earthquake")
-    assert eq["available"] and eq["per_region"][0]["region"] == "HE"
-    assert eq["scr_eur"] == round(1.00 * 0.0175 * 1e9)
+def _ws(pols, treaty=None, **kw):
+    return peril_scr(pols, "windstorm", v=T.version(D24), treaty=treaty, **kw)
 
 
-def test_san_marino_iso_maps_to_italy_region_for_earthquake():
-    # ISO 'SM' is San Marino (part of the IT region), NOT Saint Martin here
-    r = standard_formula_peril([_pol("SM", 1e9)], "earthquake")
-    assert r["per_region"][0]["region"] == "IT"
+def test_the_table_values_the_golden_book_uses_are_held():
+    v = T.version(D24)
+    ws, de = T.peril_table(v, "windstorm"), T.zonal(v, "windstorm", "DE")
+    assert ws["regions"]["DE"]["q"] == 0.0007
+    assert (de["zones"]["1"]["w"], de["zones"]["20"]["w"], de["correlation"]["1"]["20"]) == (0.9, 1.4, 0.25)
+    assert max(z["w"] for z in de["zones"].values()) == 2.9
+    fr = T.zonal(v, "subsidence", "FR")
+    assert (fr["zones"]["75"]["w"], fr["zones"]["13"]["w"], fr["correlation"]["75"]["13"]) == (0.3, 2.5, 1.0)
 
 
-def test_motor_component_flood_hail_only():
-    # Art. 123(7): flood SI = property + 1.5·motor; Art. 124(7): hail SI = property + 5·motor; windstorm/EQ: none
-    pol = {"country": "DE", "sum_insured_eur": 1_000_000_000, "motor_sum_insured_eur": 1_000_000_000}
-    fl = standard_formula_peril([pol], "flood")
-    assert fl["per_region"][0]["scr_region_eur"] == round(1.10 * 0.0020 * (1e9 + 1.5 * 1e9))  # motor ×1.5
-    assert fl["motor_component_eur"] == round(1.5 * 1e9)
-    ha = standard_formula_peril([pol], "hail")
-    assert ha["motor_component_eur"] == round(5.0 * 1e9)                                        # motor ×5
-    ws = standard_formula_peril([pol], "windstorm")
-    assert ws["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0007 * 1e9)                  # property only, no motor
-    assert ws["motor_component_eur"] is None
+def test_exact_zones_give_the_specified_loss_and_either_scenario_gross():
+    r = _ws([{"country": "DE", "postal_code": "01067", "sum_insured_eur": 100e6},
+             {"country": "DE", "postal_code": "20095", "sum_insured_eur": 200e6}])["regions"][0]
+    assert (r["method"], r["specified_gross_loss_eur"], r["before_eur"], r["after_eur"]) == ("exact_zonal", 220361, 264433, 264433)
+    assert r["scenario"] == "A"                                     # a tie keeps A
 
 
-def test_property_book_has_zero_motor():
-    r = standard_formula_peril([{"country": "DE", "sum_insured_eur": 1e9}], "flood")
-    assert r["motor_component_eur"] == 0   # no motor_sum_insured on a property Statement of Values
+def test_the_larger_scenario_after_the_treaty_is_the_charge():
+    pols = [{"country": "DE", "postal_code": "01067", "sum_insured_eur": 100e6},
+            {"country": "DE", "postal_code": "20095", "sum_insured_eur": 200e6}]
+    r = _ws(pols, TREATY)["regions"][0]
+    assert (r["scenario"], r["after_eur"], r["mitigation_eur"], r["reinstatement_eur"]) == ("A", 161701, 102732, 0)
+    r = _ws(pols, {**TREATY, "xol_reinstatements": 1, "xol_reinstatement_premium_eur": 10_000})["regions"][0]
+    assert (r["scenario"], r["after_eur"], r["reinstatement_eur"]) == ("A", 166382, 4680)
+    # reinstatements stated without their premium: none assumed (declared reading) — same as not stated
+    assert _ws(pols, {**TREATY, "xol_reinstatements": 1})["regions"][0]["after_eur"] == 161701
 
 
-def test_subsidence_is_france_only_fixed_factor():
-    assert subsidence_scr([_pol("FR", 2e9)])["scr_eur"] == round(0.0005 * 2e9)   # 1,000,000
-    assert subsidence_scr([_pol("DE", 2e9)])["available"] is False               # not France
+def test_a_risk_without_a_zone_groups_the_region_under_art_90b():
+    r = _ws([{"country": "DE", "postal_code": "01067", "sum_insured_eur": 100e6},
+             {"country": "DE", "sum_insured_eur": 100e6}])["regions"][0]
+    assert (r["method"], r["specified_gross_loss_eur"], r["before_eur"]) == ("grouped_art90b", 406000, 487200)
+    assert "50 %" in r["method_reason"]
 
 
-def test_natcat_aggregates_five_perils_root_sum_of_squares():
-    book = [_pol("DE", 1e9), _pol("IT", 1e9), _pol("FR", 1e9)]
-    r = natcat_scr(book)
-    by = r["scr_by_peril_eur"]
-    expect = math.sqrt(sum(v * v for v in by.values()))
-    assert abs(r["natcat_scr_eur"] - round(expect)) <= 1
-    assert r["cross_peril_diversification_benefit_eur"] > 0     # independent perils diversify
-    assert set(by) == {"windstorm", "earthquake", "flood", "hail", "subsidence"}
+def test_zone_labels_that_cannot_be_matched_are_always_grouped():
+    v = T.version(D24)
+    r = peril_scr([{"country": "SI", "postal_code": "5000", "sum_insured_eur": 1e8}], "earthquake", v=v)["regions"][0]
+    assert r["method"] == "grouped_art90b" and "labels" in r["method_reason"]
 
 
-def test_natcat_available_false_when_no_eu_exposure():
-    r = natcat_scr([_pol("US", 1e9), _pol("JP", 1e9)])
-    assert r["available"] is False and all(v == 0 for v in r["scr_by_peril_eur"].values())
+def test_subsidence_before_2027_is_france_residential_on_the_zones():
+    v = T.version(D24)
+    r = peril_scr([{"country": "FR", "postal_code": "75001", "sum_insured_eur": 1e9},
+                   {"country": "FR", "postal_code": "13001", "sum_insured_eur": 1e9},
+                   {"country": "FR", "postal_code": "13002", "sum_insured_eur": 5e8, "residential": False},
+                   {"country": "BE", "postal_code": "1000", "sum_insured_eur": 1e9}], "subsidence", v=v)
+    assert [(x["region"], x["method"], x["before_eur"]) for x in r["regions"]] == [("FR", "exact_zonal", 1_400_000)]
+    assert r["other_regions"] is None and r["residential_not_stated"] == 2
 
 
-def _hr(zone, si):
-    p = {"country": "HR", "sum_insured_eur": si}
-    if zone is not None:
-        p["cresta_zone"] = zone
-    return p
+def test_other_regions_are_charged_on_attested_premiums_and_never_on_zero():
+    pols = [{"country": "US", "sum_insured_eur": 1e9}]
+    missing = _ws(pols)
+    assert missing["other_regions"]["status"] == "missing_input" and not missing["complete"]
+    got = _ws(pols, other_inputs={"windstorm": {"premium_eur": 10e6, "div": 0.5}})
+    assert (got["other_regions"]["before_eur"], got["before_eur"], got["complete"]) == (13_125_000, 13_125_000, True)
 
 
-def test_exact_zonal_uses_weights_and_correlation_and_beats_country_level():
-    # Croatia earthquake tables are loaded (CR); zone-tagged policies use the exact zonal calc
-    zoned = standard_formula_peril([_hr(21, 1e9), _hr(8, 1e9)], "earthquake")
-    country = standard_formula_peril([_hr(None, 1e9), _hr(None, 1e9)], "earthquake")
-    assert zoned["per_region"][0]["method"] == "exact_zonal" and zoned["n_exact_zonal_regions"] == 1
-    assert country["per_region"][0]["method"] == "country_level"
-    # exact zonal takes within-country diversification credit -> strictly lower than the perfect-correlation approx
-    assert zoned["scr_eur"] < country["scr_eur"]
+def test_a_region_and_other_regions_combine_independently():
+    pols = [{"country": "DE", "sum_insured_eur": 100e6}, {"country": "US", "sum_insured_eur": 1e9}]
+    r = _ws(pols, other_inputs={"windstorm": {"premium_eur": 10e6, "div": 0.5}})
+    assert r["before_eur"] == round((243_600 ** 2 + 13_125_000 ** 2) ** 0.5)     # DE grouped: 1,2·0,0007·2,9·100m
 
 
-def test_zonal_falls_back_when_a_policy_has_no_zone():
-    # if ANY policy in the region lacks a cresta_zone, that region uses the country-level approximation (honest)
-    r = standard_formula_peril([_hr(21, 1e9), _hr(None, 1e9)], "earthquake")
-    assert r["per_region"][0]["method"] == "country_level"
+def test_the_united_kingdom_is_charged_by_region_unless_the_literal_reading_is_chosen():
+    pols = [{"country": "UK", "sum_insured_eur": 1e9}]              # the EU's code: read as GB
+    assert _ws(pols)["other_regions"] is None and _ws(pols)["regions"][0]["region"] == "UK"
+    lit = _ws(pols, uk_reading="region_and_premium")
+    assert lit["other_regions"]["exposure_eur"] == 1_000_000_000
 
 
-def test_zonal_falls_back_on_unknown_zone():
-    # a cited zone the table doesn't know -> fall back, never fabricate
-    r = standard_formula_peril([_hr(999, 1e9)], "earthquake")
-    assert r["per_region"][0]["method"] == "country_level"
+def test_a_greek_risk_in_the_eus_own_code_carries_its_earthquake_charge():
+    r = peril_scr([{"country": "EL", "sum_insured_eur": 1e9}], "earthquake", v=T.version(D24))
+    assert r["regions"][0]["region"] == "HE" and r["regions"][0]["before_eur"] > 0          # E38
 
 
-def test_zonal_only_where_tables_loaded():
-    # Austria earthquake has no zonal table loaded -> country-level even with a zone tag
-    r = standard_formula_peril([{"country": "AT", "sum_insured_eur": 1e9, "cresta_zone": 3}], "earthquake")
-    assert r["per_region"][0]["method"] == "country_level"
+def test_only_an_attested_treaty_mitigates():
+    pols = [{"country": "DE", "sum_insured_eur": 1e9}]
+    ill = natcat_scr(pols, ref_date=D24, treaty=TREATY, treaty_basis="illustrative_standard")
+    assert ill["treaty_basis"] == "none" and ill["natcat_scr_eur"] == ill["natcat_scr_before_mitigation_eur"]
+    att = natcat_scr(pols, ref_date=D24, treaty=TREATY, treaty_basis="attested")
+    assert att["natcat_scr_eur"] < att["natcat_scr_before_mitigation_eur"]
 
 
-def test_all_annex_matrices_symmetric_unit_diagonal():
-    # transcription guard across every peril's official correlation matrix
-    ws = json.load(open("data/reference/solvency2_windstorm_annex_v.json"))
-    nc = json.load(open("data/reference/solvency2_natcat_annexes.json"))
-    mats = [("windstorm", ws)] + [(p, nc[p]) for p in ("earthquake", "flood", "hail")]
-    for name, blk in mats:
-        order, corr = blk["region_order"], blk["correlation"]
-        idx = {r: i for i, r in enumerate(order)}
-        assert set(corr) == set(order), f"{name}: rows != region_order"
-        for r in order:
-            assert len(corr[r]) == len(order) and corr[r][idx[r]] == 1.0, f"{name}: {r} diagonal"
-            for s in order:
-                assert corr[r][idx[s]] == corr[s][idx[r]], f"{name}: asymmetry {r},{s}"
+def test_perils_combine_as_independent_and_the_version_follows_the_date():
+    pols = [{"country": "DE", "sum_insured_eur": 1e9, "motor_sum_insured_eur": 1e6}]
+    r = natcat_scr(pols, ref_date=D24)
+    by = {p: x["before_eur"] for p, x in r["perils"].items() if x["available"]}
+    assert r["natcat_scr_before_mitigation_eur"] == round(sum(b * b for b in by.values()) ** 0.5)
+    assert r["version"] == "da_2015_35_as_2019_981" and natcat_scr(pols, ref_date=D27)["version"] == "da_2015_35_as_2026_269"
+    motor = [{"country": "DE", "sum_insured_eur": 0, "motor_sum_insured_eur": 1e6}]
+    h24 = peril_scr(motor, "hail", v=T.version(D24))["regions"][0]["exposure_eur"]
+    h27 = peril_scr(motor, "hail", v=T.version(D27))["regions"][0]["exposure_eur"]
+    assert (h24, h27) == (5_000_000, 10_000_000)                  # Art. 124(7): 5 → 10 by 2026/269
 
 
-def test_factors_and_regions_align():
-    nc = json.load(open("data/reference/solvency2_natcat_annexes.json"))
-    for p in ("earthquake", "flood", "hail"):
-        assert set(nc[p]["regions"]) == set(nc[p]["region_order"])
-        assert all(0 < nc[p]["regions"][r]["q"] < 0.1 for r in nc[p]["regions"])
+def test_from_2027_subsidence_is_regional_france_and_belgium():
+    v = T.version(D27)
+    r = peril_scr([{"country": "BE", "postal_code": "1000", "sum_insured_eur": 1e9},
+                   {"country": "US", "sum_insured_eur": 1e9}], "subsidence", v=v)
+    assert [x["region"] for x in r["regions"]] == ["BE"] and r["other_regions"]["status"] == "not_calculated"
 
 
-def _de(zone, si):
-    p = {"country": "DE", "sum_insured_eur": si}
-    if zone is not None:
-        p["cresta_zone"] = zone
-    return p
-
-
-def test_germany_exact_zonal_all_four_perils_matches_formula():
-    # Germany's zones are 2-digit postcodes (non-contiguous ids, id-keyed). Check the engine reproduces the exact
-    # Art.121-124(5) formula from the reference tables:  SCR = gross · Q_DE · sqrt(ΣΣ Corr(i,j)·W_i·SI_i·W_j·SI_j).
-    # (Not a directional check: real zone weights run up to 5.0, so exact can sit above OR below the W=1 approx.)
-    zonal = json.load(open("data/reference/solvency2_zonal.json"))
-    ws = json.load(open("data/reference/solvency2_windstorm_annex_v.json"))
-    nc = json.load(open("data/reference/solvency2_natcat_annexes.json"))
-    gross = {"windstorm": 1.20, "earthquake": 1.00, "flood": 1.10, "hail": 1.20}
-    book = {20: 1e9, 80: 1e9, 99: 5e8}   # Hamburg-ish, Munich-ish, Thuringia-ish postcodes
-    for peril in ("windstorm", "earthquake", "flood", "hail"):
-        q = (ws if peril == "windstorm" else nc[peril])["regions"]["DE"]["q"]
-        t = zonal[peril]["DE"]
-        wsi = {z: t["zones"][str(z)]["w"] * si for z, si in book.items()}
-        var = sum(t["correlation"][str(i)][str(j)] * wsi[i] * wsi[j] for i in wsi for j in wsi)
-        expected = gross[peril] * q * math.sqrt(var)
-        z = standard_formula_peril([_de(k, v) for k, v in book.items()], peril)
-        assert z["per_region"][0]["method"] == "exact_zonal", peril
-        assert abs(z["scr_eur"] - round(expected)) <= 1, (peril, z["scr_eur"], expected)
-
-
-def test_germany_nonexistent_postcode_falls_back():
-    # 05 / 11 / 43 / 62 are not German postcodes and are absent from Annex IX -> honest fall-back, never fabricated
-    r = standard_formula_peril([_de(5, 1e9)], "windstorm")
-    assert r["per_region"][0]["method"] == "country_level"
-
-
-def test_zone_ids_are_labels_numeric_or_alpha_and_normalised():
-    # "20", 20 and "020" all address German postcode zone 20; the table key is the normalised label
-    a = standard_formula_peril([{"country": "DE", "sum_insured_eur": 1e9, "cresta_zone": "20"}], "windstorm")
-    b = standard_formula_peril([{"country": "DE", "sum_insured_eur": 1e9, "cresta_zone": 20}], "windstorm")
-    assert a["scr_eur"] == b["scr_eur"] and a["per_region"][0]["method"] == "exact_zonal"
-
-
-def test_france_all_five_perils_exact_incl_subsidence():
-    zonal = json.load(open("data/reference/solvency2_zonal.json"))
-    book = {"6": 1e9, "13": 1e9, "75": 5e8}   # Alpes-Maritimes, Bouches-du-Rhône, Paris
-    pols = [{"country": "FR", "sum_insured_eur": si, "cresta_zone": z} for z, si in book.items()]
-    for peril in ("windstorm", "earthquake", "flood", "hail"):
-        assert standard_formula_peril(pols, peril)["per_region"][0]["method"] == "exact_zonal", peril
-    s = subsidence_scr(pols)
-    t = zonal["subsidence"]["FR"]
-    wsi = {z: t["zones"][z]["w"] * si for z, si in book.items()}
-    expected = 0.0005 * math.sqrt(sum(t["correlation"][i][j] * wsi[i] * wsi[j] for i in wsi for j in wsi))
-    assert s["method"] == "exact_zonal" and abs(s["scr_eur"] - round(expected)) <= 1
-    assert subsidence_scr([{"country": "FR", "sum_insured_eur": 1e9}])["method"] == "country_level"
-
-
-def test_spain_and_italy_exact_zonal():
-    es = standard_formula_peril([{"country": "ES", "sum_insured_eur": 1e9, "cresta_zone": 8},
-                                 {"country": "ES", "sum_insured_eur": 1e9, "cresta_zone": 28}], "windstorm")
-    it = standard_formula_peril([{"country": "IT", "sum_insured_eur": 1e9, "cresta_zone": 0},    # Rome CAP 00
-                                 {"country": "IT", "sum_insured_eur": 1e9, "cresta_zone": 20}], "earthquake")
-    assert es["per_region"][0]["method"] == "exact_zonal" and it["per_region"][0]["method"] == "exact_zonal"
-
-
-def test_uk_letter_zones_exact_zonal_incl_symmetry_filled_sn():
-    # UK zones are postcode-area LETTERS; SN's flood column is symmetry-reconstructed from the printed OJ row
-    book = [{"country": "GB", "sum_insured_eur": 1e9, "cresta_zone": "AB"},
-            {"country": "GB", "sum_insured_eur": 1e9, "cresta_zone": "sn"},   # case-normalised
-            {"country": "GB", "sum_insured_eur": 5e8, "cresta_zone": "YO"}]
-    for peril in ("windstorm", "flood"):
-        r = standard_formula_peril(book, peril)
-        assert r["per_region"][0]["method"] == "exact_zonal", peril
-    zonal = json.load(open("data/reference/solvency2_zonal.json"))["flood"]["UK"]
-    assert zonal["correlation"]["SN"]["SN"] == 1.0
-    assert zonal["correlation"]["AB"]["SN"] == zonal["correlation"]["SN"]["AB"]
-    assert "symmetry" in zonal.get("source_note", "")
+@pytest.mark.parametrize("when", [D24, D27])
+def test_every_zone_table_and_postal_map_is_whole(when):
+    """Each zoned region: weights and correlations over the same zones, symmetric, unit diagonal; a labels_verified
+    flag; every Annex IX map entry names a zone of the region."""
+    v = T.version(when)
+    zf = json.load(open(f"data/reference/{v['files']['zonal']}"))
+    ix = T.annex_ix(v)
+    for peril in ("windstorm", "earthquake", "flood", "hail", "subsidence"):
+        for region, t in zf[peril].items():
+            zs = set(t["zones"])
+            assert zs == set(t["correlation"]) and "labels_verified" in t, (peril, region)
+            assert all(t["correlation"][i][i] == 1.0 and t["correlation"][i][j] == t["correlation"][j][i]
+                       for i in zs for j in zs), (peril, region)
+            spec = (ix.get(peril) or {}).get(region) or {}
+            assert set(spec.get("map", {}).values()) <= zs or spec.get("basis") in ("admin_unit", "not_postal"), (peril, region)

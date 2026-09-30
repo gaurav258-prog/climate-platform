@@ -25,7 +25,8 @@ def parse_table(raw: bytes, filename: Optional[str]) -> pd.DataFrame:
         if name.endswith((".xlsx", ".xlsm", ".xls")):
             return pd.read_excel(io.BytesIO(raw))
         if name.endswith((".csv", ".txt")):
-            return pd.read_csv(io.BytesIO(raw))
+            # every cell as written: each field's kind parses its own values (a postal code keeps its leading zero)
+            return pd.read_csv(io.BytesIO(raw), dtype=str)
     except Exception as e:  # noqa: BLE001 — surface a readable parse error to the user
         raise ValueError(f"We couldn't read that file — please check it opens as a table. ({e})")
     raise ValueError("Please upload a CSV or Excel (.xlsx) file.")

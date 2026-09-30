@@ -45,7 +45,8 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
                               ORDER BY region, entity_name LIMIT 3"""), {"o": IBERIA}).mappings().all()
     rows = [{"policy_name": f"E2E property {i}", "latitude": r["latitude"], "longitude": r["longitude"], "region": r["region"],
              "country": r["country"], "building_value_eur": 4_000_000 + i * 1_000_000, "contents_value_eur": 500_000,
-             "construction_type": "joisted_masonry", "year_built": 1985, "number_of_stories": 3, "deductible_pct": 0.01}
+             "construction_type": "joisted_masonry", "year_built": 1985, "number_of_stories": 3, "deductible_pct": 0.01,
+             "postal_code": "46001" if r["country"] == "ES" else ""}
             for i, r in enumerate(spots, 1)]
     up = api.post("/v1/insurance/policies/upload", headers=maker, files={"file": ("sov.csv", _csv(rows), "text/csv")}, data={"currency": "EUR", "book_date": pe.isoformat()})
     assert up.status_code == 200, up.text
@@ -68,7 +69,11 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     before = build_disclosure_snapshot(s, IBERIA, "baseline", "current")["reinsurance"]
     assert before["program_basis"] == "illustrative_standard"
     stated = {"eligible_own_funds_scr": 180_000_000, "scr_total": 120_000_000, "mcr_total": 45_000_000,
-              "ri_quota_share_pct": 30, "ri_xol_attachment_eur": 8_000_000, "ri_xol_limit_eur": 40_000_000}
+              "ri_quota_share_pct": 30, "ri_xol_attachment_eur": 8_000_000, "ri_xol_limit_eur": 40_000_000,
+              "ri_xol_reinstatements": 1, "ri_xol_reinstatement_premium_eur": 2_000_000}
+    bad = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": "natcat_div_other_flood",
+                                                        "value_num": 5, "reporting_period_end": pe.isoformat()})
+    assert bad.status_code in (400, 422) and "between 0 and 1" in bad.text          # checked where it enters
     requests = []
     for key, v in stated.items():
         r = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": key,
@@ -85,7 +90,8 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     cap = position(s, IBERIA, pe)
     assert (cap["eligible_own_funds_scr"], cap["scr_total"], cap["scr_ratio_pct"]) == (180_000_000, 120_000_000, 150.0)
     prog, basis = programme(s, IBERIA, pe)
-    assert basis == "attested" and prog == {"quota_share_pct": 30.0, "xol_attachment_eur": 8_000_000.0, "xol_limit_eur": 40_000_000.0}
+    assert basis == "attested" and prog == {"quota_share_pct": 30.0, "xol_attachment_eur": 8_000_000.0, "xol_limit_eur": 40_000_000.0,
+                                            "xol_reinstatements": 1.0, "xol_reinstatement_premium_eur": 2_000_000.0}
 
     # 4 · the book nets with the attested treaty
     snap = build_disclosure_snapshot(s, IBERIA, "baseline", "current")
@@ -116,8 +122,19 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
         assert roll["total_expected_annual_loss_eur"] == engine["rollup"]["total_expected_annual_loss_eur"], fw
         assert roll["catastrophe"]["aep_eur"]["rp_200"] == engine["rollup"]["catastrophe"]["aep_eur"]["rp_200"], fw
         if fw == "insurer_solvency":
-            assert payload["s2601"]["natcat_scr"] and payload["s2601"]["standard_formula_natcat"]
+            nb = payload["s2701"]
+            assert nb["template"] == "S.27.01.01" and nb["natcat_scr"]
+            # the standard formula: the version in force on the reporting date, the attested treaty mitigating, every
+            # exposure charged (Iberia's book is inside Annex XIII), mitigation never adding, the uploaded ES risks
+            # placed in their Annex IX zone (46) while the rest of the book, without postal codes, groups (Art. 90b)
+            sf = nb["standard_formula_natcat"]
+            assert sf["version"] == "da_2015_35_as_2019_981" and sf["treaty_basis"] == "attested" and sf["complete"]
+            assert 0 < sf["natcat_scr_eur"] < sf["natcat_scr_before_mitigation_eur"]
+            es = next(g for g in sf["perils"]["windstorm"]["regions"] if g["region"] == "ES")
+            assert es["method"] == "grouped_art90b" and "no Annex IX zone" in es["method_reason"]
             assert {x["key"] for x in payload["_provided_attested"]} >= {f"provided.{k}" for k in stated}
+            found = {f["rule"]: f for f in api.get(f"/v1/filings/{fid}/validation", headers=maker).json()["findings"]}
+            assert found["standard_formula_complete"]["passed"] and found["mitigation_never_adds"]["passed"]
         assert api.get(f"/v1/filings/{fid}/export?format=xlsx", headers=maker).status_code == 200
         assert api.get(f"/v1/filings/{fid}/form", headers=maker).status_code == 200
 

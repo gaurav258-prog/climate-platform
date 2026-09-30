@@ -61,3 +61,11 @@ def test_unsupported_file_type_raises():
         assert False, "expected ValueError"
     except ValueError as e:
         assert "CSV or Excel" in str(e)
+
+
+def test_a_csv_is_read_as_written_so_a_postal_code_keeps_its_leading_zero():
+    """pandas would read 01067 as the number 1067 (and 46001 as 46001.0 in a column with a blank); every cell is
+    text until its field's kind parses it."""
+    from services.ingest.upload_validation import parse_table
+    df = parse_table(b"policy_name,postal_code,building_value_eur\na,01067,4000000\nb,,5000000\n", "sov.csv")
+    assert df["postal_code"].tolist()[0] == "01067" and df["building_value_eur"].tolist()[0] == "4000000"

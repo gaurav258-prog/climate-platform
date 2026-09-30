@@ -37,7 +37,7 @@ def test_form_view_insurer_solvency_does_not_crash():
         assert fid, "fixture: a real frozen insurer_solvency filing must exist for this org"
         out = F.form_view(s, INSURER_ORG, fid)   # must not raise KeyError
         assert out is not None
-        assert any(g.get("section", "").startswith("Nat-Cat SCR") for g in out["groups"])
+        assert any(g.get("section", "").startswith("Natural catastrophe risk (S.27.01.01)") for g in out["groups"])   # also a filing frozen under "s2601"
         s.rollback()
 
 

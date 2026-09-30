@@ -56,7 +56,7 @@ POLICY_TEMPLATE_FIELDS = _template(
     ("building_value_eur", False, {"description": "TIV component. Provide this + contents + BI, OR sum_insured_eur directly."}),
     ("contents_value_eur", False), ("business_interruption_value_eur", False), ("sum_insured_eur", False),
     ("construction_type", False), ("year_built", False), ("number_of_stories", False), ("deductible_pct", False),
-    ("region", False, {"example": "Valencia"}), ("country", False, {"example": "ES"}), ("cresta_zone", False),
+    ("region", False, {"example": "Valencia"}), ("country", False, {"example": "ES"}), ("postal_code", False, {"example": "46001"}),
     ("motor_sum_insured_eur", False), ("policy_type", False), ("external_ref", False, _ref("policy or location")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )

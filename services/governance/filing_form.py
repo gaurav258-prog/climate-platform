@@ -229,68 +229,66 @@ def _assetmgmt_tcfd_form(payload: dict) -> list[dict]:
 
 
 def _insurer_solvency_form(payload: dict) -> list[dict]:
-    """Render Solvency II S.26.01.01 NatCat SCR (Del. Reg. 2015/35) as filing sections."""
-    s = payload.get("s2601") or {}
+    """Solvency II nat-cat risk (S.27.01.01): the internal-model figure and the standard formula, as filing sections."""
+    from services.governance.insurer_solvency import TEMPLATE, natcat_block
+    s = natcat_block(payload)
     if not s or s.get("available") is False:
-        return [{"section": "Solvency II — Nat-Cat SCR (S.26.01.01)",
+        return [{"section": f"Solvency II — natural catastrophe risk ({TEMPLATE})",
                  "rows": [{"label": "Status", "value": s.get("reason", "not available")}]}]
     scr = s.get("natcat_scr") or {}
     e = lambda v: money(v, presentation_of(payload), compact=False)  # noqa: E731
     return [{
-        "section": "Nat-Cat SCR (S.26.01.01) — internal-model basis",
+        "section": f"Natural catastrophe risk ({TEMPLATE}) — internal-model basis",
         "note": s.get("note"),
         "rows": [
-            {"label": "NatCat SCR — gross (1-in-200, 99.5% VaR)", "value": e(scr.get("gross_1_in_200_eur"))},
-            {"label": "NatCat SCR — net of reinsurance", "value": e(scr.get("net_of_reinsurance_1_in_200_eur"))},
+            {"label": "Nat-cat SCR — gross (1-in-200, 99.5% VaR)", "value": e(scr.get("gross_1_in_200_eur"))},
+            {"label": "Nat-cat SCR — net of reinsurance", "value": e(scr.get("net_of_reinsurance_1_in_200_eur"))},
             {"label": "Mean annual catastrophe loss", "value": e(scr.get("mean_annual_loss_eur"))},
             {"label": "Risk load", "value": e(scr.get("risk_load_eur"))},
             {"label": "SCR as % of sum insured",
              "value": (f"{scr['scr_pct_of_sum_insured']}%" if scr.get("scr_pct_of_sum_insured") is not None else "—")},
         ],
     }, {
-        "section": "Natural-catastrophe sub-modules (exposure driving the aggregate)",
+        "section": "Natural-catastrophe perils (exposure driving the aggregate)",
         "rows": [{"label": p["peril"], "value": e(p["exposed_value_eur"]),
                   "note": f"{p['n_exposed']} exposures · {', '.join(p['channels'])}"} for p in s.get("perils", [])],
     }, *_sf_natcat_sections(s.get("standard_formula_natcat"), e), {
-        "section": "Prescribed standard-formula cells (remaining)",
+        "section": "Out of scope",
         "note": (s.get("declared") or {}).get("note"),
-        "rows": [{"label": it, "value": "declared — official factor tables / data required"}
-                 for it in (s.get("declared") or {}).get("items", [])],
+        "rows": [{"label": it, "value": "declared"} for it in (s.get("declared") or {}).get("items", [])],
     }]
-
-
-_PERIL_LABEL = {"windstorm": "Windstorm", "earthquake": "Earthquake", "flood": "Flood",
-                "hail": "Hail", "subsidence": "Subsidence (France)"}
 
 
 def _sf_natcat_sections(sf: dict | None, e) -> list[dict]:
-    """The prescribed STANDARD-FORMULA NatCat SCR — all five sub-modules (Art. 120-125), EIOPA's own factors, cited."""
+    """The standard formula (Del. Reg. 2015/35 Arts 90b, 119-126), region by region, before and after mitigation."""
+    from services.governance.solvency2_natcat import lines
     if not sf or sf.get("available") is False:
-        return [{"section": "NatCat CAT — standard formula (Art. 120-125)",
-                 "rows": [{"label": "Status", "value": "no EEA nat-cat-region exposure"}]}]
-    by = sf.get("scr_by_peril_eur", {})
-    summary_rows = [{"label": "NatCat SCR — standard formula (gross, diversified across perils)",
-                     "value": e(sf.get("natcat_scr_eur")), "note": "√(Σ SCR_peril²), Art. 120(2)"}]
-    summary_rows += [{"label": f"· {_PERIL_LABEL.get(pk, pk)} SCR", "value": e(v)}
-                     for pk, v in sorted(by.items(), key=lambda kv: -kv[1])]
-    summary_rows.append({"label": "Cross-peril diversification benefit",
-                         "value": e(sf.get("cross_peril_diversification_benefit_eur"))})
-    sections = [{
-        "section": "NatCat CAT — standard formula (Del. Reg. 2015/35, Art. 120-125, official OJ Annex factors)",
-        "note": sf.get("note"),
-        "rows": summary_rows,
-    }]
-    # per-region detail for the perils that have a regional breakdown (windstorm, earthquake, flood, hail)
-    for pk in ("windstorm", "earthquake", "flood", "hail"):
-        pr = (sf.get("perils") or {}).get(pk) or {}
-        if not pr.get("available") or not pr.get("per_region"):
-            continue
-        rows = [{"label": f"{r['region']} · {r['region_name']}", "value": e(r["scr_region_eur"]),
-                 "note": f"SI {e(r['sum_insured_eur'])} · Q {r['risk_factor_q']*100:.2f}%"} for r in pr["per_region"]]
-        if pr.get("other_regions_sum_insured_eur"):
-            rows.append({"label": "— outside Annex regions (not in the charge)",
-                         "value": e(pr["other_regions_sum_insured_eur"]), "note": "disclosed"})
-        sections.append({"section": f"{_PERIL_LABEL.get(pk, pk)} SCR by region · {pr.get('citation')}", "rows": rows})
+        return [{"section": "Natural catastrophe risk — standard formula",
+                 "rows": [{"label": "Status", "value": "no exposure to a nat-cat region"}]}]
+    if "version" not in sf:                                   # frozen before the rebuild: shown as frozen
+        return [{"section": "Natural catastrophe risk — standard formula (as frozen)", "rows": [
+            {"label": "Nat-cat SCR", "value": e(sf.get("natcat_scr_eur")),
+             "note": "gross of reinsurance, country level — the method this filing was frozen with"}]}]
+    head = [{"label": "Natural catastrophe risk — after risk mitigation", "value": e(sf.get("natcat_scr_eur")),
+             "note": f"before mitigation {e(sf.get('natcat_scr_before_mitigation_eur'))} · reinsurance: "
+                     f"{'attested treaty' if sf.get('treaty_basis') == 'attested' else 'none attested — no mitigation'}"},
+            {"label": "Version of the Regulation", "value": sf.get("version"), "note": sf.get("version_source")}]
+    if not sf.get("complete", True):
+        head += [{"label": "Incomplete", "value": x} for x in sf.get("incomplete", [])]
+    head += [{"label": f"Reading — {r['subject']}", "value": "declared", "note": r["reading"]} for r in sf.get("readings", [])]
+    sections = [{"section": "Natural catastrophe risk — standard formula", "rows": head}]
+    by: dict[str, list] = {}
+    for ln in lines(sf):
+        by.setdefault(ln["peril"], []).append(ln)
+    for peril, rows in by.items():
+        sections.append({"section": f"{peril} — before / after risk mitigation", "rows": [
+            {"label": ln["line"], "value": e(ln.get("after_eur")),
+             "note": " · ".join(x for x in (
+                 f"exposure {e(ln['exposure_eur'])}" if ln.get("exposure_eur") is not None else "",
+                 f"specified gross loss {e(ln['specified_gross_loss_eur'])}" if ln.get("specified_gross_loss_eur") is not None else "",
+                 f"scenario {ln['scenario']}" if ln.get("scenario") else "",
+                 f"before mitigation {e(ln['before_eur'])}" if ln.get("before_eur") is not None else "",
+                 ln.get("note") or "") if x)} for ln in rows]})
     return sections
 
 

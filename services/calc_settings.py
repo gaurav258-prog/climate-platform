@@ -52,6 +52,18 @@ INTERPRETATION_SCHEMA: dict = {
         "description": "Target underwriting profit margin loaded onto the premium. Insurer-specific.",
         "sectors": ["insurer"],
     },
+    # Solvency II nat-cat: the United Kingdom is an Annex V / VII region but, since it left the Union, not in Annex XIII
+    # (data/reference/solvency2_natcat_rules.json, declared reading 'United Kingdom').
+    "sii_natcat_uk_other_regions": {
+        "frameworks": ["insurer_solvency"],
+        "default": "region_only", "kind": "enum", "allowed": ["region_only", "region_and_premium"],
+        "label": "Solvency II nat-cat — risks in the United Kingdom",
+        "description": "The UK is a windstorm and flood region of Del. Reg. 2015/35 (Annexes V, VII) but is not listed in "
+                       "Annex XIII. 'region_only' = the regional charge only (the Annex gives the region a factor); "
+                       "'region_and_premium' = the literal reading, adding the premium-based charge for regions outside "
+                       "Annex XIII.",
+        "sectors": ["insurer"],
+    },
     # EU Taxonomy Art. 8: the undertaking's own election under Art. 4 of Delegated Regulation (EU) 2026/73. The switch
     # name and value are the ones the specification's transitional_option declares; regspec.governing() applies it.
     "taxonomy_2026_73_article_4": {
