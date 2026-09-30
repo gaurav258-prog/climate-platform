@@ -23,7 +23,12 @@ def test_mapping_ordering_traps():
     assert match_datapoint("bank_p3esg", "Green Asset Ratio aligned share") == "p3_gar_aligned"
     assert match_datapoint("bank_tcfd", "Transition alignment distance NZE2050") == "transition_risk"
     assert match_datapoint("sfdr_pai", "PAI 8 emissions to water") == "pai_nature"
-    assert match_datapoint("csrd_e1", "E1-6 GHG emissions Scope 1") == "e1_ghg"
+    # an ESRS statement: only the exact label of a concept its version prints (or the concept key) — never a keyword
+    targets = {"e1.ghg.scope1.gross": "Gross Scope 1 GHG emissions", "e3.water.consumption": "Total water consumption"}
+    assert match_datapoint("esrs_pack", "Gross Scope 1 GHG emissions (tCO2eq)", targets) == "e1.ghg.scope1.gross"
+    assert match_datapoint("esrs_pack", "  total WATER consumption: ", targets) == "e3.water.consumption"
+    assert match_datapoint("esrs_pack", "e3.water.consumption", targets) == "e3.water.consumption"
+    assert match_datapoint("esrs_pack", "E1-6 GHG emissions Scope 1", targets) is None
     assert match_datapoint("bank_p3esg", "some proprietary metric") is None   # unmatched, never guessed
 
 

@@ -19,7 +19,7 @@ interface Version { version: string; effective_from: string; summary: string; ce
 interface Mandate { id: string; sectors: string[]; binding: boolean; title: string; short: string; enabled: boolean
   act: { name: string; celex: string | null; url: string; form?: { name: string; celex: string | null; url: string } }
   article: { ref: string; excerpt: string; version_date: string }
-  criteria: { all_of: Cond[]; tiers?: { label: string; all_of: Cond[]; frequency?: string }[] }
+  criteria: { all_of: Cond[]; tiers?: { label: string; all_of: Cond[]; frequency?: string }[]; scope?: { source: string; label: string } }
   deliverable: { framework: string | null; what: string; format: string; channel: string; direction: string; due: { label: string }; frequency: string }
   versions: Version[]; latest_version: string | null; latest_acknowledged: boolean
   detection: { checked_at: string | null; watched?: string[]; changes: { change_id: string; celex: string; title: string; status: string; url: string | null; detected_at: string; effective_date: string | null }[] }
@@ -110,6 +110,8 @@ function Registry() {
           <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Who it applies to</div>
           <div className="flex flex-wrap gap-2">
             {m.criteria.all_of.map((c, i) => <span key={i} className="rounded-full border border-[var(--color-line-2)] px-3 py-1 text-[12px] text-[var(--color-ink)]">{condText(c)}</span>)}
+            {/* judged per undertaking and year from its own stated facts, not from the organisation's attributes */}
+            {m.criteria.scope && <span className="rounded-full border border-[var(--color-line-2)] px-3 py-1 text-[12px] text-[var(--color-ink)]">{m.criteria.scope.label}</span>}
           </div>
           {m.criteria.tiers && m.criteria.tiers.length > 0 && (
             <div className="grid sm:grid-cols-2 gap-2 mt-2">{m.criteria.tiers.map((t, i) => (

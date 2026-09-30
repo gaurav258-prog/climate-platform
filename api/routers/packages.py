@@ -4,7 +4,7 @@ Regulatory package endpoints — maker/checker workflow + XBRL export.
 POST /v1/packages               — MAKER: create draft
 POST /v1/packages/{id}/approve  — CHECKER: release (4-eyes enforced)
 GET  /v1/packages/{id}          — retrieve package (metadata + data)
-GET  /v1/packages/{id}/xbrl     — download XBRL instance document
+GET  /v1/packages/{id}/xbrl     — retired (410): the CSRD package and its non-EFRAG XBRL
 GET  /v1/packages               — list packages for authenticated customer
 """
 from __future__ import annotations
@@ -12,7 +12,6 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import PlainTextResponse
 
 from api.deps import CustomerId
 from api.schemas.packages import (
@@ -24,6 +23,7 @@ from api.schemas.packages import (
     PackageSummary,
 )
 from ml.regulatory.packager import (
+    RETIRED_FRAMEWORKS,
     MakerCheckerViolation,
     PackageAlreadyReleased,
     PackagerError,
@@ -46,7 +46,7 @@ router = APIRouter(prefix="/v1/packages", tags=["Regulatory Packages"])
     description=(
         "Builds a regulatory disclosure package from canonical scores for the "
         "customer's portfolio. Status is DRAFT until a different user approves it. "
-        "Supports ECB (T1–T5 tables) and CSRD (ESRS E1-9 + double materiality)."
+        "ECB (T1–T5 tables). CSRD packages are retired: the ESRS statement is filed per undertaking (esrs_pack)."
     ),
 )
 def create(body: PackageCreateRequest, customer_id: CustomerId):
@@ -57,8 +57,6 @@ def create(body: PackageCreateRequest, customer_id: CustomerId):
             period_start=body.period_start,
             period_end=body.period_end,
             maker_user_id=body.maker_user_id,
-            company_name=body.company_name,
-            nace_codes=body.nace_codes,
             scenarios=body.scenarios,
             time_horizons=body.time_horizons,
         )
@@ -144,61 +142,13 @@ def get(package_id: str, include_data: bool = Query(default=True)):
 
 @router.get(
     "/{package_id}/xbrl",
-    response_class=PlainTextResponse,
-    summary="Download XBRL instance document",
-    description=(
-        "Returns a valid XBRL 2.1 instance document for CSRD ESRS E1-9 submission. "
-        "Only available for CSRD packages. "
-        "Pass `lei` (20-char Legal Entity Identifier) to tag the entity context."
-    ),
+    summary="Retired — CSRD XBRL export",
+    description="Retired: the CSRD package exported XBRL under element names that were not EFRAG's ESRS taxonomy. The ESRS "
+                "statement is filed per undertaking (report type esrs_pack) and exports JSON until EFRAG's taxonomy is bound.",
+    status_code=410,
 )
-def export_xbrl(
-    package_id: str,
-    lei:        str   = Query(...,       description="20-char Legal Entity Identifier (ISO 17442)"),
-    currency:   str   = Query("EUR",     description="Reporting currency (ISO 4217) — EUR only until per-entity reporting currency"),
-):
-    if currency.strip().upper() != "EUR":
-        # the package's figures are in EUR (converted at the period-end rate); tagging them with another currency
-        # would file euro amounts as that currency. Filing in an entity's own currency comes with the per-entity
-        # reporting currency (multi-currency phase 3) — until then, refuse rather than relabel.
-        raise HTTPException(status_code=422, detail={"error": "currency_not_supported",
-                            "message": "This package's figures are in EUR, so it can only be exported in EUR. Filing in "
-                                       "another currency needs that entity's reporting currency (coming with per-entity "
-                                       "currency)."})
-    pkg = get_package(package_id)
-    if not pkg:
-        raise HTTPException(status_code=404, detail=f"Package {package_id} not found")
-
-    if pkg["framework"] != "CSRD":
-        raise HTTPException(
-            status_code=422,
-            detail="XBRL export is only available for CSRD packages. "
-                   "ECB packages use the structured JSON output directly.",
-        )
-
-    if not pkg.get("package_data"):
-        raise HTTPException(status_code=422, detail="Package has no data — rebuild required.")
-
-    from ml.regulatory.xbrl import build_xbrl
-
-    xbrl_content = build_xbrl(
-        csrd_package=pkg["package_data"],
-        lei_code=lei,
-        reporting_currency=currency,
-        company_name=pkg["package_data"].get("company_name"),
-    )
-
-    filename = f"esrs_e1_9_{package_id[:8]}_{pkg['period_start']}_{pkg['period_end']}.xbrl"
-    return PlainTextResponse(
-        content=xbrl_content,
-        media_type="application/xml",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Package-Id":        package_id,
-            "X-Framework":         "CSRD_ESRS_E1-9_2024",
-            "X-LEI":               lei,
-        },
-    )
+def export_xbrl(package_id: str):
+    raise HTTPException(status_code=410, detail={"error": "retired", "message": RETIRED_FRAMEWORKS["CSRD"]})
 
 
 # ── GET /v1/packages ──────────────────────────────────────────────────

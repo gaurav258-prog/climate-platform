@@ -144,7 +144,7 @@ def authority_calendar(session, reg_org_id: str, cfg: dict, period_label: str, t
             continue
         ch = reg["channels"].get(e["deliverable"].get("channel_id")) or {}
         authority = ch.get("authority") or "Authority not named on the channel"
-        ents = applicable_entities(session, reg_org_id, cfg, m["id"])
+        ents = applicable_entities(session, reg_org_id, cfg, m["id"], pe)
         app = [x for x in ents if x["status"] == APPLIES]
         fw = e["deliverable"].get("framework")
         filed = [x for x in app if fw and _filed(session, x["org_id"], fw, period_label)]

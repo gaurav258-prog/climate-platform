@@ -77,9 +77,12 @@ def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("r
 
 
 @router.get("/kri", summary="Key Regulatory Indicator dashboard for a framework")
-def kri(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+def kri(framework: str, session: DbSession, entity_id: Optional[str] = None,
+        ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri as _kri
-    data = _kri(session, ctx["org"]["org_id"], framework)
+    data = _kri(session, ctx["org"]["org_id"], framework, entity_id)
+    if entity_id:                  # another undertaking than the default one: shown, not monitored (episodes are per set)
+        return data
     # detection lag: record what we observe now so breach onset is a real, persisted timestamp (best-effort)
     try:
         from services.governance import kri_monitor
@@ -97,17 +100,17 @@ def kri_detection_lag(session: DbSession, framework: Optional[str] = None,
 
 
 @router.get("/kri/detail", summary="Drill behind one KRI — methodology, trend & composition")
-def kri_detail(framework: str, kri: str, session: DbSession,
+def kri_detail(framework: str, kri: str, session: DbSession, entity_id: Optional[str] = None,
                ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_detail as _kd
-    return _kd(session, ctx["org"]["org_id"], framework, kri)
+    return _kd(session, ctx["org"]["org_id"], framework, kri, entity_id)
 
 
 @router.get("/kri/hazard", summary="The entities contributing a hazard's exposure (drill-down)")
-def kri_hazard(framework: str, hazard: str, session: DbSession,
+def kri_hazard(framework: str, hazard: str, session: DbSession, entity_id: Optional[str] = None,
                ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_hazard as _kh
-    return _kh(session, ctx["org"]["org_id"], framework, hazard)
+    return _kh(session, ctx["org"]["org_id"], framework, hazard, entity_id)
 
 
 @router.get("/kri/drivers", summary="Individual exposures behind a KRI, optionally scoped to one segment")

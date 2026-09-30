@@ -16,12 +16,12 @@ from sqlalchemy import text
 
 def links_for(framework: str, org_type: Optional[str] = None) -> dict:
     from services.calc_settings import INTERPRETATION_SCHEMA
-    from services.governance.kri_regmap import KRI_REG
+    from services.governance.kri_regmap import tags
     from services.governance.reg_reference import reference
     from services.supervision.mandates import registry
     switches = [{"key": k, "label": v["label"], "sectors": v.get("sectors")} for k, v in INTERPRETATION_SCHEMA.items()
                 if framework in (v.get("frameworks") or []) and (not org_type or not v.get("sectors") or org_type in v["sectors"])]
-    kris = [{"key": k, "datapoint": dp, "tier": tier} for k, (dp, tier) in (KRI_REG.get(framework) or {}).items()]
+    kris = [{"key": k, "datapoint": dp, "tier": tier} for k, (dp, tier) in tags(framework).items()]
     ref = reference(framework) or {}
     template = {"official_form": ref.get("official_form"), "form_url": ref.get("form_url"), "legal_basis": ref.get("legal_basis"), "authority": ref.get("authority")} if ref else None
     mandates = [{"id": m["id"], "title": m.get("title") or m.get("label"), "article": (m.get("article") or {}).get("ref"), "channel": (m.get("deliverable") or {}).get("channel_id")}

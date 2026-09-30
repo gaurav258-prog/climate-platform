@@ -27,13 +27,18 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 
-from . import csrd, ecb
+from . import ecb
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_FRAMEWORKS = {
     "ECB":  ecb.build,
-    "CSRD": csrd.build,
+}
+# retired: existing packages stay readable (get / list / approve a draft); no new ones
+RETIRED_FRAMEWORKS = {
+    "CSRD": "CSRD packages are retired — the ESRS sustainability statement is prepared per undertaking and financial "
+            "year and filed through the filing lifecycle (report type esrs_pack; /v1/esrs). Its XBRL waits for EFRAG's "
+            "ESRS taxonomy binding.",
 }
 
 
@@ -57,8 +62,6 @@ def create_package(
     period_start: date,
     period_end: date,
     maker_user_id: str,
-    company_name: Optional[str] = None,
-    nace_codes: Optional[list[str]] = None,
     scenarios: Optional[list[str]] = None,
     time_horizons: Optional[list[str]] = None,
 ) -> dict:
@@ -70,10 +73,12 @@ def create_package(
 
     Parameters
     ----------
-    framework    : "ECB" or "CSRD"
+    framework    : "ECB" (CSRD is retired — RETIRED_FRAMEWORKS)
     maker_user_id: identity of the person creating the draft (email / SSO id)
     """
     framework = framework.upper()
+    if framework in RETIRED_FRAMEWORKS:
+        raise PackagerError(RETIRED_FRAMEWORKS[framework])
     if framework not in SUPPORTED_FRAMEWORKS:
         raise PackagerError(
             f"Unknown framework '{framework}'. "
@@ -91,8 +96,7 @@ def create_package(
             customer_id=customer_id,
             period_start=period_start,
             period_end=period_end,
-            **({"scenarios": scenarios} if framework == "ECB" else {}),
-            **({"company_name": company_name, "nace_codes": nace_codes} if framework == "CSRD" else {}),
+            scenarios=scenarios,
             time_horizons=time_horizons,
         )
 

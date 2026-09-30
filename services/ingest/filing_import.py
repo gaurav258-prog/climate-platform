@@ -11,6 +11,10 @@ Three readers, one output shape:
   - PDF          : tables and labelled lines are read from the document
 
 Output cell: {template_ref, label, datapoint_key, value_num, value_text, unit, read_method}
+
+The ESRS statement (esrs_pack) has no keyword map: a line is one of the concepts the governing version prints
+(data/reference/esrs/concepts.json) only when its label is that concept's label — XBRL element names of EFRAG's ESRS
+taxonomy are not bound yet, so a tagged fact is left for the preparer to map.
 """
 from __future__ import annotations
 
@@ -46,21 +50,6 @@ _KEYWORDS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
         ("financed_emissions",("financed emission", "scope 3", "scope3", "pcaf", "ghg", "tco2", "emissions")),
         ("tcfd_narrative",    ("governance", "strategy", "narrative", "transition plan")),
     ],
-    "csrd_e1": [
-        ("e1_financial_effects", ("financial effect", "anticipated financial", "e1-9", "e1.9", "physical risk")),
-        ("e1_transition",        ("transition plan", "target", "carbon price", "e1-1", "e1-4", "decarbon")),
-        ("e1_ghg",               ("ghg", "scope 1", "scope 2", "scope 3", "emission", "energy", "e1-6", "tco2")),
-        ("e1_narrative",         ("governance", "narrative", "impact", "opportunity", "strategy", "risk management")),
-    ],
-    "esrs_pack": [   # ESRS Climate & Nature — E1 climate + E3 water + E4 nature
-        ("e4_protected_area",    ("protected area", "natura", "wdpa", "e4 protected", "key biodiversity")),
-        ("e4_deforestation",     ("deforestation", "forest loss", "forest-loss", "eudr", "e4 defor")),
-        ("e3_measured_water",    ("metered water", "measured water", "water consumption", "water withdrawal", "m3", "m³")),
-        ("e3_water",             ("water stress", "water-stress", "water risk", "e3-4", "e3", "water")),
-        ("e1_financial_effects", ("financial effect", "anticipated financial", "e1-9", "physical risk")),
-        ("e1_ghg",               ("ghg", "scope 1", "scope 2", "scope 3", "emission", "energy", "e1-6", "tco2")),
-        ("esrs_narrative",       ("transition plan", "narrative", "governance", "strategy", "target")),
-    ],
     "sfdr_pai": [
         ("pai_nature",     ("biodiversity", "emissions to water", "water", "hazardous waste", "nature", "pai 7", "pai 8", "pai 9")),
         ("pai_social",     ("ungc", "oecd", "gender pay", "board gender", "social", "human rights", "pai 10", "pai 11", "pai 12", "pai 13", "pai 14")),
@@ -71,7 +60,18 @@ _KEYWORDS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
 }
 
 
-def match_datapoint(framework: str, label: str) -> Optional[str]:
+def _norm(label: str) -> str:
+    s = re.sub(r"\s+", " ", (label or "").replace("\u2013", "-").replace("\u2014", "-")).strip().lower()
+    return re.sub(r"\s*(\([^()]*\)|:)\s*$", "", s)             # a trailing unit '(tCO2eq)' or colon
+
+
+def match_datapoint(framework: str, label: str, targets: Optional[dict[str, str]] = None) -> Optional[str]:
+    """The datapoint a read line is. With `targets` (key → label: the ESRS concepts the governing version prints) only
+    an exact match of the line's label — the concept's own label, or its key — counts; anything else is left for the
+    preparer to map. Otherwise the framework's keyword map."""
+    if targets is not None:
+        text = _norm(label)
+        return next((k for k, lb in targets.items() if text in (_norm(lb), k.lower())), None)
     text = (label or "").lower()
     for key, kws in _KEYWORDS.get(framework, []):
         if any(k in text for k in kws):
@@ -161,7 +161,7 @@ def _human(concept: str) -> str:
 
 
 # ── readers ───────────────────────────────────────────────────────────────────────────────────────────
-def _read_xbrl(framework: str, data: bytes) -> list[dict]:
+def _read_xbrl(match, data: bytes) -> list[dict]:
     """Read tagged facts from an XBRL or inline-XBRL (iXBRL) document. iXBRL wraps facts in ix: elements;
     plain XBRL exposes facts as elements carrying a contextRef. We read both."""
     try:
@@ -206,7 +206,7 @@ def _read_xbrl(framework: str, data: bytes) -> list[dict]:
         cells.append({
             "template_ref": concept,
             "label": label,
-            "datapoint_key": match_datapoint(framework, label + " " + concept),
+            "datapoint_key": match(label) or match(concept),
             "value_num": val if lname != "nonNumeric" else None,
             "value_text": text if (lname == "nonNumeric" or val is None) else None,
             "unit": unit,
@@ -217,7 +217,7 @@ def _read_xbrl(framework: str, data: bytes) -> list[dict]:
     return cells
 
 
-def _read_excel(framework: str, data: bytes) -> list[dict]:
+def _read_excel(match, data: bytes) -> list[dict]:
     import openpyxl
     wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     cells: list[dict] = []
@@ -245,7 +245,7 @@ def _read_excel(framework: str, data: bytes) -> list[dict]:
             cells.append({
                 "template_ref": ws.title,
                 "label": label,
-                "datapoint_key": match_datapoint(framework, f"{ws.title} {label}"),
+                "datapoint_key": match(label) if match.exact else match(f"{ws.title} {label}"),
                 "value_num": value,
                 "value_text": vtext,
                 "unit": unit,
@@ -257,7 +257,7 @@ def _read_excel(framework: str, data: bytes) -> list[dict]:
     return cells
 
 
-def _read_pdf(framework: str, data: bytes) -> list[dict]:
+def _read_pdf(match, data: bytes) -> list[dict]:
     import pdfplumber
     cells: list[dict] = []
     with pdfplumber.open(io.BytesIO(data)) as pdf:
@@ -280,7 +280,7 @@ def _read_pdf(framework: str, data: bytes) -> list[dict]:
                     cells.append({
                         "template_ref": f"p.{pno}",
                         "label": label,
-                        "datapoint_key": match_datapoint(framework, label),
+                        "datapoint_key": match(label),
                         "value_num": value,
                         "value_text": None,
                         "unit": unit,
@@ -294,14 +294,20 @@ def _read_pdf(framework: str, data: bytes) -> list[dict]:
 _READERS = {"xbrl": _read_xbrl, "ixbrl": _read_xbrl, "excel": _read_excel, "pdf": _read_pdf}
 
 
-def extract(framework: str, filename: str, data: bytes) -> dict:
-    """Read a filed report → {format, cells:[...], n_mapped, n_total}. Raises ValueError('unsupported_format')
-    for an unknown file, or ValueError('unreadable') if the reader found no figures."""
-    if catalog(framework) is None:
+def extract(framework: str, filename: str, data: bytes, targets: Optional[dict[str, str]] = None) -> dict:
+    """Read a filed report → {format, cells:[...], n_mapped, n_total}. targets: the datapoints a line may be (key →
+    label), matched exactly — the ESRS statement's concepts for the filing's year; without them the framework's
+    catalog keywords. Raises ValueError('unsupported_format') for an unknown file, or ValueError('unreadable') if the
+    reader found no figures."""
+    if targets is None and catalog(framework) is None:
         raise ValueError("unknown_framework")
     fmt = detect_format(filename, data)
+
+    def match(label):
+        return match_datapoint(framework, label, targets)
+    match.exact = targets is not None
     try:
-        cells = _READERS[fmt](framework, data)
+        cells = _READERS[fmt](match, data)
     except ValueError:
         raise
     except Exception:  # a corrupt/empty workbook, malformed XML, unreadable PDF → one clean error, not a 500

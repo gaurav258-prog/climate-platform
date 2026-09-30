@@ -168,7 +168,9 @@ def assess(session: Session, sites: list[dict], period_end: date, level: float |
             mat = sorted({r["hazard_type"] for r in got if r["score"] >= level})
             # a hazard scored at the site today but not projected for this horizon: its future level is not known —
             # the horizon cannot be read as 'not material' for it
-            per[h] = {"scored": bool(got), "material": mat, "acute": any(nature[m] == "acute" for m in mat),
+            per[h] = {"scored": bool(got), "material": mat,
+                      "scores": {m: max(r["score"] for r in got if r["hazard_type"] == m) for m in mat},
+                      "acute": any(nature[m] == "acute" for m in mat),
                       "chronic": any(nature[m] == "chronic" for m in mat),
                       "unprojected": sorted(now - {r["hazard_type"] for r in got})}
         out[s["site_id"]] = per

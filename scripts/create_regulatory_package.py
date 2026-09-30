@@ -15,14 +15,7 @@ Usage examples:
     --period-start 2024-01-01 --period-end 2024-12-31 \\
     --maker analyst@bank.com
 
-  # Build a CSRD draft
-  python scripts/create_regulatory_package.py create \\
-    --customer <uuid> \\
-    --framework CSRD \\
-    --period-start 2024-01-01 --period-end 2024-12-31 \\
-    --maker analyst@bank.com \\
-    --company "Eurobank AG" \\
-    --nace A01 D35
+  (CSRD packages are retired: the ESRS statement is filed per undertaking, report type esrs_pack.)
 
   # Checker approves (must be a different user)
   python scripts/create_regulatory_package.py approve \\
@@ -62,8 +55,6 @@ def cmd_create(args) -> None:
             period_start=period_start,
             period_end=period_end,
             maker_user_id=args.maker,
-            company_name=getattr(args, "company", None),
-            nace_codes=getattr(args, "nace", None) or [],
             scenarios=getattr(args, "scenarios", None) or ["baseline"],
             time_horizons=getattr(args, "horizons", None) or ["current", "2030", "2050"],
         )
@@ -142,27 +133,13 @@ def cmd_get(args) -> None:
     print("=" * 60)
     for k, v in pkg.items():
         if k == "package_data":
-            print("  package_data: [use --full to view, --xbrl to export]")
+            print("  package_data: [use --full to view]")
         else:
             print(f"  {k}: {v}")
 
     if getattr(args, "full", False) and pkg.get("package_data"):
         print("\n--- PACKAGE DATA ---")
         print(json.dumps(pkg["package_data"], indent=2, default=str))
-
-    if getattr(args, "xbrl", None) and pkg.get("package_data"):
-        from ml.regulatory.xbrl import write_xbrl
-        if not args.lei:
-            logger.error("--lei is required when exporting XBRL")
-            sys.exit(1)
-        path = write_xbrl(
-            csrd_package=pkg["package_data"],
-            output_path=args.xbrl,
-            lei_code=args.lei,
-            reporting_currency=getattr(args, "currency", "EUR"),
-            company_name=pkg["package_data"].get("company_name"),
-        )
-        print(f"\n  XBRL exported → {path}")
 
 
 def cmd_list(args) -> None:
@@ -195,12 +172,10 @@ def main():
     # create
     p_create = sub.add_parser("create", help="MAKER: build draft package")
     p_create.add_argument("--customer",     required=True)
-    p_create.add_argument("--framework",    required=True, choices=["ECB", "CSRD", "ecb", "csrd"])
+    p_create.add_argument("--framework",    required=True, choices=["ECB", "ecb"])
     p_create.add_argument("--period-start", required=True, dest="period_start")
     p_create.add_argument("--period-end",   required=True, dest="period_end")
     p_create.add_argument("--maker",        required=True)
-    p_create.add_argument("--company",      default=None, help="CSRD: company legal name")
-    p_create.add_argument("--nace",         nargs="+", default=[], help="CSRD: NACE sector codes")
     p_create.add_argument("--scenarios",    nargs="+", default=["baseline"])
     p_create.add_argument("--horizons",     nargs="+", default=["current", "2030", "2050"])
 
@@ -213,10 +188,6 @@ def main():
     p_get = sub.add_parser("get", help="Retrieve a package by ID")
     p_get.add_argument("--package-id", required=True, dest="package_id")
     p_get.add_argument("--full",       action="store_true", help="Print full package_data JSON")
-    p_get.add_argument("--xbrl",       default=None, metavar="PATH",
-                       help="Export XBRL instance document to this .xbrl file")
-    p_get.add_argument("--lei",        default=None, help="LEI code for XBRL export (20 chars)")
-    p_get.add_argument("--currency",   default="EUR", help="Reporting currency (default EUR)")
 
     # list
     p_list = sub.add_parser("list", help="List packages for a customer")

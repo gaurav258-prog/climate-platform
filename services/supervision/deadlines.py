@@ -20,7 +20,7 @@ from services.supervision.mandates import (
     due_date,
     effective,
     entity_attributes,
-    evaluate,
+    evaluate_for,
     mandate,
     mandates_for,
     registry,
@@ -110,7 +110,8 @@ def set_due(session, reg_org_id: str, deadline_id: str, due: Optional[date], not
     if due is None:   # back to the act's rule
         due, src = due_date(mandate(row["mandate_id"]), row["period_end"]), "registry"
         if due is None:
-            raise ValueError("this obligation runs from an event (e.g. the ORSA's conclusion): its deadline must be set")
+            raise ValueError("the act fixes no single calendar date for this obligation (it runs from an event, e.g. the ORSA's "
+                             "conclusion, or depends on each undertaking, e.g. whether it is an issuer): its deadline must be set")
     else:
         src = "set"
     session.execute(text("""UPDATE supervision_deadline SET due_date = :d, due_source = :s, note = COALESCE(:n, note), updated_at = now()
@@ -120,8 +121,12 @@ def set_due(session, reg_org_id: str, deadline_id: str, due: Optional[date], not
     return {"deadline_id": deadline_id, "due_date": due.isoformat(), "due_source": src}
 
 
-def applicable_entities(session, reg_org_id: str, cfg: dict, mandate_id: str) -> list[dict]:
-    """Entities in the body's population for which this mandate applies (cannot-determine and not-applicable are listed with their status)."""
+def applicable_entities(session, reg_org_id: str, cfg: dict, mandate_id: str, period_end) -> list[dict]:
+    """Entities in the body's population for which this mandate applies for the period (cannot-determine and not-applicable
+    are listed with their status). period_end: the financial year judged — a scope read per undertaking and year (the
+    CSRD's Art. 5(2)) depends on it."""
+    if isinstance(period_end, str):
+        period_end = date.fromisoformat(period_end[:10])
     st = settings(session, reg_org_id)
     m = effective(mandate(mandate_id), st.get(mandate_id))
     ents = session.execute(text("""SELECT o.org_id::text AS org_id, o.name, o.type FROM supervision_scope ss JOIN organizations o ON o.org_id = ss.supervised_org_id
@@ -130,7 +135,7 @@ def applicable_entities(session, reg_org_id: str, cfg: dict, mandate_id: str) ->
     for e in ents:
         if e["type"] not in m["sectors"] or e["type"] not in cfg["sectors"]:
             continue
-        ev = evaluate(m, entity_attributes(session, e["org_id"]))
+        ev = evaluate_for(session, e["org_id"], m, entity_attributes(session, e["org_id"]), period_end)
         out.append({"org_id": e["org_id"], "name": e["name"], "type": e["type"], "status": ev["status"], "missing": ev["missing"]})
     return out
 
@@ -145,7 +150,7 @@ def _propagate(session, reg_org_id: str, deadline_id: str, by_user_id: str, cfg:
     reg_name = session.execute(text("SELECT name FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": reg_org_id}).scalar()
     cfg = cfg or resolve(None, _overrides(session, reg_org_id))
     n_set, n_skipped = 0, 0
-    for e in applicable_entities(session, reg_org_id, cfg, d["mandate_id"]):
+    for e in applicable_entities(session, reg_org_id, cfg, d["mandate_id"], d["period_end"]):
         if e["status"] != APPLIES:
             n_skipped += 1
             continue
@@ -214,7 +219,7 @@ def sweep(session, reg_org_id: Optional[str] = None, today: Optional[date] = Non
             stage = stage_for(due, today, r)
             if stage is None:
                 continue
-            for e in applicable_entities(session, reg, cfg, d["mandate_id"]):
+            for e in applicable_entities(session, reg, cfg, d["mandate_id"], d["period_end"]):
                 if e["status"] != APPLIES or _filed(session, e["org_id"], d["framework"], d["period_label"]):
                     continue
                 already = session.execute(text("SELECT 1 FROM supervision_deadline_notice WHERE deadline_id = CAST(:d AS uuid) AND supervised_org_id = CAST(:o AS uuid) AND stage = :s"),
@@ -248,7 +253,7 @@ def status_view(session, reg_org_id: str, cfg: dict, period_label: str) -> dict:
     """Per deadline: how many applicable entities, filed, outstanding, reminded, overdue-notified."""
     out = []
     for d in list_deadlines(session, reg_org_id, period_label):
-        ents = applicable_entities(session, reg_org_id, cfg, d["mandate_id"])
+        ents = applicable_entities(session, reg_org_id, cfg, d["mandate_id"], d["period_end"])
         app = [e for e in ents if e["status"] == APPLIES]
         filed = [e for e in app if _filed(session, e["org_id"], d["framework"], d["period_label"])]
         notices = session.execute(text("SELECT supervised_org_id::text AS org_id, stage FROM supervision_deadline_notice WHERE deadline_id = CAST(:d AS uuid)"), {"d": d["deadline_id"]}).mappings().all()

@@ -14,8 +14,7 @@ from sqlalchemy.orm import Session
 
 # The money KRIs that are amounts PER YEAR (flows): a screen in another currency translates them at the average rate,
 # every other money KRI (values, exposures, capital) at the closing rate — multi-currency decision 3.
-FLOW_KRIS = frozenset({"eal", "business_interruption", "ingredient_spend", "cogs_at_risk", "cogs_withheld",
-                       "water_spend_exposed", "expected_loss"})
+FLOW_KRIS = frozenset({"eal", "expected_loss", "fs.net_revenue", "e1.physrisk.revenue.amount"})
 
 
 def _money_text(session: Session, org_id: str, v: float) -> str:
@@ -51,7 +50,9 @@ def kri_frameworks(org_type: str | None) -> list[dict]:
             for f in available_frameworks(org_type or "") if f["framework"] in _KRI_LABELS]
 
 
-def kri(session: Session, org_id: str, framework: str) -> dict:
+def kri(session: Session, org_id: str, framework: str, entity_id: str | None = None) -> dict:
+    """entity_id: the undertaking an ESRS KRI set is for (services.governance.kri_esrs.undertaking); other sets are the
+    organisation's book."""
     if framework == "bank_tcfd":
         result = _bank_kri(session, org_id)
     elif framework == "bank_p3esg":
@@ -64,8 +65,9 @@ def kri(session: Session, org_id: str, framework: str) -> dict:
         result = _insurer_kri(session, org_id)
     elif framework == "assetmgmt_tcfd":
         result = _assetmgmt_kri(session, org_id)
-    elif framework in ("csrd_e1", "esrs_pack"):
-        result = _agri_kri(session, org_id, framework)
+    elif framework == "esrs_pack":
+        from services.governance import kri_esrs
+        result = kri_esrs.build(session, org_id, entity_id)
     else:
         return {"framework": framework, "supported": False,
                 "message": "No KRI dashboard for this framework yet."}
@@ -238,124 +240,6 @@ def _assetmgmt_kri(session: Session, org_id: str) -> dict:
             "kpis": kpis, "by_hazard": by_hazard, "history": history}
 
 
-def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict:
-    """ESRS E1 (climate) KRIs for an agri / manufacturer book — the real E1-9 climate financial effects from
-    build_e1_report (own operations + upstream sourcing), NOT GHG. GHG accounting (Scope 1/2/3) and energy are
-    deliberately out of scope here — the platform computes the physical / nature ESRS and integrates GHG from
-    the customer's carbon-accounting tool — so we never surface a fabricated emissions number."""
-    from api.routers.supply import _plots_with_hazard
-    from services.governance.reporting_settings import get_settings
-    from services.intelligence.csrd_e1 import build_e1_report
-    s = get_settings(session, org_id)
-    e1 = build_e1_report(session, org_id, s["scenario"], s["horizon"])
-    oo = e1.get("own_operations", {}) or {}
-    us = e1.get("upstream_sourcing", {}) or {}
-    fe = e1.get("financial_effects", {}) or {}
-    plots = list(_plots_with_hazard(session, org_id, s["scenario"], s["horizon"]))
-    scored = sum(1 for p in plots if p["hazard_score"] is not None)
-    asset = oo.get("asset_value_eur") or 0
-    asset_at_risk = oo.get("asset_value_at_risk_eur") or 0
-
-    kpis = [
-        _kpi("asset_value", "Own-site asset value", asset, "eur", hint="Own operations — sites in scope"),
-        _kpi("asset_at_risk", "Own-site value at risk", asset_at_risk, "eur",
-             hint="Site asset value in severe hazard bands, at the reporting pathway"),
-        _kpi("pct_at_risk", "Share of sites at risk", round(100 * asset_at_risk / asset, 1) if asset else 0, "pct"),
-        _kpi("business_interruption", "Business interruption", oo.get("business_interruption_eur"), "eur",
-             hint="v0 illustrative — throughput × expected downtime by hazard band"),
-        _kpi("ingredient_spend", "Ingredient spend", us.get("ingredient_spend_eur"), "eur", hint="Upstream sourcing spend"),
-        _kpi("cogs_at_risk", "COGS at risk (published)", fe.get("cogs_at_risk_published_eur"), "eur",
-             hint="Upstream COGS at risk where the hazard→yield chain validates (r² ≥ 0.40)"),
-        _kpi("cogs_withheld", "Exposure mapped · € withheld", fe.get("exposure_mapped_but_withheld_eur"), "eur",
-             hint="Spend exposed but the euro withheld pending calibration — honest, not zero"),
-        _kpi("coverage", "Plots scored", round(100 * scored / len(plots), 1) if plots else 0, "pct"),
-        _kpi("ghg_emissions", "GHG emissions (Scope 1-3)", None, "num", integrated=True, integrated_note="carbon tool",
-             hint="ESRS E1-6 GHG accounting is integrated from your carbon-accounting tool — Tellumen computes the physical/nature ESRS, not the emissions inventory."),
-    ]
-    # supply-shock concentration — is the sourcing book concentrated in one crop / one hazard (diversification lens)
-    try:
-        from services.intelligence.supply_cogs import project_org_supply
-        from services.intelligence.supply_concentration import supply_concentration
-        conc = supply_concentration(project_org_supply(session, org_id, scenario=s["scenario"], time_horizon=s["horizon"]).commodities)
-        if conc.get("available"):
-            cshock = conc.get("common_shock") or {}
-            kpis.append(_kpi("supply_common_shock", "Spend in largest common shock", conc.get("common_shock_pct_of_spend"), "pct",
-                             tone="#fb7185", hint=(f"Share of sourcing spend exposed to the single biggest common shock "
-                                                   f"({cshock.get('hazard', '—')} across {cshock.get('n_commodities', 0)} crops) — "
-                                                   "a bad season on this one hazard hits this much of the book at once")))
-            kpis.append(_kpi("supply_diversification", "Effective independent crops", conc.get("effective_commodities"), "num",
-                             tone="#f0a860", hint=(f"1/HHI over sourcing spend — the book behaves like this many equally-weighted "
-                                                   f"independent crops (of {len(conc.get('by_commodity') or [])} sourced). "
-                                                   f"Effective independent hazards: {conc.get('effective_hazards')}")))
-    except Exception:  # noqa: BLE001 — a missing supply signal must not sink the KRI set
-        pass
-    # Separate regional frost-severity indicator (E1 physical hazard) — standalone, shown only where the
-    # org sources from a region we hold frost data for. A HAZARD-extent number, NOT a euro (coffee € stays
-    # held); kept distinct from the per-plot score and from the COGS figures above.
-    from services.intelligence.frost_severity import org_frost_severity
-    for fr in org_frost_severity(session, org_id):
-        band = fr.get("latest_band", "unknown")
-        tone = {"severe": "#fb7185", "elevated": "#f0a860", "normal": "#4ade80"}.get(band)
-        severe = fr.get("severe_years") or []
-        kpis.append(_kpi(
-            "frost_severity", f"Frost severity · {fr['label']}",
-            round((fr.get("latest_extent") or 0) * 100, 1), "pct", tone=tone,
-            hint=(f"Winter {fr['latest_year']}: {fr['latest_extent']:.0%} of the belt below "
-                  f"{fr['threshold_c']:.0f}°C ({band}). Worst on record {fr['worst_year']} "
-                  f"({fr['worst_extent']:.0%}); {len(severe)} severe frost(s) in {fr['n_years']} yrs"
-                  + (f", last {severe[-1]}" if severe else "")
-                  + ". Regional frost HAZARD severity from ERA5 — a separate signal, not the (held) coffee €.")))
-    label = "ESRS E1 climate KRIs"
-    # The full nature pack (esrs_pack) also carries E3 Water and E4 Biodiversity — real values from the same
-    # engine (E3 = hazard-exposure derived; E4 = EUDR deforestation determinations), NOT measured water use.
-    if framework == "esrs_pack":
-        from services.intelligence.esrs_nature import build_esrs_pack
-        tp = {t.get("topic"): t for t in (build_esrs_pack(session, org_id, s["scenario"], s["horizon"]).get("topics") or [])}
-        e3u = (tp.get("E3", {}) or {}).get("upstream", {}) or {}
-        e4 = tp.get("E4", {}) or {}
-        kpis += [
-            _kpi("water_plots_stressed", "Plots water-stressed", e3u.get("plots_water_stressed"), "num",
-                 hint="Plots at water-stress score ≥ 40 · ESRS E3 (hazard-exposure derived)"),
-            _kpi("water_spend_exposed", "Spend water-exposed", e3u.get("spend_exposed_eur"), "eur",
-                 hint="Upstream spend on water-stressed plots · ESRS E3"),
-            _kpi("water_peak", "Peak water-stress", e3u.get("peak_score"), "num",
-                 hint="Worst standing water-stress score (0-100) · ESRS E3"),
-            _kpi("deforestation_free_pct", "Deforestation-free", e4.get("deforestation_free_pct_of_determined"), "pct",
-                 hint="Share of determined plots deforestation-free vs the EUDR cutoff · ESRS E4"),
-            _kpi("non_compliant", "Non-compliant plots", e4.get("non_compliant"), "num",
-                 hint="Plots with post-cutoff deforestation · ESRS E4 / EUDR"),
-            _kpi("forest_loss_ha", "Post-cutoff forest loss", e4.get("post_cutoff_forest_loss_ha"), "ha",
-                 hint="Hectares of forest lost after the 2020 EUDR cutoff · ESRS E4"),
-        ]
-        # ESRS E4 — sites/plots in or near a Natura 2000 protected area (free-gov EEA feed, H3 overlap)
-        from services.intelligence.protected_area import protected_area_exposure
-        pa = protected_area_exposure(session, org_id)
-        if pa["cells_loaded"] > 0:
-            in_pa = pa["sites"]["in_protected"] + pa["plots"]["in_protected"]
-            exposed = _money_text(session, org_id, pa["sites"]["value_in_eur"] + pa["plots"]["spend_in_eur"])
-            _names = {"natura2000": "Natura 2000 (© EEA)", "osm": "OpenStreetMap (ODbL)", "wdpa": "WDPA",
-                      "wdoecm": "WD-OECM", "kba": "KBA"}
-            src = " · ".join(_names.get(d, d) for d in pa["datasets"]) or "protected areas"
-            kpis.append(_kpi("protected_area", "In protected areas", in_pa, "num",
-                             hint=f"Own sites + sourcing plots in/near a protected area · source: {src} · {exposed} exposed · ESRS E4"))
-        label = "ESRS E1·E3·E4 nature KRIs"
-
-    # by-hazard drives the drill (which reads _plots_with_hazard), so keep it plot-hazard keyed
-    haz: dict = {}
-    for p in plots:
-        if p.get("top_hazard") and (p["hazard_score"] or 0) >= 50:
-            g = haz.setdefault(p["top_hazard"], {"value": 0.0, "score": 0.0})
-            g["value"] += p["spend_eur"] or 0
-            g["score"] = max(g["score"], p["hazard_score"] or 0)
-    by_hazard = sorted([{"hazard": h, "value": round(v["value"]), "score": round(v["score"], 1)}
-                        for h, v in haz.items() if v["value"] > 0], key=lambda x: -x["value"])
-    return {"framework": framework, "supported": True, "label": label,
-            "kpis": kpis, "by_hazard": by_hazard, "history": [],
-            "scope_note": "Physical & nature ESRS (E1 climate financial effects · E3 water · E4 deforestation). "
-                          "GHG accounting (Scope 1/2/3) and energy are integrated from your carbon-accounting tool, "
-                          "not computed here."}
-
-
 def _by_hazard(snap: dict) -> list[dict]:
     return sorted([{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
                    for h, b in (snap.get("by_hazard") or {}).items() if (b.get("exposed_value_eur") or 0) > 0],
@@ -378,7 +262,7 @@ def _live_snapshot(session: Session, org_id: str, framework: str, scenario: str,
     return build_disclosure_snapshot(session, org_id, scenario, horizon)
 
 
-def kri_hazard(session: Session, org_id: str, framework: str, hazard: str) -> dict:
+def kri_hazard(session: Session, org_id: str, framework: str, hazard: str, entity_id: str | None = None) -> dict:
     """The entities contributing a hazard's exposure (live) — the drill under a KRI by-hazard bar."""
     from services.governance.filing_lineage import _LIST_CFG
     from services.governance.reporting_settings import get_settings
@@ -395,14 +279,10 @@ def kri_hazard(session: Session, org_id: str, framework: str, hazard: str) -> di
                              "h3_cell": e.get("h3_cell"), "country": e.get("country"), "score": hz.get("score")})
         ents.sort(key=lambda x: -(x["value"] or 0))
         return {"supported": True, "hazard": hazard, "noun": _NOUN.get(framework, "items"), "entities": ents[:100]}
-    if framework in ("csrd_e1", "esrs_pack"):
-        from api.routers.supply import _plots_with_hazard
-        ents = [{"name": p["plot_name"], "value": p["spend_eur"], "h3_cell": p.get("h3_cell"),
-                 "country": p.get("country"), "score": p["hazard_score"]}
-                for p in _plots_with_hazard(session, org_id, s["scenario"], s["horizon"])
-                if p.get("top_hazard") == hazard and (p["hazard_score"] or 0) >= 50]
-        ents.sort(key=lambda x: -(x["value"] or 0))
-        return {"supported": True, "hazard": hazard, "noun": "sourcing plots", "entities": ents[:100]}
+    if framework == "esrs_pack":
+        from services.governance import kri_esrs
+        return {"supported": True, "hazard": hazard, "noun": "own sites (short term, carrying amount)",
+                "entities": kri_esrs.hazard_sites(session, org_id, hazard, entity_id)[:100]}
     return {"supported": False, "hazard": hazard, "entities": []}
 
 
@@ -410,9 +290,19 @@ def kri_hazard(session: Session, org_id: str, framework: str, hazard: str) -> di
 # Exposure KRIs decompose by hazard; the rest by their own natural breakdown (emissions by scope, coverage
 # scored/unscored, taxonomy eligible/not). Everything here is derived from the SAME live snapshot the KRI
 # tile is computed from — no separate or fabricated data.
-_EXPOSURE_KEYS = {"total_value", "value_at_risk", "pct_at_risk", "asset_value", "asset_at_risk",
-                  "sum_insured", "eal", "cogs_at_risk", "cogs_withheld", "ingredient_spend", "value_exposed"}
+_EXPOSURE_KEYS = {"total_value", "value_at_risk", "pct_at_risk", "sum_insured", "eal", "value_exposed",
+                  "e1.physrisk.assets.amount", "e1.physrisk.assets.pct"}           # the ESRS ones: kri_esrs.EXPOSURE
 _HIST_FIELD = {"total_value": "total_value", "value_at_risk": "value_at_risk", "pct_at_risk": "pct_at_risk"}
+
+
+def _esrs_hist(key: str) -> str | None:
+    from services.governance.kri_esrs import HISTORY
+    return HISTORY.get(key)
+
+
+def _esrs_methodology(key: str) -> str | None:
+    from services.governance.kri_esrs import methodology
+    return methodology(key)
 # forward-looking + physical-split KRIs also earn the "explore forward in Analytics" action
 _FORWARD_KEYS = {"forward_share", "acute_share", "chronic_share"}
 
@@ -440,21 +330,6 @@ _METHODOLOGY = {
     "sum_insured": "Total sum insured across the underwriting book in scope.",
     "eal": "Expected annual loss — probability-weighted scenario loss across the book, from the CLIMADA-style mean-damage-ratio × per-peril occurrence frequency.",
     "loss_ratio": "Modelled claims-vs-premiums (NatCat loss ratio) implied by the current hazard exposure of the book.",
-    "asset_value": "Book value of your own operating sites in scope.",
-    "asset_at_risk": "Own-site value in the top two physical-risk bands (High + Very High).",
-    "cogs_at_risk": "Cost-of-goods-sold at risk that clears the r²≥0.40 calibration gate — published only where the hazard→yield chain validates for that crop × origin.",
-    "cogs_withheld": "Sourcing spend exposed to hazard whose euro impact is honestly WITHHELD because the hazard→yield link hasn't cleared the calibration gate — mapped, not fabricated.",
-    "ingredient_spend": "Total upstream sourcing (ingredient) spend in scope.",
-    "ghg_emissions": "GHG Scope 1–3 — integrated from your carbon-accounting tool. Tellumen computes the physical/nature ESRS, not your emissions inventory.",
-    "deforestation_free_pct": "Share of determined sourcing plots that are deforestation-free against the 2020 EUDR cutoff, from per-plot satellite forest-loss determinations.",
-    "non_compliant": "Sourcing plots with post-2020 forest loss — non-compliant under EUDR.",
-    "protected_area": "Own sites / sourcing plots in or within 1 km of a protected area, computed from the loaded protected-area datasets.",
-    "frost_severity": "Regional frost severity — the fraction of the sourcing belt whose winter minimum "
-                      "temperature fell to a crop-damaging level (≤2°C at 2m screen height), from Copernicus "
-                      "ERA5 raw-hourly data. A SEPARATE physical-hazard extent metric, not a euro: the "
-                      "frost→yield link does not clear the r²≥0.40 calibration gate at any resolution, so this "
-                      "reports how severe the frost season was — with the worst year and severe-frost frequency "
-                      "on record for context — rather than a financial figure.",
     "pai_emissions": "SFDR PAI 1 — total financed GHG emissions (Scope 1–3, tCO₂e) across the fund's value-weighted holdings.",
     "carbon_footprint": "SFDR PAI 2 — financed emissions per €M invested.",
     "waci": "SFDR PAI 3 — weighted-average carbon intensity (tCO₂e per €M investee revenue).",
@@ -463,23 +338,23 @@ _METHODOLOGY = {
 }
 
 
-def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> dict:
+def kri_detail(session: Session, org_id: str, framework: str, kri_key: str, entity_id: str | None = None) -> dict:
     """The drill behind one KRI tile: the tile itself (value, appetite, provenance, regulator datapoint),
     a plain-language methodology, its trend across filed history where tracked, and its composition
     (by-hazard / by-scope / scored-unscored / eligible-not) — all from the same live snapshot."""
-    result = kri(session, org_id, framework)
+    result = kri(session, org_id, framework, entity_id)
     if not result.get("supported"):
         return {"supported": False, "message": result.get("message", "unsupported")}
     kpi = next((k for k in result.get("kpis", []) if k["key"] == kri_key), None)
     if not kpi:
         return {"supported": False, "message": "unknown KRI"}
-    hf = _HIST_FIELD.get(kri_key)
+    hf = _HIST_FIELD.get(kri_key) or (_esrs_hist(kri_key) if framework == "esrs_pack" else None)
     trend = [{"label": h["label"], "value": h.get(hf), "filing_id": h.get("filing_id")}
              for h in (result.get("history") or []) if hf and h.get(hf) is not None] if hf else []
     return {
         "supported": True, "framework": framework, "kpi": kpi,
         "regulator": result.get("regulator"),
-        "methodology": _METHODOLOGY.get(kri_key),
+        "methodology": _METHODOLOGY.get(kri_key) or (_esrs_methodology(kri_key) if framework == "esrs_pack" else None),
         "trend": {"points": trend, "fmt": kpi.get("fmt"), "flow": bool(kpi.get("flow"))},
         "projection": _kri_projection(session, org_id, framework, kri_key, kpi),
         "composition": _kri_composition(session, org_id, framework, kri_key, result),

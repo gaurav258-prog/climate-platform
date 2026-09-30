@@ -22,7 +22,7 @@ interface Filing {
   filing_id: string; framework: string; framework_label: string; period_label: string
   entity_name: string | null; file_format: string; original_filename: string; status: string
   n_lines: number | null; uploaded_at: string | null; confirmed_at: string | null
-  basis_note?: string | null; file_sha256?: string | null; figures?: Figure[]
+  basis_note?: string | null; file_sha256?: string | null; figures?: Figure[]; period_end?: string | null
 }
 interface Framework { key: string; label: string }
 interface TrendPoint { period: string; value: number | null; unit: string | null; basis_note: string | null; basis_break: boolean; unit_break?: boolean; mixed_units?: string[]; note?: string; converted_from?: Record<string, number> }
@@ -66,7 +66,8 @@ export default function PriorFilings() {
   const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
   const trends = useQuery({ queryKey: ['pf-trends', horizon], queryFn: () => api.get<{ series: Series[] }>(`/v1/prior-filings/trends?horizon_years=${horizon}`) })
   const detail = useQuery({ enabled: !!detailId, queryKey: ['pf-detail', detailId], queryFn: () => api.get<Filing>(`/v1/prior-filings/${detailId}`) })
-  const dps = useQuery({ enabled: !!draft, queryKey: ['pf-dps', draft?.framework], queryFn: () => api.get<{ datapoints: Framework[] }>(`/v1/prior-filings/datapoints/${draft!.framework}`) })
+  // an ESRS statement maps to the concepts its year's version prints — the period end chooses the version
+  const dps = useQuery({ enabled: !!draft, queryKey: ['pf-dps', draft?.framework, draft?.period_end], queryFn: () => api.get<{ datapoints: Framework[] }>(`/v1/prior-filings/datapoints/${draft!.framework}${draft!.period_end ? `?period_end=${draft!.period_end}` : ''}`) })
   const datapointOpts = dps.data?.datapoints ?? []
   const frameworks = fw.data?.frameworks ?? []
   if (!framework && frameworks.length) setFramework(frameworks[0].key)

@@ -837,6 +837,15 @@
    "input_only": true,
    "always": true,
    "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
+  },
+  "csrd.transparency_issuer": {
+   "label": "An issuer that must make public an annual financial report under Art. 4 of Directive 2004/109/EC — not exempted by its Art. 8 (1 = yes, 0 = no)",
+   "unit": "boolean",
+   "period": null,
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "decides the statement's publication deadline (data/reference/regulatory_mandates.json, mandate csrd_esrs_e1): an issuer within 4 months of the year end (Directive 2004/109/EC Art. 4(1)), otherwise within 12 months at the latest (Directive 2013/34/EU Art. 30(1))"
   }
  },
  "bindings": {

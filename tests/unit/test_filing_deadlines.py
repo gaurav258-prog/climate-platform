@@ -4,7 +4,7 @@ registry keeps a planning date only where no mandate fixes one by the calendar �
 from datetime import date
 
 from services.governance.filings import FRAMEWORKS, due_for
-from services.supervision.mandates import due_date, registry
+from services.supervision.mandates import due_date, mandate, registry
 
 
 def test_no_report_type_types_a_deadline_its_mandate_fixes():
@@ -21,6 +21,19 @@ def test_the_deadlines_the_acts_set():
     assert due_for("sfdr_pai", pe)[0] == date(2026, 6, 30)                   # 30 June (Art. 4 RTS 2022/1288)
     assert due_for("insurer_climate", pe)[1].endswith("planning date")       # runs from the ORSA's conclusion
     assert due_for("sfdr_precontractual", pe) == (None, None)
+
+
+def test_the_esrs_statement_deadline_reads_whether_the_undertaking_is_an_issuer():
+    """With the management report: an issuer within 4 months (Directive 2004/109/EC Art. 4(1)), otherwise within 12 months
+    at the latest (Directive 2013/34/EU Art. 30(1)) — a fact about the undertaking, so no date until it is stated."""
+    m, pe = mandate("csrd_esrs_e1"), date(2025, 12, 31)
+    assert due_date(m, pe) is None
+    assert due_date(m, pe, {"csrd.transparency_issuer": {"value": 1}}) == date(2026, 4, 30)
+    assert due_date(m, pe, {"csrd.transparency_issuer": {"value": 0}}) == date(2026, 12, 31)
+    assert due_for("esrs_pack", pe)[0] is None and "Art. 30(1)" in due_for("esrs_pack", pe)[1]
+    # who is in scope is scope.json's (Art. 5(2)), per undertaking and year — not a copy on the organisation's attributes
+    assert m["criteria"]["scope"]["source"] == "csrd_scope"
+    assert {c["attribute"] for c in m["criteria"]["all_of"]} == {"jurisdiction"}
 
 
 def test_no_nat_cat_template_is_called_s2601():

@@ -112,20 +112,21 @@ _Last reviewed: 2026-09-25._
 - **When it lands:** fit + validate; it either calibrates (tier lights up) or is honestly held. Withholding is the design, not a defect.
 
 ## 6 · WDPA global protected-area layer  *(external data + licence, then us)*
-- **Hook:** `services/intelligence/protected_area.py` — `protected_area_exposure()` is a dataset-agnostic
-  H3-cell membership test against `protected_h3_cell`; it de-dups across datasets and reports per-dataset
-  cell counts, so **any** loaded protected-area layer lights up with zero code change. Wired into the ESRS
-  **E4-5** filing (`services/intelligence/esrs_nature.py:biodiversity_topic`), tagged in the XBRL/iXBRL export
-  (4 E4-5 concepts), and surfaced on the ESRS pack UI with an honest per-dataset coverage note.
-- **Loaded today:** `natura2000` (EU-27, 405,872 cells) + `osm` (community, 54,818 cells). Overlap outside the
-  EU is disclosed as a **coverage gap**, never as "no overlap".
+- **Hook:** `services/governance/esrs_statement.py` (`_sensitive`) — the ESRS statement lists the undertaking's own
+  sites whose H3 cell lies **inside** a loaded layer of a kind the ESRS glossary lists
+  (`data/reference/esrs/biodiversity_sensitive.json`: a dataset counts only when `listed`, with the kind it is);
+  support for the undertaking's own E4 figure (E4 counts the sites it negatively affects — its determination), shown
+  on the ESRS statement page and as a support KRI. Never 'near' (the text gives no measure); the kinds not yet loaded
+  are named as not assessed.
+- **Loaded today:** `natura2000` (EU-27, 405,872 cells, listed) + `osm` (community, 54,818 cells — not a kind ESRS
+  lists, so not counted). Sites outside the EU are disclosed as **not assessed**, never as "not in an area".
 - **Needed:** the authoritative global layer — **WDPA** (World Database on Protected Areas). The free
   Protected Planet API (`scripts/ingest_wdpa_api.py`, `--token $PP_TOKEN`) is **non-commercial licence only**;
   a paying customer's filing needs a **commercial WDPA export via IBAT**, loaded through the file path
   (`scripts/ingest_natura2000.py`-style loader, tagged `--dataset wdpa`).
 - **Owner:** licence is external (IBAT); obtaining + loading it is us — one ingest run, no code change.
-- **When it lands:** run the loader; non-EU sites/plots start reporting protected-area overlap and the
-  coverage note flips to "backed by the WDPA global layer". **Do not load the non-commercial API export into a
+- **When it lands:** run the loader and add `wdpa` to `biodiversity_sensitive.json` with the ESRS kind it is (quoted);
+  non-EU sites then report whether they lie inside a listed area. **Do not load the non-commercial API export into a
   paying customer's tenant.**
 
 ## 7 · Solvency II standard-formula EXACT zonal figure  *(BUILT — needs only the insurer's postal codes)*

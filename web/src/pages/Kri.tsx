@@ -37,7 +37,9 @@ interface Readiness { core: number; covered: number; integrated: string[]; gaps:
 interface Haz { hazard: string; value: number; score: number }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
 interface Basis { kpis: 'live'; note: string; last_filed: { period_label: string; filing_id: string | null } | null }
-interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness; basis?: Basis }
+// an ESRS KRI set is one undertaking's statement for the year; `undertakings` are those with a stated statement role
+interface Undertaking { entity_id: string | null; name: string; role?: string }
+interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness; basis?: Basis; undertaking?: Undertaking; undertakings?: Undertaking[] }
 const RAG: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
 // the appetite band in words, in the KRI's own unit
 const bandNote = (k: Kpi) => {
@@ -72,8 +74,11 @@ export default function Kri() {
   const [detail, setDetail] = useState<string | null>(null)  // clicked KRI tile → its drill drawer
   // provenance filter — show all KRIs, only those Tellumen computes, or only those you/your vendor provide.
   const [prov, setProv] = useState<'all' | 'computed' | 'integrated'>('all')
-  const q = useQuery({ queryKey: ['kri', framework], queryFn: () => api.get<Resp>(`/v1/reg-tasks/kri?framework=${framework}`) })
+  const [entity, setEntity] = useState<string | null>(null)       // the undertaking an ESRS KRI set is for
+  const eq = entity && framework === 'esrs_pack' ? `&entity_id=${entity}` : ''
+  const q = useQuery({ queryKey: ['kri', framework, eq], queryFn: () => api.get<Resp>(`/v1/reg-tasks/kri?framework=${framework}${eq}`) })
   const d = q.data
+  const undertakings = d?.undertakings ?? []
   const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
   const nComputed = d?.kpis?.filter(k => kindOf(k) === 'computed').length ?? 0
   const nIntegrated = d?.kpis?.filter(k => kindOf(k) === 'integrated').length ?? 0
@@ -129,8 +134,21 @@ export default function Kri() {
         </div>
       )}
 
+      {/* ESRS: the statement is per undertaking — choose which when more than one prepares one this year */}
+      {framework === 'esrs_pack' && undertakings.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mr-1">Undertaking</span>
+          {undertakings.map(u => (
+            <button key={u.entity_id ?? 'org'} onClick={() => setEntity(u.entity_id)}
+              className={`px-3 py-1.5 rounded-lg text-[12px] border transition ${(d?.undertaking?.entity_id ?? null) === u.entity_id ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+              {u.name}{u.role === 'consolidated' ? ' (group)' : ''}</button>
+          ))}
+        </div>
+      )}
+
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
-        : !d || !d.supported ? <Card className="p-10 text-[13px] text-[var(--color-mute)]">{d?.message ?? 'No KRI dashboard for this sector yet.'}</Card>
+        : !d || !d.supported ? <Card className="p-10 text-[13px] text-[var(--color-mute)]">{d?.message ?? 'No KRI dashboard for this sector yet.'}
+            {framework === 'esrs_pack' && <button onClick={() => nav('/esrs')} className="ml-2 inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Open the ESRS statement <ArrowUpRight size={12} /></button>}</Card>
         : (
         <>
           {/* lead with the answer: how the book's indicators sit against appetite right now */}
@@ -224,8 +242,8 @@ export default function Kri() {
         </>
       )}
 
-      {drill && <HazardDrill framework={framework} hazard={drill} hasAnalytics={hasAnalytics} onClose={() => setDrill(null)} />}
-      {detail && <KriDetail framework={framework} kriKey={detail} onClose={() => setDetail(null)} />}
+      {drill && <HazardDrill framework={framework} entityQ={eq} hazard={drill} hasAnalytics={hasAnalytics} onClose={() => setDrill(null)} />}
+      {detail && <KriDetail framework={framework} entityQ={eq} kriKey={detail} onClose={() => setDetail(null)} />}
     </div>
   )
 }
@@ -290,10 +308,10 @@ function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
   )
 }
 
-function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: string; hazard: string; hasAnalytics: boolean; onClose: () => void }) {
+function HazardDrill({ framework, entityQ, hazard, hasAnalytics, onClose }: { framework: string; entityQ: string; hazard: string; hasAnalytics: boolean; onClose: () => void }) {
   const nav = useNavigate()
   const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
-  const q = useQuery({ queryKey: ['kri-hazard', framework, hazard], queryFn: () => api.get<HazDrill>(`/v1/reg-tasks/kri/hazard?framework=${framework}&hazard=${hazard}`) })
+  const q = useQuery({ queryKey: ['kri-hazard', framework, hazard, entityQ], queryFn: () => api.get<HazDrill>(`/v1/reg-tasks/kri/hazard?framework=${framework}&hazard=${hazard}${entityQ}`) })
   const d = q.data
   return (
     <Drawer label={`Driving ${hazardLabel(hazard)}`} onClose={onClose} style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(460) }}
@@ -342,14 +360,14 @@ interface Drivers { unit: 'eur' | 'num'; total_count: number; items: Driver[] }
 interface Projection { points: { horizon: string; value: number; lo: number; hi: number }[]; unit: 'eur' | 'pct'; warn?: number | null; breach?: number | null; scenario: string; note: string }
 interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null; filing_id?: string }[]; fmt: string; flow?: boolean }; projection?: Projection | null; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
 
-function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: string; onClose: () => void }) {
+function KriDetail({ framework, entityQ, kriKey, onClose }: { framework: string; entityQ: string; kriKey: string; onClose: () => void }) {
   const nav = useNavigate()
   const { profile } = useAuth()
   const canSetAppetite = (profile?.permissions ?? []).includes('admin.approval_policy.manage')
   const canRaise = (profile?.permissions ?? []).includes('approvals.create')
   const [raising, setRaising] = useState(false)
   const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
-  const q = useQuery({ queryKey: ['kri-detail', framework, kriKey], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}`) })
+  const q = useQuery({ queryKey: ['kri-detail', framework, kriKey, entityQ], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}${entityQ}`) })
   const d = q.data
   const [editBand, setEditBand] = useState(false)
   const [band, setBand] = useState<{ amber?: number; red?: number; direction?: string }>({})

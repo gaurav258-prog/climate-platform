@@ -1,5 +1,5 @@
-"""Multi-currency phase 1c: regulatory packages never sum values across currencies unconverted, and the XBRL export
-never relabels EUR figures as another currency."""
+"""Multi-currency phase 1c: regulatory packages never sum values across currencies unconverted. The CSRD package and
+its XBRL export are retired (the ESRS statement is filed per undertaking, report type esrs_pack)."""
 from __future__ import annotations
 
 from datetime import date
@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from ml.regulatory import csrd, ecb
+from ml.regulatory import ecb
 from services.reference.fx import rate_for
 
 pytestmark = pytest.mark.integration
@@ -22,8 +22,8 @@ def _customer_with_scores(s):
         GROUP BY cl.customer_id LIMIT 1""")).scalar()
 
 
-@pytest.mark.parametrize("builder", [csrd, ecb], ids=["csrd", "ecb"])
-def test_location_values_are_converted_and_unrated_ones_left_out(builder):
+def test_location_values_are_converted_and_unrated_ones_left_out():
+    builder = ecb
     with get_session() as s:
         cust = _customer_with_scores(s)
         if not cust:
@@ -39,26 +39,21 @@ def test_location_values_are_converted_and_unrated_ones_left_out(builder):
             s.execute(text("UPDATE customer_locations SET currency = 'USD', asset_value = 1000000 WHERE location_id = :l"), {"l": locs[0]})
             s.execute(text("UPDATE customer_locations SET currency = 'XTS', asset_value = 5000000 WHERE location_id = :l"), {"l": locs[1]})
             pkg = builder.build(s, cust, date(2000, 1, 1), END)
-            rows = builder._fetch_location_scores(s, cust, date(2000, 1, 1), END, ["current"]) if builder is csrd else None
-            fx = pkg["methodology"]["currency"] if builder is csrd else pkg["t5_methodology"]["currency"]
+            fx = pkg["t5_methodology"]["currency"]
             assert pkg["reporting_currency"] == "EUR"
             assert "XTS" in fx["excluded_values"] and "XTS" in fx["note"]
             usd = next(r for r in fx["rates"] if r["currency"] == "USD")
             assert usd["units_per_eur"] == pytest.approx(rate_for(s, "USD", END)["units_per_eur"])
-            if rows is not None:
-                from services.intake.money import values_to_eur
-                values_to_eur(s, rows, END)
-                r0 = next(r for r in rows if r["location_id"] == locs[0])
-                assert r0["asset_value"] == pytest.approx(round(1e6 * rate_for(s, "USD", END)["rate"], 2))
-                assert r0["asset_value_native"] == 1e6 and r0["asset_value_currency"] == "USD"
-                assert all(r["asset_value"] is None for r in rows if r["location_id"] == locs[1])
         finally:
             s.rollback()
 
 
-def test_xbrl_refuses_to_relabel_eur_as_another_currency():
+def test_the_csrd_package_and_its_xbrl_are_retired():
     from fastapi.testclient import TestClient
 
     from api.main import app
-    r = TestClient(app).get("/v1/packages/00000000-0000-0000-0000-000000000000/xbrl", params={"lei": "5493001KJTIIGC8Y1R12", "currency": "USD"})
-    assert r.status_code == 422 and "EUR" in r.text
+    from ml.regulatory.packager import PackagerError, create_package
+    r = TestClient(app).get("/v1/packages/00000000-0000-0000-0000-000000000000/xbrl", params={"lei": "5493001KJTIIGC8Y1R12"})
+    assert r.status_code == 410 and "esrs_pack" in r.text
+    with pytest.raises(PackagerError, match="retired"):
+        create_package("00000000-0000-0000-0000-000000000000", "CSRD", date(2025, 1, 1), date(2025, 12, 31), "maker")

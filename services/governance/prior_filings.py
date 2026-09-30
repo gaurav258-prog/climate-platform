@@ -20,29 +20,59 @@ class FilingError(Exception):
 
 
 def _dp_label(framework: str, key: str) -> str:
+    if framework == "esrs_pack":
+        from services.governance.esrs_binding import concepts
+        return (concepts().get(key) or {}).get("label", key)
     for dp in (catalog(framework) or []):
         if dp["key"] == key:
             return dp["label"]
     return key
 
 
-# Frameworks a customer can bring a prior filing for — professional, customer-facing labels.
+def _esrs_sectors() -> list[str]:
+    from services.governance.filings import FRAMEWORKS as REPORTS
+    return list(REPORTS["esrs_pack"]["sectors"])
+
+
+# Frameworks a customer can bring a prior filing for — professional, customer-facing labels. A retired one keeps its
+# confirmed filings readable and takes no new upload (its lines were mapped to coarse keys that added different
+# quantities together); an ESRS statement's lines are mapped to the concepts its year's version prints.
 FRAMEWORKS: list[dict] = [
     {"key": "bank_p3esg", "label": "Pillar 3 ESG risk disclosures", "sectors": ["bank"]},
-    {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate", "sectors": ["bank", "asset_manager", "reit", "manufacturer"]},
-    {"key": "esrs_pack",  "label": "ESRS Climate & Nature (E1 · E3 · E4)", "sectors": ["manufacturer"]},
+    {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate (retired)", "sectors": [], "retired_for": "esrs_pack"},
+    {"key": "esrs_pack",  "label": "ESRS sustainability statement (E1 · E3 · E4)", "sectors": None},
     {"key": "sfdr_pai",   "label": "SFDR principal adverse impacts", "sectors": ["asset_manager"]},
     {"key": "bank_tcfd",  "label": "TCFD climate disclosures", "sectors": ["bank", "asset_manager", "reit"]},
 ]
 _LABEL = {f["key"]: f["label"] for f in FRAMEWORKS}
+_RETIRED = {f["key"]: f["retired_for"] for f in FRAMEWORKS if f.get("retired_for")}
 
 
 def frameworks_for(org_type: str) -> list[dict]:
-    return [{"key": f["key"], "label": f["label"]} for f in FRAMEWORKS if org_type in f["sectors"]]
+    return [{"key": f["key"], "label": f["label"]} for f in FRAMEWORKS
+            if org_type in (f["sectors"] if f["sectors"] is not None else _esrs_sectors())]
 
 
-def datapoints(framework: str) -> list[dict]:
-    """The datapoints a reported line can be mapped to, for the confirm-time remap control."""
+def esrs_targets(session, org_id: str, period_end) -> dict[str, str]:
+    """The ESRS concepts a filed statement for the financial year ending `period_end` can report (concept → label): every
+    concept its governing version prints, except a breakdown (a line is one figure, not a breakdown's members)."""
+    from services.governance import esrs_document as D
+    from services.governance.esrs_binding import concepts, concepts_of
+    try:
+        spec = D.governing(session, org_id, period_end)
+    except D.DocumentError as e:
+        raise FilingError(str(e)) from e
+    cs = concepts()
+    return {k: cs[k]["label"] for k in sorted(concepts_of(spec)) if not cs[k].get("breakdown")}
+
+
+def datapoints(framework: str, *, session=None, org_id: Optional[str] = None, period_end=None) -> list[dict]:
+    """The datapoints a reported line can be mapped to, for the confirm-time remap control (an ESRS statement: the
+    concepts of the version governing its year — period_end required)."""
+    if framework == "esrs_pack":
+        if period_end is None:
+            raise FilingError("The ESRS version is chosen by the financial year — give the filing's period end.")
+        return [{"key": k, "label": lb} for k, lb in esrs_targets(session, org_id, period_end).items()]
     return [{"key": dp["key"], "label": dp["label"]} for dp in (catalog(framework) or [])]
 
 
@@ -58,6 +88,8 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     from services.reference.iso4217 import codes
     if framework not in _LABEL:
         raise FilingError("Unknown framework.")
+    if framework in _RETIRED:
+        raise FilingError(f"{_LABEL[framework]} takes no new filings — upload it as {_LABEL[_RETIRED[framework]]}.")
     if not period_label or not period_label.strip():
         raise FilingError("A reporting period is required.")
     ccy = (currency or "").strip().upper() or None
@@ -71,8 +103,13 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     else:
         m = _re.search(r"(19|20)\d{2}", period_label)
         pe = _date(int(m.group(0)), 12, 31) if m else None
+    targets = None
+    if framework == "esrs_pack":
+        if pe is None:
+            raise FilingError("The ESRS version is chosen by the financial year — give the period end (or a year in the label).")
+        targets = esrs_targets(session, org_id, pe)
     try:
-        read = filing_import.extract(framework, filename, data)
+        read = filing_import.extract(framework, filename, data, targets)
         for c in read["cells"]:
             c["unit"] = resolve_declared(c["unit"], ccy)
     except ValueError as e:
@@ -126,7 +163,7 @@ def list_filings(session, org_id: str, framework: Optional[str] = None) -> list[
 
 def get_filing(session, filing_id: str, org_id: str) -> dict:
     f = session.execute(text("""
-        SELECT filing_id, framework, period_label, entity_name, file_format, original_filename,
+        SELECT filing_id, framework, period_label, period_end, entity_name, file_format, original_filename,
                file_sha256, basis_note, status, n_lines, uploaded_at, confirmed_at
         FROM reported_filing WHERE filing_id = :fid AND org_id = :org
     """), {"fid": filing_id, "org": org_id}).mappings().first()
@@ -141,6 +178,7 @@ def get_filing(session, filing_id: str, org_id: str) -> dict:
         "filing_id": str(f["filing_id"]), "framework": f["framework"],
         "framework_label": _LABEL.get(f["framework"], f["framework"]),
         "period_label": f["period_label"], "entity_name": f["entity_name"],
+        "period_end": f["period_end"].isoformat() if f["period_end"] else None,
         "file_format": f["file_format"], "original_filename": f["original_filename"],
         "file_sha256": f["file_sha256"], "basis_note": f["basis_note"], "status": f["status"],
         "n_lines": f["n_lines"],
@@ -166,6 +204,7 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
         raise FilingError("Filing not found.")
     if f["status"] == "confirmed":
         raise FilingError("This filing is already confirmed and cannot be changed.")
+    _check_esrs_mapping(session, filing_id, org_id, edits or [])
 
     for e in (edits or []):
         gid = e.get("figure_id")
@@ -206,6 +245,31 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
         raise FilingError("A confirmed filing already exists for that framework and period. "
                           "Remove it before confirming a replacement.")
     return get_filing(session, filing_id, org_id)
+
+
+def _check_esrs_mapping(session, filing_id: str, org_id: str, edits: list[dict]) -> None:
+    """An ESRS statement's lines map to the concepts its year's version prints, each concept at most once (two lines on
+    one concept would be added together as one figure). Read with the edits applied, and refused before any is written."""
+    f = session.execute(text("SELECT framework, period_end FROM reported_filing WHERE filing_id = :fid"),
+                        {"fid": filing_id}).mappings().first()
+    if f["framework"] != "esrs_pack":
+        return
+    targets = esrs_targets(session, org_id, f["period_end"])
+    mapped = {str(r[0]): r[1] for r in session.execute(text(
+        "SELECT figure_id, datapoint_key FROM reported_figure WHERE filing_id = :fid"), {"fid": filing_id}).all()}
+    for e in edits:
+        if e.get("figure_id") in mapped:
+            if e.get("drop"):
+                mapped.pop(e["figure_id"])
+            elif "datapoint_key" in e:
+                mapped[e["figure_id"]] = e["datapoint_key"] or None
+    keys = [k for k in mapped.values() if k]
+    unknown = sorted({k for k in keys if k not in targets})
+    twice = sorted({k for k in keys if keys.count(k) > 1})
+    if unknown or twice:
+        raise FilingError("; ".join(
+            ([f"not a figure the ESRS version for this year prints: {', '.join(unknown)}"] if unknown else []) +
+            ([f"more than one line is mapped to {', '.join(twice)} — keep one"] if twice else [])))
 
 
 def delete_filing(session, filing_id: str, org_id: str) -> None:

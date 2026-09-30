@@ -2,8 +2,9 @@
 
   ids     every item, disclosure requirement and standard a phase-in or a stated relation names is one the governing
           specification prints (so a renumbered text can never leave a rule pointing at nothing)
-  quotes  every quote in data/reference/csrd/scope.json and data/reference/esrs/phase_ins.json appears word for word in
-          one of the downloaded texts — checked when ESRS_SOURCE_TEXTS names the folder of their .txt renderings
+  quotes  every quote in data/reference/csrd/scope.json, data/reference/esrs/phase_ins.json and the CSRD mandate of
+          data/reference/regulatory_mandates.json (its article, its deadline rule) appears word for word in one of the
+          downloaded texts (Directive 2004/109/EC among them) — checked when ESRS_SOURCE_TEXTS names the folder of their .txt renderings
           (EUR-Lex / Cellar), skipped otherwise
 """
 from __future__ import annotations
@@ -55,6 +56,10 @@ def _quotes():
     for p in scope["points"]:
         yield f"scope {p['id']}", p["quote"]
     yield "scope derogation", scope["member_state_derogation"]["quote"]
+    csrd = next(m for m in json.loads((ROOT / "regulatory_mandates.json").read_text())["mandates"] if m["id"] == "csrd_esrs_e1")
+    yield "mandate article", csrd["article"]["excerpt"]
+    for branch in ("issuer", "otherwise"):
+        yield f"mandate deadline {branch}", csrd["deliverable"]["due"][branch]["quote"]
     pins = json.loads((ROOT / "esrs" / "phase_ins.json").read_text())
     for v, rules in pins.items():
         if isinstance(rules, list):

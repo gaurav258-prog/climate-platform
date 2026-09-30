@@ -133,19 +133,63 @@ def evaluate(m: dict, attrs: dict[str, dict]) -> dict:
     return {"status": APPLIES, "missing": [], "failed": [], "tier": tier, "checks": checks}
 
 
-def due_date(m: dict, period_end: date) -> Optional[date]:
-    """The deadline for a period, where the mandate's rule fixes one by the calendar; None where it runs from an event
-    (the ORSA's conclusion, each placing on the market)."""
+def evaluate_for(session, org_id: str, m: dict, attrs: dict[str, dict], period_end: date) -> dict:
+    """evaluate() plus, for a mandate whose scope is judged per undertaking and year (criteria.scope — the CSRD's
+    Art. 5(2), services.governance.csrd_scope), each undertaking's reading: the organisation is in scope when one of its
+    undertakings is required, cannot be determined while one is undetermined, and is out of scope otherwise. `due` is the
+    earliest deadline of the required undertakings (None where one's deadline fact is not stated). An undertaking's
+    missing facts are named in its check, never in `missing` (that lists registry attributes only)."""
+    ev = evaluate(m, attrs)
+    sc = (m["criteria"].get("scope") or {}).get("source")
+    if sc is None:
+        return {**ev, "due": due_date(m, period_end) if ev["status"] == APPLIES else None}
+    if ev["status"] == NOT_APPLICABLE:
+        return {**ev, "due": None, "undertakings": []}
+    from services.calc_settings import get_calc_settings
+    from services.governance import csrd_scope
+    us = csrd_scope.undertakings(session, org_id, period_end, get_calc_settings(session, org_id))
+    for u in us:
+        u["due"] = due_date(m, period_end, {m["deliverable"]["due"]["fact"]: u["issuer"]}) if u["required"] else None
+        detail = (f"point {u['point']} — " if u.get("point") else "") + (u.get("reason") or
+                                                                         ("required" if u["required"] else "not required"))
+        missing = f"; not stated: {', '.join(u['missing'])}" if u.get("missing") else ""
+        ev["checks"].append({"label": f"{u['name']}: {detail}{missing}", "attribute": "csrd_scope", "result": u["required"],
+                             "entity_id": u["entity_id"]})
+    req = [u for u in us if u["required"]]
+    if all(u["required"] is False for u in us):            # out of scope whatever the other criteria say
+        ev.update(status=NOT_APPLICABLE, failed=[m["criteria"]["scope"]["label"]], missing=[])
+    elif not req and ev["status"] == APPLIES:
+        ev["status"] = CANNOT
+    dues = [u["due"] for u in req]
+    shown = [{k: u.get(k) for k in ("entity_id", "name", "role", "required", "point", "reason", "missing")}
+             | {"due": u["due"] and u["due"].isoformat(),
+                "issuer": None if u["issuer"] is None else int(float(u["issuer"]["value"])) == 1} for u in us]
+    return {**ev, "due": min(dues) if dues and None not in dues else None, "undertakings": shown}
+
+
+def _months_after(period_end: date, months: int) -> date:
     import calendar
+    mth = period_end.month + months
+    yr = period_end.year + (mth - 1) // 12
+    mth = (mth - 1) % 12 + 1
+    last = calendar.monthrange(yr, mth)[1]
+    month_end = period_end.day == calendar.monthrange(period_end.year, period_end.month)[1]
+    return date(yr, mth, last if month_end else min(period_end.day, last))          # 31 Dec + 4 months = 30 April
+
+
+def due_date(m: dict, period_end: date, facts: Optional[dict] = None) -> Optional[date]:
+    """The deadline for a period, where the mandate's rule fixes one by the calendar; None where it runs from an event
+    (the ORSA's conclusion, each placing on the market) or depends on a fact about the undertaking not given (`facts`:
+    the undertaking's attested values by concept — the CSRD publication rule reads whether it is an issuer)."""
     d = m["deliverable"].get("due") or {}
     rule = d.get("rule")
     if rule in ("with_annual_report",) and d.get("months_after_period_end"):
-        mth = period_end.month + int(d["months_after_period_end"])
-        yr = period_end.year + (mth - 1) // 12
-        mth = (mth - 1) % 12 + 1
-        last = calendar.monthrange(yr, mth)[1]
-        month_end = period_end.day == calendar.monthrange(period_end.year, period_end.month)[1]
-        return date(yr, mth, last if month_end else min(period_end.day, last))     # 31 Dec + 4 months = 30 April
+        return _months_after(period_end, int(d["months_after_period_end"]))
+    if rule == "csrd_publication":
+        v = (facts or {}).get(d["fact"])
+        if v is None:
+            return None
+        return _months_after(period_end, int(d["issuer" if int(float(v["value"])) == 1 else "otherwise"]["months_after_period_end"]))
     if rule == "weeks_after_period_end" and d.get("weeks_after_period_end"):
         return period_end + timedelta(weeks=int(d["weeks_after_period_end"]))
     if rule == "fixed_date":
@@ -224,8 +268,8 @@ def population_view(session, reg_org_id: str, entities: list[dict], cfg: dict, p
         for m in ms:
             if e["type"] not in m["sectors"]:
                 continue
-            ev = evaluate(m, attrs)
-            d = due_date(m, period_end) if ev["status"] == APPLIES else None
+            ev = evaluate_for(session, e["org_id"], m, attrs, period_end)
+            d = ev.pop("due")
             cells.append({"mandate_id": m["id"], "short": m["short"], "framework": m["deliverable"].get("framework"), "binding": m["binding"],
                           **ev, "status_label": STATUS_LABEL[ev["status"]], "due_date": d.isoformat() if d else None,
                           "channel": m["deliverable"]["channel"], "direction": m["deliverable"]["direction"]})
@@ -250,12 +294,13 @@ def applicability_for_entity(session, org_id: str, period_end: Optional[date] = 
     pe = period_end or date(date.today().year - 1, 12, 31)
     out = []
     for m in mandates_for([org["type"]]):
-        ev = evaluate(m, attrs)
+        ev = evaluate_for(session, org_id, m, attrs, pe)
         d = m["deliverable"]
         out.append({"id": m["id"], "title": m.get("title") or m.get("label"), "act": m["act"], "article": m["article"], "status": ev["status"], "tier": ev["tier"],
                     "missing": ev["missing"], "failed": ev["failed"], "checks": ev["checks"],
                     "deliverable": {"framework": d.get("framework"), "label": d.get("label"), "channel_id": d.get("channel_id"), "channel": (reg["channels"].get(d.get("channel_id")) or {}).get("label"),
-                                    "due": due_date(m, pe).isoformat() if due_date(m, pe) else None, "due_rule": d.get("due")},
+                                    "due": ev["due"].isoformat() if ev["due"] else None, "due_rule": d.get("due")},
+                    **({"undertakings": ev["undertakings"]} if "undertakings" in ev else {}),
                     "latest_version": (m["versions"][-1]["version"] if m.get("versions") else None)})
     order = {APPLIES: 0, CANNOT: 1, NOT_APPLICABLE: 2}
     out.sort(key=lambda x: (order.get(x["status"], 9), x["title"] or ""))

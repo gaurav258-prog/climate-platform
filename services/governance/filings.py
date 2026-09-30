@@ -308,7 +308,7 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
         out.append({
             **f, **ref,
             "due_label": (f"{spec['frequency']} · by {due_on.day} {_MONTHS[due_on.month]}" + (f" ({due_why})" if due_why else ""))
-                         if due_on else spec["frequency"],
+                         if due_on else (f"{spec['frequency']} · {due_why}" if due_why else spec["frequency"]),
             "n_filings": len(filings), "last_filed": last, "filings": filings,
             "coverage": _coverage(fk),
         })
@@ -332,7 +332,29 @@ def due_for(framework: str, period_end: date) -> tuple[date | None, str | None]:
     if typed:
         why = (m["deliverable"]["due"].get("label") + " — planning date") if m else "planning date"
         return date(period_end.year + 1, *typed), why
+    if m and m["deliverable"]["due"].get("fact"):         # per undertaking: due_for_undertaking
+        return None, m["deliverable"]["due"].get("label")
     return None, None
+
+
+def due_for_undertaking(session: Session, org_id: str, framework: str, entity_id: str | None,
+                        period_end: date) -> tuple[date | None, str | None]:
+    """The deadline of a report whose rule reads a fact about the undertaking (the ESRS statement: an issuer under
+    Directive 2004/109/EC Art. 4(1) within 4 months, otherwise within 12 months — Directive 2013/34/EU Art. 30(1)), from
+    that undertaking's attested fact for the year; (None, what to state) while the fact is not stated."""
+    from services.governance.provided_data import ESRS, attested_values
+    from services.supervision.mandates import due_date
+    m = _mandate_of(framework)
+    rule = (m or {}).get("deliverable", {}).get("due") or {}
+    if not rule.get("fact"):
+        return due_for(framework, period_end)
+    facts = {v["concept"]: v for v in attested_values(session, org_id, ESRS, period_end, reporting_entity_id=entity_id)
+             if v["concept"] == rule["fact"] and not v.get("member")}
+    d = due_date(m, period_end, facts)
+    if d is None:
+        return None, f"state {rule['fact']} for the year — {rule['label']}"
+    branch = rule["issuer" if int(float(facts[rule["fact"]]["value"])) == 1 else "otherwise"]
+    return d, branch["ref"]
 
 
 def _due_date(framework: str, period_end: date) -> date | None:
@@ -383,6 +405,9 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
         if fk in _PRODUCT_SCOPED:
             _ensure_product_obligations(session, org_id, fk, period_end)
             continue
+        if fk == "esrs_pack":
+            _ensure_esrs_obligations(session, org_id, period_end)
+            continue
         if _due_date(fk, period_end) is None:
             # runs from an event (an ORSA's conclusion, a recovery plan's update) — no calendar obligation to invent;
             # the filing's own disclosure date gives its deadline (due_for_filing)
@@ -418,6 +443,40 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
                 VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), 'solo')
             """), {"o": org_id, "fk": fk, "pe": period_end, "pl": _period_label(period_end),
                    "due": _due_date(fk, period_end), "freq": FRAMEWORKS[fk]["frequency"], "e": eid})
+
+
+def _ensure_esrs_obligations(session: Session, org_id: str, period_end: date) -> None:
+    """One ESRS statement obligation per undertaking Art. 5(2) of Directive (EU) 2022/2464 requires for the year
+    (services.governance.csrd_scope.undertakings — its stated role and attested facts), due on its own deadline
+    (due_for_undertaking). The calendar follows the facts: an undertaking's own obligation takes the deadline its facts
+    give now, and is removed once it is no longer required (a supervisor-set one is left as the supervisor set it). An
+    undertaking whose requirement or deadline fact is not stated has none yet — the mandate names what is missing."""
+    from services.calc_settings import get_calc_settings
+    from services.governance import csrd_scope
+    owed = {}
+    for u in csrd_scope.undertakings(session, org_id, period_end, get_calc_settings(session, org_id)):
+        due, _ = due_for_undertaking(session, org_id, "esrs_pack", u["entity_id"], period_end) if u["required"] else (None, None)
+        if due is not None:
+            owed[u["entity_id"]] = (due, "whole_org" if u["entity_id"] is None
+                                    else "consolidated" if u["role"] == "consolidated" else "solo")
+    have = {(r["entity_id"]): r for r in session.execute(text("""
+        SELECT obligation_id, entity_id::text AS entity_id, due_date, source FROM regulatory_obligation
+        WHERE org_id = :o AND framework = 'esrs_pack' AND period_end = :pe
+    """), {"o": org_id, "pe": period_end}).mappings()}
+    for eid, r in have.items():
+        if r["source"] != "entity":
+            continue
+        if eid not in owed:
+            session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
+        elif r["due_date"] != owed[eid][0]:
+            session.execute(text("UPDATE regulatory_obligation SET due_date = :d, filing_role = :fr WHERE obligation_id = :i"),
+                            {"d": owed[eid][0], "fr": owed[eid][1], "i": r["obligation_id"]})
+    for eid, (due, role) in owed.items():
+        if eid not in have:
+            session.execute(text("""
+                INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
+                VALUES (:o, 'esrs_pack', :pe, :pl, :due, 'annual', CAST(:e AS uuid), :fr)
+            """), {"o": org_id, "pe": period_end, "pl": _period_label(period_end), "due": due, "e": eid, "fr": role})
 
 
 def _ensure_product_obligations(session: Session, org_id: str, fk: str, period_end: date) -> None:
@@ -558,7 +617,9 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     out["regulator"] = FRAMEWORKS.get(r["framework"], {}).get("regulator")
     out["basis"] = FRAMEWORKS.get(r["framework"], {}).get("basis")
     out["disclosure_date"] = r["disclosure_date"].isoformat() if r["disclosure_date"] else None   # None: made when frozen
-    _due, _why = due_for_filing(r["framework"], r["period_end"], r["disclosure_date"])
+    _due, _why = (due_for_undertaking(session, org_id, r["framework"], out["entity_id"], r["period_end"])
+                  if ((_mandate_of(r["framework"]) or {}).get("deliverable", {}).get("due") or {}).get("fact")
+                  else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"]))
     out["due_date"], out["due_rule"] = (_due.isoformat() if _due else None), _why
 
     events = session.execute(text("""

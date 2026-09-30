@@ -8,7 +8,7 @@ from datetime import datetime
 import pytest
 
 from core.hazard_taxonomy import EU_TAXONOMY
-from ml.regulatory import csrd, ecb, packager
+from ml.regulatory import ecb, packager
 from services.data.feeds import FEEDS, HAZARD_FEEDS
 
 ROWS = [
@@ -23,10 +23,10 @@ ROWS = [
 
 
 def _both():
-    return {"csrd": csrd._methodology(ROWS, ["C10"]), "ecb": ecb._table5_methodology(ROWS)}
+    return {"ecb": ecb._table5_methodology(ROWS)}
 
 
-@pytest.mark.parametrize("name", ["csrd", "ecb"])
+@pytest.mark.parametrize("name", ["ecb"])
 def test_methodology_names_no_withdrawn_or_unused_source_or_model(name):
     m = _both()[name]
     model = m.get("scoring_model") or m["scoring_methodology"]
@@ -40,7 +40,7 @@ def test_methodology_names_no_withdrawn_or_unused_source_or_model(name):
     assert not planned & set(m["data_sources"])
 
 
-@pytest.mark.parametrize("name", ["csrd", "ecb"])
+@pytest.mark.parametrize("name", ["ecb"])
 def test_sources_come_from_feed_registry_for_package_hazards(name):
     m = _both()[name]
     by_key = {f["key"]: f for f in FEEDS}
@@ -61,7 +61,7 @@ def test_sources_come_from_feed_registry_for_package_hazards(name):
     assert jrc["maturity"] == "release" and jrc["caveat"] == by_key["jrc_flood_maps"]["note"]
 
 
-@pytest.mark.parametrize("name", ["csrd", "ecb"])
+@pytest.mark.parametrize("name", ["ecb"])
 def test_coverage_and_versions_come_from_registries_and_scores(name):
     m = _both()[name]
     tiers = {c.value: h.tier.value for h in EU_TAXONOMY for c in h.internal}
@@ -74,7 +74,7 @@ def test_coverage_and_versions_come_from_registries_and_scores(name):
 
 
 def test_packager_stamps_real_model_versions_not_ensemble():
-    stamp = packager._infer_model_version({"methodology": csrd._methodology(ROWS, [])})
+    stamp = packager._infer_model_version({"t5_methodology": ecb._table5_methodology(ROWS)})
     assert stamp.startswith("per-hazard-4-models-") and len(stamp) <= 50
     one = [r for r in ROWS if r["hazard_type"] == "wildfire"]
     assert packager._infer_model_version({"t5_methodology": ecb._table5_methodology(one)}) == "wildfire-climatology-v1"

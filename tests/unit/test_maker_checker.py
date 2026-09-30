@@ -125,10 +125,10 @@ def _customer() -> str:
 
 
 def _make_package(customer_id: str, maker: str = "maker-user-01") -> dict:
-    """Create a minimal CSRD package with no real data."""
+    """Create a minimal ECB package with no real data (CSRD packages are retired)."""
     return create_package(
         customer_id=customer_id,
-        framework="CSRD",
+        framework="ECB",
         period_start=date(2024, 1, 1),
         period_end=date(2024, 12, 31),
         maker_user_id=maker,
@@ -154,7 +154,7 @@ class TestMakerChecker:
         fetched = get_package(created["package_id"])
         assert fetched is not None
         assert fetched["package_id"] == created["package_id"]
-        assert fetched["framework"] == "CSRD"
+        assert fetched["framework"] == "ECB"
 
     def test_maker_cannot_be_checker(self):
         created = _make_package(_customer(), maker="alice-01")

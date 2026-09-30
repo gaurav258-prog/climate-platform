@@ -3,7 +3,7 @@ regulatory datapoint every KRI feeds. This turns the dashboard from 'here are so
 'here is what your regulator will look at when you file, and where you stand' (a pre-submission read).
 
 REGULATOR: per framework → the authority + the disclosure it maps to (sourced from reg_reference).
-KRI_REG:   per (framework, kri_key) → (regulatory datapoint it feeds, tier). tier 'core' = a headline
+KRI_REG:   per (framework, kri_key) → (regulatory datapoint it feeds, tier); a KRI may carry its own (reg, reg_tier). tier 'core' = a headline
            datapoint the regulator scrutinises; 'support' = a denominator / coverage / context figure.
 """
 from __future__ import annotations
@@ -84,29 +84,20 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "emissions_cov":  ("PAI data coverage", "support"),
         "indicators":     ("PAI indicators computed (of 14 mandatory)", "support"),
     },
-    "csrd_e1": {
-        "asset_value":           ("ESRS E1 — own-operations asset base", "support"),
-        "asset_at_risk":         ("ESRS E1-9 — own-ops asset value at risk", "core"),
-        "pct_at_risk":           ("ESRS E1 — share of sites at risk", "core"),
-        "business_interruption": ("ESRS E1-9 — business interruption (v0)", "core"),
-        "ingredient_spend":      ("ESRS E1 — upstream sourcing base", "support"),
-        "cogs_at_risk":          ("ESRS E1-9 — COGS at risk (published)", "core"),
-        "cogs_withheld":         ("ESRS E1-9 — exposure mapped, € withheld", "support"),
-        "coverage":              ("Plot data coverage", "support"),
-        "ghg_emissions":         ("ESRS E1-6 — GHG emissions (Scope 1–3)", "core"),
-    },
 }
-# esrs_pack = E1 (same as csrd_e1) + E3 water + E4 biodiversity
-KRI_REG["esrs_pack"] = {
-    **KRI_REG["csrd_e1"],
-    "water_plots_stressed":   ("ESRS E3 — plots water-stressed", "core"),
-    "water_spend_exposed":    ("ESRS E3 — spend water-exposed", "core"),
-    "water_peak":             ("ESRS E3 — peak water-stress score", "support"),
-    "deforestation_free_pct": ("ESRS E4 / EUDR — deforestation-free %", "core"),
-    "non_compliant":          ("ESRS E4 / EUDR — non-compliant plots", "core"),
-    "forest_loss_ha":         ("ESRS E4 — post-cutoff forest loss", "support"),
-    "protected_area":         ("ESRS E4 — sites/plots in a protected area (Natura 2000)", "core"),
-}
+# esrs_pack: each KRI carries its own tag — the item(s) of the governing ESRS version that print its concept
+# (services.governance.kri_esrs), since the datapoints differ between the 2023 and 2026 standards.
+
+
+def tags(framework: str) -> dict[str, tuple[str, str]]:
+    """Every KRI a framework's set can carry → (the datapoint it feeds, tier) — for what a regulatory change touches. The
+    ESRS set is declared by kri_esrs.HEADLINE (which of them a year shows depends on the governing version)."""
+    if framework == "esrs_pack":
+        from services.governance.esrs_binding import concepts
+        from services.governance.kri_esrs import HEADLINE
+        cs = concepts()
+        return {c: (f"ESRS — {cs[c]['label']}", tier) for c, tier in HEADLINE}
+    return KRI_REG.get(framework, {})
 
 
 def annotate(framework: str, kpis: list[dict]) -> dict:
@@ -116,7 +107,7 @@ def annotate(framework: str, kpis: list[dict]) -> dict:
     core = covered = 0
     integrated, gaps = [], []
     for k in kpis:
-        t = tags.get(k.get("key"))
+        t = tags.get(k.get("key")) or ((k["reg"], k["reg_tier"]) if k.get("reg") and k.get("reg_tier") else None)
         if not t:
             continue
         k["reg"] = t[0]

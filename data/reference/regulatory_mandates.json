@@ -688,22 +688,22 @@
         "asset_manager"
       ],
       "binding": true,
-      "title": "CSRD sustainability statement — ESRS E1 Climate change",
-      "short": "CSRD · ESRS E1",
+      "title": "CSRD sustainability statement (ESRS)",
+      "short": "CSRD · ESRS",
       "act": {
-        "name": "Directive (EU) 2022/2464 (CSRD) · Delegated Regulation (EU) 2023/2772 (ESRS) · Directive (EU) 2025/794 (stop-the-clock)",
+        "name": "Directive (EU) 2022/2464 (CSRD) as amended by Directives (EU) 2025/794 and 2026/470 · Delegated Regulation (EU) 2023/2772 (ESRS) as amended",
         "celex": "32022L2464",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022L2464",
         "form": {
-          "name": "ESRS Delegated Act (EU) 2023/2772 — ESRS E1 (E1-9: anticipated financial effects from material physical risks)",
+          "name": "ESRS — Delegated Regulation (EU) 2023/2772, as amended by Delegated Regulations (EU) 2025/1416 and 2026/1563",
           "celex": "32023R2772",
           "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772"
         }
       },
       "article": {
-        "ref": "Art. 19a / 29a Accounting Directive (as inserted by CSRD) · ESRS E1-9",
-        "excerpt": "Large undertakings and listed SMEs shall include in the management report the information necessary to understand the undertaking's impacts on sustainability matters and how sustainability matters affect its development, performance and position. Under ESRS E1-9 the undertaking discloses the anticipated financial effects from material physical risks, including the amount and proportion of assets at material physical risk by hazard and location.",
-        "version_date": "2025-04-16"
+        "ref": "Directive 2013/34/EU Art. 19a(1), first subparagraph, as replaced by Directive (EU) 2026/470 Art. 1(4)(a) (for a group: Art. 29a(1))",
+        "excerpt": "Undertakings which, on their balance sheet dates, exceed a net turnover of EUR 450 000 000 and an average number of 1 000 employees during the financial year shall include in their management report information necessary to understand the undertaking’s impacts on sustainability matters, and information necessary to understand how sustainability matters affect the undertaking’s development, performance and position.",
+        "version_date": "2026-03-18"
       },
       "criteria": {
         "all_of": [
@@ -712,20 +712,12 @@
             "op": "in_group",
             "value": "EU_EEA",
             "label": "Established in the EU or EEA"
-          },
-          {
-            "attribute": "public_interest_entity",
-            "op": "==",
-            "value": true,
-            "label": "Public-interest entity (first wave)"
-          },
-          {
-            "attribute": "employees",
-            "op": ">",
-            "value": 500,
-            "label": "More than 500 employees (first wave, FY2024 onwards)"
           }
-        ]
+        ],
+        "scope": {
+          "source": "csrd_scope",
+          "label": "Art. 5(2) of Directive (EU) 2022/2464 as amended, per undertaking and financial year: its CSRD role and its attested facts (data/reference/csrd/scope.json)"
+        }
       },
       "deliverable": {
         "framework": "esrs_pack",
@@ -734,9 +726,19 @@
         "channel": "Filed with the national officially appointed mechanism; onward to the European Single Access Point",
         "direction": "push",
         "due": {
-          "rule": "with_annual_report",
-          "months_after_period_end": 4,
-          "label": "with the annual management report"
+          "rule": "csrd_publication",
+          "fact": "csrd.transparency_issuer",
+          "issuer": {
+            "months_after_period_end": 4,
+            "ref": "Directive 2004/109/EC Art. 4(1); the annual financial report comprises 'the management report' (Art. 4(2)(b))",
+            "quote": "The issuer shall make public its annual financial report at the latest four months after the end of each financial year"
+          },
+          "otherwise": {
+            "months_after_period_end": 12,
+            "ref": "Directive 2013/34/EU Art. 30(1) as replaced by Directive (EU) 2022/2464 Art. 1(10) — the latest date the Directive allows; national law may set an earlier one",
+            "quote": "Member States shall ensure that undertakings publish within a reasonable period of time, which shall not exceed 12 months after the balance sheet date, the duly approved annual financial statements and the management report"
+          },
+          "label": "with the management report: an issuer under Directive 2004/109/EC Art. 4(1) within 4 months of the year end; otherwise within 12 months at the latest (Directive 2013/34/EU Art. 30(1))"
         },
         "frequency": "annual",
         "channel_id": "oam_esef"
@@ -744,7 +746,12 @@
       "detection_celex": [
         "32022L2464",
         "32023R2772",
-        "32025L0794"
+        "32025L0794",
+        "32026L0470",
+        "32025R1416",
+        "32026R1563",
+        "32004L0109",
+        "32013L0034"
       ],
       "versions": [
         {
@@ -758,6 +765,12 @@
           "effective_from": "2025-04-16",
           "summary": "Directive (EU) 2025/794 postpones the second and third waves by two years (large undertakings from FY2027, listed SMEs from FY2028); Omnibus scope changes still under negotiation.",
           "celex": "32025L0794"
+        },
+        {
+          "version": "2026.1",
+          "effective_from": "2026-03-18",
+          "summary": "Directive (EU) 2026/470 (in force on the twentieth day after its publication on 26.2.2026) replaces Art. 5(2)(b): from FY2027 an undertaking, or the parent of a group on a consolidated basis, exceeding a net turnover of EUR 450 000 000 and an average of 1 000 employees; Member States may exempt first-wave undertakings not exceeding either figure for FY2025-2026. Applicability is judged per undertaking and year from data/reference/csrd/scope.json.",
+          "celex": "32026L0470"
         }
       ]
     },

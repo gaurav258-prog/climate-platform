@@ -32,9 +32,17 @@ def list_filings(session: DbSession, ctx: CurrentUser, framework: Optional[str] 
     return {"filings": PF.list_filings(session, ctx["org"]["org_id"], framework)}
 
 
-@router.get("/datapoints/{framework}", summary="Datapoints a reported line can be mapped to")
-def datapoints(framework: str, ctx: CurrentUser, _p: dict = Depends(require_permission("reports.view"))):
-    return {"datapoints": PF.datapoints(framework)}
+@router.get("/datapoints/{framework}", summary="Datapoints a reported line can be mapped to (an ESRS statement: of its year's version)")
+def datapoints(framework: str, session: DbSession, ctx: CurrentUser, period_end: Optional[str] = None,
+               _p: dict = Depends(require_permission("reports.view"))):
+    from datetime import date as _date
+    try:
+        pe = _date.fromisoformat(period_end[:10]) if period_end else None
+        return {"datapoints": PF.datapoints(framework, session=session, org_id=ctx["org"]["org_id"], period_end=pe)}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)}) from e
+    except PF.FilingError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)}) from e
 
 
 # static /trends routes must come before the /{filing_id} catch-all, or 'trends' is read as an id

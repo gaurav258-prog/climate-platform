@@ -282,7 +282,7 @@ class TestPackages:
 
     def test_create_package(self, auth):
         resp = client.post("/v1/packages", headers=auth, json={
-            "framework":    "CSRD",
+            "framework":    "ECB",
             "period_start": "2024-01-01",
             "period_end":   "2024-12-31",
             "maker_user_id": "alice-01",
@@ -292,9 +292,18 @@ class TestPackages:
         assert data["status"] == "DRAFT"
         assert "package_id" in data
 
+    def test_csrd_packages_are_retired(self, auth):
+        resp = client.post("/v1/packages", headers=auth, json={
+            "framework":    "CSRD",
+            "period_start": "2024-01-01",
+            "period_end":   "2024-12-31",
+            "maker_user_id": "alice-01",
+        })
+        assert resp.status_code == 422 and "esrs_pack" in resp.text
+
     def test_maker_checker_violation_returns_422(self, auth):
         create = client.post("/v1/packages", headers=auth, json={
-            "framework":    "CSRD",
+            "framework":    "ECB",
             "period_start": "2024-01-01",
             "period_end":   "2024-12-31",
             "maker_user_id": "alice-01",
@@ -327,7 +336,7 @@ class TestPackages:
         data = approve.json()
         assert data.get("status") == "RELEASED" or data.get("immutable") is True
 
-    def test_xbrl_only_for_csrd(self, auth):
+    def test_xbrl_export_is_retired(self, auth):
         create = client.post("/v1/packages", headers=auth, json={
             "framework":    "ECB",
             "period_start": "2024-01-01",
@@ -337,4 +346,4 @@ class TestPackages:
         pkg_id = create.json()["package_id"]
         resp = client.get(f"/v1/packages/{pkg_id}/xbrl?lei=5493001KJTIIGC8Y1R12",
                           headers=auth)
-        assert resp.status_code == 422
+        assert resp.status_code == 410

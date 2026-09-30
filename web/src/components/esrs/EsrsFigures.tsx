@@ -103,7 +103,7 @@ export default function EsrsFigures({ periodEnd, entity, closed }: { periodEnd: 
 
 // who the undertaking is (Art. 5(2) facts) and its method first; the standards' own figures after
 const GROUPS: { label: string; open: boolean; match: (k: string) => boolean }[] = [
-  { label: 'The undertaking — size and status (Art. 5(2))', open: true, match: k => k.startsWith('csrd.') },
+  { label: 'The undertaking — size, status and publication (Art. 5(2); the deadline)', open: true, match: k => k.startsWith('csrd.') },
   { label: 'Method — the materiality level', open: true, match: k => k.startsWith('esrs.method.') },
   { label: 'Financial statements', open: false, match: k => k.startsWith('fs.') },
   { label: 'E1 Climate change', open: false, match: k => k.startsWith('e1.') },

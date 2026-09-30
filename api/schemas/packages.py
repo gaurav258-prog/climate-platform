@@ -7,12 +7,10 @@ from pydantic import BaseModel, Field
 
 
 class PackageCreateRequest(BaseModel):
-    framework:      str          = Field(..., pattern="^(ECB|CSRD)$")
+    framework:      str          = Field(..., pattern="^(ECB|CSRD)$")    # CSRD: retired — refused with the reason
     period_start:   date
     period_end:     date
     maker_user_id:  str          = Field(..., min_length=3)
-    company_name:   Optional[str] = None
-    nace_codes:     list[str]    = []
     scenarios:      list[str]    = ["baseline"]
     time_horizons:  list[str]    = ["current", "2030", "2050"]
 
