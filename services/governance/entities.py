@@ -331,6 +331,12 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
                            {"o": org_id, "e": entity_id}).scalar()
     if kids:
         raise EntityError("remove or reparent this entity's child entities first")
+    held = session.execute(text("""
+        SELECT (SELECT count(*) FROM reporting_period_close WHERE reporting_entity_id = CAST(:e AS uuid))
+             + (SELECT count(*) FROM site_period_values WHERE reporting_entity_id = CAST(:e AS uuid))"""), {"e": entity_id}).scalar()
+    if held:
+        raise EntityError("this undertaking has closed reporting periods or year-end values — its reporting history "
+                          "is kept, so it cannot be deleted")
     # unassign its book everywhere (fall back to whole-org) so nothing dangles
     session.execute(text("UPDATE portfolio_entities SET reporting_entity_id = NULL WHERE org_id=:o AND reporting_entity_id=:e"),
                     {"o": org_id, "e": entity_id})

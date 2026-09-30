@@ -105,6 +105,20 @@ def _clean_changes(kind: str, changes: dict) -> dict:
     return {k: v for k, v in (changes or {}).items() if k in cols}
 
 
+class LocationChangeError(ValueError):
+    pass
+
+
+def deletion_block(session: Session, kind: str, target_id: str) -> str | None:
+    """Why an asset may not be deleted, or None. A site finance has stated year-end values for is part of the
+    reporting history (comparatives, restatement — ESRS 1 §83, §96): it stops being held (held_until) instead."""
+    if kind == "site" and session.execute(text("SELECT 1 FROM site_period_values WHERE site_id = CAST(:i AS uuid) LIMIT 1"),
+                                          {"i": target_id}).first():
+        return ("this site has year-end values for a reporting period — set the date the undertaking stopped holding "
+                "it (held until) instead of deleting it")
+    return None
+
+
 def submit_or_apply(session: Session, *, org_id: str, actor_user_id: str, request_type: str,
                     target_id: str, changes: dict | None = None, commodity: str | None = None,
                     title: str, money_source: dict | None = None) -> dict:
@@ -112,6 +126,10 @@ def submit_or_apply(session: Session, *, org_id: str, actor_user_id: str, reques
     directly (audited) or opens a 4-eyes approval request for a checker to clear."""
     import json
     verb = request_type.rsplit(".", 1)[1]
+    if verb == "delete":
+        block = deletion_block(session, request_type.split(".")[1], target_id)
+        if block:
+            raise LocationChangeError(block)
     changed = list((_clean_changes(request_type.split(".")[1], changes or {})).keys()) if verb == "update" else None
     payload = {"target_id": target_id, "changes": changes or {}, **({"commodity": commodity} if commodity else {}),
                **({"money_source": money_source} if money_source else {})}
@@ -139,6 +157,9 @@ def apply_location_change(session: Session, request_type: str, payload: dict,
     target_id = payload["target_id"]
 
     if verb == "delete":
+        block = deletion_block(session, kind, target_id)
+        if block:
+            raise LocationChangeError(block)
         n = session.execute(text(f"DELETE FROM {table} WHERE {id_col}=:i AND org_id=:o"),
                             {"i": target_id, "o": org_id}).rowcount
         session.commit()

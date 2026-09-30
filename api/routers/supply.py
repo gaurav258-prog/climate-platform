@@ -475,9 +475,13 @@ def delete_site(site_id: str, session: DbSession,
                 ctx: dict = Depends(require_permission("supply.locations.write"))):
     from services.governance.location_governance import submit_or_apply
     org_id = ctx["org"]["org_id"]
+    from services.governance.location_governance import LocationChangeError
     own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
-    return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
-                           request_type="supply.site.delete", target_id=site_id, title=f"Delete site {site_id[:8]}")
+    try:
+        return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                               request_type="supply.site.delete", target_id=site_id, title=f"Delete site {site_id[:8]}")
+    except LocationChangeError as e:
+        raise HTTPException(status_code=409, detail={"error": "reporting_history", "message": str(e)})
 
 
 @router.patch("/plot/{plot_id}", summary="Edit a sourcing plot (material edits need 4-eyes approval)")

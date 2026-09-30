@@ -20,7 +20,6 @@ from datetime import date
 import h3
 import osm2geojson
 from shapely.geometry import shape
-from sqlalchemy import text
 
 from core.db.session import get_session
 
@@ -101,15 +100,12 @@ def main() -> None:
 
     rows = [{"c": c, "r": args.res, "d": args.dataset, "w": w, "s": s, "v": VINTAGE} for c, (w, s) in seen.items()]
     print(f"{len(rows):,} protected H3 cells ({args.dataset}) → DB")
-    with get_session() as ses:
-        ses.execute(text("DELETE FROM protected_h3_cell WHERE dataset = :d"), {"d": args.dataset})
-        for j in range(0, len(rows), 5000):
-            ses.execute(text("""
-                INSERT INTO protected_h3_cell (h3_cell, h3_res, dataset, within_km, site_ref, data_vintage)
-                VALUES (:c, :r, :d, :w, :s, :v)
-                ON CONFLICT (h3_cell, dataset) DO UPDATE SET within_km = LEAST(protected_h3_cell.within_km, EXCLUDED.within_km)
-            """), rows[j:j + 5000])
+    from services.reference.protected_layers import load_layer
+    with get_session() as ses:                     # a new load; the previous one is retired, never deleted
+        done = load_layer(ses, args.dataset, VINTAGE, "OpenStreetMap via the Overpass API",
+                          ({"h3_cell": r["c"], "within_km": r["w"], "site_ref": r["s"]} for r in rows), args.res)
         ses.commit()
+    print(f"load {done['load_id']}: {done['n_cells']:,} cells (retired {done['retired'] or 'none'})")
     print("done.")
 
 

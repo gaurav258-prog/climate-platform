@@ -340,9 +340,13 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                              entity_ids=entity_ids, value_weights=value_weights, translation=translation, view=view,
                              observed=observed)
 
-    version = (session.execute(text(
-        "SELECT COALESCE(MAX(version), 0) + 1 FROM report_snapshots WHERE org_id = :o AND report_type = :t"),
-        {"o": org_id, "t": report_type}).scalar())
+    # versions are counted per report type, period and undertaking (the scope columns read the frozen record)
+    version = (session.execute(text("""
+        SELECT COALESCE(MAX(version), 0) + 1 FROM report_snapshots
+        WHERE org_id = :o AND report_type = :t AND period_end IS NOT DISTINCT FROM iso_date_or_null(:pe)
+          AND reporting_entity_id IS NOT DISTINCT FROM uuid_or_null(:e)"""),
+        {"o": org_id, "t": report_type, "pe": str(basis["reporting_period_end"])[:10] if basis["reporting_period_end"] else None,
+         "e": payload["_scope"]["reporting_entity_id"]}).scalar())
     row = session.execute(text("""
         INSERT INTO report_snapshots (org_id, report_type, version, reporting_basis, payload, note, created_by,
                                       payload_sha256, engine_versions, run_id)
