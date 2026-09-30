@@ -1,18 +1,26 @@
-"""The ESRS statement (E1, E3, E4) of one undertaking or group for one financial year: the figures the platform computes
-and the ratios it derives, from the book as it stood at the period end — never from today's book.
+"""The ESRS statement (E1, E3, E4) of one undertaking or group for one financial year: the figures the platform computes,
+the ratios it derives, and the facts it supplies in support of the undertaking's own figures — from the book as it
+stood at the period end. Only what a text or arithmetic establishes; anything else is a named gap.
 
-  scope      the reporting undertaking's own sites (Art. 19a), or the group's (Art. 29a): the same undertakings as its
-             financial statements — subsidiaries in full, joint operations at their share, associates and joint ventures
-             outside own operations (value chain) — by the undertaking's stated CSRD role (services.governance.csrd_roles)
-  book       the sites held at the period end (held_from ≤ end < held_until), finance's year-end values for them
-             (carrying amount, the part addressed by adaptation, the year's net revenue — site_period_values)
-  hazards    each site on the EU Taxonomy climate hazards (acute / chronic), short, medium and long term under the
-             high-emissions scenario, material at or above the undertaking's materiality level
-             (data/reference/esrs/physical_risk_assessment.json: every choice quoted)
-  computed   E1 assets and net revenue at material physical risk (amount, share, acute / chronic, addressed by
-             adaptation); E4 own sites in or near biodiversity-sensitive areas (number, area)
-  derived    the ratios the application requirements define from the undertaking's attested figures
-Every figure says what it rests on; a figure that cannot be computed is a gap with its reason, never a zero.
+  scope      ESRS 1 §62: the same reporting undertaking as the financial statements — for a parent preparing
+             consolidated statements, the group. Subsidiaries in full; associates and joint ventures (equity method, or a
+             joint venture proportionally consolidated) are value chain, not own operations (2023 ESRS 1 §67; 2026 ESRS 1
+             §69-70); a joint operation's share as recognised in the financial statements is own operations (2026 ESRS 1
+             AR 36). A proportionally consolidated entity whose arrangement is not stated is a gap. The undertaking's
+             CSRD role (services.governance.csrd_roles) says whether it reports individually or for the group.
+  book       sites held at the period end; finance's year-end values (carrying amount, the part addressed by
+             adaptation, the year's net revenue — site_period_values)
+  hazards    EU Taxonomy Appendix A climate hazards (acute / chronic) whose scale may set a building's level, under the
+             high-emissions scenario, over the ESRS 1 §77 / §79 horizons; material at or above the level the
+             undertaking states (esrs.method.physical_risk_level — no default); scores standing when the statement is
+             prepared (information about conditions existing at period end, ESRS 1 §93)
+  computed   E1 assets and net revenue at material physical risk (amount, share of the attested totals, acute /
+             chronic, addressed by adaptation)
+  derived    the ratios the application requirements define, in the unit they name (GHG and energy intensity per
+             monetary unit of net revenue — the currency the undertaking states it in; water intensity per million EUR)
+  support    for the undertaking's own figures: sites inside a listed biodiversity-sensitive area (E4 §35 counts those it
+             negatively affects — its determination); sites in areas of (high) water stress by the governing version's
+             definition (WRI Aqueduct), criterion by criterion
 """
 from __future__ import annotations
 
@@ -24,13 +32,17 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-_REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "esrs" / "physical_risk_assessment.json"
+_REF_DIR = Path(__file__).resolve().parents[2] / "data" / "reference" / "esrs"
 HORIZONS = ("short", "medium", "long")
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=4)
+def _ref(name: str) -> dict:
+    return json.loads((_REF_DIR / name).read_text())
+
+
 def reference() -> dict:
-    return json.loads(_REF.read_text())
+    return _ref("physical_risk_assessment.json")
 
 
 @lru_cache(maxsize=1)
@@ -40,32 +52,62 @@ def climate_nature() -> dict[str, str]:
     return {ht.value: h.nature for h in EU_TAXONOMY for ht in h.internal}
 
 
-def horizons(period_end: date) -> dict[str, tuple[str, str]]:
-    """short / medium / long → (scenario, projected horizon), as of the end of the reporting period (ESRS 1 §77/§79)."""
+def horizons(period_end: date) -> dict[str, tuple[str, str] | None]:
+    """short / medium / long → (scenario, projected horizon) as of the end of the reporting period (ESRS 1 §77/§79):
+    medium = a projection year in (end, end + 5 years]; long = a projection year after end + 5 years. None when no
+    projection year falls inside the interval — the figure is then a gap, never a neighbouring year."""
     ref = reference()
-    sc, cut = ref["scenario"]["id"], period_end.year + ref["horizons"]["years_medium"]
-    years = [int(h) for h in ref["horizons"]["projected"]]
-    within = [y for y in years if y <= cut]
-    medium = max(within) if within else min(years)
-    long_ = next((y for y in years if y > cut and y != medium), years[-1])
-    return {"short": ("baseline", "current"), "medium": (sc, str(medium)), "long": (sc, str(long_))}
+    sc, end = ref["scenario"]["id"], period_end.year
+    cut = end + ref["horizons"]["years_medium"]
+    years = sorted(int(h) for h in ref["horizons"]["projected"])
+    medium = next((y for y in reversed(years) if end < y <= cut), None)
+    long_ = next((y for y in years if y > cut), None)
+    return {"short": ("baseline", "current"), "medium": (sc, str(medium)) if medium else None,
+            "long": (sc, str(long_)) if long_ else None}
 
 
 # ───────────────────────────── scope and book as at the period end ─────────────────────────────
 
 def scope(session: Session, org_id: str, entity_id: str | None, period_end: date) -> dict:
     from services.governance.csrd_roles import live_role
-    from services.governance.entities import ownership_weights, subtree_ids
     role = live_role(session, org_id, entity_id, period_end)
     if entity_id is None:
-        return {"entity_id": None, "role": role, "weights": None, "basis": "the organisation as the undertaking"}
-    if role and role["role"] == "consolidated":
-        ids = subtree_ids(session, org_id, entity_id)
-        w = ownership_weights(session, org_id, root_entity_id=entity_id, regime="esrs_financial_statements")
-        return {"entity_id": entity_id, "role": role, "weights": {e: w.get(e, 1.0) for e in ids if w.get(e, 1.0) > 0},
-                "basis": "the group: subsidiaries in full, joint operations at their share, associates and joint "
-                         "ventures outside own operations (value chain)"}
-    return {"entity_id": entity_id, "role": role, "weights": {entity_id: 1.0}, "basis": "the undertaking's own sites"}
+        return {"entity_id": None, "role": role, "weights": None, "gaps": [], "basis": "the organisation as the undertaking"}
+    if not (role and role["role"] == "consolidated"):
+        return {"entity_id": entity_id, "role": role, "weights": {entity_id: 1.0}, "gaps": [],
+                "basis": "the undertaking's own sites"}
+    rows = session.execute(text("""
+        SELECT entity_id::text, parent_entity_id::text, name, ownership_pct::float, consolidation_method, joint_arrangement
+        FROM reporting_entities WHERE org_id = CAST(:o AS uuid)
+    """), {"o": org_id}).all()
+    parent = {r[0]: r[1] for r in rows}
+    factor, gaps, basis = {}, [], {}
+    for eid, _, name, pct, method, ja in rows:
+        if method == "full" or method is None:
+            factor[eid] = 1.0
+        elif method == "equity":
+            factor[eid], basis[name] = 0.0, "value chain (equity method)"
+        elif ja == "joint_venture":
+            factor[eid], basis[name] = 0.0, "value chain (joint venture)"
+        elif ja == "joint_operation":
+            factor[eid], basis[name] = (pct or 0) / 100.0, f"joint operation, {pct:g} % recognised"
+        else:
+            factor[eid] = None
+            gaps.append(f"{name} is proportionally consolidated: state whether it is a joint operation or a joint venture")
+    weights = {}
+    for eid in parent:
+        w, cur, hops, unknown = 1.0, eid, 0, False
+        while cur != entity_id and parent.get(cur) is not None and hops < 64:
+            if factor[cur] is None:
+                unknown = True
+                break
+            w *= factor[cur]
+            cur, hops = parent[cur], hops + 1
+        if cur == entity_id and not unknown and w > 0:
+            weights[eid] = w
+    return {"entity_id": entity_id, "role": role, "weights": weights, "gaps": gaps, "treatment": basis,
+            "basis": "the group (ESRS 1 §62): subsidiaries in full, joint operations at the share recognised, associates "
+                     "and joint ventures as value chain"}
 
 
 def sites_at(session: Session, org_id: str, sc: dict, period_end: date) -> list[dict]:
@@ -96,9 +138,10 @@ def sites_at(session: Session, org_id: str, sc: dict, period_end: date) -> list[
 
 # ───────────────────────────── hazards ─────────────────────────────
 
-def assess(session: Session, sites: list[dict], period_end: date, threshold: float) -> dict:
+def assess(session: Session, sites: list[dict], period_end: date, level: float | None) -> dict:
     """Each site's material climate hazards per horizon, from the calibrated scores standing now (frozen with the filing)."""
     hz = horizons(period_end)
+    live = {h: v for h, v in hz.items() if v}
     cells = sorted({s["h3_cell"] for s in sites if s["h3_cell"]})
     nature = climate_nature()
     rows = session.execute(text("""
@@ -107,119 +150,157 @@ def assess(session: Session, sites: list[dict], period_end: date, threshold: flo
         WHERE valid_to IS NULL AND h3_cell = ANY(CAST(:c AS text[]))
           AND (scenario, time_horizon) IN (SELECT * FROM unnest(CAST(:sc AS text[]), CAST(:th AS text[])))
           AND hazard_headline_eligible(hazard_type, 'buildings', model_version)
-    """), {"c": cells, "sc": [v[0] for v in hz.values()], "th": [v[1] for v in hz.values()]}).mappings().all()
+    """), {"c": cells, "sc": [v[0] for v in live.values()], "th": [v[1] for v in live.values()]}).mappings().all()
     by = {}
     for r in rows:
-        if r["hazard_type"] not in nature:
-            continue                                                       # not a climate hazard (seismic, volcanic …)
-        by.setdefault((r["h3_cell"], r["scenario"], r["time_horizon"]), []).append(r)
+        if r["hazard_type"] in nature:                 # a climate hazard (not seismic, volcanic …)
+            by.setdefault((r["h3_cell"], r["scenario"], r["time_horizon"]), []).append(r)
     out, versions = {}, set()
     for s in sites:
         per = {}
-        for h, (sc_, th) in hz.items():
-            got = by.get((s["h3_cell"], sc_, th), [])
+        for h in HORIZONS:
+            if hz[h] is None or level is None:
+                per[h] = {"scored": None, "material": None, "acute": None, "chronic": None}
+                continue
+            got = by.get((s["h3_cell"], *hz[h]), [])
             versions |= {f"{r['hazard_type']}:{r['model_version']}" for r in got}
-            mat = sorted({r["hazard_type"] for r in got if r["score"] >= threshold})
+            mat = sorted({r["hazard_type"] for r in got if r["score"] >= level})
             per[h] = {"scored": bool(got), "material": mat, "acute": any(nature[m] == "acute" for m in mat),
                       "chronic": any(nature[m] == "chronic" for m in mat)}
         out[s["site_id"]] = per
-    return {"by_site": out, "horizons": {h: {"scenario": v[0], "horizon": v[1]} for h, v in hz.items()},
-            "model_versions": sorted(versions), "threshold": threshold}
-
-
-def _protected(session: Session, sites: list[dict]) -> dict:
-    from services.reference.protected_layers import current_loads
-    cells = [s["h3_cell"] for s in sites if s["h3_cell"]]
-    hit = {r[0]: float(r[1]) for r in session.execute(text("""
-        SELECT h3_cell, MIN(within_km) FROM v_protected_h3_current WHERE h3_cell = ANY(CAST(:c AS text[])) GROUP BY h3_cell
-    """), {"c": cells}).all()}
-    return {"cells": hit, "loads": current_loads(session)}
+    return {"by_site": out, "horizons": {h: ({"scenario": v[0], "horizon": v[1]} if v else None) for h, v in hz.items()},
+            "model_versions": sorted(versions), "level": level}
 
 
 # ───────────────────────────── the figures ─────────────────────────────
 
 def _share(num, den):
-    return round(100 * num / den, 2) if num is not None and den else None
+    return round(100 * num / den, 4) if num is not None and den else None
 
 
-def compute(session: Session, org_id: str, *, entity_id: str | None, period_end: date, threshold: float) -> dict:
+def compute(session: Session, org_id: str, *, entity_id: str | None, period_end: date, esrs_version: str) -> dict:
     from services.governance.provided_data import ESRS, attested_values
-    sc = scope(session, org_id, entity_id, period_end)
-    sites = sites_at(session, org_id, sc, period_end)
-    risk = assess(session, sites, period_end, threshold)
-    prot = _protected(session, sites)
     provided = {v["concept"]: v for v in attested_values(session, org_id, ESRS, period_end, reporting_entity_id=entity_id)
                 if not v.get("member")}
+    lv = provided.get("esrs.method.physical_risk_level")
+    level = float(lv["value"]) if lv else None
+    sc = scope(session, org_id, entity_id, period_end)
+    sites = sites_at(session, org_id, sc, period_end)
+    risk = assess(session, sites, period_end, level)
+    hz = risk["horizons"]
 
-    def eur(key):                        # an attested amount in EUR (or a quantity as stated)
+    def eur(key):
         v = provided.get(key)
         return None if v is None else (v["value_eur"] if v.get("currency") else v["value"])
 
-    gaps = [f"no carrying amount at {period_end} for {s['name']}" for s in sites if s["carrying"] is None]
+    base_gaps = list(sc["gaps"])
+    if level is None:
+        base_gaps.append("the undertaking has not stated the level at which a physical climate risk is material "
+                         "(esrs.method.physical_risk_level)")
+    base_gaps += [f"no carrying amount at {period_end} for {s['name']}" for s in sites if s["carrying"] is None]
     concepts: dict = {}
-    phys = {k: {} for k in ("amount", "acute", "chronic", "pct", "addressed_pct", "revenue", "revenue_pct")}
-    for h in HORIZONS:
-        at = [s for s in sites if risk["by_site"][s["site_id"]][h]["material"]]
-        amt = sum(s["weight"] * (s["carrying"] or 0) for s in at)
-        phys["amount"][h] = round(amt, 2)
-        phys["acute"][h] = round(sum(s["weight"] * (s["carrying"] or 0) for s in at if risk["by_site"][s["site_id"]][h]["acute"]), 2)
-        phys["chronic"][h] = round(sum(s["weight"] * (s["carrying"] or 0) for s in at if risk["by_site"][s["site_id"]][h]["chronic"]), 2)
-        phys["pct"][h] = _share(amt, eur("fs.total_assets"))
-        unstated = [s for s in at if s["adapted"] is None]
-        phys["addressed_pct"][h] = (_share(sum(s["weight"] * s["adapted"] for s in at), amt)
-                                    if at and not unstated else (0.0 if not at else None))
-        rev = sum(s["weight"] * (s["revenue"] or 0) for s in at)
-        phys["revenue"][h] = round(rev, 2)
-        phys["revenue_pct"][h] = _share(rev, eur("fs.net_revenue"))
-    unscored = [s["name"] for s in sites if not any(risk["by_site"][s["site_id"]][h]["scored"] for h in HORIZONS)]
-    at_short = [s for s in sites if risk["by_site"][s["site_id"]]["short"]["material"]]
 
-    def put(key, by_h, gap=None):
-        concepts[key] = {"value": by_h.get("short"), "by_horizon": by_h, "status": "gap" if gap else "computed",
-                         **({"gap": gap} if gap else {})}
-    put("e1.physrisk.assets.amount", phys["amount"], "; ".join(gaps) or None)
-    put("e1.physrisk.assets.acute", phys["acute"], "; ".join(gaps) or None)
-    put("e1.physrisk.assets.chronic", phys["chronic"], "; ".join(gaps) or None)
-    put("e1.physrisk.assets.pct", phys["pct"], None if eur("fs.total_assets") else "total assets (balance sheet) not attested")
-    put("e1.physrisk.assets.addressed_pct", phys["addressed_pct"],
-        None if all(s["adapted"] is not None for s in at_short) else
-        f"the carrying amount addressed by adaptation is not stated for {sum(1 for s in at_short if s['adapted'] is None)} site(s) at material risk")
-    put("e1.physrisk.revenue.amount", phys["revenue"],
-        None if all(s["revenue"] is not None for s in at_short) else "net revenue not stated for a site at material risk")
-    put("e1.physrisk.revenue.pct", phys["revenue_pct"], None if eur("fs.net_revenue") else "net revenue (financial statements) not attested")
+    def horizon_values(fn):
+        return {h: (fn(h) if hz[h] is not None and level is not None else None) for h in HORIZONS}
 
-    sensitive = [s for s in sites if s["h3_cell"] in prot["cells"]]
-    concepts["e4.sites.sensitive.count"] = {"value": len(sensitive), "status": "computed"}
-    no_area = [s["name"] for s in sensitive if s["area_ha"] is None]
-    concepts["e4.sites.sensitive.area_ha"] = {"value": round(sum(s["area_ha"] or 0 for s in sensitive), 4),
-                                              "status": "gap" if no_area else "computed",
-                                              **({"gap": "area not stated for " + ", ".join(no_area)} if no_area else {})}
-    concepts.update(_derived(eur))
-    return {"period_end": period_end.isoformat(), "scope": {k: v for k, v in sc.items()}, "concepts": concepts,
-            "assessment": {**risk, "unscored_sites": unscored, "protected_loads": prot["loads"],
-                           "reference": {k: reference()[k] for k in ("scenario", "horizons", "climate_hazards", "hazard_vintage")}},
+    def at(h):
+        return [s for s in sites if risk["by_site"][s["site_id"]][h]["material"]]
+
+    def amt(h, key="carrying", flag=None):
+        return round(sum(s["weight"] * (s[key] or 0) for s in at(h) if flag is None or risk["by_site"][s["site_id"]][h][flag]), 2)
+
+    def put(key, values, extra_gaps=()):
+        gaps = base_gaps + [g for g in extra_gaps if g]
+        missing_h = [h for h in HORIZONS if hz[h] is None]
+        if missing_h:
+            gaps = gaps + [f"no projection year inside the {', '.join(missing_h)}-term interval"]
+        concepts[key] = {"value": values.get("short"), "by_horizon": values, "status": "gap" if gaps else "computed",
+                         **({"gap": "; ".join(gaps)} if gaps else {})}
+    put("e1.physrisk.assets.amount", horizon_values(amt))
+    put("e1.physrisk.assets.acute", horizon_values(lambda h: amt(h, flag="acute")))
+    put("e1.physrisk.assets.chronic", horizon_values(lambda h: amt(h, flag="chronic")))
+    put("e1.physrisk.assets.pct", horizon_values(lambda h: _share(amt(h), eur("fs.total_assets"))),
+        [None if eur("fs.total_assets") else "total assets (balance sheet) not attested"])
+    unstated = lambda h: [s["name"] for s in at(h) if s["adapted"] is None]          # noqa: E731
+    adapted = horizon_values(lambda h: None if unstated(h) else _share(amt(h, "adapted"), amt(h)) if at(h) else 0.0)
+    put("e1.physrisk.assets.addressed_pct", adapted,
+        [f"the carrying amount addressed by adaptation is not stated for {', '.join(unstated('short'))}"
+         if level is not None and unstated("short") else None])
+    concepts["e1.physrisk.assets.addressed_pct.v2026"] = {**concepts["e1.physrisk.assets.addressed_pct"],
+                                                          "value": adapted.get("short")}      # at the reporting date
+    no_rev = [s["name"] for s in (at("short") if level is not None else []) if s["revenue"] is None]
+    put("e1.physrisk.revenue.amount", horizon_values(lambda h: amt(h, "revenue")),
+        [f"net revenue not stated for {', '.join(no_rev)}" if no_rev else None])
+    put("e1.physrisk.revenue.pct", horizon_values(lambda h: _share(amt(h, "revenue"), eur("fs.net_revenue"))),
+        [None if eur("fs.net_revenue") else "net revenue (financial statements) not attested"])
+    concepts.update(_derived(provided))
+    return {"period_end": period_end.isoformat(), "esrs_version": esrs_version, "scope": sc, "concepts": concepts,
+            "assessment": {**risk, "unscored_sites": [s["name"] for s in sites if level is not None and not any(
+                risk["by_site"][s["site_id"]][h]["scored"] for h in HORIZONS if hz[h])],
+                "reference": {k: reference()[k] for k in ("scenario", "horizons", "climate_hazards", "hazard_vintage")},
+                "information_after_period_end": "ESRS 1 §93"},
+            "support": {"biodiversity_sensitive": _sensitive(session, sites, esrs_version),
+                        "water_stress": _water(session, sites, esrs_version)},
             "sites": [{**{k: s[k] for k in ("site_id", "name", "entity_id", "weight", "carrying", "adapted", "revenue",
-                                           "area_ha", "held_from", "held_until")},
-                       "risk": risk["by_site"][s["site_id"]], "in_or_near_protected": s["h3_cell"] in prot["cells"]}
+                                           "area_ha", "held_from", "held_until")}, "risk": risk["by_site"][s["site_id"]]}
                       for s in sites]}
 
 
-def _derived(eur) -> dict:
-    """The ratios the application requirements define, from the undertaking's attested figures (data/reference/esrs/
-    concepts.json 'from'); amounts in EUR."""
-    def ratio(key, num, den, scale=1.0, unit=None):
-        n, d = eur(num), eur(den)
+def _sensitive(session: Session, sites: list[dict], esrs_version: str) -> dict:
+    """Sites located inside a loaded layer that is one of the kinds ESRS lists (never 'near': no measure in the text)."""
+    ref = _ref("biodiversity_sensitive.json")
+    edition = ref["versions"][esrs_version]
+    listed = [d for d, x in ref["datasets"].items() if x["listed"]]
+    from services.reference.protected_layers import current_loads
+    loads = [x for x in current_loads(session) if x["dataset"] in listed]
+    inside = {r[0]: r[1] for r in session.execute(text("""
+        SELECT h3_cell, array_agg(DISTINCT dataset) FROM v_protected_h3_current
+        WHERE h3_cell = ANY(CAST(:c AS text[])) AND within_km = 0 AND dataset = ANY(CAST(:d AS text[])) GROUP BY h3_cell
+    """), {"c": [s["h3_cell"] for s in sites if s["h3_cell"]], "d": listed}).all()}
+    kinds_loaded = {ref["datasets"][x["dataset"]]["kind"] for x in loads}
+    return {"definition": {k: ref[edition][k] for k in ("quote", "ref")},
+            "not_assessed": [k for k in ref[edition]["kinds"] if k not in kinds_loaded],
+            "loads": loads, "measure": "the site's grid cell (H3 resolution 8) lies inside a listed area",
+            "sites": [{"site_id": s["site_id"], "name": s["name"], "area_ha": s["area_ha"], "in": inside.get(s["h3_cell"])}
+                      for s in sites if s["h3_cell"] in inside]}
+
+
+def _water(session: Session, sites: list[dict], esrs_version: str) -> dict:
+    from services.reference.aqueduct import classify, definitions
+    edition = definitions()["versions"][esrs_version]
+    return {"definition": {k: definitions()[edition][k] for k in ("term", "quote", "ref")},
+            "sites": [{"site_id": s["site_id"], "name": s["name"],
+                       **classify(session, s["latitude"], s["longitude"], esrs_version)} for s in sites]}
+
+
+def _derived(provided: dict) -> dict:
+    """The ratios the application requirements define, in the unit they name, from attested figures."""
+    def v(key, eur=False):
+        x = provided.get(key)
+        return None if x is None else (x["value_eur"] if eur and x.get("currency") else x["value"])
+
+    def ccy(key):
+        return (provided.get(key) or {}).get("currency")
+
+    def ratio(key, num, den, scale=1.0, unit=None, den_eur=False, num_eur=False):
+        n, d = v(num, num_eur), v(den, den_eur)
         if n is None or not d:
             return {key: {"value": None, "status": "gap", "gap": f"needs {num} and {den}"}}
-        return {key: {"value": round(n / d * scale, 6), "status": "derived", "unit": unit}}
+        return {key: {"value": round(n / d * scale, 10), "status": "derived", "unit": unit}}
     out = {}
-    out.update(ratio("e1.transrisk.assets.pct", "e1.transrisk.assets.amount", "fs.total_assets", 100, "percent"))
-    out.update(ratio("e1.transrisk.revenue.pct", "e1.transrisk.revenue.amount", "fs.net_revenue", 100, "percent"))
-    out.update(ratio("e1.energy.intensity_high_impact", "fs.energy_high_impact", "fs.net_revenue_high_impact", 1, "MWh/EUR"))
-    out.update(ratio("e3.water.intensity", "e3.water.consumption", "fs.net_revenue", 1e6, "m3/EURm"))
-    loc, mkt = ratio("x", "e1.ghg.total.location", "fs.net_revenue")["x"], ratio("x", "e1.ghg.total.market", "fs.net_revenue")["x"]
-    out["e1.ghg.intensity_net_revenue"] = ({"value": {"location": loc["value"], "market": mkt["value"]}, "status": "derived",
-                                            "unit": "tCO2eq/EUR"} if loc["value"] is not None and mkt["value"] is not None
-                                           else {"value": None, "status": "gap",
-                                                 "gap": "needs total GHG (location- and market-based) and net revenue"})
+    # shares of attested totals: numerator and denominator in EUR (each converted by its own period rule)
+    out.update(ratio("e1.transrisk.assets.pct", "e1.transrisk.assets.amount", "fs.total_assets", 100, "percent", True, True))
+    out.update(ratio("e1.transrisk.revenue.pct", "e1.transrisk.revenue.amount", "fs.net_revenue", 100, "percent", True, True))
+    # 'MWh/Monetary unit', 'tCO2eq/Monetary unit' (2023 E1 AR 38, AR 53): per unit of the currency net revenue is stated in
+    out.update(ratio("e1.energy.intensity_high_impact", "fs.energy_high_impact", "fs.net_revenue_high_impact", 1,
+                     f"MWh/{ccy('fs.net_revenue_high_impact') or 'monetary unit'}"))
+    loc = ratio("x", "e1.ghg.total.location", "fs.net_revenue")["x"]
+    mkt = ratio("x", "e1.ghg.total.market", "fs.net_revenue")["x"]
+    out["e1.ghg.intensity_net_revenue"] = (
+        {"value": {"location": loc["value"], "market": mkt["value"]}, "status": "derived",
+         "unit": f"tCO2eq/{ccy('fs.net_revenue') or 'monetary unit'}"}
+        if loc["value"] is not None and mkt["value"] is not None
+        else {"value": None, "status": "gap", "gap": "needs total GHG (location- and market-based) and net revenue"})
+    # 'm3 per million EUR net revenue' (2023 E3 §29)
+    out.update(ratio("e3.water.intensity", "e3.water.consumption", "fs.net_revenue", 1e6, "m3/EURm", den_eur=True))
     return out

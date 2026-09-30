@@ -1,0 +1,26 @@
+{
+ "_about": "Which areas ESRS E3 treats as (high) water stress, and how each criterion reads the WRI Aqueduct 4.0 baseline annual data (services/reference/aqueduct.py). A criterion no loaded dataset supports is named as not assessed, never assumed.",
+ "dataset": {"name": "WRI Aqueduct 4.0 — current (baseline 1979-2019) annual water risk", "source": "https://files.wri.org/aqueduct/aqueduct-4-0-water-risk-data.zip", "licence": "Creative Commons (WRI data page)", "citation": "Kuzma, S. et al. 2023. Aqueduct 4.0: Updated decision-relevant global water risk indicators. Technical Note. WRI. doi.org/10.46830/writn.23.00061", "unit": "HydroBASINS level 6 basin × GADM level 1"},
+ "versions": {
+  "dr_2023_2772": "2023", "dr_2023_2772_as_2025_1416": "2023", "dr_2026_1563": "2026"
+ },
+ "2023": {
+  "term": "areas of high-water stress",
+  "quote": "Regions where the percentage of total water withdrawn is high (40-80%) or extremely high (greater than 80%) in the Aqueduct Water Risk Atlas tool of the World Resources Institute (WRI).",
+  "ref": "Delegated Regulation (EU) 2023/2772, Annex II (glossary), 'Area of high-water stress'",
+  "criteria": [{"id": "bws_high", "field": "bws_cat", "categories": [3, 4], "labels": ["High (40-80%)", "Extremely High (>80%)"]}]
+ },
+ "2026": {
+  "term": "areas with water stress",
+  "quote": "Global indicators (with associated datasets) and related thresholds to assess if an area is with water stress include: (a) baseline water stress – equal to or greater than ‘High’: 40–80 %; (b) water depletion – greater than ‘High’: 25–75 % (Seasonal); (c) baseline water depletion – equal to or greater than ‘High’: 50–75 %; and (d) WEI+ (Water Exploitation Index plus) – equal to or greater than 40 %.",
+  "ref": "ESRS E3 as amended by Delegated Regulation (EU) 2026/1563, AR 2 for paras. 11, 13, 14 and 16(b)",
+  "criteria": [
+   {"id": "a_bws_high", "field": "bws_cat", "categories": [3, 4], "labels": ["High (40-80%)", "Extremely High (>80%)"]},
+   {"id": "b_water_depletion_seasonal", "field": null, "not_assessed": "no loaded dataset carries the seasonal water depletion indicator the text names"},
+   {"id": "c_bwd_high", "field": "bwd_cat", "categories": [3, 4], "labels": ["High (50-75%)", "Extremely High (>75%)"]},
+   {"id": "d_wei_plus", "field": null, "not_assessed": "the EEA WEI+ (Water Exploitation Index plus) is not loaded"}
+  ]
+ },
+ "arid_low_water_use": {"category": -1, "reading": "WRI's 'Arid and Low Water Use' class is its own category (its raw value is a code, not a withdrawal ratio): neither definition's percentage applies to it, so it is reported as its own class, not counted as water stress."},
+ "no_data": {"category": -9999, "reading": "No Aqueduct data for the basin: not classified."}
+}

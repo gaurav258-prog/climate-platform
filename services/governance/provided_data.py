@@ -83,7 +83,8 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
 # versions so this year's figure is next year's comparative
 ESRS = "esrs"
 _ESRS_RANGE = {"percent": (0.0, 100.0), "tCO2eq": (0.0, None), "MWh": (0.0, None), "m3": (0.0, None), "ha": (0.0, None),
-               "count": (0.0, None), "year": (1900.0, 2100.0), "monetary": (0.0, None), "monetary/tCO2eq": (0.0, None)}
+               "count": (0.0, None), "year": (1900.0, 2100.0), "monetary": (0.0, None), "monetary/tCO2eq": (0.0, None),
+               "score": (0.0, 100.0)}
 _MONETARY = {"monetary", "monetary/tCO2eq"}
 
 

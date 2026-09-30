@@ -42,7 +42,10 @@ def test_the_undertaking_provides_only_what_the_platform_does_not_compute():
         spec = R.load("esrs", v)
         cat = B.provided_catalog(spec)
         assert cat and all(B.concepts()[k]["lane"] == "provided" for k in cat)
-        assert not {"e1.physrisk.assets.amount", "e4.sites.sensitive.count"} & set(cat)
+        assert "e1.physrisk.assets.amount" not in cat
+        assert "esrs.method.physical_risk_level" in cat          # materiality is the undertaking's, never a default
+    # E4 §35 counts the sites the undertaking is negatively affecting (§19(a)) — its own determination
+    assert "e4.sites.sensitive.count" in B.provided_catalog(R.load("esrs", "dr_2023_2772_as_2025_1416"))
     # a concept keeps its key across versions: Scope 1 is E1-6 §48(a) in 2023 and E1-8 §30(a)(i) in 2026
     old, new = B.binding("dr_2023_2772_as_2025_1416"), B.binding("dr_2026_1563")
     assert old["E1-6.48a:scope1_gross"] == new["E1-8.30a.i:scope1_ghg"] == "e1.ghg.scope1.gross"

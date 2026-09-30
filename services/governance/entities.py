@@ -22,6 +22,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
         SELECT e.entity_id::text AS entity_id, e.name, e.kind,
                e.parent_entity_id::text AS parent_entity_id,
                e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency, e.lei, e.country,
+               e.joint_arrangement,
                e.requires_solo_filing, e.solo_waiver_reason,
                (SELECT count(*) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS n_assets,
                (SELECT COALESCE(sum(pe.primary_value_eur), 0) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS value_eur,
@@ -36,6 +37,7 @@ def get_entity(session: Session, org_id: str, entity_id: str) -> dict | None:
     r = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind, e.parent_entity_id::text AS parent_entity_id,
                e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency, e.lei, e.country,
+               e.joint_arrangement,
                e.requires_solo_filing, e.solo_waiver_reason,
                EXISTS(SELECT 1 FROM reporting_entities c WHERE c.parent_entity_id = e.entity_id) AS has_children
         FROM reporting_entities e WHERE e.org_id = :o AND e.entity_id = :e
@@ -213,7 +215,7 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
 def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, kind=None,
                   parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None,
                   consolidation_basis=_UNSET, requires_solo_filing=None, solo_waiver_reason=_UNSET,
-                  functional_currency=_UNSET, lei=_UNSET, country=_UNSET) -> dict:
+                  functional_currency=_UNSET, lei=_UNSET, country=_UNSET, joint_arrangement=_UNSET) -> dict:
     current = get_entity(session, org_id, entity_id)
     if not current:
         raise EntityError("entity not found")
@@ -244,6 +246,14 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
         sets.append("lei = :lei"); params["lei"] = _lei(session, org_id, lei, entity_id)
     if country is not _UNSET:               # None / "" = the organisation's country
         sets.append("country = :cc"); params["cc"] = _country(country)
+    if joint_arrangement is not _UNSET:     # a joint venture is value chain, a joint operation's share own operations (ESRS)
+        ja = (joint_arrangement or "").strip() or None
+        if ja is not None and ja not in ("joint_operation", "joint_venture"):
+            raise EntityError("joint_arrangement is 'joint_operation' or 'joint_venture'")
+        method = consolidation_method or current["consolidation_method"]
+        if ja is not None and method not in ("proportional", "equity"):
+            raise EntityError("only a proportionally consolidated or equity-accounted entity is a joint arrangement")
+        sets.append("joint_arrangement = :ja"); params["ja"] = ja
     if parent_entity_id is not _UNSET:
         if parent_entity_id == entity_id:
             raise EntityError("an entity can't be its own parent")

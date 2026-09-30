@@ -125,4 +125,4 @@ def provided_catalog(spec: dict) -> dict[str, dict]:
     return {k: {"label": cs[k]["label"], "unit": cs[k]["unit"], "period": cs[k].get("period"),
                 "breakdown": cs[k].get("breakdown"), "input_only": bool(cs[k].get("input_only")),
                 "reconcile": cs[k].get("reconcile")}
-            for k in sorted(concepts_of(spec)) if cs[k]["lane"] == "provided"}
+            for k in sorted(concepts_of(spec) | {k for k, c in cs.items() if c.get("always")}) if cs[k]["lane"] == "provided"}

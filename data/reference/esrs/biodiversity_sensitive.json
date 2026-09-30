@@ -1,0 +1,14 @@
+{
+ "_about": "What ESRS counts as a biodiversity-sensitive area, and which loaded protected-area layers (protected_dataset_loads.dataset) are one of the listed kinds. A layer not listed is never counted; a listed kind with no loaded layer is named as not assessed. 'Near' has no measure in either text, so the platform reports only sites located inside a listed area; whether a site is near one is the undertaking's statement.",
+ "2023": {"quote": "Natura 2000 network of protected areas , UNESCO World Heritage sites and Key Biodiversity Areas (‘KBAs’), as well as other protected areas , as referred to in Appendix D of Annex II to Commission Delegated Regulation (EU) 2021/2139",
+          "ref": "Delegated Regulation (EU) 2023/2772, Annex II (glossary), 'Biodiversity sensitive area'",
+          "kinds": ["Natura 2000", "UNESCO World Heritage sites", "Key Biodiversity Areas", "other protected areas (Appendix D of Annex II to 2021/2139)"]},
+ "2026": {"quote": "Biodiversity-sensitive areas are: (a) areas protected through legal or other effective means, including Natura 2000, UNESCO Natural World Heritage Sites, Ramsar sites , and other protected areas , for instance defined by national legislation sources; and (b) areas included under Key Biodiversity Areas (KBAs) , Ecologically or Biologically Significant Marine Areas, IUCN Red List of Ecosystems or habitats of species listed in the IUCN Red List of Threatened Species",
+          "ref": "Delegated Regulation (EU) 2026/1563, Annex II (glossary), 'Biodiversity-sensitive area'",
+          "kinds": ["Natura 2000", "UNESCO Natural World Heritage Sites", "Ramsar sites", "other protected areas (national legislation)", "Key Biodiversity Areas", "Ecologically or Biologically Significant Marine Areas", "IUCN Red List of Ecosystems", "habitats of IUCN Red List species"]},
+ "versions": {"dr_2023_2772": "2023", "dr_2023_2772_as_2025_1416": "2023", "dr_2026_1563": "2026"},
+ "datasets": {
+  "natura2000": {"kind": "Natura 2000", "listed": true},
+  "osm": {"kind": "OpenStreetMap protected-area tags", "listed": false, "why": "a volunteered map, not one of the kinds either definition lists"}
+ }
+}

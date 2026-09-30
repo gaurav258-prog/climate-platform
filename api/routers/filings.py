@@ -176,6 +176,8 @@ class EntityPatch(BaseModel):
     set_lei: bool = False                  # apply lei (True with null = remove it)
     country: Optional[str] = Field(None, max_length=2)
     set_country: bool = False              # apply country (True with null = the organisation's)
+    joint_arrangement: Optional[str] = Field(None, pattern="^(joint_operation|joint_venture)$")
+    set_joint_arrangement: bool = False    # apply joint_arrangement (True with null = not stated)
 
 
 @router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
@@ -211,6 +213,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.set_functional_currency: kwargs["functional_currency"] = body.functional_currency
     if body.set_lei: kwargs["lei"] = body.lei
     if body.set_country: kwargs["country"] = body.country
+    if body.set_joint_arrangement: kwargs["joint_arrangement"] = body.joint_arrangement
     try:
         e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
     except E.EntityError as ex:

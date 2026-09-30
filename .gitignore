@@ -23,6 +23,7 @@ data/era5_baseline/
 data/era5_climatology_baseline/
 data/era5_soil_moisture_baseline/
 data/era5_frost_baseline/
+data/aqueduct/
 
 # local tooling state, not project source
 .claude-flow/
