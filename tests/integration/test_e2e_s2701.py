@@ -125,6 +125,51 @@ def _after(events: list[float], qs: float, att: float, lim: float, n_re: float |
     return loss
 
 
+def _test_lei(base18: str) -> str:
+    """A test LEI with valid ISO 17442 check digits (for a fictional demo undertaking, inside a rolled-back test)."""
+    n = int("".join(str(int(c, 36)) for c in base18 + "00"))
+    return f"{base18}{98 - n % 97:02d}"
+
+
+def _check_xbrl(content: bytes, sf: dict) -> None:
+    """The instance against EIOPA's map and filing rules; with EIOPA's taxonomy on hand, Arelle runs EIOPA's own rules."""
+    import os
+    import tempfile
+
+    from lxml import etree
+    doc = etree.fromstring(content)
+    ns = {"xbrli": "http://www.xbrl.org/2003/instance", "link": "http://www.xbrl.org/2003/linkbase",
+          "xlink": "http://www.w3.org/1999/xlink", "find": "http://www.eurofiling.info/xbrl/ext/filing-indicators",
+          "xbrldi": "http://xbrl.org/2006/xbrldi"}
+    m = json.load(open("data/reference/eiopa/s2701_xbrl.2.8.2.json"))
+    assert doc.find("link:schemaRef", ns).get("{http://www.w3.org/1999/xlink}href") == m["entry_point"]
+    assert [e.text for e in doc.iterfind("find:fIndicators/find:filingIndicator", ns)] == ["S.27.01"]
+    assert [u.findtext("xbrli:measure", namespaces=ns) for u in doc.iterfind("xbrli:unit", ns)] == ["iso4217:EUR", "xbrli:pure"]
+    ctx = {c.get("id"): tuple(sorted((d.get("dimension"), d.text) for d in c.iterfind(".//xbrldi:explicitMember", ns)))
+           for c in doc.iterfind("xbrli:context", ns)}
+    assert len(set(ctx.values())) == len(ctx)                                   # no duplicate context
+    allowed = {(c["concept"], tuple(sorted(c["dims"].items()))) for c in m["cells"].values()}
+    els = [e for e in doc if isinstance(e.tag, str)]                            # elements, not the comment
+    facts = [(f"s2md_met:{etree.QName(f).localname}", ctx[f.get("contextRef")]) for f in els
+             if etree.QName(f).namespace == "http://eiopa.europa.eu/xbrl/s2md/dict/met"]
+    assert facts and set(facts) <= allowed and len(facts) == len(set(facts))      # each fact a cell of the map, once
+    assert all(f.get("decimals") and not f.get("precision") for f in els if f.get("unitRef"))   # @decimals only
+    total = next(f for f in els if etree.QName(f).localname == "mi685"
+                 and ctx[f.get("contextRef")] == (("s2c_dim:EA", "s2c_VM:x20"), ("s2c_dim:RT", "s2c_RT:x102"), ("s2c_dim:VG", "s2c_AM:x80")))
+    assert int(total.text) == sf["natcat_scr_eur"]                             # R0010/C0030 — after risk mitigation
+    if os.environ.get("EIOPA_XBRL_PACKAGE") and os.environ.get("EIOPA_IAF_FILE"):
+        from scripts.validate_s2701_xbrl import validate
+        with tempfile.NamedTemporaryFile("wb", suffix=".xbrl", delete=False) as t:
+            t.write(content)
+        res = validate(t.name)
+        if os.environ.get("EIOPA_VALIDATION_REPORT"):                       # the run's record, when asked for
+            with open(os.environ["EIOPA_VALIDATION_REPORT"], "w") as out:
+                json.dump({**res, "evaluated": {k: list(v) for k, v in res["evaluated"].items()}}, out, indent=1)
+        assert not res["instance_errors"] and not res["failed_in_scope"], res
+        assert set(res["failed_needing_other_submodules"]) <= {"BV264_1-1"}      # needs man-made / other sub-modules
+        assert len(res["evaluated"]) >= 12
+
+
 def test_a_solo_undertaking_from_its_statement_of_values_to_the_acknowledged_s2701(api):
     maker, checker, admin = _users(api)
     other = _login(api, "admin@stellar.demo", "Demo!admin1")
@@ -191,6 +236,14 @@ def test_a_solo_undertaking_from_its_statement_of_values_to_the_acknowledged_s27
     assert sh.cell(row=rows["R0750"], column=cols["C0040"]).value == 5_000_000
     assert sh.cell(row=rows["R0010"], column=cols["C0030"]).value == sf["natcat_scr_eur"]
     assert str(wb["Basis"]["B1"].value).startswith("Delegated Regulation (EU) 2015/35 as amended by Delegated Regulation (EU) 2019/981")
+
+    # 4b · output: the XBRL instance in EIOPA's taxonomy — refused without an LEI, then every fact where the map puts it
+    assert api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker).status_code == 409   # no LEI on file: refused
+    assert api.patch(f"/v1/filings/entities/{SEGUROS}", headers=admin, json={"lei": _test_lei("5299009SEGUROSTEST"),
+                                                                            "set_lei": True}).status_code == 200
+    xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)
+    assert xb.status_code == 200, xb.text
+    _check_xbrl(xb.content, sf)
 
     # 5 · the lifecycle: four eyes, the accountable person's attestation, submission, acknowledgement
     assert api.post(f"/v1/filings/{fid}/attest", headers=maker, json={"statement": "x"}).status_code == 403   # a preparer cannot

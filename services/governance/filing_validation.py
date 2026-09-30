@@ -230,6 +230,11 @@ def _validate_insurer_solvency(payload: dict) -> list[dict]:
                       "Standard formula incomplete: " + "; ".join(sf.get("incomplete", []))))
         worse = [f"{p} {g['region']}" for p, r in (sf.get("perils") or {}).items() for g in r.get("regions", [])
                  if g["after_eur"] > g["before_eur"] + g["reinstatement_eur"] + 1]
+        if sf.get("simplification_art_90b"):
+            out.append(_f("s2607_also_reported", "completeness", "warning", False,
+                          "A natural catastrophe simplification (Art. 90b) is used: the undertaking's submission must also "
+                          "include S.26.07 (Solvency Capital Requirement — simplifications), EIOPA validation BV653. Add "
+                          "postal codes to the Statement of Values to place every risk in its zone instead."))
         out.append(_f("mitigation_never_adds", "plausibility", "blocking", not worse,
                       "After mitigation never exceeds before mitigation plus reinstatement premiums" if not worse else
                       "After mitigation exceeds before plus reinstatement premiums: " + ", ".join(worse)))

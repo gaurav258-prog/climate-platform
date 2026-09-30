@@ -88,7 +88,7 @@ EXPORT_FORMATS = {
     "assetmgmt_tcfd": ("json", "xlsx"),
     "reit_tcfd": ("json", "xlsx"),
     "reit_taxonomy": ("json", "xlsx"),
-    "insurer_solvency": ("json", "xlsx"),
+    "insurer_solvency": ("json", "xlsx", "xbrl"),     # xbrl: EIOPA's Solvency II taxonomy (services.governance.s2701_xbrl)
     "insurer_climate": ("json", "xlsx"),
     "csrd_e1":   ("json",),
     "esrs_pack": ("json", "xbrl", "ixbrl"),

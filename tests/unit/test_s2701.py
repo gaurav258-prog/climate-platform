@@ -67,3 +67,31 @@ def test_the_grid_fills_the_reportable_cells_from_the_standard_formula():
     ok = s2701.reportable(SPEC)
     assert all((r, c) in ok for r, cs in g.items() for c in cs)          # nothing written into a greyed cell
     assert ("R0460", "C0040") not in ok                                   # a region row has no premium cell
+
+
+def test_the_xbrl_taxonomy_follows_the_reference_date_and_2027_rows_are_not_guessed():
+    from services.governance import s2701_xbrl as X
+    assert X.taxonomy_for(date(2025, 12, 31))["taxonomy_version"] == "2.8.2"
+    assert X.taxonomy_for(date(2027, 12, 31))["taxonomy_version"] == "2.10.0"
+    assert X._simplification_codes("4 – Simplification … hail; 1 – Simplification … windstorm") == "1,4"   # BV653: ascending
+    assert X._simplification_codes("9 – Simplifications not used") == "9"
+    sf = natcat_scr([{"country": "DE", "sum_insured_eur": 1e8}], ref_date=date(2027, 12, 31))
+    payload = {"_specs": {s2701.FAMILY: {"version": "its_2023_894"}}, "s2701": {"standard_formula_natcat": sf}}
+    with pytest.raises(X.XbrlError, match="Capture the amended template"):
+        X.instance(payload, {"lei": "x", "name": "x", "note": "x"})
+
+
+def test_one_eiopa_data_point_is_one_fact_and_the_cells_sharing_it_agree():
+    """A peril's summary row and its 'total after diversification' are one data point in EIOPA's model."""
+    import json as _j
+    m = _j.load(open("data/reference/eiopa/s2701_xbrl.2.8.2.json"))
+    by: dict = {}
+    for k, c in m["cells"].items():
+        by.setdefault((c["concept"], tuple(sorted(c["dims"].items()))), []).append(k)
+    shared = [sorted(v) for v in by.values() if len(v) > 1]
+    assert len(shared) == 10 and ["R0020|C0010", "R0820|C0090"] in shared
+    sf = natcat_scr([{"country": "DE", "sum_insured_eur": 1e8}, {"country": "FR", "sum_insured_eur": 1e8}], ref_date=date(2025, 12, 31))
+    g = s2701.grid(SPEC, sf)
+    for pair in shared:
+        (r1, c1), (r2, c2) = (x.split("|") for x in pair)
+        assert (g.get(r1) or {}).get(c1) == (g.get(r2) or {}).get(c2), pair

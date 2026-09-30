@@ -243,6 +243,12 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
             return sfdr_pai_xbrl(payload)
         except XbrlIdentityError as e:
             raise ExportError(str(e)) from e
+    if framework == "insurer_solvency":                # EIOPA's own taxonomy (services.governance.s2701_xbrl)
+        from services.governance.s2701_xbrl import XbrlError, instance
+        try:
+            return instance(payload, _identity(session, org_id, entity_id))
+        except XbrlError as e:
+            raise ExportError(str(e)) from e
     if framework == "bank_tcfd":
         return _bank_tcfd_xbrl(session, org_id, payload, basis, entity_id)
     if framework == "bank_p3esg":

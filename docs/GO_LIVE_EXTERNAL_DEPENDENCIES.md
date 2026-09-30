@@ -28,6 +28,8 @@ _Last reviewed: 2026-09-25._
 | 12 | **Object storage for received customer files** | All sectors — data intake | write-once, content-addressed store with a local-directory backend (`services/intake/storage.py`); asking for any other backend fails loudly | an S3-compatible bucket (versioning + object lock, encryption at rest, region per data-residency) per deployment | bucket + credentials → we add the object-store backend behind the same `put`/`get` |
 | 13 | **SFTP server for drop-folder channels** | All sectors — data intake | drop-folder channels behind an inbox storage interface (`services/intake/inbox.py`, local backend), sweep every 5 min through the full intake pipeline with one pick-up per folder at a time, processed/ and refused/ (with reason) filing, SFTP key registration + `authorized_keys` rendering, admin UI (`services/intake/{dropfolder,inbox,sftp_keys}.py`, `/v1/intake/channels`, `/v1/intake/sftp-keys`) | an SFTP endpoint per deployment (OpenSSH chroot or a managed service such as AWS Transfer Family), one login per organisation, key-based, chrooted to `INTAKE_DROP_DIR/<org_id>` | point the server at `INTAKE_DROP_DIR` (or, with a bucket, add the object-store inbox backend) and load each organisation's `authorized_keys()` → customer systems write to `/<template>/incoming` |
 | 14 | **Production Kubernetes cluster** | All sectors — deployment | CI builds, tests and pushes the image (`ghcr.io/<owner>/climate-platform:<sha>`, Python 3.14) on every push to main; the deploy job applies `infra/k8s/*` and waits for the rollout, and skips with a notice while no cluster is connected (error log E26) | a cluster (namespace `climate-platform`), its secrets pre-created (`infra/k8s/secret.yaml`), and the GitHub `production` environment approval gate | set the repository secret `KUBECONFIG` (base64 kubeconfig) → the next push to main deploys |
+| 15 | S.27.01.01 rows added from 2027 (EIOPA taxonomy 2.10.0) | Insurer Solvency II | 2027 calculation; form names regions without a row; 2027 XBRL refused with the rows named | the amending ITS / legal act not yet identified (Cellar: none, 2026-09-30) | the act → new spec version on the change route, `s2701.REGION_ROW` extended |
+| 16 | EIOPA XBRL validation files | Insurer Solvency II XBRL | Arelle validation with EIOPA's rules (`scripts/validate_s2701_xbrl.py`), run by the E2E test when present | EIOPA / Eurofiling files are not redistributed in the repository | set `EIOPA_XBRL_PACKAGE` and `EIOPA_IAF_FILE` in CI |
 
 ---
 
@@ -126,52 +128,35 @@ _Last reviewed: 2026-09-25._
   coverage note flips to "backed by the WDPA global layer". **Do not load the non-commercial API export into a
   paying customer's tenant.**
 
-## 7 · Solvency II standard-formula EXACT zonal figure  *(ENGINE BUILT — remaining is per-country data)*
-- **Status:** the **exact-zonal engine is built** (`services/governance/solvency2_natcat.py`, `_exact_zonal_loss`).
-  It is the vendor-standard design: keyed off a **`cresta_zone`** field on each policy (added to the SoV upload +
-  `ext_insurance.cresta_zone` column, migration `ext_ins_cresta_zone_20260906`) — because a Statement of Values
-  normally already carries the CRESTA/postcode zone per risk. For any region whose Annex tables are loaded AND whose
-  policies carry a zone, it computes `L_r = Q·sqrt(ΣΣ Corr(i,j)·W_i·SI_i·W_j·SI_j)` — the exact figure, with the
-  Annex X risk weights and Annex XXIII-XXVI within-country diversification. No boundary geodata is needed on this
-  path (the book carries the zone). Regions without loaded tables / zone tags use the country-level approximation.
-- **Loaded today — all five major markets + Croatia:** **Germany** (windstorm/EQ/flood/hail, 95 postcode zones), **France** (all four + **subsidence**, 95 département zones — subsidence is now exact-zonal too), **Spain** (windstorm/hail, 50), **Italy** (EQ/flood/hail, 92 postcode zones incl. CAP 00), **UK** (windstorm/flood, 124 postcode-AREA letter zones), **Croatia** (EQ, 21 admin units) — in `data/reference/solvency2_zonal.json`. All extracted programmatically from the OJ PDF and validated (complete weights, symmetric, unit diagonal, weight-zone set == matrix-zone set, formula-reproduction tests). Zone ids are **labels** (numeric or letter), correlation is id-keyed. **One source-document defect handled honestly:** the printed OJ Annex XXIV UK flood table omits the SN (Swindon) column; it is reconstructed by symmetry from the printed SN row (the property the Article defines) and disclosed in the table's `source_note`.
-- **Extraction recipe (reuse for the next country):** pdfplumber positional words grouped by y; the column-id header is a row of many integers (not a `ji` token); data rows are `int + many decimals`; stop at the next country's title row at ROW level (the next title can sit lower on the same page — a page-level stop silently drops the tail rows); Annex X weights use a sequential zone INDEX while the matrices use the Annex IX zone id — bridge via Annex IX (for postcode countries: index k = the k-th existing 2-digit postcode).
-- **Remaining — per-country DATA (not blocked):** load each country's Annex IX zones + Annex X weights + Annex
-  XXIII-XXVI zone-correlation into the same JSON shape. Priority is the **postcode-zoned majors DE/FR/ES/IT/UK**
-  (where insurers' books and capital actually sit), extracted the same way from the OJ PDF we hold. Wide matrices
-  (e.g. RO 41×41) span PDF pages in column-blocks and need block-aware parsing; that is transcription effort, not an
-  external dependency.
-- **Optional fallback (coordinate-only books):** a book with lat/lon but no `cresta_zone` can be zoned by
-  point-in-polygon against boundary geodata (Eurostat NUTS for admin-unit countries — free; CRESTA/postcode layers
-  for the rest). This is only needed when the insurer did NOT provide the zone; the primary path does not require it.
-- **Needed for the exact figure:** the per-zone risk weights (**Annex X**) and the intra-country zone-correlation
-  matrices (**Annex XXII windstorm / XXIII earthquake / XXIV flood / XXV hail / XXVI subsidence**) — all in the OJ,
-  transcribable — PLUS the blocker: **Annex IX** defines the zones by **postcode area / administrative unit**, so
-  assigning each insured location to its EIOPA zone needs **postcode / admin boundary geodata** (per country) to
-  resolve a lat/lon → zone. That boundary geodata is the external dependency; without it, sum-insured-by-zone
-  cannot be computed and the exact zonal formula cannot run (faking zone assignments is not an option).
-- **The zones (confirmed):** EIOPA uses **CRESTA-2010** zones, mostly **2-digit postcode areas** (e.g. Romania has
-  47 zones = 2-digit postcode areas), a few countries by **administrative unit**. The zone→geography mapping (which
-  postcode / admin unit is which zone) is **Annex IX** of Del. Reg. 2015/35 — free, in the OJ PDF we already hold
-  (`data/eiopa/delreg_2015_35_original.pdf`). What is missing is only the **polygons** to turn a lat/lon into a
-  2-digit postcode / admin unit.
-- **Concrete boundary-geodata sources (the external piece):**
-  - **Admin-unit countries (BG, HR, HU, RO) — FREE, do first:** Eurostat **GISCO NUTS** boundaries
-    (`https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units/territorial-units-statistics`), open with
-    attribution — their counties map straight onto the Annex IX admin-unit zones. Zero licence, closeable immediately.
-  - **Postcode countries (the majority: AT BE CH CZ DE DK ES FR IE IT NL NO PL SE UK) — 2-digit postcode polygons:**
-    free national/open sources where they exist — **UK ONS** postcode boundaries (Open Government Licence),
-    **DE/NL/etc.** OSM-derived 2-digit-postcode (PLZ) polygons (e.g. `suche-postleitzahl.org`/OSM, open) — and for
-    a single clean pan-EU layer, the **CRESTA** zone GIS layers (`cresta.org`, the reference the regulation is built
-    on): low-resolution CRESTA is free, the high-resolution (2-digit) layer is CRESTA-membership / licensed.
-- **Owner:** boundary geodata is external (Eurostat NUTS is free; postcode polygons free where published, else a
-  CRESTA/commercial layer). Transcribing Annex X weights + Annex XXII-XXVI zone-correlation, the point-in-polygon
-  lat/lon→zone lookup, and the zonal aggregation are us.
-- **When it lands (phased):** (1) load Eurostat NUTS → exact zonal figure for the admin-unit countries now, free;
-  (2) add free national postcode polygons (UK, DE, NL…) country-by-country; (3) a licensed CRESTA/commercial layer
-  closes the remainder. Each phase replaces the country-level approximation with the exact zonal SCR for those
-  countries (typically LOWER — it takes within-country diversification credit). Until then the country-level figure
-  is a documented, cited approximation, disclosed on the Solvency page and in the S.27.01.01 filing. (2026-09-30: superseded — zones are now read from each risk's postal code through Annex IX; without one, the Art. 90b grouping.)
+## 7 · Solvency II standard-formula EXACT zonal figure  *(BUILT — needs only the insurer's postal codes)*
+- **Status (2026-09-30):** every zoned region of Annexes V–VIII (58 regions; 66 from 2027) is loaded with its Annex X
+  weights and Annex XXII–XXVI correlations (`data/reference/solvency2_zonal[.2027].json`), and Annex IX is a postal-code
+  map per region and peril (`solvency2_annex_ix[.2027].json`). A risk is placed in its zone from the **postal code on
+  the Statement of Values** (`portfolio_entities.postal_code`) — no boundary geodata, no CRESTA layer. A risk without a
+  postal code, or in a region Annex IX zones by administrative unit (BG, CR, HU, RO before 2027, SE) or by codes that
+  are not postcodes (CH, IE), is charged on the Art. 90b grouping of its region's zones (highest weight — an upper
+  bound), shown per region, and reported on S.27.01.01 R0002.
+- **Remaining (customer data, not an external dependency):** postal codes on each insurer's Statement of Values. For
+  the administrative-unit regions, the unit (county) per risk would place those too — optional, the Art. 90b figure is
+  prudent.
+
+## 15 · S.27.01.01 from 2027 — EIOPA taxonomy 2.10.0 adds rows  *(external — legal act not yet identified)*
+- EIOPA's Solvency II taxonomy 2.10.0 (published 3 July 2026, applicable from Q1 2027) adds rows to S.27.01.01 for the
+  regions Delegated Regulation 2026/269 introduces: flood DK, FI, LU, NL, NO, IE, SE (R1291–R1385), hail PL (R1702),
+  subsidence BE and France (R1945–R1946) — `data/reference/eiopa/s2701_xbrl.2.10.0.json`. ITS 2023/894 as captured
+  (spec `sii_qrt_natcat/its_2023_894`) has no such rows and the EU Cellar shows no amending act (checked 2026-09-30).
+- **Built:** the 2027 calculation (2026/269); the form names every region without a row; the XBRL export for a 2027
+  reference date refuses with the missing rows named, rather than report totals the rows don't add up to.
+- **Needed:** the amending implementing act (or EIOPA's published ITS) → capture it on the change route as a new
+  version of `sii_qrt_natcat`, extend `s2701.REGION_ROW`, sign off.
+
+## 16 · EIOPA XBRL validation files  *(external files, not redistributed — needed where validation runs)*
+- `scripts/validate_s2701_xbrl.py` validates an S.27.01.01 instance with Arelle against EIOPA's taxonomy and EIOPA's
+  own validation rules (15 rules apply to the end-to-end filing; all pass except BV264, which needs the undertaking's
+  man-made / other catastrophe sub-modules from its own package).
+- **Needs:** `EIOPA_XBRL_PACKAGE` = EIOPA_SolvencyII_XBRL_Taxonomy_2.8.2_Final_with_external_files.zip
+  (dev.eiopa.europa.eu) and `EIOPA_IAF_FILE` = interval-arithmetics.xml (www.eurofiling.info/eu/fr/xbrl/func/). The
+  end-to-end test runs the validation when both are set and skips that step otherwise → set both in CI.
 
 ## Copernicus EGMS (European Ground Motion Service) account
 
