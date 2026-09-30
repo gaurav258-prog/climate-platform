@@ -19,11 +19,12 @@ def test_every_scored_hazard_has_a_declared_projection_posture():
 def test_flat_by_design_are_only_the_geophysical_and_susceptibility():
     flat = {it["hazard"] for it in projection_coverage()["items"] if not it["projects"]}
     # geophysical (no climate response) + present-state susceptibility/environment layers that don't project
-    # forward by scenario: terrain/ground-failure predisposition, periglacial state, marine pH, convective env.
+    # forward by scenario: terrain/ground-failure predisposition, periglacial state, marine pH, gust climatology.
+    # severe_convective projects its environment (CAPE) — see test_severe_convective_projection.
     assert flat == {
         "seismic", "volcanic", "landslide", "subsidence", "permafrost", "solifluction",
         "avalanche", "glacial_lake_outburst", "soil_erosion", "soil_degradation",
-        "ocean_acidification", "severe_convective", "windstorm",
+        "ocean_acidification", "windstorm",
     }
 
 
@@ -31,7 +32,7 @@ def test_climate_perils_project_and_key_ones_carry_a_band():
     items = {it["hazard"]: it for it in projection_coverage()["items"]}
     for hz in ("flood", "storm", "wildfire", "coastal_flood", "heavy_precip", "frost", "drought", "soil_water"):
         assert items[hz]["projects"] is True
-    for hz in ("flood", "storm", "wildfire", "coastal_flood"):   # CMIP6 / AR6 carry a real spread band
+    for hz in ("flood", "storm", "wildfire", "coastal_flood", "severe_convective"):   # CMIP6 / AR6 carry a real spread band
         assert items[hz]["band"] is True
 
 

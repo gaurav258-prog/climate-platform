@@ -6,7 +6,8 @@ any disclosed follow-on gap. It is the projection analog of the hazard-coverage 
 score a hazard; this says whether — and how honestly — we project it to 2030/2050/2100.
 
 Grounded, not re-typed: the flood/storm/wildfire elasticities are imported from `physical_projection.SENSITIVITY`
-and the extreme-precip rate from `heavy_precip_climatology.CC_PER_C`, so the map cannot drift from the engine.
+and the extreme-precip rate from `heavy_precip_climatology.CC_PER_C`, the convective CAPE rate from
+`severe_convective_projection` (its cited reference file), so the map cannot drift from the engine.
 A `flat` posture is a deliberate, honest choice (a geophysical hazard has no climate response; a terrain
 susceptibility is not a triggering nowcast), never an omission — stated as such so a reviewer sees the reasoning.
 """
@@ -14,8 +15,10 @@ from __future__ import annotations
 
 from ml.scoring.heavy_precip_climatology import CC_PER_C
 from ml.scoring.physical_projection import PROJECTION_VERSION, SENSITIVITY
+from ml.scoring.severe_convective_projection import cape_rates
+from ml.scoring.severe_convective_projection import reference as convective_reference
 
-PROJECTION_COVERAGE_VERSION = "proj-cov-v1"
+PROJECTION_COVERAGE_VERSION = "proj-cov-v2"   # v2: severe_convective projects (CAPE environment)
 
 # scenario × horizon axis the whole engine shares (canonical_scores.scenario / time_horizon)
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
@@ -24,6 +27,8 @@ HORIZONS = ["current", "2030", "2050", "2100"]
 # mode → what the reader should understand by it
 _MODE_LABEL = {
     "cmip6_band": "CMIP6 per-cell warming/precip change, with an across-model band",
+    "cmip6_environment": "CMIP6 per-cell warming → storm ENVIRONMENT (instability) change, with an across-model band; "
+                         "event frequency and size not projected",
     "parametric_cc": "parametric Clausius–Clapeyron warming shift",
     "parametric_warming": "parametric per-°C warming shift (NGFS scenario archetype)",
     "parametric_warming_inverse": "parametric per-°C warming shift — hazard FALLS with warming",
@@ -44,6 +49,7 @@ def _entry(hazard, mode, mechanism, basis, band=False, gaps=None):
 def projection_coverage() -> dict:
     """The per-hazard forward-projection posture — a static registry (no tenant data)."""
     fl, st, wf = SENSITIVITY["flood"], SENSITIVITY["storm"], SENSITIVITY["wildfire"]
+    sc_lo, _, sc_hi = cape_rates()
     items = [
         _entry("flood", "cmip6_band", f"extreme-rainfall intensity ~{fl.per_c*100:.0f}%/°C of local warming",
                fl.basis, band=True, gaps=["mean-precip and coastal terms deliberately excluded (separate mechanisms)"]),
@@ -101,8 +107,12 @@ def projection_coverage() -> dict:
                "permafrost probability × slope; screening-tier derived"),
         _entry("soil_degradation", "susceptibility_flat", "UNCCD SDG 15.3.1 degraded-land status is a mapped present state",
                "Trends.Earth SDG 15.3.1 (on-demand COG read); screening-tier"),
-        _entry("severe_convective", "susceptibility_flat", "the ERA5 CAPE×shear climatology is a standing environment field",
-               "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR); screening-tier"),
+        _entry("severe_convective", "cmip6_environment",
+               f"CAPE rises ~{sc_lo*100:.0f}–{sc_hi*100:.0f}%/°C of local CMIP6 warming, moving the CAPE×shear index by its "
+               "square root (shear held); read through the same NOAA SPC anchor",
+               "Romps (2016) CAPE ~6–7%/K; IPCC AR6 WG1 §11.7.3.5 (CAPE increase: high confidence) and §12.4.5.3 "
+               "(Europe: more frequent severe-convection environments, more likely than not under RCP8.5)",
+               band=True, gaps=convective_reference()["not_projected"]),
         _entry("seismic", "geophysical_flat", "earthquake hazard has no climate-scenario response",
                "geophysical — not climate-attributable"),
         _entry("volcanic", "geophysical_flat", "volcanic hazard has no climate-scenario response",

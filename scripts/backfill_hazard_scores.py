@@ -14,8 +14,13 @@ inserts nothing). Idempotent: an already-scored (cell, hazard, scenario, horizon
 one hazard failing never aborts the asset.
 
 Run:  .venv/bin/python -m scripts.backfill_hazard_scores
+      .venv/bin/python -m scripts.backfill_hazard_scores --hazard severe_convective
+        (one hazard only, and every standing row of it under an older model version is re-scored at its own
+         cell × scenario × horizon — the scorer retires the old row and appends the new one)
 """
 from __future__ import annotations
+
+import argparse
 
 import h3
 from sqlalchemy import text
@@ -29,7 +34,7 @@ ASSET_TABLES = [
     "realestate_properties", "assetmgmt_holdings", "issuer_facilities", "portfolio_entities",
 ]
 # Forward-looking channels are defined only under a projection scenario × horizon.
-PROJECTION_HAZARDS = ["changing_temp", "changing_precip", "changing_wind", "coastal_erosion"]
+PROJECTION_HAZARDS = ["changing_temp", "changing_precip", "changing_wind", "coastal_erosion", "severe_convective"]
 SCENARIOS = ["orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
 HORIZONS = ["2030", "2050", "2100"]
 
@@ -45,7 +50,36 @@ def _asset_cells() -> list[str]:
     return sorted(cells)
 
 
+def rescore_stale(hazard: str) -> int:
+    """Re-score every standing row of `hazard` whose model_version is not the scorer's current one, at its own
+    cell × scenario × horizon. Returns the number of rows re-scored."""
+    import importlib
+    scorer = SYNC_ON_DEMAND_SCORERS[hazard]
+    mv = getattr(importlib.import_module(scorer.__module__), "MODEL_VERSION", None)
+    if mv is None:
+        raise SystemExit(f"{hazard}: scorer has no MODEL_VERSION to compare against")
+    with get_session() as s:
+        stale = s.execute(text("""SELECT h3_cell, scenario, time_horizon FROM canonical_scores
+                                 WHERE hazard_type = :hz AND valid_to IS NULL AND model_version <> :mv
+                                   AND COALESCE(score_lane, 'standing') = 'standing'"""), {"hz": hazard, "mv": mv}).all()
+    n = 0
+    for i, (cell, sc, hz_h) in enumerate(stale, 1):
+        lat, lon = h3.cell_to_latlng(cell)
+        if scorer(lat, lon, sc, hz_h).get("status") == "scored":
+            n += 1
+        if i % 500 == 0 or i == len(stale):
+            print(f"  {i}/{len(stale)} stale {hazard} rows re-scored", flush=True)
+    return n
+
+
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--hazard", help="backfill (and re-score stale rows of) this one hazard only")
+    only = ap.parse_args().hazard
+    if only and only not in SYNC_ON_DEMAND_SCORERS:
+        raise SystemExit(f"unknown hazard {only!r}")
+    if only:
+        print(f"re-scored {rescore_stale(only)} stale {only} rows", flush=True)
     cells = _asset_cells()
     print(f"backfilling {len(cells)} distinct customer-asset cells", flush=True)
     scored: dict[str, int] = {}
@@ -58,12 +92,16 @@ def main() -> int:
         lat, lon = h3.cell_to_latlng(cell)   # exact centre → scores land on THIS cell
         # 1) full sync set at baseline/current (the scenario-flat channels; projection ones no-op here)
         for hz, scorer in SYNC_ON_DEMAND_SCORERS.items():
+            if only and hz != only:
+                continue
             try:
                 _tally(hz, scorer(lat, lon))
             except Exception:
                 pass
         # 2) forward-projection channels across scenario × horizon
         for hz in PROJECTION_HAZARDS:
+            if only and hz != only:
+                continue
             scorer = SYNC_ON_DEMAND_SCORERS.get(hz)
             if not scorer:
                 continue

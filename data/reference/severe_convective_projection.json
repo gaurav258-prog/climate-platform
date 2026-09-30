@@ -1,0 +1,38 @@
+{
+ "about": "How the severe-convective-storm peril (hail / tornado / damaging convective wind; Solvency II 'hail') is carried forward under a climate scenario. Read by ml.scoring.severe_convective_projection; every number the projection uses is here, each with its primary source. What is projected is the storm ENVIRONMENT (instability), not the frequency of storm events and not hail size.",
+ "version": "sc-proj-v1",
+ "mechanism": {
+  "projected_quantity": "CAPE (convective available potential energy), the instability term of the convective-potential index",
+  "cape_rate_per_k": {"low": 0.06, "high": 0.07},
+  "_rate_source": "Romps, D.M. (2016), Clausius–Clapeyron scaling of CAPE from analytical solutions to RCE, J. Atmos. Sci. 73(9), 3719–3737, doi:10.1175/JAS-D-15-0327.1 — abstract: at the surface temperature of the current tropics, CAPE 'increases at a rate of about 6%–7% per kelvin of surface warming'. Cited by IPCC AR6 WGI §11.7.3.1 as theoretical support for its high-confidence CAPE statement.",
+  "central_rate": "midpoint of the stated 6%–7% range",
+  "index_exponent_on_cape": 0.5,
+  "_index_source": "the convective-potential index is the WMAXSHEAR form sqrt(2·CAPE) × deep-layer shear (Taszarek et al. 2021; scripts/build_convective_potential.py), so the index moves with the square root of CAPE",
+  "shear": "held at today's climatology",
+  "_shear_source": "IPCC AR6 WGI §11.7.3.5: in the USA, 'no changes or decreases in the vertical wind shear'; in Europe, 'less robust changes in the frequency of strong vertical wind shear' (Púčik et al. 2017). Rädler et al. (2019, npj Clim. Atmos. Sci. 2:30) find shear in unstable situations over Europe 'does not decrease'.",
+  "warming": "the cell's own CMIP6 ensemble-mean surface warming for the scenario × horizon (ml.scoring.cmip6.cmip6_delta_latlon), with the across-model spread carried into the band; baseline and current have no CMIP6 pathway and stay at today's level",
+  "event_probability": "the projected index is read through the same NOAA SPC anchor as today's score (data/convective/convective_anchor.json): the environment-to-event relation is assumed unchanged"
+ },
+ "literature": [
+  {"statement": "There is high confidence that CAPE, particularly summer mean CAPE and high percentiles of the CAPE in the tropics and subtropics, increases in response to global warming.",
+   "confidence": "high", "source": "IPCC AR6 WGI Ch.11 §11.7.3.5 (Seneviratne et al. 2021), p. 1596; synthesis Table 11.2, p. 1534"},
+  {"statement": "Climate models consistently project environmental changes that would support an increase in the frequency and intensity of severe thunderstorms (high confidence), but there is low confidence in the details of the projected increase.",
+   "confidence": "high (direction of environment change); low (details)", "source": "IPCC AR6 WGI Ch.11 §11.7.3, p. 1594"},
+  {"statement": "Because the relation between simulated environments and the occurrence of severe convective storms is insufficiently validated, there is generally low confidence in the projection of severe convective storms with the environmental approach.",
+   "confidence": "low (event occurrence)", "source": "IPCC AR6 WGI Ch.11 §11.7.3.5, p. 1597"},
+  {"statement": "In Europe, it is more likely than not that severe convection environments will become more frequent by the end of the century under RCP8.5, and there is medium confidence that they will become more frequent by the 2050s in RCP4.5.",
+   "confidence": "more likely than not (RCP8.5, 2100); medium (RCP4.5, 2050s)", "source": "IPCC AR6 WGI Ch.12 §12.4.5.3, p. 1824"},
+  {"statement": "Hail size: a higher freezing level melts more small hailstones, while stronger updrafts from increasing CAPE favour larger hailstones; high-resolution Colorado simulations almost eliminate surface hail despite more hail in-cloud.",
+   "confidence": "not assessed as a projection", "source": "IPCC AR6 WGI Ch.11 §11.7.3.1 and §11.7.3.5"},
+  {"statement": "Large hail (≥2 cm) is projected to become 40–80% more likely across central and eastern Europe under RCP8.5 by 2071–2100; across Spain the models disagree on the sign of the hail and wind change, and lightning decreases in south-western Europe.",
+   "confidence": "ensemble of 14 EURO-CORDEX models", "source": "Rädler et al. (2019), npj Clim. Atmos. Sci. 2:30, doi:10.1038/s41612-019-0083-7"},
+  {"statement": "CAPE increases almost everywhere; it decreases over the subtropical eastern Pacific and Atlantic oceans, where reduced low-level lapse rates outweigh the moistening.",
+   "confidence": "one model, confirmed by 4-km convection-permitting runs over the USA", "source": "Chen, Dai, Zhang & Rasmussen (2020), J. Climate 33(6), 2025–2050, doi:10.1175/JCLI-D-19-0461.1"}
+ ],
+ "not_projected": [
+  "event frequency: the count of hail, tornado and convective-wind events is not scaled directly; it follows only as the calibrated anchor maps the projected environment (AR6: low confidence in event projections from environments)",
+  "hail size: no change in the hail-size distribution (AR6 names opposing effects and gives no projection)",
+  "wind shear and convective inhibition: held at today's climatology",
+  "cells already at the top of the anchor (index ≥ the level where the SPC-fitted probability stops rising) cannot rise further: the fitted relation is flat there"
+ ]
+}

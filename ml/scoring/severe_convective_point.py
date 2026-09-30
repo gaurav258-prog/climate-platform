@@ -8,6 +8,10 @@ data/convective/convective_potential.npz (a 0–100 potential on a lat/lon grid,
 ERA5 CAPE × shear via scripts/build_convective_potential.py — ERA5 needs a Copernicus CDS key and is large),
 and returns 'insufficient_data' until that field is built. Screening-tier, disclosed as an environment index,
 never a tornado-frequency figure. This one channel also covers large hail and damaging convective wind.
+
+Forward scenarios move the ENVIRONMENT only (ml.scoring.severe_convective_projection): CAPE rises ~6–7%/K of the
+cell's CMIP6 warming (Romps 2016; IPCC AR6 WGI §11.7.3.5, high confidence), read through the same anchor, with the
+across-model band in score_ci_lower/upper. baseline and current stay at today's value.
 """
 from __future__ import annotations
 
@@ -23,8 +27,11 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
+from ml.scoring.cmip6 import cmip6_delta_latlon
+from ml.scoring.severe_convective_projection import project_potential
+from ml.scoring.severe_convective_projection import reference as projection_reference
 
-MODEL_VERSION = "severe-convective-spc-anchored-v2"
+MODEL_VERSION = "severe-convective-spc-anchored-v3"   # v3: CAPE-driven forward projection
 _ANCHOR = "data/convective/convective_anchor.json"
 _NPZ = "data/convective/convective_potential.npz"
 
@@ -46,6 +53,16 @@ def damage_anchored_score(potential: float) -> Optional[float]:
         return None
     import numpy as np
     return round(float(100.0 * np.interp(potential, a[0], a[1])), 2)
+
+
+def anchor_ceiling() -> Optional[float]:
+    """The potential from which the fitted probability stops rising — a cell at or above it cannot be moved by a
+    stronger environment, because the SPC-fitted relation is flat there."""
+    a = _anchor()
+    if a is None:
+        return None
+    top = max(a[1])
+    return float(next(p for p, q in zip(a[0], a[1]) if q >= top))
 
 
 @lru_cache(maxsize=1)
@@ -82,7 +99,8 @@ def score_severe_convective_point(lat: float, lon: float, scenario: str = "basel
     if v is None:
         return {"status": "insufficient_data", "h3_cell": cell,
                 "reason": "Convective-potential data is not available for this location."}
-    risk = damage_anchored_score(v)
+    proj = project_potential(v, cmip6_delta_latlon(lat, lon, scenario, horizon))
+    risk = damage_anchored_score(proj.central)
     if risk is None:
         return {"status": "insufficient_data", "h3_cell": cell, "reason": "The damage anchor (data/convective/convective_anchor.json) is missing."}
     if ex:   # an older-version row is retired, never overwritten: the lane is append-only
@@ -90,16 +108,24 @@ def score_severe_convective_point(lat: float, lon: float, scenario: str = "basel
             s.execute(text("""UPDATE canonical_scores SET valid_to = now() WHERE hazard_type='severe_convective' AND h3_cell=:c AND scenario=:sc
                               AND time_horizon=:h AND valid_to IS NULL AND model_version <> :mv"""), {"c": cell, "sc": scenario, "h": horizon, "mv": MODEL_VERSION})
     now = datetime.now(timezone.utc)
-    shap = {"convective_potential": round(v, 2), "annual_probability_damaging_event": round(risk / 100.0, 3), "on_demand": True, "tier": "calibrated_frequency",
+    lo = damage_anchored_score(proj.lower) if proj.lower is not None else None
+    hi = damage_anchored_score(proj.upper) if proj.upper is not None else None
+    shap = {"convective_potential": round(v, 2), "projected_potential": round(proj.central, 2),
+            "at_anchor_ceiling": v >= (anchor_ceiling() or float("inf")),
+            "projection": ({"version": projection_reference()["version"], "cmip6_local_warming_c": round(proj.dtas_c, 2),
+                            "moves": "CAPE (environment) only; event frequency, hail size and shear are not projected"}
+                           if proj.dtas_c is not None else None),
+            "annual_probability_damaging_event": round(risk / 100.0, 3), "on_demand": True, "tier": "calibrated_frequency",
             "held_out": (_anchor() or (None, None, {}))[2],
             "method": "ERA5 CAPE × 0–6 km shear potential (Taszarek 2021) anchored to the annual probability of a damaging severe-convective report (NOAA SPC hail ≥1 in / severe wind / tornado; fitted 2000–2013, held out 2014–2023); CONUS fit transferred elsewhere through the same environment field"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                risk_score, risk_bucket, model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to)
-            VALUES (:id, :c, 8, 'severe_convective', :sc, :h, :r, :b, :mv, :now, CAST(:shap AS jsonb), :now, :now, NULL)
+                risk_score, risk_bucket, model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to,
+                score_ci_lower, score_ci_upper)
+            VALUES (:id, :c, 8, 'severe_convective', :sc, :h, :r, :b, :mv, :now, CAST(:shap AS jsonb), :now, :now, NULL, :lo, :hi)
             ON CONFLICT (h3_cell, hazard_type, scenario, time_horizon, score_lane)
                 WHERE valid_to IS NULL DO NOTHING
         """), {"id": str(uuid.uuid4()), "c": cell, "sc": scenario, "h": horizon, "r": risk,
-               "b": score_to_bucket(risk).value, "mv": MODEL_VERSION, "now": now, "shap": json.dumps(shap)})
+               "b": score_to_bucket(risk).value, "mv": MODEL_VERSION, "now": now, "shap": json.dumps(shap), "lo": lo, "hi": hi})
     return {"status": "scored", "h3_cell": cell, "risk_score": risk, "risk_bucket": score_to_bucket(risk).value}
