@@ -4,7 +4,7 @@ Principle 1 (the client wins on facts about their own book): when an organisatio
 (closing) or for the exact period (average), its rate converts its amounts. It is ALWAYS compared with the official
 rate for the same day / period (ECB, legal peg, IMF); a difference beyond the organisation's tolerance
 (fx_client_rate_tolerance_pct) is a failed check — a second person must accept it (intake) or the input is refused
-(direct forms, which have no approval step). Submissions are append-only; the latest for a key wins.
+(direct forms, which have no approval step). Submissions are append-only; the latest for a key (highest client_rate_id, never a timestamp — E52) wins.
 """
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ def _latest(session: Session, org_id: str, ccy: str, basis: str, on: date, start
         return session.execute(text("""
             SELECT units_per_eur, rate_date, source_note, submitted_at FROM fx_client_rates
             WHERE org_id = CAST(:o AS uuid) AND ccy = :c AND basis = 'closing' AND rate_date <= :d
-            ORDER BY rate_date DESC, submitted_at DESC LIMIT 1
+            ORDER BY rate_date DESC, client_rate_id DESC LIMIT 1
         """), {"o": org_id, "c": ccy, "d": on}).mappings().first()
     return session.execute(text("""
         SELECT units_per_eur, rate_date, period_start, source_note, submitted_at FROM fx_client_rates
         WHERE org_id = CAST(:o AS uuid) AND ccy = :c AND basis = 'period_average' AND rate_date = :d AND period_start = :s
-        ORDER BY submitted_at DESC LIMIT 1
+        ORDER BY client_rate_id DESC LIMIT 1
     """), {"o": org_id, "c": ccy, "d": on, "s": start}).mappings().first()
 
 
@@ -109,7 +109,7 @@ def latest_rates(session: Session, org_id: str, limit: int = 200) -> list[dict]:
         SELECT DISTINCT ON (ccy, basis, period_start, rate_date) ccy, basis, period_start, rate_date,
                CAST(units_per_eur AS FLOAT) AS units_per_eur, source_note, submitted_at
         FROM fx_client_rates WHERE org_id = CAST(:o AS uuid)
-        ORDER BY ccy, basis, period_start, rate_date DESC, submitted_at DESC LIMIT :l
+        ORDER BY ccy, basis, period_start, rate_date DESC, client_rate_id DESC LIMIT :l
     """), {"o": org_id, "l": limit}).mappings().all()
     return [{**dict(r), "rate_date": r["rate_date"].isoformat(),
              "period_start": r["period_start"].isoformat() if r["period_start"] else None,

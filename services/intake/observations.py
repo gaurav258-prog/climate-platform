@@ -210,7 +210,7 @@ def _taken_from_us(session: Session, table: str, ids: list[str]) -> set[tuple[st
     rows = session.execute(text("""
         SELECT DISTINCT ON (asset_id, field) asset_id::text, field, resolution FROM asset_conflicts
         WHERE asset_table = :t AND asset_id = ANY(CAST(:ids AS uuid[])) AND status = 'resolved'
-        ORDER BY asset_id, field, resolved_at DESC
+        ORDER BY asset_id, field, resolved_seq DESC          -- not resolved_at: one transaction shares now() (E52)
     """), {"t": table, "ids": ids}).all()
     return {(r[0], r[1]) for r in rows if r[2] == "tellumen"}
 
