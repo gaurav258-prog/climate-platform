@@ -31,7 +31,7 @@ from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from core.types import HAZARD_VALUES
 from ml.scoring.cat_accumulation import catastrophe_accumulation
-from ml.scoring.insurance_pricing import price_policy
+from ml.scoring.insurance_pricing import price_perils
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
 from services.governance.ifrs_s2_incurred import (
@@ -81,9 +81,10 @@ def _insurance_extra(trigger_by_policy, return_period_model, expense_ratio=None,
         attrs = {"construction_type": row.get("construction_type"), "year_built": row.get("year_built"),
                  "number_of_stories": row.get("number_of_stories")}
         _pk = {} if expense_ratio is None else {"expense_ratio": expense_ratio, "profit_margin": profit_margin}
-        pricing = price_policy(headline["score"], row["primary_value_eur"], row.get("deductible_pct") or 0.0,
-                                hazard=headline["hazard"], return_period_model=return_period_model,
-                                attrs=attrs, **_pk) if headline else None
+        # every insured property peril at the location, priced on its own and summed (not only the headline hazard:
+        # a headline that changes between scenarios must not drop a peril's loss — ml.scoring.insurance_pricing)
+        pricing = price_perils(hz, row["primary_value_eur"], row.get("deductible_pct") or 0.0,
+                               return_period_model=return_period_model, attrs=attrs, **_pk)
         cfg = trigger_by_policy.get(row["entity_id"])
         trigger = None
         if cfg:
@@ -200,13 +201,11 @@ def _investments_block(session, org_id, scenario, horizon, _st, translation=None
     }
 
 
-# A standard illustrative reinsurance program used to freeze a NET retention in the disclosure snapshot when the
-# org has not configured one. Disclosed as illustrative on the filing; the live /reinsurance endpoint lets the
-# insurer enter their own program.
-_DEFAULT_REINSURANCE_PROGRAM = {"quota_share_pct": 20.0, "xol_attachment_eur": 50_000_000, "xol_limit_eur": 100_000_000}
+# The illustrative reinsurance programme (services.insurer_capital.ILLUSTRATIVE_PROGRAMME) nets a snapshot only where the
+# undertaking has attested no treaty for the period; the live /reinsurance endpoint also lets it try other programmes.
 
 
-def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_period=250, reinsurance=None):
+def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_period=250, reinsurance=None, zones_of=None):
     total = sum(p["sum_insured_eur"] or 0 for p in policies)
     priced = [p for p in policies if p["pricing"]]
     total_eal = sum(p["pricing"]["expected_annual_loss_eur"] for p in priced)
@@ -230,7 +229,8 @@ def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_perio
         # Portfolio catastrophe accumulation — AEP/OEP exceedance & PML (the tail the summed EALs hide).
         # In the frozen-snapshot path a reinsurance program is passed so the cat run also yields net-of-reinsurance.
         "catastrophe": (catastrophe_accumulation(policies, org_id, scenario, horizon,
-                                                 pml_return_period=pml_return_period, reinsurance=reinsurance)
+                                                 pml_return_period=pml_return_period, reinsurance=reinsurance,
+                                                 zones_of=zones_of)
                         if org_id and scenario and horizon else None),
         "top_policies": sorted(
             [p for p in policies if p["headline_score"] is not None],
@@ -238,10 +238,18 @@ def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_perio
     }
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def zones_of(policies: list) -> dict:
+    """{policy id: (peril, region)} — the accumulation zones of a reference book, to hold fixed across a scenario
+    comparison (ml.scoring.cat_accumulation)."""
+    return {str(p["policy_id"]): (p.get("headline_hazard") or "unknown", p.get("region") or "unspecified") for p in policies}
+
+
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
+                              zones=None):
     """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
     loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view.
-    entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
+    entity_ids / value_weights scope + consolidation-weight the book (None = whole org). zones: accumulation zones held
+    fixed across a scenario comparison (zones_of(reference book policies))."""
     _st = get_calc_settings(session, org_id)
     return_period_model = _st["insurance_return_period_model"]
     policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
@@ -264,16 +272,22 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     # One rich cat run (via _rollup, with the illustrative reinsurance program) yields the accumulation curve,
     # the 1-in-200 for the SCR, and the net-of-reinsurance retention — so the SCR / reinsurance / cat blocks are
     # all derived from the SAME frozen distribution rather than re-simulated three times.
-    prog = _DEFAULT_REINSURANCE_PROGRAM
-    if translation is not None and translation.presentation != "EUR":      # the illustrative layers are set in EUR
+    # the reinsurance in force for the reporting period, as the undertaking attested it (services.insurer_capital);
+    # the illustrative programme only where none is attested — and the snapshot says which
+    from services.governance.reporting_settings import get_settings
+    from services.insurer_capital import programme
+    pe = get_settings(session, org_id)["reporting_period_end"]
+    prog, prog_basis = programme(session, org_id, date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31))
+    if translation is not None and translation.presentation != "EUR":      # treaty layers are stated in EUR
         from services.governance.translation import from_eur
         prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur")}}
-    rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"], reinsurance=prog)
+    rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"], reinsurance=prog,
+                     zones_of=zones)
     cat = rollup.get("catastrophe") or {}
     return {
         "rollup": rollup, "policies": policies, "by_hazard": hazards,
         "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon),
-        "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": "illustrative_standard"},
+        "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": prog_basis},
         "investments": _investments_block(session, org_id, scenario, horizon, _st, translation=translation),
     }
 

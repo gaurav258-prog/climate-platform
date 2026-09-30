@@ -1,6 +1,6 @@
 """One store per fact (E34): an investee's Taxonomy KPIs are read and written only through services.issuer_taxonomy
 (plus the bank book's frozen per-objective read, which follows the same precedence), and a product's SFDR commitments
-only through its template answers (fund_sfdr_answers). A new direct reader would re-open the second path."""
+only through its template answers (template_answers, one store for every document template). A new direct reader would re-open the second path."""
 import re
 from pathlib import Path
 
@@ -24,5 +24,7 @@ def test_the_retired_duplicate_columns_are_not_used():
 
 
 def test_template_answers_have_one_writer():
-    writers = _users(r"INSERT INTO fund_sfdr_answers|UPDATE fund_sfdr_answers|DELETE FROM fund_sfdr_answers")
-    assert writers <= {"services/governance/sfdr_answers.py"}, writers
+    writers = _users(r"(INSERT INTO|UPDATE|DELETE FROM) template_answers")
+    assert writers <= {"services/governance/template_answers.py"}, writers
+    readers = _users(r"FROM template_answers")
+    assert readers <= {"services/governance/template_answers.py"}, readers

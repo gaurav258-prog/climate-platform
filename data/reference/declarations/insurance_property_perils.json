@@ -1,0 +1,24 @@
+{
+ "about": "Which hazards are priced as property catastrophe perils in the insurance engine (ml/scoring/insurance_pricing.price_perils): each insured peril is priced on its own (its own score, occurrence probability and damage ratio) and accumulates in its own (peril, region) zone. A hazard not listed as insured is shown as context but never priced as property damage. A peril is priced only where its score is a likelihood or intensity scale for buildings (core/hazard_relevance: a susceptibility class is not an occurrence probability). Declared reading (Tellumen): the list follows the perils a property catastrophe cover indemnifies and the Solvency II standard-formula natural-catastrophe perils (windstorm, earthquake, flood, hail, subsidence — Delegated Regulation (EU) 2015/35 Articles 120-125), plus wildfire, volcanic and surface-water flooding, which property covers commonly include.",
+ "declared_by": "Tellumen",
+ "perils": {
+  "flood": {"insured": true, "solvency_ii_peril": "flood"},
+  "coastal_flood": {"insured": true, "solvency_ii_peril": "flood", "note": "storm surge / coastal inundation"},
+  "heavy_precip": {"insured": true, "solvency_ii_peril": "flood", "note": "surface-water (pluvial) flooding"},
+  "storm": {"insured": true, "solvency_ii_peril": "windstorm", "note": "tropical cyclone wind"},
+  "windstorm": {"insured": true, "solvency_ii_peril": "windstorm", "note": "extratropical windstorm"},
+  "severe_convective": {"insured": true, "solvency_ii_peril": "hail", "note": "hail and convective storm"},
+  "seismic": {"insured": true, "solvency_ii_peril": "earthquake"},
+  "subsidence": {"insured": true, "solvency_ii_peril": "subsidence", "note": "priced only under a model whose scale is a measured intensity (the observed EGMS rate); the susceptibility class is not"},
+  "wildfire": {"insured": true, "solvency_ii_peril": null},
+  "volcanic": {"insured": true, "solvency_ii_peril": null},
+  "landslide": {"insured": true, "solvency_ii_peril": null, "note": "priced only under a likelihood scale; the LHASA susceptibility class is not"},
+  "drought": {"insured": false, "reason": "a meteorological drought index is not property damage; its damaging effect on buildings (clay shrinkage) is the subsidence peril"},
+  "heat_chronic": {"insured": false, "reason": "chronic heat is an operating and health risk, not an insured property catastrophe"},
+  "heat_acute": {"insured": false, "reason": "a live nowcast, never a standing score"},
+  "pollution": {"insured": false, "reason": "air quality is not property damage"},
+  "cold_wave": {"insured": false, "reason": "freeze damage is an attritional escape-of-water claim, not a catastrophe peril in the standard formula"},
+  "coastal_erosion": {"insured": false, "reason": "gradual shoreline retreat is excluded from property covers as a gradual cause"},
+  "saline_intrusion": {"insured": false, "reason": "aquifer salinity is not property damage"}
+ }
+}

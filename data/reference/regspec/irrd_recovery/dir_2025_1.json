@@ -1,0 +1,115 @@
+{
+ "framework": "irrd_recovery",
+ "version": "dir_2025_1",
+ "act": {
+  "celex": "32025L0001",
+  "title": "establishing a framework for the recovery and resolution of insurance and reinsurance undertakings and amending Directives 2002/47/EC, 2004/25/EC, 2007/36/EC, 2014/59/EU and (EU) 2017/1132 and Regulations (EU) No 1094/2010, (EU) No 648/2012, (EU) No 806/2014 and (EU) 2017/1129",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0001",
+  "short": "Insurance Recovery and Resolution Directive (EU) 2025/1"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 5(7) and (8) of Directive (EU) 2025/1",
+  "templates_in": "No template: the requirements of the Article, item by item",
+  "instructions_in": "Article 5 of Directive (EU) 2025/1; EIOPA guidelines due by 29 January 2027 on the range of scenarios (Art. 5(11)(a)) and on the indicators (Art. 5(11)(b))",
+  "quote": "assess the credibility and feasibility of their pre-emptive recovery plans"
+ },
+ "applies": {
+  "from": "2027-01-30",
+  "until": null,
+  "basis": "disclosure_date",
+  "quote": "They shall apply those measures from 30 January 2027."
+ },
+ "templates": [
+  {
+   "id": "A5",
+   "code": "Art. 5(7)-(8)",
+   "title": "Pre-emptive recovery plan — a severe natural-catastrophe stress scenario and the capital indicators",
+   "ref": "Directive (EU) 2025/1 Art. 5(7) and (8), OJ L, 2025/1, 8.1.2025",
+   "structure": "document",
+   "source_form": "text",
+   "items": [
+    {
+     "id": "h_5",
+     "kind": "heading",
+     "label": "Article 5 — Pre-emptive recovery plans (the parts on stress scenarios and indicators)",
+     "parent": null,
+     "note": "Article 5(7) and (8) of Directive (EU) 2025/1. The remaining contents of the plan (Art. 5(6)) are the undertaking's own and outside this template."
+    },
+    {
+     "id": "stress",
+     "kind": "table",
+     "label": "Member States shall require that insurance and reinsurance undertakings assess the credibility and feasibility of their pre-emptive recovery plans, in particular the framework of indicators referred to in paragraph 8 and the remedial actions, against a range of scenarios of severe macroeconomic and financial stress relevant to the insurance or reinsurance undertaking's specific conditions, including system-wide events, idiosyncratic stress events likely to materially affect their asset and liability profile, and combinations of such stress events.",
+     "parent": "h_5",
+     "note": "Art. 5(7). This template supplies one of the range: a severe natural-catastrophe event, today and under a warmer climate — an idiosyncratic stress event likely to materially affect the asset and liability profile."
+    },
+    {
+     "id": "stress.others",
+     "kind": "question",
+     "label": "a range of scenarios of severe macroeconomic and financial stress",
+     "parent": "stress",
+     "note": "The undertaking's other scenarios of the range (macroeconomic, financial, system-wide, combinations) — named here, run outside this template."
+    },
+    {
+     "id": "indicators",
+     "kind": "question",
+     "label": "Member States shall require that insurance and reinsurance undertakings ensure that their pre-emptive recovery plans contain a framework of qualitative and quantitative indicators that identify the points at which remedial actions should be considered or taken.",
+     "parent": "h_5",
+     "note": "Art. 5(8), first subparagraph, first sentence."
+    },
+    {
+     "id": "indicators.scr",
+     "kind": "table",
+     "label": "Indicators relating to the capital position shall as a minimum contain any breach of the Solvency Capital Requirement laid down in Title I, Chapter VI, Section 4, of Directive 2009/138/EC.",
+     "parent": "indicators",
+     "note": "Art. 5(8), first subparagraph, third sentence. Here: the SCR coverage ratio before and after each stress, against a breach (below 100 %) and the undertaking's own trigger levels."
+    },
+    {
+     "id": "indicators.triggers",
+     "kind": "question",
+     "label": "Those indicators may include criteria relating to, inter alia, capital, liquidity, asset quality, profitability, market conditions, macro-economic conditions and operational events.",
+     "parent": "indicators",
+     "note": "Art. 5(8), first subparagraph, second sentence (permissive). The answer — the undertaking's own trigger level for the SCR ratio, as a percentage — is the undertaking's calibration, not text of the Directive.",
+     "blank": "percent"
+    },
+    {
+     "id": "indicators.monitoring",
+     "kind": "question",
+     "label": "Member States shall require that supervisory authorities ensure that insurance and reinsurance undertakings put in place appropriate arrangements for the regular monitoring of the indicators referred to in the first subparagraph.",
+     "parent": "indicators",
+     "note": "Art. 5(8), third subparagraph."
+    },
+    {
+     "id": "indicators.breach_action",
+     "kind": "question",
+     "label": "Member States shall require that any breach of the Solvency Capital Requirement result in appropriate remedial action by the undertaking concerned in line with the pre-emptive recovery plan.",
+     "parent": "indicators",
+     "note": "Art. 5(8), second subparagraph: the remedial action the plan foresees for a breach."
+    }
+   ],
+   "instructions": [
+    {
+     "ref": "Art. 5(4)",
+     "quote": "update their pre-emptive recovery plans at least every two years"
+    }
+   ]
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "requirement items quoted verbatim from the OJ text of the Directive, machine-checked",
+  "captured": "2026-09-30",
+  "second_pass": {
+   "by": "independent agent re-reading the OJ text",
+   "checked": "2026-09-30",
+   "changes": [
+    "added indicators.monitoring (Art. 5(8), third subparagraph — was omitted)",
+    "citations sharpened on indicators, indicators.scr, indicators.triggers (permissive sentence; the trigger level is the undertaking's calibration)",
+    "legal_basis.quote moved from Art. 5(5) to Art. 5(7)",
+    "instructions_in: Art. 5(11)(a) and (b)",
+    "capture note: Art. 100(1), Art. 5(9) out of scope"
+   ]
+  },
+  "note": "A Directive: it applies through national law from the date quoted. The Directive names no climate or natural-catastrophe scenario: this template supplies one scenario of the range Art. 5(7) requires; which undertakings plan is for the supervisor (Art. 5(2), second subparagraph: at least 60 % of each market; Art. 5(3): small and non-complex undertakings exempt unless the supervisor decides otherwise). Also outside: Art. 5(9), notifying the supervisor of a remedial action taken, or not taken although an indicator was met. Application: Art. 100(1)."
+ }
+}

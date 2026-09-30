@@ -162,6 +162,44 @@ CATALOG: dict[str, list[dict]] = {
             "tellumen", "compute", provider="Tellumen hazard engine + your SoV"),
         _dp("uw_narrative", "Underwriting strategy & climate narrative", "customer", "report", provider="You author"),
     ],
+    # Solvency II: the nat-cat SCR is computed; the undertaking's capital position and the reinsurance programme in force
+    # come from its own records (S.23.01 own funds, the SCR / MCR it reports, its treaties) — stated once here, attested
+    # under four eyes, and read by every insurer report that needs them (ORSA climate analysis, recovery stress, net losses)
+    "insurer_solvency": [
+        _dp("natcat_scr", "Nat-cat SCR — standard formula (Del. Reg. 2015/35 Art. 120-125) and the modelled 1-in-200",
+            "tellumen", "compute", provider="Tellumen nat-cat engine + your statement of values"),
+        {**_dp("eligible_own_funds_scr", "Eligible own funds to meet the SCR", "customer", "provided",
+               provider="Your Solvency II own-funds return (S.23.01)",
+               note="The total eligible own funds to meet the Solvency Capital Requirement, for the reporting date."), "unit": "EUR"},
+        {**_dp("scr_total", "Solvency Capital Requirement (total)", "customer", "provided",
+               provider="Your Solvency II SCR calculation (S.25)",
+               note="The SCR the undertaking reports for the reporting date (standard formula, partial or full internal model)."), "unit": "EUR"},
+        {**_dp("mcr_total", "Minimum Capital Requirement", "customer", "provided", provider="Your Solvency II MCR calculation (S.28)"),
+         "unit": "EUR"},
+        {**_dp("ri_quota_share_pct", "Reinsurance in force — quota share ceded (%)", "customer", "provided",
+               provider="Your reinsurance treaties",
+               note="Proportional cession of the property book. With the cat excess of loss below, it nets every insurer "
+                    "loss figure; where not stated, an illustrative programme is used and said so."), "unit": "%"},
+        {**_dp("ri_xol_attachment_eur", "Reinsurance in force — catastrophe excess of loss attachment", "customer", "provided",
+               provider="Your reinsurance treaties"), "unit": "EUR"},
+        {**_dp("ri_xol_limit_eur", "Reinsurance in force — catastrophe excess of loss limit", "customer", "provided",
+               provider="Your reinsurance treaties"), "unit": "EUR"},
+    ],
+    "insurer_orsa_climate": [
+        _dp("climate_scenarios", "Nat-cat losses and capital under a below-2 °C and a well-above-2 °C scenario, 2030-2100",
+            "tellumen", "compute", provider="Tellumen nat-cat engine (NGFS scenarios, CMIP6 deltas)"),
+        _dp("capital_position", "Own funds, SCR and reinsurance in force (from Solvency II)", "customer", "provided",
+            provider="Stated once, under Solvency II — read from there"),
+        _dp("orsa_narrative", "Materiality conclusion, scenario review and actions", "customer", "report", provider="You author"),
+    ],
+    "insurer_recovery_stress": [
+        _dp("natcat_stress", "Severe nat-cat event (1-in-200 single event), today and under warming — net loss and SCR ratio",
+            "tellumen", "compute", provider="Tellumen nat-cat engine"),
+        _dp("capital_position", "Own funds, SCR and reinsurance in force (from Solvency II)", "customer", "provided",
+            provider="Stated once, under Solvency II — read from there"),
+        _dp("recovery_triggers", "Your SCR-ratio trigger levels and the remedial action for a breach", "customer", "report",
+            provider="You author"),
+    ],
     "eudr_dds": [
         _dp("eudr_determination", "Per-plot geolocation + deforestation-free determination (satellite vs 2020 cutoff)",
             "tellumen", "compute", provider="Tellumen (your plot polygons + Hansen Global Forest Change)"),

@@ -14,9 +14,10 @@ import pytest
 
 import services.regspec as R
 from services.governance import sfdr_product as S
-from services.governance.sfdr_answers import AnswerError, _shape
 from services.governance.sfdr_product_forms import missing
 from services.governance.sfdr_product_html import render
+from services.governance.template_answers import AnswerError
+from services.governance.template_answers import shape as _shape
 
 V2 = "rts_2022_1288_as_amended_2023_363"
 

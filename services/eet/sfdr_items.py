@@ -1,5 +1,5 @@
 """EET fields a product's SFDR pre-contractual template already answers (data/reference/eet/sfdr_item_map.json): read
-from the template answers (fund_sfdr_answers), so a commitment is stated once and the EET and the Annex II / III
+from the template answers (template_answers), so a commitment is stated once and the EET and the Annex II / III
 document cannot disagree."""
 from __future__ import annotations
 
@@ -37,9 +37,9 @@ def _value(rule: dict, answers: dict):
 
 def values(session: Session, fund_id: str, sfdr_classification: str | None) -> dict:
     """{eet field: value} for the product's article, from its pre-contractual answers (missing answers stay empty)."""
-    answers = {r[0]: r[1] for r in session.execute(text("""
-        SELECT item_id, value FROM fund_sfdr_answers WHERE fund_id = CAST(:f AS uuid) AND document = :d"""),
-        {"f": fund_id, "d": mapping()["document"]})}
+    from services.governance.template_answers import read
+    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = CAST(:f AS uuid)"), {"f": fund_id}).scalar()
+    answers = read(session, org_id, "sfdr_product", mapping()["document"], fund_id=fund_id)
     out = {}
     for name, arts in mapping()["fields"].items():
         rule = arts.get(sfdr_classification or "")

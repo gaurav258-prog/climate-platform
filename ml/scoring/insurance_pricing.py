@@ -154,3 +154,54 @@ def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: floa
         "vulnerability_factor": vf,
         "vulnerability": vf_prov,
     }
+
+
+# ── Multi-peril pricing: every insured property peril on its own ─────────────────────────────────────────────────
+
+def _perils() -> dict:
+    import json
+    from pathlib import Path
+    f = Path(__file__).resolve().parents[2] / "data" / "reference" / "declarations" / "insurance_property_perils.json"
+    return json.loads(f.read_text())["perils"]
+
+
+def insured_peril(hazard: str | None, model_version: str | None = None) -> bool:
+    """A hazard priced as property damage: listed as an insured peril, and scored on a likelihood / intensity scale for
+    buildings under this model (a susceptibility class is not an occurrence probability — core.hazard_relevance)."""
+    from core.hazard_relevance import is_headline_eligible
+    return bool(hazard) and bool((_perils().get(hazard) or {}).get("insured")) and is_headline_eligible(hazard, model_version=model_version)
+
+
+def price_perils(hazards: list[dict], sum_insured_eur: float, deductible_pct: float = 0.0,
+                 return_period_model: str = "fixed", attrs: dict | None = None,
+                 expense_ratio: float = EXPENSE_RATIO, profit_margin: float = PROFIT_MARGIN) -> dict | None:
+    """A policy priced peril by peril (data/reference/declarations/insurance_property_perils.json): each insured peril
+    at the location — its own score, its own occurrence probability, its own damage ratio, the deductible applying per
+    occurrence — and the policy's expected annual loss and premium as their sum. `perils` carries each component for
+    the catastrophe accumulation (one zone per peril and region). The headline fields (mdr, risk_bucket,
+    net_scenario_loss_eur, annual_occurrence_prob) are those of the peril with the largest expected loss.
+    None when no insured peril is scored at the location."""
+    comps = []
+    for h in hazards or []:
+        score = h.get("score")
+        if score is None or score <= 0 or not insured_peril(h.get("hazard"), h.get("model_version")):
+            continue
+        p = price_policy(float(score), sum_insured_eur, deductible_pct, hazard=h["hazard"],
+                         return_period_model=return_period_model, attrs=attrs,
+                         expense_ratio=expense_ratio, profit_margin=profit_margin)
+        comps.append({"hazard": h["hazard"], "score": round(float(score), 1), **p})
+    if not comps:
+        return None
+    driver = max(comps, key=lambda c: c["expected_annual_loss_eur"])
+    eal = sum(c["expected_annual_loss_eur"] for c in comps)
+    loaded = max(0.05, 1.0 - (expense_ratio or 0.0) - (profit_margin or 0.0))
+    gross = eal / loaded
+    return {**{k: driver[k] for k in ("mdr", "scenario_loss_eur", "retained_loss_eur", "net_scenario_loss_eur",
+                                      "return_period_years", "return_period_model", "annual_occurrence_prob",
+                                      "risk_bucket", "vulnerability_factor", "vulnerability")},
+            "driver_peril": driver["hazard"],
+            "expected_annual_loss_eur": round(eal, 2), "pure_premium_eur": round(eal, 2),
+            "gross_premium_eur": round(gross, 2),
+            "rate_on_line_pct": round(100 * gross / sum_insured_eur, 3) if sum_insured_eur else 0.0,
+            "perils": [{k: c[k] for k in ("hazard", "score", "mdr", "net_scenario_loss_eur", "annual_occurrence_prob",
+                                          "return_period_years", "expected_annual_loss_eur", "risk_bucket")} for c in comps]}

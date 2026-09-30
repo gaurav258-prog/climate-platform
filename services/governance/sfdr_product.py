@@ -2,7 +2,7 @@
 (Annexes II–V, every version: family sfdr_product), filled item by item from the governing specification.
 
 Each printed item of a template is either fixed wording (printed as captured), computed from the fund's frozen
-book, or answered by the manager (fund_sfdr_answers, keyed by the item's id). Nothing is typed here about what the
+book, or answered by the manager (template_answers, keyed by the item's id). Nothing is typed here about what the
 template says: the items, their order and wording come from the spec; this module only says how each is filled
 (binding) and fills it (build).
 
@@ -85,10 +85,9 @@ def freeze(session, org_id: str, fund_id: str, document: str, period_end: date) 
                  "sovereign": r["asset_class"] in SOVEREIGN_ASSET_CLASSES, "fossil_fuel": _is_fossil_fuel_nace(r["nace_code"]),
                  "value": r["value"] or 0.0, "kpi": kpis.get(r["issuer_id"]),
                  "gate_failed": r["issuer_id"] in failing} for r in rows]
-    answers = {r["item_id"]: r["value"] for r in session.execute(text("""
-        SELECT item_id, value FROM fund_sfdr_answers WHERE fund_id = CAST(:f AS uuid) AND document = :d
-          AND period_end IS NOT DISTINCT FROM :pe"""),
-        {"f": fund_id, "d": document, "pe": period_end if document == "periodic" else None}).mappings()}
+    from services.governance.template_answers import read
+    answers = read(session, org_id, FAMILY, document, fund_id=fund_id,
+                   period_end=period_end if document == "periodic" else None)
     return {"fund": fund, "document": document, "period": {"start": start.isoformat(), "end": period_end.isoformat()},
             "position_dates": [d.isoformat() for d in dates], "holdings": holdings, "answers": answers}
 

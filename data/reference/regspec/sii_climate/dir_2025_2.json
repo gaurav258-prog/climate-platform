@@ -1,0 +1,162 @@
+{
+ "framework": "sii_climate",
+ "version": "dir_2025_2",
+ "act": {
+  "celex": "32025L0002",
+  "title": "amending Directive 2009/138/EC as regards proportionality, quality of supervision, reporting, long-term guarantee measures, macro-prudential tools, sustainability risks and group and cross-border supervision, and amending Directives 2002/87/EC and 2013/34/EU",
+  "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0002",
+  "short": "Solvency II as amended by Directive (EU) 2025/2"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Articles 45a and 51(1b)(e) of Directive 2009/138/EC, inserted and replaced by Article 1(24) and (25) of Directive (EU) 2025/2",
+  "templates_in": "No template: the requirements of the Articles, item by item",
+  "instructions_in": "Articles 45 and 45a of Directive 2009/138/EC",
+  "quote": "Article 45a Climate change scenario analysis"
+ },
+ "applies": {
+  "from": "2027-01-30",
+  "until": null,
+  "basis": "disclosure_date",
+  "quote": "They shall apply those measures from 30 January 2027."
+ },
+ "templates": [
+  {
+   "id": "A45A",
+   "code": "Art. 45a / 51(1b)(e)",
+   "title": "Climate change scenario analysis in the own risk and solvency assessment, and its statement in the solvency and financial condition report",
+   "ref": "Directive 2009/138/EC Art. 45a and 51(1b)(e), as amended by Directive (EU) 2025/2, OJ L, 2025/2, 8.1.2025",
+   "structure": "document",
+   "source_form": "text",
+   "items": [
+    {
+     "id": "h_45a",
+     "kind": "heading",
+     "label": "Article 45a — Climate change scenario analysis",
+     "parent": null,
+     "note": "Article 45a of Directive 2009/138/EC, inserted by Article 1(24) of Directive (EU) 2025/2."
+    },
+    {
+     "id": "materiality",
+     "kind": "question",
+     "label": "For the purposes of the identification and assessment of risks referred to in Article 45(2), the undertaking concerned shall also assess whether it has any material exposure to climate change risks.",
+     "parent": "h_45a",
+     "note": "Art. 45a(1), first sentence."
+    },
+    {
+     "id": "materiality.demonstration",
+     "kind": "question",
+     "label": "The undertaking shall demonstrate the materiality of its exposure to climate change risks in the assessment referred to in Article 45(1).",
+     "parent": "materiality",
+     "note": "Art. 45a(1), second sentence."
+    },
+    {
+     "id": "scenarios",
+     "kind": "question",
+     "label": "Where the undertaking concerned has material exposure to climate change risks, the undertaking shall specify at least two long-term climate change scenarios, including the following:",
+     "parent": "h_45a",
+     "note": "Art. 45a(2)."
+    },
+    {
+     "id": "scenarios.below_2c",
+     "kind": "field",
+     "label": "a long-term climate change scenario where the global temperature increase remains below two degrees Celsius;",
+     "parent": "scenarios",
+     "note": "Art. 45a(2)(a)."
+    },
+    {
+     "id": "scenarios.above_2c",
+     "kind": "field",
+     "label": "a long-term climate change scenario where the global temperature increase is significantly higher than two degrees Celsius.",
+     "parent": "scenarios",
+     "note": "Art. 45a(2)(b)."
+    },
+    {
+     "id": "impact",
+     "kind": "table",
+     "label": "At regular intervals, the assessment referred to in Article 45(1) shall contain an analysis of the impact on the business of the undertaking of the long-term climate change scenarios specified pursuant to paragraph 2 of this Article.",
+     "parent": "h_45a",
+     "note": "Art. 45a(3), first sentence."
+    },
+    {
+     "id": "impact.interval",
+     "kind": "field",
+     "label": "Those intervals shall be proportionate to the nature, scale and complexity of the climate change risks inherent in the business of the undertaking, but shall be no longer than three years.",
+     "parent": "impact",
+     "note": "Art. 45a(3), second sentence."
+    },
+    {
+     "id": "review",
+     "kind": "question",
+     "label": "The long-term climate change scenarios referred to in the paragraph 2 shall be reviewed at least every three years, and updated where necessary.",
+     "parent": "h_45a",
+     "note": "Art. 45a(4), first sentence."
+    },
+    {
+     "id": "review.performance",
+     "kind": "question",
+     "label": "When reviewing the long-term climate change scenarios, insurance and reinsurance undertakings shall take into account the performance of tools and principles used in previous climate change scenarios, so as to enhance their effectiveness.",
+     "parent": "review",
+     "note": "Art. 45a(4), second sentence."
+    },
+    {
+     "id": "sncu",
+     "kind": "choice",
+     "label": "By way of derogation from paragraphs 2, 3 and 4, small and non-complex undertakings shall not be required to specify climate change scenarios or assess their impact on the business of the undertaking.",
+     "parent": "h_45a",
+     "note": "Art. 45a(5): ticked where the undertaking meets the criteria of Art. 29a and is classified small and non-complex under Art. 29b of Directive 2009/138/EC."
+    },
+    {
+     "id": "h_51",
+     "kind": "heading",
+     "label": "Article 51(1b)(e) — Solvency and financial condition report",
+     "parent": null,
+     "note": "Article 51(1b)(e) of Directive 2009/138/EC, as replaced by Article 1(25) of Directive (EU) 2025/2."
+    },
+    {
+     "id": "sfcr",
+     "kind": "question",
+     "label": "an indication of whether the undertaking has any material exposure to climate change risks following the materiality assessment referred to in Article 45a(1), and, where relevant, if it has put in place any actions;",
+     "parent": "h_51",
+     "note": "Art. 51(1b)(e)."
+    },
+    {
+     "id": "sfcr.material",
+     "kind": "choice",
+     "label": "an indication of whether the undertaking has any material exposure to climate change risks",
+     "parent": "sfcr",
+     "note": "The indication itself: ticked where the exposure is material (the conclusion of the materiality assessment)."
+    },
+    {
+     "id": "sfcr.actions",
+     "kind": "question",
+     "label": "if it has put in place any actions",
+     "parent": "sfcr",
+     "note": "The actions, where relevant."
+    }
+   ],
+   "instructions": [
+    {
+     "ref": "Art. 45a(3)",
+     "quote": "but shall be no longer than three years."
+    }
+   ]
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "requirement items quoted verbatim from the OJ text of the Directive, machine-checked",
+  "captured": "2026-09-30",
+  "second_pass": {
+   "by": "independent agent re-reading the OJ text",
+   "checked": "2026-09-30",
+   "changes": [
+    "no item corrections",
+    "sncu note: Art. 29a criteria and Art. 29b classification",
+    "legal_basis.quote pinned to 'Article 45a Climate change scenario analysis' (the former quote occurs four times)",
+    "capture note: further out-of-scope provisions named"
+   ]
+  },
+  "note": "A Directive: it applies through national law from the date quoted (transposition). Outside this template (its scope is the climate change scenario analysis of Art. 45a and its SFCR statement): Art. 44(2) new subparagraphs (sustainability risks over the short, medium and long term in risk management); Art. 44(2b)-(2e) sustainability-risk plans, their targets, RTS (whose point (b) covers the interlinkages with Articles 45 and 45a) and group exemption; Art. 45(1)(d)-(f) and 45(1a)(e) (the ORSA's consideration of macroeconomic developments including climate change, a second, macroprudential hook); Art. 51(1a)(b) (sustainability risks in the policyholder part of the SFCR); Art. 51(1b)(f)-(g). Context: Art. 304a(2), EIOPA's review of the nat-cat calibration. Application: Art. 4(1)."
+ }
+}

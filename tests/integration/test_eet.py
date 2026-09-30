@@ -34,18 +34,20 @@ def am():
         with get_session() as s:
             c.org, c.fund = s.execute(text("SELECT org_id::text, fund_id::text FROM funds WHERE name = 'Nordkap Global Equity Fund'")).first()
             # the fund's own template answers are kept exactly: the test may answer items, and puts them back after
-            kept = [dict(r) for r in s.execute(text("""SELECT item_id, CAST(value AS text) AS value FROM fund_sfdr_answers
-                                                      WHERE fund_id = CAST(:f AS uuid) AND document = 'precontractual'"""),
+            kept = [dict(r) for r in s.execute(text("""SELECT item_id, CAST(value AS text) AS value FROM template_answers
+                                                      WHERE fund_id = CAST(:f AS uuid) AND family = 'sfdr_product'
+                                                        AND document = 'precontractual'"""),
                                                {"f": c.fund}).mappings()]
         _cleanup(c.org)
         yield c
         _cleanup(c.org)
         with get_session() as s:
-            s.execute(text("DELETE FROM fund_sfdr_answers WHERE fund_id = CAST(:f AS uuid) AND document = 'precontractual'"), {"f": c.fund})
+            s.execute(text("""DELETE FROM template_answers WHERE fund_id = CAST(:f AS uuid) AND family = 'sfdr_product'
+                              AND document = 'precontractual'"""), {"f": c.fund})
             for k in kept:
-                s.execute(text("""INSERT INTO fund_sfdr_answers (fund_id, document, item_id, value)
-                                  VALUES (CAST(:f AS uuid), 'precontractual', :i, CAST(:v AS jsonb))"""),
-                          {"f": c.fund, "i": k["item_id"], "v": k["value"]})
+                s.execute(text("""INSERT INTO template_answers (org_id, fund_id, family, document, item_id, value)
+                                  VALUES (CAST(:o AS uuid), CAST(:f AS uuid), 'sfdr_product', 'precontractual', :i, CAST(:v AS jsonb))"""),
+                          {"o": c.org, "f": c.fund, "i": k["item_id"], "v": k["value"]})
             s.commit()
 
 

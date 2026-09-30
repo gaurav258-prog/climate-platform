@@ -10,7 +10,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-# report type -> the document it is (fund_sfdr_answers.document) and the annex per SFDR article
+# report type -> the document it is (template_answers.document) and the annex per SFDR article
 PRODUCT_SCOPED = {
     "sfdr_precontractual": {"document": "precontractual", "annex": {"article_8": "AII", "article_9": "AIII"}},
     "sfdr_periodic": {"document": "periodic", "annex": {"article_8": "AIV", "article_9": "AV"}},
