@@ -41,7 +41,8 @@ def coverage_source(lane: str) -> str:
 # Report types whose provided values belong to one undertaking: Solvency II states own funds, the SCR, the reinsurance in
 # force and the nat-cat premiums per insurance undertaking and, separately, for the group (Directive 2009/138/EC Arts 100,
 # 218 ff.) — a solo filing uses its entity's own figures, a group filing the group's; never borrowed across.
-PER_ENTITY_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"})
+PER_ENTITY_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress",
+                                "esrs"})   # ESRS figures: per undertaking (Art. 19a) or for the group (Art. 29a, its parent)
 
 CATALOG: dict[str, list[dict]] = {
     "bank_tcfd": [

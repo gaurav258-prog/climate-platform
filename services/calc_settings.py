@@ -104,6 +104,22 @@ INTERPRETATION_SCHEMA: dict = {
                        "2023/2486. Other financial years are unaffected.",
         "sectors": ["bank", "reit"],
     },
+    # ESRS: the undertaking's version for the financial year starting in 2026 (Art. 2 of Delegated Regulation (EU)
+    # 2026/1563). The switch and the value that changes the governing version are the ones the specification's
+    # transitional_option declares (data/reference/regspec/esrs/dr_2023_2772_as_2025_1416.json); regspec.governing()
+    # applies it. The statement must say which version is applied (Art. 2(2)) — the filing states this election.
+    "esrs_fy2026_version": {
+        "frameworks": ["csrd_e1", "esrs_pack"],
+        "default": "dr_2023_2772_as_2025_1416", "kind": "enum",
+        "allowed": ["dr_2023_2772_as_2025_1416", "dr_2026_1563", "dr_2023_2772_as_2025_1416_with_2026_1563_reliefs"],
+        "label": "ESRS — financial year starting in 2026",
+        "description": "Delegated Regulation (EU) 2026/1563, Art. 2: for the financial year starting in 2026 the "
+                       "undertaking may apply (a) the ESRS as amended by 2025/1416, or the ESRS as amended by 2026/1563, "
+                       "or (b) the ESRS as amended by 2025/1416 with the reliefs of Art. 2(1)(b) (ESRS 1 §27, 32-33, "
+                       "74-75, 90, 91, 92, 106, 110). The sustainability statement states which. Other financial years "
+                       "are unaffected.",
+        "sectors": ["manufacturer"],
+    },
     "climate_var_dependence": {
         "frameworks": ["assetmgmt_tcfd", "sfdr_pai"],
         "default": "independent", "kind": "enum", "allowed": ["independent", "additive", "max"],

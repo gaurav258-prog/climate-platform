@@ -28,7 +28,9 @@ STRUCTURES = ("full", "listed", "document")
 # what a printed item of a document template is (see the capture brief): the kinds a binding fills are FILLED
 ITEM_KINDS = ("heading", "field", "question", "choice", "chart", "chart_label", "table", "table_column", "definition", "text")
 FIXED_KINDS = ("heading", "definition", "text", "chart_label", "table_column")
-BASES = ("disclosure_date", "period_end")
+# which date chooses the governing version: the date the disclosure is made, the reference date of the figures, or the
+# first day of the financial year the figures are for ('applies to financial years beginning on or after …', ESRS)
+BASES = ("disclosure_date", "period_end", "financial_year_start")
 
 
 class SpecError(ValueError):
@@ -171,6 +173,16 @@ def frameworks() -> list[str]:
     return sorted(p.name for p in ROOT.iterdir() if p.is_dir()) if ROOT.is_dir() else []
 
 
+def fy_start(period_end: date | str) -> date:
+    """The first day of the twelve-month financial year ending on period_end (a year ending 29 February starts 1 March)."""
+    from datetime import timedelta
+    pe = date.fromisoformat(str(period_end)[:10])
+    try:
+        return date(pe.year - 1, pe.month, pe.day) + timedelta(days=1)
+    except ValueError:                                      # 29 February has no counterpart a year earlier
+        return date(pe.year - 1, 3, 1)
+
+
 def governing(framework: str, *, period_end: date | str, disclosure_date: date | str | None = None,
               elections: dict | None = None, financial_year_start: date | str | None = None) -> dict | None:
     """The adopted spec that governs a filing. Each spec says which date decides (applies.basis): the reference date
@@ -182,13 +194,14 @@ def governing(framework: str, *, period_end: date | str, disclosure_date: date |
     window, the version the option names governs instead."""
     pe = _iso(period_end)
     dd = _iso(disclosure_date) or date.today().isoformat()
+    fys = _iso(financial_year_start) or fy_start(pe).isoformat()   # a 12-month year when not given
     for s in reversed(versions(framework)):
         if s["status"] != "adopted":
             continue
-        on = dd if s["applies"]["basis"] == "disclosure_date" else pe
+        on = {"disclosure_date": dd, "financial_year_start": fys}.get(s["applies"]["basis"], pe)
         if s["applies"]["from"] <= on and (not s["applies"].get("until") or on <= s["applies"]["until"]):
             opt = s.get("transitional_option")
-            fy = _iso(financial_year_start)
+            fy = fys
             if (opt and fy and (elections or {}).get(opt["switch"]) == opt["elected_value"]
                     and opt["financial_year_starts"]["from"] <= fy <= opt["financial_year_starts"]["until"]):
                 return load(framework, opt["then_governed_by"])

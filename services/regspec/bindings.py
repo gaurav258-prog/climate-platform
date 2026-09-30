@@ -44,6 +44,11 @@ def binding_for(framework: str, spec: dict | None = None) -> dict | None:
         from services.governance import s2701
         spec = spec or R.governing(framework, period_end=date.today())
         return s2701.binding(spec) if spec else None
+    if framework == "esrs":                           # one binding per version, from the concept registry
+        import services.regspec as R
+        from services.governance import esrs_binding
+        spec = spec or R.governing(framework, period_end=date.today())
+        return esrs_binding.item_binding(spec) if spec else None
     if framework == "sfdr_pai":
         from services.governance.sfdr_binding import BINDING
         return BINDING

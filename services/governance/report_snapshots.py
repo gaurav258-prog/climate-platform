@@ -213,13 +213,9 @@ def _fx_record(session: Session, org_id: str, translation) -> dict:
 
 
 def _financial_year_start(period_end):
-    """The first day of the twelve-month financial year ending on period_end (a year ending 29 February starts 1 March)."""
-    from datetime import date as _date
-    from datetime import timedelta
-    try:
-        return _date(period_end.year - 1, period_end.month, period_end.day) + timedelta(days=1)
-    except ValueError:                                      # 29 February has no counterpart a year earlier
-        return _date(period_end.year - 1, 3, 1)
+    """The first day of the twelve-month financial year ending on period_end — one rule (services.regspec.fy_start)."""
+    from services.regspec import fy_start
+    return fy_start(period_end)
 
 
 def _spec_record(session: Session, family: str, period_end, elections: dict | None = None,

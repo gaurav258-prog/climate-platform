@@ -1,0 +1,17 @@
+{
+ "_about": "The members a breakdown concept (data/reference/esrs/concepts.json 'breakdown') is reported per. A closed list is printed by the standard; an open list is the undertaking's own (named by it, as the standard allows).",
+ "scope3_category": {
+  "closed": true,
+  "source": "ESRS E1 (as amended by Delegated Regulation (EU) 2026/1563) AR 26 table, the 15 categories of the GHG Protocol Corporate Value Chain (Scope 3) Standard (AR 24(b)); the same categories in ESRS E1 (2023) AR 46.",
+  "members": {"1": "Purchased goods and services", "2": "Capital goods",
+              "3": "Fuel and energy-related activities (not included in scope 1 or scope 2)",
+              "4": "Upstream transportation and distribution", "5": "Waste generated in operations",
+              "6": "Business traveling", "7": "Employee commuting", "8": "Upstream leased assets",
+              "9": "Downstream transportation", "10": "Processing of sold products", "11": "Use of sold products",
+              "12": "End-of-life treatment of sold products", "13": "Downstream leased assets", "14": "Franchises",
+              "15": "Investments"}
+ },
+ "energy_efficiency_class": {"closed": false, "source": "ESRS E1 (2023) §67(c) / (2026) §40(c): the carrying amount of real estate assets by energy-efficiency class, as the ranges of energy consumption in kWh/m2 or the EPC label class — the undertaking's own classes."},
+ "removal_activity": {"closed": false, "source": "ESRS E1 (2023) §58(a): GHG removals and storage by removal activity — named by the undertaking."},
+ "project": {"closed": false, "source": "ESRS E1 (2026) §33(b): GHG removals and storage per project — named by the undertaking."}
+}
