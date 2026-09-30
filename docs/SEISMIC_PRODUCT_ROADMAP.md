@@ -1,4 +1,12 @@
 # Seismic Product — Complete Implementation Roadmap
+
+> **Status 2026-09-30 — this is the original Phase-0 plan, kept as a record; it is not the current design.** The ML
+> streams below (seismic risk model, ETAS aftershock forecasting, precursor signals), the EUREF EPN adapter and the
+> `api/routes/seismic.py` module were never built. What the platform carries today is the seismic channel of
+> `core/hazard_taxonomy.py` (EXTRA_CHANNELS, outside the EU Taxonomy list): a Bakun-Wentworth intensity-prediction
+> score on the USGS/EMSC catalogue (`ml/scoring/seismic_physics.py`, model `seismic-gmpe-ipe-v1`), scored on demand for
+> any address (`api/routers/lookup.py`), tiered **Screening** — its near-field check (rank correlation 0.81, AUC 0.96) is
+> against the same catalogue it is built from, so an independent out-of-sample test is still pending.
 *Full product, CSEP-validated, ground truth from day 1, highest quality/completeness.*
 
 ## Dependency Graph & Critical Path

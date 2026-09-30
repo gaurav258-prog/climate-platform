@@ -16,12 +16,12 @@ _Last reviewed: 2026-09-25._
 |---|------|------|---------------|----------|------------------------------|
 | 9 | EBA Template 3 "Chemicals" NACE code list | Bank Pillar 3 Template 3 | full official crosswalk built for the other 7 sectors (extracted + OCR'd from the real Annex XL table) + a disclosed fallback for Chemicals | **EBA itself has not published it** — confirmed via their own Q&A (not a research gap) | EBA publishes the NACE list (next DPM release) → replace the division-20 fallback in `transition_alignment.py` |
 | 10 | NACE Rev. 2.1 transition (Template 3 only — Templates 1/5 already handled) | Bank Pillar 3, all templates using NACE | Templates 1/5 read NACE at section level (stable across the revision per JBRC's own advice); Template 3's crosswalk is fine-grained class/group level | EBA/JBRC guidance for Template 3 specifically not yet published as of the June-2025 JBRC advice | EBA/JBRC publish a Rev-2.1 equivalent of the Annex XL crosswalk → rebuild `_ANNEX_XL_NACE_CROSSWALK` against it |
-| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | tagging + iXBRL/ESEF engine + validator + drop-in binding seam | running `PROVISIONAL` by design (no adopted map to fall back to — Aug-2024 is being superseded by the revised-ESRS taxonomy, draft, SRB 29-Jul-2026; mandatory tagging itself is directive-suspended until ESEF RTS updates) | the finalized revised-ESRS element-name list, verified against the real XSD taxonomy package → drop `config/efrag_esrs_binding.json` |
+| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | the ESRS statement per undertaking and year, each figure keyed by concept (`data/reference/esrs/concepts.json`); **JSON export only — no ESRS XBRL** (the provisional engine was removed, E60/E66) | the finalised taxonomy for the ESRS as amended (Aug-2024 set being superseded, draft at SRB 29-Jul-2026); mandatory tagging suspended until the ESEF RTS is updated | the finalised element list, verified against the XSD package → we build the binding concept → element and the iXBRL export on it |
 | 2 | EBA Pillar 3 ESG element map | Bank Pillar 3 XBRL | well-formed XBRL + drop-in binding seam, verified ITS refs | EBA taxonomy publication (P3DH) | the DPM element IDs → drop `config/eba_p3esg_binding.json` |
 | 3 | EUDR operator registration + TRACES creds | Agri / EUDR submit | `prepared` mode + live config-flip | customer registration | sandbox creds + published DDS schema → we align + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
-| 6 | WDPA global protected-area layer | Agri / ESRS E4-5 | dataset-agnostic overlap engine + ingest script + E4 filing wiring | commercial data licence (IBAT) | an IBAT-licensed WDPA export → we load it, non-EU assets light up (no code change) |
+| 6 | WDPA global protected-area layer | ESRS E4 (support for the undertaking's site count) | the ESRS statement lists own sites inside a listed layer (`esrs_statement._sensitive`, `data/reference/esrs/biodiversity_sensitive.json`) + ingest script | commercial data licence (IBAT) | an IBAT-licensed WDPA export → we load it and list it with the ESRS kind it is (quoted); non-EU sites are then assessed (no code change) |
 | 7 | **GEM Global Exposure Model commercial licence** | Exposure / hazard→loss | not used: GHSL (CC BY 4.0) is the exposure source; GEM was never downloaded (`data/exposure_val/MANIFEST.md`) | CC BY-NC-SA 4.0 forbids commercial use + share-alike; **must be resolved before go-live / first customer** if GEM is ever used | licence request to licensing@globalquakemodel.org (commercial + 1 km disaggregation) → until granted, GEM stays out of every customer-facing output |
 | 8 | OpenFEMA NFIP attribution + counsel confirmation | Validation evidence (`loss_us_nfip_flood`) | terms read 2026-09-20: commercial use allowed; disclaimer + citation required (in validator docstring) | counsel to confirm reading before quoting NFIP numbers to customers | add "not endorsed by FEMA" disclaimer + dataset/version/date citation wherever the NFIP result is shown |
 | 11 | **Malware scanner (ClamAV daemon)** for customer data intake | All sectors — data intake | scanner client (`services/intake/malware.py`, clamd INSTREAM, tested against a protocol-faithful fake), policy: required everywhere except development; without a scanner a batch is **held**, not processed | a running `clamd` with signature updates (`freshclam`) in each deployment | set `CLAMD_HOST`/`CLAMD_PORT` (or `CLAMD_SOCKET`) → held batches can be released with `POST /v1/intake/batches/{id}/rescan` |
@@ -34,9 +34,11 @@ _Last reviewed: 2026-09-25._
 ---
 
 ## 1 · EFRAG ESRS Set 1 taxonomy element map  *(external artifact — mid-replacement, not simply "not yet published")*
-- **Hook:** `config/efrag_esrs_binding.json` (override env `EFRAG_ESRS_BINDING`), consumed by
-  `services/intelligence/esrs_taxonomy.py`. No file present → profile honestly reports
-  `pending_adopted_taxonomy`, `bound=false` per concept; the `provisional` (`tesrs:`) profile works meanwhile.
+- **Hook (2026-09-30):** none yet, by design. The provisional `tesrs:` profile, `services/intelligence/esrs_taxonomy.py`,
+  `esrs_xbrl.py` and `config/efrag_esrs_binding.json` were **removed** (E60), and the CSRD package's XBRL with invented
+  element names retired (E66): an XBRL file under names EFRAG never published is not a filing. The ESRS statement
+  exports JSON; every figure is a concept of `data/reference/esrs/concepts.json`, bound per version to the items the
+  regulation prints — the binding to EFRAG elements will be one more mapping on those concepts.
 - **Re-checked 2026-09-22 — status is more nuanced than "EFRAG hasn't published it":**
   - EFRAG DID publish a final **ESRS Set 1 XBRL taxonomy in August 2024** ([press release](https://www.efrag.org/en/news-and-calendar/news/efrag-publishes-the-esrs-set-1-xbrl-taxonomy),
     approved by SR TEG/SRB 16–17 July 2024). A real, usable element-ID map exists.
@@ -70,8 +72,9 @@ _Last reviewed: 2026-09-25._
   ID, verified against the real XSD/linkbase taxonomy package, not the PDF) — for whichever of our concepts
   turn out to have genuine standard-datapoint equivalents; the rest correctly stay under `tesrs:` regardless.
 - **Owner:** EFRAG publishes it; obtaining + dropping it in is us.
-- **When it lands:** write the JSON, flip `efrag_set1` to bound, re-run `/esrs-pack.validate` (+ Arelle if
-  installed). No code change. **Do not invent element IDs.**
+- **When it lands:** build the concept → element binding from the taxonomy package (each element verified in the XSD),
+  per ESRS version, and the iXBRL/ESEF export on it, tested with Arelle. The history above (16 CONCEPTS, `tesrs:`) is
+  kept as the record of why the provisional profile was never a filing format. **Do not invent element IDs.**
 
 ## 2 · EBA Pillar 3 ESG element map  *(external artifact — EBA taxonomy pending)*
 - **Hook:** `config/eba_p3esg_binding.json` (override env `EBA_P3ESG_BINDING`), consumed by
@@ -124,7 +127,7 @@ _Last reviewed: 2026-09-25._
   Protected Planet API (`scripts/ingest_wdpa_api.py`, `--token $PP_TOKEN`) is **non-commercial licence only**;
   a paying customer's filing needs a **commercial WDPA export via IBAT**, loaded through the file path
   (`scripts/ingest_natura2000.py`-style loader, tagged `--dataset wdpa`).
-- **Owner:** licence is external (IBAT); obtaining + loading it is us — one ingest run, no code change.
+- **Owner:** licence is external (IBAT); obtaining + loading it is us — one ingest run and one reference-data row, no code change.
 - **When it lands:** run the loader and add `wdpa` to `biodiversity_sensitive.json` with the ESRS kind it is (quoted);
   non-EU sites then report whether they lie inside a listed area. **Do not load the non-commercial API export into a
   paying customer's tenant.**

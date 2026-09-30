@@ -13,6 +13,15 @@ and the EU-Taxonomy GAR (8 templates) — are rendered as **flat summaries**, no
 insurer reuses the bank builder). The in-app form remains a **preparation aid**; the binding filing is still
 made on the regulator's own system (supervisory reporting / ESEF iXBRL / TRACES).
 
+> **Status 2026-09-30 — read this first.** This document is the September 2026 gap assessment, kept as the record of
+> what was found. Most of its gaps were then closed by the **route runs**: each report type rebuilt from a
+> specification of its governing text, captured item by item, second-passed and signed. The source of truth for which
+> report types are on that route, and under which specification families, is `data/reference/regspec_usage.json`; the
+> specifications themselves are `data/reference/regspec/<family>/<version>.json`; each run's errors and guards are
+> the E-rows of `docs/ENGINEERING_PROCESS.md`. A report type absent from `regspec_usage.json` (today: `reit_tcfd`,
+> `insurer_climate`, `assetmgmt_tcfd`, and EUDR) is still as this assessment describes it. Section 5 (ESRS) is
+> rewritten below to the statement as built; the other sections describe their pre-route state.
+
 Data we hold (per catalog + forms): counterparty **NACE code**, **outstanding balance** (≈ gross carrying
 amount), **maturity**, per-hazard **chronic/acute exposure**, asset **geolocation**, **Taxonomy eligibility**,
 **PCAF Scope 1/2/3**. Customer-only: IFRS-9 credit quality (Stage 2 / NPE / impairment), **Taxonomy alignment**
@@ -114,25 +123,30 @@ snapshot carries (`indicator.env.*` / `indicator.social.*`), with the "select �
 fabricated menu. Verified: 18 mandatory rows in 4 sections, 6 columns, sovereign/RE wording exact.
 _Source: [C(2022) 1931 final Annex 1 PDF](https://ec.europa.eu/finance/docs/level-2-measures/C_2022_1931_1_EN_annexe_acte_autonome_part1_v6.pdf); [CELEX:32022R1288](https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX%3A32022R1288)._
 
-## 5. Agri / manufacturer — ESRS E1 / E3 / E4 · `csrd_e1` / `esrs_pack`  ✅ datapoint-faithful
-**Governing text.** ESRS Del. Reg. **(EU) 2023/2772**, Annex I. **E1** has **9 DRs** — E1-1 transition plan · E1-2
-policies · E1-3 actions · E1-4 targets · E1-5 energy · E1-6 **Gross Scope 1/2/3 + total GHG** (GHG intensity is a
-sub-metric of E1-6) · E1-7 removals & carbon credits · **E1-8 internal carbon pricing** · **E1-9 anticipated
-financial effects (physical & transition)**. **E3** E3-1…E3-5 (**E3-4 = water consumption m³ + water intensity
-m³/€m revenue**; E3-5 financial effects). **E4** E4-1…E4-6 (**E4-5 impact metrics — land-use change, protected-
-area interface**; E4-6 financial effects). Filed as **ESEF iXBRL** tagged to the EFRAG ESRS taxonomy — a datapoint
-set + tags, **no fixed numeric grid**.
-**We render / compute.** E1-9 physical financial effects (asset value-at-risk, business interruption, COGS-at-risk,
-withheld) with the r²≥0.40 gate; E3-5 water-stress exposure €; E4-5 deforestation-free %, forest-loss ha,
-protected-area overlap. GHG (E1-5/6/7/8) = customer carbon tool; narratives = customer.
-**Gap & build.** Substance is faithful. **(a) E3-4 honesty label — BUILT:** `e3_water` is relabelled **"ESRS E3-4
-— water-stress exposure · PROXY"** with a note that E3-4 mandates *metered* m³ + intensity (m³/€m revenue) and this
-hazard-based indicator is **not** the meter reading; the metered figure is the separate `e3_measured_water`
-customer datapoint ("metered water consumption (m³) + intensity"), and `water_topic` carries an `e3_4_note` +
-`metric_kind` that the EsrsPack card renders as a warning banner. Neither is presented as satisfying the other.
-**(b) Remaining external blocker** to a **validated ESEF** filing is the adopted **EFRAG ESRS Set 1 XBRL element
-map** — a drop-in `config/efrag_esrs_binding.json` the code already accepts.
-_Source: EFRAG delegated-act annexes [E1](https://www.efrag.org/sites/default/files/media/document/2024-08/ESRS%20E1%20Delegated-act-2023-5303-annex-1_en.pdf) / [E3](https://www.efrag.org/sites/default/files/media/document/2024-08/ESRS%20E3%20Delegated-act-2023-5303-annex-1_en.pdf) / E4; [CELEX:32023R2772](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772)._
+## 5. ESRS sustainability statement — E1 / E3 / E4 · `esrs_pack`  ✅ on the route (run 7, signed 2026-09-30)
+**Governing texts.** Delegated Regulation (EU) 2023/2772 (financial years starting in 2024); as amended by (EU)
+2025/1416 (2025–2026); as amended by (EU) 2026/1563 (from 2027, or 2026 by the undertaking's election). Each version is
+captured item by item in `data/reference/regspec/esrs/`; which undertakings must report is Art. 5(2) of Directive (EU)
+2022/2464 as amended by Directives (EU) 2025/794 and 2026/470 (`data/reference/csrd/scope.json`, every point quoted).
+**What is filed.** One statement per undertaking and financial year, scoped by its stated CSRD role (individual,
+consolidated, exempt subsidiary, voluntary — four eyes). Every item of E1, E3 and E4 in the regulation's order: each
+figure through its concept (`data/reference/esrs/concepts.json`), each narrative or choice answered, each omission
+with its reason (not material, the printed condition does not apply, a named phase-in checked on the undertaking's
+facts). The previous period's figures beside each (ESRS 1 §83).
+**We compute.** E1 assets and net revenue at material physical risk — carrying amounts at the period end of the
+undertaking's own sites, EU Taxonomy climate hazards only, SSP5-8.5 over the ESRS 1 §77/§79 horizons, at the level of
+materiality the undertaking states (no default); acute / chronic; the share addressed by adaptation; the ratios the
+standards define from the attested figures. In support of the undertaking's own figures: its sites in areas of (high)
+water stress as the governing version defines them (WRI Aqueduct 4.0), and its sites inside a listed
+biodiversity-sensitive area (never "near": the text gives no measure).
+**The undertaking states** (attested by a second person, in its own currency): GHG by scope, energy, water volumes,
+targets, carbon credits, transition-risk amounts, the E4 site counts, the financial-statement totals, and the facts the
+scope test, the phase-ins and the publication deadline read.
+**Checks** (`services/governance/esrs_checks.py`): version, undertaking and role, Art. 5(2) scope, materiality, every
+item filled or omitted with a reason, phase-ins held, stated relations, period closed.
+**Format.** JSON export only. ESRS XBRL waits for EFRAG's taxonomy for the ESRS as amended (see
+`docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` item 1); an XBRL file under element names EFRAG never published is not built.
+The E1-only report (`csrd_e1`) is retired: its filings stay readable.
 
 ## 6. Insurer — climate / NatCat · `insurer_climate`  ✅ own IFRS-S2 annex (builder mismatch FIXED)
 **Governing text.** **No fixed EU quantitative NatCat disclosure template.** Layer 1 = **IFRS S2** (Governance /
@@ -204,8 +218,8 @@ _Source: [CELEX:32023R1115](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=
   `ifrs9_stage`, `epc_label`, `emission_intensity`) land on `ext_banking`, flow through `build_disclosure_snapshot`
   into the assets, and are consumed by the grids/annex (template5_grid, filing_annex EPC section, transition_alignment
   IEA Template 3). Live: 132 loans carry maturity/EPC/IFRS-9. Populates automatically as more data is provided.
-- **④ XBRL/iXBRL** — `ml/regulatory/xbrl.py` → valid XBRL 2.1 instance for ESRS E1-9 (EFRAG Set 1 taxonomy, Del. Reg.
-  2023/2772), served at `/v1/packages/{id}/xbrl`; `sfdr_xbrl.py` tags the SFDR PAI, served via funds.
+- **④ XBRL/iXBRL** — SFDR PAI tagged by `sfdr_xbrl.py`, served via funds. The ESRS E1-9 XBRL of the CSRD package was
+  retired on 2026-09-30 (E66): its element names were not EFRAG's. ESRS exports JSON until EFRAG's taxonomy is bound.
 
 **Genuinely remaining = EXTERNAL / verification only:** EFRAG official element-map validation to certify the ESRS
 XBRL element IDs cell-perfect; TRACES DDS schema alignment (sandbox credentials); IFRS-S2 / SASB / finest GAR

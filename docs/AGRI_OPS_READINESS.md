@@ -30,11 +30,11 @@ still manual or provisional, the product says so on the page, and so does this d
 
 | | |
 |---|---|
-| **Status** | iXBRL/ESEF shape + binding mechanism + validator **READY (v1.46)**; the adopted-taxonomy element map is the only remaining **GAP (external artifact)** |
-| **Built** | `build_xbrl_instance()` (standalone XBRL) **and** `build_ixbrl()` (**Inline XBRL / ESEF** — one human-readable + machine-parsable XHTML with `ix:nonFraction` tags, instant & duration contexts). A **TaxonomyProfile** (`services/intelligence/esrs_taxonomy.py`) separates the tagging mechanism from the binding: `provisional` (our `tesrs:` namespace, fully working, honestly labelled NOT a validated ESEF filing) vs `efrag_set1` (the real target). `validate_document()` runs structural + completeness checks (well-formed, contexts/units/decimals present & resolvable, concepts in catalogue) and auto-runs **Arelle** if it is ever installed. Endpoints `/esrs-pack.ixbrl`, `/esrs-pack.validate`, `/taxonomy-binding`; a **Filing readiness** card on the ESRS page. |
-| **Gap** | The `efrag_set1` profile lights up the moment `config/efrag_esrs_binding.json` (concept → official element-name map) is dropped in — **one JSON file, no code change**. Until then it honestly reports `pending_adopted_taxonomy` and `bound=false` per concept. Full ESEF conformance still runs in the filing tool / Arelle with the official taxonomy. |
-| **Owner action** | **(us)** Obtain the adopted EFRAG ESRS Set 1 element names when final and drop the mapping file in; re-run `validate` (and Arelle) to confirm. The reporting basis (scenario, horizon, materiality, period) is already a configurable per-org setting so the shifting Omnibus rules don't need code edits. |
-| **Note** | The tagging engine, iXBRL shaping and validator are all real now; the only thing gated on an external artifact is the official element map, and swapping it in is **data, not code**. |
+| **Status** | **GAP (external artifact) — no ESRS XBRL is produced.** The ESRS statement exports JSON (2026-09-30). |
+| **Built** | The statement itself, per undertaking and financial year, every figure keyed by a concept (`data/reference/esrs/concepts.json`) bound to the items each ESRS version prints — the layer an element binding will map from. |
+| **Removed** | The provisional `tesrs:` tagging engine, its iXBRL/ESEF shaping and validator (`esrs_taxonomy.py`, `esrs_xbrl.py`, the `/esrs-pack.ixbrl` endpoints) were removed in E60, and the CSRD package's E1-9 XBRL in E66: they tagged the platform's own metrics under element names EFRAG never published — not a filing format. |
+| **Gap** | EFRAG's taxonomy for the ESRS as amended (the Aug-2024 Set 1 taxonomy is being superseded; mandatory tagging is suspended until the ESEF RTS is updated — `docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` item 1). |
+| **Owner action** | **(us)** When final: build the concept → element binding from the taxonomy package (each element verified in the XSD) and the iXBRL/ESEF export on it, tested with Arelle. |
 
 ## 3. Geocoder productionization
 
@@ -74,8 +74,8 @@ still manual or provisional, the product says so on the page, and so does this d
 |---|---|---|
 | EUDR Tier-1 DDS (manual reference-number entry) | READY | — |
 | EUDR Tier-2 client (prepared mode; live via config) | READY | live needs customer registration + field alignment |
-| iXBRL/ESEF output + binding mechanism + validator | READY | — |
-| Bind to adopted EFRAG taxonomy (drop-in element map) | GAP | external artifact (drop config JSON when EFRAG finalizes) |
+| ESRS statement per undertaking (JSON export) | READY | — |
+| ESRS XBRL / iXBRL (binding + export) | GAP | EFRAG's taxonomy for the ESRS as amended; then we build it |
 | Geocoder cache + confidence/QA + provider seam | READY | — |
 | Geocoder pointed at a paid/self-host provider (SLA) | GAP | config (API key + URL) |
 | Assurance primitives (validation, audit, 4-eyes, provenance, snapshots) | READY | — |
@@ -84,9 +84,9 @@ still manual or provisional, the product says so on the page, and so does this d
 | Golden-source scheduled pulls + cadence sign-off | GAP | scheduled jobs + customer sign-off |
 
 **Reading this to a design partner (updated through v1.49):** everything that produces a *number* is
-production-grade, the **filing last-mile is built** (iXBRL/ESEF + drop-in EFRAG binding, assurance pack,
+production-grade, the **filing last-mile is built** except ESRS XBRL (the statement exports JSON until EFRAG's taxonomy is final; assurance pack,
 TRACES Tier-2 client), and the **two ops disciplines are now built too** — the geocoder has a cache +
 confidence QA + a provider seam, and the golden source has a freshness registry + change log. What remains
-is genuinely *external / config*: the customer's EUDR operator registration, the adopted EFRAG element map
-(one JSON), the official TRACES field confirmation, a production geocoder key/URL, and the scheduled data
-pulls + cadence sign-off. **None is a code rebuild** — the regulated side is functionally complete.
+is *external / config*: the customer's EUDR operator registration, the official TRACES field confirmation, a
+production geocoder key/URL, and the scheduled data pulls + cadence sign-off — plus one build that waits on an external
+artifact: the ESRS XBRL binding and export, once EFRAG's taxonomy for the ESRS as amended is final (2026-09-30).

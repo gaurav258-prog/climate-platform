@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.160 |
+| Version | 2.161 |
 | Last updated | 2026-09-30 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -135,7 +135,7 @@ two further outbound open-data integrations: GLEIF (LEI/ISIN resolution) and Nom
 (headquarters geocoding).
 
 **Export & Connect** is the customer-facing egress surface (all three tiers built): **Tier 1** —
-universal CSV export of any grid the UI shows (`services/export.ts` + `/v1/export` CSV endpoints);
+universal CSV export of any grid the UI shows (`web/src/lib/export.ts` + `/v1/export` CSV endpoints);
 **Tier 2** — a documented, versioned **read API** authenticated with the same tenant token as
 ingest (`api/routers/export_api.py`, `/v1/export/{ping,metadata,book,kri}`) so a customer's own
 BI/warehouse can pull its authoritative figures on a schedule; **Tier 3** — **webhook push** over
@@ -171,6 +171,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-09-30 | 2.161 | **The documents describe the code as it is (E68).** The go-live dependencies, agri ops-readiness and official-form mapping no longer present the removed ESRS XBRL engine as built: ESRS exports JSON until EFRAG's taxonomy for the amended standards is final, and the form mapping points to the route (data/reference/regspec_usage.json) for what is rebuilt to the text; the seismic roadmap is marked as the original plan. A test now fails whenever a living document names code that does not exist. |
 | 2026-09-30 | 2.160 | **Everything that reads the ESRS statement now reads the statement itself (E64-E67).** KRI dashboard → ESRS: the headline figures of one undertaking's statement for the year (assets and net revenue at material physical risk, GHG, water, sites in or near sensitive areas, the financial-statement totals), only those the governing version prints, each tagged with the ESRS item that prints it and marked computed or stated by the undertaking; a picker when several undertakings prepare a statement. The supplier-COGS, sourcing-plot and 'near protected area' indicators are gone from ESRS (not ESRS figures). The national authority's questions are answered by the same figures. Prior filings: a filed ESRS statement is read onto the concepts its year's version prints (exact label only; each concept once); the E1-only upload takes no new file. Who must report and by when: judged per undertaking and year from Art. 5(2) (its role and stated facts), and the deadline from whether it is an issuer — 4 months (Transparency Directive Art. 4(1)) or at most 12 months (Accounting Directive Art. 30(1)); state it under the undertaking's figures. The filing calendar holds one ESRS obligation per undertaking in scope. The CSRD package and its non-EFRAG XBRL are retired. New: kri_esrs, fact csrd.transparency_issuer, migration esrs_kri_bands_20260930. |
 | 2026-09-30 | 2.159 | **The ESRS statement, validated and filed end to end — layers 4 and 5 of the ESRS foundation (E60-E63).** Reports → 'ESRS statement' (replaces the Climate (CSRD) and Nature (ESRS) pages): choose the undertaking or group; state its CSRD role (four eyes) and see whether Art. 5(2) of Directive (EU) 2022/2464 as amended requires the statement on its stated facts; state its own figures (currency, breakdown member, attested by a second person); state which topics are material; then E1, E3 and E4 item by item — each figure computed, stated or derived, with the previous period beside it, each other item answered or omitted with its reason (not material, its condition does not apply, a named phase-in, checked against the undertaking's facts). The checks the filing runs are shown live; the period is closed and the filing prepared from the same page, then reviewed, attested and submitted in the filing register. JSON export only until EFRAG's ESRS XBRL taxonomy is bound; the E1-only report is retired. A hazard scored today but not projected for a horizon now makes that horizon unknown, not zero. New: /v1/esrs, esrs_document / esrs_checks / csrd_scope, migration esrs_answer_ids_20260930. |
 | 2026-09-30 | 2.158 | **ESRS calculation checked line by line against the texts (E59).** Nothing is assumed: the undertaking states its own materiality level for physical risk (no platform default); a time horizon with no projection inside the ESRS interval is shown as a gap; the E4 count of sites it negatively affects is the undertaking's figure, supported by the list of its sites inside Natura 2000 (the other listed kinds named as not yet covered); joint ventures are value chain and joint operations count at their recognised share (entities state which); intensities are in the unit each table names. Water stress is classified per site from WRI Aqueduct 4.0 exactly as ESRS defines it (2023: 40 % of water withdrawn and above; 2026: the Aqueduct indicators, with the two it cannot cover named). A metric the 2026 standards redefine is never shown as the previous year's comparative. |
