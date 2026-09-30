@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 import services.governance.tasks as T
 from core.db.session import get_session
+from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
@@ -25,7 +26,7 @@ def _actor(s):
 
 def _real_draft_filing(s, u):
     """A genuine, frozen, passing filing — same recipe as test_filing_lifecycle.py."""
-    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", u)
+    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", u, period_end=reporting_period_end(s, BANK_ORG))
     fid = s.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
         VALUES (:o, 'bank_tcfd', :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'draft', :snap, :u) RETURNING filing_id

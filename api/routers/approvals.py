@@ -248,6 +248,9 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         from services.intake.conflicts import apply_decision as apply_conflict
         applied = apply_conflict(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
     # Year-end close of an undertaking's period, or a closed period's value restated with its reason (four eyes above)
+    elif row["request_type"] == "csrd.role":
+        from services.governance.csrd_roles import apply_decision as apply_role
+        applied = apply_role(session, org_id, request_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
     elif row["request_type"] in ("period.close", "period.restate"):
         from services.governance.period_close import PeriodError
         from services.governance.period_close import apply_decision as apply_period

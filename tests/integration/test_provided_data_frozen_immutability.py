@@ -42,7 +42,7 @@ def test_snapshot_bakes_in_the_attested_value_at_freeze_time():
     with get_session() as s:
         maker, checker = _u(s, "admin@meridian.demo"), _u(s, "approver@meridian.demo")
         _attest_taxonomy_value(s, 18.5, maker, checker)
-        snap = create_snapshot(s, BANK_ORG, "bank_tcfd", maker)
+        snap = create_snapshot(s, BANK_ORG, "bank_tcfd", maker, period_end=_period(s, BANK_ORG))
         payload = s.execute(text("SELECT payload FROM report_snapshots WHERE snapshot_id=CAST(:i AS uuid)"),
                             {"i": snap["snapshot_id"]}).scalar()
         provided = payload.get("_provided_attested") or []
@@ -59,7 +59,7 @@ def test_form_view_shows_the_frozen_value_not_a_later_attestation():
         maker, checker = _u(s, "admin@meridian.demo"), _u(s, "approver@meridian.demo")
         _attest_taxonomy_value(s, 18.5, maker, checker)
 
-        snap = create_snapshot(s, BANK_ORG, "bank_tcfd", maker)
+        snap = create_snapshot(s, BANK_ORG, "bank_tcfd", maker, period_end=_period(s, BANK_ORG))
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
             VALUES (:o, 'bank_tcfd', :pe, 'FY' || EXTRACT(YEAR FROM CAST(:pe AS date))::int, 'accepted', :snap, :u) RETURNING filing_id::text

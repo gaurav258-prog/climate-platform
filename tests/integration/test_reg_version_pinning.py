@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import text
 
 from services.governance import reg_versions as V
+from services.governance.filings import reporting_period_end
 from services.regulatory_monitoring import eurlex_detector as D
 from tests.integration.test_intake_pipeline import BANK_ORG
 
@@ -102,7 +103,7 @@ def test_a_freeze_stamps_the_version_and_warns_when_it_is_not_current(s):
     from services.governance.report_snapshots import create_snapshot
     _snap(s, "32022R2453", eov="2026-12-30")
     _rel(s, "32022R2453", "32024R3172", "implicitly_repeals", ["2025-01-01"])
-    snap = create_snapshot(s, BANK_ORG, "bank_p3esg", None)
+    snap = create_snapshot(s, BANK_ORG, "bank_p3esg", None, period_end=reporting_period_end(s, BANK_ORG))
     reg = s.execute(text("SELECT payload->'_regulation' FROM report_snapshots WHERE snapshot_id = CAST(:i AS uuid)"),
                     {"i": snap["snapshot_id"]}).scalar()
     assert reg["framework"] == "bank_p3esg" and snap["reporting_basis"]["regulation_status"] == reg["status"]

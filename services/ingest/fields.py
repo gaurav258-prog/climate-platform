@@ -178,6 +178,10 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("carrying_amount_eur", "Carrying amount", "money", "The site's carrying amount in the balance sheet at the period "
        "end (property, plant and equipment and other assets at the site) — converted at the closing rate of that day.",
        "11800000", aliases=("carrying_amount", "carrying_value", "book_value", "net_book_value", "nbv")),
+    _f("carrying_amount_adapted_eur", "Carrying amount addressed by adaptation", "money", "The part of the site's "
+       "carrying amount at the period end that adaptation actions address (ESRS E1: the share of assets at material "
+       "physical risk addressed by adaptation actions) — at most the carrying amount.", "4000000",
+       aliases=("adapted_amount", "carrying_amount_adapted", "addressed_by_adaptation")),
     _f("net_revenue_eur", "Net revenue", "money", "Net revenue from the business activities at the site over the year "
        "ending at the period end.", "36000000", aliases=("net_revenue", "revenue", "turnover", "sales"), flow=True),
     _f("annual_value_eur", "Site value", "money", "The site's asset value (the year-end carrying amount finance reports is "

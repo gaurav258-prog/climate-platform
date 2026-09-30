@@ -556,7 +556,8 @@ SITES = Sector("company_sites", "name", "annual_value_eur",
 
 # ── a site's year-end values → site_period_values (append-only; one record = one site and period) ──
 
-_MEASURES = {"carrying_amount_eur": "carrying_amount", "net_revenue_eur": "net_revenue"}
+_MEASURES = {"carrying_amount_eur": "carrying_amount", "carrying_amount_adapted_eur": "carrying_amount_adapted",
+             "net_revenue_eur": "net_revenue"}
 _YE_NS = uuid.UUID("5e7a1b0c-9d3f-4b8e-a6c1-2f0d4e8b9a71")          # names one site-and-period record as a stable uuid
 
 
@@ -601,6 +602,9 @@ def _ye_build(ctx: dict, row: dict) -> dict:
         raise RowIssue("give the carrying amount, the net revenue, or both")
     if any(v is not None and v < 0 for v in amounts.values()):
         raise RowIssue("amounts cannot be negative")
+    ca, ad = amounts["carrying_amount_eur"], amounts["carrying_amount_adapted_eur"]
+    if ad is not None and ca is not None and ad > ca:
+        raise RowIssue("the carrying amount addressed by adaptation cannot exceed the carrying amount")
     key = _ye_id(site["site_id"], pe.isoformat())
     return {"external_ref": key, "site_name": ref, "site_id": site["site_id"], "period_end": pe.isoformat(),
             "reporting_entity_id": site["entity_id"], "latitude": None, "longitude": None, **amounts}
@@ -610,6 +614,7 @@ def _ye_existing(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT site_id::text AS site_id, period_end, reporting_entity_id::text AS reporting_entity_id,
                MAX(amount_eur) FILTER (WHERE measure = 'carrying_amount') AS carrying_amount_eur,
+               MAX(amount_eur) FILTER (WHERE measure = 'carrying_amount_adapted') AS carrying_amount_adapted_eur,
                MAX(amount_eur) FILTER (WHERE measure = 'net_revenue') AS net_revenue_eur
         FROM v_site_period_values_live WHERE org_id = CAST(:o AS uuid)
         GROUP BY site_id, period_end, reporting_entity_id
@@ -648,7 +653,7 @@ def _ye_write(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> Non
         """), rows)
 
 
-YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", ("carrying_amount_eur", "net_revenue_eur"),
+YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", tuple(_MEASURES),
                   _ye_prepare, _ye_build, _ye_existing, _ye_write, _ye_write,
                   table="site_period_values", id_column="value_id", history=True)
 

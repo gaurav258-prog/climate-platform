@@ -14,7 +14,6 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -67,36 +66,37 @@ def _engine_versions(session: Session, org_id: str | None = None) -> dict:
 
 # report_type -> (human label, builder, applicable org-type sectors). The builder takes
 # (session, org_id, scenario, horizon, material); FIN builders ignore the extra basis args.
-# builder args are (session, org_id, scenario, horizon, material, entity_ids, value_weights, translation). entity_ids /
+# builder args are (session, org_id, scenario, horizon, material, entity_ids, value_weights, translation, period_end) —
+# period_end is the filing's reporting period (the figures are for the financial year ending on it). entity_ids /
 # value_weights scope + consolidation-weight the book — supported by the located FIN books (bank/reit/insurer);
 # the others (CSRD/ESRS entity-level, SFDR fund-aggregated) ignore them and report whole-org.
 _BUILDERS = {
     "csrd_e1": ("CSRD · ESRS E1 physical-risk report",
-                lambda s, o, sc, hz, m, ei, vw, tr: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
+                lambda s, o, sc, hz, m, ei, vw, tr, pe: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
     "esrs_pack": ("ESRS Climate & Nature pack (E1 · E3 · E4)",
-                  lambda s, o, sc, hz, m, ei, vw, tr: _esrs_pack(s, o, sc, hz, m), ("manufacturer",)),
+                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _esrs_pack(s, o, sc, hz, m), ("manufacturer",)),
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
     "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
-                  lambda s, o, sc, hz, m, ei, vw, tr: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
+                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
     "bank_p3esg": ("Pillar 3 ESG risk disclosures (EBA)",
-                   lambda s, o, sc, hz, m, ei, vw, tr: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
+                   lambda s, o, sc, hz, m, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
-                 lambda s, o, sc, hz, m, ei, vw, tr: _sfdr_pai(s, o), ("asset_manager",)),
+                 lambda s, o, sc, hz, m, ei, vw, tr, pe: _sfdr_pai(s, o), ("asset_manager",)),
     "assetmgmt_tcfd": ("TCFD · physical-risk & concentration disclosure (holdings book)",
-                       lambda s, o, sc, hz, m, ei, vw, tr: _assetmgmt_tcfd(s, o, sc, hz, ei, vw, tr), ("asset_manager",)),
+                       lambda s, o, sc, hz, m, ei, vw, tr, pe: _assetmgmt_tcfd(s, o, sc, hz, ei, vw, tr), ("asset_manager",)),
     "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
-                  lambda s, o, sc, hz, m, ei, vw, tr: _reit_tcfd(s, o, sc, hz, ei, vw, tr), ("reit",)),
+                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _reit_tcfd(s, o, sc, hz, ei, vw, tr), ("reit",)),
     "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
-                        lambda s, o, sc, hz, m, ei, vw, tr: _insurer_climate(s, o, sc, hz, ei, vw, tr), ("insurer",)),
+                        lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_climate(s, o, sc, hz, ei, vw, tr), ("insurer",)),
     "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
-                      lambda s, o, sc, hz, m, ei, vw, tr: _reit_taxonomy(s, o, sc, hz, ei, vw, tr), ("reit",)),
+                      lambda s, o, sc, hz, m, ei, vw, tr, pe: _reit_taxonomy(s, o, sc, hz, ei, vw, tr), ("reit",)),
     "insurer_orsa_climate": ("ORSA — climate change scenario analysis (Art. 45a)",
-                             lambda s, o, sc, hz, m, ei, vw, tr: _insurer_document(s, o, "insurer_orsa_climate", ei, vw, tr), ("insurer",)),
+                             lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_document(s, o, "insurer_orsa_climate", ei, vw, tr, pe), ("insurer",)),
     "insurer_recovery_stress": ("Pre-emptive recovery plan — nat-cat stress and capital indicators",
-                                lambda s, o, sc, hz, m, ei, vw, tr: _insurer_document(s, o, "insurer_recovery_stress", ei, vw, tr),
+                                lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_document(s, o, "insurer_recovery_stress", ei, vw, tr, pe),
                                 ("insurer",)),
     "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01)",
-                         lambda s, o, sc, hz, m, ei, vw, tr: _insurer_solvency(s, o, sc, hz, ei, vw, tr), ("insurer",)),
+                         lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_solvency(s, o, sc, hz, ei, vw, tr), ("insurer",)),
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
     "sfdr_precontractual": ("SFDR pre-contractual disclosure (RTS 2022/1288 Annex II / III)", None, ("asset_manager",)),
     "sfdr_periodic": ("SFDR periodic disclosure (RTS 2022/1288 Annex IV / V)", None, ("asset_manager",)),
@@ -180,27 +180,19 @@ def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value
             KEY: s2701_natcat(snap, group_scope=value_weights is not None)}
 
 
-def _insurer_document(session, org_id, report_type, entity_ids=None, value_weights=None, translation=None):
+def _insurer_document(session, org_id, report_type, entity_ids=None, value_weights=None, translation=None, period_end=None):
     """An insurer document report (services.governance.insurer_documents): the computed part — every scenario run on the
     same book, the attested capital of the undertaking or group it is for — and the undertaking's answers, frozen; with
     today's book (rollup, policies) for the run record and lineage."""
     from api.routers.insurance import build_disclosure_snapshot
     from services.governance.entities import root_of
     from services.governance.insurer_documents import freeze
-    s = get_settings(session, org_id)
-    pe = _period_end_of(s)
     doc = freeze(session, org_id, report_type, entity_ids=entity_ids, value_weights=value_weights, translation=translation,
-                 period_end=pe)
+                 period_end=period_end)
     today = build_disclosure_snapshot(session, org_id, "baseline", "current", entity_ids=entity_ids, value_weights=value_weights,
                                       translation=translation, reporting_entity_id=root_of(session, org_id, entity_ids))
     return {"document_report": doc, "rollup": today.get("rollup"), "policies": today.get("policies"),
             "by_hazard": today.get("by_hazard")}
-
-
-def _period_end_of(settings: dict):
-    from datetime import date as _date
-    pe = settings.get("reporting_period_end")
-    return _date.fromisoformat(str(pe)[:10]) if pe else _date(_date.today().year - 1, 12, 31)
 
 
 def _fx_record(session: Session, org_id: str, translation) -> dict:
@@ -254,7 +246,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                     note: str | None = None, entity_ids: list | None = None,
                     value_weights: dict | None = None, translation=None, view: str = "joint",
                     figure_sources: dict | None = None, previous_period: dict | None = None,
-                    fund_id: str | None = None, disclosure_date=None) -> dict:
+                    fund_id: str | None = None, disclosure_date=None, *, period_end) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
@@ -265,8 +257,10 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     if report_type not in _BUILDERS:
         raise ValueError(f"unknown report_type '{report_type}'")
     s = get_settings(session, org_id)
+    from datetime import date as _pd
+    period_end = _pd.fromisoformat(str(period_end)[:10])            # the filing's period — never the org's setting
     basis = {"scenario": s["scenario"], "horizon": s["horizon"],
-             "materiality_threshold": s["materiality_threshold"], "reporting_period_end": s["reporting_period_end"]}
+             "materiality_threshold": s["materiality_threshold"], "reporting_period_end": period_end.isoformat()}
     # intake phase 5: the engine reads the chosen view of the book (joint / client / tellumen), and the run's input
     # manifest is read in the same view, so the output checks compare like with like
     from services.governance import engine_runs
@@ -277,13 +271,12 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
             from services.governance import product_filings, sfdr_product
             if fund_id is None:
                 raise ValueError(f"{report_type} is disclosed per financial product — a fund is required")
-            pe = (date.fromisoformat(str(s["reporting_period_end"])[:10]) if s["reporting_period_end"]
-                  else date(date.today().year - 1, 12, 31))     # the same period the filing is recorded for
-            out = sfdr_product.freeze(session, org_id, fund_id, product_filings.PRODUCT_SCOPED[report_type]["document"], pe)
+            out = sfdr_product.freeze(session, org_id, fund_id, product_filings.PRODUCT_SCOPED[report_type]["document"],
+                                      period_end)
             return out, engine_runs.inputs(session, org_id, report_type, None, fund_id=fund_id,
                                            as_of_dates=out["position_dates"])
         out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
-                                        entity_ids, value_weights, translation)
+                                        entity_ids, value_weights, translation, period_end)
         return out, engine_runs.inputs(session, org_id, report_type, entity_ids)
     (payload, observed), view_record = in_view(session, org_id, view, compute)
     payload["_view"] = view_record
@@ -297,13 +290,11 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     # afterward for the same framework — a real break in the immutability guarantee every OTHER section of
     # a frozen filing has (sha256-verified, WORM-enforced). Baking it in here makes it hash-verified and
     # genuinely frozen like the rest of the snapshot.
-    from datetime import date as _d
 
     from services.governance.entities import root_of
     from services.governance.provided_data import attested_values
     payload["_scope"] = {"reporting_entity_id": root_of(session, org_id, entity_ids)}   # whose own figures (None = the organisation)
-    payload["_provided_attested"] = attested_values(session, org_id, report_type,
-                                                    s["reporting_period_end"] or _d(_d.today().year - 1, 12, 31),
+    payload["_provided_attested"] = attested_values(session, org_id, report_type, period_end,
                                                     reporting_entity_id=payload["_scope"]["reporting_entity_id"])
     # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
     from services.governance.figure_views import resolve as resolve_figures
@@ -315,13 +306,12 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     # period — live from the EU register, frozen with the rest (hash-verified)
     from datetime import date as _date
 
-    from services.governance.reg_versions import version_for
-    period_end = s["reporting_period_end"] or _date(_date.today().year - 1, 12, 31)
     # the template specification governing this filing (change route): its version and the file's sha256, and
     # whether that exact file is signed off — frozen, so the form is always rendered to the spec it was prepared under
     # every family that governs this report type (regspec_usage.json), with the organisation's elections applied;
     # _spec keeps the primary family's record for readers of a single specification
     from services.calc_settings import get_calc_settings
+    from services.governance.reg_versions import version_for
     from services.regspec import families_for
     _elections = get_calc_settings(session, org_id)
     payload["_specs"] = {f: _spec_record(session, f, period_end, _elections, disclosure_date) for f in families_for(report_type)}

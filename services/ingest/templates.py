@@ -106,7 +106,7 @@ SITE_YEAR_END_TEMPLATE_FIELDS = _template(
     ("book_date", True, {"label": "Period end", "description": "The last day of the financial year the figures are for "
                          "(YYYY-MM-DD). The carrying amount converts at that day's closing rate, net revenue at the average "
                          "of the year to it.", "example": "2025-12-31"}),
-    ("carrying_amount_eur", False), ("net_revenue_eur", False), ("currency", False),
+    ("carrying_amount_eur", False), ("carrying_amount_adapted_eur", False), ("net_revenue_eur", False), ("currency", False),
 )
 
 # value sets used by the sector rules — the same vocabularies the checks use

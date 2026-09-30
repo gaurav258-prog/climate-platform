@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from services.governance import filings as F
+from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
 
 INSURER_ORG = "22222222-2222-4222-8222-222222222222"    # Iberia Mutual (demo)
@@ -60,7 +61,7 @@ def test_form_view_reit_taxonomy_does_not_crash():
 def test_form_view_assetmgmt_tcfd_does_not_crash():
     with get_session() as s:
         u = _actor(s, "admin@nordkap.demo")
-        snap = create_snapshot(s, AM_ORG, "assetmgmt_tcfd", u)
+        snap = create_snapshot(s, AM_ORG, "assetmgmt_tcfd", u, period_end=reporting_period_end(s, AM_ORG))
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
             VALUES (:o, 'assetmgmt_tcfd', '2097-12-31', 'FY2097', 'draft', :snap, :u)
@@ -77,7 +78,7 @@ def test_form_view_still_merges_overrides_for_datapoint_shaped_frameworks():
     """Regression guard: the fix must not disable override-merging for the frameworks it always worked for."""
     with get_session() as s:
         u = _actor(s, "admin@meridian.demo")
-        snap = create_snapshot(s, "11111111-1111-4111-8111-111111111111", "bank_tcfd", u)
+        snap = create_snapshot(s, "11111111-1111-4111-8111-111111111111", "bank_tcfd", u, period_end=reporting_period_end(s, "11111111-1111-4111-8111-111111111111"))
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
             VALUES (:o, 'bank_tcfd', '2096-12-31', 'FY2096', 'draft', :snap, :u) RETURNING filing_id::text

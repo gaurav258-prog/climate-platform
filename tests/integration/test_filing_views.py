@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import text
 
 from services.governance import figure_views as FV
+from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
 from services.intake import conflicts as C
 from services.intake import observations as O
@@ -76,7 +77,7 @@ def test_a_commit_inside_a_view_is_refused(session_rolled_back):
 def test_a_filing_frozen_in_a_view_says_so_and_reflects_it(session_rolled_back):
     s = session_rolled_back
     aid = _berlin_asset_booked_in(s, "FR")
-    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", None, view="tellumen")
+    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", None, view="tellumen", period_end=reporting_period_end(s, BANK_ORG))
     row = s.execute(text("SELECT payload, reporting_basis, run_id::text FROM report_snapshots WHERE snapshot_id = CAST(:s AS uuid)"),
                     {"s": snap["snapshot_id"]}).mappings().first()
     asset = next(a for a in row["payload"]["assets"] if a["asset_id"] == aid)
@@ -101,7 +102,7 @@ def _attest_financed_emissions(s, value: float):
 def test_the_clients_attested_figure_is_reported_by_default_and_ours_on_request(session_rolled_back):
     s = session_rolled_back
     _attest_financed_emissions(s, 123456.0)
-    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", None)
+    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", None, period_end=reporting_period_end(s, BANK_ORG))
     figs = s.execute(text("SELECT payload->'_figures' FROM report_snapshots WHERE snapshot_id = CAST(:s AS uuid)"),
                      {"s": snap["snapshot_id"]}).scalar()
     f = next(x for x in figs if x["datapoint"] == "financed_emissions")
@@ -111,7 +112,7 @@ def test_the_clients_attested_figure_is_reported_by_default_and_ours_on_request(
     d = groups[0]["datapoints"][0]
     assert d["value"] == 123456.0 and d["source"] == "provided" and d["figure"]["tellumen_value"] == f["tellumen_value"]
     if f["tellumen_value"] is not None:                                # ours exists: it can be the reported figure
-        snap2 = create_snapshot(s, BANK_ORG, "bank_tcfd", None, figure_sources={"financed_emissions": "tellumen"})
+        snap2 = create_snapshot(s, BANK_ORG, "bank_tcfd", None, figure_sources={"financed_emissions": "tellumen"}, period_end=reporting_period_end(s, BANK_ORG))
         figs2 = s.execute(text("SELECT payload->'_figures' FROM report_snapshots WHERE snapshot_id = CAST(:s AS uuid)"),
                           {"s": snap2["snapshot_id"]}).scalar()
         assert next(x for x in figs2 if x["datapoint"] == "financed_emissions")["reported"] == "tellumen"

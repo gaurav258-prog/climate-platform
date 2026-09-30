@@ -350,6 +350,11 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
 # jointly managed undertakings proportionally (c), holdings in other related undertakings by the adjusted equity method
 # (d) — their data are not consolidated, so their risks are not in the group's catastrophe figures. Not a switch.
 SOLVENCY2_METHOD1 = {"full": "full", "proportional": "proportional", "equity": "excluded"}
+# An ESRS consolidated sustainability statement covers the same undertakings as the consolidated financial statements
+# (ESRS 1 §62; ESRS 2 BP-1 §5(b)(i)): subsidiaries in full, a joint operation at its share (ESRS 1 AR 36 — the
+# undertaking's own share of its assets); associates and joint ventures (equity method) are not own operations but
+# value chain (ESRS 1 §67), so they contribute nothing to own-operations figures.
+ESRS_FINANCIAL_STATEMENTS = {"full": "full", "proportional": "proportional", "equity": "excluded"}
 
 
 def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None,
@@ -370,6 +375,10 @@ def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[st
     equity_mode = get_calc_settings(session, org_id).get("equity_consolidation", "economic_share")
     if regime == "solvency2_method1":
         equity_mode = SOLVENCY2_METHOD1["equity"]
+    elif regime == "esrs_financial_statements":
+        equity_mode = ESRS_FINANCIAL_STATEMENTS["equity"]
+    elif regime is not None:
+        raise ValueError(f"unknown consolidation regime '{regime}'")
     rows = session.execute(text("""
         SELECT entity_id::text, parent_entity_id::text, ownership_pct::float, consolidation_method
         FROM reporting_entities WHERE org_id = :o

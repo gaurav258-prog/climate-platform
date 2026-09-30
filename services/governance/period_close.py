@@ -21,7 +21,7 @@ from datetime import date
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-MEASURES = {"carrying_amount": False, "net_revenue": True}      # measure → a yearly flow (average rate)?
+MEASURES = {"carrying_amount": False, "carrying_amount_adapted": False, "net_revenue": True}   # → a yearly flow (average rate)?
 
 
 class PeriodError(ValueError):

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
+from services.governance import csrd_roles as CR
 from services.governance import period_close as PC
 
 router = APIRouter(prefix="/v1/periods", tags=["periods"])
@@ -24,10 +25,34 @@ class CloseBody(BaseModel):
 class RestateSiteValue(BaseModel):
     site_id: str
     period_end: date
-    measure: str = Field(..., pattern="^(carrying_amount|net_revenue)$")
+    measure: str = Field(..., pattern="^(carrying_amount|carrying_amount_adapted|net_revenue)$")
     amount: float = Field(..., ge=0)
     currency: str = Field(..., min_length=3, max_length=3)
     reason: str = Field(..., min_length=10, max_length=2000)
+
+
+class RoleBody(BaseModel):
+    period_end: date
+    entity_id: Optional[str] = None
+    role: str = Field(..., pattern="^(individual|consolidated|exempt_subsidiary|voluntary)$")
+    parent_name: Optional[str] = Field(None, max_length=300)
+    parent_registered_office: Optional[str] = Field(None, max_length=300)
+    parent_report_ref: Optional[str] = Field(None, max_length=500)
+    basis: Optional[str] = Field(None, max_length=2000)
+
+
+@router.get("/role", summary="An undertaking's CSRD reporting role for a financial year")
+def get_role(period_end: date, session: DbSession, entity_id: Optional[str] = None,
+             ctx: dict = Depends(require_permission("reports.view"))):
+    return {"role": CR.live_role(session, ctx["org"]["org_id"], entity_id, period_end)}
+
+
+@router.post("/role", status_code=202, summary="State an undertaking's CSRD reporting role (a second person approves)")
+def request_role(body: RoleBody, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    try:
+        return CR.request_role(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
+    except CR.RoleError as e:
+        raise HTTPException(409, {"error": "invalid_role", "message": str(e)})
 
 
 @router.get("", summary="The organisation's closed reporting periods")

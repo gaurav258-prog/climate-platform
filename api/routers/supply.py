@@ -989,8 +989,12 @@ def create_report_snapshot(body: SnapshotCreate, session: DbSession,
     from services.governance.engine_runs import RunCheckError
     from services.governance.report_snapshots import create_snapshot
     org_id = ctx["org"]["org_id"]
-    try:
-        snap = create_snapshot(session, org_id, body.report_type, ctx["user"]["id"], note=body.note)
+    from services.governance.reporting_settings import get_settings
+    pe = get_settings(session, org_id)["reporting_period_end"]
+    if not pe:
+        raise HTTPException(status_code=422, detail={"error": "no_period", "message": "Set the reporting period first."})
+    try:     # outside the filing lifecycle (to be retired with the ESRS page's move onto filings): the stated period
+        snap = create_snapshot(session, org_id, body.report_type, ctx["user"]["id"], note=body.note, period_end=pe)
     except RunCheckError as e:
         raise HTTPException(status_code=409, detail={"error": "output_checks_failed", "message": str(e), "checks": e.checks})
     except ValueError as e:

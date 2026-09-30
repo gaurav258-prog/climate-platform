@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import text
 
 from services.governance import engine_runs as R
+from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
 from services.intake import observations as O
 from tests.integration.test_intake_pipeline import BANK_ORG
@@ -21,7 +22,7 @@ pytestmark = pytest.mark.integration
 
 
 def _freeze(s):
-    return create_snapshot(s, BANK_ORG, "bank_tcfd", None)
+    return create_snapshot(s, BANK_ORG, "bank_tcfd", None, period_end=reporting_period_end(s, BANK_ORG))
 
 
 def test_a_freeze_records_its_run_and_the_snapshot_names_it(session_rolled_back):

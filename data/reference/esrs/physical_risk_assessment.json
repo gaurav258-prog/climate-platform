@@ -1,0 +1,23 @@
+{
+ "_about": "How the platform assesses an undertaking's own sites for material physical climate risk in the ESRS statement (ESRS E1 assets and net revenue at material physical risk). Each choice quotes the provision it follows; the materiality level is the undertaking's own reporting setting (its double-materiality judgement), frozen with the filing.",
+ "scenario": {
+  "id": "hot_house_3_5c", "label": "High-emissions scenario — IPCC AR6 SSP5-8.5 (4.4 °C by 2081-2100)",
+  "quote_2023": "the identification of climate-related hazards and the assessment of exposure and sensitivity are informed by high emissions climate scenarios , which may, for example, be based on IPCC SSP5-8.5",
+  "ref_2023": "ESRS E1 (Delegated Regulation (EU) 2023/2772) AR 11(d)",
+  "quote_2026": "whether for climate-related physical risks at least one high-emission scenario was used;",
+  "ref_2026": "ESRS E1 (as amended by Delegated Regulation (EU) 2026/1563) §17(a)(i)"
+ },
+ "horizons": {
+  "quote_2023": "(a) for the short-term time horizon: the period adopted by the undertaking as the reporting period in its financial statements; (b) for the medium-term time horizon: from the end of the short-term reporting period defined in (a) up to 5 years; and (c) for the long-term time horizon: more than 5 years.",
+  "ref_2023": "ESRS 1 §77", "ref_2026": "ESRS 1 §79",
+  "years_medium": 5,
+  "projected": ["2030", "2050", "2100"],
+  "reading": "Short term reads the hazard as it stands (today's calibrated climatology); medium term the latest projected horizon within five years of the period end (else the first after it); long term the first projected horizon more than five years after it."
+ },
+ "climate_hazards": {
+  "reading": "Physical climate risk is the EU Taxonomy Appendix A hazard list (core/hazard_taxonomy.EU_TAXONOMY, acute or chronic as Appendix A classes them); geophysical and other channels (seismic, volcanic, pollution) are not climate hazards. A score counts only where its scale may set an asset's level (core/hazard_relevance, asset class buildings)."
+ },
+ "hazard_vintage": {
+  "reading": "The climatology the hazard scores read is not dated to the financial year: the statement uses the calibrated scores standing when it is prepared, their model versions and vintage frozen with it; a later change of score flags the filing for restatement (services/governance/data_revisions.py)."
+ }
+}

@@ -9,6 +9,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.data.feeds import HAZARD_FEEDS
 from services.governance.filing_lineage import cell_lineage, cell_upstream, reported_hazards
+from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
@@ -18,7 +19,7 @@ def _mk_filing(session, org_id: str, framework: str, actor_email: str) -> str:
     """Freeze a real, current snapshot into a throwaway-period draft filing (rolled back by the caller) —
     same non-polluting pattern as tests/integration/test_filing_lifecycle.py's _mk_draft."""
     u = session.execute(text("SELECT user_id::text FROM users WHERE email = :e"), {"e": actor_email}).scalar()
-    snap = create_snapshot(session, org_id, framework, u)
+    snap = create_snapshot(session, org_id, framework, u, period_end=reporting_period_end(session, org_id))
     fid = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
         VALUES (:o, :fk, '2099-12-31', 'FY2099', 'draft', :snap, :u) RETURNING filing_id

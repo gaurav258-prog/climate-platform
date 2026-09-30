@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from services.governance import transmission as T
+from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
@@ -19,7 +20,7 @@ FUTURE_PERIOD = "2099-12-31"
 
 
 def _mk_filing(session, actor):
-    snap = create_snapshot(session, BANK_ORG, "bank_tcfd", actor)
+    snap = create_snapshot(session, BANK_ORG, "bank_tcfd", actor, period_end=reporting_period_end(session, BANK_ORG))
     return str(session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
         VALUES (:o, 'bank_tcfd', :pe, 'FY2099', 'draft', :snap, :u)

@@ -944,7 +944,7 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
                                value_weights=value_weights, translation=translation, view=view,
                                figure_sources=figure_sources,
                                previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end),
-                               fund_id=fund_id, disclosure_date=disclosure_date)
+                               fund_id=fund_id, disclosure_date=disclosure_date, period_end=period_end)
     except (TranslationError, RunCheckError, ViewError) as e:
         raise FilingError(str(e)) from e
     return snap, (translation.presentation if translation is not None else "EUR")
