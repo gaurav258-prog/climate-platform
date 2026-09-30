@@ -22,8 +22,10 @@ from sqlalchemy import text
 
 from api.deps import DbSession, own_or_404, require_permission, tenant_resolver
 from ml.regulatory.sfdr_pai import (
+    entity_narratives,
     entity_pai_statement,
     frozen_or_live_statement,
+    save_entity_narratives,
     sfdr_pai_statement,
     sfdr_pai_statement_xlsx,
 )
@@ -791,29 +793,34 @@ class FilingProfile(BaseModel):
 @router.get("/manager/filing-profile", summary="The manager's SFDR filing-entity identity")
 def get_filing_profile(session: DbSession, org_id: OrgId):
     row = session.execute(text(
-        "SELECT name, legal_name, lei, filing_contact_email, country, sfdr_narratives "
+        "SELECT name, legal_name, lei, filing_contact_email, country "
         "FROM organizations WHERE org_id = :o"), {"o": org_id}).mappings().first()
-    return dict(row) if row else {"error": "org not found"}
+    if not row:
+        return {"error": "org not found"}
+    return {**row, "sfdr_narratives": entity_narratives(session, org_id) or None}
 
 
 @router.put("/manager/filing-profile", summary="Set the manager LEI + legal name + contact (LEI validated vs GLEIF)")
-def set_filing_profile(body: FilingProfile, session: DbSession, org_id: WriterOrgId):
+def set_filing_profile(body: FilingProfile, session: DbSession,
+                       ctx: dict = Depends(require_permission("approvals.create"))):
+    org_id = ctx["org"]["org_id"]
     lei = (body.lei or "").strip().upper()
     rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
     if not rec:
         raise _fail(422, "LEI not found in GLEIF — supply a valid 20-character LEI.", code="invalid_lei")
+    if body.narratives is not None:     # the statement's narrative sections: the manager's template answers
+        refused = save_entity_narratives(session, org_id, body.narratives, ctx["user"]["id"])["refused"]
+        if refused:
+            raise _fail(422, "; ".join(r["reason"] for r in refused), code="invalid_narratives")
     # Default the legal name to GLEIF's authoritative name if the caller didn't give one.
-    import json as _json
     session.execute(text("""
         UPDATE organizations SET lei = :lei,
                legal_name = COALESCE(:legal_name, :gleif_name),
                filing_contact_email = COALESCE(:email, filing_contact_email),
-               sfdr_narratives = COALESCE(CAST(:narr AS jsonb), sfdr_narratives),
                updated_at = now()
         WHERE org_id = :o
     """), {"lei": lei, "legal_name": body.legal_name, "gleif_name": rec.name,
-           "email": body.filing_contact_email,
-           "narr": _json.dumps(body.narratives) if body.narratives is not None else None, "o": org_id})
+           "email": body.filing_contact_email, "o": org_id})
     return {"ok": True, "lei": lei, "validated_name": rec.name,
             "lei_status": rec.entity_status, "domicile": rec.country}
 

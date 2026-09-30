@@ -66,6 +66,41 @@ MANDATORY_PAI_INDICATORS = [
     (14, "Social & governance",   "Exposure to controversial weapons", "% of value"),
 ]
 
+# ── The statement's narrative sections, which the manager authors (RTS Annex I: the policies, the actions taken and
+# planned, the engagement policies, the references to international standards). They are the manager's answers to
+# family 'sfdr_pai', document 'pai_statement', in the one store of template answers (services.governance.template_answers).
+NARRATIVE_FAMILY, NARRATIVE_DOCUMENT = "sfdr_pai", "pai_statement"
+NARRATIVE_SECTIONS = ("policies", "actions", "engagement", "standards")
+_REQUIRED_NARRATIVES = {
+    "policies": "policies to identify and prioritise principal adverse impacts",
+    "actions": "actions taken and planned",
+    "engagement": "engagement policies",
+}
+
+
+def entity_narratives(session, org_id: str) -> dict:
+    """{section: authored text} of the manager's PAI statement — only the sections it has authored."""
+    from services.governance import template_answers as T
+    return {k: v["text"] for k, v in T.read(session, org_id, NARRATIVE_FAMILY, NARRATIVE_DOCUMENT).items() if v.get("text")}
+
+
+def save_entity_narratives(session, org_id: str, narratives: dict, user_id: str | None) -> dict:
+    """Replace the manager's narrative sections with `narratives` (a section left out or blank is cleared);
+    {saved, refused} — a key that is not a section, or a value that is not text, refuses the whole save."""
+    from services.governance import template_answers as T
+    refused = [{"item": k, "reason": f"{k}: the PAI statement has no such narrative section" if k not in NARRATIVE_SECTIONS
+                else f"{k}: a narrative section is text"} for k, v in narratives.items()
+               if k not in NARRATIVE_SECTIONS or not (v is None or isinstance(v, str))]
+    if refused:
+        return {"saved": [], "refused": refused}
+    template = {"items": [{"id": k, "kind": "field"} for k in NARRATIVE_SECTIONS]}
+    answers = {k: None for k in NARRATIVE_SECTIONS}
+    for k, v in narratives.items():
+        answers[k] = None if v is None or (isinstance(v, str) and not v.strip()) else {"text": v}
+    return T.save(session, org_id, NARRATIVE_FAMILY, NARRATIVE_DOCUMENT, template, {k: "input" for k in NARRATIVE_SECTIONS},
+                  answers, user_id, label="the PAI statement")
+
+
 _GOLDEN_SOURCE = "Tellumen golden source (issuer emissions + revenue, provenance-stamped)"
 
 # ── Sovereign PAI (RTS Annex I, Table 1, indicators 15-16) ──
@@ -500,7 +535,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     fund = session.execute(text("""
         SELECT f.fund_id::text AS fund_id, f.name, f.sfdr_classification, f.base_currency, f.lei AS fund_lei,
                o.name AS org_name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
-               o.filing_contact_email, o.country AS manager_domicile, o.sfdr_narratives
+               o.filing_contact_email, o.country AS manager_domicile, o.org_id::text AS org_id
         FROM funds f JOIN organizations o ON o.org_id = f.org_id
         WHERE f.fund_id = :f
     """), {"f": fund_id}).mappings().first()
@@ -555,12 +590,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     if not ref_year:
         filing_missing.append("reference period (supply issuer emissions with a reporting year)")
     # SFDR Annex I mandatory narrative sections.
-    narratives = fund.get("sfdr_narratives") or {}
-    _REQUIRED_NARRATIVES = {
-        "policies": "policies to identify and prioritise principal adverse impacts",
-        "actions": "actions taken and planned",
-        "engagement": "engagement policies",
-    }
+    narratives = entity_narratives(session, fund["org_id"])
     missing_narratives = [label for key, label in _REQUIRED_NARRATIVES.items() if not (narratives.get(key) or "").strip()]
     filing_missing += [f"narrative: {n}" for n in missing_narratives]
     ready_to_file = not filing_missing
@@ -701,7 +731,7 @@ def entity_pai_statement(session, org_id: str) -> dict:
     look-through remain per-fund concerns and are omitted here."""
     org = session.execute(text("""
         SELECT o.org_id::text AS org_id, o.name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
-               o.filing_contact_email, o.country AS manager_domicile, o.sfdr_narratives
+               o.filing_contact_email, o.country AS manager_domicile
         FROM organizations o WHERE o.org_id = :o
     """), {"o": org_id}).mappings().first()
     if not org:
@@ -748,12 +778,7 @@ def entity_pai_statement(session, org_id: str) -> dict:
         filing_missing.append("manager legal name")
     if not org.get("filing_contact_email"):
         filing_missing.append("filing contact email")
-    narratives = org.get("sfdr_narratives") or {}
-    _REQUIRED_NARRATIVES = {
-        "policies": "policies to identify and prioritise principal adverse impacts",
-        "actions": "actions taken and planned",
-        "engagement": "engagement policies",
-    }
+    narratives = entity_narratives(session, org_id)
     missing_narratives = [label for key, label in _REQUIRED_NARRATIVES.items()
                           if not (narratives.get(key) or "").strip()]
     filing_missing += [f"narrative: {n}" for n in missing_narratives]

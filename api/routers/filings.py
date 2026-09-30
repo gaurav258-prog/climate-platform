@@ -26,7 +26,6 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
@@ -55,35 +54,25 @@ class QualitativePatch(BaseModel):
 
 @router.get("/filings/qualitative/p3esg", summary="Pillar 3 ESG qualitative tables (1-3) + authored text")
 def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    import json as _json
-
-    from services.governance.pillar3_qualitative import qualitative_structure
-    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": ctx["org"]["org_id"]}).scalar()
-    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
-    return qualitative_structure(saved)
+    from services.governance import pillar3_qualitative as Q
+    return Q.qualitative_structure(Q.read(session, ctx["org"]["org_id"]))
 
 
 @router.patch("/filings/qualitative/p3esg", summary="Author / save a Pillar 3 ESG qualitative disclosure row")
 def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
                           ctx: dict = Depends(require_permission("approvals.create"))):
-    import json as _json
-
-    from services.governance.pillar3_qualitative import qualitative_structure, valid_keys
-    unknown = sorted(set(body.values) - valid_keys())
+    from services.governance import pillar3_qualitative as Q
+    unknown = sorted(set(body.values) - Q.valid_keys())
     if unknown:
         raise HTTPException(422, {"error": "unknown_rows", "message": f"Not a row of the governing tables: {', '.join(unknown[:5])}"})
-    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": ctx["org"]["org_id"]}).scalar()
-    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
-    cur.update({k: v for k, v in body.values.items()})
-    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
-                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    refused = Q.save(session, ctx["org"]["org_id"], body.values, ctx["user"]["id"])["refused"]
+    if refused:
+        raise HTTPException(422, {"error": "refused", "message": "; ".join(r["reason"] for r in refused)})
     session.commit()
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="p3esg.qualitative.author", target_type="organization", target_id=ctx["org"]["org_id"],
                 detail={"rows": list(body.values.keys())})
-    return qualitative_structure(cur)
+    return Q.qualitative_structure(Q.read(session, ctx["org"]["org_id"]))
 
 
 class BasisPatch(BaseModel):

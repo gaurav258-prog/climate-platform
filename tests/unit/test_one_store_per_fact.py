@@ -28,3 +28,17 @@ def test_template_answers_have_one_writer():
     assert writers <= {"services/governance/template_answers.py"}, writers
     readers = _users(r"FROM template_answers")
     assert readers <= {"services/governance/template_answers.py"}, readers
+
+
+def test_the_retired_narrative_columns_stay_retired():
+    """Pillar 3 ESG qualitative text and the SFDR PAI statement's narrative sections are template answers
+    (narratives_answers_20260930): no code reads or writes organizations.p3esg_narratives /
+    sfdr_narratives (the filing-profile response keeps 'sfdr_narratives' only as a key), and no later migration
+    brings either column back."""
+    assert not _users(r"(?<![\"'])\b(p3esg|sfdr)_narratives\b(?![\"'])"), _users(r"(?<![\"'])\b(p3esg|sfdr)_narratives\b(?![\"'])")
+    created_by = {"narratives_20260712_sfdr_narratives.py", "p3esg_qualitative_202608.py"}
+    for p in (ROOT / "core/db/migrations/versions").glob("*.py"):
+        src = p.read_text(errors="ignore")
+        up = src[src.find("def upgrade"):src.find("def downgrade")]
+        if p.name not in created_by:
+            assert not re.search(r"ADD COLUMN[^;\"]{0,40}\b(p3esg|sfdr)_narratives\b", up), p.name
