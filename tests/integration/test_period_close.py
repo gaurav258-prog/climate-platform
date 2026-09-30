@@ -39,8 +39,8 @@ def test_the_year_end_close_and_the_restatement_of_a_closed_period(api):
                               4000000, 'EUR', 4000000, 'client')"""), {"o": TERRA, "s": site, "e": ent})
 
     # a value still awaiting its second person keeps the period open
-    p = api.post("/v1/provided", headers=maker, json={"framework": "csrd_e1", "datapoint_key": "e1_ghg", "value_num": 125000,
-                                                      "reporting_period_end": "2025-12-31"})
+    p = api.post("/v1/provided", headers=maker, json={"framework": "esrs", "datapoint_key": "csrd.employees_average",
+                                                      "value_num": 1200, "reporting_period_end": "2025-12-31"})
     assert p.status_code == 201, p.text
     blocked = api.post("/v1/periods/close", headers=maker, json={"period_end": "2025-12-31"})
     assert blocked.status_code == 409 and "await attestation" in blocked.text
@@ -61,9 +61,9 @@ def test_the_year_end_close_and_the_restatement_of_a_closed_period(api):
     assert again.status_code == 409 and "already closed" in again.text
 
     # a closed period's value is a restatement: refused without its reason, accepted with it (then attested)
-    body = {"framework": "csrd_e1", "datapoint_key": "e1_ghg", "value_num": 131000, "reporting_period_end": "2025-12-31"}
+    body = {"framework": "esrs", "datapoint_key": "csrd.employees_average", "value_num": 1210, "reporting_period_end": "2025-12-31"}
     assert api.post("/v1/provided", headers=maker, json=body).status_code == 400
-    r = api.post("/v1/provided", headers=maker, json={**body, "restatement_reason": "Scope 3 cat. 1 recalculated with supplier data"})
+    r = api.post("/v1/provided", headers=maker, json={**body, "restatement_reason": "headcount recounted after the payroll audit"})
     assert r.status_code == 201, r.text
     _approve(api, checker, r.json()["approval_request_id"])
 

@@ -1,0 +1,74 @@
+"""The ESRS reference data says only what the texts say (feedback: facts only):
+
+  ids     every item, disclosure requirement and standard a phase-in or a stated relation names is one the governing
+          specification prints (so a renumbered text can never leave a rule pointing at nothing)
+  quotes  every quote in data/reference/csrd/scope.json and data/reference/esrs/phase_ins.json appears word for word in
+          one of the downloaded texts — checked when ESRS_SOURCE_TEXTS names the folder of their .txt renderings
+          (EUR-Lex / Cellar), skipped otherwise
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+from pathlib import Path
+
+import pytest
+
+import services.regspec as R
+from services.governance.esrs_checks import identities, phase_ins
+
+ROOT = Path(__file__).resolve().parents[2] / "data" / "reference"
+VERSIONS = ("dr_2023_2772", "dr_2023_2772_as_2025_1416", "dr_2026_1563")
+
+
+def _printed(version: str) -> tuple[set, set, set]:
+    spec = R.load("esrs", version)
+    items = {i["id"] for t in spec["templates"] for i in t["items"]}
+    drs = {i["id"] for t in spec["templates"] for i in t["items"] if i["kind"] == "heading"}
+    return items, drs, {t["id"] for t in spec["templates"]}
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_every_phase_in_names_what_the_version_prints(version):
+    items, drs, standards = _printed(version)
+    for r in phase_ins(version):
+        named = set(r.get("items", [])) | set(r.get("items_unclear", [])) | set(r.get("except_items", []))
+        assert named <= items, (r["id"], sorted(named - items))
+        assert set(r.get("drs", [])) <= drs, (r["id"], sorted(set(r.get("drs", [])) - drs))
+        assert set(r.get("standards", [])) <= standards, r["id"]
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_every_stated_relation_is_printed_by_the_version(version):
+    items, _, _ = _printed(version)
+    for r in identities(version):
+        assert r.get("printed") and set(r["printed"]) <= items, (r["id"], r.get("printed"))
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", s.replace(" ", " ").replace("’", "'").replace("‘", "'")).strip().lower()
+
+
+def _quotes():
+    scope = json.loads((ROOT / "csrd" / "scope.json").read_text())
+    for p in scope["points"]:
+        yield f"scope {p['id']}", p["quote"]
+    yield "scope derogation", scope["member_state_derogation"]["quote"]
+    pins = json.loads((ROOT / "esrs" / "phase_ins.json").read_text())
+    for v, rules in pins.items():
+        if isinstance(rules, list):
+            for r in rules:
+                yield f"phase-in {v}/{r['id']}", r["quote"]
+
+
+@pytest.mark.skipif(not os.getenv("ESRS_SOURCE_TEXTS"), reason="ESRS_SOURCE_TEXTS (the downloaded texts) not set")
+def test_every_quote_is_in_the_texts():
+    texts = [_norm(p.read_text(errors="ignore")) for p in Path(os.environ["ESRS_SOURCE_TEXTS"]).glob("*.txt")]
+    assert texts
+    missing = []
+    for where, q in _quotes():
+        parts = [_norm(x) for x in re.split(r"\s*(?:…|\.\.\.)\s*", q) if x.strip()]   # an elision quotes each part
+        if not all(any(part in t for t in texts) for part in parts):
+            missing.append(where)
+    assert not missing, missing

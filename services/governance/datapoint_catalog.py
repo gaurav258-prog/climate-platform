@@ -137,30 +137,6 @@ CATALOG: dict[str, list[dict]] = {
         _dp("e1_transition", "ESRS E1-1/4 — transition plan, targets, carbon price", "none", "none"),
         _dp("e1_narrative", "ESRS E1 — governance & impact/risk/opportunity narrative", "customer", "report", provider="You author"),
     ],
-    "esrs_pack": [
-        _dp("e1_financial_effects", "ESRS E1-9 — physical-risk anticipated financial effects",
-            "tellumen", "compute", provider="Tellumen E1 engine"),
-        _dp("e3_water", "ESRS E3-4 — water-stress exposure (own ops + upstream) · PROXY",
-            "tellumen", "compute", provider="Tellumen hazard engine (water-stress / soil-water)",
-            note="ESRS E3-4 mandates METERED water consumption (m³) and intensity (m³ per €m net revenue). This "
-                 "is a water-STRESS exposure indicator (hazard-based), a proxy for E3-4 site risk — it is NOT the "
-                 "metered consumption figure. Report the metered m³ via 'e3_measured_water'; use this to prioritise "
-                 "which sites/plots to meter and to disclose the water-risk context E3-4 also asks for."),
-        _dp("e4_deforestation", "ESRS E4 — deforestation determination (EUDR, satellite)",
-            "tellumen", "compute", provider="Tellumen deforestation engine (Hansen Global Forest Change)"),
-        _dp("e4_protected_area", "ESRS E4 — own sites / sourcing plots in or near a protected area",
-            "egov", "compute", provider="EEA Natura 2000 + OpenStreetMap (free-gov feeds, H3 overlap)", reconcilable=True,
-            note="Computed from free EU (Natura 2000) + global (OSM) feeds. A customer holding the authoritative "
-                 "WDPA (via IBAT) can PROVIDE their count to reconcile/override ours — zero data cost to us."),
-        _dp("e1_ghg", "ESRS E1-6 — GHG emissions (Scope 1–3) & energy",
-            "evendor", "provided", provider="Your carbon-accounting tool"),
-        _dp("e3_measured_water", "ESRS E3-4 — metered water consumption (m³) + intensity (m³/€m revenue)",
-            "customer", "provided", provider="Your site water meters",
-            note="The mandated E3-4 metric: total water consumption in m³ and consumption intensity per €m net "
-                 "revenue. Metered operational data — provide it here; our water-stress indicator (e3_water) is the "
-                 "risk-context proxy, not a substitute for the meter reading."),
-        _dp("esrs_narrative", "ESRS — transition plan & narrative", "customer", "report", provider="You author"),
-    ],
     "insurer_climate": [
         _dp("natcat_eal", "NatCat expected annual loss + loss ratio by peril",
             "tellumen", "compute", provider="Tellumen NatCat engine"),
@@ -236,9 +212,27 @@ def catalog(framework: str) -> list[dict] | None:
     return CATALOG.get(framework)
 
 
+def _esrs_sections() -> list[dict]:
+    """The ESRS statement's figures by concept (data/reference/esrs/concepts.json): the platform computes or derives
+    it, or the undertaking states it (provided values, family 'esrs'). Narratives and choices are answered items of
+    the statement itself (services.governance.esrs_document), not catalog datapoints."""
+    from services.governance.esrs_binding import concepts
+    lanes = {"computed": ("computed", "compute"), "derived": ("computed", "compute"), "provided": ("client", "provided")}
+    return [{"section": c["label"], "source": lanes[c["lane"]][0], "source_category": None, "lane": lanes[c["lane"]][1],
+             "provider": "Tellumen" if c["lane"] != "provided" else "You state it (4-eyes attested)",
+             "note": None, "reconcilable": False}
+            for c in concepts().values() if c["lane"] in lanes and not c.get("redefined_from")]
+
+
 def coverage(framework: str) -> dict | None:
     """Filing coverage DERIVED from the catalog: each datapoint's lane → a coverage bucket, plus a summary
     (how much of this filing we produce from your data). Same shape the coverage panel already consumes."""
+    if framework == "esrs_pack":
+        sections = _esrs_sections()
+        srcs = ("computed", "integrated", "client", "out_of_scope")
+        counts = {k: sum(1 for x in sections if x["source"] == k) for k in srcs}
+        return {"sections": sections, "counts": counts, "total": len(sections),
+                "pct_computed": round(100 * counts["computed"] / len(sections)) if sections else 0}
     dps = CATALOG.get(framework)
     if not dps:
         return None

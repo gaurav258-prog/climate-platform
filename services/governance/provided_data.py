@@ -68,11 +68,6 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
             from api.routers.bank import build_disclosure_snapshot
             em = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"]).get("financed_emissions_tco2e", {})
             return sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")) or None
-        # E4 protected-area count: our free-feed (Natura 2000 + OSM) count a WDPA-holder can reconcile against
-        if framework == "esrs_pack" and key == "e4_protected_area":
-            from services.intelligence.protected_area import protected_area_exposure
-            pa = protected_area_exposure(session, org_id)
-            return (pa["sites"]["in_protected"] + pa["plots"]["in_protected"]) or None
     except Exception:
         return None
     return None
@@ -84,7 +79,7 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
 ESRS = "esrs"
 _ESRS_RANGE = {"percent": (0.0, 100.0), "tCO2eq": (0.0, None), "MWh": (0.0, None), "m3": (0.0, None), "ha": (0.0, None),
                "count": (0.0, None), "year": (1900.0, 2100.0), "monetary": (0.0, None), "monetary/tCO2eq": (0.0, None),
-               "score": (0.0, 100.0)}
+               "score": (0.0, 100.0), "boolean": (0.0, 1.0)}
 _MONETARY = {"monetary", "monetary/tCO2eq"}
 
 
@@ -129,7 +124,7 @@ def _esrs_check(dp: dict, value_num: float | None, currency: str | None) -> None
     if (lo is not None and value_num < lo) or (hi is not None and value_num > hi):
         raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}: the value must be "
                             + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"))
-    if dp["unit"] in ("count", "year") and value_num != int(value_num):
+    if dp["unit"] in ("count", "year", "boolean") and value_num != int(value_num):
         raise ProvidedError(f"'{dp['key']}' is a whole number")
     if dp["unit"] in _MONETARY and not (currency or "").strip():
         raise ProvidedError(f"'{dp['key']}' is an amount: say its currency (ISO 4217) — never assumed")
@@ -189,6 +184,10 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     if not reporting_period_end:
         raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing")
     pe = date.fromisoformat(str(reporting_period_end)[:10])
+    from services.governance.filings import FRAMEWORKS
+    if (FRAMEWORKS.get(framework) or {}).get("retired_for"):
+        raise ProvidedError(f"{FRAMEWORKS[framework]['label']} is retired — state the figure for the "
+                            f"{FRAMEWORKS[FRAMEWORKS[framework]['retired_for']]['label']} (framework 'esrs')")
     from services.calc_settings import get_calc_settings
     dp = _target(framework, datapoint_key, pe, get_calc_settings(session, org_id), member=breakdown_member)
     if dp["lane"] != "provided" and not dp.get("reconcilable"):
@@ -349,7 +348,8 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
         SELECT p.provided_id::text AS provided_id, p.framework, p.datapoint_key, p.value_num, p.value_text,
                p.unit, p.source, p.provider_name, p.data_vintage, p.tellumen_value, p.delta_pct,
                p.within_tolerance, p.recon_note, p.status, p.submitted_at, su.email AS submitted_by,
-               du.email AS decided_by, p.period_label, p.reporting_period_end, p.reporting_entity_id::text AS reporting_entity_id
+               du.email AS decided_by, p.period_label, p.reporting_period_end, p.reporting_entity_id::text AS reporting_entity_id,
+               p.value_currency, p.breakdown_member
         FROM provided_datapoint p
         LEFT JOIN users su ON su.user_id = p.submitted_by
         LEFT JOIN users du ON du.user_id = p.decided_by
@@ -375,4 +375,5 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
              "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None,
              "period_label": r["period_label"],
              "reporting_period_end": r["reporting_period_end"].isoformat() if r["reporting_period_end"] else None,
-             "reporting_entity_id": r["reporting_entity_id"]} for r in rows]
+             "reporting_entity_id": r["reporting_entity_id"], "currency": r["value_currency"],
+             "breakdown_member": r["breakdown_member"]} for r in rows]

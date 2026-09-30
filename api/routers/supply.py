@@ -33,7 +33,6 @@ from services.intelligence.company_sites import (
     list_sites_with_risk,
     site_hazards,
 )
-from services.intelligence.csrd_e1 import build_e1_report
 from services.intelligence.eudr import determine_plot
 from services.intelligence.eudr_dds import assemble_dds
 from services.intelligence.supply_cogs import (
@@ -822,187 +821,11 @@ def disclosure_xlsx(session: DbSession, org_id: OrgId,
                               headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-supply-{scenario}-{horizon}.xlsx"})
 
 
-def _reporting_basis(session, org_id, scenario, horizon):
-    """Resolve the reporting basis: an explicit ?scenario/?horizon wins; else the org's configured
-    settings; the ESRS materiality threshold and reporting period come from settings too."""
-    from services.governance.reporting_settings import get_settings
-    s = get_settings(session, org_id)
-    return {"scenario": scenario or s["scenario"], "horizon": horizon or s["horizon"],
-            "material": s["materiality_threshold"], "period_end": s["reporting_period_end"]}
-
-
-@router.get("/csrd-e1", summary="CSRD / ESRS E1 physical-risk report (own operations + sourcing)")
-def csrd_e1(session: DbSession, org_id: OrgId,
-            scenario: Optional[str] = Query(None), horizon: Optional[str] = Query(None)):
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    return build_e1_report(session, org_id, scenario=b["scenario"], horizon=b["horizon"], material_threshold=b["material"])
-
-
-@router.get("/csrd-e1.xlsx", summary="CSRD / ESRS E1 physical-risk report (Excel)")
-def csrd_e1_xlsx(session: DbSession, org_id: OrgId,
-                 scenario: Optional[str] = Query(None), horizon: Optional[str] = Query(None)):
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    scenario, horizon = b["scenario"], b["horizon"]
-    rep = build_e1_report(session, org_id, scenario=scenario, horizon=horizon, material_threshold=b["material"])
-    headers = ["section", "hazard", "class", "assets_exposed", "value_or_spend_eur",
-               "financial_effect_eur", "basis", "max_score"]
-    rows: list[list] = []
-    for h in rep["material_hazards"]:
-        op, up = h.get("own_operations"), h.get("upstream")
-        if op:
-            rows.append(["Own operations", h["label"], h["class"], f'{op["n_sites"]} sites',
-                         round(op["asset_value_eur"]), round(op["bi_at_risk_eur"]),
-                         "asset value / business interruption", op["max_score"]])
-        if up:
-            rows.append(["Upstream sourcing", h["label"], h["class"], f'{up["n_commodities"]} commodities',
-                         round(up["spend_eur"]), round(up["cogs_at_risk_eur"]),
-                         "spend / COGS-at-risk (published)", up["max_score"]])
-    fe = rep["financial_effects"]
-    rows.append([])
-    rows.append(["FINANCIAL EFFECT — asset value at risk", "", "", "", "", round(fe["asset_value_at_risk_eur"]), "", ""])
-    rows.append(["FINANCIAL EFFECT — business interruption (v0)", "", "", "", "", round(fe["business_interruption_eur"]), "", ""])
-    rows.append(["FINANCIAL EFFECT — COGS at risk (published)", "", "", "", "", round(fe["cogs_at_risk_published_eur"]), "", ""])
-    rows.append(["EXPOSURE MAPPED — € withheld (chain not validated)", "", "", "", round(fe["exposure_mapped_but_withheld_eur"]), "", "", ""])
-    buf = build_export_workbook(headers, rows, sheet_name="ESRS E1 physical risk")
-    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-e1-{scenario}-{horizon}.xlsx"})
-
-
-@router.get("/esrs-pack", summary="ESRS Climate & Nature disclosure pack (E1 physical + E3 water + E4 deforestation)")
-def esrs_pack(session: DbSession, org_id: OrgId,
-              scenario: Optional[str] = Query(None), horizon: Optional[str] = Query(None)):
-    from services.intelligence.esrs_nature import build_esrs_pack
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    return build_esrs_pack(session, org_id, scenario=b["scenario"], horizon=b["horizon"], material=b["material"])
-
-
-@router.get("/esrs-pack.xlsx", summary="ESRS Climate & Nature disclosure pack (Excel)")
-def esrs_pack_xlsx(session: DbSession, org_id: OrgId,
-                   scenario: Optional[str] = Query(None), horizon: Optional[str] = Query(None)):
-    from services.intelligence.esrs_nature import build_esrs_pack
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    scenario = b["scenario"]
-    p = build_esrs_pack(session, org_id, scenario=b["scenario"], horizon=b["horizon"], material=b["material"])
-    headers = ["esrs_topic", "title", "material", "metric", "value", "basis"]
-    rows: list[list] = []
-    for t in p["topics"]:
-        if t["topic"] == "E1":
-            fe = t["financial_effects"]
-            for k, label in [("asset_value_at_risk_eur", "Asset value at material risk (€)"),
-                             ("business_interruption_eur", "Business interruption, v0 (€)"),
-                             ("cogs_at_risk_published_eur", "Sourcing COGS at risk, published (€)"),
-                             ("exposure_mapped_but_withheld_eur", "Exposure mapped, € withheld")]:
-                rows.append(["E1", t["title"], t["material"], label, round(fe[k]), ""])
-        elif t["topic"] == "E3":
-            rows.append(["E3", t["title"], t["material"], "Sites water-stressed", t["own_operations"]["sites_water_stressed"], t["basis"]])
-            rows.append(["E3", t["title"], t["material"], "Asset value exposed (€)", round(t["own_operations"]["asset_value_exposed_eur"]), ""])
-            rows.append(["E3", t["title"], t["material"], "Plots water-stressed", t["upstream"]["plots_water_stressed"], ""])
-            rows.append(["E3", t["title"], t["material"], "Spend exposed (€)", round(t["upstream"]["spend_exposed_eur"]), ""])
-        elif t["topic"] == "E4":
-            rows.append(["E4", t["title"], t["material"], "EUDR-covered plots", t["eudr_covered_plots"], t["basis"]])
-            rows.append(["E4", t["title"], t["material"], "Deforestation-free", t["deforestation_free"], ""])
-            rows.append(["E4", t["title"], t["material"], "Non-compliant", t["non_compliant"], ""])
-            rows.append(["E4", t["title"], t["material"], "Post-cutoff forest loss (ha)", t["post_cutoff_forest_loss_ha"], ""])
-    rows.append([])
-    for o in p["out_of_scope"]:
-        rows.append([o["topic"], f'OUT OF SCOPE — {o["label"]}', "", "handled by", o["handled_by"], ""])
-    buf = build_export_workbook(headers, rows, sheet_name="ESRS Climate & Nature")
-    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{scenario}.xlsx"})
-
-
-@router.get("/esrs-pack.facts", summary="ESRS pack as tagged facts (machine-readable, XBRL-ready)")
-def esrs_facts(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
-               horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
-               profile: str = Query("provisional", description="taxonomy profile: provisional | efrag_set1")):
-    from services.intelligence.esrs_xbrl import build_facts
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    return build_facts(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
-                       period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
-
-
-@router.get("/esrs-pack.xbrl", summary="ESRS pack as an XBRL instance (chosen taxonomy profile)")
-def esrs_xbrl(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
-              horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
-              profile: str = Query("provisional")):
-    from services.intelligence.esrs_xbrl import build_xbrl_instance
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    xml = build_xbrl_instance(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
-                              period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
-    return StreamingResponse(io.BytesIO(xml.encode("utf-8")), media_type="application/xml",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{b['scenario']}.xbrl"})
-
-
-@router.get("/esrs-pack.ixbrl", summary="ESRS pack as an Inline XBRL (iXBRL/ESEF) report — human + machine readable")
-def esrs_ixbrl(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
-               horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
-               profile: str = Query("provisional")):
-    from services.intelligence.esrs_xbrl import build_ixbrl
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    doc = build_ixbrl(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
-                      period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
-    return StreamingResponse(io.BytesIO(doc.encode("utf-8")), media_type="application/xhtml+xml",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{b['scenario']}.xhtml"})
-
-
-@router.get("/esrs-pack.validate", summary="Validate the XBRL/iXBRL instance (structural + completeness)")
-def esrs_validate(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
-                  horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
-                  profile: str = Query("provisional"),
-                  form: str = Query("ixbrl", description="which document to validate: ixbrl | xbrl")):
-    from services.intelligence.esrs_xbrl import build_ixbrl, build_xbrl_instance, validate_document
-    b = _reporting_basis(session, org_id, scenario, horizon)
-    builder = build_ixbrl if form == "ixbrl" else build_xbrl_instance
-    doc = builder(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
-                  period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
-    return validate_document(doc, profile_key=profile)
-
-
-@router.get("/taxonomy-binding", summary="XBRL taxonomy-binding status (provisional vs adopted EFRAG)")
-def taxonomy_binding(session: DbSession, org_id: OrgId, profile: str = Query("provisional")):
-    from services.intelligence.esrs_taxonomy import binding_status, get_profile
-    return binding_status(get_profile(profile))
-
-
 @router.get("/taxonomy-adaptation", summary="EU Taxonomy — climate-adaptation substantial-contribution evidence (CRVA)")
 def taxonomy_adaptation(session: DbSession, org_id: OrgId):
     from services.governance.reporting_settings import get_settings
     from services.intelligence.taxonomy_adaptation import adaptation_kpi
     return adaptation_kpi(session, org_id, threshold=get_settings(session, org_id)["materiality_threshold"])
-
-
-class SnapshotCreate(BaseModel):
-    report_type: str = Field(..., description="csrd_e1 | esrs_pack")
-    note: Optional[str] = Field(None, max_length=500)
-
-
-@router.get("/report-types", summary="Reports that can be frozen as an immutable snapshot")
-def report_types(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.report_snapshots import report_types as _rt
-    # agri workspace — only the manufacturer-sector reports (FIN filings live under the cockpit)
-    return {"report_types": _rt(sectors=("manufacturer",))}
-
-
-@router.post("/report-snapshots", summary="Freeze a report at the current basis as an immutable, versioned snapshot")
-def create_report_snapshot(body: SnapshotCreate, session: DbSession,
-                           ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.governance.engine_runs import RunCheckError
-    from services.governance.report_snapshots import create_snapshot
-    org_id = ctx["org"]["org_id"]
-    from services.governance.reporting_settings import get_settings
-    pe = get_settings(session, org_id)["reporting_period_end"]
-    if not pe:
-        raise HTTPException(status_code=422, detail={"error": "no_period", "message": "Set the reporting period first."})
-    try:     # outside the filing lifecycle (to be retired with the ESRS page's move onto filings): the stated period
-        snap = create_snapshot(session, org_id, body.report_type, ctx["user"]["id"], note=body.note, period_end=pe)
-    except RunCheckError as e:
-        raise HTTPException(status_code=409, detail={"error": "output_checks_failed", "message": str(e), "checks": e.checks})
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "bad_report_type", "message": str(e)})
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.snapshot.create",
-                target_type="report_snapshot", target_id=snap["snapshot_id"],
-                detail={"report_type": snap["report_type"], "version": snap["version"], "basis": snap["reporting_basis"]})
-    return {"ok": True, "snapshot": snap}
 
 
 @router.get("/report-snapshots", summary="Frozen filings for this org (metadata, newest first)")
@@ -1037,36 +860,6 @@ def eudr_submit(session: DbSession, ctx: dict = Depends(require_permission("repo
                 target_type="eudr_dds", target_id=result.get("internal_reference", "n/a"),
                 detail={"status": result.get("status"), "mode": result.get("mode")})
     return result
-
-
-@router.get("/report-snapshots/{snapshot_id}.ixbrl", summary="Inline XBRL built FROM a frozen snapshot (filed bytes = frozen bytes)")
-def snapshot_ixbrl(snapshot_id: str, session: DbSession, profile: str = Query("provisional"),
-                   ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.report_snapshots import get_snapshot
-    from services.intelligence.esrs_xbrl import build_ixbrl
-    snap = get_snapshot(session, ctx["org"]["org_id"], snapshot_id)
-    if not snap:
-        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
-    if snap["report_type"] != "esrs_pack":
-        raise HTTPException(422, {"error": "wrong_type", "message": "iXBRL is generated from an 'esrs_pack' snapshot."})
-    doc = build_ixbrl(session, ctx["org"]["org_id"], pack=snap["payload"], profile_key=profile)
-    return StreamingResponse(io.BytesIO(doc.encode("utf-8")), media_type="application/xhtml+xml",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-v{snap['version']}.xhtml"})
-
-
-@router.get("/report-snapshots/{snapshot_id}.xbrl", summary="XBRL instance built FROM a frozen snapshot (filed bytes = frozen bytes)")
-def snapshot_xbrl(snapshot_id: str, session: DbSession, profile: str = Query("provisional"),
-                  ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.report_snapshots import get_snapshot
-    from services.intelligence.esrs_xbrl import build_xbrl_instance
-    snap = get_snapshot(session, ctx["org"]["org_id"], snapshot_id)
-    if not snap:
-        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
-    if snap["report_type"] != "esrs_pack":
-        raise HTTPException(422, {"error": "wrong_type", "message": "XBRL is generated from an 'esrs_pack' snapshot."})
-    xml = build_xbrl_instance(session, ctx["org"]["org_id"], pack=snap["payload"], profile_key=profile)
-    return StreamingResponse(io.BytesIO(xml.encode("utf-8")), media_type="application/xml",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-v{snap['version']}.xbrl"})
 
 
 @router.get("/report-snapshots/{snapshot_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a frozen filing")

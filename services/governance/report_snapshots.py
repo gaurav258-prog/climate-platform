@@ -73,8 +73,8 @@ def _engine_versions(session: Session, org_id: str | None = None) -> dict:
 _BUILDERS = {
     "csrd_e1": ("CSRD · ESRS E1 physical-risk report",
                 lambda s, o, sc, hz, m, ei, vw, tr, pe: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
-    "esrs_pack": ("ESRS Climate & Nature pack (E1 · E3 · E4)",
-                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _esrs_pack(s, o, sc, hz, m), ("manufacturer",)),
+    "esrs_pack": ("ESRS sustainability statement — E1, E3, E4",
+                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _esrs_statement(s, o, ei, pe), ("manufacturer",)),
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
     "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
                   lambda s, o, sc, hz, m, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
@@ -108,9 +108,14 @@ def _csrd_e1(session, org_id, scenario, horizon, material):
     return build_e1_report(session, org_id, scenario=scenario, horizon=horizon, material_threshold=material)
 
 
-def _esrs_pack(session, org_id, scenario, horizon, material):
-    from services.intelligence.esrs_nature import build_esrs_pack
-    return build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
+# a report type whose provided values are stated under a family shared by every report that prints them
+_PROVIDED_UNDER = {"esrs_pack": "esrs"}
+
+
+def _esrs_statement(session, org_id, entity_ids, period_end):
+    """The ESRS statement of the undertaking the filing is for (services.governance.esrs_document.freeze)."""
+    from services.governance.esrs_document import freeze
+    return freeze(session, org_id, entity_ids=entity_ids, period_end=period_end)
 
 
 def _bank_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
@@ -277,6 +282,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                                            as_of_dates=out["position_dates"])
         out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
                                         entity_ids, value_weights, translation, period_end)
+        if report_type == "esrs_pack":
+            return out, engine_runs.inputs(session, org_id, report_type, asset_ids=[
+                x["site_id"] for x in out["document_report"]["statement"]["sites"]])
         return out, engine_runs.inputs(session, org_id, report_type, entity_ids)
     (payload, observed), view_record = in_view(session, org_id, view, compute)
     payload["_view"] = view_record
@@ -294,7 +302,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     from services.governance.entities import root_of
     from services.governance.provided_data import attested_values
     payload["_scope"] = {"reporting_entity_id": root_of(session, org_id, entity_ids)}   # whose own figures (None = the organisation)
-    payload["_provided_attested"] = attested_values(session, org_id, report_type, period_end,
+    payload["_provided_attested"] = attested_values(session, org_id, _PROVIDED_UNDER.get(report_type, report_type), period_end,
                                                     reporting_entity_id=payload["_scope"]["reporting_entity_id"])
     # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
     from services.governance.figure_views import resolve as resolve_figures

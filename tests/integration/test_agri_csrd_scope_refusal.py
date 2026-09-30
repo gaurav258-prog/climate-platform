@@ -1,7 +1,5 @@
-"""Agri CSRD/ESRS entity-scope refusal (2026-09-23 C5 fix): generate_filing() must name BOTH real gaps —
-data attribution (no per-legal-entity COGS split) AND legal scoping (doesn't track which subsidiary is the
-actual Art 19a/29a reporting undertaking, or which claims the Art 19a(3)/29a(3) exemption) — not just the
-first, which understates what a customer would actually need built.
+"""Scope refusals: the retired E1-only report takes no new filings or values (the ESRS statement is filed per
+undertaking, with its CSRD role — services.governance.csrd_roles); SFDR keeps its own fund-based reason.
 
 Requires PostgreSQL. Read-only (the refusal raises before anything is written).
 """
@@ -22,17 +20,16 @@ def _actor(session):
 
 
 @pytest.mark.integration
-def test_csrd_e1_entity_scope_refusal_names_both_gaps():
+def test_csrd_e1_is_retired_for_new_filings_and_values():
+    """The E1-only report is retired: a new ESRS statement is an esrs_pack filing, filed per undertaking."""
     with get_session() as s:
-        u = _actor(s)
-        e = E.create_entity(s, MANUFACTURER_ORG, name="Test C5 Sub", kind="legal_entity")
-        token = F.preflight(s, MANUFACTURER_ORG, "manufacturer", "csrd_e1")["confirm_token"]
-        with pytest.raises(F.FilingError) as exc:
-            F.generate_filing(s, MANUFACTURER_ORG, "manufacturer", "csrd_e1", u,
-                              confirm_token=token, entity_id=e["entity_id"])
-        msg = str(exc.value)
-        assert "data attribution" in msg and "COGS" in msg
-        assert "legal scoping" in msg and "Art 19a" in msg and "Art 29a" in msg
+        with pytest.raises(F.FilingError, match="retired"):
+            F.preflight(s, MANUFACTURER_ORG, "manufacturer", "csrd_e1")
+        assert "csrd_e1" not in {f["framework"] for f in F.available_frameworks("manufacturer")}
+        from services.governance.provided_data import ProvidedError, submit
+        with pytest.raises(ProvidedError, match="retired"):
+            submit(s, MANUFACTURER_ORG, None, framework="csrd_e1", datapoint_key="e1_ghg", value_num=1,
+                   reporting_period_end="2025-12-31")
         s.rollback()
 
 

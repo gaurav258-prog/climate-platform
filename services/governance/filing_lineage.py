@@ -60,7 +60,8 @@ _LIST_CFG = {
 # confirmed either way) rather than assumed:
 #   - sfdr_pai (asset manager): per-issuer drill-down, GET /v1/issuers/{issuer_id} — "full facility
 #     footprint + physical + transition detail" for any holding.
-#   - csrd_e1 / esrs_pack (agri): per-plot drill-down, GET /v1/supply/plot/{plot_id} — "projection +
+#   - esrs_pack: per site, in the frozen statement itself.
+#   - csrd_e1 (retired): per-plot drill-down, GET /v1/supply/plot/{plot_id} — "projection +
 #     provenance" for any sourcing plot; own-site lineage is the E1 report's own material-hazard rows.
 # (reit_taxonomy / insurer_solvency used to be routed through a "trace the sibling filing" workaround here —
 # fixed foundationally instead: they're in _LIST_CFG above now, since the data they need was always computed,
@@ -71,8 +72,9 @@ _ALT_LINEAGE = {
                 "not geolocated assets.",
     "csrd_e1": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
                "sourcing; own-site exposure is in this filing's own material-hazard rows directly.",
-    "esrs_pack": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
-                 "sourcing; own-site exposure is in this filing's own material-hazard/E3/E4 rows directly.",
+    "esrs_pack": "Per site: the frozen statement lists every site in scope with its weight, carrying amount and "
+                 "net revenue, and per horizon its hazards, materiality, water-stress and sensitive-area readings; "
+                 "each figure names its concept and lane (computed / stated / derived).",
     "sfdr_precontractual": "Item by item: every item of the frozen template carries its source (computed from the "
                            "fund / the manager's answer / printed wording); per holding, GET /v1/issuers/{issuer_id}.",
     "sfdr_periodic": "Item by item: every item of the frozen template carries its source; the frozen holdings (each "

@@ -27,6 +27,9 @@
   ],
   "insurer_recovery_stress": [
    "irrd_recovery"
+  ],
+  "esrs_pack": [
+   "esrs"
   ]
  },
  "previous_period": {

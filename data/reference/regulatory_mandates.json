@@ -728,8 +728,8 @@
         ]
       },
       "deliverable": {
-        "framework": "csrd_e1",
-        "what": "Sustainability statement with ESRS E1 (incl. E1-9 physical-risk financial effects) in the management report",
+        "framework": "esrs_pack",
+        "what": "Sustainability statement (ESRS E1, E3, E4 as built) in the management report",
         "format": "Management report in ESEF (iXBRL) with ESRS digital tagging when the taxonomy applies",
         "channel": "Filed with the national officially appointed mechanism; onward to the European Single Access Point",
         "direction": "push",

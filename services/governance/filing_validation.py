@@ -274,9 +274,11 @@ def _validate_csrd_e1(payload: dict) -> list[dict]:
 
 
 def _validate_esrs_pack(payload: dict) -> list[dict]:
-    """ESRS Climate & Nature pack (E1/E3/E4) — reuses the E1 checks for the embedded climate topic (which
-    already includes the entity-identity check), plus plausibility checks on E4's deforestation counters
-    (added 2026-09-23)."""
+    """The ESRS statement (services.governance.esrs_checks). A pack frozen before the statement was rebuilt (no
+    document_report) keeps the checks it was frozen under, below."""
+    if payload.get("document_report") is not None:
+        from services.governance.esrs_checks import checks
+        return checks(payload)
     out: list[dict] = []
     entity = payload.get("entity") or {}
     topics = {t.get("topic"): t for t in (payload.get("topics") or [])}

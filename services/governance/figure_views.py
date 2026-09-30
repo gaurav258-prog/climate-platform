@@ -25,18 +25,9 @@ def _scope3(p: dict) -> Optional[float]:
     return float(v) if v is not None else None
 
 
-def _protected_count(p: dict) -> Optional[float]:
-    for t in p.get("topics") or []:
-        pa = t.get("protected_areas") if isinstance(t, dict) else None
-        if isinstance(pa, dict) and ("sites_in_protected" in pa or "plots_in_protected" in pa):
-            return float((pa.get("sites_in_protected") or 0) + (pa.get("plots_in_protected") or 0))
-    return None
-
-
 FIGURES: dict[tuple[str, str], dict] = {
     ("bank_tcfd", "financed_emissions"): {"ours": _sum_scopes, "form_key": "emissions.total", "unit": "tCO2e"},
     ("bank_p3esg", "p3_scope3"): {"ours": _scope3, "form_key": "emissions.scope3", "unit": "tCO2e"},
-    ("esrs_pack", "e4_protected_area"): {"ours": _protected_count, "form_key": None, "unit": "count"},
 }
 SOURCES = ("client", "tellumen")
 

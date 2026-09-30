@@ -84,19 +84,27 @@ def _value_of(row: dict) -> float:
 
 
 def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional[list] = None,
-           fund_id: Optional[str] = None, as_of_dates: Optional[list] = None) -> tuple[dict, dict]:
+           fund_id: Optional[str] = None, as_of_dates: Optional[list] = None,
+           asset_ids: Optional[list] = None) -> tuple[dict, dict]:
     """(manifest, the in-scope rows by book) — the manifest is stored, the rows feed the identity / tie checks.
     fund_id: a per-product report reads that fund's (and its sub-funds') positions on the position dates it froze
-    (as_of_dates); their value is the average over those dates, as the document computes it."""
+    (as_of_dates); their value is the average over those dates, as the document computes it.
+    asset_ids: a report that decides its own scope (the ESRS statement: held at the year end, in the undertaking's
+    consolidation) names the assets it read."""
     if report_type in LOCATED:
         keys = (_VERTICAL_BOOK[LOCATED[report_type][0]],)
-    elif report_type in ("csrd_e1", "esrs_pack"):
+    elif report_type == "csrd_e1":
         keys = _AGRI_BOOKS
+    elif report_type == "esrs_pack":                    # the ESRS statement reads the undertaking's own sites
+        keys = ("company_sites",)
     else:
         keys = ()
     books, rows_by_book, ids, cells, tables = [], {}, [], set(), set()
     for k in keys:
         rows, table = _book_rows(session, org_id, k, entity_ids if report_type in LOCATED else None)
+        if asset_ids is not None:
+            keep = {str(a) for a in asset_ids}
+            rows = [r for r in rows if r["entity_id"] in keep]
         rows_by_book[k] = rows
         tables.add(table)
         ids += [r["entity_id"] for r in rows]

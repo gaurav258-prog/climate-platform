@@ -24,7 +24,10 @@ def _scope(session: Session, org_id: str, framework: str | None) -> dict | None:
                 JOIN sc_commodities c ON c.commodity_id = p.commodity_id AND c.eudr_covered
                 WHERE p.org_id = :o"""), {"o": org_id}).scalar()
             return {"n": int(n or 0), "label": "EUDR-covered plots"}
-        if framework in ("csrd_e1", "esrs_pack"):
+        if framework == "esrs_pack":
+            sites = session.execute(text("SELECT count(*) FROM sc_company_sites WHERE org_id=:o"), {"o": org_id}).scalar()
+            return {"n": int(sites or 0), "label": "sites"}
+        if framework == "csrd_e1":
             sites = session.execute(text("SELECT count(*) FROM sc_company_sites WHERE org_id=:o"), {"o": org_id}).scalar()
             plots = session.execute(text("SELECT count(*) FROM sc_sourcing_plots WHERE org_id=:o"), {"o": org_id}).scalar()
             return {"n": int(sites or 0) + int(plots or 0), "label": "sites & sourcing plots"}

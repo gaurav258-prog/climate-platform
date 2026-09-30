@@ -150,3 +150,15 @@ def test_what_cannot_be_established_is_a_gap_never_a_default(book):
     assert "J1" not in [x["name"] for x in g["sites"]]
     # FY2030: no projection year inside the medium-term interval (2030, 2035]
     assert E.horizons(date(2030, 12, 31))["medium"] is None
+
+
+def test_a_hazard_scored_today_but_not_projected_leaves_that_horizon_unknown(book):
+    s, ent = book
+    # P1 wildfire 65 today, no SSP5-8.5 projection: short term counts it; medium and long cannot say 'not material'
+    _score(s, CELLS["P1"], "wildfire", "baseline", "current", 65)
+    out = E.compute(s, ORG, entity_id=ent["P"], period_end=PE, esrs_version="dr_2023_2772_as_2025_1416")
+    a = out["concepts"]["e1.physrisk.assets.amount"]
+    assert a["by_horizon"] == {"short": 14e6, "medium": None, "long": None}
+    assert a["status"] == "gap" and "medium term: no hot_house_3_5c projection for wildfire at P1" in a["gap"]
+    assert "long term: no hot_house_3_5c projection for wildfire at P1" in a["gap"]
+    assert {x["name"]: x["risk"]["medium"]["unprojected"] for x in out["sites"]} == {"P1": ["wildfire"], "S1": [], "J1": []}

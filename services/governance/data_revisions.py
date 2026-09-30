@@ -128,6 +128,8 @@ def flagged_filings(session: Session, org_id: str) -> list[dict]:
 def _tables_for(report_type: str) -> list[str]:
     if report_type in R.LOCATED:
         return ["portfolio_entities"]
-    if report_type in ("csrd_e1", "esrs_pack"):
+    if report_type == "csrd_e1":
         return ["sc_company_sites", "sc_sourcing_plots"]
+    if report_type == "esrs_pack":                      # the ESRS statement reads the undertaking's own sites
+        return ["sc_company_sites"]
     return []

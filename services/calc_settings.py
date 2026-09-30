@@ -120,6 +120,18 @@ INTERPRETATION_SCHEMA: dict = {
                        "are unaffected.",
         "sectors": ["manufacturer"],
     },
+    # CSRD: whether the undertaking's Member State used the derogation of Art. 5(2) of Directive (EU) 2022/2464 (added by
+    # Directive (EU) 2026/470) for the financial years starting in 2025-2026 — national law, stated by the undertaking;
+    # no default either way (data/reference/csrd/scope.json 'member_state_derogation').
+    "csrd_member_state_derogation": {
+        "frameworks": ["esrs_pack"],
+        "default": "not_stated", "kind": "enum", "allowed": ["not_stated", "exempted", "not_exempted"],
+        "label": "CSRD — Member State derogation for FY 2025-2026",
+        "description": "Directive (EU) 2022/2464 Art. 5(2) as amended by Directive (EU) 2026/470: Member States may exempt "
+                       "wave-one undertakings not exceeding EUR 450m net turnover or 1 000 employees for the financial "
+                       "years starting in 2025 and 2026. 'exempted' = the undertaking's Member State applied it.",
+        "sectors": ["manufacturer"],
+    },
     "climate_var_dependence": {
         "frameworks": ["assetmgmt_tcfd", "sfdr_pai"],
         "default": "independent", "kind": "enum", "allowed": ["independent", "additive", "max"],

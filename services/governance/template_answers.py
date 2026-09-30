@@ -83,9 +83,11 @@ def read(session: Session, org_id: str, family: str, document: str, *, fund_id: 
 
 def save(session: Session, org_id: str, family: str, document: str, template: dict, bound: dict, answers: dict,
          user_id: str | None, *, fund_id: str | None = None, period_end: date | None = None,
-         entity_id: str | None = None, label: str = "the template", computed_from: str = "the platform") -> dict:
+         entity_id: str | None = None, label: str = "the template", computed_from: str = "the platform",
+         validate=None) -> dict:
     """Validate every answer against the template and its binding ({item id: 'computed' | 'input'}), store the valid
-    ones, report the refused ones."""
+    ones, report the refused ones. validate(item, value) → the stored answer, or None to use the kind's shape: a
+    family whose answers carry more than the kind (ESRS: an omission and its reason) validates them itself."""
     by_id = {i["id"]: i for i in template["items"]}
     key = {"o": org_id, "f": fund_id, "e": entity_id, "fam": family, "d": document, "pe": period_end}
     saved, refused = [], []
@@ -101,7 +103,8 @@ def save(session: Session, org_id: str, family: str, document: str, template: di
                 session.execute(text(f"DELETE FROM template_answers WHERE {_KEY} AND item_id = :i"), {**key, "i": item_id})
                 saved.append(item_id)
                 continue
-            stored = shape(item, [c for c in template["items"] if c.get("parent") == item_id], value)
+            stored = (validate(item, value) if validate else None) or \
+                shape(item, [c for c in template["items"] if c.get("parent") == item_id], value)
         except AnswerError as e:
             refused.append({"item": item_id, "reason": str(e)})
             continue

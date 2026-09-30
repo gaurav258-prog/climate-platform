@@ -52,7 +52,7 @@ export const FRAMEWORK_LABEL: Record<string, string> = {
   reit_tcfd: 'TCFD · EU Taxonomy',
   sfdr_pai: 'SFDR · Principal Adverse Impacts',
   csrd_e1: 'CSRD · ESRS E1',
-  esrs_pack: 'ESRS Climate & Nature',
+  esrs_pack: 'ESRS statement',
   insurer_climate: 'Climate / NatCat disclosure',
 }
 // map a known key; otherwise title-case it (handles free-typed / future framework names gracefully)

@@ -937,6 +937,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     elif framework in ("sfdr_precontractual", "sfdr_periodic"):
         from services.governance import sfdr_product_forms
         sections = sfdr_product_forms.sections(payload or {}, framework)
+    elif framework == "esrs_pack" and (payload or {}).get("document_report") is not None:
+        from services.governance import esrs_document
+        sections = esrs_document.sections(payload or {})
     else:
         sections = _generic_annex(dps, groups)
     if not sections:

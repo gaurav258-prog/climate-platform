@@ -12,8 +12,7 @@ import Shell from './components/Shell'
 const Horizon = lazy(() => import('./pages/Horizon'))
 const Home = lazy(() => import('./pages/Home'))
 const Disclosure = lazy(() => import('./pages/Disclosure'))
-const Csrd = lazy(() => import('./pages/Csrd'))
-const EsrsPack = lazy(() => import('./pages/EsrsPack'))
+const EsrsStatement = lazy(() => import('./pages/EsrsStatement'))
 const Approvals = lazy(() => import('./pages/Approvals'))
 const Supervised = lazy(() => import('./pages/Supervised'))
 const EntityFile = lazy(() => import('./pages/EntityFile'))
@@ -122,8 +121,8 @@ function Workspace() {
         <Route path="/horizon" element={<Horizon />} />
         <Route path="/home" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
-        <Route path="/csrd" element={<Csrd />} />
-        <Route path="/esrs" element={<EsrsPack />} />
+        <Route path="/csrd" element={<Navigate to="/esrs" replace />} />
+        <Route path="/esrs" element={<EsrsStatement />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/exceptions" element={<Exceptions />} />
         <Route path="/oversight" element={<Oversight />} />

@@ -1,0 +1,171 @@
+{
+ "_about": "Relations between the undertaking's figures that the standards themselves state (the printed item or AR ids under 'printed' — their words are read from the specification, never typed here), checked on the attested values (services/governance/esrs_checks.py). 'sum': the total equals the sum of its parts; 'at_most': a part of a total cannot exceed it; A relation is checked only when every figure in it is stated. Figures are stated to whole units, so a sum of n rounded parts may differ from its rounded total by up to (n + 1) x 0.5 of that unit — the only tolerance.",
+ "dr_2023_2772": "dr_2023_2772_as_2025_1416",
+ "dr_2023_2772_as_2025_1416": [
+  {
+   "id": "total_ghg_location",
+   "kind": "sum",
+   "total": "e1.ghg.total.location",
+   "parts": [
+    "e1.ghg.scope1.gross",
+    "e1.ghg.scope2.location",
+    "e1.ghg.scope3.total"
+   ],
+   "ref": "ESRS E1 §52 (2023/2772)",
+   "printed": [
+    "E1-6.52"
+   ]
+  },
+  {
+   "id": "total_ghg_market",
+   "kind": "sum",
+   "total": "e1.ghg.total.market",
+   "parts": [
+    "e1.ghg.scope1.gross",
+    "e1.ghg.scope2.market",
+    "e1.ghg.scope3.total"
+   ],
+   "ref": "ESRS E1 §52 (2023/2772)",
+   "printed": [
+    "E1-6.52"
+   ]
+  },
+  {
+   "id": "scope3_categories",
+   "kind": "sum",
+   "total": "e1.ghg.scope3.total",
+   "parts_breakdown": "e1.ghg.scope3.by_category",
+   "ref": "ESRS E1 §51 (2023/2772)",
+   "printed": [
+    "E1-6.51"
+   ]
+  },
+  {
+   "id": "energy_mix",
+   "kind": "sum",
+   "total": "e1.energy.total",
+   "parts": [
+    "e1.energy.fossil",
+    "e1.energy.nuclear",
+    "e1.energy.renewable"
+   ],
+   "ref": "ESRS E1 §37 (2023/2772)",
+   "printed": [
+    "E1-5.37",
+    "E1-5.37a",
+    "E1-5.37b",
+    "E1-5.37c"
+   ]
+  },
+  {
+   "id": "renewable_split",
+   "kind": "sum",
+   "total": "e1.energy.renewable",
+   "parts": [
+    "e1.energy.renewable.fuel",
+    "e1.energy.renewable.purchased",
+    "e1.energy.renewable.self_generated"
+   ],
+   "ref": "ESRS E1 §37(c) (2023/2772)",
+   "printed": [
+    "E1-5.37c",
+    "E1-5.37c.i",
+    "E1-5.37c.ii",
+    "E1-5.37c.iii"
+   ]
+  },
+  {
+   "id": "fossil_split",
+   "kind": "sum",
+   "total": "e1.energy.fossil",
+   "parts": [
+    "e1.energy.fossil.coal",
+    "e1.energy.fossil.oil",
+    "e1.energy.fossil.natural_gas",
+    "e1.energy.fossil.other",
+    "e1.energy.fossil.purchased"
+   ],
+   "ref": "ESRS E1 §38 (2023/2772)",
+   "printed": [
+    "E1-5.38",
+    "E1-5.38a",
+    "E1-5.38b",
+    "E1-5.38c",
+    "E1-5.38d",
+    "E1-5.38e"
+   ]
+  },
+  {
+   "id": "water_at_risk_within_total",
+   "kind": "at_most",
+   "part": "e3.water.consumption_at_risk",
+   "total": "e3.water.consumption",
+   "ref": "ESRS E3 §28(a)-(b) (2023/2772)",
+   "printed": [
+    "E3-4.28a",
+    "E3-4.28b"
+   ]
+  }
+ ],
+ "dr_2026_1563": [
+  {
+   "id": "energy_mix",
+   "kind": "sum",
+   "total": "e1.energy.total",
+   "parts": [
+    "e1.energy.fossil",
+    "e1.energy.nuclear",
+    "e1.energy.renewable"
+   ],
+   "ref": "ESRS E1 §26 (2026/1563)",
+   "printed": [
+    "E1-7.26",
+    "E1-7.26a",
+    "E1-7.26b",
+    "E1-7.26c"
+   ]
+  },
+  {
+   "id": "fossil_split",
+   "kind": "sum",
+   "total": "e1.energy.fossil",
+   "parts": [
+    "e1.energy.fossil.coal",
+    "e1.energy.fossil.oil",
+    "e1.energy.fossil.natural_gas",
+    "e1.energy.fossil.other",
+    "e1.energy.fossil.purchased"
+   ],
+   "ref": "ESRS E1 §27 (2026/1563)",
+   "printed": [
+    "E1-7.27",
+    "E1-7.27a",
+    "E1-7.27b",
+    "E1-7.27c",
+    "E1-7.27d",
+    "E1-7.27e"
+   ]
+  },
+  {
+   "id": "scope3_categories",
+   "kind": "sum",
+   "total": "e1.ghg.scope3.total",
+   "parts_breakdown": "e1.ghg.scope3.by_category",
+   "ref": "ESRS E1 §30(a)(iii) (2026/1563)",
+   "printed": [
+    "E1-8.30a.iii"
+   ]
+  },
+  {
+   "id": "water_stress_within_total",
+   "kind": "at_most",
+   "part": "e3.water.consumption_at_risk.v2026",
+   "total": "e3.water.consumption",
+   "ref": "ESRS E3 §16(a)-(b) (2026/1563)",
+   "printed": [
+    "E3-4.16a",
+    "E3-4.16b"
+   ]
+  }
+ ]
+}

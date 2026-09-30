@@ -209,12 +209,6 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 
-# ESRS filings tag under the official-intent EFRAG Set 1 profile: it emits the official esrs: QNames and
-# lights up as a validated ESEF filing the day the EFRAG element map is dropped in (config/efrag_esrs_binding.json)
-# — zero code change. Until then it is honestly labelled pending. See services/intelligence/esrs_taxonomy.py.
-_ESRS_PROFILE = "efrag_set1"
-
-
 def _identity(session: Session, org_id: str, entity_id: str | None) -> dict:
     """Who the filing identifies to the regulator: the filing entity's own LEI (a solo or sub-group filing), else the
     organisation's (a whole-organisation filing, or an entity without one — said so in the file). No LEI at all refuses
@@ -253,28 +247,20 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
         return _bank_tcfd_xbrl(session, org_id, payload, basis, entity_id)
     if framework == "bank_p3esg":
         return _bank_p3esg_xbrl(session, org_id, payload, basis, entity_id)
-    if framework == "esrs_pack":                     # tag the FROZEN pack via the shared iXBRL engine (WORM-faithful)
-        from services.intelligence.esrs_xbrl import build_xbrl_instance
-        return build_xbrl_instance(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
-                                   period_end=(basis or {}).get("reporting_period_end"))
     raise ExportError(f"no XBRL renderer for '{framework}'")
 
 
 def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:
     """Inline XBRL (iXBRL/ESEF): one document a person reads and a machine parses, tagged from the FROZEN
-    snapshot so the filed bytes are exactly what was reproducible-by-hash. ESRS only for now (the one engine
-    that emits iXBRL); other frameworks export XBRL/xlsx."""
-    if framework == "esrs_pack":
-        from services.intelligence.esrs_xbrl import build_ixbrl
-        return build_ixbrl(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
-                           period_end=(basis or {}).get("reporting_period_end"))
+    snapshot so the filed bytes are exactly what was reproducible-by-hash. SFDR only: an ESRS statement is tagged with
+    EFRAG's ESRS XBRL taxonomy, whose binding is not built (no ESRS XBRL is produced)."""
     if framework == "sfdr_pai":
         from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_ixbrl
         try:
             return sfdr_pai_ixbrl(payload)
         except XbrlIdentityError as e:
             raise ExportError(str(e)) from e
-    raise ExportError(f"no iXBRL renderer for '{framework}' (available for ESRS + SFDR filings)")
+    raise ExportError(f"no iXBRL renderer for '{framework}' (available for SFDR filings)")
 
 
 # ── compact TCFD/EU-Taxonomy XBRL instance from the frozen bank payload ──────────────────────────

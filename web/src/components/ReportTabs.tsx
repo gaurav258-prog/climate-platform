@@ -1,14 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
-// One "Reports & filings" hub for agriculture — the report types (assemble, EUDR, CSRD, ESRS, prior) as tabs
+// One "Reports & filings" hub for agriculture — the report types (assemble, EUDR, the ESRS statement, prior) as tabs
 // on one surface instead of five separate nav entries. Renders only for the agri workspace (manufacturer);
 // financial sectors keep their own filing cockpit.
 const TABS = [
   { to: '/filings', label: 'Reports & filings' },
   { to: '/disclosure', label: 'EUDR & supply' },
-  { to: '/csrd', label: 'Climate (CSRD)' },
-  { to: '/esrs', label: 'Nature (ESRS)' },
+  { to: '/esrs', label: 'ESRS statement' },
   { to: '/prior-filings', label: 'Prior filings' },
 ]
 

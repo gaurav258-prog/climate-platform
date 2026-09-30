@@ -48,12 +48,16 @@ FRAMEWORKS = {
                        "frequency": "annual",
                        "regulator": "National competent authority / TCFD", "basis": "TCFD asset-manager guidance"},
     # ── agriculture (manufacturer) frameworks — builders already registered in report_snapshots._BUILDERS ──
+    # retired: its filings stay readable; a new ESRS statement is an esrs_pack filing (E1 is one of its standards)
     "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
-                "frequency": "annual",
+                "frequency": "annual", "retired_for": "esrs_pack",
                 "regulator": "National competent authority (CSRD)", "basis": "ESRS E1"},
-    "esrs_pack": {"label": "ESRS Climate & Nature pack (E1 · E3 · E4)", "sectors": ("manufacturer",),
-                  "frequency": "annual", "due": (3, 31),
-                  "regulator": "National competent authority (CSRD)", "basis": "ESRS E1 · E3 · E4"},
+    # one undertaking's (or group's) ESRS statement for one financial year, on the version governing that year
+    # (services.governance.esrs_document); its deadline is the mandate's (with the management report)
+    "esrs_pack": {"label": "ESRS sustainability statement — E1, E3, E4", "sectors": ("manufacturer",),
+                  "frequency": "annual",
+                  "regulator": "National competent authority (CSRD)",
+                  "basis": "Directive 2013/34/EU Art. 19a / 29a · ESRS (Del. Reg. (EU) 2023/2772 as amended; (EU) 2026/1563)"},
     "reit_tcfd": {"label": "TCFD · EU-Taxonomy disclosure (property book)", "sectors": ("reit",),
                   "frequency": "annual", "due": (4, 30),
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
@@ -102,7 +106,7 @@ EXPORT_FORMATS = {
     "insurer_orsa_climate": ("json",),
     "insurer_recovery_stress": ("json",),
     "csrd_e1":   ("json",),
-    "esrs_pack": ("json", "xbrl", "ixbrl"),
+    "esrs_pack": ("json",),
     "sfdr_precontractual": ("json", "html"),
     "sfdr_periodic": ("json", "html"),
 }
@@ -132,14 +136,14 @@ class FilingError(ValueError):
 # ── framework catalog ──────────────────────────────────────────────────
 
 # Frameworks whose builder genuinely HONOURS entity scope — the located FIN books, where each asset carries a
-# clear reporting-entity + value, so a group consolidates correctly (ownership-weighted). The others do NOT:
-# SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
-# aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
+# clear reporting-entity + value, so a group consolidates correctly (ownership-weighted), and the ESRS statement,
+# filed by the reporting undertaking (its CSRD role, csrd_reporting_role; its scope, esrs_statement.scope). SFDR
+# does NOT: it consolidates fund-side (the funds workspace — per-fund statements + the across-all-funds aggregate).
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
 from services.governance.product_filings import PRODUCT_SCOPED as _PRODUCT_SCOPED  # noqa: E402
 
 _ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd",
-                  "insurer_orsa_climate", "insurer_recovery_stress"}
+                  "insurer_orsa_climate", "insurer_recovery_stress", "esrs_pack"}
 # report types on Solvency II consolidated data (Del. Reg. 2015/35 Art. 335(1)): a group filing weights its entities so
 _SOLVENCY2_GROUP = {"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"}
 
@@ -148,7 +152,7 @@ def available_frameworks(org_type: str) -> list[dict]:
     """Frameworks that apply to this org-type sector, each with its cadence and statutory deadline shape."""
     out = []
     for key, f in FRAMEWORKS.items():
-        if org_type in f["sectors"] and key in _BUILDERS:
+        if org_type in f["sectors"] and key in _BUILDERS and not f.get("retired_for"):
             out.append({"framework": key, "label": f["label"], "frequency": f["frequency"],
                         "regulator": f["regulator"], "basis": f["basis"],
                         "entity_scoped": key in _ENTITY_SCOPED, "product_scoped": key in _PRODUCT_SCOPED})
@@ -656,10 +660,7 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
     """The confirm-data step before freezing: shows the basis, the data coverage, the headline figures and
     any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes
     nothing. Returns a confirm_token binding this exact result — see _confirm_token()."""
-    if framework not in FRAMEWORKS or framework not in _BUILDERS:
-        raise FilingError(f"unknown framework '{framework}'")
-    if org_type not in FRAMEWORKS[framework]["sectors"]:
-        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    _open_for_new(framework, org_type)
     period_end = reporting_period_end(session, org_id)
     if framework in _PRODUCT_SCOPED and fund_id is None and entity_id is None:
         # a per-product report: the preparer chooses which fund first (nothing is computed or confirmed yet)
@@ -809,8 +810,8 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_sum_insured_eur"), "value_at_risk_eur": None,
                 "noun": "policies", "gaps": gaps}
-    # agri (csrd_e1 / esrs_pack) & any other framework — the report assembles from the org's own footprint;
-    # no single coverage ratio, so present it cleanly (basis + confirm) rather than a fake 0%.
+    # the ESRS statement & any other framework — no single coverage ratio (its completeness is its checks: every item
+    # filled or omitted with a reason), so present it cleanly (basis + confirm) rather than a fake 0%.
     return {"coverage": None, "total_value_eur": None, "noun": "sites & sourcing plots", "gaps": []}
 
 
@@ -835,12 +836,27 @@ def org_data_coverage_pct(session: Session, org_id: str, org_type: str, framewor
     return cov.get("pct") if cov else None
 
 
+def _open_for_new(framework: str, org_type: str) -> None:
+    """A framework a new filing can be prepared for: known, built, for this sector and not retired."""
+    if framework not in FRAMEWORKS or framework not in _BUILDERS:
+        raise FilingError(f"unknown framework '{framework}'")
+    if org_type not in FRAMEWORKS[framework]["sectors"]:
+        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    if FRAMEWORKS[framework].get("retired_for"):
+        raise FilingError(f"{FRAMEWORKS[framework]['label']} is retired — prepare a "
+                          f"{FRAMEWORKS[FRAMEWORKS[framework]['retired_for']]['label']} instead")
+
+
 def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):
     """What a filing's book is: the reporting entities it covers, their consolidation weights, and how its money is
     presented (multi-currency phase 3: solo in the entity's functional currency, consolidated in the group's
     presentation currency, group-internal exposures eliminated). Shared by generate, refresh and restate so a
     re-freeze can never change the scope or currency of the filing it replaces."""
     entity_ids = value_weights = translation = None
+    if framework == "esrs_pack":
+        # the ESRS statement's scope is the undertaking's own (its sites, and a group's by consolidation and joint
+        # arrangements — services.governance.esrs_statement.scope); its money is stated per value with its currency
+        return ([entity_id] if entity_id else None), None, None
     if entity_id is not None:
         from services.governance import entities as _E
         entity_ids = _E.subtree_ids(session, org_id, entity_id)
@@ -874,28 +890,8 @@ def _check_scope(session: Session, org_id: str, framework: str, entity_id: str |
     if framework in _PRODUCT_SCOPED:
         return
     # resolve the reporting scope — refuse a per-entity/consolidated scope for a framework that can't honour it
-    # (would mislabel a whole-org number). SFDR consolidates by fund; agri CSRD/ESRS has TWO distinct gaps —
-    # see the C5 note below, not just the one this used to name.
+    # (would mislabel a whole-org number). SFDR consolidates by fund.
     if entity_id is not None and framework not in _ENTITY_SCOPED:
-        if framework in ("csrd_e1", "esrs_pack"):
-            # Fixed 2026-09-23 (C5, independent consolidation-scope review): this used to cite only the
-            # data-attribution gap (no per-legal-entity COGS split), which understates what's actually
-            # missing. CSRD Art 19a (consolidated) vs Art 29a (individual undertaking) turns on a genuine
-            # LEGAL-SCOPING question this platform doesn't track at all: which subsidiary is the real Art
-            # 19a/29a reporting undertaking, and which one — if any — claims the Art 19a(3)/29a(3) exemption
-            # (available only when included in a parent's Art 29a consolidated report, and even then the
-            # exempted subsidiary must still disclose the parent's name, registered office and a weblink to
-            # that report). Reporting_entities has no field for either fact, so a customer reading only the
-            # data-attribution reason would reasonably think a COGS-mapping improvement is all that's needed
-            # — it is not; the legal designation itself would need to be built first.
-            raise FilingError(
-                f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
-                f"consolidated scope isn't available for it, for two separate reasons: (1) data attribution — "
-                f"the supply-chain COGS-at-risk model has no per-legal-entity split, only an org-wide "
-                f"footprint; (2) legal scoping — this platform doesn't yet track which subsidiary is the "
-                f"actual CSRD Art 19a (consolidated) or Art 29a (individual undertaking) reporting entity, or "
-                f"which one would claim the Art 19a(3)/29a(3) exemption. Both would need to be built, not just "
-                f"the first.")
         raise FilingError(f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
                           f"consolidated scope isn't available for it (SFDR consolidates by fund in the Funds "
                           f"workspace).")
@@ -964,10 +960,7 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     (org, framework) — recomputed and compared fresh here, not merely checked for presence. This closes the
     preflight->generate race: a bare `confirmed: bool` used to let a stale confirmation freeze data the
     preparer never actually looked at if the book changed in between."""
-    if framework not in FRAMEWORKS or framework not in _BUILDERS:
-        raise FilingError(f"unknown framework '{framework}'")
-    if org_type not in FRAMEWORKS[framework]["sectors"]:
-        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    _open_for_new(framework, org_type)
     if not confirm_token:
         raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
 

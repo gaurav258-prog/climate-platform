@@ -158,15 +158,19 @@ def assess(session: Session, sites: list[dict], period_end: date, level: float |
     out, versions = {}, set()
     for s in sites:
         per = {}
+        now = {r["hazard_type"] for r in by.get((s["h3_cell"], *hz["short"]), [])} if hz.get("short") else set()
         for h in HORIZONS:
             if hz[h] is None or level is None:
-                per[h] = {"scored": None, "material": None, "acute": None, "chronic": None}
+                per[h] = {"scored": None, "material": None, "acute": None, "chronic": None, "unprojected": []}
                 continue
             got = by.get((s["h3_cell"], *hz[h]), [])
             versions |= {f"{r['hazard_type']}:{r['model_version']}" for r in got}
             mat = sorted({r["hazard_type"] for r in got if r["score"] >= level})
+            # a hazard scored at the site today but not projected for this horizon: its future level is not known —
+            # the horizon cannot be read as 'not material' for it
             per[h] = {"scored": bool(got), "material": mat, "acute": any(nature[m] == "acute" for m in mat),
-                      "chronic": any(nature[m] == "chronic" for m in mat)}
+                      "chronic": any(nature[m] == "chronic" for m in mat),
+                      "unprojected": sorted(now - {r["hazard_type"] for r in got})}
         out[s["site_id"]] = per
     return {"by_site": out, "horizons": {h: ({"scenario": v[0], "horizon": v[1]} if v else None) for h, v in hz.items()},
             "model_versions": sorted(versions), "level": level}
@@ -200,8 +204,12 @@ def compute(session: Session, org_id: str, *, entity_id: str | None, period_end:
     base_gaps += [f"no carrying amount at {period_end} for {s['name']}" for s in sites if s["carrying"] is None]
     concepts: dict = {}
 
+    def unprojected(h):
+        """'<hazard> at <site>' for each hazard scored today that the horizon's projection does not score."""
+        return [f"{z} at {s['name']}" for s in sites for z in risk["by_site"][s["site_id"]][h].get("unprojected") or []]
+
     def horizon_values(fn):
-        return {h: (fn(h) if hz[h] is not None and level is not None else None) for h in HORIZONS}
+        return {h: (fn(h) if hz[h] is not None and level is not None and not unprojected(h) else None) for h in HORIZONS}
 
     def at(h):
         return [s for s in sites if risk["by_site"][s["site_id"]][h]["material"]]
@@ -214,6 +222,8 @@ def compute(session: Session, org_id: str, *, entity_id: str | None, period_end:
         missing_h = [h for h in HORIZONS if hz[h] is None]
         if missing_h:
             gaps = gaps + [f"no projection year inside the {', '.join(missing_h)}-term interval"]
+        gaps += [f"{h} term: no {hz[h]['scenario']} projection for {', '.join(unprojected(h))}" for h in HORIZONS
+                 if hz[h] is not None and level is not None and unprojected(h)]
         concepts[key] = {"value": values.get("short"), "by_horizon": values, "status": "gap" if gaps else "computed",
                          **({"gap": "; ".join(gaps)} if gaps else {})}
     put("e1.physrisk.assets.amount", horizon_values(amt))

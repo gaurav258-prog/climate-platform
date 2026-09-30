@@ -783,6 +783,60 @@
    "input_only": true,
    "always": true,
    "why": "materiality is the undertaking's own assessment (ESRS 1 chapter 3); the platform has no default"
+  },
+  "csrd.employees_average": {
+   "label": "Average number of employees during the financial year (on a consolidated basis for a group)",
+   "unit": "count",
+   "period": "flow",
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
+  },
+  "csrd.net_turnover": {
+   "label": "Net turnover (Directive 2013/34/EU Art. 2(5); on a consolidated basis for a group)",
+   "unit": "monetary",
+   "period": "flow",
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
+  },
+  "csrd.large_undertaking": {
+   "label": "A large undertaking within the meaning of Art. 3(4) of Directive 2013/34/EU (1 = yes, 0 = no)",
+   "unit": "boolean",
+   "period": null,
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
+  },
+  "csrd.public_interest_entity": {
+   "label": "A public-interest entity as defined in point (1) of Art. 2 of Directive 2013/34/EU (1 = yes, 0 = no)",
+   "unit": "boolean",
+   "period": null,
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
+  },
+  "csrd.large_group_parent": {
+   "label": "The parent undertaking of a large group within the meaning of Art. 3(7) of Directive 2013/34/EU (1 = yes, 0 = no)",
+   "unit": "boolean",
+   "period": null,
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
+  },
+  "csrd.first_reporting_year": {
+   "label": "The first financial year (its start year) for which the undertaking was required to report under Art. 5(2) of Directive (EU) 2022/2464",
+   "unit": "year",
+   "period": null,
+   "lane": "provided",
+   "input_only": true,
+   "always": true,
+   "why": "an input of the scope test (data/reference/csrd/scope.json) or of the phase-ins (data/reference/esrs/phase_ins.json)"
   }
  },
  "bindings": {

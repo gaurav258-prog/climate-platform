@@ -10,7 +10,6 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.intelligence.company_sites import list_sites_with_risk
 from services.intelligence.csrd_e1 import build_e1_report
-from services.intelligence.esrs_xbrl import build_ixbrl
 
 _T3_CELL = "88_t3_test_ownops"   # synthetic (<=20 chars, h3_cell is varchar(20)); no real site uses it
 
@@ -76,18 +75,3 @@ def test_t5_confidence_grade_is_in_the_e1_payload():
     # every commodity object exposes the grade fields (None for held, letter for published)
     assert all(hasattr(c, "confidence_grade") for c in r.commodities)
 
-
-@pytest.mark.integration
-def test_t7_ixbrl_is_built_from_the_supplied_pack_not_recomputed():
-    """build_ixbrl(pack=...) must tag the EXACT supplied payload (a frozen snapshot), not recompute live."""
-    with get_session() as s:
-        org = _org(s)
-        from services.intelligence.esrs_nature import build_esrs_pack
-        pack = build_esrs_pack(s, org)
-        # tamper one figure in the pack; if build_ixbrl recomputed, the sentinel would not appear
-        sentinel = 987654321
-        for t in pack["topics"]:
-            if t["topic"] == "E1":
-                t["financial_effects"]["asset_value_at_risk_eur"] = sentinel
-        ix = build_ixbrl(s, org, pack=pack)
-    assert str(sentinel) in ix, "build_ixbrl recomputed instead of tagging the supplied (frozen) pack"

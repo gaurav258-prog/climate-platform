@@ -117,15 +117,18 @@ REFERENCE: dict[str, dict] = {
                   "(commodity spend by origin), and GHG / energy data.",
     },
     "esrs_pack": {
-        "official_name": "ESRS Climate & Nature pack (E1 Climate · E3 Water & Marine · E4 Biodiversity)",
+        "official_name": "Sustainability statement — ESRS E1 Climate change, E3 Water and marine resources, E4 Biodiversity and ecosystems",
         "authority": "National competent authority (CSRD transposition)",
-        "legal_basis": "CSRD Directive (EU) 2022/2464 · ESRS Delegated Regulation (EU) 2023/2772, ESRS E1 / E3 / E4",
+        "legal_basis": "Directive 2013/34/EU Arts 19a / 29a (as inserted by Directive (EU) 2022/2464)",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772",
-        "summary": "The environmental ESRS topical standards — climate (E1), water & marine resources (E3), and "
-                   "biodiversity & ecosystems (E4): impacts, risks, dependencies and metrics.",
-        "official_form": "ESRS E1 / E3 / E4 disclosure requirements & datapoints — Annex I to Delegated Reg. (EU) 2023/2772 · EFRAG ESRS XBRL taxonomy",
+        "summary": "The undertaking's (or group's) statement under the ESRS version governing the financial year: each "
+                   "disclosure requirement of E1, E3 and E4 item by item — the figures, the narratives, and for anything "
+                   "omitted the stated reason.",
+        "official_form": "ESRS E1 / E3 / E4 disclosure requirements — Annex I to Delegated Regulation (EU) 2023/2772 (as amended), "
+                         "or Delegated Regulation (EU) 2026/1563",
         "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772",
-        "inputs": "Own sites + upstream sourcing, plus water-stress and biodiversity-sensitive-area attributes.",
+        "inputs": "The undertaking's sites held at the year end (location, carrying amount, net revenue), its stated figures "
+                  "(provided values, 4-eyes attested), its CSRD role, materiality assessment and answers.",
     },
     "insurer_climate": {
         "official_name": "Climate / natural-catastrophe exposure disclosure (underwriting book)",
