@@ -19,3 +19,11 @@ def test_blank_or_none_is_valid():
 
 def test_set_is_sane_size():
     assert 240 <= len(ISO_ALPHA2) <= 260
+
+
+def test_the_eus_own_codes_map_to_iso_both_ways():
+    """The EU writes Greece 'EL' and the United Kingdom 'UK' (Interinstitutional Style Guide 7.1.1); ISO 3166 writes
+    'GR' and 'GB'. Stored countries are ISO (ck_<table>_country_iso); an EU-keyed table is read through to_eu."""
+    from services.reference.iso_country import to_eu, to_iso2
+    assert (to_iso2("el"), to_iso2("UK"), to_iso2(" de "), to_iso2(None)) == ("GR", "GB", "DE", None)
+    assert (to_eu("GR"), to_eu("GB"), to_eu("DE")) == ("EL", "UK", "DE")

@@ -14,12 +14,13 @@ from __future__ import annotations
 
 from typing import Optional
 
+from services.reference.iso_country import ISO_TO_EU as _ISO_TO_EU  # one alias table (iso_country)
 from services.supervision.exposure_prior import POPULATION, PRIOR_LABEL, SCORED_LAND
 from services.supervision.geo_prior import prior_for
 
 PLAUSIBLE, ABOVE, BELOW, NO_REF = "plausible", "above_band", "below_band", "no_reference"
 LABEL = {PLAUSIBLE: "Plausible", ABOVE: "High for the geography", BELOW: "Low for the geography", NO_REF: "No reference"}
-GEO_ALIAS = {"GR": "EL", "UK": "UK", "GB": "UK"}   # template codes → GISCO codes
+GEO_ALIAS = {**_ISO_TO_EU, "UK": "UK"}   # template codes → GISCO codes
 DEFAULT_FIELD = "gross_carrying_amount_eur"
 
 

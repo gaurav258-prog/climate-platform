@@ -32,6 +32,7 @@ from pathlib import Path
 import requests
 
 from services.reference import nace
+from services.reference.iso_country import EU_TO_ISO  # one alias table
 
 API = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/"
 REF = Path(__file__).resolve().parent.parent / "data" / "reference"
@@ -64,7 +65,7 @@ def _by_country(dataset: str, **params) -> dict[tuple[str, str], float]:
             n %= s
         geo = cats["geo"][pos[gi]]
         if len(geo) == 2:
-            out[({"EL": "GR", "UK": "GB"}.get(geo, geo), cats["nace_r2"][pos[ni]])] = float(v)
+            out[(EU_TO_ISO.get(geo, geo), cats["nace_r2"][pos[ni]])] = float(v)
     return out
 
 

@@ -37,13 +37,13 @@ TEMPLATES = {   # sector → (template org, entitlements, supervisory body, juri
 }
 NEW = {   # seven new entities per sector: (name, slug, home country, size factor)
     "bank": [("Rhein-Main Kreditbank", "rheinmain", "DE", 1.6), ("Banque Atlantique", "atlantique", "FR", 1.2), ("Banco do Tejo", "tejo", "PT", 0.7),
-             ("Lombardia Credito", "lombardia", "IT", 1.1), ("Nordsee Sparkasse", "nordsee", "DE", 0.5), ("Caja Levante", "levante", "ES", 0.8), ("Hibernia Bank", "hibernia", "UK", 0.9)],
+             ("Lombardia Credito", "lombardia", "IT", 1.1), ("Nordsee Sparkasse", "nordsee", "DE", 0.5), ("Caja Levante", "levante", "ES", 0.8), ("Hibernia Bank", "hibernia", "GB", 0.9)],
     "insurer": [("Alpenrück Versicherung", "alpenrueck", "DE", 1.4), ("Assurances du Rhône", "rhone", "FR", 1.0), ("Lusitânia Seguros", "lusitania", "PT", 0.5),
                 ("Adriatica Assicurazioni", "adriatica", "IT", 0.9), ("Nordlys Forsikring", "nordlys", "NO", 0.6), ("Baltic Mutual", "baltic", "SE", 0.7), ("Delta Verzekeringen", "delta", "NL", 1.1)],
     "asset_manager": [("Helvetica Asset Partners", "helvetica", "DE", 1.3), ("Seine Capital", "seine", "FR", 1.0), ("Tagus Investimentos", "tagus", "PT", 0.4),
                       ("Tiber Asset Management", "tiber", "IT", 0.8), ("Fjord Capital", "fjord", "NO", 0.9), ("Øresund Funds", "oresund", "DK", 0.7), ("Amstel Investment Management", "amstel", "NL", 1.2)],
     "reit": [("Hanse Logistik REIT", "hanse", "DE", 1.2), ("Île-de-France Property Trust", "idf", "FR", 1.5), ("Atlântico Real Estate", "atlantico", "PT", 0.5),
-             ("Mediterraneo Immobiliare", "mediterraneo", "IT", 0.9), ("Nordic Warehouses", "nordicwh", "SE", 0.8), ("Randstad Offices", "randstad", "NL", 1.0), ("Thames Estates", "thames", "UK", 1.1)],
+             ("Mediterraneo Immobiliare", "mediterraneo", "IT", 0.9), ("Nordic Warehouses", "nordicwh", "SE", 0.8), ("Randstad Offices", "randstad", "NL", 1.0), ("Thames Estates", "thames", "GB", 1.1)],
     "manufacturer": [("Bavaria Foods AG", "bavariafoods", "DE", 1.3), ("Provence Agroalimentaire", "provence", "FR", 0.9), ("Douro Alimentar", "douro", "PT", 0.5),
                      ("Padania Alimentari", "padania", "IT", 1.0), ("Skåne Foods", "skane", "SE", 0.6), ("Flevo Agro", "flevo", "NL", 0.8), ("Andalus Olive Group", "andalus", "ES", 0.7)],
 }

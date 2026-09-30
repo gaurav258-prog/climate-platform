@@ -32,7 +32,10 @@ import requests
 EDGAR_URL = "https://edgar.jrc.ec.europa.eu/booklet/EDGAR_{y}_GHG_booklet_{y}.xlsx"
 EUROSTAT_GGE = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/env_air_gge?format=JSON&lang=en"
                 "&unit=MIO_T&airpol=GHG&src_crf=TOTX4_MEMO&sinceTimePeriod=2015")
-_EUROSTAT_GEO = {"EL": "GR", "UK": "GB"}
+from services.reference.iso_country import (
+    EU_TO_ISO as _EUROSTAT_GEO,  # one alias table  # noqa: E402
+)
+
 OWID_URL = "https://nyc3.digitaloceanspaces.com/owid-public/data/co2/owid-co2-data.csv"
 WB_URL = "https://api.worldbank.org/v2/country/all/indicator/NY.GDP.MKTP.CD?format=json&per_page=20000&date=2015:2030"
 OUT = Path(__file__).resolve().parent.parent / "data" / "reference" / "country_ghg_intensity.csv"

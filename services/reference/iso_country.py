@@ -32,3 +32,24 @@ def is_valid_country(code: str | None) -> bool:
         return True
     c = str(code).strip().upper()
     return c == "" or c in ISO_ALPHA2
+
+
+# The two codes the EU writes differently from ISO 3166-1 (Interinstitutional Style Guide, section 7.1.1: 'EL' for
+# Greece, 'UK' for the United Kingdom) — the EU texts, Eurostat GISCO layers and some templates use them. Stored and
+# matched as ISO; converted back only where an EU code list is read.
+EU_TO_ISO: dict[str, str] = {"EL": "GR", "UK": "GB"}
+ISO_TO_EU: dict[str, str] = {v: k for k, v in EU_TO_ISO.items()}
+
+
+def to_iso2(code: str | None) -> str | None:
+    """A country code as ISO 3166-1 alpha-2 ('EL' → 'GR', 'UK' → 'GB', 'fr' → 'FR'); None for blank."""
+    if code is None or not str(code).strip():
+        return None
+    c = str(code).strip().upper()
+    return EU_TO_ISO.get(c, c)
+
+
+def to_eu(code: str | None) -> str | None:
+    """An ISO alpha-2 code as the EU writes it ('GR' → 'EL', 'GB' → 'UK'), for matching EU code lists."""
+    c = to_iso2(code)
+    return ISO_TO_EU.get(c, c) if c else None

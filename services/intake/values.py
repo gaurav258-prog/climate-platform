@@ -46,8 +46,10 @@ def lookup(session: Optional[Session], vocab: str) -> dict[str, str]:
         # ISO alpha-2 codes are always recognised (as before the country reference existed); names, alpha-3 and
         # numeric codes come from the CLDR reference once loaded (feed `reference_countries`)
         from services.reference.countries import lookup as country_lookup
-        from services.reference.iso_country import ISO_ALPHA2
-        return {**{c.lower(): c for c in ISO_ALPHA2}, **(country_lookup(session) if session is not None else {})}
+        from services.reference.iso_country import EU_TO_ISO, ISO_ALPHA2
+        # the EU's own codes (EL, UK) are recognised and stored as ISO (GR, GB) — one country, one code
+        return {**{c.lower(): c for c in ISO_ALPHA2}, **{k.lower(): v for k, v in EU_TO_ISO.items()},
+                **(country_lookup(session) if session is not None else {})}
     return {}
 
 

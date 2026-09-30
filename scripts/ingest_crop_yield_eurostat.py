@@ -59,7 +59,9 @@ MEASURES = {
 
 # crop_yield_observations.country is the ISO-2 origin (varchar 3). Eurostat's aggregate geo
 # is 'EU27_2020'; store it as 'EU' and keep the exact source geo in the note.
-GEO_TO_COUNTRY = {"EU27_2020": "EU", "EL": "GR"}   # EL is Eurostat's code for Greece
+from services.reference.iso_country import EU_TO_ISO  # noqa: E402 — one alias table (EL → GR)
+
+GEO_TO_COUNTRY = {"EU27_2020": "EU", **EU_TO_ISO}   # Eurostat writes Greece EL
 
 
 def _country(geo: str) -> str:

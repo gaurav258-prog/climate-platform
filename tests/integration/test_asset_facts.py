@@ -67,10 +67,20 @@ def test_the_book_is_recorded_once_and_our_country_agrees_silently(session_rolle
 
 
 def test_a_written_form_the_reference_knows_is_not_a_difference(session_rolled_back):
+    """The book holds ISO codes only (intake converts, ck_portfolio_entities_country_iso refuses the rest), so a
+    written form arrives as a client statement: a file that says 'de' for a German asset raises nothing."""
     s = session_rolled_back
-    aid = _asset(s, "de")
+    aid = _asset(s, "DE")
     O.sync(s, BANK_ORG, asset_ids=[aid])
+    s.execute(text("ALTER TABLE asset_observations DISABLE TRIGGER trg_asset_obs_worm"))   # simulate a re-sent file
+    O.record(s, [{"org_id": BANK_ORG, "asset_table": "portfolio_entities", "asset_id": aid, "field": "country",
+                  "value": "de", "source": "client", "method": "intake_batch"}])
+    s.execute(text("ALTER TABLE asset_observations ENABLE TRIGGER trg_asset_obs_worm"))
+    C.reconcile(s, BANK_ORG, "portfolio_entities", [aid])
     assert _open(s, aid) is None
+    with pytest.raises(Exception, match="ck_portfolio_entities_country_iso"):
+        with s.begin_nested():
+            s.execute(text("UPDATE portfolio_entities SET country = 'de' WHERE entity_id = CAST(:a AS uuid)"), {"a": aid})
 
 
 def test_a_real_difference_opens_one_conflict_and_keeping_the_clients_value_stands(session_rolled_back):

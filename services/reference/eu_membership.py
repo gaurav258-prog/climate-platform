@@ -10,9 +10,11 @@ import json
 from functools import lru_cache
 
 from services.geo.cells import COUNTRIES_PATH
+from services.reference.iso_country import (
+    EU_TO_ISO as _GISCO_TO_ISO,  # one alias table (iso_country)
+)
 
 _FALLBACK = frozenset("AT BE BG CY CZ DE DK EE EL ES FI FR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK".split())
-_GISCO_TO_ISO = {"EL": "GR", "UK": "GB"}
 
 
 @lru_cache(maxsize=1)
