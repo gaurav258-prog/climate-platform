@@ -812,10 +812,11 @@ def set_filing_profile(body: FilingProfile, session: DbSession,
         refused = save_entity_narratives(session, org_id, body.narratives, ctx["user"]["id"])["refused"]
         if refused:
             raise _fail(422, "; ".join(r["reason"] for r in refused), code="invalid_narratives")
-    # Default the legal name to GLEIF's authoritative name if the caller didn't give one.
+    # A legal name not given keeps the one on file for the same LEI; only a new LEI (or none on file) takes GLEIF's
+    # name — a narratives save re-sends the LEI alone and must not overwrite the manager's legal name.
     session.execute(text("""
-        UPDATE organizations SET lei = :lei,
-               legal_name = COALESCE(:legal_name, :gleif_name),
+        UPDATE organizations SET lei = CAST(:lei AS varchar),
+               legal_name = COALESCE(:legal_name, CASE WHEN lei = CAST(:lei AS varchar) THEN legal_name END, :gleif_name),
                filing_contact_email = COALESCE(:email, filing_contact_email),
                updated_at = now()
         WHERE org_id = :o

@@ -50,6 +50,12 @@ def test_sfdr_pai_narratives_are_template_answers(api, monkeypatch):
     assert prof["sfdr_narratives"] == narratives                      # 'standards' left out → cleared
     assert {"name", "legal_name", "lei", "filing_contact_email", "country"} <= set(prof)
 
+    # a narratives save re-sends the same LEI alone: the manager's legal name on file is kept, not replaced by GLEIF's
+    api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "legal_name": "Nordkap Asset Management"})
+    r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "narratives": narratives})
+    assert r.status_code == 200
+    assert api.get("/v1/manager/filing-profile", headers=maker).json()["legal_name"] == "Nordkap Asset Management"
+
     r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "narratives": {**narratives, "bogus": "x"}})
     assert r.status_code == 422
     assert T.read(api.s, NORDKAP, "sfdr_pai", "pai_statement") == {k: {"text": v} for k, v in narratives.items()}
