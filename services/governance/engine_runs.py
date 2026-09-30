@@ -46,6 +46,8 @@ LOCATED = {
     "reit_taxonomy": ("realestate", "properties", "property_id", "property_value_eur", "n_properties", "total_value_eur", "n_scored"),
     "insurer_climate": ("insurance", "policies", "policy_id", "sum_insured_eur", "n_policies", "total_sum_insured_eur", "n_priced"),
     "insurer_solvency": ("insurance", "policies", "policy_id", "sum_insured_eur", "n_policies", "total_sum_insured_eur", "n_priced"),
+    "insurer_orsa_climate": ("insurance", "policies", "policy_id", "sum_insured_eur", "n_policies", "total_sum_insured_eur", "n_priced"),
+    "insurer_recovery_stress": ("insurance", "policies", "policy_id", "sum_insured_eur", "n_policies", "total_sum_insured_eur", "n_priced"),
     "assetmgmt_tcfd": ("assetmgmt", "holdings", "holding_id", "position_value_eur", "n_holdings", "total_portfolio_value_eur", "n_scored"),
 }
 _VERTICAL_BOOK = {"banking": "bank_assets", "insurance": "insurance_policies", "realestate": "realestate_properties",

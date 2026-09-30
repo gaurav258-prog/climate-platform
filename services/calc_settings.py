@@ -28,6 +28,17 @@ _TYPED_DEFAULTS = {
     "insurance_return_period_model": "fixed",
 }
 
+def _orsa_qualifying(which: str) -> list[str]:
+    """The platform scenarios that qualify for an Art. 45a(2) scenario — read from data/reference/orsa_climate_scenarios.json."""
+    import json
+    import os
+    with open(os.path.join("data", "reference", "orsa_climate_scenarios.json")) as f:
+        ref = json.load(f)
+    c = ref["classification"]
+    ok = (lambda w: w < c["below_2c_max_best_estimate_c"]) if which == "below_2c" else (lambda w: w >= c["above_2c_min_best_estimate_c"])
+    return sorted(k for k, v in ref["scenarios"].items() if ok(v["warming_2081_2100_c"]))
+
+
 # The interpretation switches — regulation leaves these to the institution. default reproduces today's number.
 INTERPRETATION_SCHEMA: dict = {
     "pml_return_period": {
@@ -50,6 +61,23 @@ INTERPRETATION_SCHEMA: dict = {
         "default": 0.05, "kind": "float", "min": 0.0, "max": 0.4,
         "label": "Insurance profit margin",
         "description": "Target underwriting profit margin loaded onto the premium. Insurer-specific.",
+        "sectors": ["insurer"],
+    },
+    # Directive 2009/138/EC Art. 45a(2): the undertaking's two long-term climate scenarios (data/reference/orsa_climate_scenarios.json)
+    "orsa_scenario_below_2c": {
+        "frameworks": ["insurer_orsa_climate"],
+        "default": "orsa_default", "kind": "enum", "allowed": ["orsa_default", *_orsa_qualifying("below_2c")],
+        "label": "ORSA climate — the scenario where warming remains below 2 °C",
+        "description": "Art. 45a(2)(a). Only scenarios whose long-term warming (IPCC AR6 best estimate) is below 2.0 °C qualify: "
+                       "orderly_1_5c (SSP1-2.6, 1.8 °C). 'orsa_default' = the reference file's default.",
+        "sectors": ["insurer"],
+    },
+    "orsa_scenario_above_2c": {
+        "frameworks": ["insurer_orsa_climate"],
+        "default": "orsa_default", "kind": "enum", "allowed": ["orsa_default", *_orsa_qualifying("above_2c")],
+        "label": "ORSA climate — the scenario where warming is significantly higher than 2 °C",
+        "description": "Art. 45a(2)(b). Scenarios with long-term warming of at least 2.5 °C qualify: hot_house_3_5c (SSP5-8.5, "
+                       "4.4 °C) or disorderly_2c (SSP2-4.5, 2.7 °C). 'orsa_default' = the reference file's default.",
         "sectors": ["insurer"],
     },
     # Solvency II nat-cat: the United Kingdom is an Annex V / VII region but, since it left the Union, not in Annex XIII

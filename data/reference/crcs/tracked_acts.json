@@ -93,5 +93,24 @@
     "role": "base"
    }
   ]
- }
+ },
+ "insurer_orsa_climate": [
+  {
+   "celex": "32009L0138",
+   "title": "Solvency II Directive",
+   "role": "base"
+  },
+  {
+   "celex": "32025L0002",
+   "title": "Directive (EU) 2025/2 amending Solvency II",
+   "role": "amending"
+  }
+ ],
+ "insurer_recovery_stress": [
+  {
+   "celex": "32025L0001",
+   "title": "Insurance Recovery and Resolution Directive",
+   "role": "base"
+  }
+ ]
 }

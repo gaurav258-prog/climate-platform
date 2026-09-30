@@ -67,24 +67,27 @@ def shape(item: dict, children: list[dict], value) -> dict:
     raise AnswerError(f"{item['id']}: a {k} is not answered")
 
 
-_KEY = """org_id = CAST(:o AS uuid) AND fund_id IS NOT DISTINCT FROM CAST(:f AS uuid) AND family = :fam
+_KEY = """org_id = CAST(:o AS uuid) AND fund_id IS NOT DISTINCT FROM CAST(:f AS uuid)
+          AND reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND family = :fam
           AND document = :d AND period_end IS NOT DISTINCT FROM CAST(:pe AS date)"""
 
 
 def read(session: Session, org_id: str, family: str, document: str, *, fund_id: str | None = None,
-         period_end: date | None = None) -> dict:
-    """{item id: answer} of one subject's document (for one reference period, where the document has one)."""
+         period_end: date | None = None, entity_id: str | None = None) -> dict:
+    """{item id: answer} of one subject's document (for one reference period, where the document has one). The subject
+    is a fund, a reporting entity, or (neither) the organisation as a whole."""
     return {r[0]: r[1] for r in session.execute(text(f"SELECT item_id, value FROM template_answers WHERE {_KEY}"),
-                                                {"o": org_id, "f": fund_id, "fam": family, "d": document, "pe": period_end})}
+                                                {"o": org_id, "f": fund_id, "e": entity_id, "fam": family, "d": document,
+                                                 "pe": period_end})}
 
 
 def save(session: Session, org_id: str, family: str, document: str, template: dict, bound: dict, answers: dict,
          user_id: str | None, *, fund_id: str | None = None, period_end: date | None = None,
-         label: str = "the template", computed_from: str = "the platform") -> dict:
+         entity_id: str | None = None, label: str = "the template", computed_from: str = "the platform") -> dict:
     """Validate every answer against the template and its binding ({item id: 'computed' | 'input'}), store the valid
     ones, report the refused ones."""
     by_id = {i["id"]: i for i in template["items"]}
-    key = {"o": org_id, "f": fund_id, "fam": family, "d": document, "pe": period_end}
+    key = {"o": org_id, "f": fund_id, "e": entity_id, "fam": family, "d": document, "pe": period_end}
     saved, refused = [], []
     for item_id, value in (answers or {}).items():
         item = by_id.get(item_id)
@@ -103,8 +106,10 @@ def save(session: Session, org_id: str, family: str, document: str, template: di
             refused.append({"item": item_id, "reason": str(e)})
             continue
         session.execute(text("""
-            INSERT INTO template_answers (org_id, fund_id, family, document, period_end, item_id, value, updated_by, updated_at)
-            VALUES (CAST(:o AS uuid), CAST(:f AS uuid), :fam, :d, CAST(:pe AS date), :i, CAST(:v AS jsonb), CAST(:u AS uuid), now())
+            INSERT INTO template_answers (org_id, fund_id, reporting_entity_id, family, document, period_end, item_id, value,
+                                         updated_by, updated_at)
+            VALUES (CAST(:o AS uuid), CAST(:f AS uuid), CAST(:e AS uuid), :fam, :d, CAST(:pe AS date), :i, CAST(:v AS jsonb),
+                    CAST(:u AS uuid), now())
             ON CONFLICT ON CONSTRAINT ux_template_answers DO UPDATE SET value = EXCLUDED.value,
                 updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at"""),
             {**key, "i": item_id, "v": json.dumps(stored), "u": user_id})

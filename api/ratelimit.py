@@ -11,9 +11,18 @@ from collections import defaultdict, deque
 
 from fastapi import HTTPException, Request
 
+_BUCKETS: list[dict] = []          # every limiter's window, so a test run can start each test from a clean slate
+
+
+def reset() -> None:
+    """Clear every limiter's window (tests: one process plays every client from one address)."""
+    for b in _BUCKETS:
+        b.clear()
+
 
 def rate_limiter(max_calls: int, window_seconds: int):
     bucket: dict[str, deque] = defaultdict(deque)
+    _BUCKETS.append(bucket)
 
     def dep(request: Request) -> None:
         ip = request.client.host if request.client else "unknown"

@@ -21,6 +21,12 @@
   ],
   "insurer_solvency": [
    "sii_qrt_natcat"
+  ],
+  "insurer_orsa_climate": [
+   "sii_climate"
+  ],
+  "insurer_recovery_stress": [
+   "irrd_recovery"
   ]
  },
  "previous_period": {

@@ -41,7 +41,7 @@ def coverage_source(lane: str) -> str:
 # Report types whose provided values belong to one undertaking: Solvency II states own funds, the SCR, the reinsurance in
 # force and the nat-cat premiums per insurance undertaking and, separately, for the group (Directive 2009/138/EC Arts 100,
 # 218 ff.) — a solo filing uses its entity's own figures, a group filing the group's; never borrowed across.
-PER_ENTITY_REPORTS = frozenset({"insurer_solvency"})
+PER_ENTITY_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"})
 
 CATALOG: dict[str, list[dict]] = {
     "bank_tcfd": [
@@ -200,17 +200,26 @@ CATALOG: dict[str, list[dict]] = {
     "insurer_orsa_climate": [
         _dp("climate_scenarios", "Nat-cat losses and capital under a below-2 °C and a well-above-2 °C scenario, 2030-2100",
             "tellumen", "compute", provider="Tellumen nat-cat engine (NGFS scenarios, CMIP6 deltas)"),
-        _dp("capital_position", "Own funds, SCR and reinsurance in force (from Solvency II)", "customer", "provided",
-            provider="Stated once, under Solvency II — read from there"),
+        _dp("capital_position", "Own funds, SCR and reinsurance in force — read from your attested Solvency II figures",
+            "tellumen", "compute", provider="Stated once, under Solvency II (insurer_solvency) — never stated again here"),
         _dp("orsa_narrative", "Materiality conclusion, scenario review and actions", "customer", "report", provider="You author"),
     ],
     "insurer_recovery_stress": [
         _dp("natcat_stress", "Severe nat-cat event (1-in-200 single event), today and under warming — net loss and SCR ratio",
             "tellumen", "compute", provider="Tellumen nat-cat engine"),
-        _dp("capital_position", "Own funds, SCR and reinsurance in force (from Solvency II)", "customer", "provided",
-            provider="Stated once, under Solvency II — read from there"),
+        _dp("capital_position", "Own funds, SCR and reinsurance in force — read from your attested Solvency II figures",
+            "tellumen", "compute", provider="Stated once, under Solvency II (insurer_solvency) — never stated again here"),
         _dp("recovery_triggers", "Your SCR-ratio trigger levels and the remedial action for a breach", "customer", "report",
             provider="You author"),
+        {**_dp("scr_trigger_early_warning_pct", "Recovery plan — early-warning level of the SCR ratio", "customer", "provided",
+               provider="Your pre-emptive recovery plan",
+               note="The SCR coverage ratio at which remedial actions are to be considered (Directive (EU) 2025/1 Art. 5(8)). "
+                    "Above the SCR-breach level (100 %), which the Article sets as the minimum capital indicator."),
+         "unit": "scr_ratio_%"},
+        {**_dp("scr_trigger_recovery_pct", "Recovery plan — recovery-action level of the SCR ratio", "customer", "provided",
+               provider="Your pre-emptive recovery plan",
+               note="The SCR coverage ratio at which remedial actions are to be taken; between the early-warning level and 100 %."),
+         "unit": "scr_ratio_%"},
     ],
     "eudr_dds": [
         _dp("eudr_determination", "Per-plot geolocation + deforestation-free determination (satellite vs 2020 cutoff)",

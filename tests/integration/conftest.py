@@ -104,3 +104,12 @@ def login(c, email: str, pw: str) -> dict:
     assert r.status_code == 200, r.text
     return {"Authorization": "Bearer " + r.json()["access_token"]}
 
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Each test starts with empty login / reset rate-limit windows: the whole suite is one client address in one
+    process, so without this the tests that log in last trip the per-address limit meant for real clients."""
+    from api.ratelimit import reset
+    reset()
+    yield

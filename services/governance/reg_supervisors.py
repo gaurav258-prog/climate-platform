@@ -21,7 +21,7 @@ LIBRARY_REVIEWED = "January 2026"
 # ── which supervisor reads each framework ───────────────────────────────────────────────────────────
 FRAMEWORK_SUPERVISOR: dict[str, str] = {
     "bank_p3esg": "eba_ecb", "bank_tcfd": "eba_ecb",
-    "insurer_climate": "eiopa",
+    "insurer_climate": "eiopa", "insurer_solvency": "eiopa", "insurer_orsa_climate": "eiopa", "insurer_recovery_stress": "eiopa",
     "sfdr_pai": "esas", "assetmgmt_tcfd": "esas",
     "csrd_e1": "nca_sustainability", "esrs_pack": "nca_sustainability", "reit_tcfd": "nca_sustainability",
     "eudr_dds": "ec_traces",

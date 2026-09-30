@@ -51,6 +51,8 @@ _LIST_CFG = {
     # routed through the sibling-filing workaround in _ALT_LINEAGE below.
     "reit_taxonomy":    {"list": "properties", "id": "property_id", "name": "property_name", "value": "property_value_eur"},
     "insurer_solvency": {"list": "policies",   "id": "policy_id",   "name": "policy_name",   "value": "sum_insured_eur"},
+    "insurer_orsa_climate": {"list": "policies", "id": "policy_id", "name": "policy_name", "value": "sum_insured_eur"},
+    "insurer_recovery_stress": {"list": "policies", "id": "policy_id", "name": "policy_name", "value": "sum_insured_eur"},
 }
 
 # The frameworks NOT in _LIST_CFG genuinely have a DIFFERENT, real lineage mechanism rather than none —

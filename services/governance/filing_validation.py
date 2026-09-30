@@ -241,6 +241,13 @@ def _validate_insurer_solvency(payload: dict) -> list[dict]:
     return out
 
 
+def _validate_insurer_document(report_type: str):
+    def run(payload: dict) -> list[dict]:
+        from services.governance.insurer_documents import checks
+        return checks(payload, report_type)
+    return run
+
+
 def _validate_csrd_e1(payload: dict) -> list[dict]:
     """CSRD ESRS E1 physical-risk report — added 2026-09-23, same gap as above, for the agri sector."""
     out: list[dict] = []
@@ -293,6 +300,8 @@ def _validate_esrs_pack(payload: dict) -> list[dict]:
 
 _RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai,
              "reit_taxonomy": _validate_reit_taxonomy, "insurer_solvency": _validate_insurer_solvency,
+             "insurer_orsa_climate": _validate_insurer_document("insurer_orsa_climate"),
+             "insurer_recovery_stress": _validate_insurer_document("insurer_recovery_stress"),
              "csrd_e1": _validate_csrd_e1, "esrs_pack": _validate_esrs_pack,
              "sfdr_precontractual": lambda p: _validate_sfdr_product(p, "sfdr_precontractual"),
              "sfdr_periodic": lambda p: _validate_sfdr_product(p, "sfdr_periodic")}

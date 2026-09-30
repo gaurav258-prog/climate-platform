@@ -37,6 +37,7 @@ interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
   export_formats?: string[]; superseded_by?: string | null
   presentation_currency?: string
+  disclosure_date?: string | null; due_date?: string | null; due_rule?: string | null
   fx_revisions?: { currency: string; basis: string; as_of: string; change: string }[]
   run?: EngineRun | null
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
@@ -422,6 +423,12 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 <ScopeChip role={f.filing_role} scope={f.scope} name={f.fund_name ?? f.entity_name} />
               </div>
               <div className="mono text-[11px] text-[var(--color-faint)]">{f.period_label} · {f.basis ?? frameworkLabel(f.framework)}{f.regulator ? ` · ${f.regulator}` : ''}{f.scope === 'organisation' ? ' · whole organisation' : ''}</div>
+              {(f.disclosure_date || f.due_date) && (
+                <div className="mono text-[11px] text-[var(--color-mute)] mt-0.5">
+                  {f.disclosure_date ? `made on ${fmtDate(f.disclosure_date)}` : ''}{f.disclosure_date && f.due_date ? ' · ' : ''}
+                  {f.due_date ? <span title={f.due_rule ?? undefined}>due {fmtDate(f.due_date)}</span> : null}
+                </div>
+              )}
             </div>
 
             {/* lifecycle rail */}

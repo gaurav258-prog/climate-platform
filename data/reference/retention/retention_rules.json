@@ -309,6 +309,26 @@
    "years": null,
    "coverage": "named",
    "note": "SFDR sets no retention period (it requires disclosures to be kept up to date; the RTS compares with up to the last five periods). Set your own policy (Settings)."
+  },
+  "sii_orsa_none": {
+   "key": "sii_orsa_none",
+   "act": "Delegated Regulation (EU) 2015/35 (Solvency II)",
+   "article": "Art. 312(1)(b)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX:32015R0035",
+   "quote": "…the ORSA supervisory report referred to in Article 304(1)(c) within 2 weeks after concluding the assessment.",
+   "years": null,
+   "coverage": "named",
+   "note": "Solvency II sets when the ORSA supervisory report is submitted, not how long it is kept. Set your own policy (Settings)."
+  },
+  "irrd_none": {
+   "key": "irrd_none",
+   "act": "Directive (EU) 2025/1 (IRRD)",
+   "article": "Art. 5(4)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0001",
+   "quote": "…Supervisory authorities shall ensure that insurance and reinsurance undertakings update their pre-emptive recovery plans at least every two years…",
+   "years": null,
+   "coverage": "named",
+   "note": "IRRD sets how often the plan is updated, not how long a superseded plan is kept. Set your own policy (Settings)."
   }
  },
  "documents": {
@@ -400,6 +420,20 @@
    "document": "annual_report_annex",
    "rules": [
     "sfdr_none"
+   ],
+   "national": false
+  },
+  "insurer_orsa_climate": {
+   "document": "orsa_supervisory_report",
+   "rules": [
+    "sii_orsa_none"
+   ],
+   "national": false
+  },
+  "insurer_recovery_stress": {
+   "document": "preemptive_recovery_plan",
+   "rules": [
+    "irrd_none"
    ],
    "national": false
   }

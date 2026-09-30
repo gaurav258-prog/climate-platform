@@ -37,6 +37,7 @@ try:
     from api.routers import calc_settings as calc_settings_router
     from api.routers import funds as funds_router
     from api.routers import insurance as insurance_router
+    from api.routers import insurer_documents as insurer_documents_router
     from api.routers import platform as platform_router
     from api.routers import realestate as realestate_router
     from api.routers import realized as realized_router
@@ -270,6 +271,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(assetmgmt_router.router)
     app.include_router(funds_router.router)
     app.include_router(sfdr_documents_router.router)
+    app.include_router(insurer_documents_router.router)
     app.include_router(calc_settings_router.router)
     app.include_router(realized_router.router)
     app.include_router(source_systems_router.router)

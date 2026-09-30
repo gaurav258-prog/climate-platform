@@ -140,6 +140,8 @@ def build_form(framework: str, payload: dict) -> list[dict]:
         return _reit_taxonomy_form(payload)
     if framework == "insurer_solvency":
         return _insurer_solvency_form(payload)
+    if framework in ("insurer_orsa_climate", "insurer_recovery_stress"):
+        return _insurer_document_form(framework, payload)
     if framework == "assetmgmt_tcfd":
         return _assetmgmt_tcfd_form(payload)
     if framework == "sfdr_pai":
@@ -257,6 +259,20 @@ def _insurer_solvency_form(payload: dict) -> list[dict]:
         "note": (s.get("declared") or {}).get("note"),
         "rows": [{"label": it, "value": "declared"} for it in (s.get("declared") or {}).get("items", [])],
     }]
+
+
+def _insurer_document_form(framework: str, payload: dict) -> list[dict]:
+    """An insurer document report — how far it is computed and answered; the document itself is the official-form tab."""
+    from services.governance.insurer_documents import _frozen_spec, build
+    spec, doc = _frozen_spec(payload, framework), payload.get("document_report")
+    if spec is None or not doc:
+        return [{"section": "Specification", "rows": [{"label": "Status", "value": "no adopted specification governs this "
+                                                                                "report's disclosure date"}]}]
+    built = [i for i in build(spec, framework, doc) if i["source"] != "fixed"]
+    return [{"section": "Items of the template", "rows": [
+        {"label": f"{i['id']}", "value": {"filled": "computed" if i["source"] == "computed" else "answered",
+                                          "missing": "missing", "printed": "not required"}[i["status"]],
+         "note": (i.get("note") or i.get("needs") or "")} for i in built]}]
 
 
 def _sf_natcat_sections(sf: dict | None, e) -> list[dict]:

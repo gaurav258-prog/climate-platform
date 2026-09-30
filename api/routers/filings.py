@@ -22,6 +22,7 @@ the same immutable, hashed, versioned record the assurance pack already verifies
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -43,6 +44,8 @@ class GenerateBody(BaseModel):
     entity_id: Optional[str] = None   # scope to one reporting entity; None = whole org (the default)
     obligation_id: Optional[str] = None   # prepared for this obligation: its entity and period are enforced
     fund_id: Optional[str] = None   # a per-product report (SFDR Annexes II–V): the fund it discloses
+    # the date the report will be made (e.g. an ORSA's conclusion) when it is not today — it chooses the rules in force
+    disclosure_date: Optional[date] = None
     # intake phase 5: which values of the asset facts the engine reads, and per reported figure whose number is reported
     view: Literal["joint", "client", "tellumen"] = "joint"
     figure_sources: dict[str, Literal["client", "tellumen"]] = Field(default_factory=dict)
@@ -477,7 +480,7 @@ def generate(body: GenerateBody, session: DbSession,
                               body.framework, ctx["user"]["id"], note=body.note,
                               confirm_token=body.confirm_token, entity_id=body.entity_id, view=body.view,
                               figure_sources=body.figure_sources, obligation_id=body.obligation_id,
-                              fund_id=body.fund_id)
+                              fund_id=body.fund_id, disclosure_date=body.disclosure_date)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
     _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id,

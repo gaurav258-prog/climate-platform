@@ -63,6 +63,15 @@ FRAMEWORKS = {
     "insurer_solvency": {"label": "Solvency II · natural catastrophe risk (S.27.01.01)", "sectors": ("insurer",),
                          "frequency": "annual",
                          "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 Arts 119-126 · ITS (EU) 2023/894 S.27.01.01"},
+    # an ORSA / a recovery plan runs from an event (the assessment's conclusion, a plan update): no calendar date — the
+    # filing's disclosure date is the conclusion, and the ORSA report is due 2 weeks later (Del. Reg. 2015/35 Art. 312(1)(b))
+    "insurer_orsa_climate": {"label": "ORSA — climate change scenario analysis (Art. 45a)", "sectors": ("insurer",),
+                             "frequency": "annual", "regulator": "National competent authority (Solvency II supervisor)",
+                             "basis": "Directive 2009/138/EC Art. 45a, 51(1b)(e) · Directive (EU) 2025/2"},
+    "insurer_recovery_stress": {"label": "Pre-emptive recovery plan — nat-cat stress and capital indicators",
+                                "sectors": ("insurer",), "frequency": "at least every two years",
+                                "regulator": "National competent authority (Solvency II supervisor)",
+                                "basis": "Directive (EU) 2025/1 Art. 5(7), (8)"},
     "insurer_climate": {"label": "Climate / NatCat exposure disclosure", "sectors": ("insurer",),
                         "frequency": "annual", "due": (4, 30),
                         "regulator": "National competent authority / EIOPA", "basis": "Solvency II · IFRS S2"},
@@ -90,6 +99,8 @@ EXPORT_FORMATS = {
     "reit_taxonomy": ("json", "xlsx"),
     "insurer_solvency": ("json", "xlsx", "xbrl"),     # xbrl: EIOPA's Solvency II taxonomy (services.governance.s2701_xbrl)
     "insurer_climate": ("json", "xlsx"),
+    "insurer_orsa_climate": ("json",),
+    "insurer_recovery_stress": ("json",),
     "csrd_e1":   ("json",),
     "esrs_pack": ("json", "xbrl", "ixbrl"),
     "sfdr_precontractual": ("json", "html"),
@@ -127,7 +138,10 @@ class FilingError(ValueError):
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
 from services.governance.product_filings import PRODUCT_SCOPED as _PRODUCT_SCOPED  # noqa: E402
 
-_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd"}
+_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd",
+                  "insurer_orsa_climate", "insurer_recovery_stress"}
+# report types on Solvency II consolidated data (Del. Reg. 2015/35 Art. 335(1)): a group filing weights its entities so
+_SOLVENCY2_GROUP = {"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"}
 
 
 def available_frameworks(org_type: str) -> list[dict]:
@@ -321,6 +335,21 @@ def _due_date(framework: str, period_end: date) -> date | None:
     return due_for(framework, period_end)[0]
 
 
+def due_for_filing(framework: str, period_end: date, disclosure_date: date | None) -> tuple[date | None, str | None]:
+    """A filing's deadline: the calendar one, else — for a report that runs from its own event (the ORSA supervisory
+    report: 'within 2 weeks after concluding the assessment', Art. 312(1)(b) Del. Reg. 2015/35) — its disclosure date
+    plus the mandate's weeks."""
+    from datetime import timedelta
+    d, why = due_for(framework, period_end)
+    if d is not None or disclosure_date is None:
+        return d, why
+    m = _mandate_of(framework)
+    due = (m or {}).get("deliverable", {}).get("due") or {}
+    if due.get("rule") == "weeks_after_orsa" and due.get("weeks_after_period_end"):
+        return disclosure_date + timedelta(weeks=int(due["weeks_after_period_end"])), due.get("label")
+    return None, due.get("label")
+
+
 def period_label(period_end: date) -> str:
     """The one label of a reporting period — derived from its end, never typed (every period here is a financial year;
     the database checks period_label = 'FY' || year(period_end) on filings, obligations and supervisory deadlines)."""
@@ -349,6 +378,10 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
         fk = f["framework"]
         if fk in _PRODUCT_SCOPED:
             _ensure_product_obligations(session, org_id, fk, period_end)
+            continue
+        if _due_date(fk, period_end) is None:
+            # runs from an event (an ORSA's conclusion, a recovery plan's update) — no calendar obligation to invent;
+            # the filing's own disclosure date gives its deadline (due_for_filing)
             continue
         # entity_id is NULL for org-level obligations; a UNIQUE(...) treats NULLs as distinct, so we can't
         # rely on ON CONFLICT here — check existence explicitly (org-level obligation, entity_id IS NULL).
@@ -506,7 +539,7 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
                rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role, rf.presentation_currency, rf.view,
                rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name,
-               rf.entity_id, re.name AS entity_name, re.kind AS entity_kind, rf.fund_id, fu.name AS fund_name
+               rf.entity_id, re.name AS entity_name, re.kind AS entity_kind, rf.fund_id, fu.name AS fund_name, rf.disclosure_date
         FROM regulatory_filing rf
         LEFT JOIN funds fu ON fu.fund_id = rf.fund_id
         LEFT JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
@@ -520,6 +553,9 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     out["approval_request_id"] = str(r["approval_request_id"]) if r["approval_request_id"] else None
     out["regulator"] = FRAMEWORKS.get(r["framework"], {}).get("regulator")
     out["basis"] = FRAMEWORKS.get(r["framework"], {}).get("basis")
+    out["disclosure_date"] = r["disclosure_date"].isoformat() if r["disclosure_date"] else None   # None: made when frozen
+    _due, _why = due_for_filing(r["framework"], r["period_end"], r["disclosure_date"])
+    out["due_date"], out["due_rule"] = (_due.isoformat() if _due else None), _why
 
     events = session.execute(text("""
         SELECT e.from_status, e.to_status, e.action, e.detail, e.created_at, u.full_name AS actor_name, u.email AS actor_email
@@ -753,13 +789,22 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_value_eur"), "value_at_risk_eur": None,
                 "noun": "properties", "gaps": gaps}
-    if framework == "insurer_climate":
+    if framework in ("insurer_climate", "insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"):
         from api.routers.insurance import build_disclosure_snapshot
+        from services.governance.entities import root_of
         r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"], entity_ids=entity_ids,
                                       value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_policies", 0), r.get("n_priced", 0)
         if n_total and n_done < n_total:
             gaps.append(f"{n_total - n_done} of {n_total} policies not yet priced")
+        if framework != "insurer_climate":              # figures stated per undertaking (or group) under Solvency II
+            from services.insurer_capital import position, programme
+            pe = reporting_period_end(session, org_id)
+            who = root_of(session, org_id, entity_ids)
+            if not position(session, org_id, pe, who).get("provenance"):
+                gaps.append("own funds / SCR not attested for this undertaking and period")
+            if programme(session, org_id, pe, who)[1] != "attested":
+                gaps.append("reinsurance in force not attested for this undertaking and period")
         return {"coverage": {"label": "policies priced", "done": n_done, "total": n_total,
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_sum_insured_eur"), "value_at_risk_eur": None,
@@ -801,7 +846,7 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
         entity_ids = _E.subtree_ids(session, org_id, entity_id)
         if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
             value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id,
-                                                 regime="solvency2_method1" if framework == "insurer_solvency" else None)
+                                                 regime="solvency2_method1" if framework in _SOLVENCY2_GROUP else None)
     if framework in _ENTITY_SCOPED:
         from services.governance.translation import plan
         translation = plan(session, org_id, entity_id, period_end, scope=entity_ids, weights=value_weights)
@@ -887,7 +932,8 @@ def _previous_period_book(session: Session, org_id: str, framework: str, entity_
 
 def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
             entity_id: str | None, period_end: date, view: str = "joint",
-            figure_sources: dict | None = None, fund_id: str | None = None) -> tuple[dict, str]:
+            figure_sources: dict | None = None, fund_id: str | None = None,
+            disclosure_date: date | None = None) -> tuple[dict, str]:
     from services.governance.engine_runs import RunCheckError
     from services.governance.translation import TranslationError
     from services.intake.views import ViewError
@@ -898,7 +944,7 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
                                value_weights=value_weights, translation=translation, view=view,
                                figure_sources=figure_sources,
                                previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end),
-                               fund_id=fund_id)
+                               fund_id=fund_id, disclosure_date=disclosure_date)
     except (TranslationError, RunCheckError, ViewError) as e:
         raise FilingError(str(e)) from e
     return snap, (translation.presentation if translation is not None else "EUR")
@@ -907,7 +953,8 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
                     actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
                     entity_id: str | None = None, view: str = "joint", figure_sources: dict | None = None,
-                    obligation_id: str | None = None, fund_id: str | None = None) -> dict:
+                    obligation_id: str | None = None, fund_id: str | None = None,
+                    disclosure_date: date | None = None) -> dict:
     """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
     (framework, period, entity) — regenerating while one is live is refused (supersede it first).
     entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
@@ -949,20 +996,23 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         raise FilingError(f"a live {framework} filing for {_period_label(period_end)} already exists "
                           f"(status {existing['status']}); withdraw it if it is an unfiled draft, or restate it if filed.")
 
+    if disclosure_date is not None and disclosure_date <= period_end:
+        raise FilingError(f"the disclosure date {disclosure_date} must be after the period it reports on ({period_end})")
     snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end, view, figure_sources,
-                        fund_id)
+                        fund_id, disclosure_date)
     from services.governance.entities import filing_role_for
     role = "product" if fund_id else filing_role_for(session, org_id, entity_id)
     row = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
-                                       entity_id, filing_role, presentation_currency, view, figure_sources, fund_id)
+                                       entity_id, filing_role, presentation_currency, view, figure_sources, fund_id,
+                                       disclosure_date)
         VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb),
-                CAST(:fund AS uuid))
+                CAST(:fund AS uuid), :dd)
         RETURNING filing_id
     """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end),
            "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id,
            "role": role, "ccy": ccy, "view": view, "figs": json.dumps(figure_sources or {}),
-           "fund": fund_id}).mappings().first()
+           "fund": fund_id, "dd": disclosure_date}).mappings().first()
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
@@ -978,7 +1028,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     filing keeps its frozen snapshot (immutable — restate via a new version instead)."""
     r = session.execute(text("""
         SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end, view,
-               figure_sources, fund_id::text AS fund_id
+               figure_sources, fund_id::text AS fund_id, disclosure_date
         FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
     """), {"f": filing_id, "o": org_id}).mappings().first()
     if not r:
@@ -988,7 +1038,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
                           f"Restate it as a new version to bring in updated data.")
 
     snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"],
-                        r["view"], r["figure_sources"], r["fund_id"])
+                        r["view"], r["figure_sources"], r["fund_id"], r["disclosure_date"])
     session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap, presentation_currency = :ccy "
                          "WHERE filing_id = :f AND org_id = :o"),
                     {"snap": snap["snapshot_id"], "ccy": ccy, "f": filing_id, "o": org_id})
@@ -1108,21 +1158,24 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     # without the entity — a restated solo or consolidated filing silently became a whole-org one. It now keeps the
     # filing's entity, role and scope (and presents in the same currency rule) via the same _book_basis as generate.
     period = session.execute(text(
-        "SELECT period_end, period_label, entity_id::text AS entity_id, filing_role, view, figure_sources, fund_id::text AS fund_id "
-        "FROM regulatory_filing WHERE filing_id = :f"),
+        "SELECT period_end, period_label, entity_id::text AS entity_id, filing_role, view, figure_sources, fund_id::text AS fund_id, "
+        "disclosure_date FROM regulatory_filing WHERE filing_id = :f"),
         {"f": filing_id}).mappings().first()
+    # a restatement is a new disclosure: made today, unless the original's planned date is still ahead
+    dd = period["disclosure_date"] if period["disclosure_date"] and period["disclosure_date"] > date.today() else None
     snap, ccy = _freeze(session, org_id, cur["framework"], actor_user_id,
                         f"Restatement of {period['period_label']}: {reason}", period["entity_id"], period["period_end"],
-                        period["view"], period["figure_sources"], period["fund_id"])
+                        period["view"], period["figure_sources"], period["fund_id"], dd)
     # supersede the old FIRST so the single-live-slot frees up before the restatement is inserted
     _apply_transition(session, org_id, filing_id, "supersede", actor_user_id, detail={"reason": reason})
     new_fid = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
-                                       entity_id, filing_role, presentation_currency, view, figure_sources, fund_id)
+                                       entity_id, filing_role, presentation_currency, view, figure_sources, fund_id,
+                                       disclosure_date)
         VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb),
-                CAST(:fund AS uuid))
+                CAST(:fund AS uuid), :dd)
         RETURNING filing_id
-    """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "pl": period["period_label"],
+    """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "pl": period["period_label"], "dd": dd,
            "snap": snap["snapshot_id"], "note": f"Restates {period['period_label']}: {reason}",
            "u": actor_user_id, "ent": period["entity_id"], "role": period["filing_role"], "ccy": ccy,
            "view": period["view"], "figs": json.dumps(period["figure_sources"] or {}), "fund": period["fund_id"]}).scalar()

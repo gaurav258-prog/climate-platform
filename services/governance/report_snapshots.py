@@ -90,6 +90,11 @@ _BUILDERS = {
                         lambda s, o, sc, hz, m, ei, vw, tr: _insurer_climate(s, o, sc, hz, ei, vw, tr), ("insurer",)),
     "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
                       lambda s, o, sc, hz, m, ei, vw, tr: _reit_taxonomy(s, o, sc, hz, ei, vw, tr), ("reit",)),
+    "insurer_orsa_climate": ("ORSA — climate change scenario analysis (Art. 45a)",
+                             lambda s, o, sc, hz, m, ei, vw, tr: _insurer_document(s, o, "insurer_orsa_climate", ei, vw, tr), ("insurer",)),
+    "insurer_recovery_stress": ("Pre-emptive recovery plan — nat-cat stress and capital indicators",
+                                lambda s, o, sc, hz, m, ei, vw, tr: _insurer_document(s, o, "insurer_recovery_stress", ei, vw, tr),
+                                ("insurer",)),
     "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01)",
                          lambda s, o, sc, hz, m, ei, vw, tr: _insurer_solvency(s, o, sc, hz, ei, vw, tr), ("insurer",)),
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
@@ -175,6 +180,29 @@ def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value
             KEY: s2701_natcat(snap, group_scope=value_weights is not None)}
 
 
+def _insurer_document(session, org_id, report_type, entity_ids=None, value_weights=None, translation=None):
+    """An insurer document report (services.governance.insurer_documents): the computed part — every scenario run on the
+    same book, the attested capital of the undertaking or group it is for — and the undertaking's answers, frozen; with
+    today's book (rollup, policies) for the run record and lineage."""
+    from api.routers.insurance import build_disclosure_snapshot
+    from services.governance.entities import root_of
+    from services.governance.insurer_documents import freeze
+    s = get_settings(session, org_id)
+    pe = _period_end_of(s)
+    doc = freeze(session, org_id, report_type, entity_ids=entity_ids, value_weights=value_weights, translation=translation,
+                 period_end=pe)
+    today = build_disclosure_snapshot(session, org_id, "baseline", "current", entity_ids=entity_ids, value_weights=value_weights,
+                                      translation=translation, reporting_entity_id=root_of(session, org_id, entity_ids))
+    return {"document_report": doc, "rollup": today.get("rollup"), "policies": today.get("policies"),
+            "by_hazard": today.get("by_hazard")}
+
+
+def _period_end_of(settings: dict):
+    from datetime import date as _date
+    pe = settings.get("reporting_period_end")
+    return _date.fromisoformat(str(pe)[:10]) if pe else _date(_date.today().year - 1, 12, 31)
+
+
 def _fx_record(session: Session, org_id: str, translation) -> dict:
     if translation is None:
         return {"presentation_currency": "EUR", "note": "This report is built from the euro book and presents in EUR."}
@@ -194,7 +222,8 @@ def _financial_year_start(period_end):
         return _date(period_end.year - 1, 3, 1)
 
 
-def _spec_record(session: Session, family: str, period_end, elections: dict | None = None) -> dict | None:
+def _spec_record(session: Session, family: str, period_end, elections: dict | None = None,
+                 disclosure_date=None) -> dict | None:
     """The governing version of one specification family for a filing (with the organisation's elections, e.g. the
     Art. 4 option of Delegated Regulation 2026/73 — see regspec.governing), or None when the family has no specs yet."""
     from datetime import date as _date
@@ -204,14 +233,15 @@ def _spec_record(session: Session, family: str, period_end, elections: dict | No
     if family not in R.frameworks():
         return None
     pe = _date.fromisoformat(str(period_end)[:10])
-    spec = R.governing(family, period_end=pe, elections=elections, financial_year_start=_financial_year_start(pe))
+    spec = R.governing(family, period_end=pe, disclosure_date=disclosure_date, elections=elections,
+                       financial_year_start=_financial_year_start(pe))
     if spec is None:
         return {"framework": family, "version": None, "note": "no adopted specification applies to this period"}
     st = signoff_status(session, family, spec["version"])
     return {"framework": family, "version": spec["version"], "sha256": spec["_sha256"], "celex": spec["act"].get("celex"),
             "act": spec["act"].get("short") or spec["act"]["title"], "basis": spec["applies"]["basis"],
             "approved": st["approved"], "one_person": st["one_person"], "needs": st["needs"],
-            "disclosed_on": _date.today().isoformat()}   # the disclosure the version was chosen for (phase-ins read it)
+            "disclosed_on": (disclosure_date or _date.today()).isoformat()}   # the disclosure the version was chosen for
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
@@ -228,7 +258,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                     note: str | None = None, entity_ids: list | None = None,
                     value_weights: dict | None = None, translation=None, view: str = "joint",
                     figure_sources: dict | None = None, previous_period: dict | None = None,
-                    fund_id: str | None = None) -> dict:
+                    fund_id: str | None = None, disclosure_date=None) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
@@ -298,9 +328,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     from services.calc_settings import get_calc_settings
     from services.regspec import families_for
     _elections = get_calc_settings(session, org_id)
-    payload["_specs"] = {f: _spec_record(session, f, period_end, _elections) for f in families_for(report_type)}
+    payload["_specs"] = {f: _spec_record(session, f, period_end, _elections, disclosure_date) for f in families_for(report_type)}
     payload["_spec"] = next(iter(payload["_specs"].values()), None)
-    on = _date.today() if (payload["_spec"] or {}).get("basis") == "disclosure_date" else None
+    on = (disclosure_date or _date.today()) if (payload["_spec"] or {}).get("basis") == "disclosure_date" else None
     payload["_regulation"] = version_for(session, report_type, period_end, on=on)
     basis["regulation_status"] = (payload["_regulation"] or {}).get("status")
     versions = _engine_versions(session, org_id)

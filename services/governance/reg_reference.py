@@ -139,6 +139,34 @@ REFERENCE: dict[str, dict] = {
         "inputs": "Statement of Values / policy book: insured location, sum insured, peril coverage, and "
                   "attachment / exhaustion where parametric.",
     },
+    "insurer_orsa_climate": {
+        "official_name": "Own risk and solvency assessment — climate change scenario analysis (Art. 45a)",
+        "authority": "National competent authority (Solvency II supervisor)",
+        "legal_basis": "Directive 2009/138/EC Art. 45, 45a and 51(1b)(e), as amended by Directive (EU) 2025/2 · "
+                       "Delegated Regulation (EU) 2015/35 Art. 304(1)(c), 312(1)(b)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0002",
+        "summary": "In its ORSA an undertaking assesses whether it has material exposure to climate change risks and, where "
+                   "it has, analyses the impact on its business of at least two long-term climate scenarios — one below "
+                   "2 °C, one significantly above — at intervals of no more than three years. The ORSA supervisory report "
+                   "is due within two weeks of concluding the assessment; the SFCR states the materiality conclusion.",
+        "official_form": "No prescribed template — the ORSA supervisory report (Art. 45a items)",
+        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0002",
+        "inputs": "The book (Statement of Values), the attested own funds, SCR and reinsurance, and the undertaking's own "
+                  "materiality conclusion, review and SFCR statement.",
+    },
+    "insurer_recovery_stress": {
+        "official_name": "Pre-emptive recovery plan — severe nat-cat stress and capital indicators (IRRD Art. 5(7)-(8))",
+        "authority": "National competent authority (Solvency II supervisor)",
+        "legal_basis": "Directive (EU) 2025/1 Art. 5(4), (7), (8), (10)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0001",
+        "summary": "An undertaking subject to pre-emptive recovery planning tests its plan's indicators and remedial actions "
+                   "against severe stress, and sets capital indicators that as a minimum include any breach of the SCR; the "
+                   "plan is updated at least every two years and approved by the board before it is submitted.",
+        "official_form": "No prescribed template — the plan's stress-testing and indicator parts (Art. 5(7)-(8) items)",
+        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0001",
+        "inputs": "The book, the attested own funds, SCR and reinsurance, the plan's attested SCR-ratio trigger levels, and "
+                  "the undertaking's own other scenarios, indicators, monitoring and remedial actions.",
+    },
     "insurer_solvency": {
         "official_name": "Solvency II — natural catastrophe risk (S.27.01.01, non-life and health catastrophe risk)",
         "authority": "National competent authority (Solvency II supervisor) / EIOPA",

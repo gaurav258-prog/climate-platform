@@ -38,8 +38,9 @@ const eur = (n?: number | null) => balance(n)   // the live book, before freezin
 // enforces them (filings._obligation_scope).
 export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; period_label: string; fund_id?: string | null; fund_name?: string | null }
 
-export default function FilingPreflight({ framework, obligation, fund, onClose, onGenerated }: { framework: string; obligation?: ForObligation; fund?: { fund_id: string; name: string }; onClose: () => void; onGenerated: (id: string) => void }) {
-  const [entityId, setEntityId] = useState<string>(obligation?.entity_id ?? '')   // '' = whole organisation
+// disclosureDate: the date the report will be made (an ORSA's conclusion) when it is not today — it chooses the rules
+export default function FilingPreflight({ framework, obligation, fund, entity, disclosureDate, onClose, onGenerated }: { framework: string; obligation?: ForObligation; fund?: { fund_id: string; name: string }; entity?: string; disclosureDate?: string; onClose: () => void; onGenerated: (id: string) => void }) {
+  const [entityId, setEntityId] = useState<string>(obligation?.entity_id ?? entity ?? '')   // '' = whole organisation
   const [fundId, setFundId] = useState<string>(obligation?.fund_id ?? fund?.fund_id ?? '')   // a per-product report's fund
   // the figures and the confirm token are for exactly the scope being filed
   const q = useQuery({ queryKey: ['preflight', framework, entityId, fundId], queryFn: () => api.get<Preflight>(
@@ -58,7 +59,7 @@ export default function FilingPreflight({ framework, obligation, fund, onClose, 
     setBusy(true); setErr(null)
     try {
       const f = await api.post<{ filing_id: string }>('/v1/filings',
-        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs })
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs, disclosure_date: disclosureDate || null })
       onGenerated(f.filing_id)
     } catch (e) {
       // A stale token (the book changed since this preflight loaded) surfaces here — refetch so the

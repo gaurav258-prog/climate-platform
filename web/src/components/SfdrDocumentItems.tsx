@@ -8,7 +8,7 @@ import { Button } from './ui'
 
 export interface DocItem {
   id: string; kind: string; label: string; parent: string | null; instruction?: string | null; blank?: string | null
-  source: 'fixed' | 'computed' | 'input'; status: 'printed' | 'filled' | 'missing'; value?: any; needs?: string | null
+  source: 'fixed' | 'computed' | 'input'; status: 'printed' | 'filled' | 'missing'; value?: any; needs?: string | null; note?: string | null
 }
 
 const SOURCE: Record<string, { c: string; label: string }> = {
@@ -20,6 +20,7 @@ const PLACEHOLDER = /^(\s*[xX]\s*%|\d+\s*%|Turnover|CapEx|OpEx)\s*$/   // chart 
 
 function Badge({ it }: { it: DocItem }) {
   if (it.source === 'fixed' || (it.kind === 'choice' && it.status === 'missing')) return null   // a box is part of its set
+  if (it.status === 'printed') return <span className="mono text-[10px] shrink-0 text-[var(--color-faint)]">not required</span>
   const b = it.status === 'missing' ? SOURCE.missing : SOURCE[it.source]
   return <span className="mono text-[10px] shrink-0" style={{ color: b.c }}>{it.status === 'missing' && it.source === 'computed' ? 'no data' : b.label}</span>
 }
@@ -46,6 +47,15 @@ function Value({ it, items }: { it: DocItem; items: DocItem[] }) {
   const v = it.value
   if (v == null) return it.needs ? <div className="text-[11px] text-[var(--color-warn)] mt-1">Needed: {it.needs}</div> : null
   if (v.graph) return <Graph v={v} />
+  if (v.table) return (   // a computed table that carries its own columns (an ORSA impact analysis, a recovery-plan stress)
+    <div className="overflow-x-auto mt-1">
+      <table className="text-[11.5px] tabular-nums">
+        <thead><tr className="text-[var(--color-faint)]">{v.table.columns.map((c: any) => <th key={c.id} className="text-left pr-4 font-normal">{c.label}</th>)}</tr></thead>
+        <tbody>{v.table.rows.map((r: any, i: number) => <tr key={i}>{v.table.columns.map((c: any) => <td key={c.id} className="pr-4">{typeof r[c.id] === 'number' ? r[c.id].toLocaleString() : (r[c.id] ?? '—')}</td>)}</tr>)}</tbody>
+      </table>
+      {v.table.note && <div className="text-[10.5px] text-[var(--color-faint)] mt-1 max-w-3xl">{v.table.note}</div>}
+    </div>
+  )
   if (v.rows) {
     const cols = items.filter(c => c.parent === it.id && c.kind === 'table_column')
     return (
@@ -142,6 +152,7 @@ export function DocumentItems({ items, onAnswer }: { items: DocItem[]; onAnswer?
               </div>
             </div>
             {it.instruction && <div className="text-[10.5px] italic text-[var(--color-faint)] mt-0.5">{it.instruction}</div>}
+            {it.note && <div className="text-[10.5px] text-[var(--color-faint)] mt-0.5">{it.note}</div>}
             {editing === it.id && onAnswer
               ? <Editor it={it} items={items} onCancel={() => setEditing(null)} onSave={async v => { await onAnswer(it.id, v); setEditing(null) }} />
               : it.kind !== 'choice' && <Value it={it} items={items} />}

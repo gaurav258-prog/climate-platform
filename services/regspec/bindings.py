@@ -32,6 +32,13 @@ def binding_for(framework: str, spec: dict | None = None) -> dict | None:
         from services.governance import sfdr_product
         spec = spec or R.governing(framework, period_end=date.today())
         return sfdr_product.binding(spec) if spec else None
+    if framework in ("sii_climate", "irrd_recovery"):
+        import services.regspec as R
+        from services.governance import irrd_stress, orsa_climate
+        adopted = [v for v in R.versions(framework) if v["status"] == "adopted"]
+        spec = spec or (R.load(framework, adopted[-1]["version"]) if adopted else None)   # the latest adopted version
+        mod = orsa_climate if framework == "sii_climate" else irrd_stress
+        return mod.binding(spec) if spec else None
     if framework == "sii_qrt_natcat":
         import services.regspec as R
         from services.governance import s2701

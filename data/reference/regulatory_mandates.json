@@ -392,17 +392,17 @@
         "insurer"
       ],
       "binding": true,
-      "title": "Climate-change scenarios in the ORSA and climate disclosure",
+      "title": "Climate change scenario analysis in the ORSA (Art. 45a)",
       "short": "ORSA climate scenarios",
       "act": {
-        "name": "Directive 2009/138/EC Art. 45 (ORSA) · Delegated Regulation (EU) 2015/35 Art. 262(1a) as amended by (EU) 2021/1256 · EIOPA Opinion on climate-change risk scenarios in ORSA (2021)",
-        "celex": "32021R1256",
-        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R1256"
+        "name": "Directive 2009/138/EC Art. 45a, as inserted by Directive (EU) 2025/2 · Delegated Regulation (EU) 2015/35 Art. 312(1)(b)",
+        "celex": "32025L0002",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0002"
       },
       "article": {
-        "ref": "Art. 45 Solvency II · Art. 262(1a) Del. Reg. 2015/35",
-        "excerpt": "As part of the own-risk and solvency assessment, undertakings shall assess the risks they are or could be exposed to in the short and long term, including climate-change risks, and where material, specify at least two long-term climate-change scenarios and assess their impact on the business.",
-        "version_date": "2022-08-02"
+        "ref": "Art. 45a(1)-(2) Directive 2009/138/EC",
+        "excerpt": "Where the undertaking concerned has material exposure to climate change risks, the undertaking shall specify at least two long-term climate change scenarios, including the following: a long-term climate change scenario where the global temperature increase remains below two degrees Celsius; a long-term climate change scenario where the global temperature increase is significantly higher than two degrees Celsius.",
+        "version_date": "2025-01-08"
       },
       "criteria": {
         "all_of": [
@@ -423,15 +423,15 @@
         ]
       },
       "deliverable": {
-        "framework": "insurer_climate",
-        "what": "ORSA supervisory report with climate-change scenario analysis (physical and transition) and the climate / nat-cat exposure disclosure",
-        "format": "ORSA supervisory report (document) and structured exposure disclosure",
+        "framework": "insurer_orsa_climate",
+        "what": "ORSA supervisory report with the climate change scenario analysis of Art. 45a",
+        "format": "ORSA supervisory report (document)",
         "channel": "Submitted to the national competent authority after each ORSA (Art. 45(6))",
         "direction": "push",
         "due": {
           "rule": "weeks_after_orsa",
           "weeks_after_period_end": 2,
-          "label": "within 2 weeks of concluding the ORSA; at least annually"
+          "label": "within 2 weeks after concluding the assessment (Art. 312(1)(b) Del. Reg. 2015/35)"
         },
         "frequency": "annual",
         "channel_id": "nca_manual"
@@ -446,6 +446,12 @@
           "effective_from": "2022-08-02",
           "summary": "Del. Reg. 2021/1256 integrates sustainability and climate-change risks into Solvency II governance and the ORSA.",
           "celex": "32021R1256"
+        },
+        {
+          "version": "2027.1",
+          "effective_from": "2027-01-30",
+          "summary": "Art. 45a (Directive (EU) 2025/2) applies: materiality assessment, two long-term scenarios, impact analysis at most every three years, SFCR statement.",
+          "celex": "32025L0002"
         }
       ]
     },
@@ -820,6 +826,67 @@
           "effective_from": "2024-12-23",
           "summary": "Regulation (EU) 2024/3234 postpones application to 30 Dec 2026 (large) / 30 Jun 2027 (micro and small).",
           "celex": "32024R3234"
+        }
+      ]
+    },
+    {
+      "id": "irrd_preemptive_recovery",
+      "sectors": [
+        "insurer"
+      ],
+      "binding": true,
+      "title": "Pre-emptive recovery plan — stress scenarios and capital indicators (IRRD Art. 5)",
+      "short": "IRRD pre-emptive recovery plan",
+      "act": {
+        "name": "Directive (EU) 2025/1 (Insurance Recovery and Resolution Directive) Art. 5",
+        "celex": "32025L0001",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0001"
+      },
+      "article": {
+        "ref": "Art. 5(7)-(8) Directive (EU) 2025/1",
+        "excerpt": "Indicators relating to the capital position shall as a minimum contain any breach of the Solvency Capital Requirement laid down in Title I, Chapter VI, Section 4, of Directive 2009/138/EC.",
+        "version_date": "2025-01-08"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "insurer"
+            ],
+            "label": "Insurance undertaking"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "insurer_recovery_stress",
+        "what": "The pre-emptive recovery plan's stress testing and capital indicators, approved by the board before submission (Art. 5(10))",
+        "format": "Document",
+        "channel": "National competent authority",
+        "direction": "push",
+        "due": {
+          "rule": "per_event",
+          "label": "Supervisory authorities shall ensure that insurance and reinsurance undertakings update their pre-emptive recovery plans at least every two years (Art. 5(4)), and after a material change"
+        },
+        "frequency": "at least every two years",
+        "channel_id": "nca_manual"
+      },
+      "detection_celex": [
+        "32025L0001"
+      ],
+      "versions": [
+        {
+          "version": "2027.1",
+          "effective_from": "2027-01-30",
+          "summary": "IRRD applies; subject undertakings draw up and keep updated a pre-emptive recovery plan.",
+          "celex": "32025L0001"
         }
       ]
     }

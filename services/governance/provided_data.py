@@ -78,7 +78,8 @@ def _target(framework: str, key: str, period_end, elections: dict | None = None)
 
 # the range a value in each catalog unit can take — checked where the value enters (a DIV of 5 or a negative premium
 # would otherwise flow into a capital requirement)
-_UNIT_RANGE = {"%": (0.0, 100.0), "ratio": (0.0, 1.0), "EUR": (0.0, None), "count": (0.0, None)}
+_UNIT_RANGE = {"%": (0.0, 100.0), "ratio": (0.0, 1.0), "EUR": (0.0, None), "count": (0.0, None),
+               "scr_ratio_%": (100.0, 10000.0)}   # an SCR coverage ratio trigger: at or above the breach level
 
 
 def _check_unit(dp: dict, value_num: float | None) -> None:

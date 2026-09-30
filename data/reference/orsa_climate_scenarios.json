@@ -1,0 +1,21 @@
+{
+ "about": "The long-term climate change scenarios the platform offers for Directive 2009/138/EC Art. 45a(2) (as inserted by Directive (EU) 2025/2): each platform scenario, the CMIP6 pathway its physical hazard projections use (ml.scoring.cmip6.SCENARIO_TO_SSP — asserted equal by tests), and that pathway's global warming. Read by services.governance.orsa_climate.",
+ "_source": "IPCC AR6 WGI Summary for Policymakers, Table SPM.1 — change in global surface temperature, long term (2081–2100) relative to 1850–1900: best estimate and very likely range",
+ "article": {"ref": "Directive 2009/138/EC Art. 45a(2)(a)-(b), as inserted by Directive (EU) 2025/2 Art. 1(24)",
+             "below_2c": "a long-term climate change scenario where the global temperature increase remains below two degrees Celsius",
+             "above_2c": "a long-term climate change scenario where the global temperature increase is significantly higher than two degrees Celsius"},
+ "scenarios": {
+  "orderly_1_5c": {"ssp": "SSP1-2.6", "warming_2081_2100_c": 1.8, "very_likely_c": [1.3, 2.4], "label": "Orderly transition (NGFS archetype), SSP1-2.6"},
+  "disorderly_2c": {"ssp": "SSP2-4.5", "warming_2081_2100_c": 2.7, "very_likely_c": [2.1, 3.5], "label": "Disorderly transition (NGFS archetype), SSP2-4.5"},
+  "hot_house_3_5c": {"ssp": "SSP5-8.5", "warming_2081_2100_c": 4.4, "very_likely_c": [3.3, 5.7], "label": "Hot house world (NGFS archetype), SSP5-8.5"}
+ },
+ "classification": {"below_2c_max_best_estimate_c": 2.0, "above_2c_min_best_estimate_c": 2.5},
+ "defaults": {"below_2c": "orderly_1_5c", "above_2c": "hot_house_3_5c"},
+ "horizons": ["2030", "2050", "2100"],
+ "interpretations": [
+  {"subject": "Scenario temperature", "declared_by": "Tellumen",
+   "reading": "A scenario's temperature is the best estimate of long-term (2081–2100) warming of the CMIP6 pathway its hazard projections use (IPCC AR6 WGI Table SPM.1). 'Remains below two degrees' = best estimate below 2.0 °C (SSP1-2.6: 1.8 °C). 'Significantly higher than two degrees' = best estimate at least 2.5 °C (SSP2-4.5: 2.7 °C; SSP5-8.5: 4.4 °C) — half a degree clear of the threshold. The undertaking chooses among the scenarios that qualify (switches orsa_scenario_below_2c / orsa_scenario_above_2c)."},
+  {"subject": "Capital impact", "declared_by": "Tellumen",
+   "reading": "The standard-formula nat-cat factors do not move with the climate, so the capital impact of a scenario is read from the modelled 1-in-200 annual loss net of the attested reinsurance: its change from today is added to the SCR without diversification (an upper bound), and the SCR ratio shown against the attested own funds, which are held constant."}
+ ]
+}

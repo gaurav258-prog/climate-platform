@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, ShieldCheck, Layers, ChevronRight, FileClock } from 'lucide-react'
 import MoneyDeclaration from '../components/MoneyDeclaration'
+import InsurerDocuments from '../components/InsurerDocuments'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button, SectionHead, PageHeader, HeroBanner, StatGrid } from '../components/ui'
@@ -146,6 +147,9 @@ export default function Solvency() {
 
       {/* per-peril regional detail */}
       {sf?.available && <PerilDetail sf={sf} />}
+
+      {/* the ORSA climate analysis (Art. 45a) and the recovery plan's nat-cat stress (IRRD Art. 5), item by item */}
+      <InsurerDocuments />
 
       {/* IFRS S2 ¶16(a) — actual incurred losses for the reporting period, alongside ¶16(c)-(d) modelled figures */}
       <IncurredLosses data={incurred.data} loading={incurred.isLoading} onSaved={() => incurred.refetch()} />
