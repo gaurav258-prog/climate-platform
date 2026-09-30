@@ -32,6 +32,11 @@ def binding_for(framework: str, spec: dict | None = None) -> dict | None:
         from services.governance import sfdr_product
         spec = spec or R.governing(framework, period_end=date.today())
         return sfdr_product.binding(spec) if spec else None
+    if framework == "sii_qrt_natcat":
+        import services.regspec as R
+        from services.governance import s2701
+        spec = spec or R.governing(framework, period_end=date.today())
+        return s2701.binding(spec) if spec else None
     if framework == "sfdr_pai":
         from services.governance.sfdr_binding import BINDING
         return BINDING

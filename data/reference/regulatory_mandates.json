@@ -311,21 +311,21 @@
         "insurer"
       ],
       "binding": true,
-      "title": "Solvency II quantitative reporting — catastrophe risk (S.26.01)",
-      "short": "Solvency II S.26.01",
+      "title": "Solvency II quantitative reporting — natural catastrophe risk (S.27.01.01)",
+      "short": "Solvency II S.27.01.01",
       "act": {
         "name": "Directive 2009/138/EC (Solvency II) · Delegated Regulation (EU) 2015/35 · ITS (EU) 2023/894 (reporting templates)",
         "celex": "32009L0138",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32009L0138",
         "form": {
-          "name": "ITS (EU) 2023/894 — template S.26.01.01 (natural catastrophe risk)",
+          "name": "ITS (EU) 2023/894 — template S.27.01.01 (non-life and health catastrophe risk)",
           "celex": "32023R0894",
           "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R0894"
         }
       },
       "article": {
         "ref": "Art. 35 Solvency II · Art. 304 Del. Reg. 2015/35",
-        "excerpt": "Insurance and reinsurance undertakings shall submit to the supervisory authorities the information necessary for supervision, including the annual quantitative reporting templates. The natural-catastrophe sub-module of the SCR (windstorm, earthquake, flood, hail, subsidence) is reported in template S.26.01 with the regional and zonal breakdown of Annexes V–XXVI of the Delegated Regulation.",
+        "excerpt": "Insurance and reinsurance undertakings shall submit to the supervisory authorities the information necessary for supervision, including the annual quantitative reporting templates. The natural-catastrophe sub-module of the SCR (windstorm, earthquake, flood, hail, subsidence) is reported in template S.27.01.01 with the regional and zonal breakdown of Annexes V–XXVI of the Delegated Regulation.",
         "version_date": "2024-01-01"
       },
       "criteria": {
@@ -354,7 +354,7 @@
       },
       "deliverable": {
         "framework": "insurer_solvency",
-        "what": "Annual QRT S.26.01 (nat-cat SCR by peril and region) with the annual solvency reporting package",
+        "what": "Annual QRT S.27.01.01 (nat-cat SCR by peril and region, before and after risk mitigation) with the annual solvency reporting package",
         "format": "XBRL (EIOPA Solvency II taxonomy)",
         "channel": "National competent authority's Solvency II reporting portal; onward to EIOPA",
         "direction": "push",
@@ -381,7 +381,7 @@
         {
           "version": "2024.1",
           "effective_from": "2024-01-01",
-          "summary": "ITS (EU) 2023/894 replaces the reporting templates for periods from 31 Dec 2023; S.26.01 structure revised.",
+          "summary": "ITS (EU) 2023/894 replaces the reporting templates for periods from 31 Dec 2023; templates replaced (S.27.01.01 for catastrophe risk).",
           "celex": "32023R0894"
         }
       ]

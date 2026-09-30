@@ -183,7 +183,7 @@ def _validate_reit_taxonomy(payload: dict) -> list[dict]:
 
 
 def _validate_insurer_solvency(payload: dict) -> list[dict]:
-    """Solvency II S.26.01 NatCat SCR — added 2026-09-23, same gap as reit_taxonomy above."""
+    """Solvency II natural catastrophe risk (S.27.01.01) — added 2026-09-23, same gap as reit_taxonomy above."""
     out: list[dict] = []
     rollup = payload.get("rollup") or {}
     n_total, n_priced = rollup.get("n_policies", 0), rollup.get("n_priced", 0)

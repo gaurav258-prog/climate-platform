@@ -134,13 +134,19 @@ def evaluate(m: dict, attrs: dict[str, dict]) -> dict:
 
 
 def due_date(m: dict, period_end: date) -> Optional[date]:
+    """The deadline for a period, where the mandate's rule fixes one by the calendar; None where it runs from an event
+    (the ORSA's conclusion, each placing on the market)."""
+    import calendar
     d = m["deliverable"].get("due") or {}
     rule = d.get("rule")
     if rule in ("with_annual_report",) and d.get("months_after_period_end"):
         mth = period_end.month + int(d["months_after_period_end"])
         yr = period_end.year + (mth - 1) // 12
-        return date(yr, (mth - 1) % 12 + 1, min(period_end.day, 28))
-    if rule in ("weeks_after_period_end", "weeks_after_orsa") and d.get("weeks_after_period_end"):
+        mth = (mth - 1) % 12 + 1
+        last = calendar.monthrange(yr, mth)[1]
+        month_end = period_end.day == calendar.monthrange(period_end.year, period_end.month)[1]
+        return date(yr, mth, last if month_end else min(period_end.day, last))     # 31 Dec + 4 months = 30 April
+    if rule == "weeks_after_period_end" and d.get("weeks_after_period_end"):
         return period_end + timedelta(weeks=int(d["weeks_after_period_end"]))
     if rule == "fixed_date":
         return date(period_end.year + 1, int(d["month"]), int(d["day"]))

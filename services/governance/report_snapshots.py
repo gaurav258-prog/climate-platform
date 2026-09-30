@@ -90,7 +90,7 @@ _BUILDERS = {
                         lambda s, o, sc, hz, m, ei, vw, tr: _insurer_climate(s, o, sc, hz, ei, vw, tr), ("insurer",)),
     "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
                       lambda s, o, sc, hz, m, ei, vw, tr: _reit_taxonomy(s, o, sc, hz, ei, vw, tr), ("reit",)),
-    "insurer_solvency": ("Solvency II · Nat-Cat SCR (S.26.01)",
+    "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01)",
                          lambda s, o, sc, hz, m, ei, vw, tr: _insurer_solvency(s, o, sc, hz, ei, vw, tr), ("insurer",)),
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
     "sfdr_precontractual": ("SFDR pre-contractual disclosure (RTS 2022/1288 Annex II / III)", None, ("asset_manager",)),

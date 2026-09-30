@@ -71,9 +71,12 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     stated = {"eligible_own_funds_scr": 180_000_000, "scr_total": 120_000_000, "mcr_total": 45_000_000,
               "ri_quota_share_pct": 30, "ri_xol_attachment_eur": 8_000_000, "ri_xol_limit_eur": 40_000_000,
               "ri_xol_reinstatements": 1, "ri_xol_reinstatement_premium_eur": 2_000_000}
-    bad = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": "natcat_div_other_flood",
-                                                        "value_num": 5, "reporting_period_end": pe.isoformat()})
-    assert bad.status_code in (400, 422) and "between 0 and 1" in bad.text          # checked where it enters
+    # a premium on S.27.01.01 itself — windstorm, other region 15 (north-east US): the undertaking's figure, in EUR
+    cell = "S2701.R0750.C0040"
+    bad = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": cell,
+                                                        "value_num": -5, "reporting_period_end": pe.isoformat()})
+    assert bad.status_code in (400, 422) and "at least 0" in bad.text               # checked where it enters
+    stated[cell] = 5_000_000
     requests = []
     for key, v in stated.items():
         r = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": key,
@@ -129,6 +132,15 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
             # placed in their Annex IX zone (46) while the rest of the book, without postal codes, groups (Art. 90b)
             sf = nb["standard_formula_natcat"]
             assert sf["version"] == "da_2015_35_as_2019_981" and sf["treaty_basis"] == "attested" and sf["complete"]
+            ws_other = sf["perils"]["windstorm"]["other_regions"]                  # the stated premium is charged:
+            assert ws_other["premium_by_region"] == {"15": 5_000_000.0} or ws_other["premium_by_region"] == {15: 5_000_000.0}
+            assert ws_other["before_eur"] == 8_750_000                             # 1,75 · (0,5·1 + 0,5) · 5m
+            # the official form: S.27.01.01 block by block, the premium cell frozen as entered, the total charged
+            annex = api.get(f"/v1/filings/{fid}/form", headers=maker).json().get("annex") or {}
+            ws = next(x for x in annex["sections"] if x.get("key") == "s2701_windstorm")
+            r0750 = next(r for r in ws["rows"] if r["cells"][0]["text"].startswith("R0750"))
+            assert any(c.get("supply", {}).get("key") == cell and c["text"] != "—" for c in r0750["cells"])
+            assert payload["_specs"]["sii_qrt_natcat"]["version"] == "its_2023_894"
             assert 0 < sf["natcat_scr_eur"] < sf["natcat_scr_before_mitigation_eur"]
             es = next(g for g in sf["perils"]["windstorm"]["regions"] if g["region"] == "ES")
             assert es["method"] == "grouped_art90b" and "no Annex IX zone" in es["method_reason"]

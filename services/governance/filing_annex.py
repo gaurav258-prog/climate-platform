@@ -927,6 +927,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     elif framework == "reit_taxonomy":
         from services.governance import taxonomy_nonfin_forms
         sections = taxonomy_nonfin_forms.sections(payload or {}, "reit_taxonomy")
+    elif framework == "insurer_solvency":
+        from services.governance import s2701_forms
+        sections = s2701_forms.sections(payload or {}, "insurer_solvency") or _generic_annex(dps, groups)
     elif framework in ("sfdr_precontractual", "sfdr_periodic"):
         from services.governance import sfdr_product_forms
         sections = sfdr_product_forms.sections(payload or {}, framework)

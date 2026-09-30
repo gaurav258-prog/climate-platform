@@ -109,6 +109,8 @@ def set_due(session, reg_org_id: str, deadline_id: str, due: Optional[date], not
         return None
     if due is None:   # back to the act's rule
         due, src = due_date(mandate(row["mandate_id"]), row["period_end"]), "registry"
+        if due is None:
+            raise ValueError("this obligation runs from an event (e.g. the ORSA's conclusion): its deadline must be set")
     else:
         src = "set"
     session.execute(text("""UPDATE supervision_deadline SET due_date = :d, due_source = :s, note = COALESCE(:n, note), updated_at = now()

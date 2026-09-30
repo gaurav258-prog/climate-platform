@@ -191,15 +191,6 @@ CATALOG: dict[str, list[dict]] = {
         {**_dp("ri_xol_reinstatement_premium_eur", "Reinsurance in force — premium to reinstate the full limit once", "customer",
                "provided", provider="Your reinsurance treaties",
                note="Charged pro rata to the limit used. Not stated, no reinstatement is assumed."), "unit": "EUR"},
-    ] + [{**_dp(f"natcat_premium_other_{p}_eur", f"Premiums to be earned, next 12 months — {p} risks outside Annex XIII",
-                "customer", "provided", provider="Your Solvency II premium provision / business plan",
-                note=f"P({p}) of Del. Reg. 2015/35 Arts 121-124: gross premiums to be earned in the following 12 months on "
-                     f"contracts covering {p} where the risk is outside the Annex XIII regions."), "unit": "EUR"}
-         for p in ("windstorm", "earthquake", "flood", "hail")
-    ] + [{**_dp(f"natcat_div_other_{p}", f"Geographical diversification factor DIV — {p}, regions outside Annex XIII",
-                "customer", "provided", provider="Your Solvency II standard-formula calculation (Annex III)",
-                note="DIV per Annex III, on the premiums of those contracts, restricted to regions 5 to 18 — between 0 and 1."),
-          "unit": "ratio"} for p in ("windstorm", "earthquake", "flood", "hail")
     ],
     "insurer_orsa_climate": [
         _dp("climate_scenarios", "Nat-cat losses and capital under a below-2 °C and a well-above-2 °C scenario, 2030-2100",

@@ -18,6 +18,9 @@
   ],
   "sfdr_periodic": [
    "sfdr_product"
+  ],
+  "insurer_solvency": [
+   "sii_qrt_natcat"
   ]
  },
  "previous_period": {

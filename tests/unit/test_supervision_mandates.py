@@ -63,4 +63,4 @@ def test_due_rules():
     m = next(x for x in registry()["mandates"] if x["id"] == "sfdr_pai_statement")
     assert due_date(m, date(2025, 12, 31)) == date(2026, 6, 30)
     m = next(x for x in registry()["mandates"] if x["id"] == "crr_449a_pillar3_esg")
-    assert due_date(m, date(2025, 12, 31)) == date(2026, 4, 28)
+    assert due_date(m, date(2025, 12, 31)) == date(2026, 4, 30)          # four months after a month end: the month end

@@ -171,7 +171,7 @@ _Last reviewed: 2026-09-25._
   (2) add free national postcode polygons (UK, DE, NL…) country-by-country; (3) a licensed CRESTA/commercial layer
   closes the remainder. Each phase replaces the country-level approximation with the exact zonal SCR for those
   countries (typically LOWER — it takes within-country diversification credit). Until then the country-level figure
-  is a documented, cited approximation, disclosed on the Solvency page and in the S.26.01 filing.
+  is a documented, cited approximation, disclosed on the Solvency page and in the S.27.01.01 filing. (2026-09-30: superseded — zones are now read from each risk's postal code through Annex IX; without one, the Art. 90b grouping.)
 
 ## Copernicus EGMS (European Ground Motion Service) account
 

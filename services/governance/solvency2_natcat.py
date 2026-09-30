@@ -12,7 +12,8 @@ platform declares where the text leaves a point open. Per peril, as the Articles
   capital requirement, region r    the loss in basic own funds from the scenario's events (each set gross, as a
       share of L_r), after the reinsurance in force (Art. 126) — the larger of scenarios A and B where there are two
   other regions                    L = f · (0,5 · DIV + 0,5) · P for risks outside Annex XIII (Arts 121(8)-124(9)),
-      P and DIV the undertaking's attested figures; missing, the peril is marked incomplete — never charged on zero
+      P the undertaking's attested premiums by Annex III region, DIV = Σ P_r² / (Σ P_r)² over regions 5 to 18;
+      missing, the peril is marked incomplete — never charged on zero
   peril                            SCR = √(Σ_r Σ_s Corr(r,s) · SCR_r · SCR_s + SCR_other²)
   nat-cat                          SCR_natCAT = √(Σ SCR_peril²)                                       (Art. 120)
 
@@ -78,12 +79,14 @@ def _scenario(peril: str, loss: float, treaty: dict | None) -> dict:
     return best
 
 
-def _specified_loss(v: dict, peril: str, region: str, q: float, zones_si: dict, unzoned: float) -> tuple[float, str, str]:
-    """(L_r, method, why) — exact zonal, the Art. 90b grouping of all the region's zones, or a one-zone region."""
+def _specified_loss(v: dict, peril: str, region: str, q: float, zones_si: dict,
+                    unzoned: float) -> tuple[float, str, str, float]:
+    """(L_r, method, why, Σ WSI before diversification between zones) — exact zonal, the Art. 90b grouping of all the
+    region's zones, or a one-zone region."""
     si = sum(zones_si.values()) + unzoned
     zt = T.zonal(v, peril, region)
     if zt is None:
-        return q * si, "single_zone", T.reading("Single-zone regions")
+        return q * si, "single_zone", T.reading("Single-zone regions"), q * si
     table = zt["zones"]
     unknown = sum(s for z, s in zones_si.items() if z not in table)
     if not zt.get("labels_verified", False):
@@ -94,9 +97,28 @@ def _specified_loss(v: dict, peril: str, region: str, q: float, zones_si: dict, 
         corr = zt["correlation"]
         wsi = {z: q * table[z]["w"] * s for z, s in zones_si.items()}
         var = sum(corr[i][j] * wsi[i] * wsi[j] for i in wsi for j in wsi)
-        return math.sqrt(max(var, 0.0)), "exact_zonal", "Annex IX zones, Annex X weights, zone correlations"
+        return (math.sqrt(max(var, 0.0)), "exact_zonal", "Annex IX zones, Annex X weights, zone correlations",
+                sum(wsi.values()))
     w_max = max(z["w"] for z in table.values())
-    return q * w_max * si, "grouped_art90b", why
+    return q * w_max * si, "grouped_art90b", why, q * w_max * si
+
+
+def diversification(premium_by_region: dict[int, float]) -> float:
+    """DIV of Annex III(1) on the premiums, restricted to regions 5 to 18: Σ P_r² / (Σ P_r)². With no premium in those
+    regions there is nothing to diversify: 1 (declared reading 'Premiums for other regions')."""
+    lo, hi = T.rules()["other_regions"]["annex_iii_regions"]["div_regions"]
+    ps = [v for r, v in premium_by_region.items() if lo <= r <= hi and v > 0]
+    total = sum(ps)
+    return sum(v * v for v in ps) / (total * total) if total > 0 else 1.0
+
+
+def _zones_undiversified(peril: str, undiversified: dict[str, float], treaty: dict | None) -> dict | None:
+    if not undiversified:
+        return None
+    s = _scenario(peril, sum(undiversified.values()), treaty)
+    return {"specified_gross_loss_eur": round(sum(undiversified.values())), "before_eur": round(s["before"]),
+            "mitigation_eur": round(s["mitigation"]), "reinstatement_eur": round(s["reinstatement"]),
+            "after_eur": round(s["after"])}
 
 
 def _aggregate(table: dict, by_region: dict[str, float], other: float) -> float:
@@ -155,11 +177,12 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
         elif not region:
             not_charged += si
 
-    rows, before_r, after_r = [], {}, {}
+    rows, before_r, after_r, undiversified = [], {}, {}, {}
     for region, b in sorted(buckets.items(), key=lambda kv: -(sum(kv[1]["zones"].values()) + kv[1]["unzoned"])):
         q = table["regions"][region]["q"]
         si = sum(b["zones"].values()) + b["unzoned"]
-        loss, method, why = _specified_loss(v, peril, region, q, b["zones"], b["unzoned"])
+        loss, method, why, undiv = _specified_loss(v, peril, region, q, b["zones"], b["unzoned"])
+        undiversified[region] = undiv
         s = _scenario(peril, loss, treaty)
         before_r[region], after_r[region] = s["before"], s["after"]
         rows.append({"region": region, "region_name": table["regions"][region]["name"], "n_policies": b["n"],
@@ -172,24 +195,27 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
     incomplete, other = [], None
     if unlocated:
         incomplete.append(f"{round(unlocated)} EUR of sum insured has no country and is not placed")
-    if other_si > 0:
+    # the premium-based charge follows the premiums the undertaking states for contracts covering risks outside Annex
+    # XIII (Arts 121(8)-(9) …): charged whenever they are stated; exposure there without them makes the peril incomplete
+    by_region = {int(k): float(v) for k, v in (((other_inputs or {}).get(peril) or {}).get("by_region") or {}).items()
+                 if v is not None} if peril != "subsidence" else {}
+    if other_si > 0 or by_region:
         other = {"exposure_eur": round(other_si)}
         if peril == "subsidence":
             other["status"] = "not_calculated"
             other["reason"] = T.reading("Subsidence outside Annex XIII (from 2027)")
         else:
-            inp = (other_inputs or {}).get(peril) or {}
-            p, div = inp.get("premium_eur"), inp.get("div")
-            if p is None or div is None:
+            if not by_region:
                 other["status"] = "missing_input"
-                incomplete.append(f"{peril}: exposure outside Annex XIII needs the premium to be earned and DIV "
-                                  "(Annex III) — not stated")
+                incomplete.append(f"{peril}: exposure outside Annex XIII needs the premiums to be earned by Annex III "
+                                  "region (S.27.01.01) — not stated")
             else:
+                p, div = sum(by_region.values()), diversification(by_region)
                 f = T.rules()["other_regions"]["factor"][peril]
                 loss = f * (0.5 * div + 0.5) * p
                 rec, rp, after = _treaty_after([loss], treaty)
-                other.update({"status": "computed", "premium_eur": round(p), "div": div, "factor": f,
-                              "before_eur": round(loss), "mitigation_eur": round(rec),
+                other.update({"status": "computed", "premium_eur": round(p), "premium_by_region": by_region,
+                              "div": round(div, 6), "factor": f, "before_eur": round(loss), "mitigation_eur": round(rec),
                               "reinstatement_eur": round(rp), "after_eur": round(after)})
     ob = (other or {}).get("before_eur") or 0.0
     oa = (other or {}).get("after_eur") or 0.0
@@ -205,6 +231,8 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
         "diversification_after_eur": round(sum(after_r.values()) + oa - total_a),
         "before_eur": round(total_b), "after_eur": round(total_a),
         "residential_not_stated": residential_unknown if peril == "subsidence" else None,
+        # subsidence reports its zones before diversification between them (S.27.01.01 R1950-R1970)
+        "before_zone_diversification": _zones_undiversified(peril, undiversified, treaty) if peril == "subsidence" else None,
         "complete": not incomplete, "incomplete": incomplete,
     }
 
@@ -213,8 +241,9 @@ def natcat_scr(policies: list[dict], *, ref_date: date | None = None, treaty: di
                treaty_basis: str | None = None, other_inputs: dict | None = None,
                uk_reading: str = "region_only") -> dict:
     """The nat-cat capital requirement on the reference date: the five perils and their combination (Art. 120).
-    treaty: the ATTESTED reinsurance in force (services.insurer_capital) or None; other_inputs: {peril: {premium_eur,
-    div}} attested for risks outside Annex XIII; uk_reading: the governed switch sii_natcat_uk_other_regions."""
+    treaty: the ATTESTED reinsurance in force (services.insurer_capital) or None; other_inputs: {peril: {"by_region":
+    {Annex III region number: premium}}} attested for risks outside Annex XIII (S.27.01.01 premium cells); uk_reading:
+    the governed switch sii_natcat_uk_other_regions."""
     if uk_reading not in UK_READINGS:
         raise ValueError(f"uk_reading must be one of {UK_READINGS}")
     v = T.version(ref_date)
@@ -272,7 +301,7 @@ def lines(sf: dict) -> list[dict]:
                         "premium_eur": o.get("premium_eur"), "before_eur": o.get("before_eur"),
                         "mitigation_eur": o.get("mitigation_eur"), "reinstatement_eur": o.get("reinstatement_eur"),
                         "after_eur": o.get("after_eur"),
-                        "note": {"computed": "f · (0,5 · DIV + 0,5) · P", "missing_input": "premium and DIV not stated",
+                        "note": {"computed": "f · (0,5 · DIV + 0,5) · P", "missing_input": "premiums by region not stated",
                                  "not_calculated": o.get("reason")}.get(o["status"])})
         out.append({"peril": name, "line": "Diversification between regions", "before_eur": -r["diversification_before_eur"],
                     "after_eur": -r["diversification_after_eur"]})

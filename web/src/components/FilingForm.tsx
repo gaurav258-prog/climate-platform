@@ -27,7 +27,7 @@ interface Dp {
   figure?: { reported: 'client' | 'tellumen'; client_value: number | string | null; tellumen_value: number | null; delta_pct: number | null; client_provider: string | null }
 }
 interface Group { group: string; datapoints: Dp[] }
-interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string } }   // supply: a cell the institution enters ('<template>.<row>.<column>')
+interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string }; greyed?: boolean }   // supply: a cell the institution enters ('<template>.<row>.<column>')
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string; kind?: 'document'; items?: DocItem[] }   // kind 'document': a template printed as a document (SFDR Annexes II–V)
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
@@ -282,6 +282,8 @@ function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, ...ep }: 
                           const last = ci === cells.length - 1
                           if (c.dp) return <td key={ci} className="px-4 py-1.5 text-right align-top"><CellValue dp={c.dp} {...ep} /></td>
                           // a cell the institution enters itself (the spec's supplied cells) — never a figure aggregated from loan data
+                          // a cell the template greys out (no instruction names it): hatched, as printed
+                          if (c.greyed) return <td key={ci} aria-label="not reported" style={{ background: 'repeating-linear-gradient(135deg, transparent 0 5px, var(--color-line) 5px 6px)' }} />
                           if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[c.supply.key]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} /></td>
                           return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right mono tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                         })}

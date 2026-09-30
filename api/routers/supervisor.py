@@ -1104,7 +1104,10 @@ def set_deadline(deadline_id: str, body: DeadlineSet, session: DbSession, ctx: S
     from services.supervision.deadlines import set_due
     _need(ctx, "supervisor.deadlines.manage")
     reg = ctx["org"]["org_id"]
-    out = set_due(session, reg, deadline_id, _date.fromisoformat(body.due_date) if body.due_date else None, body.note, ctx["user"]["id"])
+    try:
+        out = set_due(session, reg, deadline_id, _date.fromisoformat(body.due_date) if body.due_date else None, body.note, ctx["user"]["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "no_calendar_rule", "message": str(e)})
     if not out:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such deadline."})
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadline.set", target_type="supervision_deadline", target_id=deadline_id, detail=out | {"note": body.note})

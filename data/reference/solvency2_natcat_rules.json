@@ -119,7 +119,89 @@
   "formula": "L(peril, other) = factor · (0,5 · DIV(peril) + 0,5) · P(peril) — Art. 121(9), 122(6), 123(9), 124(9) (formula images)",
   "p_quote": "is an estimate of the premiums to be earned by insurance and reinsurance undertakings for each contract that covers the obligations referred to in paragraph 8 during the following 12 months: for this purpose premiums shall be gross, without deduction of premiums",
   "div_quote": "based on the premiums in relation to the obligations referred to in paragraph 8 and restricted to the regions 5 to 18 set out in point (8) of Annex III",
-  "inputs": "P and DIV rest on the undertaking's premium and reserve volumes by line of business and region (Annex III) — stated by it (attested Solvency II inputs), never estimated here"
+  "annex_iii_regions": {
+   "quote": "8. Regions for the calculation of the factor for geographical diversification",
+   "regions": [
+    {
+     "n": 1,
+     "name": "Northern Europe"
+    },
+    {
+     "n": 2,
+     "name": "Western Europe"
+    },
+    {
+     "n": 3,
+     "name": "Eastern Europe"
+    },
+    {
+     "n": 4,
+     "name": "Southern Europe"
+    },
+    {
+     "n": 5,
+     "name": "Central and Western Asia"
+    },
+    {
+     "n": 6,
+     "name": "Eastern Asia"
+    },
+    {
+     "n": 7,
+     "name": "South and South-Eastern Asia"
+    },
+    {
+     "n": 8,
+     "name": "Oceania"
+    },
+    {
+     "n": 9,
+     "name": "Northern Africa"
+    },
+    {
+     "n": 10,
+     "name": "Southern Africa"
+    },
+    {
+     "n": 11,
+     "name": "Northern America excluding the United States of America"
+    },
+    {
+     "n": 12,
+     "name": "Caribbean and Central America"
+    },
+    {
+     "n": 13,
+     "name": "Eastern South America"
+    },
+    {
+     "n": 14,
+     "name": "Northern, southern and western South America"
+    },
+    {
+     "n": 15,
+     "name": "North-east United States of America"
+    },
+    {
+     "n": 16,
+     "name": "South-east United States of America"
+    },
+    {
+     "n": 17,
+     "name": "Mid-west United States of America"
+    },
+    {
+     "n": 18,
+     "name": "Western United States of America"
+    }
+   ],
+   "div_regions": [
+    5,
+    18
+   ]
+  },
+  "div_formula": "DIV = Σ_r P_r² / (Σ_r P_r)², r over regions 5 to 18 — Annex III(1) with the volume measure the premiums (Arts 121(9)(a), 122(6)(a), 123(9)(a), 124(9)(a): 'based on the premiums in relation to the obligations referred to in paragraph 8 and restricted to the regions 5 to 18 set out in point (8) of Annex III')",
+  "inputs": "P by Annex III region is the undertaking's own figure — S.27.01.01 C0040 (windstorm; the matching column of each peril block) of the other-region rows, supplied and attested as template cells; DIV and the charge follow from them"
  },
  "grouped_zones": {
   "quote": "the risk weight for windstorm risk referred to in point (a) of Article 121(6) shall be the risk weight for windstorm risk in the risk zone within that group with the highest risk weight for windstorm risk set out in Annex X.",
@@ -192,9 +274,9 @@
    "reading": "Art. 125(1) as replaced by 2026/269 names SCR(subsidence,other) but no paragraph gives its calculation; no amount is computed and the exposure outside Annex XIII is shown."
   },
   {
-   "subject": "Premiums and DIV for other regions",
+   "subject": "Premiums for other regions",
    "declared_by": "Tellumen",
-   "reading": "P and DIV are the undertaking's own figures (premiums to be earned in the following 12 months by line and region, Annex III); they are stated and attested under insurer_solvency. Where exposure lies outside Annex XIII and they are not stated, the peril's charge is incomplete and says so — never computed on a zero premium."
+   "reading": "P by Annex III region is stated by the undertaking on S.27.01.01 (the premium column of the other-region rows). Where exposure lies outside Annex XIII and no premium is stated, the peril's charge is incomplete and says so — never computed on a zero premium. Where every stated premium lies in regions 1 to 4, the restricted DIV has no premiums to measure: DIV = 1 (no diversification), the reading that cannot understate."
   }
  ],
  "zone_labels": {

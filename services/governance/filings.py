@@ -32,23 +32,24 @@ from services.governance.money_format import presentation_of
 from services.governance.report_snapshots import _BUILDERS, create_snapshot, get_snapshot
 
 # framework (== report_snapshots report_type) -> filing metadata.
-# `due` is (month, day) in the year AFTER period_end — the statutory filing deadline.
+# The deadline is the mandate's (data/reference/regulatory_mandates.json, cited: due_for). `due` (month, day in the year
+# after period_end) is kept ONLY for a report type no mandate dates by the calendar — the platform's planning date.
 FRAMEWORKS = {
     "bank_tcfd": {"label": "TCFD · EU-Taxonomy disclosure", "sectors": ("bank",),
-                  "frequency": "annual", "due": (4, 30),
+                  "frequency": "annual",
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
     "bank_p3esg": {"label": "Pillar 3 ESG risk disclosures", "sectors": ("bank",),
-                   "frequency": "annual", "due": (3, 31),
+                   "frequency": "annual",
                    "regulator": "National competent authority / EBA", "basis": "CRR Art. 449a"},   # the implementing act: reg_reference.reference() from the governing spec
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
-                 "frequency": "annual", "due": (6, 30),
+                 "frequency": "annual",
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR Art. 4"},   # the RTS: reg_reference.reference() from the governing spec
     "assetmgmt_tcfd": {"label": "TCFD · physical-risk & concentration disclosure (holdings book)", "sectors": ("asset_manager",),
-                       "frequency": "annual", "due": (6, 30),
+                       "frequency": "annual",
                        "regulator": "National competent authority / TCFD", "basis": "TCFD asset-manager guidance"},
     # ── agriculture (manufacturer) frameworks — builders already registered in report_snapshots._BUILDERS ──
     "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
-                "frequency": "annual", "due": (3, 31),
+                "frequency": "annual",
                 "regulator": "National competent authority (CSRD)", "basis": "ESRS E1"},
     "esrs_pack": {"label": "ESRS Climate & Nature pack (E1 · E3 · E4)", "sectors": ("manufacturer",),
                   "frequency": "annual", "due": (3, 31),
@@ -57,11 +58,11 @@ FRAMEWORKS = {
                   "frequency": "annual", "due": (4, 30),
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
     "reit_taxonomy": {"label": "EU Taxonomy Article 8 KPIs (property book)", "sectors": ("reit",),
-                      "frequency": "annual", "due": (4, 30),
+                      "frequency": "annual",
                       "regulator": "National competent authority", "basis": "Del. Reg. (EU) 2021/2178 Art. 8"},
-    "insurer_solvency": {"label": "Solvency II · Nat-Cat SCR (S.26.01)", "sectors": ("insurer",),
-                         "frequency": "annual", "due": (4, 30),
-                         "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 · S.26.01.01"},
+    "insurer_solvency": {"label": "Solvency II · natural catastrophe risk (S.27.01.01)", "sectors": ("insurer",),
+                         "frequency": "annual",
+                         "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 Arts 119-126 · ITS (EU) 2023/894 S.27.01.01"},
     "insurer_climate": {"label": "Climate / NatCat exposure disclosure", "sectors": ("insurer",),
                         "frequency": "annual", "due": (4, 30),
                         "regulator": "National competent authority / EIOPA", "basis": "Solvency II · IFRS S2"},
@@ -265,7 +266,9 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
         fk = f["framework"]
         ref = reference(fk) or {}
         spec = FRAMEWORKS[fk]
-        due_m, due_d = spec.get("due") or (0, 0)
+        from services.governance.reporting_settings import get_settings
+        pe_org = get_settings(session, org_id).get("reporting_period_end")
+        due_on, due_why = due_for(fk, date.fromisoformat(str(pe_org)[:10])) if pe_org else (None, None)
         rows = session.execute(text("""
             SELECT rf.filing_id::text AS filing_id, rf.period_label, rf.status, rf.submission_ref,
                    rf.created_at, rf.updated_at, s.version AS snapshot_version,
@@ -285,16 +288,36 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
         last = next((x for x in filings if x["submission_ref"] or x["status"] in ("submitted", "accepted")), None)
         out.append({
             **f, **ref,
-            "due_label": f"{spec['frequency']} · by {due_d} {_MONTHS[due_m]}" if due_m else spec["frequency"],
+            "due_label": (f"{spec['frequency']} · by {due_on.day} {_MONTHS[due_on.month]}" + (f" ({due_why})" if due_why else ""))
+                         if due_on else spec["frequency"],
             "n_filings": len(filings), "last_filed": last, "filings": filings,
             "coverage": _coverage(fk),
         })
     return out
 
 
-def _due_date(framework: str, period_end: date) -> date:
-    m, d = FRAMEWORKS[framework]["due"]
-    return date(period_end.year + 1, m, d)
+def _mandate_of(framework: str) -> dict | None:
+    from services.supervision.mandates import registry
+    return next((m for m in registry()["mandates"] if (m.get("deliverable") or {}).get("framework") == framework), None)
+
+
+def due_for(framework: str, period_end: date) -> tuple[date | None, str | None]:
+    """(the deadline for a period, where it comes from): the mandate's cited rule where it fixes a calendar date, else
+    the report type's planning date; (None, None) for a report with no calendar deadline."""
+    from services.supervision.mandates import due_date
+    m = _mandate_of(framework)
+    d = due_date(m, period_end) if m else None
+    if d is not None:
+        return d, m["deliverable"]["due"].get("label")
+    typed = FRAMEWORKS[framework].get("due")
+    if typed:
+        why = (m["deliverable"]["due"].get("label") + " — planning date") if m else "planning date"
+        return date(period_end.year + 1, *typed), why
+    return None, None
+
+
+def _due_date(framework: str, period_end: date) -> date | None:
+    return due_for(framework, period_end)[0]
 
 
 def period_label(period_end: date) -> str:
@@ -362,7 +385,7 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
 def _ensure_product_obligations(session: Session, org_id: str, fk: str, period_end: date) -> None:
     """One obligation per Art. 8 / 9 fund for a per-product report with a calendar deadline (the periodic document;
     the pre-contractual one has none)."""
-    if not FRAMEWORKS[fk]["due"]:
+    if _due_date(fk, period_end) is None:
         return
     from services.governance.product_filings import funds_owing
     for fund in funds_owing(session, org_id):

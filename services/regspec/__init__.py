@@ -366,6 +366,7 @@ def supplied_cell(framework: str, key: str, period_end, *, elections: dict | Non
     entered_basis = bool(basis) and basis in (b.get("input_bases") or [])      # e.g. a CapEx copy the undertaking enters
     if row_src == "n/a" or not (entered_basis or col_src.startswith("input") or row_src.startswith("input")):
         raise SpecError(f"{t.get('code') or tid} row {rid}, column {cid} is not a value the institution supplies")
-    return {"template": tid, "row": rid, "column": cid, "spec": spec["version"], "basis": basis or None,
+    unit = next((src.split("|", 1)[1] for src in (col_src, row_src) if src.startswith("input") and "|" in src), None)
+    return {"template": tid, "row": rid, "column": cid, "spec": spec["version"], "basis": basis or None, "unit": unit,
             "label": f"{t.get('code') or tid}, row {rid}, column {cid} — {(row['label'].split(' > ')[-1] or '')[:60]} · "
                      f"{col['label'].split(' > ')[-1][:60]}"}

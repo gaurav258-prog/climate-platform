@@ -19,7 +19,8 @@ Table values used (Annex V, Annex X, Annex XXII, Annex XXVI — 02015R0035-20241
 3  Art. 90b      100m in zone 01 and 100m without a postal code → all DE zones one group at W 2,9:
                  L = 0,0007·2,9·200m = 406 000; gross 487 200
 4  subsidence    1bn in zone 75, 1bn in zone 13: WSI 150 000 and 1 250 000, Corr 1 → L = 1 400 000 (single scenario)
-5  other regions US risk; P(windstorm) = 10m, DIV = 0,5 → L = 1,75·(0,5·0,5 + 0,5)·10m = 13 125 000
+5  other regions US risk; premiums 5m in region 15 (NE US), 5m in region 18 (W US), 2m in region 1 (N Europe):
+                 P = 12m; DIV over regions 5-18 = (5² + 5²) / 10² = 0,5 → L = 1,75·(0,5·0,5 + 0,5)·12m = 15 750 000
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ from datetime import date
 import pytest
 
 from services.governance import solvency2_natcat_tables as T
-from services.governance.solvency2_natcat import natcat_scr, peril_scr
+from services.governance.solvency2_natcat import diversification, natcat_scr, peril_scr
 
 D24, D27 = date(2025, 12, 31), date(2027, 6, 30)
 TREATY = {"quota_share_pct": 30, "xol_attachment_eur": 100_000, "xol_limit_eur": 50_000}
@@ -94,14 +95,18 @@ def test_other_regions_are_charged_on_attested_premiums_and_never_on_zero():
     pols = [{"country": "US", "sum_insured_eur": 1e9}]
     missing = _ws(pols)
     assert missing["other_regions"]["status"] == "missing_input" and not missing["complete"]
-    got = _ws(pols, other_inputs={"windstorm": {"premium_eur": 10e6, "div": 0.5}})
-    assert (got["other_regions"]["before_eur"], got["before_eur"], got["complete"]) == (13_125_000, 13_125_000, True)
+    got = _ws(pols, other_inputs={"windstorm": {"by_region": {15: 5e6, 18: 5e6, 1: 2e6}}})
+    assert (got["other_regions"]["div"], got["other_regions"]["before_eur"], got["complete"]) == (0.5, 15_750_000, True)
+    assert diversification({1: 2e6, 2: 3e6}) == 1.0                  # nothing in regions 5-18: no diversification
+    # stated premiums are charged even where the uploaded book holds none of those risks (the charge is on premiums)
+    only_p = _ws([{"country": "DE", "sum_insured_eur": 1e6}], other_inputs={"windstorm": {"by_region": {15: 5e6, 18: 5e6, 1: 2e6}}})
+    assert only_p["other_regions"]["exposure_eur"] == 0 and only_p["other_regions"]["before_eur"] == 15_750_000
 
 
 def test_a_region_and_other_regions_combine_independently():
     pols = [{"country": "DE", "sum_insured_eur": 100e6}, {"country": "US", "sum_insured_eur": 1e9}]
-    r = _ws(pols, other_inputs={"windstorm": {"premium_eur": 10e6, "div": 0.5}})
-    assert r["before_eur"] == round((243_600 ** 2 + 13_125_000 ** 2) ** 0.5)     # DE grouped: 1,2·0,0007·2,9·100m
+    r = _ws(pols, other_inputs={"windstorm": {"by_region": {15: 5e6, 18: 5e6, 1: 2e6}}})
+    assert r["before_eur"] == round((243_600 ** 2 + 15_750_000 ** 2) ** 0.5)     # DE grouped: 1,2·0,0007·2,9·100m
 
 
 def test_the_united_kingdom_is_charged_by_region_unless_the_literal_reading_is_chosen():

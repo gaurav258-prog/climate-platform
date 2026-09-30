@@ -51,9 +51,14 @@ def programme(session: Session, org_id: str, period_end: date) -> tuple[dict, st
 
 
 def natcat_other_regions(session: Session, org_id: str, period_end: date) -> dict:
-    """{peril: {premium_eur, div}} — the attested P and DIV of Del. Reg. 2015/35 Arts 121-124 for risks outside Annex
-    XIII; a value not attested is None (the standard formula then marks the peril incomplete, never charges zero)."""
+    """{peril: {"by_region": {Annex III region: premium}}} — the premiums to be earned for risks outside Annex XIII, as
+    the undertaking states them on S.27.01.01 (supplied template cells, attested under four eyes). A region not
+    attested is absent; with none, the standard formula marks the peril incomplete and never charges zero."""
+    import services.regspec as R
+    from services.governance import s2701
+    spec = R.governing(s2701.FAMILY, period_end=period_end)
+    if spec is None:
+        return {}
     a = _attested(session, org_id, period_end)
-    num = lambda k: float(a[k]["value"]) if k in a and a[k]["value"] is not None else None   # noqa: E731
-    return {p: {"premium_eur": num(f"natcat_premium_other_{p}_eur"), "div": num(f"natcat_div_other_{p}")}
-            for p in ("windstorm", "earthquake", "flood", "hail")}
+    supplied = {k: v["value"] for k, v in a.items() if k.startswith(f"{s2701.TID}.")}
+    return s2701.premiums_from_supplied(spec, supplied)

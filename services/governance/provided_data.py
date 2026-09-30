@@ -69,7 +69,7 @@ def _target(framework: str, key: str, period_end, elections: dict | None = None)
             cell = R.supplied_cell(framework, key, period_end, elections=elections)
         except R.SpecError as e:
             raise ProvidedError(str(e)) from e
-        return {"key": key, "label": cell["label"], "lane": "provided", "recon_tol": None, "cell": cell}
+        return {"key": key, "label": cell["label"], "lane": "provided", "recon_tol": None, "cell": cell, "unit": cell.get("unit")}
     dp = _catalog_dp(framework, key)
     if not dp:
         raise ProvidedError(f"unknown datapoint '{key}' for {framework}")
