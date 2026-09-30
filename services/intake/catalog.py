@@ -46,6 +46,15 @@ def _plot_specs(df: pd.DataFrame) -> list[dict]:
     return specs
 
 
+def _site_specs(df: pd.DataFrame) -> list[dict]:
+    specs = [dict(f) for f in T.SITE_TEMPLATE_FIELDS]
+    if "address" in df.columns:        # an address-only row is located from its address (a row neither has is rejected)
+        for f in specs:
+            if f["name"] in ("latitude", "longitude"):
+                f["required"] = False
+    return specs
+
+
 TEMPLATES: dict[str, Template] = {
     "bank_assets": Template("bank_assets", si.BANK, "bank", "loan tape", ("csv", "xlsx"), lambda df: T.ASSET_TEMPLATE_FIELDS,
                             lambda df: "appraised_value_eur", "assets.upload"),
@@ -60,6 +69,12 @@ TEMPLATES: dict[str, Template] = {
                                    lambda df: T.HOLDING_TEMPLATE_FIELDS, lambda df: "position_value_eur", "holdings.upload"),
     "supply_plots": Template("supply_plots", si.PLOTS, "manufacturer", "sourcing plots", ("csv",), _plot_specs,
                              lambda df: "annual_spend_eur", "plots.upload"),
+    "company_sites": Template("company_sites", si.SITES, "manufacturer", "own sites", ("csv", "xlsx"), _site_specs,
+                              lambda df: "annual_value_eur" if "annual_value_eur" in df.columns else None, "sites.upload"),
+    "site_year_end_values": Template("site_year_end_values", si.YEAR_END, "manufacturer", "sites' year-end values",
+                                     ("csv", "xlsx"), lambda df: T.SITE_YEAR_END_TEMPLATE_FIELDS,
+                                     lambda df: "carrying_amount_eur" if "carrying_amount_eur" in df.columns else "net_revenue_eur",
+                                     "sites.year_end.upload"),
 }
 
 
@@ -67,7 +82,8 @@ def template_fields(key: str) -> list[dict]:
     """The field list a mapping editor shows (for plots, as if a boundary column may be present)."""
     from services.ingest.upload_validation import enrich_specs
     tpl = TEMPLATES[key]
-    return enrich_specs(tpl.specs(pd.DataFrame(columns=["plot_geojson"] if key == "supply_plots" else [])))
+    optional_location = {"supply_plots": ["plot_geojson"], "company_sites": ["address"]}.get(key, [])
+    return enrich_specs(tpl.specs(pd.DataFrame(columns=optional_location)))
 
 
 def templates_for(org_type: str) -> list[Template]:

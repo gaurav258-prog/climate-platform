@@ -134,4 +134,6 @@ class Sector:
     table: str = "portfolio_entities"       # where the sector's assets live, and their id column — used to record
     id_column: str = "entity_id"            # where each stored amount came from (money_source)
     group_entities: bool = False            # rows may name the holding legal entity and an intragroup counterparty
+    history: bool = False                   # an append-only record per period, not an asset: every landed record is a new
+                                            # statement written with its money and batch; no asset facts are observed
     notes: dict = field(default_factory=dict)

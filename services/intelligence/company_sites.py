@@ -93,21 +93,33 @@ def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
              address: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None,
              country: Optional[str] = None, region: Optional[str] = None,
              annual_value_eur: Optional[float] = None, annual_throughput_eur: Optional[float] = None,
-             source: str = "user_entry", money_source: Optional[dict] = None) -> dict:
+             source: str = "user_entry", money_source: Optional[dict] = None, area_ha: Optional[float] = None,
+             held_from=None, held_until=None, entity_id: Optional[str] = None, external_ref: Optional[str] = None) -> dict:
     """Locate → snap to H3 → persist → score. Returns the created site row (with its H3 cell). Amounts arrive
     already in EUR; `money_source` records what was sent and the rates used (see site_amounts)."""
     site_type = site_type if site_type in SITE_TYPES else "other"
+    if held_from and held_until and held_until <= held_from:
+        raise ValueError("held until must be after held from")
+    if entity_id and not session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) "
+                                              "AND org_id = CAST(:o AS uuid)"), {"e": entity_id, "o": org_id}).first():
+        raise ValueError("the holding entity is not one of this organisation's entities")
+    if entity_id is None:
+        from services.governance.entities import default_reporting_entity
+        entity_id = default_reporting_entity(session, org_id)
     loc = resolve_location(address, lat, lon, session=session)
     cell = h3.latlng_to_cell(loc["lat"], loc["lon"], H3_RESOLUTION)
 
     row = session.execute(text("""
         INSERT INTO sc_company_sites
             (org_id, name, site_type, address, latitude, longitude, h3_cell, country, region,
-             annual_value_eur, annual_throughput_eur, confidence, geocode_precision, source, money_source)
+             annual_value_eur, annual_throughput_eur, confidence, geocode_precision, source, money_source,
+             area_ha, held_from, held_until, entity_id, external_ref)
         VALUES (:org, :name, :type, :addr, :lat, :lon, :cell, :country, :region,
-                :value, :throughput, :conf, :prec, :source, CAST(:ms AS jsonb))
+                :value, :throughput, :conf, :prec, :source, CAST(:ms AS jsonb),
+                :area, :hf, :hu, CAST(:ent AS uuid), :ref)
         RETURNING site_id::text
     """), {"org": org_id, "name": name, "type": site_type, "addr": address,
+           "area": area_ha, "hf": held_from, "hu": held_until, "ent": entity_id, "ref": external_ref,
            "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "country": country, "region": region,
            "value": annual_value_eur, "throughput": annual_throughput_eur,
            "conf": loc["confidence"], "prec": loc["precision"], "source": source,

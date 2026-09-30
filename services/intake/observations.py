@@ -42,29 +42,15 @@ class Book:
 _NOT_FACTS = {"external_ref", "h3_cell"}                  # identifiers / derived keys, not facts about the asset
 
 
-def _sites(session: Session, org_id: str) -> list[dict]:
-    rows = session.execute(text("""
-        SELECT site_id::text AS entity_id, name, site_type, latitude, longitude, country, region,
-               CAST(annual_value_eur AS FLOAT) AS annual_value_eur, CAST(annual_throughput_eur AS FLOAT) AS annual_throughput_eur
-        FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)
-    """), {"o": org_id}).mappings().all()
-    return [dict(r) for r in rows]
-
-
 @lru_cache(maxsize=1)
 def books() -> tuple[Book, ...]:
-    """The intake sectors (their compare fields are exactly the facts a file may state) plus own operational sites."""
+    """Every intake sector's book: its compare fields are exactly the facts a file may state (own operational sites are
+    the company_sites sector)."""
     from services.ingest.sector_ingest import SECTORS
-    out = []
-    seen_tables: set[tuple[str, str]] = set()
-    for s in SECTORS.values():
-        out.append(Book(s.key, s.table, s.id_column, s.name_field if s.table != "portfolio_entities" else "entity_name",
-                        tuple(f for f in s.compare if f not in _NOT_FACTS), s.existing))
-        seen_tables.add((s.table, s.key))
-    out.append(Book("company_sites", "sc_company_sites", "site_id", "name",
-                    ("name", "site_type", "latitude", "longitude", "country", "region", "annual_value_eur",
-                     "annual_throughput_eur"), _sites))
-    return tuple(out)
+    name_col = {"portfolio_entities": "entity_name", "sc_company_sites": "name"}
+    return tuple(Book(s.key, s.table, s.id_column, name_col.get(s.table, s.name_field),
+                      tuple(f for f in s.compare if f not in _NOT_FACTS), s.existing) for s in SECTORS.values()
+                 if not s.history)                     # a year-end value is its own append-only history, not an asset fact
 
 
 def book_for(table: str) -> list[Book]:

@@ -25,6 +25,7 @@ class SubmitBody(BaseModel):
     period_label:  Optional[str] = Field(None, max_length=40)
     reporting_period_end: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")  # the period the value is for (ISO date)
     reporting_entity_id: Optional[str] = None     # the undertaking it is stated for (Solvency II); None = the organisation
+    restatement_reason: Optional[str] = Field(None, max_length=2000)   # required once the period is closed
 
 
 @router.get("/catalog", summary="Datapoints a customer/vendor can provide for a framework")
@@ -45,6 +46,7 @@ def submit(body: SubmitBody, session: DbSession, ctx: dict = Depends(require_per
                         datapoint_key=body.datapoint_key, value_num=body.value_num, value_text=body.value_text,
                         unit=body.unit, source=body.source, provider_name=body.provider_name,
                         data_vintage=body.data_vintage, period_label=body.period_label,
-                        reporting_period_end=body.reporting_period_end, reporting_entity_id=body.reporting_entity_id)
+                        reporting_period_end=body.reporting_period_end, reporting_entity_id=body.reporting_entity_id,
+                        restatement_reason=body.restatement_reason)
     except P.ProvidedError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})

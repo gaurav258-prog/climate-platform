@@ -25,9 +25,9 @@ from services.scoring.on_demand import schedule_scoring
 # Whitelisted editable columns per entity — the ONLY keys an update will touch (SQL-injection safe:
 # column names come from these sets, never from the request).
 SITE_COLS = {"name", "site_type", "latitude", "longitude", "annual_value_eur",
-             "annual_throughput_eur", "country", "region", "address"}
+             "annual_throughput_eur", "country", "region", "address", "area_ha", "held_from", "held_until", "entity_id"}
 PLOT_COLS = {"plot_name", "latitude", "longitude", "annual_spend_eur", "plot_area_ha",
-             "region", "country"}  # commodity handled specially (name → id)
+             "region", "country", "held_from", "held_until", "entity_id"}  # commodity handled specially (name → id)
 
 _TABLE = {"site": ("sc_company_sites", "site_id"), "plot": ("sc_sourcing_plots", "plot_id")}
 
@@ -171,9 +171,14 @@ def apply_location_change(session: Session, request_type: str, payload: dict,
     changes = _clean_changes(kind, payload.get("changes", {}))
     # a plot may also re-tag its commodity (name → id)
     commodity = payload.get("commodity")
+    if changes.get("entity_id") and not session.execute(text(
+            "SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) AND org_id = CAST(:o AS uuid)"),
+            {"e": changes["entity_id"], "o": org_id}).first():
+        raise LocationChangeError("the holding entity is not one of this organisation's entities")
     sets, params = [], {"i": target_id, "o": org_id}
+    casts = {"held_from": "date", "held_until": "date", "entity_id": "uuid"}
     for k, v in changes.items():
-        sets.append(f"{k} = :{k}"); params[k] = v
+        sets.append(f"{k} = CAST(:{k} AS {casts[k]})" if k in casts else f"{k} = :{k}"); params[k] = v
     if payload.get("money_source") and any(k in MONEY_FIELDS[kind] for k in changes):
         from services.intake.money import money_source_merge_sql
         sets.append(f"money_source = {money_source_merge_sql()}"); params["ms"] = json.dumps(payload["money_source"], default=str)

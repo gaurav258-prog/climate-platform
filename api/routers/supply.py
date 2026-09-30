@@ -13,10 +13,10 @@ import io
 import json
 import uuid
 from dataclasses import asdict
+from datetime import date
 from typing import Annotated, Optional
 
 import h3
-import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer
@@ -250,10 +250,11 @@ class SiteCreate(BaseModel):
     currency: Optional[str] = Field(None, description="ISO 4217 code of the amounts — required when an amount is given; never assumed.")
     book_date: Optional[str] = Field(None, description="YYYY-MM-DD the amounts describe: value at that day's rate, "
                                                        "throughput at the average of the 12 months to it.")
-
-
-SITE_TEMPLATE_FIELDS = ["name", "site_type", "address", "latitude", "longitude", "country",
-                        "annual_value_eur", "annual_throughput_eur", "currency", "book_date"]
+    area_ha: Optional[float] = Field(None, ge=0, description="Site area in hectares (ESRS E4).")
+    held_from: Optional[date] = Field(None, description="First day the undertaking held the site (blank: before records).")
+    held_until: Optional[date] = Field(None, description="First day it no longer held it (blank: still held).")
+    entity_id: Optional[str] = Field(None, description="The legal entity that holds the site (Admin → Entities).")
+    external_ref: Optional[str] = Field(None, description="Your own site id — a later file with the same id updates this site.")
 
 
 @router.get("/sites", summary="The company's own operational sites + each site's worst climate hazard")
@@ -307,9 +308,13 @@ def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
     try:
         site = add_site(session, org_id, body.name, body.site_type, address=body.address,
                         lat=body.latitude, lon=body.longitude, country=body.country,
-                        annual_value_eur=v, annual_throughput_eur=tp, source="user_entry", money_source=ms)
+                        annual_value_eur=v, annual_throughput_eur=tp, source="user_entry", money_source=ms,
+                        area_ha=body.area_ha, held_from=body.held_from, held_until=body.held_until,
+                        entity_id=body.entity_id, external_ref=body.external_ref)
     except SiteLocationError as e:
         raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid_site", "message": str(e)})
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.site.add",
                 target_type="company_site", target_id=site["site_id"], detail={"name": body.name, "type": site["site_type"]})
     return {"ok": True, "site": site}
@@ -422,6 +427,10 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
     site_type: Optional[str] = None
+    area_ha: Optional[float] = Field(None, ge=0)
+    held_from: Optional[date] = None
+    held_until: Optional[date] = None
+    entity_id: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     annual_value_eur: Optional[float] = None
@@ -438,9 +447,12 @@ class PlotUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     annual_spend_eur: Optional[float] = None
-    plot_area_ha: Optional[float] = None
+    plot_area_ha: Optional[float] = Field(None, ge=0)
     region: Optional[str] = None
     country: Optional[str] = None
+    held_from: Optional[date] = None
+    held_until: Optional[date] = None
+    entity_id: Optional[str] = None
     currency: Optional[str] = Field(None, min_length=3, max_length=3, description="ISO 4217 code of the spend — required with it, never assumed.")
     book_date: Optional[str] = Field(None, description="YYYY-MM-DD: the spend converts at the average of the 12 months to it.")
 
@@ -523,55 +535,69 @@ def geocode_preview(session: DbSession, ctx: CurrentUser, q: str = Query(..., mi
 
 @router.get("/sites/template.xlsx", summary="Download the operational-sites upload template (Excel)")
 def sites_template_xlsx():
+    from services.ingest.templates import SITE_TEMPLATE_FIELDS
     buf = build_template_workbook(SITE_TEMPLATE_FIELDS)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=company_sites_template.xlsx"})
 
 
-@router.post("/sites/upload", summary="Bulk-upload operational sites from a CSV")
-async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
-                       currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
-    org_id = ctx["org"]["org_id"]
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
-    raw = await file.read()
-    try:
-        df = pd.read_csv(io.BytesIO(raw))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
-    if "name" not in df.columns:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": ["name"]})
+@router.get("/sites/year-end/template.xlsx", summary="Download the sites' year-end values template (Excel)")
+def sites_year_end_template_xlsx():
+    from services.ingest.templates import SITE_YEAR_END_TEMPLATE_FIELDS
+    buf = build_template_workbook(SITE_YEAR_END_TEMPLATE_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=site_year_end_values_template.xlsx"})
 
-    added, skipped = [], []
-    for _, r in df.iterrows():
-        name = str(r.get("name") or "").strip()
-        if not name:
-            continue
-        def _num(v):
-            try: return float(v)
-            except Exception: return None
-        def _txt(v):
-            return None if v is None or str(v) == "nan" or not str(v).strip() else str(v).strip()
-        from services.intake.money import MoneyError
-        from services.intelligence.company_sites import site_amounts
-        try:   # a row's own currency / book_date columns override the ones declared for the upload
-            v, tp, ms = site_amounts(session, _txt(r.get("annual_value_eur")), _txt(r.get("annual_throughput_eur")),
-                                     _txt(r.get("currency")) or currency, _txt(r.get("book_date")) or book_date, org_id)
-        except MoneyError as e:
-            skipped.append({"name": name, "reason": str(e)})
-            continue
-        try:
-            site = add_site(session, org_id, name, str(r.get("site_type") or "other"),
-                            address=(str(r["address"]).strip() if r.get("address") is not None and str(r.get("address")) != "nan" else None),
-                            lat=_num(r.get("latitude")), lon=_num(r.get("longitude")),
-                            country=(str(r["country"]) if r.get("country") is not None and str(r.get("country")) != "nan" else None),
-                            annual_value_eur=v, annual_throughput_eur=tp, source="user_upload", money_source=ms)
-            added.append(site["name"])
-        except SiteLocationError:
-            skipped.append({"name": name, "reason": "unlocatable — no coordinates or geocodable address"})
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.sites.upload",
-                target_type="company_site", target_id=None, detail={"added": len(added), "skipped": len(skipped)})
-    return {"ok": True, "added": len(added), "skipped": skipped}
+
+@router.post("/sites/year-end/validate", summary="Check a sites' year-end values file before importing — nothing is saved")
+async def validate_sites_year_end(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                                  declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                                  mapping_profile_id: Optional[str] = Form(None), currency: Optional[str] = Form(None)):
+    """Dry run for the carrying amount at the period end and the year's net revenue, per site and period."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "site_year_end_values", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals), mapping_profile_id, currency=currency)
+
+
+@router.post("/sites/year-end/upload", summary="Upload the sites' year-end values (carrying amount, net revenue)")
+async def upload_sites_year_end(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                                declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                                approval_reason: Optional[str] = Form(None), mapping_profile_id: Optional[str] = Form(None),
+                                currency: Optional[str] = Form(None)):
+    """Finance's year-end figures per site and period through the intake pipeline: the carrying amount converts at the
+    closing rate of the period end, net revenue at the year's average; each value is a new statement (never an overwrite);
+    a closed period is refused (a restatement is its own governed step)."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "site_year_end_values", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason, mapping_profile_id=mapping_profile_id, currency=currency)
+
+
+@router.post("/sites/validate", summary="Check an operational-sites file before importing — nothing is saved")
+async def validate_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                         declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                         mapping_profile_id: Optional[str] = Form(None),
+                         currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
+    """Dry run of every intake check for own sites; nothing is stored or written."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "company_sites", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals), mapping_profile_id,
+                   currency=currency, book_date=book_date)
+
+
+@router.post("/sites/upload", summary="Bulk-upload operational sites through the intake pipeline")
+async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                       declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                       approval_reason: Optional[str] = Form(None), mapping_profile_id: Optional[str] = Form(None),
+                       currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
+    """The sites file goes through the intake pipeline like every book: stored write-once, security-inspected, checked,
+    matched on your own site id (then name within 250 m), located from the address where no coordinates are given.
+    Every check passed → imported now (200); a check failed → a second person approves (202); nothing valid → 422."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "company_sites", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason, mapping_profile_id=mapping_profile_id,
+                  currency=currency, book_date=book_date)
 
 
 @router.get("/plot/{plot_id}", summary="One sourcing plot — projection + provenance")

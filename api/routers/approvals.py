@@ -247,6 +247,14 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     elif row["request_type"] == "intake.conflict":
         from services.intake.conflicts import apply_decision as apply_conflict
         applied = apply_conflict(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
+    # Year-end close of an undertaking's period, or a closed period's value restated with its reason (four eyes above)
+    elif row["request_type"] in ("period.close", "period.restate"):
+        from services.governance.period_close import PeriodError
+        from services.governance.period_close import apply_decision as apply_period
+        try:
+            applied = apply_period(session, org_id, request_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
+        except PeriodError as e:
+            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
     elif row["request_type"] == "provided.datapoint":
         from services.governance.provided_data import attest as attest_provided
         applied = attest_provided(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])

@@ -172,14 +172,14 @@ def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping
                   currency: Optional[str], book_date, org_id: Optional[str] = None) -> dict:
     """The batch's money context, checked up front: a currency must be declared unless every money field has its own
     (a mapping's per-field currency) or the file has a currency column; a book date must be declared unless the file
-    has a book_date column. Raises MoneyError with what to do."""
+    has a book_date column or carries no amounts at all. Raises MoneyError with what to do."""
     ccy, d = validate_declaration(session, currency, book_date if not isinstance(book_date, date) else book_date.isoformat())
     field_ccy = (mapping_report or {}).get("field_currency") or {}
     money_fields = [s["name"] for s in specs if s.get("kind") == "money" and s["name"] in df.columns]
     uncovered = [f for f in money_fields if f not in field_ccy and hidden_column(f) not in df.columns]
     if uncovered and not ccy and "currency" not in df.columns:
         raise MoneyError("Say which currency the amounts are in — choose it for the file, or add a currency column.")
-    if d is None and "book_date" not in df.columns:
+    if money_fields and d is None and "book_date" not in df.columns:     # a file with no amounts converts nothing
         raise MoneyError("Say which date the figures describe (the book date) — enter it for the file, or add a "
                          "book_date column. Amounts are converted at that date's rates.")
     return {"currency": ccy, "book_date": d, "field_currency": field_ccy,

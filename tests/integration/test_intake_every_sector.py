@@ -21,7 +21,7 @@ EUR_BOOK = {"currency": "EUR", "book_date": date(2026, 6, 30)}
 
 _VOCAB_FIELD = {"bank_assets": ("minimum_safeguards_status", "Non-Compliant"), "insurance_policies": ("construction_type", "ISO 2"),
                 "realestate_properties": ("epc_rating", "b"), "assetmgmt_holdings": ("minimum_safeguards_status", "compliant"),
-                "supply_plots": ("irrigation_status", "rain fed")}
+                "supply_plots": ("irrigation_status", "rain fed"), "company_sites": ("site_type", "Plant")}
 
 
 def _org_and_admin(s, org_type):
@@ -33,9 +33,11 @@ def _customer_file(key: str, tag: str, n: int = 4, value_bump: float = 0.0) -> p
     """A book in the customer's own layout: every required field under an alias (or its label), plus a value-list
     field in the customer's spelling, the customer's own ID, and a column we do not use."""
     tpl = TEMPLATES[key]
-    specs = [s for s in enrich_specs(tpl.specs(pd.DataFrame())) if s.get("required") or s["name"] == "external_ref"]
-    if key == "insurance_policies":
-        specs.append(next(s for s in enrich_specs(tpl.specs(pd.DataFrame())) if s["name"] == "sum_insured_eur"))
+    every = enrich_specs(tpl.specs(pd.DataFrame()))
+    # the value that ties the file together, whether or not the template requires it (policies: sum insured; sites:
+    # site value) — without it a re-sent month would be byte-identical, which the receipt check rightly refuses
+    value = tpl.value_field(pd.DataFrame(columns=[s["name"] for s in every]))
+    specs = [s for s in every if s.get("required") or s["name"] in ("external_ref", value)]
     rows = []
     for i in range(n):
         r = {}
@@ -65,7 +67,7 @@ def _csv(df):
     return df.to_csv(index=False).encode()
 
 
-@pytest.mark.parametrize("key", sorted(TEMPLATES))
+@pytest.mark.parametrize("key", sorted(k for k, t in TEMPLATES.items() if not t.sector.history))   # asset books
 def test_customer_layout_is_proposed_confirmed_then_reused_automatically(key, session_rolled_back):
     s, tpl, tag = session_rolled_back, TEMPLATES[key], uuid.uuid4().hex[:8]
     org_id, user_id = _org_and_admin(s, tpl.org_type)
@@ -100,7 +102,7 @@ def test_customer_layout_is_proposed_confirmed_then_reused_automatically(key, se
     assert (m["new"], m["update"], m["unchanged"]) == (0, 1, 3)
 
 
-@pytest.mark.parametrize("key", sorted(TEMPLATES))
+@pytest.mark.parametrize("key", sorted(k for k, t in TEMPLATES.items() if not t.sector.history))   # asset books
 def test_unrecognised_values_are_reported_never_silently_blanked(key, session_rolled_back):
     s, tpl, tag = session_rolled_back, TEMPLATES[key], uuid.uuid4().hex[:8]
     org_id, _ = _org_and_admin(s, tpl.org_type)

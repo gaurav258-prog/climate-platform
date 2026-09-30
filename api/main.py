@@ -26,9 +26,11 @@ from fastapi.responses import JSONResponse
 
 from core.db.config import check_db_connection, init_db
 
-# Core routers (scores/locations/packages/auth) — must not be coupled to optional
-# features. Each optional router is imported separately so a missing optional
-# dependency (e.g. bs4 for the regulatory scraper) cannot take down the core API.
+# Routers are imported in guarded groups so a missing optional dependency (e.g. bs4 for the regulatory scraper) cannot
+# take down the whole API. A failed group is NEVER silent (E53): it is logged with its cause, recorded in
+# ROUTER_IMPORT_FAILURES and reported by /health as 'degraded' — a broken import once removed every core route and the
+# API kept answering 404s. tests/unit/test_router_imports.py refuses a commit where any group fails.
+ROUTER_IMPORT_FAILURES: dict[str, str] = {}
 try:
     from api.routers import assetmgmt as assetmgmt_router
     from api.routers import auth, geo, locations, lookup, packages, scores
@@ -38,6 +40,7 @@ try:
     from api.routers import funds as funds_router
     from api.routers import insurance as insurance_router
     from api.routers import insurer_documents as insurer_documents_router
+    from api.routers import periods as periods_router
     from api.routers import platform as platform_router
     from api.routers import realestate as realestate_router
     from api.routers import realized as realized_router
@@ -45,8 +48,10 @@ try:
     from api.routers import source_systems as source_systems_router
     from api.routers import supply as supply_router
     ROUTERS_AVAILABLE = True
-except ImportError:
+except ImportError as _e:
     ROUTERS_AVAILABLE = False
+    ROUTER_IMPORT_FAILURES["core"] = repr(_e)
+    logging.getLogger(__name__).error("CORE ROUTERS DISABLED — import failed: %s", _e, exc_info=True)
 
 # Auth/RBAC/admin routers — separately guarded so a missing auth dependency
 # (bcrypt/PyJWT) cannot take down the core scoring API. Login is guarded apart
@@ -54,8 +59,10 @@ except ImportError:
 try:
     from api.routers import auth_user
     AUTH_USER_AVAILABLE = True
-except ImportError:
+except ImportError as _e:
     AUTH_USER_AVAILABLE = False
+    ROUTER_IMPORT_FAILURES["auth_user"] = repr(_e)
+    logging.getLogger(__name__).error("LOGIN ROUTER DISABLED — import failed: %s", _e, exc_info=True)
 
 try:
     from api.routers import admin as admin_router
@@ -100,6 +107,7 @@ try:
     ADMIN_ROUTERS_AVAILABLE = True
 except ImportError as _e:   # never silent: one broken router import must not quietly remove every admin route
     ADMIN_ROUTERS_AVAILABLE = False
+    ROUTER_IMPORT_FAILURES["admin"] = repr(_e)
     logging.getLogger(__name__).error("ADMIN ROUTERS DISABLED — import failed: %s", _e, exc_info=True)
 
 # Configure logging
@@ -272,6 +280,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(funds_router.router)
     app.include_router(sfdr_documents_router.router)
     app.include_router(insurer_documents_router.router)
+    app.include_router(periods_router.router)
     app.include_router(calc_settings_router.router)
     app.include_router(realized_router.router)
     app.include_router(source_systems_router.router)
@@ -456,7 +465,8 @@ def health() -> dict:
     from services.tasks.jobs import worker_status
     from services.tasks.schedule_health import schedule_status
     sched = schedule_status()
-    return {"status": "ok", "version": app.version, "code_version": _CODE_VERSION, "database": db_state, "worker": worker_status(),
+    return {"status": "degraded" if ROUTER_IMPORT_FAILURES else "ok", "version": app.version, "code_version": _CODE_VERSION,
+            "database": db_state, "worker": worker_status(), "routers_missing": sorted(ROUTER_IMPORT_FAILURES),
             "scheduler": {**sched["scheduler"], "n_problems": sched["n_problems"],
                           "problems": [j["name"] for j in sched["jobs"] if j["status"] in ("overdue", "failed")]}}
 

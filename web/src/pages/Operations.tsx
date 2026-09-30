@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus, AlertTriangle, Coins, Activity } from 'lucide-react'
+import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Plus, AlertTriangle, Coins, Activity } from 'lucide-react'
 import { api } from '../lib/api'
 import MoneyDeclaration from '../components/MoneyDeclaration'
+import ValidatedUpload from '../components/ValidatedUpload'
 import { useAuth } from '../lib/auth'
 import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
@@ -33,7 +34,11 @@ const TypeIcon = ({ t }: { t: string }) => {
 export default function Operations() {
   const { profile } = useAuth()
   const q = useQuery({ queryKey: ['sites'], queryFn: () => api.get<SitesResp>('/v1/supply/sites') })
-  const [form, setForm] = useState({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
+  const EMPTY = { name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '', area_ha: '', held_from: '', entity_id: '' }
+  const [form, setForm] = useState(EMPTY)
+  // the organisation's legal entities: which one holds a site (none set up → the organisation itself)
+  const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: { entity_id: string; name: string; kind: string }[] }>('/v1/filings/entities') })
+  const holders = (ents.data?.entities ?? []).filter(e => e.kind !== 'group')
   const [ccy, setCcy] = useState('')
   const [bookDate, setBookDate] = useState('')
   const [busy, setBusy] = useState(false)
@@ -61,29 +66,17 @@ export default function Operations() {
         annual_value_eur: form.annual_value_eur ? Number(form.annual_value_eur) : null,
         annual_throughput_eur: form.annual_throughput_eur ? Number(form.annual_throughput_eur) : null,
         currency: ccy || null, book_date: bookDate || null,
+        area_ha: form.area_ha ? Number(form.area_ha) : null, held_from: form.held_from || null, entity_id: form.entity_id || null,
       })
       const where = useChosen ? chosen!.display_name : `${r.site.lat.toFixed(3)}, ${r.site.lon.toFixed(3)}`
       setMsg({ text: `✓ Added "${form.name.trim()}" at ${where}. Scoring on the live hazard grid — it'll appear in the table shortly (a new region may take a moment).`, tone: 'ok' })
-      setForm({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
+      setForm(EMPTY)
       setChosen(null)
       await q.refetch()
     } catch (e) {
       setMsg({ text: (e as { body?: { detail?: { message?: string }; error?: { message?: string } } })?.body?.error?.message || (e as { body?: { detail?: { message?: string } } })?.body?.detail?.message
         || 'Could not add — pick a place or enter coordinates.', tone: 'err' })
     } finally { setBusy(false) }
-  }
-
-  const upload = async (file: File) => {
-    setBusy(true); setMsg(null)
-    try {
-      const fd = new FormData(); fd.append('file', file)
-      if (ccy) fd.append('currency', ccy)
-      if (bookDate) fd.append('book_date', bookDate)
-      const r = await api.post<{ added: number; skipped: { name: string; reason: string }[] }>('/v1/supply/sites/upload', fd)
-      setMsg({ text: `Added ${r.added} site${r.added === 1 ? '' : 's'}${r.skipped.length ? `, ${r.skipped.length} not added (e.g. ${r.skipped[0].name}: ${r.skipped[0].reason})` : ''}.`, tone: r.skipped.length ? 'err' : 'ok' })
-      await q.refetch()
-    } catch { setMsg({ text: 'Upload failed — check the CSV columns against the template.', tone: 'err' }) }
-    finally { setBusy(false) }
   }
 
   const sites = q.data?.sites ?? []
@@ -147,14 +140,26 @@ export default function Operations() {
           <Field label="Annual throughput (revenue)"><input className={inp} value={form.annual_throughput_eur} onChange={e => setForm({ ...form, annual_throughput_eur: e.target.value })} placeholder="210000000" inputMode="numeric" /></Field>
           <Field label="Latitude"><input className={inp} value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} placeholder="37.39" inputMode="decimal" /></Field>
           <Field label="Longitude"><input className={inp} value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} placeholder="-5.98" inputMode="decimal" /></Field>
+          <Field label="Site area (ha)"><input className={inp} value={form.area_ha} onChange={e => setForm({ ...form, area_ha: e.target.value })} placeholder="12.5" inputMode="decimal" /></Field>
+          <Field label="Held since"><input type="date" className={inp} value={form.held_from} onChange={e => setForm({ ...form, held_from: e.target.value })} /></Field>
+          {holders.length > 1 && <Field label="Held by (legal entity)">
+            <select className={inp} value={form.entity_id} onChange={e => setForm({ ...form, entity_id: e.target.value })}>
+              <option value="">— choose —</option>
+              {holders.map(e => <option key={e.entity_id} value={e.entity_id}>{e.name}</option>)}
+            </select></Field>}
           <div className="flex items-end"><Button onClick={add} disabled={busy}>{busy ? 'Adding…' : 'Add & score'}</Button></div>
-          <div className="flex items-end gap-3 text-[12px]">
-            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--color-mute)] hover:text-[var(--color-sky)]">
-              <Upload size={14} /> Upload CSV
-              <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
-            </label>
-            <a href="/v1/supply/sites/template.xlsx" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] underline">template</a>
-          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+          <ValidatedUpload dropLabel="sites file" accept=".csv,.xlsx" template="company_sites" onDone={() => q.refetch()}
+            intro={<>Bulk-add or update sites from a file. Every file is inspected and every row checked <b className="text-[var(--color-ink)]">before</b> anything is saved; rows with your own site ID update that site; if a check fails, a second person approves before import.</>}
+            endpoints={{ validate: '/v1/supply/sites/validate', upload: '/v1/supply/sites/upload', template: '/v1/supply/sites/template.xlsx', templateFile: 'company_sites_template.xlsx' }}
+            renderDone={r => <>{Number(r.n_uploaded) || 0} site{Number(r.n_uploaded) === 1 ? '' : 's'} in your book.</>} />
+        </div>
+        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+          <ValidatedUpload dropLabel="year-end values file" accept=".csv,.xlsx" template="site_year_end_values" onDone={() => q.refetch()}
+            intro={<>Finance's <b className="text-[var(--color-ink)]">year-end figures per site</b>: the carrying amount at the period end (converted at that day's closing rate) and the year's net revenue (at the year's average rate). Each value is kept as a dated statement; a closed period is corrected only by a restatement with its reason, approved by a second person.</>}
+            endpoints={{ validate: '/v1/supply/sites/year-end/validate', upload: '/v1/supply/sites/year-end/upload', template: '/v1/supply/sites/year-end/template.xlsx', templateFile: 'site_year_end_values_template.xlsx' }}
+            renderDone={r => <>{Number(r.n_uploaded) || 0} site-period value{Number(r.n_uploaded) === 1 ? '' : 's'} recorded.</>} />
         </div>
         {msg && <div className={`mt-3 text-[12.5px] font-medium ${msg.tone === 'ok' ? 'text-[var(--color-good)]' : 'text-[var(--color-warn)]'}`}>{msg.text}</div>}
       </Card>

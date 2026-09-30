@@ -59,6 +59,10 @@ VOCABS: dict[str, Vocab] = {
                                   {"rre": "residential", "cre": "commercial", "residential_immovable_property": "residential",
                                    "commercial_immovable_property": "commercial", "no": "none", "unsecured": "none"}),
     "irrigation": Vocab(("irrigated", "rain_fed", "mixed"), {"rainfed": "rain_fed"}),
+    # own operational site types (services.intelligence.company_sites.SITE_TYPES)
+    "site_type": Vocab(("hq", "factory", "warehouse", "distribution_centre", "office", "other"),
+                       {"headquarters": "hq", "head_office": "hq", "plant": "factory", "mill": "factory",
+                        "manufacturing_site": "factory", "dc": "distribution_centre", "distribution_center": "distribution_centre"}),
     "commodity": Vocab((), dynamic=True),            # the commodities on this platform (sc_commodities)
     "country": Vocab((), dynamic=True),
     "currency": Vocab((), dynamic=True),             # ISO 4217 codes any FX source or fixed rate covers, plus EUR              # ISO alpha-2 via every accepted written form (ref_country_names)
@@ -106,6 +110,22 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("holding_name", "Holding name", "name", "Company / security name.", "Nordisk Logistics Properties AB",
        aliases=("name", "issuer", "issuer_name", "security_name", "company", "company_name")),
     _f("plot_name", "Plot name", "name", "Free-text plot / farm name.", "Ashanti Plot 4", aliases=("name", "farm", "farm_name", "plot")),
+    _f("site_ref", "Site ID", "id", "Your own id for the site (as in your sites file), or the site id shown on the "
+       "Operations page.", "SITE-0042", aliases=("site_id", "site_code", "site", "site_reference", "external_ref")),
+    _f("site_name", "Site name", "name", "Free-text name of your own site (plant, warehouse, office).", "Valencia Mill",
+       aliases=("name", "site", "facility", "facility_name", "plant", "location_name")),
+    _f("address", "Address", "text", "Street address — used to locate the site when no coordinates are given.",
+       "Carrer de Colon 1, 46004 Valencia, Spain", aliases=("street_address", "full_address", "location_address")),
+    _f("site_type", "Site type", "vocab", "hq, factory, warehouse, distribution_centre, office or other.", "factory",
+       vocab="site_type", aliases=("type", "facility_type", "category")),
+    _f("held_from", "Held from", "date", "First day your undertaking held the site or sourced from the plot (YYYY-MM-DD). "
+       "Leave out when it was before your records.", "2019-03-01",
+       aliases=("acquired", "acquisition_date", "from", "start", "since", "contract_start")),
+    _f("held_until", "Held until", "date", "First day it no longer held the site or sourced from the plot (YYYY-MM-DD). "
+       "Leave out while it still does.", "2031-01-01",
+       aliases=("disposed", "disposal_date", "until", "end", "closed", "contract_end")),
+    _f("site_area_ha", "Site area (ha)", "fraction", "Area of the site in hectares (ESRS E4 counts the area of sites in or "
+       "near biodiversity-sensitive areas).", "12.5", aliases=("area_ha", "area", "hectares", "site_area"), range=(0, 1_000_000)),
     # classification
     _f("asset_type", "Asset type", "text", "Property / collateral type.", "commercial_real_estate", aliases=("type", "collateral_type", "property_type")),
     _f("property_type", "Property type", "text", "office / retail / logistics / light_industrial / multifamily.", "logistics",
@@ -155,6 +175,15 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("position_value_eur", "Position value", "money", "Market value of the position.", "18500000",
        aliases=("value", "market_value", "position_value", "exposure", "mv")),
     _f("annual_spend_eur", "Annual spend", "money", "Annual procurement spend from this plot.", "150000", aliases=("spend", "annual_spend", "purchases"), flow=True),
+    _f("carrying_amount_eur", "Carrying amount", "money", "The site's carrying amount in the balance sheet at the period "
+       "end (property, plant and equipment and other assets at the site) — converted at the closing rate of that day.",
+       "11800000", aliases=("carrying_amount", "carrying_value", "book_value", "net_book_value", "nbv")),
+    _f("net_revenue_eur", "Net revenue", "money", "Net revenue from the business activities at the site over the year "
+       "ending at the period end.", "36000000", aliases=("net_revenue", "revenue", "turnover", "sales"), flow=True),
+    _f("annual_value_eur", "Site value", "money", "The site's asset value (the year-end carrying amount finance reports is "
+       "sent separately, per reporting period).", "12000000", aliases=("value", "asset_value", "site_value")),
+    _f("annual_throughput_eur", "Annual throughput", "money", "Annual value of the goods the site handles — the basis of "
+       "business-interruption exposure.", "40000000", aliases=("throughput", "annual_throughput", "output_value"), flow=True),
     # other attributes
     _f("deductible_pct", "Deductible (fraction)", "fraction", "Policy deductible as a fraction (0.02 = 2%).", "0.02",
        aliases=("deductible",), range=(0, 1)),

@@ -348,8 +348,27 @@ HOLDINGS = Sector("assetmgmt_holdings", "entity_name", "primary_value_eur",
 # ── agriculture: sourcing plots → sc_sourcing_plots ──
 
 def _plot_prepare(session: Session, org_id: str) -> dict:
-    return {"commodity_ids": {r["name"]: str(r["commodity_id"]) for r in
+    return {**_default_entity(session, org_id),
+            "commodity_ids": {r["name"]: str(r["commodity_id"]) for r in
                               session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}}
+
+
+def _held(row: dict) -> tuple[str | None, str | None]:
+    """When the undertaking held the site / sourced from the plot: first day in, first day out (ISO dates)."""
+    from datetime import date
+    out = []
+    for k in ("held_from", "held_until"):
+        v = _s(row, k)
+        if v is None:
+            out.append(None)
+            continue
+        try:
+            out.append(date.fromisoformat(v[:10]).isoformat())
+        except ValueError:
+            raise RowIssue(f"{k.replace('_', ' ')} '{v}' is not a date (YYYY-MM-DD)")
+    if out[0] and out[1] and out[1] <= out[0]:
+        raise RowIssue("held until must be after held from")
+    return out[0], out[1]
 
 
 def _plot_build(ctx: dict, row: dict) -> dict:
@@ -382,17 +401,20 @@ def _plot_build(ctx: dict, row: dict) -> dict:
     country = _s(row, "country")
     if country and not is_valid_country(country):
         raise RowIssue(f"country '{country}' is not a valid ISO-2 code")
+    held_from, held_until = _held(row)
     return {"plot_name": name, "commodity_id": cid, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": _s(row, "region"), "country": country.upper() if country else None, "annual_spend_eur": spend,
             "plot_area_ha": area, "plot_geometry": geojson, "irrigation_status": _vocab(row, "irrigation_status", "irrigation"),
-            "external_ref": _s(row, "external_ref"), "_needs_polygon": needs_polygon}
+            "external_ref": _s(row, "external_ref"), "held_from": held_from, "held_until": held_until,
+            "_needs_polygon": needs_polygon}
 
 
 def _plot_existing(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT plot_id::text AS entity_id, external_ref, plot_name, commodity_id::text AS commodity_id, latitude, longitude, h3_cell,
                region, country, CAST(annual_spend_eur AS FLOAT) AS annual_spend_eur, CAST(plot_area_ha AS FLOAT) AS plot_area_ha,
-               plot_geometry::text AS plot_geometry, irrigation_status
+               plot_geometry::text AS plot_geometry, irrigation_status, held_from::text AS held_from, held_until::text AS held_until,
+               entity_id::text AS reporting_entity_id, NULL::text AS intragroup_entity_id
         FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid) AND source = 'own'
     """), {"o": org_id}).mappings().all()
     out = []
@@ -407,14 +429,15 @@ def _plot_existing(session: Session, org_id: str) -> list[dict]:
 def _plot_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r.setdefault("entity_id", str(uuid.uuid4()))
-        r["org_id"] = org_id
+        r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude, h3_cell, region, country,
                                        annual_spend_eur, plot_area_ha, plot_geometry, confidence, geocode_precision,
-                                       irrigation_status, external_ref)
+                                       irrigation_status, external_ref, held_from, held_until, entity_id)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), CAST(:commodity_id AS uuid), :plot_name, :latitude, :longitude,
                 :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb), 1.0, 'exact',
-                :irrigation_status, :external_ref)
+                :irrigation_status, :external_ref, CAST(:held_from AS date), CAST(:held_until AS date),
+                CAST(:reporting_entity_id AS uuid))
     """), recs)
 
 
@@ -432,35 +455,222 @@ def _plot_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
                commodity_id = CAST(:commodity_id AS uuid), plot_name = :plot_name, latitude = :latitude, longitude = :longitude,
                h3_cell = :h3_cell, region = :region, country = :country, annual_spend_eur = :annual_spend_eur,
                plot_area_ha = :plot_area_ha, plot_geometry = CAST(:plot_geometry AS jsonb), irrigation_status = :irrigation_status,
-               external_ref = :external_ref
+               external_ref = :external_ref, held_from = CAST(:held_from AS date), held_until = CAST(:held_until AS date),
+               entity_id = COALESCE(CAST(:reporting_entity_id AS uuid), p.entity_id)
         WHERE p.plot_id = CAST(:entity_id AS uuid) AND p.org_id = CAST(:org_id AS uuid)
     """), recs)
 
 
 PLOTS = Sector("supply_plots", "plot_name", "annual_spend_eur",
                ("plot_name", "commodity_id", "latitude", "longitude", "region", "country", "annual_spend_eur", "plot_area_ha",
-                "plot_geometry", "irrigation_status", "external_ref"),
+                "plot_geometry", "irrigation_status", "external_ref", "held_from", "held_until"),
                _plot_prepare, _plot_build, _plot_existing, _plot_insert, _plot_update,
-               table="sc_sourcing_plots", id_column="plot_id")
+               table="sc_sourcing_plots", id_column="plot_id", group_entities=True)
 
 
-SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, INSURANCE, REALESTATE, HOLDINGS, PLOTS)}
+# ── own operational sites → sc_company_sites ──
+
+def _site_prepare(session: Session, org_id: str) -> dict:
+    from services.intelligence.company_sites import resolve_location
+    # the geocoder reads and fills its cache through this session (check time: a row that cannot be located is rejected)
+    return {**_default_entity(session, org_id), "locate": lambda address: resolve_location(address, None, None, session=session)}
+
+
+def _site_build(ctx: dict, row: dict) -> dict:
+    from services.intelligence.company_sites import SiteLocationError
+    from services.reference.iso_country import is_valid_country
+    name = _s(row, "site_name")
+    if not name:
+        raise RowIssue("site_name is required")
+    address = _s(row, "address")
+    if _s(row, "latitude") is not None or _s(row, "longitude") is not None:
+        lat, lon, cell = _location(row)
+        precision, confidence = "exact", 1.0
+    elif address:
+        try:
+            loc = ctx["locate"](address)
+        except SiteLocationError:
+            raise RowIssue("the address could not be located — give the site's coordinates")
+        lat, lon = loc["lat"], loc["lon"]
+        cell, precision, confidence = h3.latlng_to_cell(lat, lon, 8), loc["precision"], loc["confidence"]
+    else:
+        raise RowIssue("location is missing — give coordinates or an address")
+    country = _s(row, "country")
+    if country and not is_valid_country(country):
+        raise RowIssue(f"country '{country}' is not a valid ISO-2 code")
+    held_from, held_until = _held(row)
+    return {"name": name, "site_type": _vocab(row, "site_type", "site_type") or "other", "address": address,
+            "latitude": lat, "longitude": lon, "h3_cell": cell, "region": _s(row, "region"),
+            "country": country.upper() if country else None, "annual_value_eur": _m(row, "annual_value_eur"),
+            "annual_throughput_eur": _m(row, "annual_throughput_eur"), "area_ha": _m(row, "site_area_ha", 4),
+            "held_from": held_from, "held_until": held_until, "external_ref": _s(row, "external_ref"),
+            "_precision": precision, "_confidence": confidence}
+
+
+def _site_existing(session: Session, org_id: str) -> list[dict]:
+    rows = session.execute(text("""
+        SELECT site_id::text AS entity_id, external_ref, name, site_type, address, latitude, longitude, h3_cell, region, country,
+               CAST(annual_value_eur AS FLOAT) AS annual_value_eur, CAST(annual_throughput_eur AS FLOAT) AS annual_throughput_eur,
+               CAST(area_ha AS FLOAT) AS area_ha, held_from::text AS held_from, held_until::text AS held_until,
+               entity_id::text AS reporting_entity_id, NULL::text AS intragroup_entity_id
+        FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)
+    """), {"o": org_id}).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def _site_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
+    for r in recs:
+        r.setdefault("entity_id", str(uuid.uuid4()))
+        r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
+        r.setdefault("_precision", "exact")
+        r.setdefault("_confidence", 1.0)
+    session.execute(text("""
+        INSERT INTO sc_company_sites (site_id, org_id, name, site_type, address, latitude, longitude, h3_cell, region, country,
+                                      annual_value_eur, annual_throughput_eur, area_ha, held_from, held_until, external_ref,
+                                      entity_id, confidence, geocode_precision, source)
+        VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), :name, :site_type, :address, :latitude, :longitude, :h3_cell,
+                :region, :country, :annual_value_eur, :annual_throughput_eur, :area_ha, CAST(:held_from AS date),
+                CAST(:held_until AS date), :external_ref, CAST(:reporting_entity_id AS uuid), :_confidence, :_precision, 'intake')
+    """), recs)
+
+
+def _site_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
+    for r in recs:
+        r["org_id"] = org_id
+    session.execute(text("""
+        UPDATE sc_company_sites s SET name = :name, site_type = :site_type, address = :address, latitude = :latitude,
+               longitude = :longitude, h3_cell = :h3_cell, region = :region, country = :country,
+               annual_value_eur = :annual_value_eur, annual_throughput_eur = :annual_throughput_eur, area_ha = :area_ha,
+               held_from = CAST(:held_from AS date), held_until = CAST(:held_until AS date), external_ref = :external_ref,
+               entity_id = COALESCE(CAST(:reporting_entity_id AS uuid), s.entity_id)
+        WHERE s.site_id = CAST(:entity_id AS uuid) AND s.org_id = CAST(:org_id AS uuid)
+    """), recs)
+
+
+SITES = Sector("company_sites", "name", "annual_value_eur",
+               ("name", "site_type", "address", "latitude", "longitude", "region", "country", "annual_value_eur",
+                "annual_throughput_eur", "area_ha", "held_from", "held_until", "external_ref"),
+               _site_prepare, _site_build, _site_existing, _site_insert, _site_update,
+               table="sc_company_sites", id_column="site_id", group_entities=True)
+
+
+# ── a site's year-end values → site_period_values (append-only; one record = one site and period) ──
+
+_MEASURES = {"carrying_amount_eur": "carrying_amount", "net_revenue_eur": "net_revenue"}
+_YE_NS = uuid.UUID("5e7a1b0c-9d3f-4b8e-a6c1-2f0d4e8b9a71")          # names one site-and-period record as a stable uuid
+
+
+def _ye_id(site_id: str, period_end: str) -> str:
+    return str(uuid.uuid5(_YE_NS, f"{site_id}@{period_end}"))
+
+
+def _ye_prepare(session: Session, org_id: str) -> dict:
+    sites = session.execute(text("""
+        SELECT site_id::text AS site_id, external_ref, entity_id::text AS entity_id, held_from, held_until
+        FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)
+    """), {"o": org_id}).mappings().all()
+    by_ref = {}
+    for r in sites:
+        by_ref[r["site_id"]] = dict(r)
+        if r["external_ref"]:
+            by_ref[r["external_ref"]] = dict(r)
+    closed = {(str(r[0]) if r[0] else None, r[1].isoformat()) for r in session.execute(text(
+        "SELECT reporting_entity_id, period_end FROM reporting_period_close WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).all()}
+    return {"sites": by_ref, "closed": closed}
+
+
+def _ye_build(ctx: dict, row: dict) -> dict:
+    from datetime import date
+    ref = _s(row, "site_ref")
+    site = ctx["sites"].get(ref or "")
+    if site is None:
+        raise RowIssue(f"site '{ref}' is not one of your sites (use your own site id from the sites file, or the site id "
+                       "shown on the Operations page)")
+    try:
+        pe = date.fromisoformat((_s(row, "book_date") or "")[:10])
+    except ValueError:
+        raise RowIssue("period end is missing or not a date (YYYY-MM-DD)")
+    if (site["held_from"] and pe < site["held_from"]) or (site["held_until"] and pe >= site["held_until"]):
+        raise RowIssue(f"the site was not held on {pe} (held {site['held_from'] or 'before records'} to "
+                       f"{site['held_until'] or 'now'}) — it has no year-end value for that period")
+    if (site["entity_id"], pe.isoformat()) in ctx["closed"]:
+        raise RowIssue(f"the period ending {pe} is closed for this undertaking — a changed year-end value is a restatement "
+                       "(Operations → the site → restate), never a file overwrite")
+    amounts = {k: _m(row, k) for k in _MEASURES}
+    if all(v is None for v in amounts.values()):
+        raise RowIssue("give the carrying amount, the net revenue, or both")
+    if any(v is not None and v < 0 for v in amounts.values()):
+        raise RowIssue("amounts cannot be negative")
+    key = _ye_id(site["site_id"], pe.isoformat())
+    return {"external_ref": key, "site_name": ref, "site_id": site["site_id"], "period_end": pe.isoformat(),
+            "reporting_entity_id": site["entity_id"], "latitude": None, "longitude": None, **amounts}
+
+
+def _ye_existing(session: Session, org_id: str) -> list[dict]:
+    rows = session.execute(text("""
+        SELECT site_id::text AS site_id, period_end, reporting_entity_id::text AS reporting_entity_id,
+               MAX(amount_eur) FILTER (WHERE measure = 'carrying_amount') AS carrying_amount_eur,
+               MAX(amount_eur) FILTER (WHERE measure = 'net_revenue') AS net_revenue_eur
+        FROM v_site_period_values_live WHERE org_id = CAST(:o AS uuid)
+        GROUP BY site_id, period_end, reporting_entity_id
+    """), {"o": org_id}).mappings().all()
+    out = []
+    for r in rows:
+        key = _ye_id(r["site_id"], r["period_end"].isoformat())
+        out.append({"entity_id": key, "external_ref": key, "site_name": None, "site_id": r["site_id"],
+                    "period_end": r["period_end"].isoformat(), "reporting_entity_id": r["reporting_entity_id"],
+                    "latitude": None, "longitude": None,
+                    **{k: (float(r[k]) if r[k] is not None else None) for k in _MEASURES}})
+    return out
+
+
+def _ye_write(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
+    """A new statement for every amount the record gives — never an overwrite (the latest statement is the live one)."""
+    rows = []
+    for r in recs:
+        r["entity_id"] = r.get("entity_id") or r["external_ref"]
+        money = r.get("_money") or {}
+        for field, measure in _MEASURES.items():
+            if r.get(field) is None:
+                continue
+            m = money.get(field)                 # the one money-source shape (services.intake.money.field_entry)
+            if not m:
+                raise RowIssue(f"{field}: no record of the amount as sent — refusing to store a figure without its source")
+            rows.append({"o": org_id, "s": r["site_id"], "e": r.get("reporting_entity_id"), "pe": r["period_end"],
+                         "m": measure, "a": m["amount"], "c": m["currency"], "eur": r[field],
+                         "ms": json.dumps(m, default=str) if m else None, "b": ctx.get("_batch_id")})
+    if rows:
+        session.execute(text("""
+            INSERT INTO site_period_values (org_id, site_id, reporting_entity_id, period_end, measure, amount, currency,
+                                            amount_eur, money_source, source, batch_id)
+            VALUES (CAST(:o AS uuid), CAST(:s AS uuid), CAST(:e AS uuid), CAST(:pe AS date), :m, :a, :c, :eur,
+                    CAST(:ms AS jsonb), 'client', CAST(:b AS uuid))
+        """), rows)
+
+
+YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", ("carrying_amount_eur", "net_revenue_eur"),
+                  _ye_prepare, _ye_build, _ye_existing, _ye_write, _ye_write,
+                  table="site_period_values", id_column="value_id", history=True)
+
+
+SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES, YEAR_END)}
 
 
 def write(session: Session, sector: Sector, org_id: str, ctx: dict, new: list[dict], updates: list[dict]) -> dict:
     """Write already-decided records. Returns the cells whose location is new or changed, for scoring."""
-    def clean(r: dict) -> dict:
-        return {k: v for k, v in r.items() if not k.startswith("_")}
+    def clean(r: dict) -> dict:     # a history record keeps its money record (_money): it is written with the statement
+        return {k: v for k, v in r.items() if not k.startswith("_") or (sector.history and k == "_money")}
     new_c, upd_c = [clean(r) for r in new], [clean(r) for r in updates]
     if new_c:
         sector.insert(session, org_id, ctx, new_c)
     if upd_c:
         sector.update(session, org_id, ctx, upd_c)
-    if sector.group_entities:
+    if sector.group_entities and sector.table == "portfolio_entities":   # sites and plots write their holder themselves
         _assign_group_entities(session, org_id, new_c + upd_c)
     cells: dict[str, Any] = {}
     for r in new + [u for u in updates if u.get("_moved")]:
-        cells[r["h3_cell"]] = (r["latitude"], r["longitude"])
+        if r.get("h3_cell"):                     # a located asset (a year-end value is not one)
+            cells[r["h3_cell"]] = (r["latitude"], r["longitude"])
     return {"cell_coords": cells, "entity_ids": [r["entity_id"] for r in new_c]}
 
 

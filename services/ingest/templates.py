@@ -87,8 +87,26 @@ PLOT_TEMPLATE_FIELDS = _template(
     ("longitude", True, {"description": "Decimal degrees, 6 d.p. Leave blank if you give plot_geojson.", "example": "-1.605500"}),
     ("commodity", True), ("annual_spend_eur", True), ("plot_geojson", False), ("plot_area_ha", False),
     ("region", False, {"example": "Ashanti"}), ("country", False, {"example": "GH"}), ("irrigation_status", False),
-    ("external_ref", False, _ref("plot or farm")),
+    ("external_ref", False, _ref("plot or farm")), ("held_from", False), ("held_until", False), ("reporting_entity", False),
     ("currency", False), ("book_date", False),
+)
+
+SITE_TEMPLATE_FIELDS = _template(
+    ("site_name", True),
+    ("latitude", True, {"description": "Decimal degrees. Leave blank if you give the address.", "example": "39.4699"}),
+    ("longitude", True, {"description": "Decimal degrees. Leave blank if you give the address.", "example": "-0.3763"}),
+    ("address", False), ("site_type", False), ("country", False, {"example": "ES"}), ("region", False, {"example": "Valencia"}),
+    ("annual_value_eur", False), ("annual_throughput_eur", False), ("site_area_ha", False),
+    ("held_from", False), ("held_until", False), ("external_ref", False, _ref("site")), ("reporting_entity", False),
+    ("currency", False), ("book_date", False),
+)
+
+SITE_YEAR_END_TEMPLATE_FIELDS = _template(
+    ("site_ref", True),
+    ("book_date", True, {"label": "Period end", "description": "The last day of the financial year the figures are for "
+                         "(YYYY-MM-DD). The carrying amount converts at that day's closing rate, net revenue at the average "
+                         "of the year to it.", "example": "2025-12-31"}),
+    ("carrying_amount_eur", False), ("net_revenue_eur", False), ("currency", False),
 )
 
 # value sets used by the sector rules — the same vocabularies the checks use

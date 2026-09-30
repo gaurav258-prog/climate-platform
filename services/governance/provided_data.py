@@ -97,9 +97,11 @@ def _check_unit(dp: dict, value_num: float | None) -> None:
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
            value_num: float | None = None, value_text: str | None = None, unit: str | None = None,
            source: str = "client", provider_name: str | None = None, data_vintage: str | None = None,
-           period_label: str | None = None, reporting_period_end=None, reporting_entity_id: str | None = None) -> dict:
+           period_label: str | None = None, reporting_period_end=None, reporting_entity_id: str | None = None,
+           restatement_reason: str | None = None) -> dict:
     """Record a provided value for a reporting period, reconcile it, and raise a 4-eyes attest request. It supersedes
-    only the earlier value for the same datapoint and period."""
+    only the earlier value for the same datapoint and period. For a closed period it is a restatement and needs its
+    reason (the database refuses it otherwise — services.governance.period_close)."""
     from datetime import date
     if not reporting_period_end:
         raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing")
@@ -115,6 +117,10 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
         raise ProvidedError("a value (numeric or text) is required")
     _check_unit(dp, value_num)
     entity = _entity_scope(session, org_id, framework, reporting_entity_id)
+    from services.governance.period_close import is_closed
+    if is_closed(session, org_id, entity, pe) and len((restatement_reason or "").strip()) < 10:
+        raise ProvidedError(f"the period ending {pe} is closed for this undertaking — a new value is a restatement: "
+                            "say why (at least 10 characters)")
 
     # reconcile against our baseline where one exists
     base = _baseline(session, org_id, framework, datapoint_key) if value_num is not None and "cell" not in dp else None
@@ -138,12 +144,13 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     pid = session.execute(text("""
         INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, value_text, unit, source,
             provider_name, data_vintage, period_label, reporting_period_end, tellumen_value, delta_pct, within_tolerance,
-            recon_note, submitted_by, reporting_entity_id)
-        VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl, CAST(:pe AS date),:tv,:dp,:wt,:rn,:by, CAST(:e AS uuid))
+            recon_note, submitted_by, reporting_entity_id, restatement_reason)
+        VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl, CAST(:pe AS date),:tv,:dp,:wt,:rn,:by, CAST(:e AS uuid), :why)
         RETURNING provided_id
     """), {"o": org_id, "f": framework, "k": datapoint_key, "vn": value_num, "vt": (value_text or None),
            "u": unit, "src": source, "pn": provider_name, "dv": data_vintage or None, "pl": period_label, "pe": pe,
-           "tv": base, "dp": delta_pct, "wt": within, "rn": note, "by": actor, "e": entity}).scalar()
+           "tv": base, "dp": delta_pct, "wt": within, "rn": note, "by": actor, "e": entity,
+           "why": (restatement_reason or "").strip() or None}).scalar()
 
     # raise the shared 4-eyes request (checker ≠ maker enforced by the approvals router)
     import json

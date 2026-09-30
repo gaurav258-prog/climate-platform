@@ -42,11 +42,11 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
   const { saved, reload } = useTemplateMappings(template)
   const [profileId, setProfileId] = useState('')
   const [mapping, setMapping] = useState(false)   // the mapping editor is open for this file
-  // every batch declares the currency of its amounts and the date its figures describe — never assumed
+  // the currency of the amounts and the date the figures describe are never assumed: the server asks for them when the
+  // file's amounts carry neither (a file without amounts, or with currency / book_date columns, needs no declaration)
   const [ccy, setCcy] = useState('')
   const [bookDate, setBookDate] = useState('')
   const declares = !!template || !!declareMoney
-  const needsDecl = declares && (!ccy || !bookDate)
   const money = (): Record<string, string | undefined> => declares ? { currency: ccy || undefined, book_date: bookDate || undefined } : {}
 
   const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; security?: Security } & MissingCols } })?.body?.error
@@ -67,17 +67,17 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
     } catch (e: unknown) {
       const er = errOf(e)
       if (template && er?.source_columns?.length) { setMapping(true); setPhase('error'); setMsg(missingMsg(er)); return }
+      if (er?.error === 'currency_declaration') { setPhase('idle'); setMsg(er.message ?? 'Choose the currency and the book date above.'); return }
       setMsg(missingMsg(er) ?? er?.message ?? `We couldn’t read that file — please upload a ${dropLabel} as ${accept.replaceAll(',', ' or ')}.`)
       setPhase('error')
     }
   }
   const pick = (f: File) => {
     setFile(f); setReason(''); setDeclRows(''); setDeclTotal('')
-    if (needsDecl) { setRep(null); setPhase('idle'); setMsg('Choose the currency and the book date above — then the file is checked.'); return }
     check(f, profileId)
   }
   // declaring (or changing) the currency / book date re-checks the chosen file at the new rates
-  useEffect(() => { if (file && declares && ccy && bookDate && phase !== 'done' && phase !== 'importing') check(file, profileId) }, [ccy, bookDate]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (file && declares && (ccy || bookDate) && phase !== 'done' && phase !== 'importing') check(file, profileId) }, [ccy, bookDate]) // eslint-disable-line react-hooks/exhaustive-deps
   const recheck = async () => {
     if (!file) return
     setRechecking(true); setMsg(null)
