@@ -149,10 +149,34 @@ def assess(movement_id: str, body: RiskBody, session: DbSession, ctx: dict = Dep
     return out
 
 
-@router.get("/movements/{movement_id}/statement", summary="The due diligence statement as it stands, with what it rests on")
+@router.get("/movements/{movement_id}/statement",
+            summary="The due diligence statement as it stands, what it rests on, and the checks the filing will run")
 def statement(movement_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.eudr.checks import checks
     from services.eudr.statement import StatementError, compute
     try:
-        return compute(session, ctx["org"]["org_id"], movement_id)
+        st = compute(session, ctx["org"]["org_id"], movement_id)
     except StatementError as e:
         raise HTTPException(404, {"error": "not_found", "message": str(e)}) from e
+    return {**st, "checks": checks(st)}
+
+
+class ScopeBody(BaseModel):
+    in_scope: bool
+    basis: str = Field(..., min_length=10, max_length=2000)
+
+
+@router.put("/movements/{movement_id}/scope", summary="State whether the product is in Annex I where the annex leaves it open")
+def state_scope(movement_id: str, body: ScopeBody, session: DbSession,
+                ctx: dict = Depends(require_permission("approvals.create"))):
+    """Only where Annex I leaves it open (an 'ex' heading, or a row that excepts part of what it names): the operator's
+    own statement about its product, with why. Refused once the movement's statement is under review (database)."""
+    from services.eudr.statement import compute
+    org_id = ctx["org"]["org_id"]
+    st = compute(session, org_id, movement_id)
+    if st["scope"].get("in_scope") is not None:
+        raise HTTPException(409, {"error": "not_open", "message": f"Annex I decides this product: {st['scope'].get('why')}"})
+    session.execute(text("UPDATE eudr_movement SET scope_in = :i, scope_basis = :b WHERE movement_id = CAST(:m AS uuid) "
+                         "AND org_id = CAST(:o AS uuid)"), {"i": body.in_scope, "b": body.basis, "m": movement_id, "o": org_id})
+    session.commit()
+    return {"in_scope": body.in_scope}

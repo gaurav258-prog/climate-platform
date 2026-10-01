@@ -87,7 +87,8 @@ def compute(session: Session, org_id: str, movement_id: str) -> dict:
     return {
         "movement": {"movement_id": m["id"], "external_ref": m["external_ref"], "kind": m["kind"], "actor_role": m["actor_role"],
                      "planned_on": on.isoformat(), "customs_flow": m["customs_flow"],
-                     "upstream_refs": list(m["upstream_refs"] or []), "reporting_entity_id": entity},
+                     "upstream_refs": list(m["upstream_refs"] or []), "reporting_entity_id": entity,
+                     "scope_in": m["scope_in"], "scope_basis": m["scope_basis"]},
         "scope": scope(m["hs_code"], on),
         "operator_status": {k: (v.isoformat() if isinstance(v, date) else v) for k, v in status.items()} if status else None,
         "annex_ii": {
