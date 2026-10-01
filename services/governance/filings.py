@@ -144,8 +144,6 @@ from services.governance.product_filings import PRODUCT_SCOPED as _PRODUCT_SCOPE
 
 _ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd",
                   "insurer_orsa_climate", "insurer_recovery_stress", "esrs_pack"}
-# report types on Solvency II consolidated data (Del. Reg. 2015/35 Art. 335(1)): a group filing weights its entities so
-_SOLVENCY2_GROUP = {"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"}
 
 
 def available_frameworks(org_type: str) -> list[dict]:
@@ -931,8 +929,7 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
         from services.governance import entities as _E
         entity_ids = _E.subtree_ids(session, org_id, entity_id)
         if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
-            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id,
-                                                 regime="solvency2_method1" if framework in _SOLVENCY2_GROUP else None)
+            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id, regime=_E.regime_for(framework))
     if framework in _ENTITY_SCOPED:
         from services.governance.translation import plan
         translation = plan(session, org_id, entity_id, period_end, scope=entity_ids, weights=value_weights)

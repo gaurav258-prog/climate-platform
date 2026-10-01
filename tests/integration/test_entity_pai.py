@@ -39,8 +39,8 @@ def test_entity_rollup_aggregates_across_funds():
                 "VALUES (:isin,'Sec',:i,'equity','manual') RETURNING security_id"), {"isin": isin, "i": iid}).scalar())
             # WACI = (s1+s2)/(rev/1e6); with s2=0, rev=10,000m → WACI = s1/10000
             s.execute(text(
-                "INSERT INTO issuer_emissions (issuer_id,org_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,source) "
-                "VALUES (:i,:o,2023,:s1,0,:rev,'disclosed')"), {"i": iid, "o": org, "s1": s1, "rev": rev})
+                "INSERT INTO issuer_emissions (issuer_id,org_id,reporting_year,scope1_tco2e,scope2_tco2e,scope3_tco2e,revenue_eur,source) "
+                "VALUES (:i,:o,2023,:s1,0,0,:rev,'disclosed')"), {"i": iid, "o": org, "s1": s1, "rev": rev})   # every scope stated (E76)
             s.execute(text(
                 "INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
                 "VALUES (:f,:s,:mv,100,'2026-07-12')"), {"f": fid, "s": sid, "mv": mv})

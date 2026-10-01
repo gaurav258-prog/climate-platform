@@ -84,7 +84,8 @@ def test_financed_emissions_partial_without_evic():
     try:
         with get_session() as s:
             pai = fund_pai(s, fid)
-        assert pai["pai"]["pai_3_waci_tco2e_per_meur"] is not None       # WACI computable
+        assert pai["pai"]["pai_3_waci_s12_tco2e_per_meur"] is not None   # WACI on the scopes it states (1+2) computable
+        assert pai["pai"]["pai_3_waci_tco2e_per_meur"] is None           # scope 3 not stated → never read as 0 (E76)
         assert pai["pai"]["pai_1_financed_emissions_tco2e"] is None      # no EVIC → no financed figure
         assert pai["financed_emissions_coverage_pct"] == 0.0
     finally:
@@ -128,8 +129,8 @@ def test_waci_denominator_is_total_fund_value_not_covered_subset():
             "VALUES ('DE00WACIDEN2','WACI Denom Sec B',:i,'equity','manual') RETURNING security_id"),
             {"i": iid_b}).scalar())
         s.execute(text(
-            "INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,source) "
-            "VALUES (:i,2023,1000000,0,10000000000,'disclosed')"), {"i": iid_a})
+            "INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,scope3_tco2e,revenue_eur,source) "
+            "VALUES (:i,2023,1000000,0,0,10000000000,'disclosed')"), {"i": iid_a})     # s2 = s3 = 0, STATED (E76)
         # Issuer B deliberately has NO issuer_emissions row — not held.
         s.execute(text(
             "INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
@@ -234,3 +235,22 @@ def test_yoy_skips_incomparable_methods():
     assert "change" not in inds[0]           # methods differ → no change computed
     assert inds[0]["prior_value"] == {"total": 40000000}
     assert "Not directly comparable" in inds[0]["change_note"] and "None%" not in inds[0]["change_note"]
+
+
+
+def test_a_scope_an_investee_does_not_state_is_never_read_as_zero():
+    """E76 (pure on fund_pai's rule): WACI sums scopes 1-3, so only investees stating all three enter it; the share of
+    value it covers is disclosed. Here the only investee states scopes 1 and 2: WACI is not computed, WACI 1+2 is."""
+    from unittest.mock import patch
+
+    from services import fund_disclosure as FD
+    rows = [{"mv": 4_000_000.0, "s1": 1_000_000.0, "s2": 0.0, "s3": None, "revenue_eur": 1e10, "evic_eur": None,
+             "nace_code": "C24", "emissions_source": "disclosed", "issuer_id": "x", "issuer_name": "X"},
+            {"mv": 6_000_000.0, "s1": None, "s2": None, "s3": None, "revenue_eur": None, "evic_eur": None,
+             "nace_code": None, "emissions_source": None, "issuer_id": "y", "issuer_name": "Y"}]
+    with patch.object(FD, "_positions_with_emissions", return_value=rows):
+        p = FD.fund_pai(None, "f", fund_ids=["f"], org_id="o")["pai"]
+    assert p["pai_3_waci_tco2e_per_meur"] is None and p["pai_3_coverage_pct"] == 0.0
+    assert p["pai_3_waci_s12_tco2e_per_meur"] == 40.0 and p["pai_3_s12_coverage_pct"] == 40.0
+    inv = p["pai_1_investee_emissions_tco2e"]
+    assert inv["scope_3"] is None and inv["coverage_pct"]["scope_1"] == 40.0

@@ -98,8 +98,8 @@ def live(session, org_id: str, report_type: str, *, entity_id: str | None, perio
     ids = subtree_ids(session, org_id, entity_id) if entity_id else None
     weights = None
     if ids and len(ids) > 1:
-        from services.governance.entities import ownership_weights
-        weights = ownership_weights(session, org_id, root_entity_id=entity_id, regime="solvency2_method1")
+        from services.governance.entities import ownership_weights, regime_for
+        weights = ownership_weights(session, org_id, root_entity_id=entity_id, regime=regime_for(report_type))
     payload = freeze(session, org_id, report_type, entity_ids=ids, value_weights=weights, period_end=period_end)
     t = spec["templates"][0]
     return {"report_type": report_type, "title": t["title"], "citation": R.citation(spec, t["id"]),

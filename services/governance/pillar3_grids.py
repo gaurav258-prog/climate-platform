@@ -201,7 +201,7 @@ def _cells(assets: list[dict], template_id: str, level: float | None = None) -> 
     """Every column value for one row population, and how many exposures stated each supplied fact."""
     g = {k: 0.0 for k in ("gross", "sens", "le5", "m5_10", "m10_20", "gt20", "mx", "mg", "chronic_only", "acute_only",
                           "both", "s2", "npe", "imp", "imp_s2", "imp_npe", "pab", "ccm", "rep", "ghg", "ghg3")}
-    n = {k: 0 for k in ("stage", "imp", "mat", "pab", "ccm", "rep", "all", "sens")}
+    n = {k: 0 for k in ("stage", "imp", "mat", "pab", "ccm", "rep", "all", "sens", "ghg", "ghg3")}
     for a in assets:
         x = gross_of(a)
         if not x:
@@ -216,8 +216,14 @@ def _cells(assets: list[dict], template_id: str, level: float | None = None) -> 
             g["sens"] += x
             g["both" if chronic and acute else "chronic_only" if chronic else "acute_only"] += x
         if template_id == "T1":
-            g["ghg"] += sum(float(a.get(k) or 0) for k in ("ghg1", "ghg2", "ghg3"))
-            g["ghg3"] += float(a.get("ghg3") or 0)
+            # financed emissions (i, j): only what an exposure states — a missing scope is not counted as 0 (E76)
+            ghg = [a.get(k) for k in ("ghg1", "ghg2", "ghg3")]
+            if any(v not in (None, "") for v in ghg):
+                n["ghg"] += 1
+                g["ghg"] += sum(float(v) for v in ghg if v not in (None, ""))
+            if a.get("ghg3") not in (None, ""):
+                n["ghg3"] += 1
+                g["ghg3"] += float(a["ghg3"])
             for key, fld in (("pab", "pab_excluded"), ("ccm", "ccm_sustainable"), ("rep", "emissions_company_reported")):
                 if a.get(fld) is not None:
                     n[key] += 1
@@ -252,7 +258,7 @@ def _columns(g: dict, n: dict, template_id: str) -> dict:
     if template_id == "T1":
         return {"a": g["gross"], "b": blank("pab", g["pab"]), "c": blank("ccm", g["ccm"]), "d": blank("stage", g["s2"]),
                 "e": blank("stage", g["npe"]), "f": blank("imp", g["imp"]), "g": blank("imp", g["imp_s2"]),
-                "h": blank("imp", g["imp_npe"]), "i": g["ghg"], "j": g["ghg3"],
+                "h": blank("imp", g["imp_npe"]), "i": blank("ghg", g["ghg"]), "j": blank("ghg3", g["ghg3"]),
                 "k": (round(g["rep"] / g["gross"] * 100, 1) if g["gross"] else None) if n["rep"] else None,   # EBA Q&A 2024_7225: all exposures
                 "l": blank("mat", g["le5"]), "m": blank("mat", g["m5_10"]), "n": blank("mat", g["m10_20"]),
                 "o": blank("mat", g["gt20"]), "p": avg}

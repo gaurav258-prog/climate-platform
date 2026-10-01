@@ -453,7 +453,9 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                          "GHG emissions (Scope 1, 2 and 3, and total)", "tCO₂e",
                          value={"scope_1": inv["scope_1"], "scope_2": inv["scope_2"],
                                 "scope_3": inv["scope_3"],
-                                "total": inv["scope_1"] + inv["scope_2"] + inv["scope_3"]},
+                                # the scopes investees state; a scope nobody states has no figure (E76)
+                                "total": (sum(v for v in (inv["scope_1"], inv["scope_2"], inv["scope_3"]) if v is not None)
+                                          if any(v is not None for v in (inv["scope_1"], inv["scope_2"], inv["scope_3"])) else None)},
                          coverage=emis_cov, source=_GOLDEN_SOURCE, method="partial",
                          input_required="issuer EVIC (enterprise value incl. cash) to attribute "
                                         "financed emissions per PCAF")

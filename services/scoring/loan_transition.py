@@ -64,7 +64,7 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
     currency; eur_per_unit converts that currency to EUR (the unit of the sector intensities and the stated carbon
     price). Returns financed emissions (reported + estimated fill), the transition expected loss (Σ outstanding × stated
     stranded share), the exposure-weighted transition score, and the by-division concentration — or the gaps."""
-    by_sector: dict = defaultdict(lambda: {"outstanding": 0.0, "financed_emissions": 0.0, "transition_el": 0.0, "n": 0})
+    by_sector: dict = defaultdict(lambda: {"outstanding": 0.0, "financed_emissions": None, "transition_el": 0.0, "n": 0})
     rows, gaps, no_outstanding = [], set(), 0
     for a in assets:
         nace, revenue = a.get("nace_code"), a.get("revenue_eur")
@@ -97,7 +97,9 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
     top = []
     for a, blk, div, outstanding, source, s1, s2 in rows:
         el = outstanding * blk["stranded_asset_pct"] / 100
-        fin = (s1 or 0.0) + (s2 or 0.0) if blk["has_emissions"] else None
+        # the scopes the counterparty states (or the sector estimate of scope 1+2); a missing scope is not 0 (E76)
+        stated = [v for v in (s1, s2) if v is not None]
+        fin = sum(stated) if stated and blk["has_emissions"] else None
         total_out += outstanding
         total_el += el
         if fin is not None:
@@ -108,7 +110,8 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
             scored_x += blk["transition_risk_score"] * outstanding
         b = by_sector[div]
         b["outstanding"] += outstanding
-        b["financed_emissions"] += fin or 0.0
+        if fin is not None:
+            b["financed_emissions"] = (b["financed_emissions"] or 0.0) + fin
         b["transition_el"] += el
         b["n"] += 1
         top.append({"asset_id": a.get("asset_id") or a.get("entity_id"), "name": a.get("asset_name") or a.get("entity_name"),
@@ -121,7 +124,7 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
     top.sort(key=lambda r: -r["transition_el_eur"])
     sectors = sorted(
         [{"nace_division": k or "—", "label": _label(k), "outstanding_eur": round(v["outstanding"]),
-          "financed_emissions_tco2e": round(v["financed_emissions"]), "transition_el_eur": round(v["transition_el"]), "n": v["n"]}
+          "financed_emissions_tco2e": None if v["financed_emissions"] is None else round(v["financed_emissions"]), "transition_el_eur": round(v["transition_el"]), "n": v["n"]}
          for k, v in by_sector.items()], key=lambda r: -r["transition_el_eur"])
     return {
         "available": True, **base,

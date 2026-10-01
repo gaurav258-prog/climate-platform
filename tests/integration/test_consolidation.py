@@ -34,7 +34,7 @@ def test_group_consolidation_is_ownership_weighted():
 
         whole = total()
         subtree = E.subtree_ids(s, BANK_ORG, grp["entity_id"])
-        weights = E.ownership_weights(s, BANK_ORG)
+        weights = E.ownership_weights(s, BANK_ORG, regime="crr_prudential")
 
         # unweighted union of the group's subtree == the whole org (every asset belongs to some leaf)
         assert total(entity_ids=subtree) == pytest.approx(whole, rel=1e-6)
@@ -136,10 +136,31 @@ def test_ownership_weights_multiply_along_the_chain_and_the_root_counts_in_full(
                                                               consolidation_method)
                               VALUES (CAST(:e AS uuid), CAST(:o AS uuid), CAST(:p AS uuid), :pct, :n, 'legal_entity', :m)"""),
                       {"e": eid, "o": org, "p": par, "pct": pct, "n": f"TEST-CHAIN-{eid[:6]}", "m": meth})
-        w_top = E.ownership_weights(s, org)
+        w_top = E.ownership_weights(s, org, regime="crr_prudential")
         assert w_top[top] == 1.0 and w_top[mid] == pytest.approx(0.5) and w_top[leaf] == pytest.approx(0.3)
-        w_mid = E.ownership_weights(s, org, root_entity_id=_u.UUID(mid))       # a UUID, as it comes from the DB
+        w_mid = E.ownership_weights(s, org, root_entity_id=_u.UUID(mid), regime="crr_prudential")       # a UUID, as it comes from the DB
         assert w_mid[mid] == 1.0 and w_mid[leaf] == pytest.approx(0.6)
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_an_equity_method_holding_contributes_no_book_under_any_governing_text():
+    """E75: CRR Art. 18(5),(7), Solvency II Art. 335(1)(d), Directive 2013/34/EU Art. 27(1) and ESRS 1 §62/§67 — an
+    associate's book is not consolidated (the holding is the parent's own exposure); no switch, no default."""
+    import uuid as _u
+    with get_session() as s:
+        org = s.execute(text("SELECT org_id::text FROM organizations WHERE type = 'bank' LIMIT 1")).scalar()
+        top, assoc, sub = str(_u.uuid4()), str(_u.uuid4()), str(_u.uuid4())
+        for eid, par, pct, meth in ((top, None, 100, "full"), (assoc, top, 30, "equity"), (sub, assoc, 100, "full")):
+            s.execute(text("""INSERT INTO reporting_entities (entity_id, org_id, parent_entity_id, ownership_pct, name, kind,
+                                                              consolidation_method)
+                              VALUES (CAST(:e AS uuid), CAST(:o AS uuid), CAST(:p AS uuid), :pct, :n, 'legal_entity', :m)"""),
+                      {"e": eid, "o": org, "p": par, "pct": pct, "n": f"TEST-EQ-{eid[:6]}", "m": meth})
+        for regime in E.consolidation_regimes()["regimes"]:
+            w = E.ownership_weights(s, org, regime=regime)
+            assert w[top] == 1.0 and w[assoc] == 0.0 and w[sub] == 0.0, regime     # and nothing beneath it either
+        with pytest.raises(ValueError):
+            E.ownership_weights(s, org, regime="economic_share")
         s.rollback()
 
 

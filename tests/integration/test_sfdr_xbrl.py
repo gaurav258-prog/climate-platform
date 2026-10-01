@@ -27,8 +27,8 @@ def test_xbrl_is_wellformed_and_tags_waci():
                                  "VALUES ('XBRL Issuer','corporate','DE','35.11','manual') RETURNING issuer_id")).scalar())
         sid = str(s.execute(text("INSERT INTO securities (isin,name,issuer_id,asset_class,source) "
                                  "VALUES ('DE00XBRL0001','S',:i,'equity','manual') RETURNING security_id"), {"i": iid}).scalar())
-        s.execute(text("INSERT INTO issuer_emissions (issuer_id,org_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,source) "
-                       "VALUES (:i,:o,2023,1000000,0,10000000000,'client')"), {"i": iid, "o": org})
+        s.execute(text("INSERT INTO issuer_emissions (issuer_id,org_id,reporting_year,scope1_tco2e,scope2_tco2e,scope3_tco2e,revenue_eur,source) "
+                       "VALUES (:i,:o,2023,1000000,0,0,10000000000,'client')"), {"i": iid, "o": org})   # every scope stated (E76)
         s.execute(text("INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
                        "VALUES (:f,:s,5000000,100,'2026-07-12')"), {"f": fid, "s": sid})
         created = {"fid": fid, "iid": iid, "org": org}

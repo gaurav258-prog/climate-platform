@@ -420,9 +420,9 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, 
         if not BINDING["T5"]["rows"][r["id"]].startswith("computed:collateral"):
             for k in ("sensitive", "h", "i", "j"):
                 t5[k] = t5.get(k, 0.0) + (r["values"].get(k) or 0.0)
-    s1 = sum((a.get("ghg1") or 0) for a in assets)
-    s2 = sum((a.get("ghg2") or 0) for a in assets)
-    s3 = sum((a.get("ghg3") or 0) for a in assets)
+    from services.scoring.pcaf import gross_emissions
+    ge = gross_emissions(assets)                      # a scope no exposure states has no total — its fact is not emitted
+    s1, s2, s3 = ge["scope1"], ge["scope2"], ge["scope3"]
 
     binding = _load_p3_binding()
     ns = binding.get("namespace") or _P3_NS

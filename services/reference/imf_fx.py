@@ -20,7 +20,6 @@ import bisect
 import calendar
 import csv
 import io
-import urllib.request
 from datetime import date, datetime, timezone
 from typing import Iterable, Optional
 
@@ -36,11 +35,32 @@ class ImfFxError(RuntimeError):
     pass
 
 
-def _get(start: str) -> bytes:
+# The IMF gateway answers an anonymous request intermittently with 401/429 or a 5xx — the same request succeeds moments
+# later (observed 2026-10-01: 401 200 200 200 401 401 for six identical calls). Those answers are retried with backoff;
+# anything else (a 404, a 400 — a wrong URL or query) is ours and fails at once.
+_TRANSIENT = {401, 429, 500, 502, 503, 504}
+_ATTEMPTS = 5
+
+
+def _get(start: str, sleep=None) -> bytes:
+    import time
+    import urllib.error
+    sleep = sleep or time.sleep
     req = urllib.request.Request(f"{API}?startPeriod={start}", headers={
         "Accept": "application/vnd.sdmx.data+csv;version=1.0.0", "User-Agent": "Tellumen/1.0 (IMF ER)"})
-    with urllib.request.urlopen(req, timeout=180) as r:
-        return r.read()
+    for attempt in range(_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code not in _TRANSIENT:
+                raise
+            last = e
+        except urllib.error.URLError as e:
+            last = e
+        if attempt < _ATTEMPTS - 1:
+            sleep(2 ** attempt)
+    raise ImfFxError(f"upstream unavailable: api.imf.org refused {_ATTEMPTS} attempts ({last})")
 
 
 def _month_end(period: str) -> Optional[date]:

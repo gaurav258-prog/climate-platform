@@ -49,11 +49,25 @@ def test_mixed_book_never_mixes_covered_and_not_covered():
     assert r["evic_coverage_pct"] == 50.0
 
 
-def test_a_loan_with_no_emissions_at_all_is_not_a_coverage_gap():
-    rows = [_asset(0, 0, 0, outstanding=1_000_000, evic=None)]
+def test_a_stated_zero_is_a_figure_and_no_statement_is_coverage_not_zero():
+    """E76: a counterparty that states 0 has emissions data (zero); one that states nothing is not counted as zero —
+    it shows in the coverage (counterparties and share of exposure with emissions)."""
+    rows = [_asset(0, 0, 0, outstanding=1_000_000, evic=10_000_000),
+            _asset(None, None, None, outstanding=3_000_000, evic=None)]
     r = attributed_financed_emissions(rows, exposure_key="outstanding_loan_balance_eur", evic_key="evic_eur")
-    assert r["n_counterparties_with_emissions"] == 0   # nothing to attribute -- not counted as an EVIC gap either
-    assert r["evic_coverage_pct"] == 0.0
+    assert r["n_counterparties"] == 2 and r["n_counterparties_with_emissions"] == 1
+    assert r["exposure_with_emissions_pct"] == 25.0 and r["attributed_total"] == 0
+    none = attributed_financed_emissions([rows[1]], exposure_key="outstanding_loan_balance_eur", evic_key="evic_eur")
+    assert none["n_counterparties_with_emissions"] == 0 and none["evic_coverage_pct"] is None
+
+
+def test_a_scope_not_stated_is_not_counted_and_a_scope_nobody_states_has_no_total():
+    from services.scoring.pcaf import gross_emissions
+    rows = [_asset(100, 50, None, outstanding=1, evic=None), _asset(10, None, None, outstanding=1, evic=None)]
+    g = gross_emissions(rows)
+    assert (g["scope1"], g["scope2"], g["scope3"], g["total"]) == (110, 50, None, 160)
+    assert g["n_stating"] == {"scope1": 2, "scope2": 1, "scope3": 0} and g["n_with_emissions"] == 2
+    assert gross_emissions([_asset(None, None, None, 1)])["total"] is None
 
 
 def test_attribution_capped_even_when_outstanding_exceeds_evic():

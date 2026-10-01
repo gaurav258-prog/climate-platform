@@ -30,8 +30,9 @@ def test_vendor_ingest_matches_and_client_wins():
         sid = str(s.execute(text("INSERT INTO securities (isin,name,issuer_id,asset_class,source) "
                                  "VALUES ('DE00VEND0001','S',:i,'equity','manual') RETURNING security_id"), {"i": iid}).scalar())
         # manager's OWN client figure: WACI = 1,000,000 / (10,000m/1e6... ) → s1=1,000,000, rev=10,000m → WACI 100
-        s.execute(text("INSERT INTO issuer_emissions (issuer_id,org_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,source) "
-                       "VALUES (:i,:o,2023,1000000,0,10000000000,'client')"), {"i": iid, "o": org})
+        # every scope stated (scope 2 and 3 as 0): WACI sums scopes 1-3 and never reads a missing one as 0 (E76)
+        s.execute(text("INSERT INTO issuer_emissions (issuer_id,org_id,reporting_year,scope1_tco2e,scope2_tco2e,scope3_tco2e,revenue_eur,source) "
+                       "VALUES (:i,:o,2023,1000000,0,0,10000000000,'client')"), {"i": iid, "o": org})
         s.execute(text("INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
                        "VALUES (:f,:s,5000000,100,'2026-07-12')"), {"f": fid, "s": sid})
         created = {"fid": fid, "iid": iid, "org": org}
@@ -40,7 +41,8 @@ def test_vendor_ingest_matches_and_client_wins():
         with get_session() as s:
             # vendor extract (MSCI profile) supplies a DIFFERENT scope1 for the same issuer + a new one that won't match
             rep = ingest_vendor_extract(s, org, [
-                {"ISIN": "DE00VEND0001", "CARBON_EMISSIONS_SCOPE_1": 9999999, "SALES_EUR": 10000000000},
+                {"ISIN": "DE00VEND0001", "CARBON_EMISSIONS_SCOPE_1": 9999999, "CARBON_EMISSIONS_SCOPE_2": 0,
+                 "CARBON_EMISSIONS_SCOPE_3": 0, "SALES_EUR": 10000000000},
                 {"ISIN": "XX00NOMATCH0", "CARBON_EMISSIONS_SCOPE_1": 5},
             ], profile="msci", reporting_year=2023)
             assert rep["matched_issuers"] == 1
@@ -76,7 +78,8 @@ def test_vendor_fills_when_no_client_figure():
     try:
         with get_session() as s:
             ingest_vendor_extract(s, org, [
-                {"ISIN": "DE00VEND0002", "CARBON_EMISSIONS_SCOPE_1": 2000000, "SALES_EUR": 10000000000},
+                {"ISIN": "DE00VEND0002", "CARBON_EMISSIONS_SCOPE_1": 2000000, "CARBON_EMISSIONS_SCOPE_2": 0,
+                 "CARBON_EMISSIONS_SCOPE_3": 0, "SALES_EUR": 10000000000},
             ], profile="msci", reporting_year=2023)
             pai = fund_pai(s, created["fid"])
         # no client figure → vendor fills: WACI = 2,000,000 / 10,000 = 200

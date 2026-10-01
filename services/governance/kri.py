@@ -647,11 +647,15 @@ def _bank_kri(session: Session, org_id: str) -> dict:
              hint=(f"Share of the book in EBA high-climate-impact sectors (NACE A–H, L). Largest single sector: "
                    f"{top_sec} · {_share(top_val)}%. The concentration axis of Pillar 3 Templates 1 & 5.")),
         _kpi("coverage", "Book scored", cov, "pct", hint="Share of assets scored on the golden source"),
-        _kpi("fin_emissions", "Financed emissions", sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")),
+        # PCAF-attributed, over the counterparties that state emissions AND carry EVIC — none attributable is no figure
+        _kpi("fin_emissions", "Financed emissions",
+             sum(em.get(k) or 0 for k in ("scope1", "scope2", "scope3")) if pcaf.get("n_evic_covered") else None,
              "num", hint=(f"tCO₂e · PCAF-attributed (factor = outstanding ÷ counterparty EVIC, capped at 100%) · "
-                          f"{pcaf.get('n_evic_covered', 0)}/{pcaf.get('n_counterparties_with_emissions', 0)} counterparties "
-                          f"carry EVIC ({pcaf.get('evic_coverage_pct', 0)}% of emitting exposure)"
-                          + (f" · {pcaf.get('not_covered_total', 0):,} tCO₂e un-attributed, excluded" if pcaf.get("not_covered_total") else ""))),
+                          f"{pcaf.get('n_counterparties_with_emissions', 0)} of {pcaf.get('n_counterparties', 0)} counterparties "
+                          f"state emissions ({pcaf.get('exposure_with_emissions_pct')}% of outstanding; scope 3 by "
+                          f"{(pcaf.get('n_stating') or {}).get('scope3', 0)}), {pcaf.get('n_evic_covered', 0)} of them carry EVIC"
+                          + (f" · {pcaf.get('not_covered_total', 0):,} tCO₂e stated without EVIC, not attributed" if pcaf.get("not_covered_total") else "")
+                          + " · a counterparty that states no emissions is not counted as zero")),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
         _kpi("gar", "Green Asset Ratio", None, "pct", integrated=True, integrated_note="needs alignment",
              hint="Taxonomy-ALIGNED share (the Art. 8 GAR) needs alignment flags — substantial contribution + DNSH + minimum safeguards — provided in your book; only eligibility is computed here."),
@@ -713,13 +717,16 @@ def _p3esg_kri(session: Session, org_id: str) -> dict:
         # _bank_kri() figure is PCAF-attributed (the correct TCFD/PAI figure) -- on the Pillar-3 tab specifically,
         # replace it with the SAME gross total the actual filed template will show, so the KRI never disagrees
         # with the form a supervisor pulls up next to it.
-        gross_fin = round(sum((a.get("ghg1") or 0) + (a.get("ghg2") or 0) + (a.get("ghg3") or 0) for a in assets))
+        from services.scoring.pcaf import gross_emissions
+        gross = gross_emissions(assets, exposure_key="outstanding_loan_balance_eur")
         for kpi in r["kpis"]:
             if kpi["key"] == "fin_emissions":
-                kpi["value"] = gross_fin
-                kpi["hint"] = ("tCO₂e · GROSS Scope 1–3 across the book (Template 1 col. i methodology — ITS "
-                               "2022/2453 does not prescribe PCAF attribution here). Not the same basis as the "
-                               "TCFD tab's PCAF-attributed figure; both are correct for their own regulation.")
+                kpi["value"] = gross["total"]
+                kpi["hint"] = (f"tCO₂e · GROSS Scope 1–3 of the counterparties that state them (Template 1 col. i "
+                               f"methodology — no PCAF attribution there): {gross['n_with_emissions']} of "
+                               f"{gross['n_counterparties']} counterparties, {gross['exposure_with_emissions_pct']}% of "
+                               f"outstanding; scope 3 stated by {gross['n_stating']['scope3']}. A counterparty that states "
+                               "none is not counted as zero. Not the same basis as the TCFD tab's PCAF-attributed figure.")
                 break
         g3 = template3_grid(assets)
         g4 = template4_top20(assets)

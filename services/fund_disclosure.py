@@ -197,6 +197,10 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str],
     """), {"fids": fund_ids, "org": org_id, **({"d": as_of_date} if as_of_date else {})}).mappings().all()
 
 
+def _r(v):
+    return None if v is None else round(v)
+
+
 def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     """SFDR PAI table + coverage for a fund, value-weighted. Honest gaps, not zeros.
     Pass fund_ids+org_id to scope over an entire manager (entity-level roll-up)."""
@@ -228,33 +232,36 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     # matched PAI 2/8/9's OLD bug before those were fixed, but was never corrected here for PAI 3 — found by
     # adversarial review, re-verified against the primary text, and fixed to match every other indicator in
     # this function. numerator sums all three GHG scopes per Annex I Table 1; total_mv is the whole fund.
+    # E76: an investee enters an indicator only when it states every scope that indicator sums — a missing scope 2
+    # or 3 is never read as 0; the share of value each indicator covers is disclosed with it.
+    def _states(r, scopes):
+        return all(r[s] is not None for s in scopes)
+    waci_rows = [r for r in with_emissions if _states(r, ("s1", "s2", "s3"))]
+    waci_s12_rows = [r for r in with_emissions if _states(r, ("s1", "s2"))]
     waci = waci_s12 = None
-    if total_mv:
-        waci = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0) + (r["s3"] or 0)) / (r["revenue_eur"] / 1e6))
-                   for r in with_emissions) / total_mv
+    if total_mv and waci_rows:
+        waci = sum(r["mv"] * ((r["s1"] + r["s2"] + r["s3"]) / (r["revenue_eur"] / 1e6)) for r in waci_rows) / total_mv
+    if total_mv and waci_s12_rows:
         # the same on Scope 1+2 only — the European ESG Template asks for both (EET 30300 / 30340)
-        waci_s12 = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0)) / (r["revenue_eur"] / 1e6))
-                       for r in with_emissions) / total_mv
+        waci_s12 = sum(r["mv"] * ((r["s1"] + r["s2"]) / (r["revenue_eur"] / 1e6)) for r in waci_s12_rows) / total_mv
 
     # PAI 1 — financed emissions (PCAF): attribution factor = investment ÷ EVIC.
     # We now attribute for every holding that has EVIC, and disclose the coverage;
     # the un-attributed investee totals remain for holdings without EVIC.
-    investee_s1 = sum(r["s1"] for r in with_emissions)
-    investee_s2 = sum((r["s2"] or 0) for r in with_emissions)
-    investee_s3 = sum((r["s3"] or 0) for r in with_emissions)
+    def _scope_sum(rs, s, w=lambda r: 1.0):
+        stated = [r for r in rs if r[s] is not None]
+        return (sum(w(r) * r[s] for r in stated) if stated else None), sum(r["mv"] for r in stated)
+    (investee_s1, cov_s1), (investee_s2, cov_s2), (investee_s3, cov_s3) = (_scope_sum(with_emissions, s) for s in ("s1", "s2", "s3"))
 
     # EVIC must be strictly positive; the attribution factor (investment ÷ EVIC)
     # is capped at 1.0 — you cannot finance more than 100% of an issuer, and a
     # tiny/mis-keyed EVIC would otherwise inflate financed emissions arbitrarily.
     with_evic = [r for r in with_emissions if r.get("evic_eur") and r["evic_eur"] > 0]
     financed_mv = sum(r["mv"] for r in with_evic)
-    fin_s1 = fin_s2 = fin_s3 = 0.0
-    for r in with_evic:
-        af = min(r["mv"] / r["evic_eur"], 1.0)   # attribution factor, capped at 100%
-        fin_s1 += af * r["s1"]
-        fin_s2 += af * (r["s2"] or 0)
-        fin_s3 += af * (r["s3"] or 0)
-    financed_total = fin_s1 + fin_s2 + fin_s3
+    def _af(r):
+        return min(r["mv"] / r["evic_eur"], 1.0)   # attribution factor, capped at 100%
+    (fin_s1, _), (fin_s2, _), (fin_s3, _) = (_scope_sum(with_evic, s, _af) for s in ("s1", "s2", "s3"))
+    financed_total = sum(v for v in (fin_s1, fin_s2, fin_s3) if v is not None)
     has_financed = financed_mv > 0
     # PAI 2 — carbon footprint = financed emissions ÷ €M invested. Annex I Table 1's
     # denominator is the current value of ALL investments (total fund AUM), not just
@@ -297,17 +304,23 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         "pai": {
             "pai_3_waci_tco2e_per_meur": round(waci, 1) if waci is not None else None,
             "pai_3_waci_s12_tco2e_per_meur": round(waci_s12, 1) if waci_s12 is not None else None,
+            # share of value whose investees state every scope the indicator sums (and revenue)
+            "pai_3_coverage_pct": round(100 * sum(r["mv"] for r in waci_rows) / total_mv, 1),
+            "pai_3_s12_coverage_pct": round(100 * sum(r["mv"] for r in waci_s12_rows) / total_mv, 1),
             "pai_4_fossil_fuel_exposure_pct": round(100 * fossil_mv / total_mv, 2),
             "pai_4_coverage_pct": pai4_coverage,   # share of value whose NACE is known
             # PAI 1 — financed emissions, attributed via EVIC where available.
             "pai_1_financed_emissions_tco2e": {
-                "scope_1": round(fin_s1), "scope_2": round(fin_s2), "scope_3": round(fin_s3),
+                "scope_1": _r(fin_s1), "scope_2": _r(fin_s2), "scope_3": _r(fin_s3),
                 "total": round(financed_total),
             } if has_financed else None,
             # PAI 2 — carbon footprint (financed emissions per €M invested).
             "pai_2_carbon_footprint_tco2e_per_meur": carbon_footprint,
             "pai_1_investee_emissions_tco2e": {
-                "scope_1": round(investee_s1), "scope_2": round(investee_s2), "scope_3": round(investee_s3),
+                "scope_1": _r(investee_s1), "scope_2": _r(investee_s2), "scope_3": _r(investee_s3),
+                # share of value whose investees state each scope — a scope not stated is not counted as 0 (E76)
+                "coverage_pct": {k: round(100 * c / total_mv, 1) for k, c in (("scope_1", cov_s1), ("scope_2", cov_s2),
+                                                                              ("scope_3", cov_s3))},
                 "note": None if has_financed and financed_mv >= covered_mv else
                         "Un-attributed investee totals; supply issuer EVIC on the remaining "
                         "holdings to attribute their financed emissions (PCAF).",
@@ -386,7 +399,7 @@ def fund_climate_summary(session, org_id: str, method, fund_id: str, scenario: s
     trans_was = (sum(p["mv"] * t["transition_risk_score"] for p, t in trans_scored) / trans_cov_mv) if trans_cov_mv else None
     shares = [trans.get(p["issuer_id"], {}).get("stranded_asset_pct") for p in positions]
     trans_risk_mv = None if None in shares else sum(p["mv"] * s / 100 for p, s in zip(positions, shares))
-    gaps = sorted({t["gap"] for t in trans.values() if t.get("gap")} | ({method.gap_text()} if method.gap_text() else set()))
+    gap = method.gap_text()          # every engine records what it asked for and did not find on the one Method
 
     base = fund_base_view(session, fund["base_currency"], max(p["as_of_date"] for p in positions),
                           {"total_value": total_mv, "physical_value_at_risk": phys_risk_mv,
@@ -406,7 +419,7 @@ def fund_climate_summary(session, org_id: str, method, fund_id: str, scenario: s
             "value_at_risk_eur": None if trans_risk_mv is None else round(trans_risk_mv),
             "pct_at_risk": None if trans_risk_mv is None else round(100 * trans_risk_mv / total_mv, 1),
         },
-        **({"gap": "; ".join(gaps)} if gaps else {}),
+        **({"gap": gap} if gap else {}),
         "pai": fund_pai(session, fund_id),
     }
 

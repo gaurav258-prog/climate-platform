@@ -33,3 +33,36 @@ def test_a_shared_currency_comes_from_its_home_country():
     out = parse(_csv([("ECU", "XDC_EUR", "EOP_RT", "M", "2026-M08", "1.14"), ("USA", "XDC_EUR", "EOP_RT", "M", "2026-M07", "1.15")]),
                 CC, today=date(2026, 9, 26), iso2_of=ISO2)
     assert {r[4] for r in out["rows"] if r[0] == "USD"} == {"USA"}      # US, even though Ecuador's data is newer
+
+
+def test_a_transient_refusal_is_retried_and_a_wrong_request_is_not():
+    """The IMF gateway answers some anonymous calls with 401/429/5xx and the same call then succeeds: retried with
+    backoff. A 404 (a wrong URL or query — ours) fails at once; a provider that keeps refusing is named as upstream."""
+    import io
+    import urllib.error
+    from unittest.mock import patch
+
+    import pytest
+
+    from services.reference import imf_fx
+
+    class _Ok(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def err(code):
+        return urllib.error.HTTPError(imf_fx.API, code, "x", {}, None)
+
+    waits = []
+    with patch("urllib.request.urlopen", side_effect=[err(401), err(503), _Ok(b"data")]):
+        assert imf_fx._get("2025-01", sleep=waits.append) == b"data"
+    assert waits == [1, 2]
+    with patch("urllib.request.urlopen", side_effect=[err(404)]):
+        with pytest.raises(urllib.error.HTTPError):
+            imf_fx._get("2025-01", sleep=waits.append)
+    with patch("urllib.request.urlopen", side_effect=[err(401)] * imf_fx._ATTEMPTS):
+        with pytest.raises(imf_fx.ImfFxError, match="upstream unavailable"):
+            imf_fx._get("2025-01", sleep=lambda s: None)

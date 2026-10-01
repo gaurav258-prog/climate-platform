@@ -356,39 +356,39 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
     return {"ok": True}
 
 
-# Solvency II group solvency, method 1 (Del. Reg. (EU) 2015/35 Art. 335(1)): subsidiaries fully consolidated (a),
-# jointly managed undertakings proportionally (c), holdings in other related undertakings by the adjusted equity method
-# (d) — their data are not consolidated, so their risks are not in the group's catastrophe figures. Not a switch.
-SOLVENCY2_METHOD1 = {"full": "full", "proportional": "proportional", "equity": "excluded"}
-# An ESRS consolidated sustainability statement covers the same undertakings as the consolidated financial statements
-# (ESRS 1 §62; ESRS 2 BP-1 §5(b)(i)): subsidiaries in full, a joint operation at its share (ESRS 1 AR 36 — the
-# undertaking's own share of its assets); associates and joint ventures (equity method) are not own operations but
-# value chain (ESRS 1 §67), so they contribute nothing to own-operations figures.
-ESRS_FINANCIAL_STATEMENTS = {"full": "full", "proportional": "proportional", "equity": "excluded"}
+def consolidation_regimes() -> dict:
+    """The consolidation rule of each text a group filing can be governed by (data/reference/consolidation/regimes.json),
+    every one quoted. An equity-method holding's book is consolidated by none of them (E75)."""
+    import json
+    from pathlib import Path
+    return json.loads((Path(__file__).resolve().parents[2] / "data" / "reference" / "consolidation" / "regimes.json").read_text())
 
 
-def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None,
-                      regime: Optional[str] = None) -> dict[str, float]:
-    """entity_id -> the fraction of its book that consolidates into `root_entity_id` (default: the top of the tree).
+def regime_for(framework: str) -> str:
+    """The consolidation regime of the text that governs a framework's group filing."""
+    regime = consolidation_regimes()["frameworks"].get(framework)
+    if regime is None:
+        raise ValueError(f"no consolidation regime is declared for '{framework}' (data/reference/consolidation/regimes.json)")
+    return regime
 
-    Each entity's own link to its parent carries a factor by its consolidation method:
-    - full consolidation (a controlled subsidiary): 1.0 — the whole book flows up.
-    - proportional consolidation (a joint operation): ownership_pct/100.
-    - equity method (an associate): governed by the `equity_consolidation` interpretation switch —
-      'economic_share' (default) = ownership_pct/100; 'excluded' = 0.0 (strict IFRS); 'full' = 1.0.
+
+def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None, *, regime: str) -> dict[str, float]:
+    """entity_id -> the fraction of its book that consolidates into `root_entity_id` (default: the top of the tree), by the
+    governing text's rule (`regime`, data/reference/consolidation/regimes.json).
+
+    Each entity's own link to its parent carries a factor by its consolidation method and the regime:
+    - full consolidation (a subsidiary): 1.0 — the whole book flows up.
+    - proportional consolidation (a jointly managed undertaking): ownership_pct/100.
+    - equity method (an associate or other holding): 0.0 under every regime on file — the associate's book is not
+      consolidated; the holding is the parent's own exposure (CRR Art. 18(5),(7); Solvency II method 1 Art. 335(1)(d);
+      Directive 2013/34/EU Art. 27(1); ESRS 1 §62, §67).
     The weight is the PRODUCT of those factors along the path from the entity up to the root — a 60% stake held
     through a 50%-owned joint operation counts 30%, not 60% — and the root itself is 1.0: a sub-group's own
-    consolidated filing takes its own book in full, whatever its parent holds of it. (Fixed 2026-09-26: each entity
-    used to carry only its own direct factor, and the filing root was scaled by its stake in its parent.)
-    regime='solvency2_method1': the equity method contributes nothing, whatever the switch (Art. 335(1)(d))."""
-    from services.calc_settings import get_calc_settings
-    equity_mode = get_calc_settings(session, org_id).get("equity_consolidation", "economic_share")
-    if regime == "solvency2_method1":
-        equity_mode = SOLVENCY2_METHOD1["equity"]
-    elif regime == "esrs_financial_statements":
-        equity_mode = ESRS_FINANCIAL_STATEMENTS["equity"]
-    elif regime is not None:
+    consolidated filing takes its own book in full, whatever its parent holds of it."""
+    regimes = consolidation_regimes()["regimes"]
+    if regime not in regimes:
         raise ValueError(f"unknown consolidation regime '{regime}'")
+    rule = regimes[regime]["factors"]
     rows = session.execute(text("""
         SELECT entity_id::text, parent_entity_id::text, ownership_pct::float, consolidation_method
         FROM reporting_entities WHERE org_id = :o
@@ -397,12 +397,8 @@ def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[st
     for eid, par, pct, method in rows:
         share = (pct or 0.0) / 100.0
         parent[eid] = par
-        if method == "proportional":
-            factor[eid] = share
-        elif method == "equity":
-            factor[eid] = {"economic_share": share, "excluded": 0.0, "full": 1.0}.get(equity_mode, share)
-        else:  # full consolidation (or unset) — the whole book
-            factor[eid] = 1.0
+        how = rule["proportional" if method == "proportional" else "equity" if method == "equity" else "full"]
+        factor[eid] = {"full": 1.0, "proportional": share, "excluded": 0.0}[how]   # unset = full: the whole book
     root = str(root_entity_id) if root_entity_id is not None else None   # a UUID from the DB must match string ids
     out: dict[str, float] = {}
     for eid in parent:

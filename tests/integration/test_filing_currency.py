@@ -85,7 +85,7 @@ def test_consolidation_translates_to_the_group_currency_and_eliminates_intragrou
         s.execute(text("UPDATE portfolio_entities SET intragroup_entity_id = CAST(:o AS uuid) WHERE entity_id = CAST(:i AS uuid)"),
                   {"o": other["entity_id"], "i": asset["id"]})
     scope = E.subtree_ids(s, BANK_ORG, grp["entity_id"])
-    w = E.ownership_weights(s, BANK_ORG, root_entity_id=grp["entity_id"])
+    w = E.ownership_weights(s, BANK_ORG, root_entity_id=grp["entity_id"], regime="crr_prudential")
     t = plan(s, BANK_ORG, grp["entity_id"], PE, scope=scope, weights=w)
     assert t.presentation == "EUR"
     vals = _values(build_disclosure_snapshot(s, BANK_ORG, "baseline", "current", entity_ids=scope, value_weights=w, translation=t))

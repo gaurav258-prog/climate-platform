@@ -727,7 +727,8 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
     supplied = [f"{lbl} stated for {st[k]:,} of {st['all']:,} exposures" if tid == "T1"
                 else f"{lbl} stated for {st[k]:,} of {st['sens']:,} physical-risk-sensitive exposures" for k, lbl in
                 (("stage", "IFRS 9 stage"), ("mat", "maturity"), ("imp", "impairment"))
-                + ((("pab", "Paris-benchmark exclusion"), ("ccm", "CCM sustainability"), ("rep", "company-reported emissions"))
+                + ((("pab", "Paris-benchmark exclusion"), ("ccm", "CCM sustainability"), ("rep", "company-reported emissions"),
+                    ("ghg", "Scope 1–3 emissions"), ("ghg3", "Scope 3 emissions"))
                    if tid == "T1" else ())]
     notes = [_col_groups(t["columns"]),
              "Blank (—) = no exposure in the row states that fact on the loan tape; " + "; ".join(supplied) + ".",

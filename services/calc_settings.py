@@ -153,15 +153,6 @@ INTERPRETATION_SCHEMA: dict = {
                        "its activity is flagged as a possible unit slip (MWh typed as GWh is 1,000×) until someone "
                        "corrects it or confirms it with a reason. Ordinary differences are expected: set it wide.",
     },
-    "equity_consolidation": {
-        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "reit_tcfd", "insurer_climate"],
-        "default": "economic_share", "kind": "enum", "allowed": ["economic_share", "excluded", "full"],
-        "label": "Equity-method consolidation treatment",
-        "description": "How an equity-method associate's climate risk consolidates upward. 'economic_share' = "
-                       "the parent's ownership share of the associate's book (the economic-exposure view); "
-                       "'excluded' = not in the consolidated book (strict IFRS — an associate's assets aren't "
-                       "line-by-line consolidated); 'full' = the whole book (only correct for a controlled sub).",
-    },
     "retention_minimum_years": {
         "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
                        "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],

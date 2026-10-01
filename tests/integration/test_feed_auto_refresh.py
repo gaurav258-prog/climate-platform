@@ -20,7 +20,8 @@ from services.data import feeds
 # hard-fail on anything else, since a status of 'failed' for a reason that ISN'T "their server is
 # unreachable" (a KeyError, a bad URL, a parsing bug…) is a real regression this test must catch.
 _NETWORK_UNREACHABLE_MARKERS = ("ConnectionError", "ConnectionAborted", "RemoteDisconnected", "Timeout",
-                                "unreachable", "Connection aborted", "Max retries exceeded")
+                                "unreachable", "Connection aborted", "Max retries exceeded",
+                                "upstream unavailable")   # a provider that kept refusing after our retries (imf_fx)
 
 
 def _is_network_unreachable(note: str | None) -> bool:
