@@ -55,10 +55,13 @@ def _evidence(session, org_id: str, org_type: Optional[str]) -> dict:
     breaches = session.execute(text("""SELECT framework, kri_key, label, severity, onset_at, acknowledged_at FROM kri_breach_episode
                                        WHERE org_id = CAST(:o AS uuid) AND cleared_at IS NULL"""), {"o": org_id}).mappings().all()
     last_scan = session.execute(text("SELECT max(checked_at) FROM reg_source_snapshot")).scalar()
+    from services.governance.filings import retired_frameworks
     obligations = session.execute(text("""SELECT o.framework, o.period_label, o.due_date,
                                                  EXISTS (SELECT 1 FROM regulatory_filing rf WHERE rf.org_id = o.org_id AND rf.framework = o.framework
                                                          AND rf.period_label = o.period_label AND rf.status IN ('submitted', 'accepted')) AS met
-                                          FROM regulatory_obligation o WHERE o.org_id = CAST(:o AS uuid) AND o.due_date < CURRENT_DATE"""), {"o": org_id}).mappings().all()
+                                          FROM regulatory_obligation o WHERE o.org_id = CAST(:o AS uuid) AND o.due_date < CURRENT_DATE
+                                                AND o.framework <> ALL(CAST(:retired AS text[]))"""),   # a retired report is owed no more
+                                  {"o": org_id, "retired": retired_frameworks()}).mappings().all()
     return {"filings": [dict(f) for f in filings], "findings": findings, "readiness": readiness, "feeds": feeds, "models": models, "gate": PUBLISH_GATE_R2,
             "breaches": [dict(b) for b in breaches], "last_scan": last_scan, "obligations": [dict(o) for o in obligations], "org_type": org_type}
 

@@ -29,11 +29,12 @@ from services.data.feeds import feeds_for_hazard
 from services.governance.filings import get_filing
 from services.governance.money_format import presentation_of
 
-# vertical → the framework whose filing consumes that vertical's book (others not wired yet)
+# vertical → the live framework whose filing consumes that vertical's book (others not wired yet)
 _VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai",
-                       "realestate": "reit_tcfd", "insurance": "insurer_climate"}
+                       "realestate": "reit_taxonomy", "insurance": "insurer_solvency"}
 
-# spatial-lineage config per framework: the entity list in the frozen payload + its id/name/value keys.
+# spatial-lineage config per framework: the entity list in the frozen payload + its id/name/value keys (the retired
+# reit_tcfd / insurer_climate / assetmgmt_tcfd stay, so their filings remain traceable as frozen).
 # Every located book (bank/reit/insurer) shares the same {h3_cell, hazards[]} entity shape, so one trace
 # serves them all — including the two KPI-derived reports (reit_taxonomy/insurer_solvency), which carry the
 # same shape alongside their own calc. SFDR/agri hold issuers/plots, not geolocated assets, so they use a

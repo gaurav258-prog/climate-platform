@@ -7,12 +7,12 @@ from services.intelligence.third_parties import CRITICALITY, KINDS, register_csv
 
 
 def test_links_are_declared_not_inferred():
-    L = links_for("insurer_climate", "insurer")
+    L = links_for("insurer_solvency", "insurer")
     fx = {"fx_flow_rate", "fx_client_rate_tolerance_pct",          # every money figure in the filing (multi-currency)
           "retention_minimum_years"}                               # and every filed record (CRCS record retention)
-    assert {s["key"] for s in L["switches"]} == {"pml_return_period"} | fx
+    assert {s["key"] for s in L["switches"]} == {"pml_return_period", "sii_natcat_uk_other_regions"} | fx
     assert L["kris"] and L["template"] and L["template"]["official_form"] and L["n"] >= 5
-    bank = links_for("insurer_climate", "bank")["switches"]
+    bank = links_for("insurer_solvency", "bank")["switches"]
     assert {s["key"] for s in bank} == fx and all(s["sectors"] is None for s in bank)   # consolidation is the text's rule (E75)
     assert links_for("no_such_framework")["n"] == 0
     assert summary_text("bank_tcfd", "bank").startswith("Touches — ") and summary_text("no_such_framework", None).startswith("Touches nothing")

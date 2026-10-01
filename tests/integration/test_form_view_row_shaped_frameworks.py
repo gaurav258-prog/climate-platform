@@ -57,20 +57,7 @@ def test_form_view_reit_taxonomy_does_not_crash():
         s.rollback()
 
 
-@pytest.mark.integration
-def test_form_view_assetmgmt_tcfd_does_not_crash():
-    with get_session() as s:
-        u = _actor(s, "admin@nordkap.demo")
-        snap = create_snapshot(s, AM_ORG, "assetmgmt_tcfd", u, period_end=reporting_period_end(s, AM_ORG))
-        fid = s.execute(text("""
-            INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-            VALUES (:o, 'assetmgmt_tcfd', '2097-12-31', 'FY2097', 'draft', :snap, :u)
-            RETURNING filing_id::text
-        """), {"o": AM_ORG, "snap": snap["snapshot_id"], "u": u}).scalar()
-        out = F.form_view(s, AM_ORG, fid)   # must not raise KeyError
-        assert out is not None
-        assert any("Portfolio climate value-at-risk" in g.get("section", "") for g in out["groups"])
-        s.rollback()
+# assetmgmt_tcfd is retired (E87): a historical filing of it renders — tests/integration/test_retired_frameworks.py
 
 
 @pytest.mark.integration

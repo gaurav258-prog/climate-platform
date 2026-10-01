@@ -82,4 +82,4 @@ def test_the_rule_file_is_in_the_spec_register(session_rolled_back):
     entry = next(x for x in S.overview(session_rolled_back) if x["framework"] == "consolidation")
     assert entry["version"] == "regimes" and entry["templates"] == [] and entry["coverage"]["complete"]
     assert {i["subject"] for i in entry["interpretations"]} == {
-        F.FRAMEWORKS[fw]["label"] for fw in ("bank_tcfd", "reit_tcfd", "assetmgmt_tcfd", "insurer_climate")}
+        F.FRAMEWORKS[fw]["label"] for fw in ("bank_tcfd",)}     # the TCFD-style readings left with their reports (E87)

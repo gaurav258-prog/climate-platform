@@ -48,12 +48,17 @@ export const bucketLabel = (b?: string | null): string => !b ? '—' : (BUCKET_L
 
 // regulatory-framework codes → the disclosure's readable name (never show bank_tcfd / sfdr_pai to a user)
 export const FRAMEWORK_LABEL: Record<string, string> = {
-  bank_tcfd: 'TCFD · EU Taxonomy',
-  reit_tcfd: 'TCFD · EU Taxonomy',
+  bank_tcfd: 'EU Taxonomy Art. 8 — credit institutions',
+  bank_p3esg: 'Pillar 3 ESG',
+  reit_taxonomy: 'EU Taxonomy Art. 8 — property book',
+  insurer_solvency: 'Solvency II · nat-cat',
   sfdr_pai: 'SFDR · Principal Adverse Impacts',
-  csrd_e1: 'CSRD · ESRS E1',
   esrs_pack: 'ESRS statement',
-  insurer_climate: 'Climate / NatCat disclosure',
+  // retired report types — their filings stay readable
+  reit_tcfd: 'TCFD · EU Taxonomy (retired)',
+  assetmgmt_tcfd: 'TCFD · holdings (retired)',
+  insurer_climate: 'Climate / NatCat disclosure (retired)',
+  csrd_e1: 'CSRD · ESRS E1 (retired)',
 }
 // map a known key; otherwise title-case it (handles free-typed / future framework names gracefully)
 export const frameworkLabel = (f?: string | null): string =>

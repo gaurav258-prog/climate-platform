@@ -38,7 +38,8 @@ class RunCheckError(ValueError):
                          "; ".join(f"{c['label']} — {c['detail']}" for c in failed))
 
 
-# report type → (vertical, list key, id key, value key, count key, total key, scored key) of the located books
+# report type → (vertical, list key, id key, value key, count key, total key, scored key) of the located books (the retired
+# reit_tcfd / insurer_climate / assetmgmt_tcfd stay so their filings' runs and revisions remain readable)
 LOCATED = {
     "bank_tcfd": ("banking", "assets", "asset_id", "value_eur", "n_assets", "total_value_eur", "n_scored"),
     "bank_p3esg": ("banking", "assets", "asset_id", "value_eur", "n_assets", "total_value_eur", "n_scored"),

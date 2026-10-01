@@ -19,7 +19,8 @@ def test_the_deadlines_the_acts_set():
     assert due_for("insurer_solvency", pe)[0] == date(2026, 4, 8)            # 14 weeks (Art. 312 Del. Reg. 2015/35)
     assert due_for("bank_p3esg", pe)[0] == date(2026, 4, 30)                 # with the annual report, 4 months
     assert due_for("sfdr_pai", pe)[0] == date(2026, 6, 30)                   # 30 June (Art. 4 RTS 2022/1288)
-    assert due_for("insurer_climate", pe)[1].endswith("planning date")       # runs from the ORSA's conclusion
+    assert due_for("sfdr_periodic", pe)[1].endswith("planning date")         # no mandate dates it: the planning date
+    assert due_for("insurer_climate", pe) == (None, None)                    # retired (E87): owes no deadline
     assert due_for("sfdr_precontractual", pe) == (None, None)
 
 

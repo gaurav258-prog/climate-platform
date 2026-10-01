@@ -550,60 +550,6 @@
       ]
     },
     {
-      "id": "assetmgmt_tcfd_guidance",
-      "sectors": [
-        "asset_manager"
-      ],
-      "binding": false,
-      "title": "TCFD-aligned climate disclosure for asset managers",
-      "short": "TCFD (guidance)",
-      "act": {
-        "name": "TCFD Recommendations (2017) and Guidance for Asset Managers; adopted into law per jurisdiction (e.g. IFRS S2 endorsements)",
-        "celex": null,
-        "url": "https://www.fsb-tcfd.org/recommendations/"
-      },
-      "article": {
-        "ref": "TCFD Supplemental Guidance — Asset Managers",
-        "excerpt": "Asset managers should describe how climate-related risks and opportunities are factored into products and strategies, and disclose the metrics used to assess climate-related risks, including physical risks, for each product or strategy where relevant.",
-        "version_date": "2021-10-01"
-      },
-      "criteria": {
-        "all_of": [
-          {
-            "attribute": "sector",
-            "op": "in",
-            "value": [
-              "asset_manager"
-            ],
-            "label": "Asset manager"
-          }
-        ]
-      },
-      "deliverable": {
-        "framework": "assetmgmt_tcfd",
-        "what": "Entity-level TCFD report with physical-risk and concentration metrics for the holdings book",
-        "format": "Report",
-        "channel": "Published; requested by the supervisor where a jurisdiction has adopted the standard",
-        "direction": "pull",
-        "due": {
-          "rule": "with_annual_report",
-          "months_after_period_end": 4,
-          "label": "with the annual report where adopted"
-        },
-        "frequency": "annual",
-        "channel_id": "website_publication"
-      },
-      "detection_celex": [],
-      "versions": [
-        {
-          "version": "2021.1",
-          "effective_from": "2021-10-01",
-          "summary": "2021 TCFD implementing guidance update.",
-          "celex": null
-        }
-      ]
-    },
-    {
       "id": "taxonomy_art8_reit",
       "sectors": [
         "reit"

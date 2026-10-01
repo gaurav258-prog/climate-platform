@@ -229,10 +229,10 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     if not reporting_period_end:
         raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing")
     pe = date.fromisoformat(str(reporting_period_end)[:10])
-    from services.governance.filings import FRAMEWORKS
-    if (FRAMEWORKS.get(framework) or {}).get("retired_for"):
-        raise ProvidedError(f"{FRAMEWORKS[framework]['label']} is retired — state the figure for the "
-                            f"{FRAMEWORKS[FRAMEWORKS[framework]['retired_for']]['label']} (framework 'esrs')")
+    from services.governance.filings import retirement_refusal
+    why = retirement_refusal(framework)
+    if why:
+        raise ProvidedError(why)
     from services.calc_settings import get_calc_settings
     dp = _target(framework, datapoint_key, pe, get_calc_settings(session, org_id), member=breakdown_member)
     if dp["lane"] != "provided" and not dp.get("reconcilable"):

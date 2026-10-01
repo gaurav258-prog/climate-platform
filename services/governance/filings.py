@@ -31,13 +31,23 @@ from sqlalchemy.orm import Session
 from services.governance.money_format import presentation_of
 from services.governance.report_snapshots import _BUILDERS, create_snapshot, get_snapshot
 
+# A retired report type carries one declaration: "retired": {"since", "reason", "replaced_by": a framework key or None}.
+# Its filings stay readable (register, form, annex, export, lineage, retention, assurance pack); nothing new is frozen or
+# owed for it — no filing, refreshed draft, restatement, provided value or obligation. One helper: retirement_refusal().
+_TCFD_RETIRED = {"since": "2026-10-01", "replaced_by": None,
+                 "reason": "a TCFD-style report tied to no regulatory text (the TCFD disbanded in 2023), retired rather "
+                           "than rebuilt"}
+
 # framework (== report_snapshots report_type) -> filing metadata.
 # The deadline is the mandate's (data/reference/regulatory_mandates.json, cited: due_for). `due` (month, day in the year
 # after period_end) is kept ONLY for a report type no mandate dates by the calendar — the platform's planning date.
 FRAMEWORKS = {
-    "bank_tcfd": {"label": "TCFD · EU-Taxonomy disclosure", "sectors": ("bank",),
+    # the credit institution's EU Taxonomy Art. 8 report, governed by the spec family bank_taxonomy
+    # (data/reference/regspec_usage.json); the key keeps its historical name — filings and snapshots reference it
+    "bank_tcfd": {"label": "EU Taxonomy Art. 8 — credit institutions", "sectors": ("bank",),
                   "frequency": "annual",
-                  "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
+                  "regulator": "National competent authority / EBA",
+                  "basis": "Reg. (EU) 2020/852 Art. 8 · Del. Reg. (EU) 2021/2178 Art. 4, Annexes V–VI"},
     "bank_p3esg": {"label": "Pillar 3 ESG risk disclosures", "sectors": ("bank",),
                    "frequency": "annual",
                    "regulator": "National competent authority / EBA", "basis": "CRR Art. 449a"},   # the implementing act: reg_reference.reference() from the governing spec
@@ -45,12 +55,14 @@ FRAMEWORKS = {
                  "frequency": "annual",
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR Art. 4"},   # the RTS: reg_reference.reference() from the governing spec
     "assetmgmt_tcfd": {"label": "TCFD · physical-risk & concentration disclosure (holdings book)", "sectors": ("asset_manager",),
-                       "frequency": "annual",
+                       "frequency": "annual", "retired": _TCFD_RETIRED,
                        "regulator": "National competent authority / TCFD", "basis": "TCFD asset-manager guidance"},
     # ── agriculture (manufacturer) frameworks — builders already registered in report_snapshots._BUILDERS ──
-    # retired: its filings stay readable; a new ESRS statement is an esrs_pack filing (E1 is one of its standards)
     "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
-                "frequency": "annual", "retired_for": "esrs_pack",
+                "frequency": "annual",
+                "retired": {"since": "2026-09-30", "replaced_by": "esrs_pack",
+                            "reason": "an ESRS statement is filed per undertaking as one esrs_pack filing (E1 is one of "
+                                      "its standards)"},
                 "regulator": "National competent authority (CSRD)", "basis": "ESRS E1"},
     # one undertaking's (or group's) ESRS statement for one financial year, on the version governing that year
     # (services.governance.esrs_document); its deadline is the mandate's (with the management report)
@@ -59,7 +71,7 @@ FRAMEWORKS = {
                   "regulator": "National competent authority (CSRD)",
                   "basis": "Directive 2013/34/EU Art. 19a / 29a · ESRS (Del. Reg. (EU) 2023/2772 as amended; (EU) 2026/1563)"},
     "reit_tcfd": {"label": "TCFD · EU-Taxonomy disclosure (property book)", "sectors": ("reit",),
-                  "frequency": "annual", "due": (4, 30),
+                  "frequency": "annual", "retired": _TCFD_RETIRED,
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
     "reit_taxonomy": {"label": "EU Taxonomy Article 8 KPIs (property book)", "sectors": ("reit",),
                       "frequency": "annual",
@@ -77,7 +89,7 @@ FRAMEWORKS = {
                                 "regulator": "National competent authority (Solvency II supervisor)",
                                 "basis": "Directive (EU) 2025/1 Art. 5(7), (8)"},
     "insurer_climate": {"label": "Climate / NatCat exposure disclosure", "sectors": ("insurer",),
-                        "frequency": "annual", "due": (4, 30),
+                        "frequency": "annual", "retired": _TCFD_RETIRED,
                         "regulator": "National competent authority / EIOPA", "basis": "Solvency II · IFRS S2"},
     # ── per financial product (services.governance.product_filings): the fund is the filing's subject ──
     # the pre-contractual document is annexed to the prospectus and kept current — no calendar deadline
@@ -142,18 +154,41 @@ class FilingError(ValueError):
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
 from services.governance.product_filings import PRODUCT_SCOPED as _PRODUCT_SCOPED  # noqa: E402
 
-_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd",
+_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_taxonomy", "insurer_solvency",
                   "insurer_orsa_climate", "insurer_recovery_stress", "esrs_pack"}
 # filed for a group by weighting each entity's book by the consolidation rule of data/reference/consolidation/regimes.json
 # (the ESRS statement has its own scope, services.governance.esrs_statement.scope)
 GROUP_FRAMEWORKS = _ENTITY_SCOPED - {"esrs_pack"}
 
 
+def retirement(framework: str) -> dict | None:
+    """The framework's retirement declaration ({"since", "reason", "replaced_by"}), or None while it is live."""
+    return (FRAMEWORKS.get(framework) or {}).get("retired")
+
+
+def retired_frameworks() -> list[str]:
+    """Every retired framework key — for a query that leaves out what is no longer owed."""
+    return sorted(k for k in FRAMEWORKS if retirement(k))
+
+
+def retirement_refusal(framework: str) -> str | None:
+    """Why nothing new can be made for a retired framework — the one message every caller refusing a new filing,
+    a refreshed draft, a restatement or a provided value gives; None while the framework is live."""
+    r = retirement(framework)
+    if not r:
+        return None
+    label = FRAMEWORKS[framework]["label"]
+    succ = r.get("replaced_by")
+    then = (f"prepare a {FRAMEWORKS[succ]['label']} instead" if succ else
+            "nothing replaces it, and no new filing, refreshed draft, restatement or provided value is made for it")
+    return f"{label} is retired since {r['since']} — {r['reason']}. Its filings stay readable as filed; {then}."
+
+
 def available_frameworks(org_type: str) -> list[dict]:
     """Frameworks that apply to this org-type sector, each with its cadence and statutory deadline shape."""
     out = []
     for key, f in FRAMEWORKS.items():
-        if org_type in f["sectors"] and key in _BUILDERS and not f.get("retired_for"):
+        if org_type in f["sectors"] and key in _BUILDERS and not retirement(key):
             out.append({"framework": key, "label": f["label"], "frequency": f["frequency"],
                         "regulator": f["regulator"], "basis": f["basis"],
                         "entity_scoped": key in _ENTITY_SCOPED, "product_scoped": key in _PRODUCT_SCOPED})
@@ -542,10 +577,14 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
     today = date.today()
     out = []
     for r in rows:
+        retired = retirement(r["framework"]) is not None
+        if retired and not r["filing_id"]:
+            continue                                   # a retired report is owed no more; one filed stays on record
         status = r["filing_status"] or "not_started"
         done = status in ("submitted", "accepted")
         days_left = (r["due_date"] - today).days
         out.append({
+            "retired": retired,
             "obligation_id": str(r["obligation_id"]), "framework": r["framework"],
             "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_end": r["period_end"].isoformat(), "period_label": r["period_label"],
@@ -553,7 +592,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             "filing_id": str(r["filing_id"]) if r["filing_id"] else None,
             "filing_status": status, "days_to_due": days_left,
             "source": r["source"] or "entity", "set_by": r["set_by"],
-            "overdue": (not done and days_left < 0),
+            "overdue": (not done and not retired and days_left < 0),
             "entity_id": str(r["entity_id"]) if r["entity_id"] else None,
             "entity_name": r["entity_name"],
             "fund_id": str(r["fund_id"]) if r["fund_id"] else None, "fund_name": r["fund_name"],
@@ -854,7 +893,7 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                              "pct": round(100 * done / mand, 1) if mand else 0},
                 "total_value_eur": ent.get("total_value_eur"), "value_at_risk_eur": None,
                 "noun": "positions", "positions": ent.get("positions"), "gaps": gaps}
-    if framework == "reit_tcfd":
+    if framework == "reit_taxonomy":                   # the property book it freezes (until E87 this was reit_tcfd's only)
         from api.routers.realestate import build_disclosure_snapshot
         r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"], entity_ids=entity_ids,
                                       value_weights=value_weights, translation=translation)["rollup"]
@@ -865,22 +904,22 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_value_eur"), "value_at_risk_eur": None,
                 "noun": "properties", "gaps": gaps}
-    if framework in ("insurer_climate", "insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"):
+    if framework in ("insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"):
         from api.routers.insurance import build_disclosure_snapshot
         from services.governance.entities import root_of
+        from services.insurer_capital import position, programme
         r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"], entity_ids=entity_ids,
                                       value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_policies", 0), r.get("n_priced", 0)
         if n_total and n_done < n_total:
             gaps.append(f"{n_total - n_done} of {n_total} policies not yet priced")
-        if framework != "insurer_climate":              # figures stated per undertaking (or group) under Solvency II
-            from services.insurer_capital import position, programme
-            pe = reporting_period_end(session, org_id)
-            who = root_of(session, org_id, entity_ids)
-            if not position(session, org_id, pe, who).get("provenance"):
-                gaps.append("own funds / SCR not attested for this undertaking and period")
-            if programme(session, org_id, pe, who)[1] != "attested":
-                gaps.append("reinsurance in force not attested for this undertaking and period")
+        # figures stated per undertaking (or group) under Solvency II
+        pe = reporting_period_end(session, org_id)
+        who = root_of(session, org_id, entity_ids)
+        if not position(session, org_id, pe, who).get("provenance"):
+            gaps.append("own funds / SCR not attested for this undertaking and period")
+        if programme(session, org_id, pe, who)[1] != "attested":
+            gaps.append("reinsurance in force not attested for this undertaking and period")
         return {"coverage": {"label": "policies priced", "done": n_done, "total": n_total,
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_sum_insured_eur"), "value_at_risk_eur": None,
@@ -903,7 +942,7 @@ def org_data_coverage_pct(session: Session, org_id: str, org_type: str, framewor
     agri csrd_e1/esrs_pack), same honesty as preflight itself — never a fabricated 0%."""
     if framework not in FRAMEWORKS or framework not in _BUILDERS or org_type not in FRAMEWORKS[framework]["sectors"]:
         return None
-    if framework in _PRODUCT_SCOPED:                   # per fund: no single organisation-wide ratio
+    if framework in _PRODUCT_SCOPED or retirement(framework):   # per fund: no single ratio; retired: nothing to prepare
         return None
     from services.governance.reporting_settings import get_settings
     basis = get_settings(session, org_id)
@@ -917,18 +956,15 @@ def _open_for_new(framework: str, org_type: str) -> None:
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
         raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
-    if FRAMEWORKS[framework].get("retired_for"):
-        raise FilingError(f"{FRAMEWORKS[framework]['label']} is retired — prepare a "
-                          f"{FRAMEWORKS[FRAMEWORKS[framework]['retired_for']]['label']} instead")
+    _not_retired(framework)
 
 
 def _not_retired(framework: str) -> None:
-    """A retired framework's engine freezes nothing new — not a new filing, a refreshed draft or a restatement: its
-    filings stay readable as frozen, and a correction is prepared under its successor."""
-    succ = FRAMEWORKS.get(framework, {}).get("retired_for")
-    if succ:
-        raise FilingError(f"{FRAMEWORKS[framework]['label']} is retired — its filings stay as filed; prepare the "
-                          f"correction as a {FRAMEWORKS[succ]['label']} for the same period")
+    """A retired framework freezes nothing new — not a new filing, a refreshed draft or a restatement: its filings
+    stay readable as frozen; a correction, where it has a successor, is prepared under that."""
+    why = retirement_refusal(framework)
+    if why:
+        raise FilingError(why)
 
 
 def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):

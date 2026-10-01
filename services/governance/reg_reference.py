@@ -13,14 +13,15 @@ REFERENCE: dict[str, dict] = {
     # carries the reporting TEMPLATES — deliberately distinct from `url` where the templates live in a separate
     # amending act / annex / regulator page, so "Official regulation" and "Official form" no longer collide.
     "bank_tcfd": {
-        "official_name": "TCFD-aligned climate disclosures with EU Taxonomy Article 8 KPIs",
+        # the report type keeps its historical key; it is the credit institution's Art. 8 report (spec family bank_taxonomy)
+        "official_name": "EU Taxonomy Article 8 KPIs — credit institutions (Green Asset Ratio)",
         "authority": "National competent authority / EBA",
-        "legal_basis": "Taxonomy Regulation (EU) 2020/852, Art. 8 · Disclosures Delegated Act (EU) 2021/2178 (credit-institution KPIs apply from 2024) · TCFD recommendations",
+        # the templates' act and version come from the governing specification (reference())
+        "legal_basis": "Taxonomy Regulation (EU) 2020/852, Art. 8 · Delegated Regulation (EU) 2021/2178, Art. 4, Annexes V–VI",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
-        "summary": "Credit institutions disclose the EU-Taxonomy eligibility and alignment of their exposures "
-                   "(including the Green Asset Ratio) together with TCFD-aligned governance, strategy, "
-                   "risk-management and metrics for climate physical and transition risk.",
-        "official_form": "Green Asset Ratio reporting templates — Annexes V–XI of Delegated Reg. (EU) 2021/2178 (credit-institution KPIs)",
+        "summary": "Credit institutions disclose the EU-Taxonomy eligibility and alignment of their exposures, "
+                   "including the Green Asset Ratio, on the templates of Annex VI to Delegated Regulation (EU) 2021/2178.",
+        "official_form": "Annex VI templates of Delegated Reg. (EU) 2021/2178 (credit-institution KPIs)",
         "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
         "inputs": "Loan / exposure book: counterparty, NACE sector, collateral location, outstanding balance, "
                   "and EU-Taxonomy eligibility & alignment flags.",

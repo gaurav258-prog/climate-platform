@@ -98,6 +98,14 @@ def observe(session: Session, org_id: str, framework: Optional[str] = None, resu
                 session.execute(text("UPDATE kri_breach_episode SET cleared_at = now() WHERE episode_id = CAST(:e AS uuid)"),
                                 {"e": ep["episode_id"]})
                 cleared += 1
+    if framework is None:
+        # a KRI set the organisation no longer has (its report type retired and the set re-anchored, E87) is evaluated
+        # no more: its open episodes end here instead of staying open for ever
+        live = _frameworks(session, org_id, None)
+        cleared += session.execute(text("""
+            UPDATE kri_breach_episode SET cleared_at = now()
+            WHERE org_id = CAST(:o AS uuid) AND cleared_at IS NULL AND framework <> ALL(CAST(:live AS text[]))
+        """), {"o": org_id, "live": live}).rowcount or 0
     session.commit()
     return {"opened": opened, "updated": updated, "cleared": cleared}
 

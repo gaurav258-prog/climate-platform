@@ -76,18 +76,18 @@ _BUILDERS = {
     "esrs_pack": ("ESRS sustainability statement — E1, E3, E4",
                   lambda s, o, sc, hz, ei, vw, tr, pe: _esrs_statement(s, o, ei, pe), ("manufacturer",)),
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
-    "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
+    "bank_tcfd": ("EU Taxonomy Art. 8 — credit institutions (loan book)",
                   lambda s, o, sc, hz, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "bank_p3esg": ("Pillar 3 ESG risk disclosures (EBA)",
                    lambda s, o, sc, hz, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
                  lambda s, o, sc, hz, ei, vw, tr, pe: _sfdr_pai(s, o), ("asset_manager",)),
+    # retired (services.governance.filings.FRAMEWORKS[..]["retired"]): their frozen snapshots stay readable; nothing new
     "assetmgmt_tcfd": ("TCFD · physical-risk & concentration disclosure (holdings book)",
-                       lambda s, o, sc, hz, ei, vw, tr, pe: _assetmgmt_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("asset_manager",)),
-    "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
-                  lambda s, o, sc, hz, ei, vw, tr, pe: _reit_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("reit",)),
+                       lambda *a: _retired("assetmgmt_tcfd"), ("asset_manager",)),
+    "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)", lambda *a: _retired("reit_tcfd"), ("reit",)),
     "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
-                        lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_climate(s, o, sc, hz, ei, vw, tr, pe), ("insurer",)),
+                        lambda *a: _retired("insurer_climate"), ("insurer",)),
     "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
                       lambda s, o, sc, hz, ei, vw, tr, pe: _reit_taxonomy(s, o, sc, hz, ei, vw, tr, pe), ("reit",)),
     "insurer_orsa_climate": ("ORSA — climate change scenario analysis (Art. 45a)",
@@ -104,10 +104,11 @@ _BUILDERS = {
 
 
 def _retired(report_type: str):
-    """A retired report freezes nothing new (services.governance.filings._not_retired guards every path to here); its
-    frozen snapshots stay readable. Its engine is gone — it read a v0 business-interruption curve and a fixed
-    'material' line of the platform's own (E69)."""
-    raise ValueError(f"{report_type} is retired — prepare its successor instead")
+    """A retired report freezes nothing new (create_snapshot refuses it first, with the reason of its declaration —
+    services.governance.filings.retirement_refusal); its frozen snapshots stay readable. Its engine is gone (csrd_e1 read
+    a v0 business-interruption curve and a fixed 'material' line of the platform's own, E69; the TCFD-style reports, E87)."""
+    from services.governance.filings import retirement_refusal
+    raise ValueError(retirement_refusal(report_type) or f"{report_type} is retired")
 
 
 # a report type whose provided values are stated under a family shared by every report that prints them
@@ -131,37 +132,15 @@ def _sfdr_pai(session, org_id):
     return entity_pai_statement(session, org_id)
 
 
-def _assetmgmt_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
-    from api.routers.assetmgmt import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation, period_end=period_end)
-
-
-def _reit_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
-    from api.routers.realestate import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation, period_end=period_end)
-
-
-def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
-    from api.routers.insurance import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation, period_end=period_end)
-
-
 def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     """EU Taxonomy Article 8 KPIs for the REIT property book (on top of the same frozen disclosure snapshot).
 
     Carries the full `properties` + `by_hazard` alongside `rollup` (fixed 2026-09-23 — an independent
     architecture review found this framework couldn't be traced back to source: build_disclosure_snapshot()
     computes the full per-property {h3_cell, hazards[]} list right here, in `snap`, and this used to discard
-    it, keeping only the rollup aggregate. That made the earlier "documented workaround" — trace the sibling
-    reit_tcfd filing instead — not just inconvenient but sometimes impossible: an org that only ever files
-    reit_taxonomy (never reit_tcfd) had no sibling to trace at all, and a snapshot that depends on a SEPARATE
-    filing to be reproducible isn't really self-contained. Carrying the same data this framework already
-    computes is the actual fix, not a workaround. Duplicating it against reit_tcfd's own frozen snapshot for
-    the same period is no different in kind from the duplication every WORM version-to-version freeze already
-    accepts; see filing_lineage._LIST_CFG."""
+    it, keeping only the rollup aggregate, so it could be traced only through a sibling filing of another report
+    type (now retired). A snapshot that depends on a SEPARATE filing to be reproducible isn't self-contained;
+    carrying the data this framework already computes is the fix. See filing_lineage._LIST_CFG."""
     from api.routers.realestate import build_disclosure_snapshot
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
                                      translation=translation, period_end=period_end)
@@ -265,6 +244,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     fund_id: the financial product a per-product report (sfdr_precontractual / sfdr_periodic) is about."""
     if report_type not in _BUILDERS:
         raise ValueError(f"unknown report_type '{report_type}'")
+    from services.governance.filings import retirement_refusal
+    if retirement_refusal(report_type):                  # a retired report freezes nothing new — the one reason
+        raise ValueError(retirement_refusal(report_type))
     s = get_settings(session, org_id)
     from datetime import date as _pd
     period_end = _pd.fromisoformat(str(period_end)[:10])            # the filing's period — never the org's setting

@@ -52,10 +52,10 @@ def test_the_check_names_each_kind_of_problem():
     bad["frameworks"]["bank_p3esg"]["refs"] = ["ESRS 1 §62"]
     bad["frameworks"]["bank_p3esg"]["declaration"] = {"reading": "x", "declared_by": "x", "declared": "2026-01-01"}
     bad["regimes"]["crr_prudential"]["refs"][0]["quote"] = "a sentence no act contains"
-    del bad["frameworks"]["reit_tcfd"]
+    del bad["frameworks"]["reit_taxonomy"]
     errs = " | ".join(rules.check(bad))
     for part in ("bank_tcfd: a declared reading needs", "bank_p3esg: cites a ref", "bank_p3esg: a rule set by the text",
-                 "not found word for word", "reit_tcfd: can be filed for a group but has no consolidation rule"):
+                 "not found word for word", "reit_taxonomy: can be filed for a group but has no consolidation rule"):
         assert part in errs, part
 
 

@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 
 def _scope(session: Session, org_id: str, framework: str | None) -> dict | None:
     """How many of the client's own records fall under the framework the change touches."""
-    if not framework:
+    from services.governance.filings import retirement
+    if not framework or retirement(framework):          # a retired report: no new filing a change could reach
         return None
     try:
         if framework == "eudr_dds":
@@ -27,11 +28,8 @@ def _scope(session: Session, org_id: str, framework: str | None) -> dict | None:
         if framework == "esrs_pack":
             sites = session.execute(text("SELECT count(*) FROM sc_company_sites WHERE org_id=:o"), {"o": org_id}).scalar()
             return {"n": int(sites or 0), "label": "sites"}
-        if framework == "csrd_e1":
-            sites = session.execute(text("SELECT count(*) FROM sc_company_sites WHERE org_id=:o"), {"o": org_id}).scalar()
-            plots = session.execute(text("SELECT count(*) FROM sc_sourcing_plots WHERE org_id=:o"), {"o": org_id}).scalar()
-            return {"n": int(sites or 0) + int(plots or 0), "label": "sites & sourcing plots"}
-        if framework in ("bank_p3esg", "bank_tcfd", "sfdr_pai", "assetmgmt_tcfd", "reit_tcfd", "insurer_climate"):
+        if framework in ("bank_p3esg", "bank_tcfd", "sfdr_pai", "reit_taxonomy", "insurer_solvency", "insurer_orsa_climate",
+                         "insurer_recovery_stress"):
             n = session.execute(text("SELECT count(*) FROM portfolio_entities WHERE org_id=:o"), {"o": org_id}).scalar()
             return {"n": int(n or 0), "label": "exposures / holdings"}
     except Exception:

@@ -344,8 +344,8 @@ def set_decision_playbook(body: PlaybookPatch, session: DbSession,
 # ── KRI appetite: per-org RAG bands on each Key Regulatory Indicator ──────
 
 # org type → the KRI framework it reports on (mirrors web/src/pages/Kri.tsx)
-_KRI_FRAMEWORK = {"bank": "bank_tcfd", "asset_manager": "sfdr_pai", "reit": "reit_tcfd",
-                  "insurer": "insurer_climate", "manufacturer": "esrs_pack"}
+_KRI_FRAMEWORK = {"bank": "bank_tcfd", "asset_manager": "sfdr_pai", "reit": "reit_taxonomy",
+                  "insurer": "insurer_solvency", "manufacturer": "esrs_pack"}
 # KRIs whose value is a numeric that can be graded against a band
 _GRADEABLE_FMT = {"eur", "pct", "num", "ha", "dec"}
 

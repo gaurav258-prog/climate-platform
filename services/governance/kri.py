@@ -47,9 +47,10 @@ def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integra
 
 
 # the frameworks with a KRI builder, and their short picker labels (one org-type can report several)
-_KRI_LABELS = {"bank_tcfd": "TCFD · Taxonomy", "bank_p3esg": "Pillar 3 ESG", "sfdr_pai": "SFDR PAI",
-               "reit_tcfd": "TCFD · property", "insurer_climate": "Climate / NatCat", "esrs_pack": "ESRS E1·E3·E4",
-               "assetmgmt_tcfd": "TCFD · holdings"}
+# (the REIT / insurer / asset-manager sets are anchored on their sector's governed report — services.governance.kri_sectors)
+_KRI_LABELS = {"bank_tcfd": "EU Taxonomy Art. 8", "bank_p3esg": "Pillar 3 ESG", "sfdr_pai": "SFDR PAI",
+               "reit_taxonomy": "EU Taxonomy · property", "insurer_solvency": "Solvency II · nat-cat",
+               "esrs_pack": "ESRS E1·E3·E4"}
 
 
 def kri_frameworks(org_type: str | None) -> list[dict]:
@@ -67,13 +68,17 @@ def kri(session: Session, org_id: str, framework: str, entity_id: str | None = N
     elif framework == "bank_p3esg":
         result = _p3esg_kri(session, org_id)
     elif framework == "sfdr_pai":
+        from services.governance.kri_sectors import holdings_kpis
         result = _sfdr_kri(session, org_id)
-    elif framework == "reit_tcfd":
-        result = _reit_kri(session, org_id)
-    elif framework == "insurer_climate":
-        result = _insurer_kri(session, org_id)
-    elif framework == "assetmgmt_tcfd":
-        result = _assetmgmt_kri(session, org_id)
+        held, by_hazard = holdings_kpis(session, org_id)          # the holdings book's KRIs: live only
+        result["kpis"] = result["kpis"] + held
+        result["by_hazard"] = result.get("by_hazard") or by_hazard
+    elif framework == "reit_taxonomy":
+        from services.governance.kri_sectors import reit_kri
+        result = reit_kri(session, org_id)
+    elif framework == "insurer_solvency":
+        from services.governance.kri_sectors import insurer_kri
+        result = insurer_kri(session, org_id)
     elif framework == "esrs_pack":
         from services.governance import kri_esrs
         result = kri_esrs.build(session, org_id, entity_id)
@@ -107,144 +112,6 @@ def kri(session: Session, org_id: str, framework: str, entity_id: str | None = N
     return result
 
 
-def _reit_kri(session: Session, org_id: str) -> dict:
-    from api.routers.realestate import build_disclosure_snapshot
-    from services.governance.reporting_settings import get_settings
-    s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
-    r = snap["rollup"]
-    tax = snap.get("taxonomy", {})
-    total = r.get("total_value_eur", 0) or 0
-    elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
-    tax_total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
-    cov = round(100 * r.get("n_scored", 0) / r.get("n_properties", 1), 1) if r.get("n_properties") else 0
-    kpis = [
-        _kpi("total_value", "Property book value", total, "eur"),
-        _kpi("value_at_risk", "Value at material physical risk", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
-             hint="Value at or above the stated at-risk level (method.at_risk_level)"),
-        _kpi("pct_at_risk", "Share at risk", r.get("pct_value_at_risk"), "pct", tone="#f0a860"),
-        _kpi("noi_impact", "NOI impact", r.get("portfolio_noi_impact_pct"), "pct",
-             hint="Insurance cost of the insured perils on the insured values (stated method), as a share of NOI"),
-        _kpi("coverage", "Book scored", cov, "pct"),
-        _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
-    ]
-    # transition risk — energy-performance stranding on the owner's stated brown discount per EPC grade
-    es = r.get("energy_stranding") or {}
-    if es.get("n_assessed"):
-        kpis.append(_kpi("stranding", "Value at stranding risk", es.get("value_at_stranding_risk_eur"), "eur",
-                         tone="#f0a860", hint=(es.get("gap") and f"Not computed — {es['gap']}") or
-                         (f"Value the owner's stated brown discount per EPC grade takes (transition risk); "
-                          f"{es.get('epc_coverage_pct')}% of the book is assessed (EPC and value on record)")))
-    # adaptation — resilience capex to de-risk and the loss it avoids (benefit-cost)
-    rc = r.get("resilience_capex") or {}
-    if rc.get("available"):
-        kpis.append(_kpi("resilience_capex", "Resilience capex to de-risk", _amount(rc.get("total_resilience_capex_eur")), "eur",
-                         tone="#f0a860", hint=(f"Adaptation capex modelled against {_millions(rc.get('total_avoided_loss_eur'))} "
-                                               f"avoided physical loss (benefit-cost {rc.get('portfolio_benefit_cost_ratio')}×), "
-                                               "on the stated method")))
-    by_hazard = _by_hazard(snap)
-    history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
-                "value_at_risk": (h["payload"].get("rollup") or {}).get("value_at_risk_eur"),
-                "pct_at_risk": (h["payload"].get("rollup") or {}).get("pct_value_at_risk")}
-               for h in _snapshot_history(session, org_id, "reit_tcfd")]
-    return {"framework": "reit_tcfd", "supported": True, "label": "REIT physical-risk KRIs",
-            "kpis": kpis, "by_hazard": by_hazard, "history": history}
-
-
-def _insurer_kri(session: Session, org_id: str) -> dict:
-    from api.routers.insurance import build_disclosure_snapshot
-    from services.governance.reporting_settings import get_settings
-    s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
-    r = snap["rollup"]
-    total = r.get("total_sum_insured_eur", 0) or 0
-    cov = round(100 * r.get("n_priced", 0) / r.get("n_policies", 1), 1) if r.get("n_policies") else 0
-    kpis = [
-        _kpi("sum_insured", "Sum insured", total, "eur"),
-        _kpi("eal", "Expected annual loss", r.get("total_expected_annual_loss_eur"), "eur", tone="#fb7185"),
-        _kpi("value_at_risk", "Sum insured at material physical risk", r.get("value_at_risk_eur"), "eur",
-             hint="Sum insured at or above the stated at-risk level (method.at_risk_level)"),
-        _kpi("coverage", "Policies priced", cov, "pct"),
-    ]
-    # Catastrophe PML — the correlated 1-in-N tail the summed EALs hide (read from the frozen snapshot).
-    cat = r.get("catastrophe") or {}
-    if cat.get("available"):
-        rp_ = cat.get("pml_return_period")
-        kpis.append(_kpi("cat_pml", f"Catastrophe PML (1-in-{rp_})" if rp_ else "Catastrophe PML", _amount(cat.get("pml_eur")), "eur",
-                         tone="#fb7185", hint=cat.get("pml_gap") or ("Probable maximum loss — the single largest modelled "
-                                              "event at your chosen return period, from the common-shock accumulation engine")))
-    # the modelled 1-in-200 annual loss (platform catastrophe simulation on the stated method — not an internal model)
-    from services.governance.insurer_solvency import modelled_1_in_200
-    scr = snap.get("solvency_scr") or {}
-    if scr.get("available"):
-        kpis.append(_kpi("natcat_scr", "Modelled 1-in-200 nat-cat loss", _amount(modelled_1_in_200(scr)), "eur",
-                         tone="#f0a860", hint="The 1-in-200 annual loss of the platform's catastrophe simulation on the "
-                                              "undertaking's stated damage ratios and event probabilities — not an "
-                                              "approved internal model; the standard formula is on the Solvency page"))
-    # Net-of-reinsurance retention — the loss that hits capital after ceding (the attested treaty).
-    reins = snap.get("reinsurance") or {}
-    net = reins.get("net") or {}
-    if reins.get("available") and net:
-        kpis.append(_kpi("net_retention", "Net retention (post-reinsurance PML)", _amount(net.get("net_pml_eur")), "eur",
-                         tone="#f0a860", hint=f"PML retained after the attested reinsurance treaty "
-                                              f"({net.get('cession_ratio_pct')}% ceded)"))
-    # the ASSET side — climate VaR on the insurer's own investment book (EIOPA/IFRS S2 require both sides)
-    inv = snap.get("investments") or {}
-    iv = inv.get("climate_var") or {}
-    if inv.get("available") and iv.get("available"):
-        kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", _amount(iv.get("var99_eur")), "eur",
-                         tone="#fb7185", hint=f"Combined physical+transition climate VaR on the insurer's own investment "
-                                              f"book ({inv.get('coverage_pct')}% of positions scored) — the asset side, "
-                                              "EIOPA/IFRS S2"))
-    by_hazard = _by_hazard(snap)
-    history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_sum_insured_eur"),
-                "value_at_risk": (h["payload"].get("rollup") or {}).get("total_expected_annual_loss_eur"),
-                "pct_at_risk": None} for h in _snapshot_history(session, org_id, "insurer_climate")]
-    return {"framework": "insurer_climate", "supported": True, "label": "Insurer climate/NatCat KRIs",
-            "kpis": kpis, "by_hazard": by_hazard, "history": history}
-
-
-def _assetmgmt_kri(session: Session, org_id: str) -> dict:
-    from api.routers.assetmgmt import build_disclosure_snapshot
-    from services.governance.reporting_settings import get_settings
-    s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
-    r = snap.get("rollup", {})
-    tax = snap.get("taxonomy", {})
-    conc = snap.get("concentration", {})
-    total = r.get("total_portfolio_value_eur", 0) or 0
-    elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
-    tax_total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
-    cov = round(100 * r.get("n_scored", 0) / r.get("n_holdings", 1), 1) if r.get("n_holdings") else 0
-    kpis = [
-        _kpi("total_value", "Portfolio value", total, "eur"),
-        _kpi("climate_var", "Portfolio climate VaR", r.get("total_climate_var_eur"), "eur", tone="#fb7185",
-             hint="Position value − climate-discounted value across the book"),
-        _kpi("var_pct", "Climate VaR (% of book)", r.get("portfolio_climate_var_pct"), "pct", tone="#f0a860"),
-        _kpi("coverage", "Holdings scored", cov, "pct"),
-        _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
-    ]
-    # concentration — the diversification diagnostic (common-shock share + top-region share)
-    if conc.get("available"):
-        tr = conc.get("top_region") or {}
-        kpis.append(_kpi("common_shock", "VaR in largest common-shock", conc.get("common_shock_var_pct_of_total"), "pct",
-                         tone="#fb7185", hint=(f"Share of total climate VaR in the single largest common-shock cluster "
-                                               f"({(conc.get('common_shock') or {}).get('hazard', '—')} in "
-                                               f"{(conc.get('common_shock') or {}).get('region', '—')}) — the "
-                                               "concentration a single event exposes")))
-        kpis.append(_kpi("top_region_conc", "Top-region concentration", tr.get("pct_of_book"), "pct", tone="#f0a860",
-                         hint=(f"Largest single region: {tr.get('region', '—')}. Effective independent regions "
-                               f"(1/HHI): {conc.get('effective_regions')} · hazards: {conc.get('effective_hazards')}")))
-    by_hazard = _by_hazard(snap)
-    history = [{"label": h["label"], "filing_id": h["filing_id"],
-                "total_value": (h["payload"].get("rollup") or {}).get("total_portfolio_value_eur"),
-                "value_at_risk": (h["payload"].get("rollup") or {}).get("total_climate_var_eur"),
-                "pct_at_risk": (h["payload"].get("rollup") or {}).get("portfolio_climate_var_pct")}
-               for h in _snapshot_history(session, org_id, "assetmgmt_tcfd")]
-    return {"framework": "assetmgmt_tcfd", "supported": True, "label": "Asset-manager holdings KRIs",
-            "kpis": kpis, "by_hazard": by_hazard, "history": history}
-
-
 def _by_hazard(snap: dict) -> list[dict]:
     return sorted([{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
                    for h, b in (snap.get("by_hazard") or {}).items() if (b.get("exposed_value_eur") or 0) > 0],
@@ -252,16 +119,19 @@ def _by_hazard(snap: dict) -> list[dict]:
 
 
 # noun per framework for the hazard drill
-_NOUN = {"bank_tcfd": "assets", "bank_p3esg": "assets", "reit_tcfd": "properties", "insurer_climate": "policies"}
+_NOUN = {"bank_tcfd": "assets", "bank_p3esg": "assets", "reit_taxonomy": "properties", "insurer_solvency": "policies",
+         "sfdr_pai": "holdings"}
 
 
 def _live_snapshot(session: Session, org_id: str, framework: str, scenario: str, horizon: str) -> dict:
     if framework in ("bank_tcfd", "bank_p3esg"):
         from api.routers.bank import build_disclosure_snapshot
-    elif framework == "reit_tcfd":
+    elif framework == "reit_taxonomy":
         from api.routers.realestate import build_disclosure_snapshot
-    elif framework == "insurer_climate":
+    elif framework == "insurer_solvency":
         from api.routers.insurance import build_disclosure_snapshot
+    elif framework == "sfdr_pai":                       # the holdings book behind the asset manager's live KRIs
+        from api.routers.assetmgmt import build_disclosure_snapshot
     else:
         return {}
     return build_disclosure_snapshot(session, org_id, scenario, horizon)
@@ -272,7 +142,7 @@ def kri_hazard(session: Session, org_id: str, framework: str, hazard: str, entit
     from services.governance.filing_lineage import _LIST_CFG
     from services.governance.reporting_settings import get_settings
     s = get_settings(session, org_id)
-    cfg = _LIST_CFG.get(framework)
+    cfg = _LIST_CFG.get("assetmgmt_tcfd" if framework == "sfdr_pai" else framework)   # sfdr_pai: its holdings book
     if cfg:
         snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
         from services.governance.pillar3_templates import hazard_hit, stated_level
@@ -347,6 +217,13 @@ _METHODOLOGY = {
 }
 
 
+def _filed_value(h: dict, kri_key: str, hf: str | None):
+    """A KRI's value in one filed period: the legacy history slot, or the figure the anchor report printed."""
+    if hf and h.get(hf) is not None:
+        return h.get(hf)
+    return next((f["value"] for f in h.get("figures") or [] if f["key"] == kri_key), None)
+
+
 def kri_detail(session: Session, org_id: str, framework: str, kri_key: str, entity_id: str | None = None) -> dict:
     """The drill behind one KRI tile: the tile itself (value, appetite, provenance, regulator datapoint),
     a plain-language methodology, its trend across filed history where tracked, and its composition
@@ -358,8 +235,10 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str, enti
     if not kpi:
         return {"supported": False, "message": "unknown KRI"}
     hf = _HIST_FIELD.get(kri_key) or (_esrs_hist(kri_key) if framework == "esrs_pack" else None)
-    trend = [{"label": h["label"], "value": h.get(hf), "filing_id": h.get("filing_id")}
-             for h in (result.get("history") or []) if hf and h.get(hf) is not None] if hf else []
+    trend = [{"label": h["label"], "value": _filed_value(h, kri_key, hf), "filing_id": h.get("filing_id")}
+             for h in (result.get("history") or []) if _filed_value(h, kri_key, hf) is not None]
+    if kpi.get("live_only"):                          # no governed report prints it: no filed trend (E87)
+        trend = []
     return {
         "supported": True, "framework": framework, "kpi": kpi,
         "regulator": result.get("regulator"),
@@ -369,7 +248,7 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str, enti
         "composition": _kri_composition(session, org_id, framework, kri_key, result),
         "drivers": _kri_drivers(session, org_id, framework, kri_key),
         "actions": {
-            "analytics": (kri_key in _EXPOSURE_KEYS or kri_key in _FORWARD_KEYS) and framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd"),
+            "analytics": (kri_key in _EXPOSURE_KEYS or kri_key in _FORWARD_KEYS) and framework in ("bank_tcfd", "bank_p3esg", "reit_taxonomy"),
             "provide": kpi.get("kind") == "integrated",
         },
     }
@@ -381,13 +260,13 @@ _PROJECTION_KEYS = {"value_at_risk", "pct_at_risk", "forward_share"}
 
 
 def _kri_projection(session: Session, org_id: str, framework: str, kri_key: str, kpi: dict) -> dict | None:
-    if kri_key not in _PROJECTION_KEYS or framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
+    if kri_key not in _PROJECTION_KEYS or framework not in ("bank_tcfd", "bank_p3esg", "reit_taxonomy"):
         return None
     try:
         from services.governance.reporting_settings import get_settings
         from services.intelligence.forward_risk import forward_risk
         from services.money.params import for_org
-        vert = {"reit_tcfd": "realestate"}.get(framework, "banking")
+        vert = {"reit_taxonomy": "realestate"}.get(framework, "banking")
         s = get_settings(session, org_id)
         scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
         fr = forward_risk(session, org_id, vert, scen, for_org(session, org_id))
@@ -424,7 +303,7 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
     Without a segment, the filter follows the KRI. With a segment (from a click on a composition bar) the
     filter narrows to that slice: seg_type 'scope' (emissions Scope 1/2/3), 'hazard' (at or above the stated level on one peril),
     or 'sector' (one NACE section). Only for bank/REIT books; never fabricated."""
-    if framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
+    if framework not in ("bank_tcfd", "bank_p3esg", "reit_taxonomy"):
         return None
     if not seg_type and kri_key not in _DRIVER_KEYS:
         return None
@@ -446,7 +325,7 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
                                                                        "acute_share", "chronic_share"))
     if needs_level and level is None:
         return None                                   # 'at risk' is the stated level; not stated → no drill (the KRI names the gap)
-    vkey = "value_eur" if framework != "reit_tcfd" else "property_value_eur"
+    vkey = "value_eur" if framework != "reit_taxonomy" else "property_value_eur"
     def _val(a):
         return a.get(vkey) or 0
     def high(a):
@@ -519,7 +398,7 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
         n, sc = r.get("n_assets") or 0, r.get("n_scored") or 0
         return {"type": "coverage", "unit": "num",
                 "items": [{"label": "Scored", "value": sc}, {"label": "Not yet scored", "value": max(0, n - sc)}]} if n else None
-    if kri_key == "taxonomy":
+    if kri_key == "taxonomy" and framework != "reit_taxonomy":   # the REIT figure is turnover-based, not this value split
         tax = snap.get("taxonomy", {}) or {}
         elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
         total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())

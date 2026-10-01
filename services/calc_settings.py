@@ -42,7 +42,7 @@ def _orsa_qualifying(which: str) -> list[str]:
 # The interpretation switches — regulation leaves these to the institution. default reproduces today's number.
 INTERPRETATION_SCHEMA: dict = {
     "pml_return_period": {
-        "frameworks": ["insurer_climate", "insurer_solvency"],
+        "frameworks": ["insurer_solvency"],
         "default": None, "kind": "int", "allowed": [100, 200, 250, 500],
         "label": "Catastrophe PML return period (years)",
         "description": "Return period for the probable maximum loss. Solvency II SCR is 1-in-200 (99.5% VaR); "
@@ -119,7 +119,7 @@ INTERPRETATION_SCHEMA: dict = {
         "sectors": ["manufacturer"],
     },
     "climate_var_dependence": {
-        "frameworks": ["assetmgmt_tcfd", "sfdr_pai"],
+        "frameworks": ["sfdr_pai"],
         "default": None, "kind": "enum", "allowed": ["independent", "additive", "max"],
         "label": "Physical × transition loss dependence (combined VaR)",
         "description": "How physical and transition losses combine on a holding: 'independent' = "
@@ -130,30 +130,28 @@ INTERPRETATION_SCHEMA: dict = {
     # FX rate policy (multi-currency phase 2). BALANCES always convert at the closing rate of the book date (IAS 21
     # — not a switch); how yearly FLOWS convert is the institution's choice, stamped on every filing.
     "fx_flow_rate": {
-        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
-                       "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
+        "frameworks": ["bank_tcfd", "bank_p3esg", "sfdr_pai", "reit_taxonomy", "insurer_solvency", "esrs_pack", "csrd_e1"],
         "default": "period_average", "kind": "enum", "allowed": ["period_average", "closing"],
         "label": "Exchange rate for yearly figures (income, spend, revenue, premiums)",
         "description": "'period_average' = the average rate of the 12 months to the book date (IAS 21 practice — a "
                        "year's income at the year's rates); 'closing' = the book date's rate, like balances.",
     },
     "fx_client_rate_tolerance_pct": {
-        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
-                       "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
+        "frameworks": ["bank_tcfd", "bank_p3esg", "sfdr_pai", "reit_taxonomy", "insurer_solvency", "esrs_pack", "csrd_e1"],
         "default": 1.0, "kind": "float", "min": 0.1, "max": 10.0,
         "label": "Own exchange rates: allowed difference from the official rate (%)",
         "description": "Your own (treasury) rates are used when you supply them; one further than this from the ECB / "
                        "IMF rate for the same day needs a second person to accept it.",
     },
     "esg_energy_intensity_check_factor": {
-        "frameworks": ["sfdr_pai", "assetmgmt_tcfd"],
+        "frameworks": ["sfdr_pai"],
         "default": 10.0, "kind": "float", "min": 2.0, "max": 1000.0,
         "label": "Company energy intensity: how far from the sector average before it is checked (×)",
         "description": "A reported energy intensity more than this many times above — or below — the sector average for "
                        "its activity is flagged as a possible unit slip (MWh typed as GWh is 1,000×) until someone "
                        "corrects it or confirms it with a reason. Ordinary differences are expected: set it wide.",
     },
-    "retention_minimum_years": {
+    "retention_minimum_years": {          # retired report types stay listed: their filings are still kept
         "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
                        "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
         "default": 0, "kind": "int", "min": 0, "max": 50,
