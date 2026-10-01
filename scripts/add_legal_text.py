@@ -5,6 +5,9 @@ normalised to plain text (tags removed, entities decoded, whitespace collapsed),
 with its source, retrieval date, checksum and title. An act already stored is left as it is unless --refresh.
 
   venv/bin/python scripts/add_legal_text.py 32023R1115 02023R1115-20260918 ... [--refresh]
+
+An act Cellar does not serve by CELEX (a corrigendum) is given as CELEX=<its Cellar work URI> (from the SPARQL endpoint):
+  venv/bin/python scripts/add_legal_text.py "32023R1115R(01)=http://publications.europa.eu/resource/cellar/<id>"
 """
 from __future__ import annotations
 
@@ -73,8 +76,8 @@ def title_of(celex: str) -> str | None:
     return normalise(b[0]["t"]["value"]) if b else None
 
 
-def fetch(celex: str) -> tuple[str, str]:
-    r = httpx.get(SOURCE.format(quote(celex, safe="")), follow_redirects=True, timeout=120,
+def fetch(url: str) -> tuple[str, str]:
+    r = httpx.get(url, follow_redirects=True, timeout=120,
                   headers={"Accept": "application/xhtml+xml, text/html;q=0.9", "Accept-Language": "eng"})
     r.raise_for_status()
     p = _Text()
@@ -89,18 +92,20 @@ def main() -> int:
     a = ap.parse_args()
     mpath = DIR / "manifest.json"
     man = json.loads(mpath.read_text())
-    for celex in a.celex:
+    for arg in a.celex:
+        celex, _, uri = arg.partition("=")
+        url = uri or SOURCE.format(quote(celex, safe=""))
         if celex in man["texts"] and not a.refresh:
             print(f"{celex}: already stored")
             continue
-        body, page_title = fetch(celex)
+        body, page_title = fetch(url)
         title = title_of(celex) or page_title
         if len(body) < 1000:
             print(f"{celex}: the text retrieved is too short ({len(body)} chars) — not stored", file=sys.stderr)
             return 1
         raw = body.encode("utf-8")
         (DIR / f"{celex}.txt.gz").write_bytes(gzip.compress(raw, mtime=0))
-        man["texts"][celex] = {"title": title or celex, "celex": celex, "source": SOURCE.format(quote(celex, safe="")),
+        man["texts"][celex] = {"title": title or celex, "celex": celex, "source": url,
                                "retrieved": date.today().isoformat(), "sha256": hashlib.sha256(raw).hexdigest(),
                                "chars": len(body)}
         man["texts"] = dict(sorted(man["texts"].items()))
