@@ -29,8 +29,9 @@ from services.data.feeds import feeds_for_hazard
 from services.governance.filings import get_filing
 from services.governance.money_format import presentation_of
 
-# vertical → the live framework whose filing consumes that vertical's book (others not wired yet)
-_VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai",
+# vertical → the live framework whose filing prints that vertical's hazard cells (banking: Pillar 3 ESG Template 5 — the
+# EU Taxonomy Art. 8 report prints none, E95)
+_VERTICAL_FRAMEWORK = {"banking": "bank_p3esg", "assetmgmt": "sfdr_pai",
                        "realestate": "reit_taxonomy", "insurance": "insurer_solvency"}
 
 # spatial-lineage config per framework: the entity list in the frozen payload + its id/name/value keys (the retired
@@ -67,6 +68,13 @@ _LIST_CFG = {
 # (reit_taxonomy / insurer_solvency used to be routed through a "trace the sibling filing" workaround here —
 # fixed foundationally instead: they're in _LIST_CFG above now, since the data they need was always computed,
 # just discarded before freezing. See report_snapshots._reit_taxonomy/_insurer_solvency.)
+# a report traced spatially only in the filings that froze hazard cells — its current shape prints none (E95)
+_NO_HAZARD_CELLS = {
+    "bank_tcfd": "Per exposure: the frozen loan book lists every exposure with the facts the EU Taxonomy Art. 8 templates "
+                 "read (counterparty, instrument, Taxonomy status, objective, gross carrying amount); the templates print "
+                 "no hazard cell, so there is no spatial trace. (A filing of the earlier report shape traces its hazard "
+                 "cells as frozen.)",
+}
 _ALT_LINEAGE = {
     "sfdr_pai": "Per-issuer drill-down: GET /v1/issuers/{issuer_id} (full facility footprint + physical + "
                 "transition detail for any holding) — not a spatial cell trace, since funds hold issuers, "
@@ -125,7 +133,7 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
     cfg = _LIST_CFG.get(framework)
     if not cfg or "by_hazard" not in payload:
         return {"supported": False, "framework": framework,
-                "message": _ALT_LINEAGE.get(framework,
+                "message": _ALT_LINEAGE.get(framework) or _NO_HAZARD_CELLS.get(framework,
                     "Spatial lineage is available for the located-book filings (loan book, property book, "
                     "underwriting book).")}
 
@@ -174,7 +182,7 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
 
 
 def reported_hazards(session: Session, org_id: str, filing_id: str) -> list[dict]:
-    """The hazard cells a filing reports — the entry points for a forward trace (bank_tcfd)."""
+    """The hazard cells a filing reports — the entry points for a forward trace (a located book that froze them)."""
     return hazards_view(session, org_id, filing_id)["hazards"]
 
 

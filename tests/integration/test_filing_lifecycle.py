@@ -58,8 +58,8 @@ def test_full_lifecycle_advances_and_logs():
 
 @pytest.mark.integration
 def test_restatement_supersedes_old_and_links_to_new():
-    """Restating a filed filing supersedes it (pointing at the restatement) and opens a fresh draft;
-    the variance of the new vs the old is supported and reconciles (identical data → zero deltas)."""
+    """Restating a filed filing supersedes it (pointing at the restatement) and opens a fresh draft; the EU Taxonomy
+    Art. 8 report has no physical-risk variance to decompose — its templates print their own T-1 columns (E95)."""
     from services.governance.filing_variance import variance
     with get_session() as s:
         maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
@@ -77,8 +77,7 @@ def test_restatement_supersedes_old_and_links_to_new():
         assert new["status"] == "draft"
 
         v = variance(s, BANK_ORG, new["filing_id"])
-        assert v["supported"] and v["prior_filing_id"] == fid
-        assert v["headline"]["total_value"]["delta"] == 0   # same book → reconciles exactly
+        assert not v["supported"] and v["prior_filing_id"] == fid and "T-1" in v["message"]
         s.rollback()
 
 
@@ -100,9 +99,10 @@ def test_preflight_reports_coverage_headline_and_gaps():
         assert pf["framework"] == "bank_tcfd"
         assert set(pf["coverage"]) >= {"label", "done", "total", "pct"}
         assert pf["total_value_eur"] is not None and pf["total_value_eur"] > 0
-        # if not every asset is scored, that must be surfaced as a gap (honesty)
+        # the Taxonomy report reads no score: its coverage is the exposures stating a gross carrying amount (E95)
+        assert pf["coverage"]["label"] == "exposures with a gross carrying amount" and pf["value_at_risk_eur"] is None
         if pf["coverage"]["done"] < pf["coverage"]["total"]:
-            assert any("not yet scored" in g for g in pf["gaps"])
+            assert any("no gross carrying amount" in g for g in pf["gaps"])
         # preflight must not have created a filing
         n = s.execute(text("SELECT count(*) FROM regulatory_filing WHERE org_id = :o AND period_end = '2099-12-31'"),
                       {"o": BANK_ORG}).scalar()

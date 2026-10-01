@@ -45,25 +45,23 @@ PER_ENTITY_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate", "ins
                                 "esrs"})   # ESRS figures: per undertaking (Art. 19a) or for the group (Art. 29a, its parent)
 
 CATALOG: dict[str, list[dict]] = {
+    # the EU Taxonomy Art. 8 report (E95): what the Annex VI templates read — physical risk, financed emissions and
+    # transition risk left with the TCFD sections (they are Pillar 3's, or live analytics)
     "bank_tcfd": [
-        _dp("phys_risk", "Physical climate-risk exposure — value at risk by hazard, scenario × horizon",
-            "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)",
-            note="You supply the loan book (per-exposure geolocation + value); Tellumen scores every hazard across "
-                 "scenarios × horizons and computes value-at-risk — no extra input."),
-        _dp("financed_emissions", "Financed emissions — PCAF Scope 1–3",
-            "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
-            note="Computed from counterparty emissions; needs an issuer-emissions feed (ESG vendor) or falls back to a NACE-intensity estimate. You can provide an audited PCAF figure to reconcile against it."),
-        _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility (GAR numerator)",
+        _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility of each exposure (Annex VI Templates 1–4)",
             "tellumen", "compute", provider="Tellumen + your loan book",
-            note="From the NACE activity on each exposure; Tellumen classifies which are Taxonomy-eligible."),
-        _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment: DNSH + minimum safeguards (→ Green Asset Ratio)",
-            "customer", "provided", provider="Your Taxonomy alignment determination (per-exposure flags)",
-            note="Only you can attest alignment: substantial-contribution + DNSH + minimum-safeguards per exposure. The loan template already carries a minimum-safeguards field; full alignment (DNSH) is your assessment."),
-        _dp("transition_risk", "Transition risk — carbon-price sensitivity / stranded assets",
-            "none", "none",
-            note="Not modelled by Tellumen: carbon-price / stranded-asset transition sensitivity is a transition-scenario model outside our physical-risk engine."),
-        _dp("tcfd_narrative", "TCFD governance, strategy & transition-plan narrative",
-            "customer", "report", provider="You author"),
+            note="From the NACE activity, counterparty and instrument on each exposure; the specification of the version "
+                 "in force places it in its template row."),
+        _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment (→ Green Asset Ratio)",
+            "customer", "provided", provider="Your Taxonomy alignment determination; the counterparty's own Taxonomy KPIs",
+            note="Specific-purpose lending: the exposure's own aligned status, objective and contribution, which you "
+                 "determine. General-purpose lending to an undertaking: the counterparty's own turnover / CapEx KPIs "
+                 "(issuer Taxonomy KPIs on file) — never estimated; blank where none is on file."),
+        _dp("taxonomy_entered", "Annex VI KPIs the loan tape holds no facts for (off-balance-sheet, fees and commissions, "
+                                "trading book)",
+            "customer", "report", provider="You enter them on the filing form",
+            note="Each cell is entered for the reporting period and attested by a second person; the form gives the "
+                 "reason the platform cannot compute it."),
     ],
     "bank_p3esg": [
         _dp("p3_physical", "Template 5 — banking-book exposures to climate physical risk (by geography & sector)",

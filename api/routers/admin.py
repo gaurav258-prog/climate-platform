@@ -343,7 +343,8 @@ def set_decision_playbook(body: PlaybookPatch, session: DbSession,
 
 # ── KRI appetite: per-org RAG bands on each Key Regulatory Indicator ──────
 
-# org type → the KRI framework it reports on (mirrors web/src/pages/Kri.tsx)
+# org type → the KRI set appetite bands default to (mirrors web/src/pages/Kri.tsx); a bank reports two — the EU
+# Taxonomy Art. 8 report (bank_tcfd, the key keeps its historical name) and Pillar 3 ESG — and picks with `framework`
 _KRI_FRAMEWORK = {"bank": "bank_tcfd", "asset_manager": "sfdr_pai", "reit": "reit_taxonomy",
                   "insurer": "insurer_solvency", "manufacturer": "esrs_pack"}
 # KRIs whose value is a numeric that can be graded against a band
@@ -364,7 +365,7 @@ def get_kri_appetite(session: DbSession, framework: Optional[str] = None,
                      ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
     from services.governance.kri import kri as build_kri
     from services.governance.kri import kri_frameworks
-    fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: TCFD + Pillar 3 ESG)
+    fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: Taxonomy + Pillar 3 ESG)
     if not fws:
         return {"supported": False, "message": "No KRI dashboard for this organisation type."}
     fw = framework if framework in {f["framework"] for f in fws} else fws[0]["framework"]

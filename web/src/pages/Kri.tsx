@@ -36,7 +36,7 @@ interface Kpi { key: string; label: string; value: number | null; fmt: string; t
 interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
 interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
-// `figures`: what the anchor report printed (a set anchored on a governed report — services.governance.kri_sectors)
+// `figures`: what the anchor report printed (a set anchored on a governed report — services.governance.kri_sectors, kri_bank)
 interface HistFig { key: string; label: string; value: number | null; fmt: string }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null; figures?: HistFig[] }
 interface Basis { kpis: 'live'; note: string; last_filed: { period_label: string; filing_id: string | null } | null }
@@ -66,7 +66,7 @@ interface Fw { framework: string; label: string }
 export default function Kri() {
   const { profile } = useAuth()
   const nav = useNavigate()
-  // an org can report on several frameworks (e.g. a bank owes TCFD *and* Pillar 3 ESG) — pick which to view.
+  // an org can report on several frameworks (e.g. a bank owes the EU Taxonomy Art. 8 report *and* Pillar 3 ESG) — pick which to view.
   const fwq = useQuery({ queryKey: ['kri-frameworks'], queryFn: () => api.get<{ frameworks: Fw[] }>('/v1/reg-tasks/kri/frameworks') })
   const frameworks = fwq.data?.frameworks ?? []
   const [picked, setPicked] = useState<string | null>(null)
@@ -127,7 +127,7 @@ export default function Kri() {
           <Lens kind="governance" />
         </>} />
 
-      {/* framework picker — shown when the org reports on more than one (e.g. a bank: TCFD + Pillar 3 ESG) */}
+      {/* framework picker — shown when the org reports on more than one (e.g. a bank: EU Taxonomy Art. 8 + Pillar 3 ESG) */}
       {frameworks.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
           {frameworks.map(f => (

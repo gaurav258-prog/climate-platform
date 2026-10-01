@@ -131,8 +131,8 @@ def test_filing_freezes_its_currency_flags_rate_revisions_and_restates_in_scope(
               {"e": leasing["entity_id"]})
     user = s.execute(text("SELECT user_id::text FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at LIMIT 1"),
                      {"o": BANK_ORG}).scalar()
-    tok = F.preflight(s, BANK_ORG, "bank", "bank_tcfd", leasing["entity_id"])["confirm_token"]   # the scope filed
-    f = F.generate_filing(s, BANK_ORG, "bank", "bank_tcfd", user, confirm_token=tok, entity_id=leasing["entity_id"])
+    tok = F.preflight(s, BANK_ORG, "bank", "bank_p3esg", leasing["entity_id"])["confirm_token"]   # the scope filed (XBRL: E95)
+    f = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", user, confirm_token=tok, entity_id=leasing["entity_id"])
     assert f["presentation_currency"] == "USD" and f["filing_role"] == "solo"
     full = F.get_filing(s, BANK_ORG, f["filing_id"])
     fx = full["snapshot"]["payload"]["_fx"]
@@ -203,8 +203,8 @@ def test_an_entity_filing_is_identified_by_the_entitys_own_lei(session_rolled_ba
     E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001kjtiigc8y1r12")              # stored upper-case
     user = s.execute(text("SELECT user_id::text FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at LIMIT 1"),
                      {"o": BANK_ORG}).scalar()
-    tok = F.preflight(s, BANK_ORG, "bank", "bank_tcfd", leasing["entity_id"])["confirm_token"]   # the scope filed
-    f = F.generate_filing(s, BANK_ORG, "bank", "bank_tcfd", user, confirm_token=tok, entity_id=leasing["entity_id"])
+    tok = F.preflight(s, BANK_ORG, "bank", "bank_p3esg", leasing["entity_id"])["confirm_token"]   # the scope filed (XBRL: E95)
+    f = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", user, confirm_token=tok, entity_id=leasing["entity_id"])
     xml = export_filing(s, BANK_ORG, f["filing_id"], "xbrl")[2].decode()
     assert ">5493001KJTIIGC8Y1R12<" in xml and "filing entity's own LEI" in xml
     E.update_entity(s, BANK_ORG, leasing["entity_id"], lei=None)

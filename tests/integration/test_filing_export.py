@@ -50,21 +50,19 @@ def test_xlsx_export_is_a_real_workbook():
 
 
 @pytest.mark.integration
-def test_xbrl_export_is_well_formed_and_reflects_frozen_figures():
-    import xml.dom.minidom as minidom
+def test_the_taxonomy_report_has_no_xbrl():
+    """No official XBRL binding of the Annex VI templates is held: the bank_tcfd XBRL under a Tellumen-made namespace was
+    removed (E95) — the report exports JSON and the templates in a workbook; an XBRL request is refused."""
+    from services.governance.filing_export import _xbrl, formats_for
+    assert formats_for("bank_tcfd") == ("json", "xlsx")
+    with pytest.raises(ExportError):
+        _xbrl(None, "x", "bank_tcfd", {}, {})
     with get_session() as s:
         fid = _a_frozen_bank_filing(s)
         if not fid:
             pytest.skip("no frozen bank filing")
-        name, media, content = export_filing(s, BANK_ORG, fid, "xbrl")
-        assert name.endswith(".xbrl") and media == "application/xml"
-        doc = minidom.parseString(content)                 # raises if not well-formed
-        assert doc.documentElement.tagName.endswith("xbrl")
-        # the total-book-value fact must equal the frozen payload's rollup, not a live recompute
-        from services.governance.filings import get_filing
-        payload = get_filing(s, BANK_ORG, fid, with_payload=True)["snapshot"]["payload"]
-        frozen_total = round(payload["rollup"]["total_value_eur"])
-        assert str(frozen_total) in content.decode()
+        with pytest.raises(ExportError):
+            export_filing(s, BANK_ORG, fid, "xbrl")
 
 
 @pytest.mark.integration

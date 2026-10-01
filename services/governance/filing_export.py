@@ -123,7 +123,11 @@ def _cur(headers: list[str], payload: dict) -> list[str]:
 
 def _xlsx(framework: str, payload: dict) -> io.BytesIO:
     from services.templates.workbook import build_disclosure_workbook, build_export_workbook
-    if framework in ("bank_tcfd", "bank_p3esg"):
+    if framework == "bank_tcfd":                       # the frozen book as the templates read it, then the templates (E95)
+        from services.governance.bank_taxonomy_report import XLSX_HEADERS, xlsx_rows
+        return build_disclosure_workbook(_cur(XLSX_HEADERS, payload), xlsx_rows(payload),
+                                         "EU Taxonomy Art. 8 — loan book", _summary_blocks(framework, payload))
+    if framework == "bank_p3esg":
         headers = ["asset_name", "sector", "country", "value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[a.get("asset_name"), a.get("sector"), a.get("country"), a.get("value_eur"),
@@ -243,8 +247,6 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
             return instance(payload, _identity(session, org_id, entity_id))
         except XbrlError as e:
             raise ExportError(str(e)) from e
-    if framework == "bank_tcfd":
-        return _bank_tcfd_xbrl(session, org_id, payload, basis, entity_id)
     if framework == "bank_p3esg":
         return _bank_p3esg_xbrl(session, org_id, payload, basis, entity_id)
     raise ExportError(f"no XBRL renderer for '{framework}'")
@@ -263,10 +265,9 @@ def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: 
     raise ExportError(f"no iXBRL renderer for '{framework}' (available for SFDR filings)")
 
 
-# ── compact TCFD/EU-Taxonomy XBRL instance from the frozen bank payload ──────────────────────────
-# A valid xbrli instance against a placeholder Tellumen taxonomy (swap the namespace for the official
-# EBA/ESRS taxonomy when published). Facts are the entity-level figures actually reported.
-_TB_NS = "https://taxonomy.tellumen.eu/tcfd/physical/2024"
+# ── XBRL helpers ─────────────────────────────────────────────────────────────────────────────
+# (the bank_tcfd XBRL under a Tellumen-made namespace was removed, E95: no official XBRL binding of the EU Taxonomy
+# Art. 8 templates is held, and an instance under invented element names is not a filing — as E60 for the ESRS)
 _LEI_SCHEME = "http://standards.iso.org/iso/17442"
 
 
@@ -277,64 +278,6 @@ def _at(value, dec: str):
         return value
     d = int(dec)
     return int(round(value)) if d <= 0 else round(float(value), d)
-
-
-def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
-    from xml.sax.saxutils import escape
-    who = _identity(session, org_id, entity_id)
-    lei = escape(who["lei"])
-    period = str(basis.get("reporting_period_end") or "")[:4] or "2024"
-    rollup = payload.get("rollup") or {}
-    tax = payload.get("taxonomy") or {}
-    em = payload.get("financed_emissions_tco2e") or {}
-
-    facts: list[str] = []
-
-    ccy = presentation_of(payload)
-
-    def fact(name, unit, value, dec="2"):
-        if value is None:
-            return
-        unit = f"u{ccy}" if unit == "uMONEY" else unit
-        facts.append(f'  <tb:{name} contextRef="d0" unitRef="{unit}" decimals="{dec}">{_at(value, dec)}</tb:{name}>')
-
-    fact("TotalBookValue", "uMONEY", rollup.get("total_value_eur"), dec="0")
-    fact("ValueAtRiskHighPlus", "uMONEY", rollup.get("value_at_risk_eur"), dec="0")
-    fact("ShareOfBookAtRiskPct", "uPure", rollup.get("pct_value_at_risk"))
-    fact("AssetsScored", "uPure", rollup.get("n_scored"), dec="0")
-    fact("AssetsInScope", "uPure", rollup.get("n_assets"), dec="0")
-    # per-hazard value exposed at or above the stated at-risk level (dimension folded into the element name — honest & self-describing)
-    for hz, b in (payload.get("by_hazard") or {}).items():
-        safe = "".join(ch for ch in hz.title() if ch.isalnum())
-        fact(f"ExposedValue{safe}", "uMONEY", b.get("exposed_value_eur"), dec="0")
-    for k, elem in (("eligible", "TaxonomyEligibleValue"), ("not_eligible", "TaxonomyNotEligibleValue")):
-        if isinstance(tax.get(k), dict):
-            fact(elem, "uMONEY", tax[k].get("value_eur"), dec="0")
-    for scope in ("scope1", "scope2", "scope3"):
-        fact(f"FinancedEmissions{scope.title()}", "uCO2e", em.get(scope), dec="0")
-
-    lines = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
-        '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
-        f'            xmlns:tb="{_TB_NS}">',
-        f'  <!-- TCFD / EU-Taxonomy physical-risk disclosure · {escape(who["name"])} · {escape(who["note"])} -->',
-        '  <xbrli:context id="d0">',
-        '    <xbrli:entity>',
-        f'      <xbrli:identifier scheme="{_LEI_SCHEME}">{lei}</xbrli:identifier>',
-        '    </xbrli:entity>',
-        '    <xbrli:period>',
-        f'      <xbrli:startDate>{period}-01-01</xbrli:startDate>',
-        f'      <xbrli:endDate>{period}-12-31</xbrli:endDate>',
-        '    </xbrli:period>',
-        '  </xbrli:context>',
-        f'  <xbrli:unit id="u{ccy}"><xbrli:measure>iso4217:{ccy}</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uCO2e"><xbrli:measure>tb:tCO2e</xbrli:measure></xbrli:unit>',
-        *facts,
-        '</xbrli:xbrl>',
-    ]
-    return "\n".join(lines)
 
 
 # ── Pillar 3 ESG XBRL instance from the frozen bank payload ──────────────────────

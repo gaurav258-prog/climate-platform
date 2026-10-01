@@ -41,7 +41,7 @@ class RunCheckError(ValueError):
 # report type → (vertical, list key, id key, value key, count key, total key, scored key) of the located books (the retired
 # reit_tcfd / insurer_climate / assetmgmt_tcfd stay so their filings' runs and revisions remain readable)
 LOCATED = {
-    "bank_tcfd": ("banking", "assets", "asset_id", "value_eur", "n_assets", "total_value_eur", "n_scored"),
+    "bank_tcfd": ("banking", "assets", "asset_id", "value_eur", "n_assets", "total_value_eur", None),   # no scoring (E95)
     "bank_p3esg": ("banking", "assets", "asset_id", "value_eur", "n_assets", "total_value_eur", "n_scored"),
     "reit_tcfd": ("realestate", "properties", "property_id", "property_value_eur", "n_properties", "total_value_eur", "n_scored"),
     "reit_taxonomy": ("realestate", "properties", "property_id", "property_value_eur", "n_properties", "total_value_eur", "n_scored"),
@@ -205,8 +205,11 @@ def checks(session: Session, report_type: str, payload: dict, manifest: dict, ro
             out.append({"key": "input_tie", "label": "The total equals the input", "status": "pass",
                         "detail": "translated / consolidated / eliminated: the per-entity translation table (with the "
                                   "eliminations) is the tie from the input to this total"})
-        n, scored = int(roll.get(nk) or len(items)), int(roll.get(sk) or 0)
-        out.append(_check("scored", "Every asset is scored", scored >= n, f"{scored} of {n} scored", "warn"))
+        n = int(roll.get(nk) or len(items))
+        scored = None
+        if sk is not None:                                # a report that reads physical-risk scores
+            scored = int(roll.get(sk) or 0)
+            out.append(_check("scored", "Every asset is scored", scored >= n, f"{scored} of {n} scored", "warn"))
         figures = {"n_assets": n, "n_scored": scored, "total": total,
                    "currency": (payload.get("_fx") or {}).get("presentation_currency", "EUR")}
     reg = payload.get("_regulation")

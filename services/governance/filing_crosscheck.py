@@ -25,7 +25,9 @@ _PRIOR_JUMP_TOL = 0.40    # >40% period-over-period swing → confirm it's real
 
 def _shared_figures(framework: str, payload: dict) -> dict:
     """The canonical headline figures a filing shares with its siblings (name → euro/number)."""
-    if framework in ("bank_tcfd", "bank_p3esg"):
+    if framework == "bank_tcfd":                       # the Taxonomy report shares only its book with its siblings (E95)
+        return {k: v for k, v in {"total book value": (payload.get("rollup") or {}).get("total_value_eur")}.items() if v}
+    if framework == "bank_p3esg":
         r = payload.get("rollup") or {}
         em = payload.get("financed_emissions_tco2e") or {}
         out = {"total book value": r.get("total_value_eur"), "value at risk": r.get("value_at_risk_eur")}

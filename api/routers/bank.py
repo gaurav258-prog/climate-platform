@@ -235,9 +235,18 @@ def _hazard_rollup(assets, method):
     }
 
 
+def loan_book(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
+    """(the loan book per exposure, the bank's stated method for the year) — scoped / weighted / translated like the
+    disclosure snapshot. The EU Taxonomy Art. 8 report freezes this book (services.governance.bank_taxonomy_report)."""
+    from services.money.params import for_org
+    method = for_org(session, org_id, period_end)
+    return _assets_with_risk(session, org_id, scenario, horizon, method=method, entity_ids=entity_ids,
+                             value_weights=value_weights, translation=translation), method
+
+
 def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
                               period_end=None):
-    """The single source of truth for a TCFD/EU-Taxonomy disclosure: live callers
+    """The single source of truth for the book's live analytics and the Pillar 3 ESG filing: live callers
     (GET /disclosure) and frozen callers (submission snapshots) both go through
     this, so a submission's numbers can never drift from what the live view shows
     at the moment it's taken. entity_ids / value_weights scope + consolidation-weight
@@ -273,7 +282,7 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     }
 
 
-@router.get("/disclosure", summary="TCFD / EU-Taxonomy disclosure pack from the projected book")
+@router.get("/disclosure", summary="Live analytics of the projected book (physical risk, financed emissions, credit-risk overlays)")
 def disclosure(session: DbSession, org_id: OrgId,
                scenario: str = Query("baseline"), horizon: str = Query("current"),
                slim: bool = Query(False, description="omit the per-asset array (aggregates only) — for the "

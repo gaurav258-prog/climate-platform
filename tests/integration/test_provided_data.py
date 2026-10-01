@@ -16,9 +16,9 @@ def _u(s, email):
 def test_only_provided_lane_keys_accepted():
     with get_session() as s:
         maker = _u(s, "admin@meridian.demo")
-        # phys_risk is a 'compute'-lane datapoint → cannot be provided
+        # taxonomy_eligible is a 'compute'-lane datapoint → cannot be provided
         with pytest.raises(P.ProvidedError):
-            P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="phys_risk", value_num=1,
+            P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="taxonomy_eligible", value_num=1,
                      reporting_period_end=_period(s, BANK_ORG))
         # an unknown key is refused
         with pytest.raises(P.ProvidedError):
@@ -31,8 +31,9 @@ def test_providable_lists_only_provided_lane():
     dps = P.providable("bank_tcfd")
     keys = {d["key"] for d in dps}
     assert "taxonomy_aligned" in keys        # provided lane
-    assert "phys_risk" not in keys           # compute lane
-    assert "tcfd_narrative" not in keys       # report lane
+    assert "taxonomy_eligible" not in keys   # compute lane
+    assert "taxonomy_entered" not in keys    # report lane
+    assert "financed_emissions" not in keys  # the Taxonomy templates print no emissions (E95)
 
 
 @pytest.mark.integration
@@ -40,22 +41,22 @@ def test_submit_reconciles_and_attests():
     with get_session() as s:
         maker = _u(s, "admin@meridian.demo")
         checker = _u(s, "approver@meridian.demo")
-        # financed emissions has a Tellumen baseline → provided value reconciles with a delta
-        r = P.submit(s, BANK_ORG, maker, framework="bank_tcfd", datapoint_key="financed_emissions",
+        # Pillar 3 financed emissions have a Tellumen baseline → provided value reconciles with a delta
+        r = P.submit(s, BANK_ORG, maker, framework="bank_p3esg", datapoint_key="p3_scope3",
                      value_num=1_700_000, source="client", provider_name="Audited PCAF", data_vintage="2025-12-31",
                      reporting_period_end=_period(s, BANK_ORG))
         assert r["status"] == "pending" and r["approval_request_id"]
         assert r["tellumen_value"] is not None and r["delta_pct"] is not None    # reconciled against our number
         # it appears in the list as pending
-        lst = P.provided_list(s, BANK_ORG, "bank_tcfd")
-        row = next(x for x in lst if x["datapoint_key"] == "financed_emissions")
+        lst = P.provided_list(s, BANK_ORG, "bank_p3esg")
+        row = next(x for x in lst if x["datapoint_key"] == "p3_scope3")
         assert row["status"] == "pending" and row["source"] == "client"
         # attest via the same path the approvals router calls
         payload = s.execute(text("SELECT payload FROM approval_requests WHERE request_id=:r"),
                             {"r": r["approval_request_id"]}).scalar()
         applied = P.attest(s, BANK_ORG, payload, "approved", checker)
         assert applied["status"] == "attested"
-        row2 = next(x for x in P.provided_list(s, BANK_ORG, "bank_tcfd") if x["datapoint_key"] == "financed_emissions")
+        row2 = next(x for x in P.provided_list(s, BANK_ORG, "bank_p3esg") if x["datapoint_key"] == "p3_scope3")
         assert row2["status"] == "attested" and row2["decided_by"] == "approver@meridian.demo"
         s.rollback()
 

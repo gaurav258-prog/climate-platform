@@ -65,10 +65,10 @@ def test_form_view_still_merges_overrides_for_datapoint_shaped_frameworks():
     """Regression guard: the fix must not disable override-merging for the frameworks it always worked for."""
     with get_session() as s:
         u = _actor(s, "admin@meridian.demo")
-        snap = create_snapshot(s, "11111111-1111-4111-8111-111111111111", "bank_tcfd", u, period_end=reporting_period_end(s, "11111111-1111-4111-8111-111111111111"))
+        snap = create_snapshot(s, "11111111-1111-4111-8111-111111111111", "bank_p3esg", u, period_end=reporting_period_end(s, "11111111-1111-4111-8111-111111111111"))
         fid = s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-            VALUES (:o, 'bank_tcfd', '2096-12-31', 'FY2096', 'draft', :snap, :u) RETURNING filing_id::text
+            VALUES (:o, 'bank_p3esg', '2096-12-31', 'FY2096', 'draft', :snap, :u) RETURNING filing_id::text
         """), {"o": "11111111-1111-4111-8111-111111111111", "snap": snap["snapshot_id"], "u": u}).scalar()
         out = F.form_view(s, "11111111-1111-4111-8111-111111111111", fid)
         assert out is not None

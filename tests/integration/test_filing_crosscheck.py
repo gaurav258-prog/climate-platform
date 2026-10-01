@@ -13,9 +13,11 @@ BANK_ORG = "11111111-1111-4111-8111-111111111111"
 def test_shared_figures_extracts_bank_headline():
     payload = {"rollup": {"total_value_eur": 1000, "value_at_risk_eur": 300},
                "financed_emissions_tco2e": {"scope1": 10, "scope2": 5, "scope3": 50}}
-    figs = _shared_figures("bank_tcfd", payload)
+    figs = _shared_figures("bank_p3esg", payload)
     assert figs["total book value"] == 1000 and figs["value at risk"] == 300
     assert figs["financed emissions (tCO₂e)"] == 65
+    # the EU Taxonomy Art. 8 report shares only its book — it prints no at-risk or emissions figure (E95)
+    assert _shared_figures("bank_tcfd", payload) == {"total book value": 1000}
 
 
 def test_shared_figures_sfdr_and_unknown():
