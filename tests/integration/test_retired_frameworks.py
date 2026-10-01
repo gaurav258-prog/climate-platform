@@ -73,7 +73,6 @@ def test_a_retired_report_is_not_offered_and_nothing_new_is_made_for_it(api, fra
     s.execute(text("""INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency)
                       VALUES (CAST(:o AS uuid), :f, '2095-12-31', 'FY2095', '2096-04-30', 'annual')"""),
               {"o": org, "f": framework})
-    monkeypatch.setattr(F, "ensure_obligations", lambda *a: None)    # only the calendar read is under test here
     assert not [o for o in F.list_obligations(s, org, sector) if o["framework"] == framework and not o["filing_id"]]
 
     pre = api.get(f"/v1/filings/preflight?framework={framework}", headers=h)
