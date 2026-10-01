@@ -27,24 +27,6 @@ logger = logging.getLogger(__name__)
 H3_RESOLUTION = 8
 SITE_TYPES = {"hq", "factory", "warehouse", "distribution_centre", "office", "other"}
 
-# v0 business-interruption: expected annual downtime as a FRACTION of the year, by hazard band.
-# Illustrative, uncalibrated — a transparent parametric (worse hazard → more expected downtime), to be
-# replaced by a calibrated hazard→outage curve. BI exposure = annual throughput × this fraction.
-BI_DOWNTIME_FLAG = "v0-illustrative"
-
-
-def bi_downtime_fraction(score: float | None) -> float:
-    if score is None:
-        return 0.0
-    if score >= 75:   # ~22 days/yr
-        return 0.06
-    if score >= 60:   # ~11 days/yr
-        return 0.03
-    if score >= 40:   # ~3.6 days/yr
-        return 0.01
-    return 0.0
-
-
 class SiteLocationError(ValueError):
     """Raised when a site can be neither geocoded nor given coordinates — we refuse to invent one."""
 
@@ -160,8 +142,6 @@ def list_sites_with_risk(session: Session, org_id: str,
     out = []
     for r in rows:
         d = dict(r)
-        # business-interruption exposure = throughput × expected-downtime fraction (v0 illustrative)
-        d["bi_at_risk_eur"] = round((d.get("throughput_eur") or 0) * bi_downtime_fraction(d.get("hazard_score")), 0) or None
         # input-quality flags (audit T4b): coarse geocode, or located-but-not-yet-scored (no euro possible)
         d["low_confidence"] = bool(d.get("lat") is not None and (
             (d.get("confidence") is not None and d["confidence"] < 0.5)

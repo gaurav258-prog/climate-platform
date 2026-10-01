@@ -3,7 +3,7 @@
   a Statement of Values upload (three properties on scored locations) → every insured peril priced on its own, the
   policy the sum of its perils, nothing priced for a peril the property cover does not indemnify → own funds, SCR,
   MCR and the reinsurance treaty submitted by one person and attested by another (not before) → the book nets its
-  losses with the attested treaty, not the illustrative one → the Solvency II nat-cat and climate filings freeze,
+  losses with the attested treaty (before it, the net is a named gap — no illustrative treaty, E69) → the Solvency II nat-cat and climate filings freeze,
   their frozen figures tie to the engine at the filing's basis, and export → another organisation sees none of it.
 
 The API runs in one rolled-back transaction: nothing is left behind.
@@ -18,6 +18,7 @@ import pytest
 from sqlalchemy import text
 
 from tests.integration.conftest import login as _login
+from tests.integration.money_method import state_method
 
 pytestmark = pytest.mark.integration
 IBERIA = "22222222-2222-4222-8222-222222222222"
@@ -38,6 +39,7 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     s = api.s
     from services.governance.filings import reporting_period_end
     pe = reporting_period_end(s, IBERIA)
+    state_method(s, IBERIA, pe)          # the insurer's stated method (E69)
 
     # 1 · three properties on locations the engine has scored (the coordinates of existing Iberia policies)
     spots = s.execute(text("""SELECT DISTINCT ON (region) latitude, longitude, region, country FROM portfolio_entities
@@ -67,7 +69,7 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     # 3 · the capital position and the treaty: stated by one person, attested by another — not used before
     from api.routers.insurance import build_disclosure_snapshot
     before = build_disclosure_snapshot(s, IBERIA, "baseline", "current")["reinsurance"]
-    assert before["program_basis"] == "illustrative_standard"
+    assert before["program_basis"] == "not_attested" and before["available"] is False and "treaty" in before["gap"]
     stated = {"eligible_own_funds_scr": 180_000_000, "scr_total": 120_000_000, "mcr_total": 45_000_000,
               "ri_quota_share_pct": 30, "ri_xol_attachment_eur": 8_000_000, "ri_xol_limit_eur": 40_000_000,
               "ri_xol_reinstatements": 1, "ri_xol_reinstatement_premium_eur": 2_000_000}
@@ -83,7 +85,7 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
                                                           "value_num": v, "reporting_period_end": pe.isoformat()})
         assert r.status_code == 201, r.text
         requests.append(r.json()["approval_request_id"])
-    assert build_disclosure_snapshot(s, IBERIA, "baseline", "current")["reinsurance"]["program_basis"] == "illustrative_standard"
+    assert build_disclosure_snapshot(s, IBERIA, "baseline", "current")["reinsurance"]["program_basis"] == "not_attested"
     own = api.post(f"/v1/approvals/{requests[0]}/decide", headers=maker, json={"decision": "approved"})
     assert own.status_code in (403, 422)                                   # the maker cannot attest their own value
     for rid in requests:

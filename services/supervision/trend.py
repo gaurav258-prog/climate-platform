@@ -71,10 +71,11 @@ def entity_trend(session, regulator_org_id: str, subject_org_id: str, spec: dict
         gross, sens, share = _share(s["cells"] or {})
         basis = s.get("basis") or {}
         sc, hz = basis.get("scenario") or scenario, basis.get("horizon") or horizon
-        try:
-            counts = assess_entity(session, regulator_org_id, subject_org_id, s["cells"] or {}, sc, hz)["counts"]
-        except Exception:
-            counts = None
+        from services.supervision.levels import entity_level
+        level, _ = entity_level(session, subject_org_id, s)
+        # a period whose at-risk level is not stated gets no Tier-1 verdict (its share cannot be read on its definition)
+        counts = assess_entity(session, regulator_org_id, subject_org_id, s["cells"] or {}, sc, hz, level)["counts"] \
+            if level is not None else None
         periods.append({"period_label": s["period_label"], "received_at": s["created_at"], "source_file": s.get("source_file"),
                         "n_cells": s.get("n_cells"), "gross_eur": round(gross), "sensitive_eur": round(sens), "share_pct": share,
                         "basis": {"scenario": sc, "horizon": hz, "stated": bool(basis.get("scenario"))}, "tier1_counts": counts})

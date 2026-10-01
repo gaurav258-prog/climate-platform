@@ -71,8 +71,10 @@ def test_uncalibrated_origin_does_not_borrow_another_origins_share():
     assert by["GT"]["world_share"] is None
     assert by["GT"]["global_shock_contribution_pct"] is None
     assert by["GT"]["input_required"]                       # surfaced, not guessed
-    # world shock comes from Brazil alone: 0.45*0.80*0.35 = 12.6%
-    assert round(r.global_shock_pct, 1) == 12.6
+    # Brazil's own contribution is shown (0.45*0.80*0.35 = 12.6%) — but with Guatemala's unknown the world shock of
+    # the origins sourced is unknown too: a gap, never Brazil's part passed off as the whole (E69)
+    assert by["BR"]["global_shock_contribution_pct"] == 12.6
+    assert r.global_shock_pct is None
 
 
 def test_calibration_tier_is_mixed_when_origins_differ():

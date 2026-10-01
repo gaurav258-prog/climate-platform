@@ -80,17 +80,19 @@ _LIMITATIONS = [
         "id": "financial_euro_basis",
         "area": "Financial · damage basis",
         "status": "disclosed_scope",
-        "title": "Financial € uses a disclosed peril schedule, not a loss-fitted model",
+        "title": "Financial € rests on the institution's stated method, not a platform loss model",
         "summary": ("The agri crop € is CALIBRATED (regression on observed yield, gated at r²≥0.40 "
-                    "out-of-sample). The financial € (collateral haircut / insurance MDR) uses an "
-                    "ILLUSTRATIVE, literature-consistent severity schedule (df-v1.0) × a bounded vulnerability "
-                    "factor — it is NOT fitted to a loss dataset."),
-        "evidence": ("ml/scoring/damage_function.py: RECOMMENDED_DISCOUNT_PCT / PERIL_DISCOUNT_PCT are "
-                     "disclosed anchors consistent with published stress-test guidance, versioned df-v1.0."),
-        "current_treatment": ("The distinction is stated wherever the € surfaces; the number is a transparent, "
-                              "disclosed schedule, never presented as a fitted expected loss."),
-        "unlock": ("A per-peril observed loss/impairment dataset (e.g. realised LGDs by hazard) to move the "
-                   "financial € from illustrative to calibrated — the same r²-gated treatment as the crops."),
+                    "out-of-sample). The hazard scores are validated for RANKING only — every loss-anchored test "
+                    "failed — so the financial € (haircut, damage ratio, event frequency, loadings) is computed only "
+                    "on the parameters the institution states for the year and a second person attests; the "
+                    "platform supplies none. A parameter not stated makes the figure a named gap."),
+        "evidence": ("data/reference/money/parameters.json (the register) and services/money/params.py; "
+                     "tests/unit/test_money_parameters.py refuses any unregistered number in a money module (E69)."),
+        "current_treatment": ("Every money figure records the stated values it used (payload['method']); a filing "
+                              "with a gap is blocked (method_stated)."),
+        "unlock": ("A per-peril observed loss/impairment dataset (e.g. realised LGDs by hazard) that would let a "
+                   "platform damage model pass a loss-anchored validation gate — the same r²-gated treatment as the "
+                   "crops. Until then the institution's method is the basis."),
     },
     {
         "id": "flood_mechanism_scope",

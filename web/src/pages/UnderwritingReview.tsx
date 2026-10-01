@@ -7,6 +7,7 @@ import ReviewTabs from '../components/ReviewTabs'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
 import { balance } from '../lib/money'
 import { pressable } from '../lib/pressable'
+import MethodGap from '../components/MethodGap'
 
 // the insurer policy detail is the same drawer Portfolio opens (/v1/insurance/policy/{id}) — reused here so a
 // most-exposed policy or an under-priced flag drills straight into the full per-policy record.
@@ -24,16 +25,17 @@ interface REvent { kind: string; name?: string; year: number | null; severity: s
 interface Freq {
   peril: string; catalogue: string; observed_events: number; observed_window_years: number
   modelled_return_period_years: number; expected_events_in_window: number
-  implied_observed_return_period_years: number | null; observed_vs_modelled_ratio: number | null; verdict: string
+  implied_observed_return_period_years: number | null; observed_vs_modelled_ratio: number | null; verdict: string | null
 }
 interface Policy {
   policy_id: string; policy_name: string; region: string; country: string
   sum_insured_eur: number | null; headline_hazard: string; headline_bucket: string
-  gross_premium_eur: number | null; n_observed_events: number; n_storm: number; n_quake: number
+  technical_premium_eur: number | null; n_observed_events: number; n_storm: number; n_quake: number
   events: REvent[]; frequency: Freq | null
 }
 interface Review {
   available: boolean; reason?: string; headline?: string
+  definition?: { storm_radius_km: number; quake_radius_km: number; min_magnitude: number; verdict_tolerance: number | null; gap?: string }
   n_policies: number; n_policies_hit: number; n_events_observed: number; sum_insured_hit_eur: number
   frequency: {
     n_validatable: number; n_under_priced: number; n_conservative: number
@@ -98,8 +100,9 @@ export default function UnderwritingReview() {
             <div className="flex items-center gap-1.5 mb-1"><ClipboardCheck size={15} className="text-[var(--color-sky)]" />
               <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Observed vs modelled frequency</span></div>
             <p className="text-[12.5px] text-[var(--color-mute)] max-w-3xl mb-3">
-              For perils Tellumen holds an observed catalogue for (storm, seismic), we compare the real hit-rate at each location to the modelled return period it is priced on.
+              For perils Tellumen holds an observed catalogue for (storm, seismic), we compare the real hit-rate at each location to the modelled return period it is priced on{d.definition?.verdict_tolerance != null ? <> — flagged beyond your stated tolerance of {Math.round(d.definition.verdict_tolerance * 100)}%</> : null}.
             </p>
+            {d.definition?.gap && <div className="mb-3"><MethodGap gap="not stated: method.frequency_review_tolerance" what="Frequency verdicts" /></div>}
             <div className="flex flex-wrap gap-6">
               <Stat n={`${d.frequency.n_under_priced}`} label="observed > priced (review)" tone={d.frequency.n_under_priced ? '#D23B3B' : undefined} />
               <Stat n={`${d.frequency.n_conservative}`} label="observed < priced" tone="#7BBF8F" />
@@ -121,9 +124,9 @@ export default function UnderwritingReview() {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : d.definition?.gap ? null : (
               <div className="mt-3 text-[12px] text-[var(--color-mute)]">
-                No policy in this book shows an observed hit-rate materially above its priced return period. Catalogue windows: storm {d.frequency.catalogue_windows.storm_years} yr · seismic {d.frequency.catalogue_windows.seismic_years} yr.
+                No policy in this book shows an observed hit-rate beyond your stated tolerance above its priced return period. Catalogue windows: storm {d.frequency.catalogue_windows.storm_years} yr · seismic {d.frequency.catalogue_windows.seismic_years} yr.
               </div>
             )}
           </Card>

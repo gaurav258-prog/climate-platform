@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import MethodGap from '../components/MethodGap'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus, Gauge, CheckCircle2, AlertTriangle, ShieldAlert, Clock } from 'lucide-react'
@@ -52,7 +53,7 @@ const bandNote = (k: Kpi) => {
   return parts.join(' · ')
 }
 interface Ent { name: string; value: number | null; h3_cell: string | null; country: string | null; score: number | null }
-interface HazDrill { supported: boolean; hazard: string; noun: string; entities: Ent[] }
+interface HazDrill { supported: boolean; hazard: string; noun: string; entities: Ent[]; gap?: string }
 
 const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? (k.flow ? flow(k.value) : balance(k.value)) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
 // appetite bands are set in EUR, the engine's currency — shown as set, never translated
@@ -329,9 +330,10 @@ function HazardDrill({ framework, entityQ, hazard, hasAnalytics, onClose }: { fr
         </div>
         {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
           : !d.supported ? <div className="p-6 text-[13px] text-[var(--color-mute)]">Entity-level drill isn't available for this sector's report.</div>
+          : d.gap ? <div className="p-5"><MethodGap gap={d.gap} what="Exposures at risk" /></div>
           : (
           <div className="p-5">
-            <div className="mono text-[11px] text-[var(--color-faint)] mb-3">{d.entities.length} {d.noun} exposed at High+ · biggest first</div>
+            <div className="mono text-[11px] text-[var(--color-faint)] mb-3">{d.entities.length} {d.noun} at or above your stated at-risk level · biggest first</div>
             <div className="space-y-2">
               {d.entities.map((e, i) => (
                 <div key={i} className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-2.5 flex items-center gap-3">

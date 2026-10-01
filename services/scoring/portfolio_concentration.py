@@ -35,11 +35,16 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
     if not total_value:
         return {"available": False, "reason": "empty_book"}
 
-    def _var(h):   # modelled climate value-at-risk on this holding (€)
-        return (h.get("position_value_eur") or 0) - (h.get("climate_var") or {}).get("discounted_value_eur", h.get("position_value_eur") or 0)
+    scored = [h for h in holdings if h.get("headline_bucket")]
+    # the climate VaR of a scored holding is its value less its climate-adjusted value (the manager's stated method);
+    # while any scored holding's is not stated, every VaR figure below is a gap (the value shares stand)
+    known = all((h.get("climate_var") or {}).get("discounted_value_eur") is not None for h in scored)
+
+    def _var(h):   # modelled climate value-at-risk on this holding (€); an unscored holding carries none
+        d = (h.get("climate_var") or {}).get("discounted_value_eur")
+        return 0.0 if not known or d is None else (h.get("position_value_eur") or 0) - d
 
     total_var = sum(_var(h) for h in holdings)
-    scored = [h for h in holdings if h.get("headline_bucket")]
     n_unscored = len(holdings) - len(scored)
 
     by_region: dict = defaultdict(lambda: {"value": 0.0, "var": 0.0, "n": 0})
@@ -65,11 +70,11 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
                       for k, v in by_region.items()), key=lambda r: -r["value_eur"])
     hazards = sorted(({"hazard": k, "value_eur": round(v["value"]), "climate_var_eur": round(v["var"]), "n": v["n"],
                        "pct_of_scored": round(100 * v["value"] / scored_value, 1) if scored_value else 0.0}
-                     for k, v in by_hazard.items()), key=lambda r: -r["climate_var_eur"])
+                     for k, v in by_hazard.items()), key=lambda r: -(r["climate_var_eur"] if known else r["value_eur"]))
     cluster_list = sorted(({"hazard": k[0], "region": k[1], "value_eur": round(v["value"]),
                             "climate_var_eur": round(v["var"]), "n": v["n"],
                             "pct_of_book": round(100 * v["value"] / total_value, 1)}
-                           for k, v in clusters.items()), key=lambda c: -c["climate_var_eur"])
+                           for k, v in clusters.items()), key=lambda c: -(c["climate_var_eur"] if known else c["value_eur"]))
 
     top_region = regions[0] if regions else None
     top_hazard = hazards[0] if hazards else None
@@ -83,10 +88,14 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
     if eff_regions is not None and eff_regions < _LOW_DIVERSIFICATION_N:
         flags.append(f"Low diversification: only {eff_regions} effective independent regions")
 
+    if not known:
+        for row in (*regions, *hazards, *cluster_list):
+            row["climate_var_eur"] = None
     return {
         "available": True,
         "total_value_eur": round(total_value),
-        "total_climate_var_eur": round(total_var),
+        "total_climate_var_eur": round(total_var) if known else None,
+        **({} if known else {"gap": "the climate VaR needs the manager's stated valuation haircuts (method.valuation_haircut)"}),
         "n_scored": len(scored), "n_unscored": n_unscored,
         "coverage_pct": round(100 * len(scored) / len(holdings), 1) if holdings else 0.0,
         "region_hhi": region_hhi, "effective_regions": eff_regions,
@@ -94,8 +103,8 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
         "top_region": top_region, "top_hazard": top_hazard,
         # the single largest common-shock cluster — the positions one event (this hazard, this region) hits at once
         "common_shock": top_cluster,
-        "common_shock_var_pct_of_total": round(100 * top_cluster["climate_var_eur"] / total_var, 1)
-            if (top_cluster and total_var) else 0.0,
+        "common_shock_var_pct_of_total": (round(100 * top_cluster["climate_var_eur"] / total_var, 1)
+                                          if (known and top_cluster and total_var) else None),
         "by_region": regions[:10],
         "by_hazard": hazards,
         "clusters": cluster_list[:8],   # the decision list — largest common-shock exposures to hedge / trim / diversify

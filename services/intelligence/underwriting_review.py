@@ -25,9 +25,11 @@ from services.intelligence.realized_exposure import events_near_point
 
 # headline priced peril -> the observed event kind that validates it
 _CATALOGUED = {"storm": "storm", "seismic": "earthquake"}
-# a materially-out-of-line observed vs modelled annual frequency
-_UNDER = 1.5    # observed ≥ 1.5× the priced frequency -> potentially under-priced
-_OVER = 0.5     # observed ≤ 0.5× the priced frequency -> potentially conservative
+# what counts as an observed event at a policy: a storm track within STORM_RADIUS_KM, an earthquake of at least
+# MIN_MAGNITUDE within QUAKE_RADIUS_KM — the review's stated definition, returned with every review
+STORM_RADIUS_KM = 120.0
+QUAKE_RADIUS_KM = 150.0
+MIN_MAGNITUDE = 5.0
 
 
 def _catalogue_windows(session: Session, min_magnitude: float) -> tuple[int | None, int | None]:
@@ -42,9 +44,11 @@ def _catalogue_windows(session: Session, min_magnitude: float) -> tuple[int | No
 
 
 def _frequency_check(peril: str, rp: float | None, n_storm: int, n_quake: int,
-                     storm_window: int | None, quake_window: int | None) -> dict | None:
-    """Compare the observed hit-rate at a location to the modelled return period the policy is priced on.
-    Returns None when the priced peril has no observed catalogue (comparison withheld, honestly)."""
+                     storm_window: int | None, quake_window: int | None, tolerance: float | None) -> dict | None:
+    """Compare the observed hit-rate at a location to the return period the policy is priced on (the insurer's stated
+    event probability). Returns None when the priced peril has no observed catalogue (comparison withheld). The verdict
+    uses the insurer's stated tolerance (method.frequency_review_tolerance): observed ≥ (1 + t) × priced → possibly
+    under-priced, ≤ (1 − t) × → possibly conservative; without it, the ratio is shown and no verdict is given."""
     kind = _CATALOGUED.get(peril)
     if not kind or not rp:
         return None
@@ -55,8 +59,9 @@ def _frequency_check(peril: str, rp: float | None, n_storm: int, n_quake: int,
     modelled_annual = 1.0 / rp
     observed_annual = observed / window
     ratio = (observed_annual / modelled_annual) if modelled_annual else None
-    verdict = ("under_priced" if ratio is not None and ratio >= _UNDER
-               else "conservative" if ratio is not None and ratio <= _OVER
+    verdict = (None if ratio is None or tolerance is None
+               else "under_priced" if ratio >= 1 + tolerance
+               else "conservative" if ratio <= 1 - tolerance
                else "in_line")
     return {
         "peril": peril,
@@ -71,11 +76,13 @@ def _frequency_check(peril: str, rp: float | None, n_storm: int, n_quake: int,
     }
 
 
-def underwriting_review(session: Session, org_id: str, storm_radius_km: float = 120.0,
-                        quake_radius_km: float = 150.0, min_magnitude: float = 5.0) -> dict:
+def underwriting_review(session: Session, org_id: str) -> dict:
     """Per-policy observed loss experience + frequency validation for an insurer's book."""
     from api.routers.insurance import build_disclosure_snapshot
+    from services.money.params import for_org
 
+    storm_radius_km, quake_radius_km, min_magnitude = STORM_RADIUS_KM, QUAKE_RADIUS_KM, MIN_MAGNITUDE
+    tolerance = for_org(session, org_id).get("method.frequency_review_tolerance")
     storm_window, quake_window = _catalogue_windows(session, min_magnitude)
     snap = build_disclosure_snapshot(session, org_id, "baseline", "current")
     policies = [p for p in snap.get("policies", []) if p.get("lat") is not None and p.get("lon") is not None]
@@ -89,9 +96,9 @@ def underwriting_review(session: Session, org_id: str, storm_radius_km: float = 
         pricing = p.get("pricing") or {}
         peril = p.get("headline_hazard")
         freq = _frequency_check(peril, pricing.get("return_period_years"), n_storm, n_quake,
-                                storm_window, quake_window)
+                                storm_window, quake_window, tolerance)
         # closest events first, a handful for display
-        top = sorted(evs, key=lambda e: e.get("closest_km") or 1e9)[:6]
+        top = sorted(evs, key=lambda e: e.get("closest_km") if e.get("closest_km") is not None else float("inf"))[:6]
         reviewed.append({
             "policy_id": p.get("policy_id"),
             "policy_name": p.get("policy_name"),
@@ -101,7 +108,7 @@ def underwriting_review(session: Session, org_id: str, storm_radius_km: float = 
             "sum_insured_eur": p.get("sum_insured_eur"),
             "headline_hazard": peril,
             "headline_bucket": p.get("headline_bucket"),
-            "gross_premium_eur": pricing.get("gross_premium_eur"),
+            "technical_premium_eur": pricing.get("technical_premium_eur"),
             "rate_on_line_pct": pricing.get("rate_on_line_pct"),
             "n_observed_events": len(evs),
             "n_storm": n_storm, "n_quake": n_quake,
@@ -146,6 +153,10 @@ def underwriting_review(session: Session, org_id: str, storm_radius_km: float = 
             ],
         },
         "most_exposed": most_exposed,
+        "definition": {"storm_radius_km": storm_radius_km, "quake_radius_km": quake_radius_km, "min_magnitude": min_magnitude,
+                       "verdict_tolerance": tolerance,
+                       **({} if tolerance is not None else {"gap": "method.frequency_review_tolerance not stated — ratios "
+                                                                   "shown without a verdict"})},
         "note": ("Observed loss experience is real catalogued events (IBTrACS storms + USGS earthquakes) within "
                  "the felt radius of each policy's location — an underwriting data point, not a projection. "
                  "Frequency validation compares the observed hit-rate to the modelled return period the policy "

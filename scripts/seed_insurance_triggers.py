@@ -31,7 +31,8 @@ def main() -> None:
             "SELECT user_id FROM users WHERE org_id = :o ORDER BY created_at LIMIT 1"
         ), {"o": org}).scalar()
 
-        policies = [p for p in _policies_with_risk(s, org, "baseline", "current")
+        from services.money.params import for_org
+        policies = [p for p in _policies_with_risk(s, org, "baseline", "current", method=for_org(s, org))
                     if p["headline_score"] is not None and p["headline_hazard"]]
         policies.sort(key=lambda p: -p["headline_score"])
         if len(policies) < 3:

@@ -38,18 +38,21 @@ def test_resolve_applies_overrides_without_touching_the_registry():
         resolve("no_such_profile")
 
 
-def test_metrics_are_bucket_consistent_and_sector_agnostic():
+def test_metrics_read_at_the_authoritys_level_and_are_sector_agnostic():
     pts = [{"value_eur": 100, "score": 80, "hazard": "flood", "lat": 49.45, "lon": 11.08},
            {"value_eur": 100, "score": 55, "hazard": "flood", "lat": 40.85, "lon": 14.27},
            {"value_eur": 100, "score": 10, "hazard": "drought", "lat": 40.85, "lon": 14.27},
            {"value_eur": 100, "score": None, "hazard": None, "lat": 5.6, "lon": -0.2}]
     spec = registry()["sectors"]["bank"]["metrics"]
-    v = M.compute(spec, pts)
+    v = M.compute(spec, pts, 50.0)                        # the authority's stated at-risk level — a test value
     assert v["book_value_eur"] == 400 and v["money_at_high_risk_eur"] == 200 and v["high_risk_share_pct"] == 50.0
     assert v["top_hazard_concentration_pct"] == 50.0 and v["scored_coverage_pct"] == 75.0
     assert v["top_region_concentration_pct"] == 50.0      # Naples twice
     hr = next(m for m in spec if m["id"] == "high_risk_share_pct")
     assert M.flag(hr, 50.0) == "act" and M.flag(hr, 30.0) == "watch" and M.flag(hr, 10.0) == "ok" and M.flag(hr, None) == "na"
-    assert M.compute(spec, []) == {k: (0 if k in ("book_value_eur", "money_at_high_risk_eur") else None) for k in v}
+    assert M.compute(spec, [], 50.0) == {k: (0 if k in ("book_value_eur", "money_at_high_risk_eur") else None) for k in v}
+    assert M.compute(spec, pts, 60.0)["money_at_high_risk_eur"] == 100                 # only the 80 at a higher level
+    gap = M.compute(spec, pts, None)                                                    # not stated: the at-risk metrics are gaps
+    assert gap["money_at_high_risk_eur"] is None and gap["high_risk_share_pct"] is None and gap["book_value_eur"] == 400
     with pytest.raises(KeyError):
-        M.compute([{"id": "x", "adapter": "portfolio.nope"}], pts)
+        M.compute([{"id": "x", "adapter": "portfolio.nope"}], pts, 50.0)

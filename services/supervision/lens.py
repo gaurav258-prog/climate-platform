@@ -1,10 +1,11 @@
 """The independent lens — a submitted template versus the same template rebuilt from granular data.
 
 Pure functions (no DB): the router feeds them the submitted cells (as ingested), and the cells rebuilt from the
-shadow book under two bases — the regulator's basis and the basis the bank states in its narrative. The gap on
+shadow book under two bases — the regulator's basis (its scenario, horizon and stated at-risk level) and the basis the
+bank states (its scenario, horizon and the at-risk level its template was computed on). The gap on
 each cell's "sensitive to physical risk" amount is split into four parts that add up exactly:
   scope     — exposure differs (the bank's gross amount ≠ what the granular data holds for that cell)
-  basis     — scenario / horizon differ (rebuild at the bank's stated basis vs the regulator's)
+  basis     — scenario / horizon / at-risk level differ (rebuild at the bank's stated basis vs the regulator's)
   scoring   — at the same exposure and basis, the bank's sensitivity share ≠ the independent share
   coverage  — exposure the granular data could NOT locate (no region): we cannot judge it, so the bank's own
               share is assumed there and the amount is shown as unverifiable, never as a scoring gap
@@ -20,9 +21,6 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
-from core.types import score_to_bucket
-
-HIGH = {"H", "VH"}
 FLAG_PCT_POINTS = 10.0     # sensitivity-share gap (percentage points) beyond which a cell is flagged
 
 
@@ -30,9 +28,9 @@ def cell_key(geography: str, sector: str) -> str:
     return f"{(geography or '').strip().upper()}|{(sector or '').strip().upper()}"
 
 
-def rebuild_cells(points: Iterable[dict], geo_of, sector_of) -> dict[str, dict]:
-    """Template cells from asset points: gross = Σ value, sensitive = Σ value of headline bucket High/Very high.
-    geo_of(p) / sector_of(p) give the cell coordinates (country, NUTS region, NACE section …)."""
+def rebuild_cells(points: Iterable[dict], geo_of, sector_of, level: float) -> dict[str, dict]:
+    """Template cells from asset points: gross = Σ value, sensitive = Σ value whose headline score is at or above the
+    at-risk level of the basis. geo_of(p) / sector_of(p) give the cell coordinates (country, NUTS region, NACE section …)."""
     cells: dict[str, dict] = {}
     for p in points:
         g, s = geo_of(p), sector_of(p)
@@ -46,7 +44,7 @@ def rebuild_cells(points: Iterable[dict], geo_of, sector_of) -> dict[str, dict]:
             c["n_located"] += 1; c["located_value_eur"] += v
         if p.get("score") is not None:
             c["n_scored"] += 1
-            if score_to_bucket(float(p["score"])).value in HIGH:
+            if float(p["score"]) >= level:
                 c["sensitive_physical_eur"] += v
     for c in cells.values():
         c["gross_carrying_amount_eur"] = round(c["gross_carrying_amount_eur"])
@@ -101,7 +99,7 @@ def compare(submitted: dict[str, dict], rebuilt_reg: dict[str, dict], rebuilt_ba
                     row["flag"] = "question"
                     dom = max(("scope", "basis", "scoring"), key=lambda g: abs(row["gap"][g]))
                     row["reason"] = {"scope": "Reported exposure differs from the granular data.",
-                                     "basis": "The entity's stated scenario or horizon differs from yours.",
+                                     "basis": "The entity's stated scenario, horizon or at-risk level differs from yours.",
                                      "scoring": "The sensitivity share differs at the same exposure and basis."}[dom]
                     if unlocated > 0:
                         row["reason"] += f" ({int(round(100 * located / reb_gross))}% of this exposure located.)"

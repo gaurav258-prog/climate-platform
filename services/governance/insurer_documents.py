@@ -172,7 +172,7 @@ def checks(payload: dict, report_type: str) -> list[dict]:
               else "own funds and SCR are not attested for this undertaking and period (Solvency II provided values)"),
            _f("treaty_attested", "completeness", "blocking", comp.get("treaty_basis") == "attested",
               "the attested reinsurance nets the losses" if comp.get("treaty_basis") == "attested"
-              else "no attested reinsurance for this undertaking — losses are net of the illustrative programme")]
+              else "no attested reinsurance for this undertaking — the net losses cannot be computed")]
     interval = (doc.get("answers") or {}).get("impact.interval")
     if report_type == "insurer_orsa_climate" and interval:
         out.append(_f("interval_three_years", "plausibility", "blocking", _interval_ok(interval),

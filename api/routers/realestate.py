@@ -29,7 +29,6 @@ from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.epc_stranding import epc_stranding, stranding_rollup
 from ml.scoring.realestate_impact import noi_impact
 from ml.scoring.valuation_discount import value_loss_band
-from services.calc_settings import get_calc_settings
 from services.ingest.templates import (  # noqa: F401 — re-exported
     CONSTRUCTION_TYPES,
     EPC_RATINGS,
@@ -55,21 +54,26 @@ EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "
                           # EU Taxonomy activity 7.7 alignment facts (services.governance.taxonomy_buildings)
                           "x.ped_top15_evidence", "x.meets_new_building_criteria",
                           "CAST(x.heating_rated_output_kw AS FLOAT) AS heating_rated_output_kw",
-                          "x.energy_performance_monitoring", "x.adaptation_plan_in_place"]
+                          "x.energy_performance_monitoring", "x.adaptation_plan_in_place",
+                          "CAST(x.sum_insured_eur AS FLOAT) AS sum_insured_eur"]
 
 
-def _realestate_extra(row, headline, hz):
-    # thread the driving peril + building attributes so the NOI drag is vulnerability-differentiated,
-    # consistent with the property's collateral haircut (both now share the one damage core).
-    attrs = {"construction_type": row.get("construction_type"), "year_built": row.get("year_built"),
-             "number_of_stories": row.get("number_of_stories")}
-    impact = noi_impact(row["headline_score"], row["primary_value_eur"], row["annual_noi_eur"],
-                        hazard=headline["hazard"], attrs=attrs) if headline else None
-    tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=row["headline_bucket"], resilience_rating=None,
+def _realestate_extra(method):
+    """The per-property calculation on the owner's stated method for the year: the insurance cost of every insured peril
+    on the property's insured value (ml.scoring.realestate_impact), its Taxonomy status and EPC stranding."""
+    def extra(row, headline, hz):
+        return _property_extra(method, row, headline, hz)
+    return extra
+
+
+def _property_extra(method, row, headline, hz):
+    impact = noi_impact(method, hz, row.get("sum_insured_eur"), row["annual_noi_eur"]) if headline else None
+    from services.money.params import at_risk
+    tax = classify_taxonomy(REALESTATE_NACE, material_physical_risk=at_risk(method, row["headline_score"]), resilience_rating=None,
                              epc_rating=row.get("epc_rating"), minimum_safeguards_status=row.get("minimum_safeguards_status"))
-    # transition risk — energy-performance stranding under a rising minimum-EPC floor (the other half of the
-    # property's climate exposure; physical NOI drag is above)
-    stranding = epc_stranding(row.get("epc_rating"), row["primary_value_eur"], row["annual_noi_eur"])
+    # transition risk — energy-performance stranding on the owner's stated brown discount per EPC grade (the other
+    # half of the property's climate exposure; the physical insurance cost is above)
+    stranding = epc_stranding(method, row.get("epc_rating"), row["primary_value_eur"], row["annual_noi_eur"])
     return {"noi_impact": impact, "taxonomy_status": tax["status"], "taxonomy_activity_ref": tax["activity_ref"],
             "taxonomy_reasoning": tax["reasoning"], "stranding": stranding}
 
@@ -83,6 +87,7 @@ def _map_property_row(row):
         "h3_cell": row["h3_cell"], "property_value_eur": row["primary_value_eur"],
         "annual_noi_eur": row["annual_noi_eur"],
         "annual_gross_rental_revenue_eur": row["annual_gross_rental_revenue_eur"],
+        "sum_insured_eur": row.get("sum_insured_eur"),
         "construction_type": row["construction_type"],
         "year_built": row["year_built"], "number_of_stories": row["number_of_stories"],
         "hazards": row["hazards"], "headline_score": row["headline_score"],
@@ -106,23 +111,26 @@ resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for eve
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _properties_with_risk(session, org_id, scenario, horizon, severity_model="universal",
-                          entity_ids=None, value_weights=None, translation=None):
-    """All of an org's properties (metadata) + their per-hazard projected risk.
-    Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)."""
-    rows = fetch_entities_with_risk(session, org_id, "realestate", scenario, horizon, severity_model,
+def _properties_with_risk(session, org_id, scenario, horizon, *, method, entity_ids=None, value_weights=None,
+                          translation=None):
+    """All of an org's properties (metadata) + their per-hazard projected risk, on the owner's stated method for the
+    year. Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)."""
+    rows = fetch_entities_with_risk(session, org_id, "realestate", scenario, horizon, method=method,
                                      ext_table="ext_realestate", ext_columns=EXT_REALESTATE_COLUMNS,
-                                     extra_calc=_realestate_extra,
+                                     extra_calc=_realestate_extra(method),
                                      entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     return [_map_property_row(r) for r in rows]
 
 
-def _rollup(properties, adaptation_scenario="reference"):
+def _rollup(properties, method):
+    """The book's totals on the owner's stated method: value at risk, climate-adjusted value, value-loss band,
+    resilience capex, insurance cost and its share of NOI — each a gap where an input is not stated."""
+    from services.portfolio_engine import climate_adjusted_total, value_at_risk
     total = sum(p["property_value_eur"] or 0 for p in properties)
     total_noi = sum(p["annual_noi_eur"] or 0 for p in properties)
     impacted = [p for p in properties if p["noi_impact"]]
-    total_premium = sum(p["noi_impact"]["expected_insurance_premium_eur"] for p in impacted)
-    total_discounted = sum(p["valuation"]["discounted_value_eur"] for p in properties)
+    prems = [p["noi_impact"].get("technical_premium_eur") for p in impacted]
+    total_premium = None if None in prems else sum(prems)
     by_bucket = defaultdict(lambda: {"count": 0, "value_eur": 0.0})
     for p in properties:
         b = p["headline_bucket"] or "none"
@@ -133,12 +141,16 @@ def _rollup(properties, adaptation_scenario="reference"):
         "n_scored": sum(1 for p in properties if p["headline_bucket"]),
         "total_value_eur": round(total),
         "total_annual_noi_eur": round(total_noi),
-        "total_discounted_value_eur": round(total_discounted),
-        "expected_value_loss_band": value_loss_band(properties),
-        "resilience_capex": resilience_capex_plan(properties, scenario=adaptation_scenario),
-        "energy_stranding": stranding_rollup(properties),
-        "total_expected_insurance_premium_eur": round(total_premium),
-        "portfolio_noi_impact_pct": round(100 * total_premium / total_noi, 2) if total_noi else 0,
+        **value_at_risk(properties, "property_value_eur", method),
+        **climate_adjusted_total(properties, "property_value_eur"),
+        "expected_value_loss_band": value_loss_band(method, properties),
+        "resilience_capex": resilience_capex_plan(method, properties),
+        "energy_stranding": stranding_rollup(method, properties),
+        "total_technical_premium_eur": None if total_premium is None else round(total_premium),
+        "portfolio_noi_impact_pct": (None if total_premium is None else
+                                     round(100 * total_premium / total_noi, 2) if total_noi else None),
+        **({"gap": "; ".join(sorted({g for g in [method.gap_text(), *[p["noi_impact"].get("gap") for p in impacted]] if g}))}
+           if method.gap_text() or any(p["noi_impact"].get("gap") for p in impacted) else {}),
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in by_bucket.items()},
         "top_properties": sorted(
             [p for p in properties if p["headline_score"] is not None],
@@ -149,17 +161,18 @@ def _rollup(properties, adaptation_scenario="reference"):
 @router.get("/portfolio", summary="Property book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    _st = get_calc_settings(session, org_id)
-    severity_model = _st["severity_model"]
-    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    properties = _properties_with_risk(session, org_id, scenario, horizon, method=method)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(properties, _st["adaptation_scenario"]), "properties": properties}
+            "rollup": _rollup(properties, method), "properties": properties}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
 def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.forward_risk import forward_risk
-    return forward_risk(session, org_id, "realestate", scenario)
+    from services.money.params import for_org
+    return forward_risk(session, org_id, "realestate", scenario, for_org(session, org_id))
 
 
 @router.get("/summary", summary="Portfolio & NOI impact rollup")
@@ -168,41 +181,33 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    _st = get_calc_settings(session, org_id)
-    severity_model = _st["severity_model"]
-    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties, _st["adaptation_scenario"])}
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    properties = _properties_with_risk(session, org_id, scenario, horizon, method=method)
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties, method)}
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
+                              period_end=None):
     """The single source of truth for a REIT TCFD / EU-Taxonomy physical-risk disclosure — live callers
     (GET /disclosure) and frozen callers (filing snapshots) both go through this so the numbers can't drift.
-    entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
-    _st = get_calc_settings(session, org_id)
-    severity_model = _st["severity_model"]
-    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model,
+    entity_ids / value_weights scope + consolidation-weight the book (None = whole org). period_end: the financial year
+    whose stated method is used (None = the organisation's reporting period)."""
+    from services.money.params import for_org
+    from services.portfolio_engine import exposure_by_hazard
+    method = for_org(session, org_id, period_end)
+    properties = _properties_with_risk(session, org_id, scenario, horizon, method=method,
                                        entity_ids=entity_ids, value_weights=value_weights, translation=translation)
-    hazards: dict = {}
-    for p in properties:
-        for hz in p["hazards"]:
-            h = hazards.setdefault(hz["hazard"], {
-                "exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
-                "model_version": hz["model_version"], "scored_at": hz["scored_at"]})
-            if hz["bucket"] in ("H", "VH"):
-                h["exposed_value_eur"] += p["property_value_eur"] or 0
-                h["n_exposed"] += 1
-            h["max_score"] = max(h["max_score"], hz["score"])
-    for h in hazards.values():
-        h["exposed_value_eur"] = round(h["exposed_value_eur"])
-        h["max_score"] = round(h["max_score"], 1)
+    hazards = exposure_by_hazard(properties, "property_value_eur", method)
     tax = defaultdict(lambda: {"count": 0, "value_eur": 0.0})
     for p in properties:
         tax[p["taxonomy_status"]]["count"] += 1
         tax[p["taxonomy_status"]]["value_eur"] += p["property_value_eur"] or 0
     return {
-        "rollup": _rollup(properties, _st["adaptation_scenario"]), "properties": properties,
+        "rollup": _rollup(properties, method), "properties": properties,
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
+        "method": method.record(),
     }
 
 
@@ -230,17 +235,18 @@ REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["r
 def property_detail(property_id: str, session: DbSession, caller_org: OrgId):
     own_or_404(session, "portfolio_entities", "entity_id", property_id, caller_org, "Property")   # only your own org's record
     org_id = get_entity_org(session, property_id)
-    _st = get_calc_settings(session, org_id)
-    severity_model = _st["severity_model"]
-    row = get_entity_with_risk(session, property_id, "baseline", "current", severity_model,
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    row = get_entity_with_risk(session, property_id, "baseline", "current", method=method,
                                 ext_table="ext_realestate", ext_columns=EXT_REALESTATE_COLUMNS,
-                                extra_calc=_realestate_extra)
+                                extra_calc=_realestate_extra(method))
     property_ = {
         "property_id": row["entity_id"], "org_id": row["org_id"], "property_name": row["entity_name"],
         "property_type": row["entity_type"], "country": row["country"], "region": row["region"],
         "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
         "property_value_eur": row["primary_value_eur"], "annual_noi_eur": row["annual_noi_eur"],
         "annual_gross_rental_revenue_eur": row["annual_gross_rental_revenue_eur"],
+        "sum_insured_eur": row.get("sum_insured_eur"),
         "construction_type": row["construction_type"], "year_built": row["year_built"],
         "number_of_stories": row["number_of_stories"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
@@ -338,16 +344,15 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
 @router.get("/portfolio.xlsx", summary="Portfolio & NOI impact book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    _st = get_calc_settings(session, org_id)
-    severity_model = _st["severity_model"]
-    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
+    from services.money.params import for_org
+    properties = _properties_with_risk(session, org_id, scenario, horizon, method=for_org(session, org_id))
     headers = ["property_name", "property_type", "region", "country", "property_value_eur", "annual_noi_eur",
-               "headline_hazard", "headline_score", "risk_bucket", "discounted_value_eur",
-               "expected_insurance_premium_eur", "noi_impact_pct", "taxonomy_status"]
+               "sum_insured_eur", "headline_hazard", "headline_score", "risk_bucket", "discounted_value_eur",
+               "technical_premium_eur", "noi_impact_pct", "taxonomy_status"]
     rows = [[p["property_name"], p["property_type"], p["region"], p["country"], p["property_value_eur"],
-             p["annual_noi_eur"], p["headline_hazard"], p["headline_score"], p["headline_bucket"] or "unscored",
-             p["valuation"]["discounted_value_eur"],
-             p["noi_impact"]["expected_insurance_premium_eur"] if p["noi_impact"] else None,
+             p["annual_noi_eur"], p["sum_insured_eur"], p["headline_hazard"], p["headline_score"],
+             p["headline_bucket"] or "unscored", p["valuation"]["discounted_value_eur"],
+             p["noi_impact"].get("technical_premium_eur") if p["noi_impact"] else None,
              p["noi_impact"]["noi_impact_pct"] if p["noi_impact"] else None,
              p["taxonomy_status"]] for p in properties]
     buf = build_export_workbook(headers, rows, sheet_name="Portfolio & NOI impact")

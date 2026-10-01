@@ -79,7 +79,7 @@ export default function Supervised() {
                 {(opts as string[]).map(o => <option key={o} value={o}>{label === 'Stage' ? STAGE_LABEL[o] ?? o : o}</option>)}
               </select>))}
             <select value={fFlag} onChange={e => setFFlag(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none">
-              <option value="">Any flag</option><option value="act">Act (high-risk share)</option><option value="watch">Watch (high-risk share)</option><option value="questions">Has open questions</option><option value="site_access">Site access granted</option>
+              <option value="">Any flag</option><option value="act">Act (at-risk share)</option><option value="watch">Watch (at-risk share)</option><option value="questions">Has open questions</option><option value="site_access">Site access granted</option>
             </select>
             {(fSector || fJur || fStage || fFlag || search) && <button onClick={() => { setFSector(''); setFJur(''); setFStage(''); setFFlag(''); setSearch('') }} className="mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]">clear</button>}
             <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">{rows.length} of {d.entities.length} · basis {d.scenario} · {d.horizon} · click a column to sort</span>
@@ -88,7 +88,7 @@ export default function Supervised() {
             <table className="data-table w-full text-[12.5px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
                 <Th k="name">Entity</Th><Th k="sector_label">Sector</Th><Th k="jurisdiction">Jurisdiction</Th><Th k="stage" center>Process</Th>
-                <Th k="submissions" right>Filings</Th><Th k="high_risk_share_pct" right>Book at high risk</Th><Th k="lens_gap_pct" right>Lens gap</Th><Th k="n_questions" right>Questions</Th>
+                <Th k="submissions" right>Filings</Th><Th k="high_risk_share_pct" right>Book at risk (your level)</Th><Th k="lens_gap_pct" right>Lens gap</Th><Th k="n_questions" right>Questions</Th>
                 <th className="">Next action</th></tr></thead>
               <tbody>{rows.map(e => (
                 <tr key={e.org_id} className={`border-t border-[var(--color-line)] ${e.in_profile ? '' : 'opacity-60'}`}>

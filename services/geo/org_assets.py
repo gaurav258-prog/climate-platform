@@ -88,10 +88,13 @@ def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source:
     present = {r[0] for r in session.execute(text("""SELECT DISTINCT vertical FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND source = :src
                                                     AND (CAST(:subj AS uuid) IS NULL OR subject_org_id = CAST(:subj AS uuid))"""),
                                              {"o": org_id, "src": source, "subj": subject_org_id}).fetchall()}
+    from services.money.params import for_org
+    method = for_org(session, org_id)
     for vertical, label in _ENGINE_VERTICALS.items():
         if vertical not in present:      # an empty vertical is not queried: the engine run is per book, not per catalogue
             continue
-        for r in fetch_entities_with_risk(session, org_id, vertical, scenario, horizon, source=source, subject_org_id=subject_org_id):
+        for r in fetch_entities_with_risk(session, org_id, vertical, scenario, horizon, method=method, source=source,
+                                          subject_org_id=subject_org_id):
             out.append({"id": f"{vertical}:{r['entity_id']}", "name": r.get("entity_name") or r.get("name") or label, "kind": label,
                         "lat": (float(r["lat"]) if r.get("lat") is not None else None),
                         "lon": (float(r["lon"]) if r.get("lon") is not None else None),

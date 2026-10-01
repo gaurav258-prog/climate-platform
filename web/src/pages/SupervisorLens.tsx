@@ -7,13 +7,14 @@ import { bucketLabel, hazardLabel, horizonLabel, scenarioLabel } from '../lib/ha
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { money } from '../lib/money'
 import { pressable } from '../lib/pressable'
+import MethodGap from '../components/MethodGap'
 
 // The independent lens: the submitted template beside the same template rebuilt from the shadow book, cell by
 // cell, with every gap split into scope / basis / scoring / unmatched (they add up exactly). A flag is a question.
 interface Cell { key: string; geography: string; sector: string; submitted_gross: number | null; submitted_sensitive: number | null
   rebuilt_gross: number | null; rebuilt_sensitive: number | null; submitted_share_pct: number | null; rebuilt_share_pct: number | null
   coverage_pct: number | null; gap: { scope: number; coverage: number; basis: number; scoring: number; unmatched: number }; flag: string; reason: string }
-interface Lens { status: string; message?: string; tier: number | null; precision: string; period_label: string; n_cells: number; n_flagged: number
+interface Lens { status: string; at_risk_level?: { regulator: number; entity: number | null; entity_from: string | null; gap?: string }; message?: string; tier: number | null; precision: string; period_label: string; n_cells: number; n_flagged: number
   totals: { submitted: number; rebuilt: number; scope: number; coverage: number; basis: number; scoring: number; unmatched: number }; total_gap: number
   regulator_basis: { scenario: string; horizon: string }; bank_basis: { scenario: string; horizon: string; stated: boolean; method_note: string | null; separable: boolean; note: string | null }
   shadow_book: { n_rows: number; n_located: number; n_scored: number; location_precision: Record<string, number> }; cells: Cell[] }
@@ -37,6 +38,9 @@ export default function SupervisorLens() {
   const d = q.data
   if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">rebuilding the template independently…</div>
   if (!d) return <div className="h-[60vh] grid place-items-center text-[var(--color-bad)] text-sm">Could not open the lens.</div>
+  if (d.status === 'gap') return (
+    <div className="fadeup space-y-4"><Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
+      <MethodGap gap={d.message ?? ''} what="Independent lens" /></div>)
   if (d.status === 'no_submission') return (
     <div className="fadeup space-y-4"><Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
       <Card className="p-6 text-[13px] text-[var(--color-mute)]">{d.message} <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Go to intake →</Link></Card></div>)
@@ -48,6 +52,7 @@ export default function SupervisorLens() {
         lead={`Your basis ${scenarioLabel(d.regulator_basis.scenario)} · ${horizonLabel(d.regulator_basis.horizon)}${d.bank_basis.stated ? `; the entity states ${scenarioLabel(d.bank_basis.scenario)} · ${horizonLabel(d.bank_basis.horizon)}` : '; the entity stated no basis'}. Rebuilt from ${d.shadow_book.n_rows.toLocaleString()} granular rows, ${d.shadow_book.n_located.toLocaleString()} region-located, ${d.shadow_book.n_scored.toLocaleString()} scored. A flag is a question, not a finding.`} />
       {d.status === 'no_shadow_book' && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">{d.message}</Card>}
       {d.bank_basis.note && <Card className="p-4 text-[12.5px] text-[var(--color-mute)]">Basis: {d.bank_basis.note}.</Card>}
+      {d.at_risk_level && <div className="mono text-[10.5px] text-[var(--color-faint)]">Sensitive = headline at or above the at-risk level — yours <b className="text-[var(--color-mute)]">{d.at_risk_level.regulator}</b> for the rebuilt figure; the entity's {d.at_risk_level.entity != null ? <b className="text-[var(--color-mute)]">{d.at_risk_level.entity}</b> : 'not stated'} for its own basis{d.at_risk_level.gap ? ` — ${d.at_risk_level.gap}` : ''}.</div>}
       <StatGrid cols={4} items={[
         { label: 'Sensitive · submitted', value: money(t.submitted, 'EUR') },
         { label: 'Sensitive · rebuilt', value: money(t.rebuilt, 'EUR'), sub: `gap ${money(d.total_gap, 'EUR')}` },

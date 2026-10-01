@@ -10,8 +10,9 @@ import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 import { actionLabel } from '../lib/actionLabels'
 import { balance } from '../lib/money'
+import MethodGap from '../components/MethodGap'
 
-// Act — the decision surface. The projection flags exposures that cross from below-High today into High+ by a
+// Act — the decision surface. The projection flags exposures that cross from below the stated at-risk level today to at or above it by a
 // chosen scenario/horizon; here an officer records what to do about each — reprice, engage, disclose, keep
 // monitoring, or formally accept — with a rationale. Every call is written to the audit log. Sense → Score →
 // Project → ACT.
@@ -74,7 +75,7 @@ export default function Decisions() {
   const cq = useQuery({
     queryKey: ['decision-crossings', scenario, horizon],
     enabled: supported,
-    queryFn: () => api.get<{ n: number; at_risk_threshold: number; policy: { requires_approval: boolean; threshold_eur: number | null }; crossings: Crossing[] }>(`/v1/decisions/crossings?scenario=${scenario}&horizon=${horizon}`),
+    queryFn: () => api.get<{ n: number; at_risk_threshold: number | null; gap?: string; policy: { requires_approval: boolean; threshold_eur: number | null }; crossings: Crossing[] }>(`/v1/decisions/crossings?scenario=${scenario}&horizon=${horizon}`),
   })
   const lq = useQuery({ queryKey: ['decision-log'], enabled: supported, queryFn: () => api.get<{ decisions: LogRow[] }>('/v1/decisions/log') })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['decision-crossings'] }); qc.invalidateQueries({ queryKey: ['decision-log'] }) }
@@ -99,7 +100,7 @@ export default function Decisions() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow={`${profile?.org?.name} · act`} title="Forward-risk decisions"
-        lead={<>{NounP} that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one spins a card on the board.</>}>
+        lead={<>{NounP} that cross your stated at-risk level{cq.data?.at_risk_threshold != null ? <> (score ≥ <b>{cq.data.at_risk_threshold}</b>)</> : null} by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one spins a card on the board.</>}>
         {cq.data?.policy && (
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">
             {cq.data.policy.requires_approval
@@ -117,11 +118,13 @@ export default function Decisions() {
         </div>
       </Card>
 
+      {cq.data?.gap && <MethodGap gap={cq.data.gap} what="Forward-risk decisions" />}
+
       {/* summary — lead with the answer */}
       <HeroBanner
         eyebrow="Forward-risk decisions"
-        title={cq.isLoading ? 'Reading the forward book…' : crossings.length === 0 ? 'Nothing crosses into High+ by this pathway.' : `${crossings.length} ${crossings.length === 1 ? noun : nounP} cross into High+.`}
-        lead={`${NounP} that cross the High line by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
+        title={cq.isLoading ? 'Reading the forward book…' : cq.data?.gap ? 'Your at-risk level is not stated.' : crossings.length === 0 ? 'Nothing crosses your at-risk level by this pathway.' : `${crossings.length} ${crossings.length === 1 ? noun : nounP} cross your at-risk level.`}
+        lead={`${NounP} that cross your stated at-risk level by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
         stat={[
           { label: `${NounP} crossing`, value: cq.isLoading ? '—' : crossings.length, icon: TrendingUp, tone: 'var(--color-sky)' },
           { label: 'Value newly at risk', value: cq.isLoading ? '—' : balance(exposed), icon: ShieldAlert, tone: '#D23B3B', pulse: !cq.isLoading && exposed > 0 },
@@ -132,7 +135,7 @@ export default function Decisions() {
       {crossings.length > 1 && (
         <Card className="p-5">
           <div className="text-[13px] font-medium text-[var(--color-ink)] mb-0.5">Score migration</div>
-          <div className="text-[11.5px] text-[var(--color-mute)] mb-3">points crossed into High+ by {horizon} — click a bar to open it below</div>
+          <div className="text-[11.5px] text-[var(--color-mute)] mb-3">score points moved across your at-risk level by {horizon} — click a bar to open it below</div>
           <HBar data={[...crossings].sort((a, b) => b.delta - a.delta).slice(0, 8).map(c => ({ label: c.entity_name, value: c.delta, sub: `${c.current_score ?? '—'}→${c.future_score ?? '—'}`, color: '#D23B3B' }))}
             format={(n) => `+${n}`} height={16}
             onBar={(i) => { const c = [...crossings].sort((a, b) => b.delta - a.delta).slice(0, 8)[i]; sp.set('focus', c.entity_id); setSp(sp, { replace: true }) }} />
@@ -143,10 +146,10 @@ export default function Decisions() {
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
           <ShieldAlert size={15} className="text-[var(--color-bad)]" />
-          <SectionHead hint="worst hazard vs the score-50 line">{NounP} crossing into High+</SectionHead>
+          <SectionHead hint={`worst hazard vs your stated level${cq.data?.at_risk_threshold != null ? ` (${cq.data.at_risk_threshold})` : ''}`}>{NounP} crossing your at-risk level</SectionHead>
         </div>
         {cq.isLoading ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">projecting the book…</div>
-          : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">No {nounP} newly cross into High+ under this pathway by {horizon}. Nothing to act on.</div>
+          : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">{cq.data?.gap ? 'Not computed — state your at-risk level first.' : <>No {nounP} newly cross your at-risk level under this pathway by {horizon}. Nothing to act on.</>}</div>
           : <div className="divide-y divide-[var(--color-line)]">
               {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} actions={actions} discloseTo={aq.data?.vertical === 'agri' ? '/filings' : '/compliance'} focused={!!focusId && c.entity_id === focusId} onDone={refresh} />)}
             </div>}

@@ -7,7 +7,7 @@ Five steps, in order, each derived from what the platform actually holds (never 
   4. reviewed    — the independent lens has been run (Tier 2) or the submitted template's plausibility checked (Tier 1)
   5. engaged     — requests / findings raised with the entity and all of them closed (open ones = partly)
 Alongside: the sorting criteria a supervisor uses — sector, jurisdiction, submission coverage, share of book at
-high risk (the profile's headline metric), lens gap, site access — and the single next action per entity.
+at risk at the authority's stated level (the profile's headline metric), lens gap, site access — and the single next action per entity.
 """
 from __future__ import annotations
 

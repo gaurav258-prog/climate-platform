@@ -186,9 +186,9 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
         rows: list[list] = []
         if nb.get("available", True):
             nc = nb.get("natcat_scr") or {}
-            im = "Internal model (99.5% VaR)"
-            rows += [[im, "Nat-cat SCR — gross, 1-in-200", None, None, None, nc.get("gross_1_in_200_eur"), None, None, None, ""],
-                     [im, "Nat-cat SCR — net of reinsurance", None, None, None, None, None, None, nc.get("net_of_reinsurance_1_in_200_eur"), ""],
+            im = "Modelled 1-in-200 (stated method; not an approved internal model)"
+            rows += [[im, "Modelled 1-in-200 loss — gross", None, None, None, nc.get("gross_1_in_200_eur"), None, None, None, ""],
+                     [im, "Modelled 1-in-200 loss — net of reinsurance", None, None, None, None, None, None, nc.get("net_of_reinsurance_1_in_200_eur"), ""],
                      [im, "Mean annual loss", None, None, None, nc.get("mean_annual_loss_eur"), None, None, None, ""]]
             for p in nb.get("perils", []):
                 rows.append(["Peril accumulation", p.get("peril"), p.get("exposed_value_eur"), None, None, None, None, None,
@@ -303,7 +303,7 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict, e
     fact("ShareOfBookAtRiskPct", "uPure", rollup.get("pct_value_at_risk"))
     fact("AssetsScored", "uPure", rollup.get("n_scored"), dec="0")
     fact("AssetsInScope", "uPure", rollup.get("n_assets"), dec="0")
-    # per-hazard value exposed at High+ (dimension folded into the element name — honest & self-describing)
+    # per-hazard value exposed at or above the stated at-risk level (dimension folded into the element name — honest & self-describing)
     for hz, b in (payload.get("by_hazard") or {}).items():
         safe = "".join(ch for ch in hz.title() if ch.isalnum())
         fact(f"ExposedValue{safe}", "uMONEY", b.get("exposed_value_eur"), dec="0")
@@ -413,8 +413,10 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, 
            "eligible": (t7.get("32") or {}).get("l"), "aligned": (t7.get("32") or {}).get("m"), "gar_stock_pct": t8.get("l")}
     t1 = next((r["values"] for r in p3_build(spec, "T1", assets)["rows"] if BINDING["T1"]["rows"][r["id"]] == "computed:total"), {}) if assets else {}
     # Template 5 has no total row: the sector rows (non-financial corporations) summed — collateral rows are another population
+    from services.governance.pillar3_templates import stated_level
+    level = stated_level(payload)
     t5: dict = {}
-    for r in (p3_build(spec, "T5", assets)["rows"] if assets else []):
+    for r in (p3_build(spec, "T5", assets, level)["rows"] if assets and level is not None else []):
         if not BINDING["T5"]["rows"][r["id"]].startswith("computed:collateral"):
             for k in ("sensitive", "h", "i", "j"):
                 t5[k] = t5.get(k, 0.0) + (r["values"].get(k) or 0.0)

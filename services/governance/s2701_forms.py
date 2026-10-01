@@ -81,8 +81,8 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
 def workbook(payload: dict):
     """The filing's S.27.01.01 as a workbook laid out like Annex I: one sheet with every block, printed row and column
     codes, values as numbers (EUR, charge factors as ratios, the scenario as A / B), greyed cells shaded, the cells the
-    undertaking entered marked; a 'Basis' sheet with the version, readings and anything incomplete; the internal-model
-    figures on their own sheet. None when the filing was frozen before the template was on the route."""
+    undertaking entered marked; a 'Basis' sheet with the version, readings and anything incomplete; the modelled
+    1-in-200 figures (context, not an approved internal model) on their own sheet. None when the filing was frozen before the template was on the route."""
     import io
 
     from openpyxl import Workbook
@@ -164,10 +164,12 @@ def workbook(payload: dict):
     notes.column_dimensions["A"].width = 44
     notes.column_dimensions["B"].width = 120
 
-    im = wb.create_sheet("Internal model")
+    im = wb.create_sheet("Modelled 1-in-200")
     nc = nb.get("natcat_scr") or {}
-    for i, (k, v) in enumerate((("Nat-cat SCR — gross, 1-in-200 (99.5 % VaR)", nc.get("gross_1_in_200_eur")),
-                                ("Nat-cat SCR — net of reinsurance, 1-in-200", nc.get("net_of_reinsurance_1_in_200_eur")),
+    for i, (k, v) in enumerate((("Platform catastrophe simulation on the stated method — not an approved internal model "
+                                 "(Directive 2009/138/EC Art. 112); context beside the standard formula", None),
+                                ("Modelled 1-in-200 loss — gross (99.5 %)", nc.get("gross_1_in_200_eur")),
+                                ("Modelled 1-in-200 loss — net of reinsurance", nc.get("net_of_reinsurance_1_in_200_eur")),
                                 ("Mean annual catastrophe loss", nc.get("mean_annual_loss_eur")),
                                 ("Risk load", nc.get("risk_load_eur"))), start=1):
         im.cell(row=i, column=1, value=k)

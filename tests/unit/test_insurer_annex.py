@@ -8,8 +8,10 @@ _PAYLOAD = {
         "n_policies": 3, "n_priced": 3,
         "total_sum_insured_eur": 100_000_000,
         "total_expected_annual_loss_eur": 4_000_000,
-        "total_gross_premium_eur": 6_000_000,
-        "portfolio_loss_ratio_pct": 66.7,
+        "total_technical_premium_eur": 5_714_286,
+        # the engine's own figures at the undertaking's stated level of material risk (Madrid's policy is below it)
+        "value_at_risk_eur": 70_000_000,
+        "at_risk_by_region": {"Andalusia": {"value_eur": 40_000_000, "n": 1}, "Valencia": {"value_eur": 30_000_000, "n": 1}},
         "by_bucket": {
             "VH": {"count": 1, "sum_insured_eur": 40_000_000, "eal_eur": 3_000_000},
             "H": {"count": 1, "sum_insured_eur": 30_000_000, "eal_eur": 900_000},
@@ -47,13 +49,13 @@ def test_insurer_annex_is_natcat_not_bank_gar_pcaf():
 def test_insurer_annex_surfaces_the_real_figures():
     secs = _insurer_annex({}, _PAYLOAD)
     summary = secs[0]
-    # sum insured at risk (High+VH) = 40m + 30m = 70m of 100m = 70.0%
+    # sum insured at material risk (the engine's figure at the stated level) = 70m of 100m = 70.0%
     at_risk_row = summary["rows"][1]["cells"]
     assert at_risk_row[2]["text"] == "70.0%"
     # by-peril section lists both perils, flood first (larger exposure)
     peril_sec = next(s for s in secs if "by peril" in s["title"].lower())
     assert peril_sec["rows"][0]["cells"][0]["text"] == "Flood"
-    # by-geography aggregates only High+ policies (Madrid is Low → excluded)
+    # by geography: the engine's at-risk regions, printed as frozen (Madrid is below the stated level → absent)
     geo_sec = next(s for s in secs if "geography" in s["title"].lower())
     regions = [r["cells"][0]["text"] for r in geo_sec["rows"]]
     assert "Madrid" not in regions and "Andalusia" in regions
@@ -75,3 +77,10 @@ def test_insurer_annex_empty_payload_is_safe():
     # an unknown total sum insured renders "—", never a fabricated number
     total_si = secs[0]["rows"][0]["cells"]
     assert total_si[1]["text"] == "—"
+
+
+def test_insurer_annex_geography_without_a_stated_level_is_a_named_gap():
+    payload = {**_PAYLOAD, "rollup": {**_PAYLOAD["rollup"], "at_risk_by_region": None, "value_at_risk_eur": None,
+                                      "gap": "not stated: method.at_risk_level"}}
+    geo_sec = next(s for s in _insurer_annex({}, payload) if "geography" in s["title"].lower())
+    assert geo_sec["rows"] == [] and "method.at_risk_level" in geo_sec["note"]

@@ -123,7 +123,7 @@ def test_a_greek_risk_in_the_eus_own_code_carries_its_earthquake_charge():
 
 def test_only_an_attested_treaty_mitigates():
     pols = [{"country": "DE", "sum_insured_eur": 1e9}]
-    ill = natcat_scr(pols, ref_date=D24, treaty=TREATY, treaty_basis="illustrative_standard")
+    ill = natcat_scr(pols, ref_date=D24, treaty=TREATY, treaty_basis="not_attested")
     assert ill["treaty_basis"] == "none" and ill["natcat_scr_eur"] == ill["natcat_scr_before_mitigation_eur"]
     att = natcat_scr(pols, ref_date=D24, treaty=TREATY, treaty_basis="attested")
     assert att["natcat_scr_eur"] < att["natcat_scr_before_mitigation_eur"]

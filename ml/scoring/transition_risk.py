@@ -1,43 +1,22 @@
-"""Transition-risk model — the climate risk from the shift to a low-carbon
-economy, which is a property of an ISSUER/SECTOR, not a map cell (hence its own
-golden surface `issuer_transition_scores`, not canonical_scores).
+"""Transition risk of a counterparty or issuer — the shift to a low-carbon economy, on the institution's stated method.
 
-Same honesty standard as the physical side: a transparent method built on
-NAMED, CITED anchors, with every simplification disclosed rather than a hidden
-multiplier. This is a v1 indicator, not a fitted valuation model, and says so.
+Facts and method are kept apart (E69):
 
-Two channels, combined by taking the DOMINANT one (no double-counting):
+  * FACTS — the counterparty's scope 1+2 emissions (reported, or the flagged EXIOBASE sector estimate), its revenue and
+    its NACE division. Carbon intensity = (scope 1 + scope 2) / revenue in € million is arithmetic on them.
+  * METHOD — the carbon price under a scenario and horizon (method.carbon_price, EUR per tCO2e — e.g. from the NGFS
+    vintage the institution uses) and the share of the counterparty's value at risk of stranding
+    (method.stranded_share, per NACE division under a scenario and horizon). Both are the institution's own statement
+    for the financial year, attested by a second person; the platform supplies no default.
 
-  1. Carbon-cost intensity — the earnings-at-risk channel.
-       carbon_intensity = (scope1 + scope2 tCO2e) / revenue_€m           [standard WACI building block]
-       annual_carbon_cost = (scope1 + scope2) × scenario_carbon_price     [in the revenue's currency]
-       carbon_cost_ratio  = annual_carbon_cost / revenue                  [fraction of revenue consumed]
-     Carbon prices come from the NGFS scenario carbon-price trajectories
-     (Network for Greening the Financial System, Phase IV, global average,
-     REMIND/GCAM marker models) — representative published values, used as
-     disclosed illustrative anchors, NOT fitted per issuer:
-       - Net Zero 2050 (our 'orderly_1_5c'): steep early price
-       - Delayed / Disorderly ('disorderly_2c'): low to 2030 then sharp
-       - Current Policies ('hot_house_3_5c'): stays low — transition risk is
-         small precisely because little transition happens (the risk is physical)
-       - baseline / 'current': today's limited global carbon pricing (~US$5),
-         with a note that EU-ETS-covered emissions face a much higher real price.
-     NGFS states these in constant 2010 US dollars per tonne (US$2010/tCO2). They are
-     held that way here and converted, per run, to the currency the revenue is in at
-     a recent year's prices (services/reference/carbon_price.basis: US GDP deflator ×
-     that year's average rate). Until 2026-09-27 (v1) the US$2010 figures were used
-     as euros directly — a ~27% understatement of the carbon cost against 2025 revenue.
+  carbon cost          = (scope 1 + scope 2) × stated carbon price            (in EUR, then in the revenue's currency)
+  carbon cost share    = carbon cost / revenue
+  transition score     = 100 × the larger of the carbon cost share and the stated stranded share, capped at 100 —
+                         the share of the counterparty's economics the transition takes, in per cent (a definition,
+                         not a fitted scale). Bucketed by the one shared score_to_bucket.
 
-  2. Stranded-asset exposure — the obsolescence channel, by sector.
-       sector_base_stranded × scenario_ambition_factor
-     Sector base tiers are keyed to NACE divisions where the transition story is
-     well established (fossil extraction, refining, fossil power, heavy
-     industry, ICE autos). Disclosed relative tiers, not fitted asset-level
-     stranding — same standard as the physical peril tiers.
-
-score = min(100, max(carbon_cost_score, stranded_score)). Bucketed by the one
-shared score_to_bucket. Every output carries model_version so it is reproducible
-and supersedable exactly like a physical score.
+Without emissions the carbon channel is absent, so the score is not given (the stranded share still is); a parameter
+not stated is a named gap. Computed at read time for the reading organisation — never stored across organisations.
 """
 from __future__ import annotations
 
@@ -45,108 +24,47 @@ from typing import Optional
 
 from core.types import score_to_bucket
 
-MODEL_VERSION = "transition-v2-ngfs-usd2010"
-
-# NGFS-anchored carbon price by scenario and horizon, in constant 2010 US DOLLARS per tonne CO2e (NGFS's own basis).
-# Representative global-average values from the NGFS Phase IV scenarios — disclosed illustrative anchors, not
-# fitted. Converted to the revenue's money by a price basis (see transition_score). See module docstring.
-CARBON_PRICE_USD2010 = {
-    "baseline":        {"current": 5,   "2030": 10,  "2050": 15,  "2100": 20},
-    "orderly_1_5c":    {"current": 5,   "2030": 130, "2050": 250, "2100": 600},   # Net Zero 2050: steep, early
-    "disorderly_2c":   {"current": 5,   "2030": 40,  "2050": 340, "2100": 600},   # Delayed: low then sharp
-    "hot_house_3_5c":  {"current": 5,   "2030": 10,  "2050": 15,  "2100": 25},    # Current Policies: stays low
-}
-
-# Scenario ambition factor applied to sector stranding (more ambitious transition
-# strands high-carbon assets faster). Hot-house strands little; net-zero the most.
-SCENARIO_STRAND_FACTOR = {
-    "baseline": 0.10, "orderly_1_5c": 1.00, "disorderly_2c": 0.85, "hot_house_3_5c": 0.15,
-}
-HORIZON_STRAND_FACTOR = {"current": 0.15, "2030": 0.45, "2050": 1.00, "2100": 1.10}
-
-# Base stranded-asset fraction by NACE division (2-digit prefix) — disclosed
-# relative tiers for sectors with an established transition/stranding thesis.
-NACE_STRANDED_BASE = {
-    "05": 0.45,  # mining of coal and lignite
-    "06": 0.40,  # extraction of crude petroleum and natural gas
-    "19": 0.35,  # manufacture of coke and refined petroleum products
-    "35": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier)
-    "24": 0.20,  # manufacture of basic metals (steel)
-    "23": 0.18,  # manufacture of other non-metallic mineral products (cement)
-    "29": 0.15,  # manufacture of motor vehicles (ICE exposure)
-    "49": 0.10,  # land transport
-    "51": 0.12,  # air transport
-}
-
-# Score-shaping constants (documented, monotonic).
-CARBON_COST_AT_SCORE_90 = 0.30   # a 30%-of-revenue carbon cost maps to a 90 score
-STRANDED_SCORE_WEIGHT = 60.0     # a 100%-stranded sector maps to a 60 score on the stranding channel alone
+MODEL_VERSION = "transition-v3-stated"
+PER_MILLION = 1_000_000          # carbon intensity is reported in tCO2e per € million of revenue
 
 
-def _nace_division(nace_code: Optional[str]) -> Optional[str]:
-    if not nace_code:
-        return None
-    return nace_code.strip()[:2]
+def transition_block(method, scope1_tco2e: Optional[float], scope2_tco2e: Optional[float],
+                     revenue: Optional[float], division: Optional[str], scenario: str, horizon: str,
+                     eur_per_unit: float = 1.0) -> dict:
+    """One counterparty × scenario × horizon. `revenue` is in the book's currency; eur_per_unit converts it to EUR (the
+    unit the carbon price is stated in). Every figure that needs a missing input is None, and 'gap' names it."""
+    have_emissions = (scope1_tco2e is not None or scope2_tco2e is not None) and bool(revenue)
+    tonnes = (scope1_tco2e or 0.0) + (scope2_tco2e or 0.0) if have_emissions else None
+    gaps = []
 
+    stranded = method.per_division("method.stranded_share", division or "any", scenario, horizon)
+    if stranded is None:
+        gaps.append(f"method.stranded_share ({division or 'any'}@{scenario}/{horizon})")
 
-def transition_score(
-    scope1_tco2e: Optional[float], scope2_tco2e: Optional[float], scope3_tco2e: Optional[float],
-    revenue_eur: Optional[float], nace_code: Optional[str], scenario: str, horizon: str,
-    price_basis: Optional[dict] = None,
-) -> Optional[dict]:
-    """One issuer × scenario × horizon → transition-risk block, or None if the
-    inputs to say anything honest are absent (no emissions AND no sector signal).
-    Never fabricates a zero for a missing input.
-
-    price_basis (services.reference.carbon_price.basis) converts the US$2010 price into the currency `revenue_eur` is
-    held in; it is required whenever emissions are given (the carbon-cost channel), never assumed."""
-    usd2010 = CARBON_PRICE_USD2010.get(scenario, {}).get(horizon)
-    if usd2010 is None:
-        return None
-
-    s1 = scope1_tco2e or 0.0
-    s2 = scope2_tco2e or 0.0
-    have_emissions = (scope1_tco2e is not None or scope2_tco2e is not None) and bool(revenue_eur)
-
-    # Channel 1: carbon-cost intensity
-    carbon_intensity = None
-    carbon_cost_eur = None
-    carbon_cost_ratio = None
-    carbon_score = 0.0
-    price = None
+    intensity = cost_share = cost = price = None
     if have_emissions:
-        if not price_basis:
-            raise ValueError("a carbon price basis is required to price emissions (NGFS prices are US$2010)")
-        price = usd2010 * price_basis["factor"]
-    if have_emissions and revenue_eur:
-        revenue_meur = revenue_eur / 1e6
-        carbon_intensity = round((s1 + s2) / revenue_meur, 2) if revenue_meur else None
-        carbon_cost_eur = (s1 + s2) * price
-        carbon_cost_ratio = carbon_cost_eur / revenue_eur if revenue_eur else 0.0
-        carbon_score = min(90.0, (carbon_cost_ratio / CARBON_COST_AT_SCORE_90) * 90.0)
+        revenue_eur = revenue * eur_per_unit
+        intensity = round(tonnes / (revenue_eur / PER_MILLION), 2)
+        price = method.get("method.carbon_price", f"{scenario}/{horizon}")
+        if price is None:
+            gaps.append(f"method.carbon_price ({scenario}/{horizon})")
+        else:
+            cost_share = tonnes * price / revenue_eur
+            cost = cost_share * revenue                       # in the revenue's currency
 
-    # Channel 2: sector stranded-asset exposure. stranded_pct is a fraction (0-1);
-    # a fully-stranded sector (stranded_pct=1) maps to STRANDED_SCORE_WEIGHT (=60).
-    base = NACE_STRANDED_BASE.get(_nace_division(nace_code), 0.02)
-    stranded_pct = base * SCENARIO_STRAND_FACTOR.get(scenario, 0.1) * HORIZON_STRAND_FACTOR.get(horizon, 0.15)
-    stranded_score = min(100.0, stranded_pct * STRANDED_SCORE_WEIGHT)
-
-    if not have_emissions and base <= 0.02:
-        # nothing to say honestly — no emissions and a sector with no transition thesis
-        return None
-
-    score = round(min(100.0, max(carbon_score, stranded_score)), 1)
+    score = None
+    if have_emissions and cost_share is not None and stranded is not None:
+        score = round(min(100.0, 100 * max(cost_share, stranded)), 1)
     return {
         "transition_risk_score": score,
-        "risk_bucket": score_to_bucket(score).value,
-        "carbon_intensity_tco2e_per_meur": carbon_intensity,
-        "stranded_asset_pct": round(stranded_pct * 100, 2),
-        "carbon_price_impact_eur": round(carbon_cost_eur, 2) if carbon_cost_eur is not None else None,
-        "carbon_price_per_tonne": round(price, 2) if price is not None else None,
-        "carbon_price_usd2010_per_tonne": usd2010,
-        "carbon_price_basis": (price_basis or {}).get("label") if price is not None else None,
-        "carbon_cost_pct_of_revenue": round(carbon_cost_ratio * 100, 2) if carbon_cost_ratio is not None else None,
-        "dominant_channel": "carbon_cost" if carbon_score >= stranded_score else "stranded_asset",
-        "model_version": MODEL_VERSION,
+        "risk_bucket": score_to_bucket(score).value if score is not None else None,
+        "carbon_intensity_tco2e_per_meur": intensity,
+        "stranded_asset_pct": round(100 * stranded, 2) if stranded is not None else None,
+        "carbon_price_eur_per_tonne": price,
+        "carbon_price_impact": round(cost, 2) if cost is not None else None,
+        "carbon_cost_pct_of_revenue": round(100 * cost_share, 2) if cost_share is not None else None,
+        "dominant_channel": (None if score is None else "carbon_cost" if cost_share >= stranded else "stranded_asset"),
         "has_emissions": have_emissions,
+        "model_version": MODEL_VERSION,
+        **({"gap": "not stated: " + ", ".join(gaps)} if gaps else {}),
     }

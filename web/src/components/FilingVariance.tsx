@@ -9,20 +9,21 @@ import { DivergingBars, PairBars } from './Charts'
 // "Why did the numbers move?" — decomposes a filing's change vs the prior version (the one it restates, or
 // the previous period). A reviewer approves deltas, not absolutes. Honest: identical data → "no change".
 
-interface D { now: number; prior: number; delta: number }
+interface D { now: number | null; prior: number | null; delta: number | null }
 interface Mover { asset: string; value_eur: number | null; from_score: number; to_score: number; delta: number; from_bucket: string | null; to_bucket: string | null }
 interface Entry { asset: string; value_eur: number | null; score: number | null; bucket: string | null; gone?: boolean }
 interface Variance {
   supported: boolean; message?: string; prior_filing_id?: string; currency?: string
   basis?: { current: { period: string }; prior: { period: string } }
-  headline?: { total_value: D; value_at_risk: D; pct_at_risk: { now: number; prior: number; delta: number } }
+  headline?: { total_value: D; value_at_risk: D; pct_at_risk: D }
+  at_risk_level?: { now: number | null; prior: number | null; changed: boolean; gap?: string }
   by_hazard?: ({ hazard: string } & D)[]
   drivers?: { new_at_risk: Entry[]; left_at_risk: Entry[]; movers: Mover[] }
   counts?: { assets_now: number; assets_prior: number; added: number; removed: number }
 }
 
 // for a RISK figure, up is bad (red), down is good (green)
-const riskTone = (delta: number) => delta > 0 ? '#fb7185' : delta < 0 ? '#34d399' : '#64748b'
+const riskTone = (delta: number | null) => delta == null ? '#64748b' : delta > 0 ? '#fb7185' : delta < 0 ? '#34d399' : '#64748b'
 
 export default function FilingVariance({ filingId }: { filingId: string }) {
   const q = useQuery({ queryKey: ['variance', filingId], queryFn: () => api.get<Variance>(`/v1/filings/${filingId}/variance`) })
@@ -46,6 +47,9 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
         {!material
           ? <p className="text-[12.5px] text-[var(--color-mute)]">No material change since {d.basis?.prior.period} — same book, same scores. A restatement with unchanged data reconciles exactly.</p>
           : <>
+              {d.at_risk_level?.gap
+                ? <p className="text-[11.5px] text-[var(--color-warn)]">At-risk figures not compared — {d.at_risk_level.gap} for {d.at_risk_level.now == null ? 'this filing' : 'the prior filing'}.</p>
+                : d.at_risk_level?.changed && <p className="text-[11.5px] text-[var(--color-warn)]">The stated at-risk level changed from {d.at_risk_level.prior} to {d.at_risk_level.now} — part of the value-at-risk movement is the method, not the risk.</p>}
               <div className="grid grid-cols-3 gap-3">
                 <Tile label="Book value" delta={h.total_value.delta} now={h.total_value.now} risk={false} ccy={ccy} />
                 <Tile label="Value at risk" delta={h.value_at_risk.delta} now={h.value_at_risk.now} risk ccy={ccy} />
@@ -60,15 +64,17 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
                 </div>
               )}
 
-              <div>
-                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Value at risk · prior vs now</div>
-                <PairBars prior={h.value_at_risk.prior} now={h.value_at_risk.now} format={eur} />
-              </div>
+              {h.value_at_risk.prior != null && h.value_at_risk.now != null && (
+                <div>
+                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Value at risk · prior vs now</div>
+                  <PairBars prior={h.value_at_risk.prior} now={h.value_at_risk.now} format={eur} />
+                </div>
+              )}
 
-              {d.by_hazard!.filter(x => x.delta !== 0).length > 0 && (
+              {d.by_hazard!.filter(x => x.delta != null && x.delta !== 0).length > 0 && (
                 <div>
                   <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Exposure shift by hazard (red = more risk)</div>
-                  <DivergingBars data={d.by_hazard!.filter(x => x.delta !== 0).slice(0, 6).map(x => ({ label: hazardLabel(x.hazard), value: x.delta }))} format={eur} />
+                  <DivergingBars data={d.by_hazard!.filter(x => x.delta != null && x.delta !== 0).slice(0, 6).map(x => ({ label: hazardLabel(x.hazard), value: x.delta as number }))} format={eur} />
                 </div>
               )}
 
@@ -86,26 +92,26 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
   )
 }
 
-function Tile({ label, delta, risk, ccy }: { label: string; delta: number; now: number; risk: boolean; ccy: string }) {
+function Tile({ label, delta, risk, ccy }: { label: string; delta: number | null; now: number | null; risk: boolean; ccy: string }) {
   const tone = risk ? riskTone(delta) : (delta === 0 ? '#64748b' : 'var(--color-ink)')
-  const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
+  const Icon = delta == null ? Minus : delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
   return (
     <div>
       <div className="flex items-center gap-1 text-[15px] mono" style={{ color: tone }}>
-        <Icon size={13} />{delta === 0 ? '±0' : `${delta > 0 ? '+' : ''}${money(delta, ccy)}`}
+        <Icon size={13} />{delta == null ? 'not comparable' : delta === 0 ? '±0' : `${delta > 0 ? '+' : ''}${money(delta, ccy)}`}
       </div>
       <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{label}</div>
     </div>
   )
 }
 
-function PctTile({ label, delta }: { label: string; now: number; delta: number }) {
+function PctTile({ label, delta }: { label: string; now: number | null; delta: number | null }) {
   const tone = riskTone(delta)
-  const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
+  const Icon = delta == null ? Minus : delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
   return (
     <div>
       <div className="flex items-center gap-1 text-[15px] mono" style={{ color: tone }}>
-        <Icon size={13} />{delta === 0 ? '±0' : `${delta > 0 ? '+' : ''}${delta}pp`}
+        <Icon size={13} />{delta == null ? 'not comparable' : delta === 0 ? '±0' : `${delta > 0 ? '+' : ''}${delta}pp`}
       </div>
       <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{label}</div>
     </div>

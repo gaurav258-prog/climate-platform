@@ -1,121 +1,89 @@
-"""Combined physical + transition climate VaR — one probabilistic loss distribution over BOTH climate
-drivers, for an asset-manager's book.
+"""Combined physical + transition climate VaR — one loss distribution over both climate drivers for an asset
+manager's book, on the manager's own stated method (E69).
 
-The portfolio VaR was physical-haircut only: it modelled what warming does to a holding's value, but not
-what the low-carbon transition does to it. Both hit the SAME position. This runs one Monte-Carlo per holding
-over the two drivers:
-  * physical — the continuous collateral haircut on the holding's headline physical score, sampled around its
-    own per-cell confidence interval (falling back to a relative spread where no CI exists);
-  * transition — the modelled stranded-asset fraction for the holding's sector under the scenario's NGFS
-    carbon-price path (ml.scoring.transition_risk; the sector-stranding channel, which needs only the NACE
-    code — the carbon-cost channel additionally needs issuer emissions and is out of scope for the flat book).
-A holding is not lost twice: the two are combined as complementary survival — loss = 1 − (1−physical)(1−transition)
-— so the combined figure never exceeds the position and is always ≤ the naive sum of the two. Returns the
-combined VaR (median / P95 / P99) plus the physical-only and transition-only expected components, so the
-decomposition is visible. Deterministic seed (audit T2). Disclosed relative tiers, not a fitted model.
+Per holding, one Monte-Carlo over:
+  * physical   — its discount for physical risk (its override, else the stated valuation haircut for its headline peril
+                 and band), sampled between the discounts at the ends of its score's confidence interval, or, without
+                 one, within ± the stated relative uncertainty (method.var_relative_uncertainty);
+  * transition — the stated stranded share for its NACE division under the scenario and horizon
+                 (method.stranded_share), sampled within ± the stated relative uncertainty
+                 (method.transition_var_relative_uncertainty).
+Combined per the manager's dependence switch (independent 1−(1−p)(1−t) / additive / max), so a holding is never lost
+more than once. Deterministic seed (audit T2). A gap — never a partial figure — when an input is not stated.
 """
 from __future__ import annotations
 
-_DEFAULT_SIMS = 10000
+from ml.scoring.valuation_discount import VAR_QUANTILES, effective_haircut
 
 
 def _combine(physical, transition, dependence: str):
-    """Combine a physical and a transition loss fraction on one holding (scalars or numpy arrays).
-    'independent' = 1−(1−p)(1−t) (they hit different states); 'additive' = min(1, p+t) (conservative stack);
-    'max' = the larger driver only. An institution interpretation switch."""
+    """'independent' = 1−(1−p)(1−t); 'additive' = min(1, p+t); 'max' = the larger — an institution switch."""
+    import numpy as np
     if dependence == "additive":
-        try:
-            import numpy as np
-            return np.minimum(1.0, physical + transition)
-        except Exception:
-            return min(1.0, physical + transition)
+        return np.minimum(1.0, np.add(physical, transition))
     if dependence == "max":
-        try:
-            import numpy as np
-            return np.maximum(physical, transition)
-        except Exception:
-            return max(physical, transition)
-    # default: independent
-    return 1.0 - (1.0 - physical) * (1.0 - transition)
+        return np.maximum(physical, transition)
+    return 1.0 - (1.0 - np.asarray(physical)) * (1.0 - np.asarray(transition))
 
 
-def combined_climate_var(holdings: list[dict], org_id: str, scenario: str, horizon: str,
-                         n_sims: int = _DEFAULT_SIMS, dependence: str = "independent") -> dict:
-    """holdings: the asset-manager book (each with position_value_eur, headline_score/bucket/hazard, hazards
-    with ci_lo/ci_hi, nace_code). dependence: how physical & transition losses combine on a holding
-    (independent | additive | max) — an institution interpretation switch. Returns the combined
-    physical+transition climate VaR with decomposition."""
+def _band(rng, mean: float, lo: float, hi: float, n: int):
+    import numpy as np
+    return rng.triangular(lo, mean, hi, n) if hi > lo else np.full(n, mean)
+
+
+def combined_climate_var(method, holdings: list[dict], org_id: str, scenario: str, horizon: str, n_sims: int,
+                         dependence: str | None) -> dict:
+    """holdings: the book (position_value_eur, headline_score/hazard, hazards with ci_lo/ci_hi, nace_code, valuation)."""
     import hashlib
 
     import numpy as np
 
-    from ml.scoring.damage_function import collateral_haircut_pct
-    from ml.scoring.transition_risk import transition_score
+    from ml.scoring.damage_function import valuation_haircut
+    from services.reference.nace import division
 
-    priced = [h for h in holdings if (h.get("position_value_eur") or 0) > 0 and h.get("headline_bucket")]
+    priced = [h for h in holdings if (h.get("position_value_eur") or 0) > 0 and h.get("headline_score") is not None]
     if not priced:
         return {"available": False, "reason": "no_scored_positions"}
+    if dependence is None:          # the manager's own choice of how physical and transition losses combine (E69)
+        return {"available": False, "reason": "gap",
+                "gap": "not stated: the physical × transition dependence (calculation settings — climate_var_dependence)"}
+    rel_p, rel_t = method.get("method.var_relative_uncertainty"), method.get("method.transition_var_relative_uncertainty")
+    rows = []
+    for h in priced:
+        phys = effective_haircut(method, h)
+        trans = method.per_division("method.stranded_share", division(h.get("nace_code")) or "any", scenario, horizon)
+        ci = next((x for x in (h.get("hazards") or []) if x.get("hazard") == h.get("headline_hazard")), None)
+        ends = None
+        if ci and ci.get("ci_lo") is not None and ci.get("ci_hi") is not None and not (h.get("valuation") or {}).get("is_overridden"):
+            ends = (valuation_haircut(method, h["headline_hazard"], ci["ci_lo"]),
+                    valuation_haircut(method, h["headline_hazard"], ci["ci_hi"]))
+        rows.append((h, phys, trans, ends))
+    if rel_p is None or rel_t is None or any(p is None or t is None or (e and None in e) for _, p, t, e in rows):
+        return {"available": False, "reason": "gap", "gap": method.gap_text()}
 
     seed = int.from_bytes(hashlib.sha256(f"{org_id}|{scenario}|{horizon}|combined".encode()).digest()[:8], "big")
     rng = np.random.default_rng(seed)
-
     losses = np.zeros(n_sims)
-    phys_expected = trans_expected = combined_expected = 0.0
-    total_value = 0.0
-    n_transition = 0
-
-    for h in priced:
-        value = h["position_value_eur"] or 0.0
-        total_value += value
-        score, bucket, hazard = h.get("headline_score"), h.get("headline_bucket"), h.get("headline_hazard")
-        phys = collateral_haircut_pct(score, bucket, hazard) / 100.0
-
-        tblk = transition_score(None, None, None, None, h.get("nace_code"), scenario, horizon)
-        trans = (tblk["stranded_asset_pct"] or 0.0) / 100.0 if tblk else 0.0
-        if tblk:
-            n_transition += 1
-
-        phys_expected += value * phys
-        trans_expected += value * trans
-        combined_mean = _combine(phys, trans, dependence)
-        combined_expected += value * combined_mean
-
-        # physical draw around the per-cell CI band (or a relative spread if no CI)
-        ci = next((x for x in (h.get("hazards") or []) if x.get("hazard") == hazard), None)
-        if ci and ci.get("ci_lo") is not None and ci.get("ci_hi") is not None:
-            plo = collateral_haircut_pct(ci["ci_lo"], bucket, hazard) / 100.0
-            phi = collateral_haircut_pct(ci["ci_hi"], bucket, hazard) / 100.0
-        else:
-            spread = max(phys * 0.4, 0.02)
-            plo, phi = max(0.0, phys - spread), min(1.0, phys + spread)
-        pdraw = (rng.triangular(min(plo, phi), phys, max(plo, phi), n_sims)
-                 if phi > plo else np.full(n_sims, phys))
-
-        # transition draw around a relative spread (the stranding tier is a disclosed relative estimate)
-        if trans > 0:
-            tspread = max(trans * 0.5, 0.01)
-            tlo, thi = max(0.0, trans - tspread), min(1.0, trans + tspread)
-            tdraw = rng.triangular(tlo, trans, thi, n_sims) if thi > tlo else np.full(n_sims, trans)
-        else:
-            tdraw = np.zeros(n_sims)
-
+    phys_exp = trans_exp = comb_exp = total = 0.0
+    for h, phys, trans, ends in rows:
+        value = h["position_value_eur"]
+        total += value
+        phys_exp += value * phys
+        trans_exp += value * trans
+        comb_exp += value * float(_combine(phys, trans, dependence))
+        plo, phi = (min(ends), max(ends)) if ends else (max(0.0, phys * (1 - rel_p)), min(1.0, phys * (1 + rel_p)))
+        pdraw = _band(rng, phys, plo, phi, n_sims)
+        tdraw = _band(rng, trans, max(0.0, trans * (1 - rel_t)), min(1.0, trans * (1 + rel_t)), n_sims)
         losses += value * _combine(pdraw, tdraw, dependence)
-
-    p50, p95, p99 = (float(x) for x in np.percentile(losses, [50, 95, 99]))
+    p50, p95, p99 = (float(x) for x in np.percentile(losses, VAR_QUANTILES))
     return {
-        "available": True,
-        "scenario": scenario, "horizon": horizon,
-        "n_positions": len(priced), "n_with_transition": n_transition, "n_sims": n_sims,
-        "dependence": dependence,
-        "median_loss_eur": round(p50),
-        "var95_eur": round(p95),
-        "var99_eur": round(p99),
-        "physical_expected_eur": round(phys_expected),
-        "transition_expected_eur": round(trans_expected),
-        "combined_expected_eur": round(combined_expected),
-        "combined_pct_of_book": round(100 * combined_expected / total_value, 2) if total_value else 0,
-        "method": ("one Monte-Carlo per holding over both drivers — physical (continuous haircut, sampled "
-                   "around the per-cell confidence interval) and transition (sector stranded-asset fraction "
-                   "under the scenario's NGFS carbon price). Combined as 1−(1−physical)(1−transition), so a "
-                   "holding is never lost twice. Disclosed relative tiers, not a fitted model."),
+        "available": True, "scenario": scenario, "horizon": horizon, "n_positions": len(rows), "n_sims": n_sims,
+        "dependence": dependence, "median_loss_eur": round(p50), "var95_eur": round(p95), "var99_eur": round(p99),
+        "physical_expected_eur": round(phys_exp), "transition_expected_eur": round(trans_exp),
+        "combined_expected_eur": round(comb_exp),
+        "combined_pct_of_book": round(100 * comb_exp / total, 2) if total else None,
+        "method": ("one Monte-Carlo per holding over both drivers on the manager's stated method: physical (its discount, "
+                   "sampled across its score's confidence interval or its stated uncertainty) and transition (its stated "
+                   "stranded share for the division, scenario and horizon, sampled within its stated uncertainty); "
+                   f"combined as '{dependence}'."),
     }

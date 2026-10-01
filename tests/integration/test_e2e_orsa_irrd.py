@@ -21,6 +21,7 @@ import json
 import pytest
 
 from tests.integration.conftest import login as _login
+from tests.integration.money_method import state_method
 
 pytestmark = pytest.mark.integration
 IBERIA = "22222222-2222-4222-8222-222222222222"
@@ -65,6 +66,7 @@ def test_the_orsa_climate_analysis_from_the_attested_figures_to_the_submitted_re
     maker, checker = _users(api)
     from services.governance.filings import reporting_period_end
     pe = reporting_period_end(api.s, IBERIA)
+    state_method(api.s, IBERIA, pe)          # the insurer's stated method (E69)
     _capital(api, maker, checker, pe)
 
     live = api.get(f"/v1/insurance/documents/insurer_orsa_climate?entity_id={SEGUROS}", headers=maker)
@@ -130,6 +132,7 @@ def test_the_recovery_plan_stress_against_the_attested_capital_and_indicators(ap
     maker, checker = _users(api)
     from services.governance.filings import reporting_period_end
     pe = reporting_period_end(api.s, IBERIA)
+    state_method(api.s, IBERIA, pe)          # the insurer's stated method (E69)
     _capital(api, maker, checker, pe)
     low = api.post("/v1/provided", headers=maker, json={"framework": "insurer_recovery_stress", "datapoint_key": "scr_trigger_recovery_pct",
                                                         "value_num": 90, "reporting_period_end": pe.isoformat(), "reporting_entity_id": SEGUROS})

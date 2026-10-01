@@ -76,8 +76,9 @@ def reconciliation(session: Session, org_id: str, org_type: str) -> dict:
         ORDER BY balance_eur DESC
     """), {"o": org_id, "b": batch["b"]}).mappings().all()
     gl_total = sum(a["balance_eur"] for a in accounts if (a["control_for"] or "book") == "book")
+    from services.money.params import for_org
     from services.portfolio_engine import fetch_entities_with_risk
-    rows = fetch_entities_with_risk(session, org_id, vertical, "baseline", "current")
+    rows = fetch_entities_with_risk(session, org_id, vertical, "baseline", "current", method=for_org(session, org_id))
     reported = sum((r.get("primary_value_eur") or 0) for r in rows)
     var = reported - gl_total
     var_pct = round(100 * var / gl_total, 3) if gl_total else None

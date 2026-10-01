@@ -9,7 +9,7 @@ paragraph as the anticipated figures — not, as an earlier draft of this gap as
 climate-RESILIENCE / scenario analysis, a different requirement entirely).
 
 The platform already covers ¶16(c)-(d) — the ANTICIPATED financial effects — via the modelled expected annual
-loss (ml/scoring/cat_accumulation.py) and the NatCat SCR, both internal-model and prescribed standard-formula
+loss (ml/scoring/cat_accumulation.py), the modelled 1-in-200 loss and the prescribed standard-formula NatCat SCR
 (services/governance/solvency2_natcat.py, services/governance/insurer_solvency.py). ¶16(a) — actual, INCURRED
 losses for the reporting period — had zero coverage anywhere in services/intelligence, services/governance or
 kri.py: this module closes that gap.
@@ -76,7 +76,7 @@ def list_incurred_losses(session, org_id: str) -> list[dict]:
 
 def incurred_loss_summary(session, org_id: str, modeled: dict | None = None) -> dict:
     """The ¶16(a) actual-incurred-loss disclosure: rolled up by peril and by reporting period. When `modeled`
-    is passed (the ¶16(c)-(d) anticipated figures — EAL, standard-formula/internal-model NatCat SCR, from the
+    is passed (the ¶16(c)-(d) anticipated figures — EAL, the modelled 1-in-200 and the standard-formula SCR, from the
     caller's already-computed disclosure snapshot), it is surfaced ALONGSIDE the actual figures so a reader can
     compare "what we modelled" vs "what actually happened" — the whole point of ¶16 having both a backward- and
     forward-looking half. Honest gap: when nothing has been supplied, says so explicitly rather than a silent
@@ -211,8 +211,8 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
     if modeled is not None:
         result["comparison_note"] = (
             "Actual incurred losses (¶16(a), customer-supplied, backward-looking) shown alongside the "
-            "platform's modelled/anticipated figures (¶16(c)-(d): expected annual loss and the standard-formula "
-            "/ internal-model NatCat SCR — forward-looking). The two are not directly additive or reconciling: "
+            "platform's modelled/anticipated figures (¶16(c)-(d): expected annual loss, the modelled 1-in-200 loss "
+            "and the standard-formula NatCat SCR — forward-looking). The two are not directly additive or reconciling: "
             "incurred losses are actual claims for a stated past period; EAL/SCR are model outputs drawn from "
             "the full simulated hazard × return-period distribution. Comparing them over time is itself a "
             "useful calibration signal for the modelled figures.")

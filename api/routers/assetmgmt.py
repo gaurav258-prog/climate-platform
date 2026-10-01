@@ -43,18 +43,25 @@ from services.portfolio_engine import (
     fetch_entities_with_risk,
     get_entity_org,
     get_entity_with_risk,
+    value_at_risk,
 )
 from services.scoring.combined_var import combined_climate_var
 from services.scoring.portfolio_concentration import portfolio_concentration
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 
-def _assetmgmt_extra(row, headline, hz):
-    bucket = row["headline_bucket"]
-    tax = classify_taxonomy(row["nace_code"], headline_bucket=bucket, resilience_rating=None,
-                             minimum_safeguards_status=row.get("minimum_safeguards_status"))
-    return {"flagged": bucket in ("H", "VH"), "taxonomy_status": tax["status"],
-            "taxonomy_activity_ref": tax["activity_ref"], "taxonomy_reasoning": tax["reasoning"]}
+def _assetmgmt_extra(method):
+    """Per holding: flagged when its headline score is at or above the manager's stated at-risk level (None: not
+    stated), and its Taxonomy status."""
+    from services.money.params import at_risk
+
+    def extra(row, headline, hz):
+        flagged = at_risk(method, row["headline_score"])
+        tax = classify_taxonomy(row["nace_code"], material_physical_risk=flagged, resilience_rating=None,
+                                 minimum_safeguards_status=row.get("minimum_safeguards_status"))
+        return {"flagged": flagged, "taxonomy_status": tax["status"],
+                "taxonomy_activity_ref": tax["activity_ref"], "taxonomy_reasoning": tax["reasoning"]}
+    return extra
 
 
 def _map_holding_row(row):
@@ -84,24 +91,30 @@ resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for eve
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="universal",
-                        entity_ids=None, value_weights=None, translation=None):
+def _holdings_with_risk(session, org_id, scenario, horizon, *, method, entity_ids=None, value_weights=None,
+                        translation=None):
     """All of an org's holdings (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py) --
     asset management needs no extension table (sector/nace_code already live
     on the shared portfolio_entities table). entity_ids / value_weights scope +
     consolidation-weight the book for a per-entity / group filing (None = whole org)."""
-    rows = fetch_entities_with_risk(session, org_id, "assetmgmt", scenario, horizon, severity_model,
-                                     extra_calc=_assetmgmt_extra, entity_ids=entity_ids, value_weights=value_weights,
+    rows = fetch_entities_with_risk(session, org_id, "assetmgmt", scenario, horizon, method=method,
+                                     extra_calc=_assetmgmt_extra(method), entity_ids=entity_ids, value_weights=value_weights,
                                      translation=translation)
     return [_map_holding_row(r) for r in rows]
 
 
-def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=None, severity_model="universal",
-            dependence="independent"):
+def _rollup(holdings, method, settings: dict, org_id: str, scenario: str, horizon: str):
+    """The book's climate VaR on the manager's stated method and its own settings (the VaR method and the physical ×
+    transition dependence) — the same for the live view and a frozen filing. A gap where an input is not stated."""
+    from ml.scoring.valuation_discount import VAR_SIMULATIONS
+    var_method, dependence = settings["assetmgmt_var_method"], settings["climate_var_dependence"]
     total = sum(h["position_value_eur"] or 0 for h in holdings)
-    total_var = sum((h["position_value_eur"] or 0) - h["climate_var"]["discounted_value_eur"] for h in holdings)
-    n_flagged = sum(1 for h in holdings if h["flagged"])
+    scored = [h for h in holdings if h["headline_score"] is not None]
+    disc = [h["climate_var"]["discounted_value_eur"] for h in scored]
+    total_var = None if None in disc else sum((h["position_value_eur"] or 0) - d for h, d in zip(scored, disc))
+    flags = [h["flagged"] for h in holdings]
+    n_flagged = None if None in flags else sum(1 for f in flags if f)
     by_bucket = defaultdict(lambda: {"count": 0, "value_eur": 0.0})
     for h in holdings:
         b = h["headline_bucket"] or "none"
@@ -111,9 +124,10 @@ def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=
         "n_holdings": len(holdings),
         "n_scored": sum(1 for h in holdings if h["headline_bucket"]),
         "n_flagged": n_flagged,
+        **value_at_risk(holdings, "position_value_eur", method),
         "total_portfolio_value_eur": round(total),
-        "total_climate_var_eur": round(total_var),
-        "portfolio_climate_var_pct": round(100 * total_var / total, 2) if total else 0,
+        "total_climate_var_eur": None if total_var is None else round(total_var),
+        "portfolio_climate_var_pct": None if total_var is None else (round(100 * total_var / total, 2) if total else 0),
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in by_bucket.items()},
         "top_holdings": sorted(
             [h for h in holdings if h["headline_score"] is not None],
@@ -121,23 +135,25 @@ def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=
         "var_method": var_method,
     }
     if var_method == "monte_carlo":
-        scored = [{"position_value_eur": h["position_value_eur"], "bucket": h["headline_bucket"],
-                   "hazard": h["headline_hazard"]} for h in holdings if h["headline_bucket"]]
-        rollup["monte_carlo_var"] = monte_carlo_var(scored, org_id, scenario, horizon, severity_model)
+        rollup["monte_carlo_var"] = monte_carlo_var(
+            method, [{"position_value_eur": h["position_value_eur"], "hazard": h["headline_hazard"],
+                      "score": h["headline_score"], "valuation": h["climate_var"]} for h in scored],
+            org_id, scenario, horizon, VAR_SIMULATIONS)
     # Combined physical + transition climate VaR (one distribution over both drivers, with decomposition).
-    if org_id and scenario and horizon:
-        rollup["combined_climate_var"] = combined_climate_var(holdings, org_id, scenario, horizon,
-                                                              dependence=dependence)
+    rollup["combined_climate_var"] = combined_climate_var(method, holdings, org_id, scenario, horizon, VAR_SIMULATIONS,
+                                                          dependence)
+    if method.gap_text():
+        rollup["gap"] = method.gap_text()
     return rollup
 
 
 @router.get("/portfolio", summary="Holdings book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    settings = get_calc_settings(session, org_id)
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, settings["severity_model"])
-    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"],
-                     dependence=settings["climate_var_dependence"])
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, method=method)
+    rollup = _rollup(holdings, method, get_calc_settings(session, org_id), org_id, scenario, horizon)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": rollup, "holdings": holdings,
             "concentration": portfolio_concentration(holdings)}
@@ -146,7 +162,8 @@ def portfolio(session: DbSession, org_id: OrgId,
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
 def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.forward_risk import forward_risk
-    return forward_risk(session, org_id, "assetmgmt", scenario)
+    from services.money.params import for_org
+    return forward_risk(session, org_id, "assetmgmt", scenario, for_org(session, org_id))
 
 
 @router.get("/summary", summary="Portfolio climate VaR rollup")
@@ -155,45 +172,37 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    settings = get_calc_settings(session, org_id)
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, settings["severity_model"])
-    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"],
-                     dependence=settings["climate_var_dependence"])
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, method=method)
+    rollup = _rollup(holdings, method, get_calc_settings(session, org_id), org_id, scenario, horizon)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": rollup}
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
+                              period_end=None):
     """The asset manager's holdings-book TCFD physical-risk disclosure — physical-risk exposure by hazard,
     EU-Taxonomy status, and portfolio climate-risk CONCENTRATION. Live (/disclosure) and frozen (filing
     snapshot) callers share this so a filing can't drift from the live view. This is the HOLDINGS-book
     disclosure, distinct from the fund-level SFDR PAI statement (separate data model). entity_ids /
     value_weights scope + consolidation-weight the book for a per-entity or group filing (None = whole org)."""
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model,
+    from services.money.params import for_org
+    from services.portfolio_engine import exposure_by_hazard
+    method = for_org(session, org_id, period_end)
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, method=method,
                                    entity_ids=entity_ids, value_weights=value_weights, translation=translation)
-    hazards: dict = {}
-    for h in holdings:
-        for hz in h["hazards"]:
-            entry = hazards.setdefault(hz["hazard"], {
-                "exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
-                "model_version": hz["model_version"], "scored_at": hz["scored_at"]})
-            if hz["bucket"] in ("H", "VH"):
-                entry["exposed_value_eur"] += h["position_value_eur"] or 0
-                entry["n_exposed"] += 1
-            entry["max_score"] = max(entry["max_score"], hz["score"])
-    for entry in hazards.values():
-        entry["exposed_value_eur"] = round(entry["exposed_value_eur"])
-        entry["max_score"] = round(entry["max_score"], 1)
+    hazards = exposure_by_hazard(holdings, "position_value_eur", method)
     tax = defaultdict(lambda: {"count": 0, "value_eur": 0.0})
     for h in holdings:
         tax[h["taxonomy_status"]]["count"] += 1
         tax[h["taxonomy_status"]]["value_eur"] += h["position_value_eur"] or 0
     return {
-        "rollup": _rollup(holdings),
+        "rollup": _rollup(holdings, method, get_calc_settings(session, org_id), org_id, scenario, horizon),
         "holdings": holdings,
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
         "concentration": portfolio_concentration(holdings),
+        "method": method.record(),
     }
 
 
@@ -222,9 +231,10 @@ REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["req
 def holding_detail(holding_id: str, session: DbSession, caller_org: OrgId):
     own_or_404(session, "portfolio_entities", "entity_id", holding_id, caller_org, "Holding")   # only your own org's record
     org_id = get_entity_org(session, holding_id)
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    row = get_entity_with_risk(session, holding_id, "baseline", "current", severity_model,
-                                extra_calc=_assetmgmt_extra)
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    row = get_entity_with_risk(session, holding_id, "baseline", "current", method=method,
+                                extra_calc=_assetmgmt_extra(method))
     holding = {
         "holding_id": row["entity_id"], "org_id": row["org_id"], "holding_name": row["entity_name"],
         "sector": row["sector"], "nace_code": row["nace_code"], "country": row["country"],
@@ -323,8 +333,8 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
 @router.get("/portfolio.xlsx", summary="Portfolio climate VaR book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
+    from services.money.params import for_org
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, method=for_org(session, org_id))
     headers = ["holding_name", "sector", "region", "country", "position_value_eur",
                "headline_hazard", "headline_score", "risk_bucket", "discounted_value_eur",
                "flagged", "taxonomy_status"]

@@ -7,11 +7,11 @@ import { money } from '../lib/money'
 
 // Population view of the independent lens: who sits far from the rebuilt figure. Each row is one entity's
 // submitted-vs-rebuilt total; open the row for the cell view. Entities without an ingested submission say so.
-interface Row { org_id: string; name: string; type: string; status: 'ok' | 'no_submission' | 'no_shadow_book' | 'out_of_profile'; period_label?: string
+interface Row { org_id: string; name: string; type: string; status: 'ok' | 'no_submission' | 'no_shadow_book' | 'out_of_profile' | 'gap'; gap?: string; period_label?: string
   n_cells?: number; n_flagged?: number; totals?: { submitted: number; rebuilt: number; scope: number; coverage: number; basis: number; scoring: number; unmatched: number }
   total_gap?: number; gap_pct?: number | null; precision?: string; basis_separable?: boolean; coverage_pct?: number | null }
 interface Resp { scenario: string; horizon: string; entities: Row[]; n_with_lens: number }
-const STATUS: Record<Row['status'], string> = { ok: '', no_submission: 'no submitted template ingested', no_shadow_book: 'no granular data ingested', out_of_profile: 'sector outside your profile' }
+const STATUS: Record<Row['status'], string> = { ok: '', no_submission: 'no submitted template ingested', no_shadow_book: 'no granular data ingested', out_of_profile: 'sector outside your profile', gap: 'your at-risk level is not stated (method.at_risk_level)' }
 
 export default function SupervisorLensPopulation() {
   const q = useQuery({ queryKey: ['sup-lens-pop'], queryFn: () => api.get<Resp>('/v1/supervisor/lens') })

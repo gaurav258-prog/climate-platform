@@ -77,6 +77,8 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
 # (data/reference/esrs/concepts.json) — one store whichever report prints them, and a concept keeps its key across
 # versions so this year's figure is next year's comparative
 ESRS = "esrs"
+METHOD = "method"          # the institution's stated methods and parameters (data/reference/money/parameters.json)
+_METHOD_RANGE = {"score": (0.0, 100.0), "ratio": (0.0, 1.0), "EUR/tCO2e": (0.0, None)}
 _ESRS_RANGE = {"percent": (0.0, 100.0), "tCO2eq": (0.0, None), "MWh": (0.0, None), "m3": (0.0, None), "ha": (0.0, None),
                "count": (0.0, None), "year": (1900.0, 2100.0), "monetary": (0.0, None), "monetary/tCO2eq": (0.0, None),
                "score": (0.0, 100.0), "boolean": (0.0, 1.0)}
@@ -132,11 +134,53 @@ def _esrs_check(dp: dict, value_num: float | None, currency: str | None) -> None
         raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}, not an amount: it has no currency")
 
 
+def _method_target(key: str, member: str | None) -> dict:
+    """A method or parameter of the register the institution states (and, for a breakdown, which member)."""
+    from services.money.params import members, parameters
+    p = parameters().get(key)
+    if p is None:
+        raise ProvidedError(f"'{key}' is not a method parameter the platform reads (data/reference/money/parameters.json)")
+    if p.get("breakdown"):
+        if not (member or "").strip():
+            raise ProvidedError(f"'{key}' is stated per {p['breakdown'].replace('_', ' ')}: say which one")
+        if member not in members(p["breakdown"]):
+            raise ProvidedError(f"'{member}' is not a {p['breakdown'].replace('_', ' ')} (e.g. {members(p['breakdown'])[0]})")
+    elif member:
+        raise ProvidedError(f"'{key}' is a single figure, not a breakdown")
+    return {"key": key, "label": p["label"] + (f" — {member}" if member else ""), "lane": "provided", "unit": p["unit"],
+            "recon_tol": None, "member": member or None}
+
+
+def _method_check(dp: dict, value_num: float | None, currency: str | None) -> None:
+    if value_num is None:
+        raise ProvidedError(f"'{dp['key']}' is a figure: give a number")
+    if currency:
+        raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}, not an amount: it has no currency")
+    lo, hi = _METHOD_RANGE[dp["unit"]]
+    if value_num < lo or (hi is not None and value_num > hi):
+        raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}: the value must be "
+                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"))
+
+
+def method_providable() -> dict:
+    """The methods and parameters the institution states (per financial year): each with its unit and, for a
+    breakdown, its members. Nothing has a default."""
+    from services.money.params import members, parameters
+    return {"datapoints": [{"key": k, "label": p["label"], "unit": p["unit"], "used_for": p.get("used_for"),
+                            "breakdown": p.get("breakdown"), "members": ({m: m for m in members(p["breakdown"])}
+                                                                         if p.get("breakdown") else None),
+                            "period": None, "currency_required": False, "input_only": False}
+                           for k, p in parameters().items()]}
+
+
 def _target(framework: str, key: str, period_end, elections: dict | None = None, member: str | None = None) -> dict:
-    """What a supplied value is for: a catalog datapoint, an ESRS concept, or a template cell of the governing
-    specification (with the organisation's elections, so the cell is checked against the version its filing is built to)."""
+    """What a supplied value is for: a catalog datapoint, an ESRS concept, a method parameter, or a template cell of the
+    governing specification (with the organisation's elections, so the cell is checked against the version its filing
+    is built to)."""
     if framework == ESRS:
         return _esrs_target(key, member, period_end, elections)
+    if framework == METHOD:
+        return _method_target(key, member)
     if member:
         raise ProvidedError("only an ESRS figure is reported per breakdown member")
     if key.count(".") == 2:
@@ -210,9 +254,12 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
                 raise ProvidedError(str(e)) from e
             money = {"currency": conv["currency"], "eur": conv["eur"],
                      "source": field_entry(conv["native"], conv["currency"], pe, conv["eur"], conv["rate"], origin="provided")}
+    elif framework == METHOD:
+        _method_check(dp, value_num, currency)
+        unit = dp["unit"]
     else:
         if currency or breakdown_member:
-            raise ProvidedError("a currency or breakdown member is stated only with an ESRS figure")
+            raise ProvidedError("a currency or breakdown member is stated only with an ESRS figure or a method parameter")
         _check_unit(dp, value_num)
     entity = _entity_scope(session, org_id, framework, reporting_entity_id)
     from services.governance.period_close import is_closed
@@ -222,7 +269,7 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
 
     # reconcile against our baseline where one exists
     base = (_baseline(session, org_id, framework, datapoint_key)
-            if value_num is not None and "cell" not in dp and framework != ESRS else None)
+            if value_num is not None and "cell" not in dp and framework not in (ESRS, METHOD) else None)
     tol = dp.get("recon_tol") or DEFAULT_TOL_PCT
     delta_pct = within = note = None
     if base is not None and base != 0 and value_num is not None:
@@ -323,6 +370,10 @@ def attested_values(session: Session, org_id: str, framework: str, period_end=No
         from services.governance.esrs_binding import concepts
         labels.update({k: c["label"] for k, c in concepts().items()})
         units.update({k: c["unit"] for k, c in concepts().items()})
+    if framework == METHOD:
+        from services.money.params import parameters
+        labels.update({k: p["label"] for k, p in parameters().items()})
+        units.update({k: p["unit"] for k, p in parameters().items()})
     out = []
     for r in rows:
         val = r["value_num"] if r["value_num"] is not None else r["value_text"]

@@ -132,10 +132,21 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
     if cell is None:
         raise ValueError(f"hazard '{hazard}' is not a reported cell in this filing")
 
+    # the contributors are the ones the filed cell was computed from, on the definition in force when it was frozen:
+    # today's — at or above the stated level, on a hazard that applies to the asset (portfolio_engine.exposure_by_hazard);
+    # a filing frozen before the stated method — the High / Very-high bands, before the relevance registry existed
+    from services.governance.pillar3_templates import LEGACY_LEVEL, hazard_hit, stated_level
+    legacy = "method" not in payload
+    level = stated_level(payload)
+
+    def counted(h: dict) -> bool:
+        if legacy:
+            return h.get("score") is not None and float(h["score"]) >= LEGACY_LEVEL
+        return level is not None and hazard_hit(h, level)
+
     contributors = []
     for a in payload.get(cfg["list"]) or []:
-        hz = next((h for h in a.get("hazards", []) if h.get("hazard") == hazard
-                   and h.get("bucket") in ("H", "VH")), None)
+        hz = next((h for h in a.get("hazards", []) if h.get("hazard") == hazard and counted(h)), None)
         if not hz:
             continue
         g = _granular_row(session, a.get("h3_cell"), hazard, scenario, horizon)

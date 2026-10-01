@@ -15,3 +15,10 @@ _APP_IMPORT = re.compile(r"^\s*(from|import)\s+(core|services|ml|api|scripts|wor
 def test_no_migration_imports_the_application():
     offenders = sorted(p.name for p in VERSIONS.glob("*.py") if _APP_IMPORT.search(p.read_text()))
     assert not offenders, f"migrations importing application code (freeze what they need into the file): {offenders}"
+
+
+def test_every_revision_id_fits_the_version_column():
+    """alembic_version.version_num is VARCHAR(32): a longer id migrates nothing and fails at the stamp (E69)."""
+    ids = {p.name: re.search(r'^revision(?::[^=]*)?=\s*["\']([^"\']+)', p.read_text(), re.M) for p in VERSIONS.glob("*.py")}
+    long = sorted(f"{n}: {m.group(1)}" for n, m in ids.items() if m and len(m.group(1)) > 32)
+    assert not long, f"revision ids longer than 32 characters: {long}"

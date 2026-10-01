@@ -41,16 +41,11 @@ real, documented crop failure, for EVERY origin the buyer sources. There is no "
 Held/pending exposure is reported as SPEND (a fact), never rolled into the € headline.
 Every figure carries IMPACT_VERSION so it is reproducible.
 
-GOVERNANCE — THE PUBLISH GATE (methodology §8, hard rule):
-A euro figure leaves this engine ONLY if its hazard→yield→price chain has been reproduced
-against a real, documented crop failure, for EVERY origin the buyer sources. There is no
-"illustrative €": a number on a page gets used no matter what banner sits above it. So:
-- status='scored'  → backtested. € published.
-- status='held'    → scored, but the chain is not event-backtested for some origin.
-                     Exposure and hazard driver shown; € WITHHELD (not shown behind a caveat).
-- status='pending' → no hazard score yet. Exposure mapped, € withheld. Never a silent zero.
-Held/pending exposure is reported as SPEND (a fact), never rolled into the € headline.
-Every figure carries IMPACT_VERSION so it is reproducible.
+WHAT CHANGED 2026-10-01 (E69): every yield shock comes from the ORIGIN's validated calibration row (the
+backtested sensitivity or the ranged fit, on its driver hazard) — nothing else. The v0 crop-sensitivity table,
+its 0.40 default, the 0.5 transmission fallback, the commodity-name 'backtested' list and the single-bucket
+path that used them are gone: they let a € leave on a code constant. An origin with any plot not scored on its
+driver hazard is not computable (named), never averaged in at zero.
 """
 from __future__ import annotations
 
@@ -60,7 +55,7 @@ from typing import Optional
 
 from ml.confidence_grade import grade as _grade
 
-IMPACT_VERSION = "sc-impact-v0.5"
+IMPACT_VERSION = "sc-impact-v0.6"
 
 # A ranged crop's fit must explain at least this share of its climate-attributable variance to
 # publish a € (as a band) — measured on OUT-OF-SAMPLE r² (r2_oos), the cross-validated "honest"
@@ -68,93 +63,11 @@ IMPACT_VERSION = "sc-impact-v0.5"
 # gate on the same floor + metric. A weaker fit is stored + shown as "tested, below bar", € withheld.
 RANGED_PUBLISH_FLOOR = 0.40
 
-# v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
-# pending calibration against yield–weather panels (methodology §1.2).
-CROP_SENSITIVITY = {
-    "Olive oil": 0.35, "Citrus": 0.45, "Almonds": 0.40, "Durum wheat": 0.40,
-    "Wine grapes": 0.45, "Cane sugar": 0.35, "Cocoa": 0.55,
-}
-DEFAULT_SENSITIVITY = 0.40
-TRANSMISSION = 0.5      # fallback transmission when a commodity carries no stock-to-use (v0)
-# RETIRED 2026-07-16, all three were invented numbers dressed as parameters:
-#   SOURCING_PREMIUM = 0.12  -> the sourcing channel is simply yield_shock x spend; there is no
-#                               reason for a 0.12 haircut on the volume that fails to arrive.
-#   PRICE_MOVE_CAP   = 3.0   -> capped a prediction we no longer make.
-#   P90_FACTOR       = 1.8   -> a "P90" that was just p50 x 1.8. That is not a confidence
-#                               interval, it is a decoration. We have no quantified uncertainty
-#                               on the sensitivity, so we report none.
-
-# Per-commodity CALIBRATED parameters (v0.2). Others fall back to CROP_SENSITIVITY,
-# global_share=1.0 (local shock ≈ price shock) and flat transmission — i.e. UNCHANGED.
-#   market channel: price_move = A(stock_to_use) × (yield_shock × global_share) / |elasticity|
-# Cocoa is calibrated to reproduce the real 2023/24 event end-to-end, on the SEASONAL
-# (Jan–Mar harmattan) heat score = 73 (heat-climatology-v1-seasonal):
-#   heat 73 → yield_shock ≈ 0.294×0.73 = 21.5%; × 60% world share = 12.9% global supply shock
-#   (= ICCO −12.9%); × A(26% stocks)=2.69 / η=0.20 → +173% (≈ observed +177% 2024 avg; P90 ≈ peak).
-# (sensitivity re-held from 0.37→0.294 when scoring moved annual→seasonal; the event target is
-#  fixed, the heat→yield coefficient is the fitted free parameter.)
-COMMODITY_PARAMS = {
-    "Cocoa": {"sensitivity": 0.294, "global_share": 0.60, "stock_to_use": 26.4},
-    # Coffee (arabica) — HELD, € withheld (calibration_tier='indicative'; sc_model_validation
-    #   passed=False for every coffee event). The 2021 event is real but does NOT validate against
-    #   yield: tested 2026-08-16 against combined, national-arabica (USDA PSD) and sub-national
-    #   Minas/Sul-de-Minas arabica yield (IBGE PAM), across five agronomic windows, PLUS a lagged
-    #   frost-extent model. The frost signal is physically correct (frost→next-year loss, sign right,
-    #   strengthens with resolution: state r=−0.08 → Sul de Minas r=−0.23) but tops out at r²≈0.05,
-    #   ~8x below the 0.40 OOS gate — perennial yield is dominated by the biennial cycle (φ≈−0.49).
-    #   Drought + frost EXPOSURE stays live (scored on the plots via wire_frost_demo); only the € is
-    #   withheld. The sensitivity/share below are the legacy event params, kept for the (held)
-    #   compound computation and any future re-calibration — they publish nothing while tier=indicative.
-    "Coffee": {"sensitivity": 0.45, "global_share": 0.35, "stock_to_use": 40.0},
-
-    # The remaining six commodities were previously left at global_share=1.0
-    # (i.e. "this one sourcing region IS 100% of world supply") -- a much
-    # cruder placeholder than a rough real approximation. These are NOT
-    # event-backtested (still calibration='indicative', see BACKTESTED below)
-    # -- sensitivity is left at CROP_SENSITIVITY's existing value, only
-    # global_share and stock_to_use are added, from widely-cited public
-    # production-share and USDA/FAO stocks-to-use figures:
-    #   Olive oil: Spain ~45% of world olive oil production (IOC); oil stores
-    #     well within a season, moderate carryover -> stock_to_use ~25%.
-    #   Durum wheat: Spain/Andalusia is a minor global durum origin (Canada,
-    #     Italy, Turkey dominate) -> global_share ~2%; wheat's global
-    #     stock_to_use runs ~30-35% (USDA WASDE).
-    #   Citrus: Valencia is a major EU citrus region but small next to
-    #     Brazil/China/US -> global_share ~3%; citrus is highly perishable,
-    #     low carryover -> stock_to_use ~12%.
-    #   Wine grapes: Extremadura is a small fraction of world wine grape
-    #     production (far more geographically diversified than cocoa/coffee)
-    #     -> global_share ~1%; wine's multi-year aging inventory gives a
-    #     higher stock_to_use ~45%.
-    #   Almonds: this book's almond plots are placed in Alentejo, Portugal --
-    #     a minor almond origin next to California's ~80% world share ->
-    #     global_share ~1%; annual crop, modest carryover -> stock_to_use ~15%.
-    "Olive oil":   {"global_share": 0.45, "stock_to_use": 25.0},
-    "Durum wheat": {"global_share": 0.02, "stock_to_use": 32.0},
-    "Citrus":      {"global_share": 0.03, "stock_to_use": 12.0},
-    "Wine grapes": {"global_share": 0.01, "stock_to_use": 45.0},
-    "Almonds":     {"global_share": 0.01, "stock_to_use": 15.0},
-
-    # Cane sugar is NOT calibrated here: this book's cane-sugar plots are
-    # placed in Valencia, Spain -- but Spain does not grow cane sugar at
-    # commercial scale (its real sugar crop is sugar beet; cane sugar is
-    # dominated by Brazil/India/Thailand). Assigning a "Spain's share of
-    # world cane sugar" figure would be fabricating a number for a
-    # geography that doesn't reflect real production -- left on
-    # global_share=1.0 defaults instead, flagged here rather than papered
-    # over with a confident-sounding but false calibration. The seed data's
-    # placement itself looks like a demo-data mismatch worth revisiting.
-}
-_DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": None}
-
-# Commodities whose impact function is calibrated to (and reproduces) a real event backtest.
-# Everything else is flagged 'indicative' so unvalidated € is never blended with validated €.
-# This is only the FALLBACK for an origin-less book; the live tier is derived per origin from
-# v_sc_commodity_calibration (backtested iff sc_model_validation.passed). Coffee is NOT here:
-# every coffee event has passed=False (2026-08-16 — drought + frost both fail to validate against
-# arabica yield at every resolution), so coffee is held/indicative and its € withheld. Keeping it
-# here would only mislead — the runtime already holds it correctly.
-BACKTESTED = {"Cocoa"}
+# A crop's yield response is its ORIGIN's validated calibration (v_sc_commodity_calibration: a backtested
+# sensitivity on its driver hazard, or a ranged fit) — read by get_calibrations, never a constant here. Retired
+# 2026-10-01 (E69), all guesses that could reach a €: CROP_SENSITIVITY (v0 0.35–0.55 by crop), DEFAULT_SENSITIVITY
+# (0.40), TRANSMISSION (0.5), COMMODITY_PARAMS (code copies of sensitivity / world share / stocks) and BACKTESTED
+# (a name-based 'backtested' label for a book without per-origin rows).
 
 # Commodities where real events show multiple same-season hazards on the SAME plot compound
 # rather than substitute for each other -- Coffee's July 2021 event (drought weakened the
@@ -182,22 +95,6 @@ def _plot_severity(hazards: dict, compound: bool) -> float:
     for score in hazards.values():
         remaining *= (1.0 - score / 100.0)
     return round((1.0 - remaining) * 100.0, 2)
-
-
-def _plot_yield_shock(hazards: dict, sens: float, compound: bool) -> float:
-    """0-1 local yield-shock fraction for one plot -- the actual §1.2 hazard-to-
-    yield calc. Worst-of (default): sens x the single most severe hazard's
-    score/100. Compounded (opt-in, COMPOUND_HAZARDS): independent multiplicative
-    damage across each hazard's OWN sens-scaled yield-shock contribution --
-    combining AFTER sensitivity, not on the raw 0-100 severity scores, so one
-    hazard saturating at its own max (e.g. frost=100) doesn't erase a second,
-    genuinely damaging hazard's contribution (e.g. drought=80)."""
-    if not compound or len(hazards) <= 1:
-        return sens * (max(hazards.values()) / 100.0)
-    remaining = 1.0
-    for score in hazards.values():
-        remaining *= (1.0 - sens * (score / 100.0))
-    return 1.0 - remaining
 
 
 @dataclass
@@ -273,26 +170,9 @@ class PortfolioCogsAtRisk:
     impact_version: str = IMPACT_VERSION
 
 
-def amplification(stock_to_use):
-    """RETIRED — NOT ON ANY PUBLISHED PATH. Do not re-wire this into compute().
-
-    Stock-to-use price amplification A(s) = (34.7/s)^3.62, fitted through two anchors, one of
-    which (coffee at 40% stocks) turned out to be fabricated — the real figure is 14.2% (USDA
-    PSD). Tested against a proper marketing-year panel it has no support: r^2 = 0.041, and the
-    empirical exponent is 0.23 against our hardcoded 3.62. The relationship is not merely
-    mis-fitted; it is not in the data, because price responds to what the market EXPECTS, not
-    to measured stocks.
-
-    It survives only so the research scripts that produced the historical price figures
-    (backtest_storm/backtest_volcanic, build/fit_amplification_panel) still run and can still
-    reproduce what we used to assert. compute() no longer calls it, and the published
-    volume-at-risk is arithmetically independent of it and of stock_to_use — see
-    tests/unit/test_price_chain_is_dead.py, which feeds the engine absurd stocks/elasticity
-    and asserts the euro does not move.
-    """
-    if not stock_to_use:
-        return TRANSMISSION
-    return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
+# amplification() — the stock-to-use price curve A(s) — was retired from the published path 2026-07-16 (r² = 0.041 on
+# the real panel) and removed from the engine 2026-10-01 (E69): the research scripts that tested it
+# keep their own copy of the curve (scripts/fit_amplification_curve.py, scripts/build_amplification_panel.py).
 
 
 def _fit_predict(fit: dict, score: float, z: float = 1.0) -> tuple:
@@ -336,10 +216,9 @@ def _calibration_tier(name: str, origins: list) -> str:
     """A commodity's honesty label, derived from the ORIGINS this buyer actually sources —
     not from the commodity name. Coffee is 'backtested' for a Brazil-only book, but 'mixed'
     the moment Guatemala (never fitted to a Guatemalan event) is added, so validated and
-    unvalidated € are never silently blended. Falls back to the legacy commodity-level
-    BACKTESTED set when there is no per-origin calibration."""
+    unvalidated € are never silently blended. A book with no per-origin calibration is 'indicative'."""
     if not origins:
-        return "backtested" if name in BACKTESTED else "indicative"
+        return "indicative"
     # An origin only counts at its tier if it is BOTH calibrated at that tier AND actually
     # computable here — a coefficient whose driver hazard is unscored yields no number, so it
     # cannot back a published €. 'ranged' publishes too (as a band), but it is WEAKER than
@@ -360,8 +239,8 @@ def _calibration_tier(name: str, origins: list) -> str:
     return "indicative"
 
 
-def _commodity_risk(name, eudr, spend, plots, sens, global_share,
-                    compound=False, origin_cal=None, price_scenario_pct=None) -> CommodityRisk:
+def _commodity_risk(name, eudr, spend, plots, compound=False, origin_cal=None,
+                    price_scenario_pct=None) -> CommodityRisk:
     """plots: list of dicts {spend, origin, hazards:{hz→score}} (scored plots carry hazards).
 
     `elasticity` and `amp` used to sit in this signature and were never read in the body — the
@@ -371,12 +250,12 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
     compound: see COMPOUND_HAZARDS -- worst-of by default, independent-multiplicative-damage
     for commodities with real backtest evidence hazards stack rather than substitute.
 
-    origin_cal: {origin → {sensitivity, world_share, calibration_tier, hazard_driver}} from
-    sc_commodity_calibration. When present the WORLD supply shock is summed per origin:
+    origin_cal: {origin → {sensitivity, world_share, calibration_tier, hazard_driver, fit}} from
+    v_sc_commodity_calibration — the ONLY source of a yield shock. The WORLD supply shock is summed per origin:
         global_shock = Σ_origins( origin_yield_shock × origin_world_share )
-    which is the physically correct chain -- each origin contributes in proportion to its share
-    of world PRODUCTION, not to how much this buyer happens to source there. When absent we keep
-    the legacy single-bucket behaviour (one yield shock × one global_share) unchanged."""
+    each origin contributing in proportion to its share of world PRODUCTION. An origin without a validated
+    driver, or with any plot not scored on it, has no yield shock (named in input_required); the buyer's
+    yield shock — and so the volume at risk — is then not computed (None), never averaged in at zero."""
     scored = [p for p in plots if p.get("hazards")]
     n_plots, n_scored = len(plots), len(scored)
     if n_scored == 0:
@@ -400,32 +279,27 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
         _d = next(iter(_drivers))
         if any(_d in p.get("hazards", {}) for p in scored):
             top_hazard = _d
-    # The buyer's OWN exposure — spend-weighted over their plots. Each plot is read with ITS
-    # OWN ORIGIN'S calibrated sensitivity and driver hazard, not a commodity-wide constant.
-    # BUG THIS FIXES (found by test, 2026-07-16): this used the commodity-level `sens` from the
-    # code's COMMODITY_PARAMS (cocoa 0.294), silently shadowing the DB calibration that was
-    # re-fitted on real data (0.1995). The per-origin world-shock path already used the right
-    # value, so the two halves of the same object disagreed — and once volume-at-risk became
-    # THE headline, the headline was the one using the stale number.
     def _plot_shock(p):
-        cal = (origin_cal or {}).get(p.get("origin")) if origin_cal else None
-        if cal:
-            driver = cal.get("hazard_driver")
-            fit = cal.get("fit")
-            if fit and driver:
-                # ranged: the buyer's loss is the regression MID at the plot's driver score
-                band = _ranged_plot_band(p["hazards"], fit, driver)
-                return band[1] if band is not None else 0.0
-            o_sens = cal.get("sensitivity") or sens
-            if driver:
-                v = _driver_yield_shock(p["hazards"], o_sens, driver)
-                return v if v is not None else 0.0
-            return _plot_yield_shock(p["hazards"], o_sens, compound)
-        return _plot_yield_shock(p["hazards"], sens, compound)
+        """A plot's loss fraction from ITS origin's validated calibration on the driver hazard; None when the origin
+        has none or the plot is not scored on the driver."""
+        cal = (origin_cal or {}).get(p.get("origin"))
+        if not cal or not cal.get("hazard_driver"):
+            return None
+        driver, fit = cal["hazard_driver"], cal.get("fit")
+        if fit:
+            band = _ranged_plot_band(p["hazards"], fit, driver)          # ranged: the regression MID
+            return band[1] if band is not None else None
+        if cal.get("sensitivity") is None:
+            return None
+        return _driver_yield_shock(p["hazards"], cal["sensitivity"], driver)
 
-    yield_shock = sum(_plot_shock(p) * p["spend"] for p in scored) / wsum   # §1.2 hazard → yield shock
+    shocks = [_plot_shock(p) for p in scored]
+    # §1.2 hazard → yield shock, spend-weighted — only when EVERY scored plot has one (never a partial average)
+    yield_shock = (None if not scored or any(x is None for x in shocks)
+                   else sum(x * p["spend"] for x, p in zip(shocks, scored)) / wsum)
 
     origins: list[dict] = []
+    global_shock = None
     if origin_cal:
         # §1.3 per-ORIGIN: world shock = Σ (origin yield shock × origin world share)
         # Group ALL plots, not just the scored ones. An origin whose plots are entirely
@@ -438,7 +312,7 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
             by_origin.setdefault(p.get("origin"), []).append(p)
         for origin, oplots in sorted(by_origin.items(), key=lambda kv: str(kv[0])):
             cal = origin_cal.get(origin)
-            o_sens = (cal or {}).get("sensitivity") or sens
+            o_sens = (cal or {}).get("sensitivity")
             o_share = (cal or {}).get("world_share")
             driver = (cal or {}).get("hazard_driver")
             o_fit = (cal or {}).get("fit")
@@ -448,7 +322,14 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
             if driver:
                 # Calibrated origin: only the backtested/fitted hazard may drive the yield shock.
                 scored_on_driver = [p for p in oplots if p.get("hazards", {}).get(driver) is not None]
-                if scored_on_driver:
+                if not o_fit and o_sens is None:
+                    o_shock = None
+                    need = "a validated sensitivity for this origin's driver hazard"
+                elif len(scored_on_driver) < len(oplots):
+                    o_shock = None
+                    need = (f"{driver} not scored on {len(oplots) - len(scored_on_driver)} of {len(oplots)} plots "
+                            f"— the calibrated driver hazard")
+                elif scored_on_driver:
                     w = sum(p["spend"] for p in scored_on_driver) or 1.0
                     if o_fit:
                         # ranged: regression MID loss at each plot's driver score
@@ -457,9 +338,6 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
                     else:
                         o_shock = sum(_driver_yield_shock(p["hazards"], o_sens, driver) * p["spend"]
                                       for p in scored_on_driver) / w
-                else:
-                    o_shock = None
-                    need = f"{driver} not scored on these plots — the calibrated driver hazard"
             else:
                 # No validated hazard DRIVER for this origin, so no validated yield shock —
                 # exposure only. Name exactly what is missing: if we already know the origin's
@@ -483,8 +361,8 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
                 # surfaced, never silently given another origin's share or another hazard's score.
                 "input_required": need,
             })
-    else:
-        global_shock = yield_shock * global_share                   # legacy single-bucket
+        if any(o["global_shock_contribution_pct"] is None for o in origins):
+            global_shock = None          # an origin that cannot contribute leaves the world shock unknown, never partial
 
     # ── THE HEADLINE: volume at risk. Physical, and the half we can actually prove. ──
     # The buyer's own plots lose `yield_shock` of their yield, so that share of the volume
@@ -492,7 +370,7 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
     # any kind enters this number. It is the direct euro consequence of the crop failure our
     # hazard chain predicts, and that chain is validated against the real event (cocoa's
     # modelled world shock 8.92% vs FAO's measured 8.88%).
-    volume_at_risk = yield_shock * spend
+    volume_at_risk = yield_shock * spend if yield_shock is not None else None
 
     # ── Ranged band: when the driver explains the crop PARTLY, publish a range, not a point. ──
     # Spend-weight each scored plot's (best, worst) loss from the stored regression's prediction
@@ -522,26 +400,26 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
     # ago. So we do not forecast it. If the buyer supplies their own price view (they trade
     # this daily; we do not), we apply it to their whole spend and label it as theirs.
     price_scenario = (price_scenario_pct / 100.0) * spend if price_scenario_pct else None
-    p50 = volume_at_risk + (price_scenario or 0.0)
+    p50 = volume_at_risk + (price_scenario or 0.0) if volume_at_risk is not None else None
 
     return CommodityRisk(
         commodity=name, eudr_covered=eudr, annual_spend_eur=spend,
         n_plots=n_plots, n_plots_scored=n_scored, status="scored",
         hazard_combination="compounded" if compound else "worst_of",
         avg_hazard=round(avg_hazard, 1), top_hazard=top_hazard,
-        yield_shock_pct=round(yield_shock * 100, 1),
+        yield_shock_pct=round(yield_shock * 100, 1) if yield_shock is not None else None,
         global_share=(round(sum(o["world_share"] for o in origins if o["world_share"] is not None), 5)
-                      if origins else global_share),
+                      if origins else None),
         # World shock stays: it is validated and it is real context ("the world crop is down
         # 8.9%"). It just no longer drives a price prediction.
-        global_shock_pct=round(global_shock * 100, 2),
-        volume_at_risk_eur=round(volume_at_risk, 2),
+        global_shock_pct=round(global_shock * 100, 2) if global_shock is not None else None,
+        volume_at_risk_eur=round(volume_at_risk, 2) if volume_at_risk is not None else None,
         volume_at_risk_low_eur=vol_low_eur,
         volume_at_risk_high_eur=vol_high_eur,
         fit_r2=fit_r2,
         price_scenario_pct=price_scenario_pct,
         price_scenario_eur=round(price_scenario, 2) if price_scenario is not None else None,
-        cogs_at_risk_p50=round(p50, 2),
+        cogs_at_risk_p50=round(p50, 2) if p50 is not None else None,
         origins=origins,
     )
 
@@ -573,15 +451,10 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
     calibrations = calibrations or {}
     risks: list[CommodityRisk] = []
     for c in commodities:
-        p = {**_DEFAULT_PARAMS, **COMMODITY_PARAMS.get(c["name"], {})}
         origin_cal = calibrations.get(c["name"])
-        # No elasticity / stock_to_use / amplification read here any more: they fed the price
-        # move, which is retired. `elasticity` and `stock_to_use` stay on the input dict and in
-        # the DB because the research panel still uses them -- they simply reach nothing that
-        # publishes.
-        sens = p["sensitivity"] if p["sensitivity"] is not None else CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
+        # No elasticity / stock_to_use / amplification read here: they fed the retired price move. Every yield
+        # shock comes from the origin's validated calibration (E69).
         cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
-                             sens, p["global_share"],
                              compound=c["name"] in COMPOUND_HAZARDS,
                              origin_cal=origin_cal,
                              price_scenario_pct=price_scenario_pct)
@@ -652,14 +525,29 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
             # publishes no €. Keep the measured exposure and fit_r2 (the reason we withheld).
             cr.cogs_at_risk_p50 = cr.volume_at_risk_eur = None
             cr.volume_at_risk_low_eur = cr.volume_at_risk_high_eur = None
-            cr.price_scenario_eur = cr.global_shock_pct = None
+            cr.price_scenario_eur = cr.global_shock_pct = cr.yield_shock_pct = None
+            # an origin's shock is shown only where it is validated (backtested / ranged) — never from an unvalidated row
+            for o in cr.origins:
+                if o.get("calibration") not in ("backtested", "ranged"):
+                    o["yield_shock_pct"] = o["global_shock_contribution_pct"] = None
 
+        if cr.status == "scored" and cr.volume_at_risk_eur is None:
+            # scored on hazard but with no computable yield shock (an origin not validated, or a plot not scored on
+            # its driver): there is no number, so it cannot count as scored — held, with what is missing named
+            cr.status = "held"
+            needs = [f"{o['origin']}: {o['input_required']}" for o in cr.origins if o.get("input_required")]
+            cr.held_reason = ("€ not computed — " + "; ".join(needs)) if needs else \
+                "€ not computed — no validated calibration for the origins sourced"
         ov = overrides.get(c["name"])
         if ov and cr.status == "scored":
-            model_p50 = cr.cogs_at_risk_p50
-            cr.cogs_at_risk_p50 = round(ov["override_cogs_at_risk_p50_eur"], 2)
+            # the analyst's audited figure replaces the model's volume at risk everywhere it flows (the headline,
+            # the totals, a filing) — not only the p50 — and the model band no longer describes it
+            model_p50, model_vol = cr.cogs_at_risk_p50, cr.volume_at_risk_eur
+            cr.volume_at_risk_eur = round(ov["override_cogs_at_risk_p50_eur"], 2)
+            cr.volume_at_risk_low_eur = cr.volume_at_risk_high_eur = None
+            cr.cogs_at_risk_p50 = round(cr.volume_at_risk_eur + (cr.price_scenario_eur or 0.0), 2)
             cr.override = {
-                "model_p50_eur": model_p50, "override_p50_eur": cr.cogs_at_risk_p50,
+                "model_p50_eur": model_p50, "model_volume_at_risk_eur": model_vol, "override_p50_eur": cr.cogs_at_risk_p50,
                 "overridden_by": ov.get("overridden_by"), "overridden_at": ov.get("overridden_at"),
                 "reason": ov.get("reason"),
             }
@@ -670,8 +558,8 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
     # reach a total that someone then acts on.
     scored = [r for r in risks if r.status == "scored"]
     held = [r for r in risks if r.status == "held"]
-    p50 = sum(r.cogs_at_risk_p50 for r in scored)
-    vol = sum(r.volume_at_risk_eur or 0 for r in scored)
+    p50 = sum(r.cogs_at_risk_p50 for r in scored)              # every scored commodity carries both (above)
+    vol = sum(r.volume_at_risk_eur for r in scored)
     spend = sum(r.annual_spend_eur for r in risks)
     risks.sort(key=lambda r: (r.cogs_at_risk_p50 or -1), reverse=True)
     return PortfolioCogsAtRisk(

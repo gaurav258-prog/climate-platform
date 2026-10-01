@@ -11,7 +11,7 @@ every rule, passed or failed — split into three severities:
 Rules fall in three families, mirroring how a filing goes wrong:
   completeness — is every in-scope item scored, or explicitly flagged? are mandatory identities present?
   plausibility — are the numbers in sane ranges (non-negative, shares in 0–100, exposure ≤ book)?
-  tie_out      — do the figures reconcile internally (severity buckets sum to the book; VaR = High+ buckets)?
+  tie_out      — do the figures reconcile internally (severity buckets sum to the book; value at risk within the book)?
 
 Honesty carries through: a rule never invents a value — it reads what the assembler produced and flags a gap
 as a gap. Because it reads the frozen snapshot, a filing's validation result is stable and reproducible.
@@ -71,16 +71,19 @@ def _validate_bank_tcfd(payload: dict) -> list[dict]:
     # plausibility
     out.append(_f("total_value_positive", "plausibility", "blocking", total > 0,
                   f"Total book value {_eur(total)}" if total > 0 else "Total book value is zero"))
-    pct = rollup.get("pct_value_at_risk", 0)
-    out.append(_f("share_in_range", "plausibility", "warning", 0 <= pct <= 100,
-                  f"Share of book at High+ risk: {pct}%" if 0 <= pct <= 100
-                  else f"Share at risk out of range: {pct}%"))
+    pct = rollup.get("pct_value_at_risk")
+    if pct is not None:
+        out.append(_f("share_in_range", "plausibility", "warning", 0 <= pct <= 100,
+                      f"Share of book at material physical risk: {pct}%" if 0 <= pct <= 100
+                      else f"Share at risk out of range: {pct}%"))
     em = payload.get("financed_emissions_tco2e") or {}
     neg = [k for k, v in em.items() if (v or 0) < 0]
     out.append(_f("emissions_non_negative", "plausibility", "warning", not neg,
                   "Financed emissions are non-negative" if not neg else f"Negative financed emissions: {neg}"))
     for hz, b in (payload.get("by_hazard") or {}).items():
-        ev = b.get("exposed_value_eur", 0) or 0
+        ev = b.get("exposed_value_eur")
+        if ev is None:
+            continue                                   # a gap — reported by method_stated
         ok = ev <= total * 1.0001 or total == 0
         out.append(_f(f"hazard_within_book:{hz}", "plausibility", "warning", ok,
                       f"{hz.replace('_', ' ')}: {_eur(ev)} exposed (≤ book)" if ok
@@ -94,12 +97,46 @@ def _validate_bank_tcfd(payload: dict) -> list[dict]:
                   f"Severity buckets reconcile to the book total ({_eur(bucket_sum)})"
                   if abs(bucket_sum - total) <= tol
                   else f"Severity buckets {_eur(bucket_sum)} ≠ book total {_eur(total)}"))
-    var = rollup.get("value_at_risk_eur", 0) or 0
-    hv = sum((buckets.get(b, {}).get("value_eur", 0) or 0) for b in ("H", "VH"))
-    out.append(_f("var_ties_to_buckets", "tie_out", "warning", abs(var - hv) <= tol,
-                  "Value-at-risk ties to the High + Very-high buckets" if abs(var - hv) <= tol
-                  else f"Value-at-risk {_eur(var)} ≠ High+VH buckets {_eur(hv)}"))
+    var = rollup.get("value_at_risk_eur")
+    if var is not None:        # at or above the bank's stated level — a part of the book, never more
+        out.append(_f("var_within_book", "tie_out", "blocking", var <= total + tol,
+                      f"Value at material physical risk {_eur(var)} is within the book" if var <= total + tol
+                      else f"Value at risk {_eur(var)} exceeds the book {_eur(total)}"))
     return out
+
+
+def _validate_bank_p3esg(payload: dict) -> list[dict]:
+    """The bank checks plus Pillar 3's own: every template amount is a gross carrying amount — the exposure's outstanding
+    balance on the loan tape, never its collateral value — so an exposure that states none blocks the filing."""
+    from services.governance.pillar3_grids import no_gross
+    assets = payload.get("assets") or []
+    missing = no_gross(assets)
+    return _validate_bank_tcfd(payload) + [_f(
+        "gross_carrying_amount_stated", "completeness", "blocking", not missing,
+        f"Every exposure states its gross carrying amount ({len(assets)})" if not missing
+        else f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they would sit "
+             "in no Pillar 3 row; state it on the loan tape",
+        ref="ITS (EU) 2024/3172 Annex XL — gross carrying amount")]
+
+
+# a report whose money figures are its content: a figure whose method is not stated blocks it. S.27.01.01 is the
+# standard formula (Delegated Regulation 2015/35) — it needs no stated method; its modelled figures are context only.
+_METHOD_WARNS = frozenset({"insurer_solvency"})
+
+
+def _method_findings(payload: dict, framework: str) -> list[dict]:
+    """The institution's stated method the frozen money figures were computed on (services.money.params, E69):
+    every parameter a figure needed is stated for the period, or the figure is a gap — named here."""
+    rec = payload.get("method")
+    if not rec:
+        return []
+    gaps = rec.get("gaps") or []
+    names = ", ".join(g["key"] + (f" ({g['member']})" if g.get("member") else "") for g in gaps[:12]) \
+        + (f" and {len(gaps) - 12} more" if len(gaps) > 12 else "")
+    return [_f("method_stated", "completeness", "warning" if framework in _METHOD_WARNS else "blocking", not gaps,
+               f"Every money figure rests on the institution's stated method for the period ending {rec.get('period_end')}"
+               if not gaps else f"Not stated for the period — the figures that need them are gaps: {names}",
+               ref="data/reference/money/parameters.json")]
 
 
 def _validate_sfdr_pai(payload: dict) -> list[dict]:
@@ -222,7 +259,7 @@ def _validate_insurer_solvency(payload: dict) -> list[dict]:
                       "an internal engine inconsistency, not a data gap"))
     sf = nb.get("standard_formula_natcat") or {}
     out.append(_f("standard_formula_available", "completeness", "info", bool(sf.get("available")),
-                  "Standard-formula nat-cat risk (Del. Reg. 2015/35 Arts 119-126) computed beside the internal model"
+                  "Standard-formula nat-cat risk (Del. Reg. 2015/35 Arts 119-126) computed beside the modelled 1-in-200 loss"
                   if sf.get("available") else "Standard-formula nat-cat risk not computed for this book"))
     if sf.get("available") and "complete" in sf:
         out.append(_f("standard_formula_complete", "completeness", "blocking", bool(sf["complete"]),
@@ -300,7 +337,7 @@ def _validate_esrs_pack(payload: dict) -> list[dict]:
     return out
 
 
-_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai,
+_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_p3esg, "sfdr_pai": _validate_sfdr_pai,
              "reit_taxonomy": _validate_reit_taxonomy, "insurer_solvency": _validate_insurer_solvency,
              "insurer_orsa_climate": _validate_insurer_document("insurer_orsa_climate"),
              "insurer_recovery_stress": _validate_insurer_document("insurer_recovery_stress"),
@@ -411,6 +448,7 @@ def validate_filing(session: Session, org_id: str, filing_id: str) -> dict:
         try:
             if ruleset:
                 findings.extend(ruleset(payload))
+            findings.extend(_method_findings(payload, filing["framework"]))
         finally:
             money_format.current.reset(token)
         findings.extend(_fx_findings(payload, filing.get("fx_revisions") or []))

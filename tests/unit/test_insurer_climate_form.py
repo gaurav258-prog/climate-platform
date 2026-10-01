@@ -1,7 +1,7 @@
 """insurer_climate's filing form headline block (2026-09-24 fix, platform E2E audit finding #4): it used to
 be forced through bank/REIT's field names (total_value_eur/n_scored/n_assets), which insurance's own rollup
 never populates (it uses total_sum_insured_eur/n_priced/n_policies/total_expected_annual_loss_eur/
-total_gross_premium_eur/portfolio_loss_ratio_pct instead) — silently rendering "Assets scored: 0/0" and
+total_technical_premium_eur instead) — silently rendering "Assets scored: 0/0" and
 dropping the value/EAL/premium rows on a real, correctly-computed book."""
 from services.governance.filing_form import build_form
 
@@ -12,8 +12,8 @@ def _insurer_snap():
             "n_policies": 145, "n_priced": 145,
             "total_sum_insured_eur": 2_450_000_000,
             "total_expected_annual_loss_eur": 18_500_000,
-            "total_gross_premium_eur": 62_000_000,
-            "portfolio_loss_ratio_pct": 29.8,
+            "total_technical_premium_eur": 26_428_571,
+            "value_at_risk_eur": 400_000_000,
             # bank/REIT-only keys are genuinely absent from insurance's rollup — never populated
         },
         "by_hazard": {"windstorm": {"exposed_value_eur": 400_000_000, "n_exposed": 60}},
@@ -34,8 +34,9 @@ def test_insurer_climate_headline_uses_real_insurance_fields():
     dps = {d["key"]: d for d in headline["datapoints"]}
     assert dps["book.total_sum_insured_eur"]["value"] == 2_450_000_000
     assert dps["book.total_expected_annual_loss_eur"]["value"] == 18_500_000
-    assert dps["book.total_gross_premium_eur"]["value"] == 62_000_000
-    assert dps["book.portfolio_loss_ratio_pct"]["value"] == 29.8
+    assert dps["book.total_technical_premium_eur"]["value"] == 26_428_571     # a modelled premium, never 'written'
+    assert dps["book.sum_insured_at_risk_eur"]["value"] == 400_000_000
+    assert "book.total_gross_premium_eur" not in dps and "book.portfolio_loss_ratio_pct" not in dps
     assert dps["book.coverage"]["value"] == "145 / 145"
 
 
@@ -56,3 +57,12 @@ def test_bank_tcfd_headline_is_unaffected_by_the_insurer_branch():
     assert dps["book.total_value_eur"]["value"] == 4_176_900_000
     assert dps["book.value_at_risk_eur"]["value"] == 2_730_700_000
     assert "book.total_sum_insured_eur" not in dps
+
+
+def test_a_figure_not_computed_stays_on_the_form_as_a_named_gap():
+    snap = {"rollup": {"total_value_eur": 1_000_000, "value_at_risk_eur": None, "pct_value_at_risk": None,
+                       "total_discounted_value_eur": None, "n_scored": 1, "n_assets": 1,
+                       "gap": "not stated: method.at_risk_level"}}
+    headline = next(g for g in build_form("bank_tcfd", snap) if g["group"] == "Headline exposure")
+    var = next(d for d in headline["datapoints"] if d["key"] == "book.value_at_risk_eur")
+    assert var["value"] is None and "method.at_risk_level" in var["note"]

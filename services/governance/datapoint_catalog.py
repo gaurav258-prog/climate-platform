@@ -140,7 +140,7 @@ CATALOG: dict[str, list[dict]] = {
     "insurer_climate": [
         _dp("natcat_eal", "NatCat expected annual loss + loss ratio by peril",
             "tellumen", "compute", provider="Tellumen NatCat engine"),
-        _dp("sum_insured_at_risk", "Sum insured at risk (High+) by peril & geography",
+        _dp("sum_insured_at_risk", "Sum insured at risk (stated level) by peril & geography",
             "tellumen", "compute", provider="Tellumen hazard engine + your SoV"),
         _dp("uw_narrative", "Underwriting strategy & climate narrative", "customer", "report", provider="You author"),
     ],
@@ -161,7 +161,7 @@ CATALOG: dict[str, list[dict]] = {
         {**_dp("ri_quota_share_pct", "Reinsurance in force — quota share ceded (%)", "customer", "provided",
                provider="Your reinsurance treaties",
                note="Proportional cession of the property book. With the cat excess of loss below, it nets every insurer "
-                    "loss figure; where not stated, an illustrative programme is used and said so."), "unit": "%"},
+                    "loss figure; where not attested, every net figure is a named gap — no illustrative programme (E69)."), "unit": "%"},
         {**_dp("ri_xol_attachment_eur", "Reinsurance in force — catastrophe excess of loss attachment", "customer", "provided",
                provider="Your reinsurance treaties"), "unit": "EUR"},
         {**_dp("ri_xol_limit_eur", "Reinsurance in force — catastrophe excess of loss limit", "customer", "provided",

@@ -1,0 +1,231 @@
+{
+ "_about": "Every number a monetary figure of the platform depends on, and where it comes from (feedback: facts only). A money figure may be shown, frozen, filed, used in a KRI or printed in a signed document only when every input is (a) the customer's own data, (b) a regulatory parameter quoted from the text, (c) the output of a model that passed its validation gate FOR THAT QUANTITY, or (d) arithmetic on these. A method or parameter the institution chooses is (a): it is STATED here as a figure of the family 'method' (provided values, per financial year, attested by a second person) — the platform never supplies a default. Not stated → the figure is a named gap. 'constants' lists every number literal in a money module ('path:scope:value') with why it is not a guess (a definition of what is reported, a computation setting, a quoted text, a versioned reference dataset); 'modules' are the money modules already clean; 'pending' the ones still to convert (the worklist). tests/unit/test_money_parameters.py refuses any other number. Read by services/money/params.py.",
+ "family": "method",
+ "breakdowns": {
+  "band": {
+   "label": "hazard band of the platform's 0-100 score (core.types: L < 25 ≤ M < 50 ≤ H < 75 ≤ VH)",
+   "members_from": "core.types.RiskBucket"
+  },
+  "peril": {
+   "label": "peril (a hazard channel), or 'any' — the institution's value for every peril it does not state separately",
+   "members_from": "hazard channels + any"
+  },
+  "peril_band": {
+   "label": "peril / hazard band (e.g. flood/H), or any/<band> — the institution's value for every peril it does not state separately",
+   "members_from": "(hazard channels + any) × core.types.RiskBucket"
+  },
+  "scenario_horizon": {
+   "label": "scenario / horizon (e.g. disorderly_2c/2030)",
+   "members_from": "core.types.SCENARIO_VALUES × TIME_HORIZON_VALUES"
+  },
+  "division_scenario_horizon": {
+   "label": "NACE division @ scenario / horizon (e.g. C24@disorderly_2c/2030), or any@<scenario>/<horizon> — the institution's value for every division it does not state separately",
+   "members_from": "data/reference/nace_rev2.csv divisions + any, × scenario × horizon"
+  },
+  "epc_grade": {
+   "label": "energy performance certificate grade (A best … G worst)",
+   "members_from": "ml.scoring.epc_stranding.EPC_ORDER"
+  }
+ },
+ "parameters": {
+  "method.at_risk_level": {
+   "label": "The hazard score (0-100) at or above which the institution treats an exposure as at material physical risk",
+   "unit": "score",
+   "used_for": "value at material physical risk; exposures sensitive to physical risk (Pillar 3 Template 5); forward crossings; the decision spine's at-risk line"
+  },
+  "method.valuation_haircut": {
+   "label": "Share of an asset's (collateral) value the institution discounts for physical climate risk, by peril and hazard band of the asset's headline hazard",
+   "unit": "ratio",
+   "breakdown": "peril_band",
+   "used_for": "climate-adjusted value and loan-to-value, value-loss band, climate VaR, resilience capex (the loss a retrofit addresses)"
+  },
+  "method.damage_ratio": {
+   "label": "Mean damage ratio if a damaging event occurs — the share of the exposure's value lost — by peril and hazard band (the institution's own curve)",
+   "unit": "ratio",
+   "breakdown": "peril_band",
+   "used_for": "expected loss (bank), scenario loss, expected annual loss and technical premium (insurer, property), catastrophe simulation"
+  },
+  "method.annual_event_probability": {
+   "label": "Annual probability of a damaging event, by peril and hazard band (the institution's own frequency)",
+   "unit": "ratio",
+   "breakdown": "peril_band",
+   "used_for": "expected annual loss (bank and insurer), technical premium, catastrophe simulation"
+  },
+  "method.var_relative_uncertainty": {
+   "label": "Relative uncertainty of a holding's haircut for the Monte-Carlo VaR (the triangular band is the haircut × (1 ± this))",
+   "unit": "ratio",
+   "used_for": "asset-manager Monte-Carlo climate VaR (opt-in method)"
+  },
+  "method.expense_ratio": {
+   "label": "Expense ratio loaded on the technical premium (share of the premium)",
+   "unit": "ratio",
+   "used_for": "insurer and property technical premium"
+  },
+  "method.profit_margin": {
+   "label": "Profit margin loaded on the technical premium (share of the premium)",
+   "unit": "ratio",
+   "used_for": "insurer and property technical premium"
+  },
+  "method.adaptation_effectiveness": {
+   "label": "Share of the physical value loss a resilience retrofit avoids, by peril",
+   "unit": "ratio",
+   "breakdown": "peril",
+   "used_for": "resilience capex: avoided loss and benefit-cost ratio"
+  },
+  "method.resilience_capex_share": {
+   "label": "Resilience retrofit capex as a share of the asset's value, by hazard band",
+   "unit": "ratio",
+   "breakdown": "band",
+   "used_for": "resilience capex"
+  },
+  "method.stranded_share": {
+   "label": "Share of an exposure's value at risk of stranding in the low-carbon transition, by NACE division, under a scenario and horizon (the institution's own)",
+   "unit": "ratio",
+   "breakdown": "division_scenario_horizon",
+   "used_for": "transition expected loss (bank), combined physical + transition climate VaR (asset manager)"
+  },
+  "method.carbon_price": {
+   "label": "Carbon price in EUR per tonne of CO2e under a scenario and horizon (the institution's own, e.g. from the NGFS vintage it uses)",
+   "unit": "EUR/tCO2e",
+   "breakdown": "scenario_horizon",
+   "used_for": "carbon cost of a counterparty's emissions (transition overlay)"
+  },
+  "method.transition_var_relative_uncertainty": {
+   "label": "Relative uncertainty of a holding's stranded share for the combined VaR (the triangular band is the share × (1 ± this))",
+   "unit": "ratio",
+   "used_for": "combined physical + transition climate VaR (asset manager)"
+  },
+  "method.frequency_review_tolerance": {
+   "label": "How far the observed event frequency at a policy may differ from the priced frequency before the review flags it (share: observed ≥ priced × (1 + this) → possibly under-priced; ≤ × (1 − this) → possibly conservative)",
+   "unit": "ratio",
+   "used_for": "underwriting review verdicts"
+  },
+  "method.brown_discount": {
+   "label": "Share of a building's value the institution discounts for its energy performance (transition: tightening minimum energy-performance standards), by EPC grade — 0 for a grade it does not discount",
+   "unit": "ratio",
+   "breakdown": "epc_grade",
+   "used_for": "energy-stranding value at risk (real estate), collateral value at risk and stressed LTV (bank)"
+  },
+  "method.retrofit_capex_share": {
+   "label": "Retrofit capex to bring a building of this EPC grade to the performance the institution's standard requires, as a share of its value — 0 where none is needed",
+   "unit": "ratio",
+   "breakdown": "epc_grade",
+   "used_for": "retrofit capex to de-risk (real estate, bank collateral)"
+  },
+  "method.runway_materiality": {
+   "label": "Share of the book newly crossing the stated at-risk level by a horizon that the institution treats as material — the earliest such horizon is the runway ('act by')",
+   "unit": "ratio",
+   "used_for": "forward-risk runway"
+  },
+  "method.bi_downtime_share": {
+   "label": "Expected share of the year an own site is down from physical hazard, by peril and hazard band of the site's headline hazard (the company's own)",
+   "unit": "ratio",
+   "breakdown": "peril_band",
+   "used_for": "business interruption at risk at own sites (operations, ESRS E1 own operations)"
+  },
+  "method.reallocation_cap": {
+   "label": "Largest share of a commodity's spend the company treats as shiftable to a lower-risk origin it already sources, near-term (its own procurement judgement)",
+   "unit": "ratio",
+   "used_for": "re-sourcing: avoidable volume at risk"
+  }
+ },
+ "constants": {
+  "ml/scoring/valuation_discount.py:VAR_QUANTILES:50": {
+   "class": "definition",
+   "why": "the quantiles a VaR reports: the median and the 95 % and 99 % tail, named in the output"
+  },
+  "ml/scoring/valuation_discount.py:VAR_QUANTILES:95": {
+   "class": "definition",
+   "why": "the quantiles a VaR reports: the median and the 95 % and 99 % tail, named in the output"
+  },
+  "ml/scoring/valuation_discount.py:VAR_QUANTILES:99": {
+   "class": "definition",
+   "why": "the quantiles a VaR reports: the median and the 95 % and 99 % tail, named in the output"
+  },
+  "ml/scoring/valuation_discount.py:VAR_SIMULATIONS:10000": {
+   "class": "computation",
+   "why": "number of seeded Monte-Carlo draws — a setting of the computation, reported with the result"
+  },
+  "services/intelligence/expected_loss.py:MID_YEAR:0.5": {
+   "class": "definition",
+   "why": "each year of a loan's life is read at its middle when summing the lifetime expected loss"
+  },
+  "services/intelligence/expected_loss.py:BPS:10000": {
+   "class": "definition",
+   "why": "basis points per unit — a unit conversion"
+  },
+  "ml/scoring/cat_accumulation.py:SIMULATED_YEARS:30000": {
+   "class": "computation",
+   "why": "number of seeded simulated years — a setting of the computation, reported with the result"
+  },
+  "ml/scoring/cat_accumulation.py:RECONCILE_TOLERANCE:0.05": {
+   "class": "computation",
+   "why": "the arithmetic check that the simulated mean lies within 5 % of the sum of the stated expected losses (Monte-Carlo error), reported as mean_reconciles"
+  },
+  "ml/scoring/cat_accumulation.py:RETURN_PERIODS:10": {
+   "class": "definition",
+   "why": "a return period at which the exceedance curves are reported (the ladder of the output); 200 years is the 99.5 % one-year level of Solvency II"
+  },
+  "ml/scoring/cat_accumulation.py:RETURN_PERIODS:50": {
+   "class": "definition",
+   "why": "a return period at which the exceedance curves are reported (the ladder of the output); 200 years is the 99.5 % one-year level of Solvency II"
+  },
+  "ml/scoring/cat_accumulation.py:RETURN_PERIODS:200": {
+   "class": "definition",
+   "why": "a return period at which the exceedance curves are reported (the ladder of the output); 200 years is the 99.5 % one-year level of Solvency II"
+  },
+  "ml/scoring/cat_accumulation.py:RETURN_PERIODS:250": {
+   "class": "definition",
+   "why": "a return period at which the exceedance curves are reported (the ladder of the output); 200 years is the 99.5 % one-year level of Solvency II"
+  },
+  "services/intelligence/underwriting_review.py:STORM_RADIUS_KM:120": {
+   "class": "definition",
+   "why": "an observed storm counts at a policy when its track passes within this distance — the review's stated definition, returned with every review"
+  },
+  "services/intelligence/underwriting_review.py:QUAKE_RADIUS_KM:150": {
+   "class": "definition",
+   "why": "an observed earthquake counts at a policy within this distance — the review's stated definition, returned with every review"
+  },
+  "services/intelligence/underwriting_review.py:MIN_MAGNITUDE:5": {
+   "class": "definition",
+   "why": "the smallest earthquake magnitude the review counts — its stated definition, returned with every review"
+  },
+  "ml/scoring/transition_risk.py:PER_MILLION:1e+06": {
+   "class": "definition",
+   "why": "carbon intensity is reported in tCO2e per € million of revenue — a unit conversion"
+  },
+  "services/intelligence/supply_cogs.py:RANGED_PUBLISH_FLOOR:0.4": {
+   "class": "definition",
+   "why": "the validation gate a crop's out-of-sample r² must clear before its € publishes as a band — what 'validated for that quantity' means for the ranged tier (fixed, not a per-filing setting; shown with every held reason)"
+  },
+  "services/intelligence/supply_cogs.py:_fit_predict:2": {
+   "class": "computation",
+   "why": "the square in the standard regression prediction-interval formula, (score − mean)²"
+  },
+  "services/intelligence/resourcing.py:evaluate_commodity:2": {
+   "class": "definition",
+   "why": "a reallocation needs at least two origins the buyer already sources — with one, the commodity needs a new origin (reported as such)"
+  }
+ },
+ "modules": [
+  "ml/scoring/damage_function.py",
+  "ml/scoring/valuation_discount.py",
+  "ml/scoring/insurance_pricing.py",
+  "ml/scoring/realestate_impact.py",
+  "services/intelligence/expected_loss.py",
+  "ml/scoring/cat_accumulation.py",
+  "services/intelligence/resilience_capex.py",
+  "services/scoring/combined_var.py",
+  "services/intelligence/underwriting_review.py",
+  "services/insurer_capital.py",
+  "services/money/params.py",
+  "ml/scoring/epc_stranding.py",
+  "ml/scoring/transition_risk.py",
+  "services/scoring/loan_transition.py",
+  "services/intelligence/forward_risk.py",
+  "services/intelligence/site_interruption.py",
+  "services/intelligence/supply_cogs.py",
+  "services/intelligence/resourcing.py"
+ ],
+ "pending": {}
+}

@@ -49,22 +49,26 @@ def binding(spec: dict) -> dict:
             for t in spec["templates"]}
 
 
-def _by_peril(snap: dict) -> dict[str, float]:
-    """Expected annual loss per insured peril over the book."""
-    out: dict[str, float] = {}
+def _by_peril(snap: dict) -> dict[str, float | None]:
+    """Expected annual loss per insured peril over the book — None for a peril any policy's loss of which is not stated
+    (a gap, never a partial sum)."""
+    out: dict[str, float | None] = {}
     for p in snap.get("policies") or []:
         for c in (p.get("pricing") or {}).get("perils") or []:
-            out[c["hazard"]] = out.get(c["hazard"], 0.0) + (c.get("expected_annual_loss_eur") or 0)
+            v, cur = c.get("expected_annual_loss_eur"), out.get(c["hazard"], 0.0)
+            out[c["hazard"]] = None if v is None or cur is None else cur + v
     return out
 
 
-def _zone_losses(snap: dict) -> dict[tuple[str, str], float]:
-    """Event loss per (peril, region) accumulation zone."""
+def _zone_losses(snap: dict) -> dict[tuple[str, str], float] | None:
+    """Event loss per (peril, region) accumulation zone — None when any policy's loss is not stated."""
     z: dict = {}
     for p in snap.get("policies") or []:
         for c in (p.get("pricing") or {}).get("perils") or []:
+            if c.get("net_scenario_loss_eur") is None:
+                return None
             k = (c["hazard"], p.get("region") or "unspecified")
-            z[k] = z.get(k, 0.0) + (c.get("net_scenario_loss_eur") or 0)
+            z[k] = z.get(k, 0.0) + c["net_scenario_loss_eur"]
     return z
 
 
@@ -87,7 +91,7 @@ def _figures(snap: dict) -> dict:
     cat = roll.get("catastrophe") or {}
     net = ((snap.get("reinsurance") or {}).get("net") or {})
     return {"expected_annual_loss_eur": roll.get("total_expected_annual_loss_eur"),
-            "technical_premium_eur": roll.get("total_gross_premium_eur"),
+            "technical_premium_eur": roll.get("total_technical_premium_eur"),
             "gross_1_in_200_eur": (cat.get("aep_eur") or {}).get("rp_200"),
             "net_1_in_200_eur": (net.get("net_aep_eur") or {}).get("rp_200"),
             "net_largest_event_1_in_200_eur": (net.get("net_oep_eur") or {}).get("rp_200"),
@@ -103,7 +107,7 @@ def compute(session, org_id: str, *, entity_ids=None, value_weights=None, transl
     ref = reference()
     pick = chosen(get_calc_settings(session, org_id))
     kw = {"entity_ids": entity_ids, "value_weights": value_weights, "translation": translation,
-          "reporting_entity_id": reporting_entity_id}
+          "reporting_entity_id": reporting_entity_id, "period_end": period_end}
     today = build_disclosure_snapshot(session, org_id, "baseline", "current", **kw)
     zones = zones_of(today.get("policies") or [])                     # one set of accumulation zones for every run
     base = _figures(today)
@@ -117,29 +121,34 @@ def compute(session, org_id: str, *, entity_ids=None, value_weights=None, transl
             f = _figures(snap)
             peril_eal[(sc, hz)] = _by_peril(snap)
             zone_loss[(sc, hz)] = _zone_losses(snap)
-            d_net = (f["net_1_in_200_eur"] or 0) - (base["net_1_in_200_eur"] or 0)
+            d_net = (None if f["net_1_in_200_eur"] is None or base["net_1_in_200_eur"] is None
+                     else f["net_1_in_200_eur"] - base["net_1_in_200_eur"])
             runs.append({"scenario_role": which, "scenario": sc, "horizon": hz, **f,
                          "change_expected_loss_pct": _pct(f["expected_annual_loss_eur"], base["expected_annual_loss_eur"]),
                          "change_premium_pct": _pct(f["technical_premium_eur"], base["technical_premium_eur"]),
-                         "change_net_1_in_200_eur": round(d_net),
-                         "change_net_1_in_200_pct_of_own_funds": round(100 * d_net / of, 2) if of else None,
-                         "scr_ratio_pct": round(100 * of / (scr + max(d_net, 0.0)), 1) if of and scr else None})
+                         "change_net_1_in_200_eur": None if d_net is None else round(d_net),
+                         "change_net_1_in_200_pct_of_own_funds": round(100 * d_net / of, 2) if of and d_net is not None else None,
+                         "scr_ratio_pct": (round(100 * of / (scr + max(d_net, 0.0)), 1)
+                                           if of and scr and d_net is not None else None)})
     from ml.scoring.insurance_pricing import insured_peril
-    # sum insured at high / very high hazard, for the perils a property cover indemnifies only (not e.g. frost)
+    # sum insured at or above the stated at-risk level, for the perils a property cover indemnifies only (not e.g. frost)
     hazards = {hz: h for hz, h in (today.get("by_hazard") or {}).items() if insured_peril(hz)}
-    exposed = max((h.get("exposed_value_eur") or 0 for h in hazards.values()), default=0)
+    ex = [h.get("exposed_value_eur") for h in hazards.values()]
+    exposed = None if None in ex else max(ex, default=0)
     proj = _projection()
     worst_key = (pick["above_2c"], ref["horizons"][-1])
     perils = [{"hazard": hz, "projected": bool((proj.get(hz) or {}).get("projects")),
                "projection": (proj.get(hz) or {}).get("mode_label") or "no projection on record",
-               "expected_annual_loss_today_eur": round(v),
-               "expected_annual_loss_above_2c_eur": round(peril_eal.get(worst_key, {}).get(hz, 0.0))}
-              for hz, v in sorted(peril_eal["today"].items(), key=lambda kv: -kv[1])]
+               "expected_annual_loss_today_eur": None if v is None else round(v),
+               "expected_annual_loss_above_2c_eur": (None if (peril_eal.get(worst_key) or {}).get(hz, 0.0) is None
+                                                     else round((peril_eal.get(worst_key) or {}).get(hz, 0.0)))}
+              for hz, v in sorted(peril_eal["today"].items(), key=lambda kv: -(kv[1] or 0))]
     tail = _largest_zone_event(today)
     if tail:
         tail["projected"] = bool((proj.get(tail["hazard"]) or {}).get("projects"))
         # the same zone's event under the well-above-2 °C scenario at the last horizon
-        tail["event_loss_above_2c_eur"] = round(zone_loss.get(worst_key, {}).get((tail["hazard"], tail["region"]), 0.0))
+        zl = zone_loss.get(worst_key)
+        tail["event_loss_above_2c_eur"] = None if zl is None else round(zl.get((tail["hazard"], tail["region"]), 0.0))
     return {
         "perils": perils, "largest_zone_event": tail, "above_2c_last_horizon": list(worst_key),
         "scenarios": {w: {"scenario": pick[w], **ref["scenarios"][pick[w]]} for w in ("below_2c", "above_2c")},
@@ -148,10 +157,11 @@ def compute(session, org_id: str, *, entity_ids=None, value_weights=None, transl
                     "attested": bool(cap.get("provenance"))},
         "treaty_basis": (today.get("reinsurance") or {}).get("program_basis"),
         "materiality": {"sum_insured_eur": base["sum_insured_eur"],
-                        "largest_sum_insured_at_high_hazard_eur": round(exposed),
-                        "largest_sum_insured_at_high_hazard_pct": round(100 * exposed / base["sum_insured_eur"], 1)
-                        if base["sum_insured_eur"] else None,
-                        "worst": max(runs, key=lambda r: r["change_net_1_in_200_eur"]) if runs else None},
+                        "largest_sum_insured_at_high_hazard_eur": None if exposed is None else round(exposed),
+                        "largest_sum_insured_at_high_hazard_pct": (round(100 * exposed / base["sum_insured_eur"], 1)
+                                                                   if exposed is not None and base["sum_insured_eur"] else None),
+                        "worst": (max(runs, key=lambda r: r["change_net_1_in_200_eur"])
+                                  if runs and all(r["change_net_1_in_200_eur"] is not None for r in runs) else None)},
         "readings": ref["interpretations"], "source": ref["_source"],
     }
 
@@ -180,8 +190,10 @@ def computed_value(item_id: str, orsa: dict) -> dict | None:
     if item_id == "materiality.demonstration":
         m, cap = orsa["materiality"], orsa["capital"]
         w = m["worst"] or {}
-        parts = [f"Sum insured {_eur(m['sum_insured_eur'])}; largest share at high or very high hazard for one insured "
-                 f"peril: {m['largest_sum_insured_at_high_hazard_pct']}%."]
+        pct = m['largest_sum_insured_at_high_hazard_pct']
+        parts = [f"Sum insured {_eur(m['sum_insured_eur'])}; largest share at or above the undertaking's stated level of "
+                 f"material physical risk for one insured peril: "
+                 + (f"{pct}%." if pct is not None else "not determinable — the level (method.at_risk_level) is not stated.")]
         if w and w["change_net_1_in_200_eur"]:
             parts.append(f"Largest modelled change in the net 1-in-200 annual loss: {_eur(w['change_net_1_in_200_eur'])} "
                          f"({w['scenario']}, {w['horizon']})"

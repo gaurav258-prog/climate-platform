@@ -15,9 +15,14 @@ from services.governance.filing_annex import build_annex
 ADOPTED = [s["version"] for s in R.versions("bank_p3esg") if s["status"] == "adopted"]
 
 
+LEVEL = 50.0                                  # the stated at-risk level — a test value (method.at_risk_level)
+METHOD = {"used": [{"key": "method.at_risk_level", "member": None, "value": LEVEL}], "gaps": []}
+SCORE = {"VH": 80.0, "H": 60.0, "M": 40.0}     # a score in each band, against LEVEL: VH and H are sensitive, M is not
+
+
 def _a(nace, gross, hazards=(), **kw):
     return {"nace_code": nace, "outstanding_loan_balance_eur": gross, "country": kw.pop("country", "DE"),
-            "hazards": [{"hazard": h, "bucket": b} for h, b in hazards], **kw}
+            "hazards": [{"hazard": h, "score": SCORE[b]} for h, b in hazards], **kw}
 
 
 BOOK = [
@@ -55,7 +60,7 @@ def _rows(g):
 def test_every_spec_row_and_column_is_built_in_spec_order(version):
     spec = R.load("bank_p3esg", version)
     for tid in ("T1", "T5"):
-        g = G.build(spec, tid, BOOK)
+        g = G.build(spec, tid, BOOK, LEVEL if tid == "T5" else None)
         assert [r["id"] for r in g["rows"]] == [r["id"] for r in R.template(spec, tid)["rows"]]
         cols = {c["id"] for c in R.template(spec, tid)["columns"]} - {"a"} if tid == "T5" else {c["id"] for c in R.template(spec, tid)["columns"]}
         assert cols <= set(g["rows"][0]["values"])
@@ -63,7 +68,7 @@ def test_every_spec_row_and_column_is_built_in_spec_order(version):
 
 @pytest.mark.parametrize("version", ADOPTED)
 def test_template5_golden_book(version):
-    r = _rows(G.build(R.load("bank_p3esg", version), "T5", BOOK))
+    r = _rows(G.build(R.load("bank_p3esg", version), "T5", BOOK, LEVEL))
     a = r["1"]
     assert a["b"] == 1000                                              # all four A exposures
     assert (a["h"], a["i"], a["j"]) == (100, 200, 300)                 # chronic only / acute only / both — a partition
@@ -100,18 +105,45 @@ def test_template1_golden_book(version):
 def test_geographies_keep_every_exposure():
     spec = R.load("bank_p3esg", ADOPTED[-1])
     book = BOOK + [_a("01.11", 5, [("flood", "H")], country=f"X{i}") for i in range(12)]
-    g = G.template5(spec, book)
+    g = G.template5(spec, book, LEVEL)
     assert len(g["geographies"]) == G.TOP_GEOGRAPHIES + 1 and g["geographies"][-1]["geography"] == "OTHER"
     total = sum(_rows(x)["1"]["b"] for x in g["geographies"])
     assert total == _rows(g)["1"]["b"]
 
 
 def test_the_form_follows_the_frozen_spec():
-    old = build_annex("bank_p3esg", {}, [], {"assets": BOOK})                               # frozen before specs existed
-    new = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "_spec": {"version": "its_2024_3172"}})
+    old = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "method": METHOD})              # frozen before specs existed
+    new = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "method": METHOD, "_spec": {"version": "its_2024_3172"}})
     assert "2022/2453" in old["legal_basis"] and "2024/3172" in new["legal_basis"]
     t5 = next(s for s in new["sections"] if s.get("key") == "t5")
     spec = R.load("bank_p3esg", "its_2024_3172")
     assert "2024/3172" in t5["title"] and t5["spec"]["sha256"] == spec["_sha256"]
     assert [c.split(" · ")[0] for c in t5["columns"][1:]] == [c["id"] for c in R.template(spec, "T5")["columns"]][1:]
     assert len(t5["rows"]) == 13
+
+
+def test_template5_is_sensitive_at_the_stated_level_and_a_gap_without_it():
+    spec = R.load("bank_p3esg", ADOPTED[-1])
+    at_70 = _rows(G.build(spec, "T5", BOOK, 70.0))["1"]
+    assert at_70["sensitive"] == 200 + 0 and (at_70["h"], at_70["i"], at_70["j"]) == (0, 200, 0)   # only the VH (80) flood
+    with pytest.raises(ValueError, match="method.at_risk_level"):
+        G.build(spec, "T5", BOOK)
+    not_stated = {"used": [], "gaps": [{"key": "method.at_risk_level", "member": None}]}
+    annex = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "method": not_stated, "_spec": {"version": ADOPTED[-1]}})
+    t5 = next(s for s in annex["sections"] if s.get("key") == "t5")
+    assert t5["rows"] == [] and "method.at_risk_level" in t5["note"]
+
+
+def test_a_filing_frozen_before_the_stated_method_is_re_read_on_its_own_definition():
+    from services.governance.pillar3_templates import LEGACY_LEVEL, stated_level
+    assert stated_level({"assets": BOOK}) == LEGACY_LEVEL == 50.0           # High + Very high, as it was filed
+    annex = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "_spec": {"version": ADOPTED[-1]}})
+    t5 = next(s for s in annex["sections"] if s.get("key") == "t5")
+    assert len(t5["rows"]) == 13
+
+
+def test_the_gross_carrying_amount_is_the_outstanding_balance_never_the_collateral_value():
+    loan = {"nace_code": "01.11", "value_eur": 500, "outstanding_loan_balance_eur": None, "hazards": []}
+    assert G.gross_of(loan) == 0 and G.no_gross([loan, BOOK[0]]) == 1
+    g = G.build(R.load("bank_p3esg", ADOPTED[-1]), "T1", [loan, BOOK[0]])
+    assert _rows(g)["2"]["a"] == 100 and g["no_gross_carrying_amount"] == 1

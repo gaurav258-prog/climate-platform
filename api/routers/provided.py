@@ -41,7 +41,36 @@ def catalog(framework: str, session: DbSession, period_end: Optional[str] = None
             return {"framework": framework, **P.esrs_providable(session, ctx["org"]["org_id"], period_end)}
         except P.ProvidedError as e:
             raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    if framework == P.METHOD:
+        return {"framework": framework, **P.method_providable()}
     return {"framework": framework, "datapoints": P.providable(framework)}
+
+
+@router.get("/method/needed", summary="The stated-method parameters the organisation's current figures still need")
+def method_needed(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    """Runs the organisation's own figures on its basis and returns what they asked for and did not find, as attested
+    for the reporting period (services.money.params.Method.record) — the list that turns a gap into a figure."""
+    from services.governance.reporting_settings import get_settings
+    org_id, org_type = ctx["org"]["org_id"], ctx["org"].get("type")
+    s = get_settings(session, org_id)
+    builders = {"bank": "api.routers.bank", "reit": "api.routers.realestate", "insurer": "api.routers.insurance",
+                "asset_manager": "api.routers.assetmgmt"}
+    if org_type in builders:
+        import importlib
+        rec = importlib.import_module(builders[org_type]).build_disclosure_snapshot(
+            session, org_id, s["scenario"], s["horizon"])["method"]
+    else:
+        from services.money.params import for_org
+        m = for_org(session, org_id)
+        if org_type == "manufacturer":
+            from services.intelligence.company_sites import list_sites_with_risk
+            from services.intelligence.site_interruption import sites_bi
+            sites_bi(m, list_sites_with_risk(session, org_id, s["scenario"], s["horizon"]))
+            m.get("method.reallocation_cap")
+        m.get("method.at_risk_level")
+        rec = m.record()
+    return {"period_end": rec["period_end"], "basis": {"scenario": s["scenario"], "horizon": s["horizon"]},
+            "needed": rec["gaps"], "used": [u for u in rec["used"] if u]}
 
 
 @router.get("", summary="Provided values with their reconciliation + attestation status")

@@ -1,27 +1,27 @@
 """Geography priors: what the platform's own hazard layers say about a geography, with no entity data at all.
 
-For each basis (scenario × horizon) the standing canonical scores give every scored land cell a headline hazard
-(max score across hazards, the same exclusions the lens uses). A cell is 'sensitive' when that headline sits in
-High/Very high — the lens rule. Per geography we keep the share of sensitive cells and its spread across the
-geography's regions (NUTS-3 in the EU, H3 res-4 elsewhere): a book concentrated in one region can sit anywhere
-in that spread, so the spread — not the mean — is the plausibility band. 'EU' is the union of member states.
+For each basis (scenario × horizon) the standing canonical scores give every scored land cell a headline score
+(max score across hazards, the same exclusions the lens uses). A cell is 'sensitive' when that headline is at or
+above the at-risk level the comparison is made at — the level the entity stated for the template being judged, so
+the prior and the submitted share mean the same thing (E69). The store therefore keeps, per geography and region
+(NUTS-3 in the EU, H3 res-4 elsewhere), every cell's headline score (sorted, in hundredths — the canonical
+precision) and hazard: the share at any stated level is an exact count at read time. A book concentrated in one
+region can sit anywhere in the spread of regional shares, so the spread — not the mean — is the plausibility band.
+'EU' is the union of member states.
 """
 from __future__ import annotations
 
-import json
 from typing import Optional
 
 import h3
 import numpy as np
 from sqlalchemy import text
 
-from core.types import score_to_bucket
-from services.supervision.lens import HIGH
-
 MIN_CELLS_PER_REGION = 5
 MIN_CELLS_PER_GEOGRAPHY = 30
 SOURCE_NOTE = "Standing canonical scores per H3 res-8 cell; headline = max hazard score over the scales that apply to built assets (nowcasts and crop-scale hazards excluded); " \
-              "sensitive = High/Very high; spread across NUTS-3 (EU, Eurostat GISCO 2021) or H3 res-4 regions."
+              "sensitive = headline at or above the stated at-risk level of the comparison; spread across NUTS-3 (EU, Eurostat GISCO 2021) or H3 res-4 regions."
+HUNDREDTHS = 100          # headline scores are stored as integer hundredths (canonical_scores.risk_score is numeric(5,2))
 
 
 def headline_by_cell(session, scenario: str, horizon: str) -> dict[str, tuple[float, str]]:
@@ -68,44 +68,58 @@ def _locate_locked(cells, pts, land, nuts):
     return countries, regions
 
 
-def summarise(rows: list[tuple]) -> dict[str, dict]:
-    """rows = (country, region, sensitive, headline_hazard[, weight]) → per-geography prior (countries + 'EU').
-    Without a weight every row counts once (scored land cells); with one, each row counts by its exposure measure
-    (the population prior — services.supervision.exposure_prior). The regional share is then the weighted share,
-    and the spread across regions is the band either way."""
+def _geo_rows(rows: list[tuple]) -> dict[str, list]:
+    """rows = (country, region, score, hazard[, weight]) → per geography (countries + 'EU') its (region, score, hazard, w)."""
     from services.supervision.geo_prior_eu import EU_MEMBERS
     per_geo: dict[str, list] = {}
     for row in rows:
-        country, region, sens, hz = row[:4]
+        country, region, score, hz = row[:4]
         w = float(row[4]) if len(row) > 4 else 1.0
-        if not country or w <= 0:
+        if not country or w <= 0 or score is None:
             continue
-        per_geo.setdefault(country, []).append((region, sens, hz, w))
+        per_geo.setdefault(country, []).append((region, float(score), hz, w))
         if country in EU_MEMBERS:
-            per_geo.setdefault("EU", []).append((region, sens, hz, w))
+            per_geo.setdefault("EU", []).append((region, float(score), hz, w))
+    return per_geo
+
+
+def prior_at(items: list[tuple], level: float) -> dict | None:
+    """Pure. items = (region, headline score, hazard, weight) of one geography → its prior at the stated level: the share
+    sensitive (score ≥ level), the spread of that share across its regions (p10…p90) and the hazards of the sensitive
+    cells. Without a weight every row counts once (scored land); with one, each row counts by its exposure measure
+    (the population prior). None when the geography has too few cells to form a reference."""
+    n = len(items)
+    if n < MIN_CELLS_PER_GEOGRAPHY:
+        return None
+    by_region: dict[str, list[tuple[bool, float]]] = {}
+    mix: dict[str, int] = {}
+    for region, score, hz, w in items:
+        sens = score >= level
+        by_region.setdefault(region, []).append((sens, w))
+        if sens:
+            mix[hz] = mix.get(hz, 0) + 1
+    wshare = lambda v: sum(w for s, w in v if s) / sum(w for _, w in v)  # noqa: E731
+    shares = np.array([wshare(v) for v in by_region.values() if len(v) >= MIN_CELLS_PER_REGION])
+    pct = (lambda q: float(np.percentile(shares, q))) if len(shares) >= 3 else (lambda q: None)
+    return {"n_cells": n, "share_sensitive": float(wshare([(score >= level, w) for _, score, _, w in items])),
+            "p10": pct(10), "p25": pct(25), "p50": pct(50), "p75": pct(75), "p90": pct(90),
+            "n_regions": int(len(shares)), "at_risk_level": level,
+            "hazard_mix": dict(sorted(mix.items(), key=lambda kv: -kv[1])[:6])}
+
+
+def summarise(rows: list[tuple], level: float) -> dict[str, dict]:
+    """rows = (country, region, headline score, hazard[, weight]) → per-geography prior at the stated level."""
     out = {}
-    for geo, items in per_geo.items():
-        n = len(items)
-        if n < MIN_CELLS_PER_GEOGRAPHY:
-            continue
-        by_region: dict[str, list[tuple[bool, float]]] = {}
-        mix: dict[str, int] = {}
-        for region, sens, hz, w in items:
-            by_region.setdefault(region, []).append((bool(sens), w))
-            if sens:
-                mix[hz] = mix.get(hz, 0) + 1
-        wshare = lambda v: sum(w for s, w in v if s) / sum(w for _, w in v)  # noqa: E731
-        shares = np.array([wshare(v) for v in by_region.values() if len(v) >= MIN_CELLS_PER_REGION])
-        pct = (lambda q: float(np.percentile(shares, q))) if len(shares) >= 3 else (lambda q: None)
-        out[geo] = {"n_cells": n, "share_sensitive": float(wshare([(s, w) for _, s, _, w in items])),
-                    "p10": pct(10), "p25": pct(25), "p50": pct(50), "p75": pct(75), "p90": pct(90),
-                    "n_regions": int(len(shares)),
-                    "hazard_mix": dict(sorted(mix.items(), key=lambda kv: -kv[1])[:6])}
+    for geo, items in _geo_rows(rows).items():
+        p = prior_at(items, level)
+        if p is not None:
+            out[geo] = p
     return out
 
 
 def build(session, scenario: str, horizon: str, loc_cache: Optional[dict] = None) -> int:
-    """loc_cache: cell → (country, region), shared across bases so each cell is located once per run."""
+    """Store every scored land cell's headline score and hazard, per geography and region, for one basis.
+    loc_cache: cell → (country, region), shared across bases so each cell is located once per run."""
     best = headline_by_cell(session, scenario, horizon)
     if not best:
         return 0
@@ -115,32 +129,44 @@ def build(session, scenario: str, horizon: str, loc_cache: Optional[dict] = None
         countries, regions = locate_cells(missing)
         for i, c in enumerate(missing):
             cache[c] = (countries[i], regions[i])
-    rows = [(cache[c][0], cache[c][1], score_to_bucket(best[c][0]).value in HIGH, best[c][1]) for c in best]
-    priors = summarise(rows)
-    for geo, p in priors.items():
-        session.execute(text("""
-            INSERT INTO supervision_geo_prior (geography, scenario, horizon, n_cells, share_sensitive, p10, p25, p50, p75, p90, n_regions, hazard_mix, source_note, built_at)
-            VALUES (:g, :sc, :hz, :n, :s, :p10, :p25, :p50, :p75, :p90, :nr, CAST(:mix AS jsonb), :note, now())
-            ON CONFLICT (geography, scenario, horizon) DO UPDATE SET n_cells = EXCLUDED.n_cells, share_sensitive = EXCLUDED.share_sensitive,
-              p10 = EXCLUDED.p10, p25 = EXCLUDED.p25, p50 = EXCLUDED.p50, p75 = EXCLUDED.p75, p90 = EXCLUDED.p90,
-              n_regions = EXCLUDED.n_regions, hazard_mix = EXCLUDED.hazard_mix, source_note = EXCLUDED.source_note, built_at = now()
-        """), {"g": geo, "sc": scenario, "hz": horizon, "n": p["n_cells"], "s": p["share_sensitive"], "p10": p["p10"], "p25": p["p25"],
-               "p50": p["p50"], "p75": p["p75"], "p90": p["p90"], "nr": p["n_regions"], "mix": json.dumps(p["hazard_mix"]), "note": SOURCE_NOTE})
-    return len(priors)
+    per_geo = _geo_rows([(cache[c][0], cache[c][1], best[c][0], best[c][1]) for c in best])
+    session.execute(text("DELETE FROM supervision_geo_prior_region WHERE scenario = :sc AND horizon = :hz"),
+                    {"sc": scenario, "hz": horizon})
+    n = 0
+    for geo, items in per_geo.items():
+        if len(items) < MIN_CELLS_PER_GEOGRAPHY:
+            continue
+        n += 1
+        by_region: dict[str, list] = {}
+        for region, score, hz, _ in items:
+            by_region.setdefault(region, []).append((round(score * HUNDREDTHS), hz))
+        for region, vals in by_region.items():
+            vals.sort()
+            session.execute(text("""
+                INSERT INTO supervision_geo_prior_region (geography, scenario, horizon, region, scores, hazards, source_note, built_at)
+                VALUES (:g, :sc, :hz, :r, CAST(:s AS smallint[]), CAST(:h AS text[]), :note, now())
+            """), {"g": geo, "sc": scenario, "hz": horizon, "r": region, "s": [v for v, _ in vals],
+                   "h": [h for _, h in vals], "note": SOURCE_NOTE})
+    return n
 
 
-def prior_for(session, geography: str, scenario: str, horizon: str) -> Optional[dict]:
-    r = session.execute(text("""SELECT geography, scenario, horizon, n_cells, share_sensitive, p10, p25, p50, p75, p90, n_regions, hazard_mix, source_note, built_at
-                                FROM supervision_geo_prior WHERE geography = :g AND scenario = :sc AND horizon = :hz"""),
-                        {"g": (geography or "").strip().upper(), "sc": scenario, "hz": horizon}).mappings().first()
-    if not r:
+def prior_for(session, geography: str, scenario: str, horizon: str, level: float) -> Optional[dict]:
+    """The geography's prior at the stated level, read exactly from the stored regional scores."""
+    rows = session.execute(text("""SELECT region, scores, hazards, built_at FROM supervision_geo_prior_region
+                                   WHERE geography = :g AND scenario = :sc AND horizon = :hz"""),
+                           {"g": (geography or "").strip().upper(), "sc": scenario, "hz": horizon}).all()
+    if not rows:
         return None
-    d = dict(r); d["built_at"] = d["built_at"].isoformat()
-    return d
+    items = [(region, v / HUNDREDTHS, hz, 1.0) for region, scores, hazards, _ in rows for v, hz in zip(scores, hazards)]
+    p = prior_at(items, level)
+    if p is None:
+        return None
+    return {"geography": (geography or "").strip().upper(), "scenario": scenario, "horizon": horizon, **p,
+            "source_note": SOURCE_NOTE, "built_at": max(r[3] for r in rows).isoformat()}
 
 
 def bases_available(session) -> list[tuple[str, str]]:
-    return [tuple(r) for r in session.execute(text("SELECT DISTINCT scenario, horizon FROM supervision_geo_prior ORDER BY 1, 2")).all()]
+    return [tuple(r) for r in session.execute(text("SELECT DISTINCT scenario, horizon FROM supervision_geo_prior_region ORDER BY 1, 2")).all()]
 
 
 def rebuild_all(only: Optional[list[str]] = None) -> dict:

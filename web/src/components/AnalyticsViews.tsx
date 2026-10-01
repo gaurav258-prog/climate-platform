@@ -8,6 +8,7 @@ import { toast } from '../lib/toast'
 import { Card, SectionHead } from './ui'
 import { hazardLabel } from '../lib/hazards'
 import { balance, balanceValue, displaySymbol } from '../lib/money'
+import MethodGap from './MethodGap'
 
 // Custom views — bounded self-service analytics. A user picks scope × measure × scenario × horizon × group-by
 // and gets a chart/table, then saves it as a named, shareable view. CRITICAL: a view stores only PARAMETERS —
@@ -37,16 +38,18 @@ const BUCKET: Record<string, { label: string; color: string }> = {
   M: { label: 'Elevated', color: 'var(--scn-orderly)' }, L: { label: 'Low', color: 'var(--color-faint)' },
 }
 const MEASURES = [{ k: 'value', label: 'exposed' }, { k: 'pct', label: '% of book' }, { k: 'count', label: '# exposures' }] as const
-const THRESHOLDS = [{ k: 'highplus', label: 'High +', set: ['H', 'VH'] }, { k: 'severe', label: 'Severe only', set: ['VH'] }] as const
+// 'stated' = at or above the institution's stated at-risk level (method.at_risk_level, from the disclosure's rollup);
+// 'severe' = the platform's Very-high score band (score ≥ 75, core.types) — a classification, not the at-risk line
+const THRESHOLDS = [{ k: 'stated', label: 'Your at-risk level' }, { k: 'severe', label: 'Very-high band (≥ 75)' }] as const
 
 
 interface Hz { hazard: string; bucket: string | null; score: number | null }
-interface Item { name: string; value: number; sector: string; region: string; country: string; hazards: Hz[]; bucket: string | null }
+interface Item { name: string; value: number; sector: string; region: string; country: string; hazards: Hz[]; bucket: string | null; score: number | null }
 interface ViewConfig { groupBy: string; measure: string; scenario: string; horizon: number; threshold: string; chart: string; scope: { dim: string; val: string } | null }
 interface SavedView { view_id: string; name: string; config: ViewConfig; is_shared: boolean; is_pinned: boolean; is_owner: boolean }
 interface Grp { value: number; count: number; color?: string }
 
-const DEFAULT: ViewConfig = { groupBy: 'hazard', measure: 'value', scenario: 'disorderly_2c', horizon: 2050, threshold: 'highplus', chart: 'bar', scope: null }
+const DEFAULT: ViewConfig = { groupBy: 'hazard', measure: 'value', scenario: 'disorderly_2c', horizon: 2050, threshold: 'stated', chart: 'bar', scope: null }
 
 export default function AnalyticsViews({ prefix, orgName }: { prefix: string; orgName?: string }) {
   const bk = BOOK[prefix] ?? BOOK.bank
@@ -77,8 +80,11 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
       name: (a[bk.name] as string) ?? '—', value: (a[bk.value] as number) ?? 0,
       sector: (a[bk.sector] as string) ?? '—', region: (a.region as string) ?? '—', country: (a.country as string) ?? '—',
       hazards: Array.isArray(a.hazards) ? (a.hazards as Hz[]) : [], bucket: (a.headline_bucket as string) ?? null,
+      score: (a.headline_score as number) ?? null,
     })) as Item[]
   }, [q.data, bk])
+  const level = ((q.data?.rollup as { at_risk_level?: number | null } | undefined)?.at_risk_level) ?? null
+  const levelGap = cfg.threshold === 'stated' && !loading && q.data != null && level == null
 
   const dimVal = (i: Item, dim: string) => dim === 'sector' ? i.sector : dim === 'region' ? i.region : dim === 'country' ? i.country : '—'
   const scopeValues = useMemo(() => {
@@ -88,17 +94,18 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
 
   // ── the computation: aggregate the authoritative book into the chosen groups ────────────────────────────
   const aggregate = (items: Item[]): { groups: Map<string, Grp>; total: number } => {
-    const thr = new Set<string>(THRESHOLDS.find(t => t.k === cfg.threshold)!.set)
+    const hit = (score: number | null, bucket: string | null) =>
+      cfg.threshold === 'severe' ? bucket === 'VH' : level != null && score != null && score >= level
     let pool = items
     if (cfg.scope?.dim && cfg.scope.val) pool = items.filter(i => dimVal(i, cfg.scope!.dim) === cfg.scope!.val)
     const g = new Map<string, Grp>()
     if (cfg.groupBy === 'hazard') {
-      for (const it of pool) for (const h of it.hazards) if (h.bucket && thr.has(h.bucket)) {
+      for (const it of pool) for (const h of it.hazards) if (hit(h.score, h.bucket)) {
         const e = g.get(h.hazard) ?? { value: 0, count: 0 }; e.value += it.value; e.count += 1; g.set(h.hazard, e)
       }
     } else {
       for (const it of pool) {
-        const atRisk = (it.bucket && thr.has(it.bucket)) || it.hazards.some(h => h.bucket && thr.has(h.bucket))
+        const atRisk = hit(it.score, it.bucket) || it.hazards.some(h => hit(h.score, h.bucket))
         if (!atRisk) continue
         const key = cfg.groupBy === 'severity' ? (it.bucket ?? '—') : dimVal(it, cfg.groupBy)
         const e = g.get(key) ?? { value: 0, count: 0 }; e.value += it.value; e.count += 1
@@ -247,7 +254,8 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
       </div>
 
       {loading ? <div className="h-[260px] grid place-items-center text-[13px] text-[var(--color-faint)]">reading the book…</div>
-        : result.length === 0 ? <div className="h-[200px] grid place-items-center text-[13px] text-[var(--color-faint)]">No exposures match this cut. Try a hotter pathway, later horizon, or the High+ threshold.</div>
+        : levelGap ? <MethodGap gap="not stated: method.at_risk_level" what="At-risk cut" />
+        : result.length === 0 ? <div className="h-[200px] grid place-items-center text-[13px] text-[var(--color-faint)]">No exposures match this cut. Try a hotter pathway or a later horizon.</div>
         : cfg.chart === 'bar' ? (
           <div style={{ height: Math.max(180, shown.length * 34 + 30) }}>
             <ResponsiveContainer width="100%" height="100%">

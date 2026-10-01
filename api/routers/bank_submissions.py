@@ -135,8 +135,18 @@ def list_submissions(session: DbSession, ctx: dict = Depends(require_permission(
     return [_serialize(r) for r in rows]
 
 
-def _flagged_asset_ids(snapshot: dict) -> set:
-    return {a["asset_id"] for a in snapshot["assets"] if a["headline_bucket"] in ("H", "VH")}
+def _flagged_asset_ids(snapshot: dict) -> set | None:
+    """Assets at or above the at-risk level the snapshot was computed on (its frozen method); None when not stated."""
+    from services.governance.pillar3_templates import stated_level
+    level = stated_level(snapshot)
+    if level is None:
+        return None
+    return {a["asset_id"] for a in snapshot["assets"] if a.get("headline_score") is not None and a["headline_score"] >= level}
+
+
+def _diff(now, prior, digits=None):
+    """now − prior; None when either side is a gap (never read as 0)."""
+    return None if now is None or prior is None else round(now - prior, digits) if digits else round(now - prior)
 
 
 def _period_delta(prev_snap: dict, curr_snap: dict) -> dict:
@@ -147,8 +157,9 @@ def _period_delta(prev_snap: dict, curr_snap: dict) -> dict:
     bucket merely fluctuated within H/VH."""
     pr, cr = prev_snap["rollup"], curr_snap["rollup"]
     prev_flagged, curr_flagged = _flagged_asset_ids(prev_snap), _flagged_asset_ids(curr_snap)
-    newly_flagged = curr_flagged - prev_flagged
-    de_flagged = prev_flagged - curr_flagged
+    comparable = prev_flagged is not None and curr_flagged is not None
+    newly_flagged = curr_flagged - prev_flagged if comparable else set()
+    de_flagged = prev_flagged - curr_flagged if comparable else set()
     asset_by_id = {a["asset_id"]: a for a in curr_snap["assets"]}
     prev_asset_by_id = {a["asset_id"]: a for a in prev_snap["assets"]}
 
@@ -160,10 +171,11 @@ def _period_delta(prev_snap: dict, curr_snap: dict) -> dict:
     tax_shift = {k: round(curr_tax.get(k, 0) - prev_tax.get(k, 0)) for k in set(prev_tax) | set(curr_tax)}
 
     return {
-        "value_at_risk_delta_eur": round(cr["value_at_risk_eur"] - pr["value_at_risk_eur"]),
-        "pct_value_at_risk_delta": round(cr["pct_value_at_risk"] - pr["pct_value_at_risk"], 2),
-        "n_high_delta": cr["n_high"] - pr["n_high"],
+        "value_at_risk_delta_eur": _diff(cr.get("value_at_risk_eur"), pr.get("value_at_risk_eur")),
+        "pct_value_at_risk_delta": _diff(cr.get("pct_value_at_risk"), pr.get("pct_value_at_risk"), 2),
+        "n_high_delta": _diff(cr.get("n_high"), pr.get("n_high")),
         "scored_coverage_pct_delta": round(100 * (curr_coverage - prev_coverage), 1),
+        **({} if comparable else {"gap": "not stated: method.at_risk_level (in one of the two submissions)"}),
         "newly_flagged_assets": [
             {"asset_id": aid, "asset_name": asset_by_id[aid]["asset_name"],
              "headline_bucket": asset_by_id[aid]["headline_bucket"],
@@ -210,9 +222,9 @@ def submissions_trend(session: DbSession, ctx: dict = Depends(require_permission
     first, last = rows[0]["snapshot"]["rollup"], rows[-1]["snapshot"]["rollup"]
     cumulative = {
         "from_period": rows[0]["period_label"], "to_period": rows[-1]["period_label"],
-        "value_at_risk_delta_eur": round(last["value_at_risk_eur"] - first["value_at_risk_eur"]),
-        "pct_value_at_risk_delta": round(last["pct_value_at_risk"] - first["pct_value_at_risk"], 2),
-        "n_high_delta": last["n_high"] - first["n_high"],
+        "value_at_risk_delta_eur": _diff(last.get("value_at_risk_eur"), first.get("value_at_risk_eur")),
+        "pct_value_at_risk_delta": _diff(last.get("pct_value_at_risk"), first.get("pct_value_at_risk"), 2),
+        "n_high_delta": _diff(last.get("n_high"), first.get("n_high")),
     }
     return {
         "periods": [{"period_label": r["period_label"], "period_start": r["period_start"].isoformat()}

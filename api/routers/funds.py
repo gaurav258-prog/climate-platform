@@ -36,9 +36,10 @@ from ml.regulatory.voluntary_pai import validate_keys
 from services.asset_manager_engine import (
     fund_positions_with_risk,
     issuer_physical_scores,
-    issuer_transition_scores,
+    issuer_transition,
 )
 from services.fund_disclosure import fund_climate_summary
+from services.money.params import for_org
 from services.reference import gleif
 from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
@@ -77,9 +78,10 @@ def list_funds(session: DbSession, org_id: OrgId,
         FROM funds f WHERE f.org_id = :o AND f.parent_fund_id IS NULL
         ORDER BY f.name
     """), {"o": org_id}).mappings().all()
+    method = for_org(session, org_id)
     out = []
     for f in funds:
-        summ = fund_climate_summary(session, f["fund_id"], scenario, horizon)
+        summ = fund_climate_summary(session, org_id, method, f["fund_id"], scenario, horizon)
         out.append({
             **dict(f),
             "total_value_eur": summ.get("total_value_eur", 0),
@@ -96,14 +98,14 @@ def list_funds(session: DbSession, org_id: OrgId,
 def fund_detail(fund_id: str, session: DbSession, org_id: OrgId,
                 scenario: str = Query("baseline"), horizon: str = Query("current")):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    return fund_climate_summary(session, fund_id, scenario, horizon)
+    return fund_climate_summary(session, org_id, for_org(session, org_id), fund_id, scenario, horizon)
 
 
 @router.get("/funds/{fund_id}/positions", summary="Fund positions, each with issuer physical + transition risk")
 def fund_positions(fund_id: str, session: DbSession, org_id: OrgId,
                    scenario: str = Query("baseline"), horizon: str = Query("current")):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    positions = fund_positions_with_risk(session, fund_id, scenario, horizon)
+    positions = fund_positions_with_risk(session, org_id, for_org(session, org_id), fund_id, scenario, horizon)
     positions.sort(key=lambda p: -(p["physical"]["headline_score"] or 0))
     return {"fund_id": fund_id, "scenario": scenario, "horizon": horizon, "positions": positions}
 
@@ -877,7 +879,7 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
              "model_version": r["model_version"]})
 
     phys = issuer_physical_scores(session, scenario, horizon, [issuer_id]).get(issuer_id, {})
-    trans = issuer_transition_scores(session, scenario, horizon, [issuer_id]).get(issuer_id)
+    trans = issuer_transition(session, org_id, for_org(session, org_id), scenario, horizon, [issuer_id]).get(issuer_id)
     # Org-scoped: show THIS org's own disclosure or the global fallback — never
     # another tenant's private (source='client') emissions for the same issuer.
     emissions = session.execute(text("""

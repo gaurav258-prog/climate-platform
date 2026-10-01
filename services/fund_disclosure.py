@@ -28,7 +28,7 @@ from sqlalchemy import text
 from services.asset_manager_engine import (
     fund_descendant_ids,
     issuer_physical_scores,
-    issuer_transition_scores,
+    issuer_transition,
 )
 
 # NACE codes whose revenue is fossil-fuel-derived (SFDR PAI 4). Scoped to Art. 2(62)
@@ -331,18 +331,20 @@ def fund_base_view(session, base_currency: str | None, as_of, amounts_eur: dict)
     from services.reference.fx import FxError, rate_for
     ccy = (base_currency or "EUR").strip().upper()
     if ccy == "EUR":
-        return {"currency": "EUR", "as_of": str(as_of), **{k: round(v) for k, v in amounts_eur.items()}}
+        return {"currency": "EUR", "as_of": str(as_of), **{k: None if v is None else round(v) for k, v in amounts_eur.items()}}
     try:
         r = rate_for(session, ccy, as_of)
     except FxError as e:
         return {"currency": ccy, "as_of": str(as_of), "available": False, "reason": str(e)}
     return {"currency": ccy, "as_of": str(as_of), "rate": {k: r.get(k) for k in ("units_per_eur", "rate_date", "source", "stale")},
-            **{k: round(v * r["units_per_eur"]) for k, v in amounts_eur.items()}}
+            **{k: None if v is None else round(v * r["units_per_eur"]) for k, v in amounts_eur.items()}}
 
 
-def fund_climate_summary(session, fund_id: str, scenario: str, horizon: str) -> dict:
-    """Value-weighted physical + transition exposure for a fund, plus the PAI
-    block — the one call a fund's climate report is built from."""
+def fund_climate_summary(session, org_id: str, method, fund_id: str, scenario: str, horizon: str) -> dict:
+    """Value-weighted physical + transition exposure for a fund, plus the PAI block — the one call a fund's climate
+    report is built from. 'At risk' is the manager's stated method: physical — the headline score at or above its
+    stated level; transition — market value × its stated stranded share. A missing parameter is a named gap."""
+    from services.money.params import at_risk
     fund = session.execute(text("""
         SELECT f.fund_id::text AS fund_id, f.name, f.fund_type, f.sfdr_classification, f.base_currency,
                o.name AS org_name
@@ -368,39 +370,43 @@ def fund_climate_summary(session, fund_id: str, scenario: str, horizon: str) -> 
 
     issuer_ids = list({p["issuer_id"] for p in positions})
     phys = issuer_physical_scores(session, scenario, horizon, issuer_ids)
-    trans = issuer_transition_scores(session, scenario, horizon, issuer_ids)
+    trans = issuer_transition(session, org_id, method, scenario, horizon, issuer_ids)
 
-    # value-weighted physical
+    # value-weighted physical; at risk = headline at or above the stated level
     phys_scored = [(p, phys[p["issuer_id"]]) for p in positions
                    if phys.get(p["issuer_id"], {}).get("headline_score") is not None]
     phys_cov_mv = sum(p["mv"] for p, _ in phys_scored)
     phys_was = (sum(p["mv"] * ph["headline_score"] for p, ph in phys_scored) / phys_cov_mv) if phys_cov_mv else None
-    phys_high_mv = sum(p["mv"] for p, ph in phys_scored if ph["headline_bucket"] in ("H", "VH"))
+    flags = [at_risk(method, ph["headline_score"]) for _, ph in phys_scored]
+    phys_risk_mv = None if None in flags else sum(p["mv"] for (p, _), f in zip(phys_scored, flags) if f)
 
-    # value-weighted transition
-    trans_scored = [(p, trans[p["issuer_id"]]) for p in positions if p["issuer_id"] in trans]
+    # value-weighted transition score (issuers with one) and transition value at risk (Σ value × stated stranded share)
+    trans_scored = [(p, trans[p["issuer_id"]]) for p in positions if trans.get(p["issuer_id"], {}).get("transition_risk_score") is not None]
     trans_cov_mv = sum(p["mv"] for p, _ in trans_scored)
     trans_was = (sum(p["mv"] * t["transition_risk_score"] for p, t in trans_scored) / trans_cov_mv) if trans_cov_mv else None
-    trans_high_mv = sum(p["mv"] for p, t in trans_scored if t["risk_bucket"] in ("H", "VH"))
+    shares = [trans.get(p["issuer_id"], {}).get("stranded_asset_pct") for p in positions]
+    trans_risk_mv = None if None in shares else sum(p["mv"] * s / 100 for p, s in zip(positions, shares))
+    gaps = sorted({t["gap"] for t in trans.values() if t.get("gap")} | ({method.gap_text()} if method.gap_text() else set()))
 
     base = fund_base_view(session, fund["base_currency"], max(p["as_of_date"] for p in positions),
-                          {"total_value": total_mv, "physical_value_at_high_plus": phys_high_mv,
-                           "transition_value_at_high_plus": trans_high_mv})
+                          {"total_value": total_mv, "physical_value_at_risk": phys_risk_mv,
+                           "transition_value_at_risk": trans_risk_mv})
     return {
         "fund": dict(fund), "scenario": scenario, "horizon": horizon,
         "total_value_eur": round(total_mv), "positions": len(positions), "base": base,
         "physical": {
             "value_weighted_score": round(phys_was, 1) if phys_was is not None else None,
             "coverage_pct": round(100 * phys_cov_mv / total_mv, 1),
-            "value_at_high_plus_eur": round(phys_high_mv),
-            "pct_at_high_plus": round(100 * phys_high_mv / total_mv, 1),
+            "value_at_risk_eur": None if phys_risk_mv is None else round(phys_risk_mv),
+            "pct_at_risk": None if phys_risk_mv is None else round(100 * phys_risk_mv / total_mv, 1),
         },
         "transition": {
             "value_weighted_score": round(trans_was, 1) if trans_was is not None else None,
             "coverage_pct": round(100 * trans_cov_mv / total_mv, 1),
-            "value_at_high_plus_eur": round(trans_high_mv),
-            "pct_at_high_plus": round(100 * trans_high_mv / total_mv, 1),
+            "value_at_risk_eur": None if trans_risk_mv is None else round(trans_risk_mv),
+            "pct_at_risk": None if trans_risk_mv is None else round(100 * trans_risk_mv / total_mv, 1),
         },
+        **({"gap": "; ".join(gaps)} if gaps else {}),
         "pai": fund_pai(session, fund_id),
     }
 

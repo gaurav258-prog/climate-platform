@@ -67,8 +67,7 @@ _EXT_WITH_MONEY_SOURCE = {"ext_banking"}          # extension tables whose amoun
 
 
 def fetch_entities_with_risk(
-    session, org_id: str, vertical: str, scenario: str, horizon: str,
-    severity_model: str = "universal",
+    session, org_id: str, vertical: str, scenario: str, horizon: str, *, method,
     ext_table: Optional[str] = None, ext_columns: Optional[list] = None,
     extra_calc: Optional[Callable] = None,
     exclude_headline_hazards: tuple = DEFAULT_HEADLINE_EXCLUDE,
@@ -87,7 +86,9 @@ def fetch_entities_with_risk(
     valuation_kwargs(row) -> dict lets one vertical (banking) pass extra valuation_block
     kwargs (outstanding_balance_eur, for LTV) without every vertical needing that concept.
     translation (services.governance.translation.Translation, filings only) presents every amount in the filing's
-    currency and removes group-internal exposures; None = the stored EUR figures (live views)."""
+    currency and removes group-internal exposures; None = the stored EUR figures (live views).
+    method (services.money.params.Method): the institution's stated method for the financial year the figures are for —
+    the valuation haircut is read from it (a gap when not stated), never from a default."""
     ext_select = (", " + ", ".join(ext_columns)) if ext_columns else ""
     if ext_table in _EXT_WITH_MONEY_SOURCE:
         ext_select += ", x.money_source AS ext_money_source"
@@ -259,17 +260,14 @@ def fetch_entities_with_risk(
                     ev[c] = float(ev[c]) * w
 
         extra_val_kwargs = valuation_kwargs(ev) if valuation_kwargs else {}
-        attrs = {"construction_type": ev["construction_type"], "year_built": ev["year_built"],
-                 "number_of_stories": ev["number_of_stories"]}
         row = {
             **ev,
             "hazards": hz,
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": bucket,
             "headline_hazard": hazard,
-            "valuation": valuation_block(bucket, ev["primary_value_eur"], val_by_entity.get(ev["entity_id"]),
-                                          hazard=hazard, severity_model=severity_model,
-                                          score=(headline["score"] if headline else None), attrs=attrs,
+            "valuation": valuation_block(method, bucket, ev["primary_value_eur"], val_by_entity.get(ev["entity_id"]),
+                                          hazard=hazard, score=(headline["score"] if headline else None),
                                           **extra_val_kwargs),
         }
         if extra_calc:
@@ -278,8 +276,7 @@ def fetch_entities_with_risk(
     return out
 
 
-def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
-                          severity_model: str = "universal",
+def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str, *, method,
                           ext_table: Optional[str] = None, ext_columns: Optional[list] = None,
                           extra_calc: Optional[Callable] = None,
                           exclude_headline_hazards: tuple = DEFAULT_HEADLINE_EXCLUDE,
@@ -335,17 +332,14 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
 
     val_row = get_valuation_row(session, entity_id)
     extra_val_kwargs = valuation_kwargs(e) if valuation_kwargs else {}
-    attrs = {"construction_type": e["construction_type"], "year_built": e["year_built"],
-             "number_of_stories": e["number_of_stories"]}
     row = {
         **{k: e[k] for k in e.keys()},
         "risks": [dict(r) for r in risks],
         "headline_score": headline["score"] if headline else None,
         "headline_bucket": bucket,
         "headline_hazard": hazard,
-        "valuation": valuation_block(bucket, e["primary_value_eur"], val_row,
-                                      hazard=hazard, severity_model=severity_model,
-                                      score=(headline["score"] if headline else None), attrs=attrs,
+        "valuation": valuation_block(method, bucket, e["primary_value_eur"], val_row,
+                                      hazard=hazard, score=(headline["score"] if headline else None),
                                       **extra_val_kwargs),
     }
     if extra_calc:
@@ -389,3 +383,74 @@ def clear_valuation_override(session, entity_id: str) -> Optional[dict]:
         return None
     session.execute(text("DELETE FROM portfolio_entity_valuations WHERE entity_id = :e"), {"e": entity_id})
     return prior
+
+
+def exposure_by_hazard(entities: list, value_key: str, method) -> dict:
+    """Per hazard: the value of the book at or above the institution's stated at-risk level (method.at_risk_level) on that
+    hazard — None when the level is not stated (a gap) — with the number of entities, the highest score and the model.
+    A hazard that cannot head an entity's risk (the relevance registry) is not counted as exposure. 'peril_class' is the
+    Pillar 3 Template 5 class of the hazard (acute / chronic; None for a non-climate peril)."""
+    from services.governance.pillar3_templates import ACUTE_HAZARDS, CHRONIC_HAZARDS
+    from services.money.params import at_risk
+    hazards: dict = {}
+    for e in entities:
+        for hz in e["hazards"]:
+            k = hz["hazard"]
+            h = hazards.setdefault(k, {"exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
+                                       "model_version": hz["model_version"], "scored_at": hz["scored_at"],
+                                       "peril_class": "acute" if k in ACUTE_HAZARDS else "chronic" if k in CHRONIC_HAZARDS else None})
+            flag = at_risk(method, hz["score"]) if hz.get("relevant", True) else False
+            if flag is None:
+                h["exposed_value_eur"] = h["n_exposed"] = None
+            elif flag and h["exposed_value_eur"] is not None:
+                h["exposed_value_eur"] += e[value_key] or 0
+                h["n_exposed"] += 1
+            h["max_score"] = max(h["max_score"], hz["score"])
+    for h in hazards.values():
+        h["exposed_value_eur"] = None if h["exposed_value_eur"] is None else round(h["exposed_value_eur"])
+        h["max_score"] = round(h["max_score"], 1)
+    return hazards
+
+
+def value_at_risk(entities: list, value_key: str, method) -> dict:
+    """{value_at_risk_eur, pct_value_at_risk, n_at_risk, at_risk_level, at_risk_by_peril_class}: the value whose headline
+    score is at or above the stated at-risk level, and the value at or above it on an acute / on a chronic peril (the
+    Pillar 3 Template 5 split; an entity can be both) — all None when the level is not stated."""
+    level = method.get("method.at_risk_level")
+    if level is None:
+        return {"value_at_risk_eur": None, "pct_value_at_risk": None, "n_at_risk": None, "at_risk_level": None,
+                "at_risk_by_peril_class": None}
+    from services.governance.pillar3_templates import _asset_hits
+    total = sum(e[value_key] or 0 for e in entities)
+    flags = [e["headline_score"] is not None and e["headline_score"] >= level for e in entities]
+    var = sum(e[value_key] or 0 for e, f in zip(entities, flags) if f)
+    hits = [_asset_hits(e, level) for e in entities]
+    return {"value_at_risk_eur": round(var), "pct_value_at_risk": round(100 * var / total, 1) if total else 0,
+            "n_at_risk": sum(flags), "at_risk_level": level,
+            "at_risk_by_peril_class": {"acute_eur": round(sum(e[value_key] or 0 for e, (_, a) in zip(entities, hits) if a)),
+                                       "chronic_eur": round(sum(e[value_key] or 0 for e, (c, _) in zip(entities, hits) if c))}}
+
+
+def climate_adjusted_total(entities: list, value_key: str) -> dict:
+    """The climate-adjusted value of the SCORED entities (an unscored one is not assessed — never counted undiscounted):
+    a gap while any scored entity's discount is not stated."""
+    scored = [e for e in entities if e["headline_score"] is not None]
+    disc = [e["valuation"]["discounted_value_eur"] for e in scored]
+    return {"total_discounted_value_eur": None if None in disc else round(sum(disc)),
+            "scored_value_eur": round(sum(e[value_key] or 0 for e in scored))}
+
+
+def at_risk_by(entities: list, value_key: str, group_key: str, method) -> dict | None:
+    """{group: {value_eur, n}} of the entities at or above the stated at-risk level, by a field (e.g. region) — None when
+    the level is not stated (a gap)."""
+    from services.money.params import at_risk
+    out: dict = {}
+    for e in entities:
+        flag = at_risk(method, e["headline_score"])
+        if flag is None:
+            return None
+        if flag:
+            g = out.setdefault(e.get(group_key) or "Unspecified", {"value_eur": 0.0, "n": 0})
+            g["value_eur"] += e[value_key] or 0
+            g["n"] += 1
+    return {k: {"value_eur": round(v["value_eur"]), "n": v["n"]} for k, v in out.items()}

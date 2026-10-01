@@ -17,7 +17,7 @@ def _book(hazard_region_pairs, loss=10_000_000, prob=0.04):
 
 def test_mean_reconciles_to_independent_eal_sum():
     book = _book([("flood", "A")] * 20 + [("wildfire", "B")] * 20)
-    r = catastrophe_accumulation(book, "org1", "baseline", "current")
+    r = catastrophe_accumulation(book, "org1", "baseline", "current", pml_return_period=250)
     assert r["available"]
     assert r["mean_reconciles"]  # simulated mean within 5% of the independent EAL sum
     assert abs(r["mean_annual_loss_eur"] - r["sum_independent_eal_eur"]) <= 0.05 * r["sum_independent_eal_eur"]
@@ -25,7 +25,7 @@ def test_mean_reconciles_to_independent_eal_sum():
 
 def test_tail_exceeds_the_mean():
     book = _book([("flood", "A")] * 30)
-    r = catastrophe_accumulation(book, "org1", "baseline", "current")
+    r = catastrophe_accumulation(book, "org1", "baseline", "current", pml_return_period=250)
     assert r["aep_eur"]["rp_250"] > r["mean_annual_loss_eur"]
     assert r["pml_eur"] > r["mean_annual_loss_eur"]
     assert r["aep_eur"]["rp_250"] >= r["aep_eur"]["rp_10"]  # monotone up the return periods
@@ -33,8 +33,8 @@ def test_tail_exceeds_the_mean():
 
 def test_deterministic_same_seed():
     book = _book([("flood", "A")] * 15 + [("storm", "C")] * 10)
-    a = catastrophe_accumulation(book, "orgX", "disorderly_2c", "2050")
-    b = catastrophe_accumulation(book, "orgX", "disorderly_2c", "2050")
+    a = catastrophe_accumulation(book, "orgX", "disorderly_2c", "2050", pml_return_period=250)
+    b = catastrophe_accumulation(book, "orgX", "disorderly_2c", "2050", pml_return_period=250)
     assert a["pml_eur"] == b["pml_eur"] and a["aep_eur"] == b["aep_eur"]
 
 
@@ -43,8 +43,8 @@ def test_correlation_fattens_the_tail():
     # Diversified: spread across 8 zones → events are independent, so the aggregate tail is thinner.
     concentrated = _book([("flood", "A")] * 24)
     diversified = _book([("flood", f"R{i % 8}") for i in range(24)])
-    rc = catastrophe_accumulation(concentrated, "org1", "baseline", "current")
-    rd = catastrophe_accumulation(diversified, "org1", "baseline", "current")
+    rc = catastrophe_accumulation(concentrated, "org1", "baseline", "current", pml_return_period=250)
+    rd = catastrophe_accumulation(diversified, "org1", "baseline", "current", pml_return_period=250)
     # Means reconcile for both (marginals identical); the concentrated book's 1-in-250 is materially larger.
     assert rc["aep_eur"]["rp_250"] > rd["aep_eur"]["rp_250"]
     assert rc["tail_to_mean_multiple"] > rd["tail_to_mean_multiple"]
@@ -63,9 +63,9 @@ def test_pml_return_period_is_configurable():
 
 
 def test_no_priced_policies_is_unavailable():
-    assert catastrophe_accumulation([], "o", "s", "h")["available"] is False
+    assert catastrophe_accumulation([], "o", "s", "h", pml_return_period=250)["available"] is False
     unpriced = [{"headline_hazard": "flood", "region": "A", "pricing": None}]
-    assert catastrophe_accumulation(unpriced, "o", "s", "h")["available"] is False
+    assert catastrophe_accumulation(unpriced, "o", "s", "h", pml_return_period=250)["available"] is False
 
 
 def _ids(book):
@@ -79,11 +79,11 @@ def test_scenarios_replay_the_same_years():
     warm = [{**p, "pricing": {**p["pricing"], "annual_occurrence_prob": 0.045,
                               "net_scenario_loss_eur": p["pricing"]["net_scenario_loss_eur"] * 1.2,
                               "expected_annual_loss_eur": p["pricing"]["net_scenario_loss_eur"] * 1.2 * 0.045}} for p in base]
-    a = catastrophe_accumulation(base, "org1", "baseline", "current")
-    b = catastrophe_accumulation(warm, "org1", "hot_house_3_5c", "2050")
+    a = catastrophe_accumulation(base, "org1", "baseline", "current", pml_return_period=250)
+    b = catastrophe_accumulation(warm, "org1", "hot_house_3_5c", "2050", pml_return_period=250)
     for t in ("rp_10", "rp_50", "rp_100", "rp_200", "rp_250"):
         assert b["aep_eur"][t] >= a["aep_eur"][t] and b["oep_eur"][t] >= a["oep_eur"][t], t
-    same = catastrophe_accumulation(base, "org1", "hot_house_3_5c", "2050")       # same book, other scenario label
+    same = catastrophe_accumulation(base, "org1", "hot_house_3_5c", "2050", pml_return_period=250)       # same book, other scenario label
     assert same["aep_eur"] == a["aep_eur"] and same["oep_eur"] == a["oep_eur"]
 
 
@@ -91,15 +91,15 @@ def test_net_of_reinsurance_event_by_event():
     """Hand-checkable limits: a 50 % quota share halves every loss; a cat layer covering everything above 0 leaves no
     net occurrence loss; and the per-occurrence layer now also reduces the aggregate (AEP) view."""
     book = _ids(_book([("flood", "A")] * 12, loss=5_000_000, prob=0.05))
-    gross = catastrophe_accumulation(book, "o", "baseline", "current")
-    half = catastrophe_accumulation(book, "o", "baseline", "current", reinsurance={"quota_share_pct": 50})
+    gross = catastrophe_accumulation(book, "o", "baseline", "current", pml_return_period=250)
+    half = catastrophe_accumulation(book, "o", "baseline", "current", pml_return_period=250, reinsurance={"quota_share_pct": 50})
     assert abs(half["net_of_reinsurance"]["net_aep_eur"]["rp_200"] - gross["aep_eur"]["rp_200"] / 2) <= 1
     assert abs(half["net_of_reinsurance"]["net_oep_eur"]["rp_200"] - gross["oep_eur"]["rp_200"] / 2) <= 1
-    full = catastrophe_accumulation(book, "o", "baseline", "current",
+    full = catastrophe_accumulation(book, "o", "baseline", "current", pml_return_period=250,
                                     reinsurance={"quota_share_pct": 0, "xol_attachment_eur": 0, "xol_limit_eur": 1e12})
     assert full["net_of_reinsurance"]["net_oep_eur"]["rp_200"] == 0 and full["net_of_reinsurance"]["net_aep_eur"]["rp_200"] == 0
     layer = {"quota_share_pct": 20, "xol_attachment_eur": 10_000_000, "xol_limit_eur": 20_000_000}
-    lay = catastrophe_accumulation(book, "o", "baseline", "current", reinsurance=layer)["net_of_reinsurance"]
+    lay = catastrophe_accumulation(book, "o", "baseline", "current", pml_return_period=250, reinsurance=layer)["net_of_reinsurance"]
     assert lay["net_aep_eur"]["rp_200"] < 0.8 * gross["aep_eur"]["rp_200"]         # the layer recovers in the AEP too
     # the largest event, one zone: 12 × 5m = 60m gross → 48m after 20 % QS → 20m recovered above 10m → 28m net
     assert lay["net_oep_eur"]["rp_250"] <= 28_000_000
@@ -110,6 +110,6 @@ def test_held_zones_keep_a_comparison_about_the_climate():
     base = _ids(_book([("flood", "A")] * 10 + [("storm", "A")] * 10, prob=0.03))
     moved = [{**p, "headline_hazard": "storm"} if i < 5 else p for i, p in enumerate(base)]     # same losses, new headline
     zones = {p["policy_id"]: (p["headline_hazard"], p["region"]) for p in base}
-    held = catastrophe_accumulation(moved, "o", "hot_house_3_5c", "2050", zones_of=zones)
-    ref = catastrophe_accumulation(base, "o", "baseline", "current")
+    held = catastrophe_accumulation(moved, "o", "hot_house_3_5c", "2050", pml_return_period=250, zones_of=zones)
+    ref = catastrophe_accumulation(base, "o", "baseline", "current", pml_return_period=250)
     assert held["aep_eur"] == ref["aep_eur"] and held["oep_eur"] == ref["oep_eur"]

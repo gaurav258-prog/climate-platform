@@ -22,10 +22,8 @@ router = APIRouter(prefix="/v1/calc-settings", tags=["Calc settings"])
 
 
 class CalcSettingsUpdate(BaseModel):
-    # legacy typed methods
-    severity_model: Optional[str] = Field(None, pattern="^(universal|peril_specific)$")
+    # typed method
     assetmgmt_var_method: Optional[str] = Field(None, pattern="^(haircut|monte_carlo)$")
-    insurance_return_period_model: Optional[str] = Field(None, pattern="^(fixed|peril_specific)$")
     # open-ended interpretation switches (validated against INTERPRETATION_SCHEMA)
     interpretation: Optional[dict[str, Any]] = None
 

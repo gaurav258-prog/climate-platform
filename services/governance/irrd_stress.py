@@ -44,7 +44,7 @@ def compute(session, org_id: str, *, entity_ids=None, value_weights=None, transl
     from services.governance.orsa_climate import chosen
     from services.insurer_capital import position
     kw = {"entity_ids": entity_ids, "value_weights": value_weights, "translation": translation,
-          "reporting_entity_id": reporting_entity_id}
+          "reporting_entity_id": reporting_entity_id, "period_end": period_end}
     warm = chosen(get_calc_settings(session, org_id))["above_2c"]
     today = build_disclosure_snapshot(session, org_id, "baseline", "current", **kw)
     zones = zones_of(today.get("policies") or [])

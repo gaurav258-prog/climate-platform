@@ -6,8 +6,8 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.161 |
-| Last updated | 2026-09-30 |
+| Version | 2.162 |
+| Last updated | 2026-10-01 |
 | Package version (pyproject.toml) | 0.1.0 |
 
 **Maintenance rule:** whenever a hazard type, service, data source, schema table, or auth
@@ -87,9 +87,10 @@ Core tables (PostgreSQL + TimescaleDB + PostGIS):
 - **Regulatory:** `regulatory_frameworks`, `regulation_versions`, `regulatory_package`,
   `sc_model_validation`
 - **Asset-manager securities book:** `issuers`, `issuer_facilities`, `securities`, `funds`,
-  `fund_positions`, `issuer_emissions`, `issuer_transition_scores` — the issuer/footprint/fund
-  graph (distinct from the located-asset `portfolio_entities` model), keyed to the same golden
-  source via `issuer_facilities.h3_cell → canonical_scores`.
+  `fund_positions`, `issuer_emissions` — the issuer/footprint/fund graph (distinct from the
+  located-asset `portfolio_entities` model), keyed to the same golden source via
+  `issuer_facilities.h3_cell → canonical_scores`. Transition risk is computed at read time for the
+  reading organisation on its stated method (`issuer_transition_scores` retired 2026-09-30, E69).
 - **Reference-data provenance:** every `issuers`/`securities`/`issuer_facilities`/`issuer_emissions`
   row carries `source` + `data_vintage` (+ `confidence` on facilities); `reference_resolution_log`
   records one row per ISIN resolution attempt (resolved/cached/unmatched/error) — the audit trail
@@ -171,6 +172,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-01 | 2.162 | **Every money figure rests on facts or your stated method (E69-E74).** The platform supplies no damage curve, frequency, loading, haircut, carbon price, stranded share, brown discount, downtime share, re-sourcing cap or at-risk level: you state them per financial year in Admin → Methodology (one person states, a second attests), and a figure that needs one you have not stated is shown as a named gap — never a number. 'Material physical risk' has one definition everywhere — your stated level — frozen with every filing (Pillar 3 Template 5, KRIs, variance, lineage, forward risk, decisions, analytics, the supervisor's lens, benchmark and priors); filings frozen before keep their own. Transition risk is computed at read time on your carbon price and stranded share (the cross-organisation score table is retired); EPC stranding on your brown discount per grade; site business interruption on your downtime share. The crop € comes only from validated per-origin calibrations; re-sourcing prices published crops only. Retired: the reporting materiality setting, the csrd_e1 engine, the platform's NGFS/stranding/EPC/BI/crop constants. New: parameters register, stated-method lane and panel, /v1/provided/method/needed, /v1/insurance/reinsurance/attested; migrations reit_sum_insured, calc_stated_method, transition_stated, views_threshold, geo_prior_levels (20260930), materiality_stated (20261001). |
 | 2026-09-30 | 2.161 | **The documents describe the code as it is (E68).** The go-live dependencies, agri ops-readiness and official-form mapping no longer present the removed ESRS XBRL engine as built: ESRS exports JSON until EFRAG's taxonomy for the amended standards is final, and the form mapping points to the route (data/reference/regspec_usage.json) for what is rebuilt to the text; the seismic roadmap is marked as the original plan. A test now fails whenever a living document names code that does not exist. |
 | 2026-09-30 | 2.160 | **Everything that reads the ESRS statement now reads the statement itself (E64-E67).** KRI dashboard → ESRS: the headline figures of one undertaking's statement for the year (assets and net revenue at material physical risk, GHG, water, sites in or near sensitive areas, the financial-statement totals), only those the governing version prints, each tagged with the ESRS item that prints it and marked computed or stated by the undertaking; a picker when several undertakings prepare a statement. The supplier-COGS, sourcing-plot and 'near protected area' indicators are gone from ESRS (not ESRS figures). The national authority's questions are answered by the same figures. Prior filings: a filed ESRS statement is read onto the concepts its year's version prints (exact label only; each concept once); the E1-only upload takes no new file. Who must report and by when: judged per undertaking and year from Art. 5(2) (its role and stated facts), and the deadline from whether it is an issuer — 4 months (Transparency Directive Art. 4(1)) or at most 12 months (Accounting Directive Art. 30(1)); state it under the undertaking's figures. The filing calendar holds one ESRS obligation per undertaking in scope. The CSRD package and its non-EFRAG XBRL are retired. New: kri_esrs, fact csrd.transparency_issuer, migration esrs_kri_bands_20260930. |
 | 2026-09-30 | 2.159 | **The ESRS statement, validated and filed end to end — layers 4 and 5 of the ESRS foundation (E60-E63).** Reports → 'ESRS statement' (replaces the Climate (CSRD) and Nature (ESRS) pages): choose the undertaking or group; state its CSRD role (four eyes) and see whether Art. 5(2) of Directive (EU) 2022/2464 as amended requires the statement on its stated facts; state its own figures (currency, breakdown member, attested by a second person); state which topics are material; then E1, E3 and E4 item by item — each figure computed, stated or derived, with the previous period beside it, each other item answered or omitted with its reason (not material, its condition does not apply, a named phase-in, checked against the undertaking's facts). The checks the filing runs are shown live; the period is closed and the filing prepared from the same page, then reviewed, attested and submitted in the filing register. JSON export only until EFRAG's ESRS XBRL taxonomy is bound; the E1-only report is retired. A hazard scored today but not projected for a horizon now makes that horizon unknown, not zero. New: /v1/esrs, esrs_document / esrs_checks / csrd_scope, migration esrs_answer_ids_20260930. |

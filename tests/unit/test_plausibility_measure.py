@@ -56,16 +56,16 @@ def test_share_of_clamps_to_zero_one():
 
 def test_weighted_rows_weights_each_point_by_its_own_measure_and_excludes_what_it_cannot_use():
     points = [
-        {"country": "ES", "region": "ES11", "score": 85.0, "hazard": "flood", "sum_insured_eur": 1_000_000},   # High/Very high → sensitive
-        {"country": "ES", "region": "ES12", "score": 10.0, "hazard": "flood", "sum_insured_eur": 500_000},     # low → not sensitive
+        {"country": "ES", "region": "ES11", "score": 85.0, "hazard": "flood", "sum_insured_eur": 1_000_000},   # kept with its score
+        {"country": "ES", "region": "ES12", "score": 10.0, "hazard": "flood", "sum_insured_eur": 500_000},     # kept with its score
         {"country": "ES", "region": "ES13", "score": 85.0, "hazard": "flood", "sum_insured_eur": None},        # no measure → excluded
         {"country": None, "region": None, "score": 85.0, "hazard": "flood", "sum_insured_eur": 200_000},       # unlocated → excluded
         {"country": "ES", "region": "ES14", "score": None, "hazard": "flood", "sum_insured_eur": 300_000},     # unscored → excluded
     ]
     rows, counts = weighted_rows(points, measure_field="sum_insured_eur")
     assert len(rows) == 2
-    assert rows[0] == ("ES", "ES11", True, "flood", 1_000_000.0)
-    assert rows[1] == ("ES", "ES12", False, "flood", 500_000.0)
+    assert rows[0] == ("ES", "ES11", 85.0, "flood", 1_000_000.0)     # sensitivity is read later, at the stated level
+    assert rows[1] == ("ES", "ES12", 10.0, "flood", 500_000.0)
     assert counts == {"n_points": 5, "n_used": 2, "n_without_measure": 1, "n_unlocated": 1, "n_unscored": 1}
 
 

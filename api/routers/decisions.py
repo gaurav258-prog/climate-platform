@@ -37,14 +37,19 @@ class DecideBody(BaseModel):
     value_eur: Optional[float] = None   # the exposure's value — evaluated against the 4-eyes threshold
 
 
-@router.get("/crossings", summary="Exposures newly crossing into High+ by a scenario/horizon")
+@router.get("/crossings", summary="Exposures newly crossing the stated at-risk level by a scenario/horizon")
 def crossings(session: DbSession, scenario: str = "disorderly_2c", horizon: str = "2050",
               ctx: dict = Depends(require_permission("reports.view"))):
+    from services.money.params import for_org
+    level = for_org(session, ctx["org"]["org_id"]).get("method.at_risk_level")
+    if level is None:                    # 'crossing' is the institution's own line — not stated, no crossings (a named gap)
+        return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": None, "gap": "not stated: method.at_risk_level",
+                "policy": D.decision_policy(session, ctx["org"]["org_id"]), "n": 0, "crossings": []}
     try:
-        rows = D.crossings(session, ctx["org"]["org_id"], _vertical(ctx), scenario, horizon)
+        rows = D.crossings(session, ctx["org"]["org_id"], _vertical(ctx), scenario, horizon, level)
     except D.DecisionError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})
-    return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": D.AT_RISK,
+    return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": level,
             "policy": D.decision_policy(session, ctx["org"]["org_id"]),
             "n": len(rows), "crossings": rows}
 

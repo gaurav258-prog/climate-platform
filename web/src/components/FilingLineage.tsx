@@ -35,7 +35,7 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
     <div className="space-y-4">
       {charted.length > 0 && (
         <div>
-          <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Exposure by hazard · value at High+</div>
+          <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Exposure by hazard · value at or above the stated at-risk level</div>
           <Card className="p-4">
             <HBar data={charted.map(h => ({ label: hazardLabel(h.hazard), value: h.exposed_value_eur ?? 0, color: sevColor(h.max_score) }))} format={(n: number) => money(n, ccy)} />
           </Card>

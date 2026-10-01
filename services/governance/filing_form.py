@@ -33,13 +33,15 @@ def _headline_block(framework: str, r: dict) -> list[dict]:
         return [
             _dp("book.total_sum_insured_eur", "Total sum insured", r.get("total_sum_insured_eur"), "eur", source="book"),
             _dp("book.total_expected_annual_loss_eur", "Expected annual loss (NatCat)", r.get("total_expected_annual_loss_eur"), "eur"),
-            _dp("book.total_gross_premium_eur", "Gross written premium", r.get("total_gross_premium_eur"), "eur", source="book"),
-            _dp("book.portfolio_loss_ratio_pct", "Modelled NatCat loss ratio", r.get("portfolio_loss_ratio_pct"), "pct"),
+            _dp("book.total_technical_premium_eur", "Technical premium (modelled on the stated method)",
+                r.get("total_technical_premium_eur"), "eur"),
+            _dp("book.sum_insured_at_risk_eur", "Sum insured at material physical risk (at or above the stated level)",
+                r.get("value_at_risk_eur"), "eur"),
             _dp("book.coverage", "Policies priced", f"{r.get('n_priced', 0)} / {r.get('n_policies', 0)}", "text", source="book"),
         ]
     return [
         _dp("book.total_value_eur", "Total book value", r.get("total_value_eur"), "eur", source="book"),
-        _dp("book.value_at_risk_eur", "Value at risk (High+)", r.get("value_at_risk_eur"), "eur"),
+        _dp("book.value_at_risk_eur", "Value at material physical risk (at or above the stated level)", r.get("value_at_risk_eur"), "eur"),
         _dp("book.pct_value_at_risk", "Share of book at risk", r.get("pct_value_at_risk"), "pct"),
         _dp("book.total_discounted_value_eur", "Risk-adjusted (climate-discounted) value", r.get("total_discounted_value_eur"), "eur"),
         _dp("book.coverage", "Assets scored", f"{r.get('n_scored', 0)} / {r.get('n_assets', 0)}", "text", source="book"),
@@ -54,7 +56,12 @@ def _located_book_form(framework: str, payload: dict) -> list[dict]:
     groups = []
 
     headline = _headline_block(framework, r)
-    groups.append({"group": "Headline exposure", "datapoints": [d for d in headline if d["value"] is not None]})
+    # every headline figure stays on the form: one that is not computed shows as a gap with its reason (E69) —
+    # never silently left out
+    for d in headline:
+        if d["value"] is None:
+            d["note"] = "not computed — " + (r.get("gap") or "not available for this book")
+    groups.append({"group": "Headline exposure", "datapoints": headline})
 
     fe = payload.get("financed_emissions_tco2e") or {}
     if fe:
@@ -81,7 +88,7 @@ def _located_book_form(framework: str, payload: dict) -> list[dict]:
                for h, v in bh.items() if (v or {}).get("exposed_value_eur")]
         haz.sort(key=lambda d: -(d["value"] or 0))
         if haz:
-            groups.append({"group": "Exposure by hazard (value at High+)", "datapoints": haz})
+            groups.append({"group": "Exposure by hazard (value at or above the stated at-risk level)", "datapoints": haz})
 
     return groups
 
@@ -196,7 +203,7 @@ def _assetmgmt_tcfd_form(payload: dict) -> list[dict]:
             {"label": "Climate value-at-risk", "value": e(r.get("total_climate_var_eur")),
              "pct": pct(r.get("portfolio_climate_var_pct"))},
             {"label": "Holdings scored", "value": f"{r.get('n_scored', '—')} of {r.get('n_holdings', '—')}"},
-            {"label": "Flagged (High+)", "value": str(r.get("n_flagged", "—"))},
+            {"label": "Flagged (at or above the stated level)", "value": str(r.get("n_flagged", "—"))},
         ],
     }]
     if r.get("by_bucket"):
@@ -234,7 +241,7 @@ def _assetmgmt_tcfd_form(payload: dict) -> list[dict]:
 
 
 def _insurer_solvency_form(payload: dict) -> list[dict]:
-    """Solvency II nat-cat risk (S.27.01.01): the internal-model figure and the standard formula, as filing sections."""
+    """Solvency II nat-cat risk (S.27.01.01): the modelled figure and the standard formula, as filing sections."""
     from services.governance.insurer_solvency import TEMPLATE, natcat_block
     s = natcat_block(payload)
     if not s or s.get("available") is False:
@@ -243,14 +250,14 @@ def _insurer_solvency_form(payload: dict) -> list[dict]:
     scr = s.get("natcat_scr") or {}
     e = lambda v: money(v, presentation_of(payload), compact=False)  # noqa: E731
     return [{
-        "section": f"Natural catastrophe risk ({TEMPLATE}) — internal-model basis",
+        "section": f"Natural catastrophe risk ({TEMPLATE}) — modelled 1-in-200 (stated method; not an approved internal model)",
         "note": s.get("note"),
         "rows": [
-            {"label": "Nat-cat SCR — gross (1-in-200, 99.5% VaR)", "value": e(scr.get("gross_1_in_200_eur"))},
-            {"label": "Nat-cat SCR — net of reinsurance", "value": e(scr.get("net_of_reinsurance_1_in_200_eur"))},
+            {"label": "Modelled 1-in-200 loss — gross (99.5%)", "value": e(scr.get("gross_1_in_200_eur"))},
+            {"label": "Modelled 1-in-200 loss — net of reinsurance", "value": e(scr.get("net_of_reinsurance_1_in_200_eur"))},
             {"label": "Mean annual catastrophe loss", "value": e(scr.get("mean_annual_loss_eur"))},
             {"label": "Risk load", "value": e(scr.get("risk_load_eur"))},
-            {"label": "SCR as % of sum insured",
+            {"label": "Modelled 1-in-200 as % of sum insured",
              "value": (f"{scr['scr_pct_of_sum_insured']}%" if scr.get("scr_pct_of_sum_insured") is not None else "—")},
         ],
     }, {

@@ -79,3 +79,36 @@ def test_world_shock_survives_as_context_but_drives_nothing():
     r = compute([_book()], 300_000_000, calibrations=CAL).commodities[0]
     assert r.global_shock_pct > 0                          # still reported
     assert r.volume_at_risk_eur == pytest.approx(0.15 * 30_000_000, rel=0.01)  # unaffected by it
+
+
+def test_a_plot_not_scored_on_its_driver_is_never_averaged_in_at_zero():
+    """E69: an origin with a plot not scored on its calibrated driver has no yield shock, so the commodity has no €
+    — before, that plot entered the spend-weighted shock as 0 and diluted a published figure."""
+    cal = {"Cocoa": {"CI": {"sensitivity": 0.2, "world_share": 0.4, "calibration_tier": "backtested",
+                            "hazard_driver": "heat_acute"}}}
+    plots = [{"spend": 1_000_000, "origin": "CI", "hazards": {"heat_acute": 80.0}},
+             {"spend": 1_000_000, "origin": "CI", "hazards": {"drought": 90.0}}]          # driver not scored here
+    c = compute([{"name": "Cocoa", "eudr_covered": True, "spend": 2_000_000, "plots": plots}], 10_000_000,
+                calibrations=cal).commodities[0]
+    assert c.status == "held" and c.volume_at_risk_eur is None
+    assert "heat_acute not scored on 1 of 2 plots" in c.held_reason
+
+
+def test_no_per_origin_calibration_publishes_nothing_whatever_the_commodity():
+    """E69: the name-based 'backtested' fallback (Cocoa) and the v0 crop sensitivities are gone — a book without
+    per-origin calibration rows is held, never priced on a code constant."""
+    plots = [{"spend": 1_000_000, "origin": "CI", "hazards": {"heat_acute": 80.0}}]
+    c = compute([{"name": "Cocoa", "eudr_covered": True, "spend": 1_000_000, "plots": plots}], 10_000_000).commodities[0]
+    assert c.status == "held" and c.volume_at_risk_eur is None and c.yield_shock_pct is None
+
+
+def test_an_override_replaces_the_volume_at_risk_everywhere_it_flows():
+    cal = {"Cocoa": {"CI": {"sensitivity": 0.2, "world_share": 0.4, "calibration_tier": "backtested",
+                            "hazard_driver": "heat_acute"}}}
+    plots = [{"spend": 1_000_000, "origin": "CI", "hazards": {"heat_acute": 80.0}}]
+    ov = {"Cocoa": {"override_cogs_at_risk_p50_eur": 50_000, "overridden_by": "a", "reason": "contract hedge"}}
+    r = compute([{"name": "Cocoa", "eudr_covered": True, "spend": 1_000_000, "plots": plots}], 10_000_000,
+                overrides=ov, calibrations=cal)
+    c = r.commodities[0]
+    assert c.volume_at_risk_eur == 50_000 and c.cogs_at_risk_p50 == 50_000 and r.volume_at_risk_eur == 50_000
+    assert c.override["model_volume_at_risk_eur"] == 160_000                              # 0.2 × 0.80 × 1m

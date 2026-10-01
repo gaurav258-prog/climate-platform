@@ -64,6 +64,8 @@ POLICY_TEMPLATE_FIELDS = _template(
 PROPERTY_TEMPLATE_FIELDS = _template(
     ("property_name", True), ("latitude", True, {"example": "51.9244"}), ("longitude", True, {"example": "4.4777"}),
     ("property_value_eur", True), ("annual_noi_eur", True), ("annual_gross_rental_revenue_eur", False),
+    ("sum_insured_eur", False, {"description": "The property's insured value (buildings sum insured) — the base of what "
+                                              "its insurance costs; never assumed equal to its market value."}),
     ("property_type", True), ("construction_type", False), ("year_built", False, {"example": "2011"}),
     ("number_of_stories", False, {"example": "1"}), ("region", False, {"example": "South Holland"}),
     ("country", False, {"example": "NL"}), ("epc_rating", False), ("borrower_entity_id", False),

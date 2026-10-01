@@ -4,8 +4,10 @@ from __future__ import annotations
 from services.governance.filing_variance import decompose
 
 
-def _payload(assets, by_hazard, rollup):
-    return {"assets": assets, "by_hazard": by_hazard, "rollup": rollup}
+def _payload(assets, by_hazard, rollup, level=50.0):
+    """A frozen payload with the method it was computed on: the stated at-risk level (a test value)."""
+    used = [] if level is None else [{"key": "method.at_risk_level", "member": None, "value": level}]
+    return {"assets": assets, "by_hazard": by_hazard, "rollup": rollup, "method": {"used": used, "gaps": []}}
 
 
 def test_identical_payloads_reconcile_to_zero():
@@ -46,3 +48,21 @@ def test_added_and_removed_assets_counted():
     assert d["counts"]["added"] == 1 and d["counts"]["removed"] == 1
     # A left the book while it was at risk
     assert any(x["asset"] == "A" and x["gone"] for x in d["drivers"]["left_at_risk"])
+
+
+def test_each_side_uses_its_own_stated_level_and_a_change_is_reported():
+    a = [{"asset_id": "1", "asset_name": "A", "value_eur": 100, "headline_score": 60, "headline_bucket": "H"}]
+    prior = _payload(a, {}, {}, level=70.0)          # below the prior level
+    cur = _payload(a, {}, {}, level=50.0)            # same score, a lower stated level now
+    d = decompose(cur, prior)
+    assert d["at_risk_level"] == {"now": 50.0, "prior": 70.0, "changed": True}
+    assert d["headline"]["value_at_risk"] == {"now": 100, "prior": 0, "delta": 100}
+    assert d["drivers"]["movers"] == []              # the score did not move — the method did
+
+
+def test_a_side_without_a_stated_level_is_a_gap_never_zero():
+    a = [{"asset_id": "1", "asset_name": "A", "value_eur": 100, "headline_score": 80, "headline_bucket": "VH"}]
+    d = decompose(_payload(a, {}, {}), _payload(a, {}, {}, level=None))
+    assert d["headline"]["value_at_risk"] == {"now": 100, "prior": None, "delta": None}
+    assert d["headline"]["pct_at_risk"]["delta"] is None and "method.at_risk_level" in d["at_risk_level"]["gap"]
+    assert d["drivers"]["new_at_risk"] == [] and d["drivers"]["left_at_risk"] == []

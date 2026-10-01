@@ -1,4 +1,4 @@
-"""Filing coherence (audit T3 / T5 / T7). Requires PostgreSQL. Non-polluting (no snapshots created)."""
+"""Filing coherence (audit T3 / T7; T5 retired with the csrd_e1 engine, E69). Requires PostgreSQL. Non-polluting (no snapshots created)."""
 from __future__ import annotations
 
 import uuid
@@ -9,7 +9,6 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from services.intelligence.company_sites import list_sites_with_risk
-from services.intelligence.csrd_e1 import build_e1_report
 
 _T3_CELL = "88_t3_test_ownops"   # synthetic (<=20 chars, h3_cell is varchar(20)); no real site uses it
 
@@ -60,18 +59,3 @@ def test_t3_own_ops_is_read_on_the_requested_basis():
     assert fut_h == {"heat_acute"}, f"2050 hot-house basis should read the heat_acute row, got {fut_h}"
     # if the basis were ignored (the bug), the two hazard sets would be identical
     assert cur_h != fut_h, "own-ops risk is identical across bases — the scenario/horizon is being ignored"
-
-
-@pytest.mark.integration
-def test_t5_confidence_grade_is_in_the_e1_payload():
-    """The A–E Confidence Grade must live in the filing payload (so it freezes), not just the live UI."""
-    with get_session() as s:
-        e1 = build_e1_report(s, _org(s))
-    assert e1["material_hazards"] is not None
-    # the supply detail carries confidence_grade per commodity — the csrd_e1 builder must forward it
-    from services.intelligence.supply_cogs import project_org_supply
-    with get_session() as s:
-        r = project_org_supply(s, _org(s))
-    # every commodity object exposes the grade fields (None for held, letter for published)
-    assert all(hasattr(c, "confidence_grade") for c in r.commodities)
-

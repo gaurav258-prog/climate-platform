@@ -27,8 +27,8 @@ _METHODOLOGY = """# Methodology & basis of preparation
 
 ## What this pack is
 An evidence bundle for the ESRS/CSRD disclosures frozen in snapshot **{report_type} v{version}** of
-**{entity}**, reporting period ending **{period_end}** on basis **{scenario}/{horizon}**, materiality
-threshold **{materiality}**. Generated {generated} (UTC).
+**{entity}**, reporting period ending **{period_end}** on basis **{scenario}/{horizon}**, material physical
+risk: **{materiality}**. Generated {generated} (UTC).
 
 ## How the figures are produced
 1. Each own site and each sourcing plot is geolocated and mapped to an H3 cell.
@@ -155,6 +155,18 @@ def _render_cover_pdf(title: str, lines: list[tuple[str, str]]) -> bytes:
     return buf
 
 
+def _materiality(basis: dict, payload: dict) -> str:
+    """What 'material physical risk' meant for this snapshot, as frozen: the stated at-risk level the figures were
+    computed on (payload['method'], E69) — or, for a snapshot frozen before stated methods, its reporting setting."""
+    if basis.get("materiality_threshold") is not None:
+        return f"score ≥ {basis['materiality_threshold']} (reporting setting, frozen before stated methods)"
+    rec = (payload or {}).get("method")
+    if not rec:
+        return "not recorded"
+    lvl = next((u["value"] for u in rec.get("used") or [] if u and u.get("key") == "method.at_risk_level"), None)
+    return f"score ≥ {lvl:g} (the stated at-risk level, method.at_risk_level)" if lvl is not None else "at-risk level not stated"
+
+
 def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tuple[str, bytes] | None:
     """Return (filename, zip_bytes) for the assurance pack around a snapshot, or None if not found."""
     snap = get_snapshot(session, org_id, snapshot_id)
@@ -229,7 +241,7 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
     methodology = _METHODOLOGY.format(
         report_type=snap["report_type"], version=snap["version"], entity=entity,
         period_end=basis.get("reporting_period_end"), scenario=basis.get("scenario"),
-        horizon=basis.get("horizon"), materiality=basis.get("materiality_threshold"),
+        horizon=basis.get("horizon"), materiality=_materiality(basis, payload),
         generated=generated, contents="\n".join(contents_lines))
     method_blob = methodology.encode("utf-8")
     manifest_files.insert(0, {"file": "methodology.md", "sha256": hashlib.sha256(method_blob).hexdigest(), "bytes": len(method_blob)})
@@ -256,7 +268,7 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
 <div class="meta">
   <b>Reporting entity</b><span>{entity}</span>
   <b>Filing</b><span>{snap['report_type']} · version {snap['version']}</span>
-  <b>Reporting basis</b><span>scenario {basis.get('scenario')} · horizon {basis.get('horizon')} · materiality {basis.get('materiality_threshold')} · period {basis.get('reporting_period_end')}</span>
+  <b>Reporting basis</b><span>scenario {basis.get('scenario')} · horizon {basis.get('horizon')} · material: {_materiality(basis, payload)} · period {basis.get('reporting_period_end')}</span>
   <b>Frozen payload hash</b><span><code>{snap.get('payload_sha256')}</code> · {verified}</span>
   <b>Pack generated</b><span>{generated}</span>
 </div>
@@ -277,7 +289,7 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
         (f"{entity}  ·  {snap['report_type']} v{snap['version']}", "head"),
         ("", "normal"),
         (f"Reporting basis: scenario {basis.get('scenario')} · horizon {basis.get('horizon')}", "normal"),
-        (f"Materiality {basis.get('materiality_threshold')} · period {basis.get('reporting_period_end')}", "normal"),
+        (f"Material: {_materiality(basis, payload)} · period {basis.get('reporting_period_end')}", "normal"),
         (f"Pack generated {generated} (UTC)", "normal"),
         ("", "normal"),
         ("Frozen payload hash (SHA-256):", "head"),

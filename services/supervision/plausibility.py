@@ -2,8 +2,9 @@
 
 Every submitted cell (geography × sector) carries a sensitive share of the sector's EXPOSURE MEASURE — the template
 column the profile names (gross carrying amount for a bank, sum insured for an insurer). The reference is the prior
-the profile names for that sector: the scored-land prior (services.supervision.geo_prior — what share of the
-geography's scored land sits in High/Very high, and how that share spreads across its regions) or the population-
+the profile names for that sector, read at the level the entity's template was computed on (services.supervision.
+levels): the scored-land prior (services.supervision.geo_prior — what share of the geography's scored land sits at
+or above that level, and how that share spreads across its regions) or the population-
 exposure prior (services.supervision.exposure_prior — the same share over the authority's own supervised population
 of the sector, weighted by the measure, the entity under review excluded). A submitted share inside the spread is
 plausible; above it is high for the geography; below it is low. The band is location-only — sector does not move
@@ -78,17 +79,18 @@ def _band(prior: Optional[dict]) -> Optional[dict]:
     return {"p10": round(100 * prior["p10"], 1), "p25": round(100 * prior["p25"], 1), "p50": round(100 * prior["p50"], 1),
             "p75": round(100 * prior["p75"], 1), "p90": round(100 * prior["p90"], 1),
             "share_sensitive_pct": round(100 * prior["share_sensitive"], 1), "n_cells": prior["n_cells"],
+            "at_risk_level": prior.get("at_risk_level"),
             "n_regions": prior["n_regions"], "hazard_mix": prior.get("hazard_mix") or {}, "built_at": prior["built_at"]}
 
 
-def assess(session, cells: dict[str, dict], scenario: str, horizon: str, measure: Optional[dict] = None,
+def assess(session, cells: dict[str, dict], scenario: str, horizon: str, level: float, measure: Optional[dict] = None,
            population: Optional[dict] = None) -> dict:
     """measure = exposure_measure(sector profile); population = exposure_prior.population_priors(...) when the
     measure's prior is population_exposure (the caller resolves it once; assess never reads land priors then)."""
     m = measure or exposure_measure(None)
     field, label = m["cell_field"], m["label"]
     pop = (population or {}).get("priors") or {}
-    lookup = (lambda g: pop.get(g)) if m["prior"] == POPULATION else (lambda g: prior_for(session, g, scenario, horizon))
+    lookup = (lambda g: pop.get(g)) if m["prior"] == POPULATION else (lambda g: prior_for(session, g, scenario, horizon, level))
     rows = []
     for key, c in cells.items():
         geo = (c.get("geography") or key.split("|")[0]).strip().upper()
@@ -115,21 +117,24 @@ def assess(session, cells: dict[str, dict], scenario: str, horizon: str, measure
                f"authority, each located point weighted by its {label.lower()} (the entity under review excluded)")
     else:
         how = "computed from the platform's own scored land at the same basis, every scored cell counting once"
-    return {"rows": rows, "counts": counts, "n_cells": len(rows),
+    return {"rows": rows, "counts": counts, "n_cells": len(rows), "at_risk_level": level,
             "exposure_measure": {"cell_field": field, "label": label, "n_cells_without_measure": n_missing, **ref},
             "coverage_value_pct": round(100 * total_judged / total, 1) if total else None,
             "rule": f"A cell is plausible when its submitted sensitive share of {label.lower()} sits inside the interquartile spread (p25–p75) "
-                    f"of that share across the geography's regions, {how}. The band is location-only: sector does not move it. "
+                    f"of the share at or above the entity's at-risk level ({level:g}) across the geography's regions, {how}. "
+                    f"The band is location-only: sector does not move it. "
                     f"A cell without {label.lower()}, or a geography without enough reference, gets no verdict."}
 
 
-def assess_entity(session, reg_org_id: str, subject_org_id: str, cells: dict[str, dict], scenario: str, horizon: str) -> dict:
-    """The band for one supervised entity: measure and prior from the authority's profile for the entity's sector."""
+def assess_entity(session, reg_org_id: str, subject_org_id: str, cells: dict[str, dict], scenario: str, horizon: str,
+                  level: float) -> dict:
+    """The band for one supervised entity at the level its template was computed on: measure and prior from the
+    authority's profile for the entity's sector."""
     from sqlalchemy import text
 
     from services.supervision.exposure_prior import population_priors
     from services.supervision.profiles import config_for, sector_config
     t = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": subject_org_id}).scalar()
     m = exposure_measure(sector_config(config_for(session, reg_org_id), t))
-    pop = population_priors(session, reg_org_id, t, scenario, horizon, exclude_org_id=subject_org_id) if m["prior"] == POPULATION else None
-    return assess(session, cells, scenario, horizon, m, pop)
+    pop = population_priors(session, reg_org_id, t, scenario, horizon, level, exclude_org_id=subject_org_id) if m["prior"] == POPULATION else None
+    return assess(session, cells, scenario, horizon, level, m, pop)

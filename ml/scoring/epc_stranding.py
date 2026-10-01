@@ -1,172 +1,142 @@
-"""Real estate's TRANSITION risk — energy-performance stranding.
+"""Real estate's TRANSITION risk — energy-performance stranding, on the institution's stated method.
 
-Physical risk is only half a property's climate exposure. The other half is transition: as minimum
-energy-performance standards tighten (the EU EPBD recast's rising floor; national MEES-style rules), a building
-below the legal floor faces a "brown discount" — it lets/sells at a discount, risks becoming un-lettable, and
-needs retrofit capital to comply. Banking already prices transition risk on its book; this gives the REIT the
-same missing dimension, expressed on the property's own value and NOI.
+Physical risk is only half a property's climate exposure. The other half is transition: as minimum energy-performance
+standards tighten, a building with a poor energy-performance certificate (EPC) lets or sells at a discount and needs
+retrofit capital to comply. Neither the discount nor the capex is a fact the platform holds — no EU text sets an EPC
+grade below which a building loses a stated share of its value — so both are the institution's own statement, per EPC
+grade (E69): method.brown_discount and method.retrofit_capex_share (data/reference/money/parameters.json). A grade the
+institution does not discount is stated as 0. The platform supplies no default: a property whose grade has no stated
+value is a named gap, and the book total over it is a gap, never a partial sum.
 
-HONEST BY CONSTRUCTION. This is a disclosed PARAMETRIC POLICY SCENARIO, not a fitted market model — the floor
-year/grade and the per-grade discount/capex coefficients are stated openly (and are governable, like the other
-interpretation switches), never presented as an observed market fit. A property with no EPC on record is
-flagged as un-assessable, never assigned a fabricated stranding number.
+A property with no EPC on record, or no value, cannot be assessed; it is counted as coverage, never given a number.
 """
 from __future__ import annotations
 
 from typing import Optional
 
-# EPC grades best → worst; rank 0 = A (best)
+# EPC grades best → worst (the certificate's own scale)
 EPC_ORDER = ["A", "B", "C", "D", "E", "F", "G"]
 EPC_RANK = {g: i for i, g in enumerate(EPC_ORDER)}
 
-# Disclosed parametric coefficients — a POLICY SCENARIO, not a market fit.
-_BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor
-_MAX_DISCOUNT = 0.20               # cap the modelled discount
-_RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor
-_DEFAULT_FLOOR_EPC = "D"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable
+
+def _grade(epc_rating: Optional[str]) -> Optional[str]:
+    g = (epc_rating or "").strip().upper()
+    return g if g in EPC_RANK else None
 
 
-def epc_stranding(epc_rating: Optional[str], property_value_eur: Optional[float],
-                  annual_noi_eur: Optional[float] = None, floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
-    """Per-property energy-performance stranding under a rising minimum-EPC floor. Returns the brown-value
-    discount, the retrofit capex to reach the floor, and the NOI at risk of un-lettability — or an honest
-    'not assessed' when no EPC is on record."""
-    floor = floor_epc if floor_epc in EPC_RANK else _DEFAULT_FLOOR_EPC
-    value = property_value_eur or 0.0
-    if not epc_rating or epc_rating.upper() not in EPC_RANK:
-        return {"assessed": False, "reason": "no_epc", "floor_epc": floor,
-                "note": "No EPC on record — energy-performance stranding cannot be assessed for this property. "
-                        "Provide the EPC grade to enable a real transition-risk check."}
-    grade = epc_rating.upper()
-    grades_below = max(0, EPC_RANK[grade] - EPC_RANK[floor])
-    if grades_below == 0:
-        return {"assessed": True, "epc_rating": grade, "floor_epc": floor, "below_floor": False,
-                "grades_below": 0, "brown_discount_pct": 0.0, "value_at_risk_eur": 0.0,
-                "retrofit_capex_eur": 0.0, "noi_at_risk_eur": 0.0 if annual_noi_eur else None,
-                "note": f"EPC {grade} meets the modelled {floor} floor — no stranding under this scenario."}
-    discount = min(_MAX_DISCOUNT, grades_below * _BROWN_DISCOUNT_PER_GRADE)
+def epc_stranding(method, epc_rating: Optional[str], property_value_eur: Optional[float],
+                  annual_noi_eur: Optional[float] = None) -> dict:
+    """One property: the stated brown-value discount of its EPC grade, the value it takes, the retrofit capex and the
+    NOI it puts at risk — or 'not assessed' (no EPC / no value), or a gap (the grade's discount or capex not stated)."""
+    grade = _grade(epc_rating)
+    if grade is None:
+        return {"assessed": False, "reason": "no_epc",
+                "note": "No EPC on record — energy-performance stranding cannot be assessed for this property."}
+    if not property_value_eur:
+        return {"assessed": False, "reason": "no_value", "epc_rating": grade,
+                "note": "No value on record — the stranding of this property cannot be computed."}
+    discount = method.get("method.brown_discount", grade)
+    capex_share = method.get("method.retrofit_capex_share", grade)
+    if discount is None or capex_share is None:
+        missing = [k for k, v in (("method.brown_discount", discount), ("method.retrofit_capex_share", capex_share)) if v is None]
+        return {"assessed": True, "epc_rating": grade, "gap": "not stated: " + ", ".join(f"{k} ({grade})" for k in missing)}
     return {
-        "assessed": True, "epc_rating": grade, "floor_epc": floor, "below_floor": True,
-        "grades_below": grades_below,
+        "assessed": True, "epc_rating": grade, "discounted": discount > 0,
         "brown_discount_pct": round(100 * discount, 2),
-        "value_at_risk_eur": round(value * discount, 2),
-        "retrofit_capex_eur": round(value * grades_below * _RETROFIT_CAPEX_PER_GRADE, 2),
-        "noi_at_risk_eur": round((annual_noi_eur or 0.0) * discount, 2) if annual_noi_eur else None,
-        "note": (f"EPC {grade} is {grades_below} grade(s) below the modelled {floor} minimum-to-let. Modelled "
-                 f"brown discount {round(100 * discount, 1)}% of value; retrofit capex to reach the floor. "
-                 "Disclosed policy scenario (EPBD-recast direction), not a market fit."),
+        "value_at_risk_eur": round(property_value_eur * discount, 2),
+        "retrofit_capex_eur": round(property_value_eur * capex_share, 2),
+        "noi_at_risk_eur": round(annual_noi_eur * discount, 2) if annual_noi_eur else None,
+        "note": (f"EPC {grade}: the stated brown discount is {round(100 * discount, 2)}% of value and the stated "
+                 f"retrofit capex {round(100 * capex_share, 2)}% of value (the institution's method)."),
     }
 
 
-def loan_collateral_stranding(epc_rating: Optional[str], collateral_value_eur: Optional[float],
-                              loan_eur: Optional[float], floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
-    """A bank's transition risk on ONE real-estate-collateralised loan: energy-stranding of the collateral erodes
-    its value, lifting the effective LTV and, where the stressed collateral no longer covers the loan, putting
-    loan value at risk (an LGD driver). Reuses the property brown-discount; honest 'not assessed' with no EPC."""
-    st = epc_stranding(epc_rating, collateral_value_eur, None, floor_epc)
-    if not st["assessed"]:
-        return {"assessed": False, "reason": st.get("reason"), "note": st.get("note")}
-    value = collateral_value_eur or 0.0
-    loan = loan_eur or 0.0
-    discount = (st["brown_discount_pct"] or 0.0) / 100.0
-    stressed_collateral = value * (1.0 - discount)
-    uncovered = max(0.0, loan - stressed_collateral)   # loan value no longer covered once the collateral strands
+def loan_collateral_stranding(method, epc_rating: Optional[str], collateral_value_eur: Optional[float],
+                              loan_eur: Optional[float]) -> dict:
+    """A bank's transition risk on ONE real-estate-collateralised loan: the stated discount erodes the collateral,
+    lifting the effective LTV; the loan value the stressed collateral no longer covers is at risk (an LGD driver)."""
+    st = epc_stranding(method, epc_rating, collateral_value_eur)
+    if not st["assessed"] or st.get("gap"):
+        return st
+    if not loan_eur:
+        return {"assessed": False, "reason": "no_outstanding", "epc_rating": st["epc_rating"],
+                "note": "No outstanding balance on record — the loan value at risk cannot be computed."}
+    discount = st["brown_discount_pct"] / 100
+    stressed = collateral_value_eur * (1 - discount)
     return {
-        "assessed": True, "epc_rating": st["epc_rating"], "floor_epc": st["floor_epc"],
-        "below_floor": st["below_floor"], "grades_below": st["grades_below"],
+        "assessed": True, "epc_rating": st["epc_rating"], "discounted": st["discounted"],
         "brown_discount_pct": st["brown_discount_pct"],
         "collateral_value_at_risk_eur": st["value_at_risk_eur"],
-        "original_ltv_pct": round(100 * loan / value, 1) if value else None,
-        "stressed_ltv_pct": round(100 * loan / stressed_collateral, 1) if stressed_collateral else None,
-        "loan_value_at_risk_eur": round(uncovered, 2),
+        "original_ltv_pct": round(100 * loan_eur / collateral_value_eur, 1),
+        "stressed_ltv_pct": round(100 * loan_eur / stressed, 1) if stressed else None,
+        "loan_value_at_risk_eur": round(max(0.0, loan_eur - stressed), 2),
         "retrofit_capex_eur": st["retrofit_capex_eur"],
     }
 
 
-def bank_collateral_stranding_rollup(loans: list[dict], floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
-    """Book-level collateral energy-stranding for a bank's real-estate-collateralised loans. `loans` rows expose
-    epc_label, asset_value_eur (collateral), outstanding_loan_balance_eur (loan)."""
+def _gaps(results: list[dict]) -> Optional[str]:
+    g = sorted({r["gap"] for r in results if r.get("gap")})
+    return "; ".join(g) if g else None
+
+
+def bank_collateral_stranding_rollup(method, loans: list[dict]) -> dict:
+    """Book-level collateral energy-stranding for the bank's real-estate-collateralised loans (rows: epc_label,
+    asset_value_eur = collateral, outstanding_loan_balance_eur). A gap in any assessed loan makes the totals a gap."""
+    res = [(x, loan_collateral_stranding(method, x.get("epc_label"), x.get("asset_value_eur"),
+                                         x.get("outstanding_loan_balance_eur"))) for x in loans]
     n = len(loans)
-    below = 0
-    no_epc = 0
-    loan_var = capex = collat_var = 0.0
-    loan_below = 0.0
-    total_loan = 0.0
-    # exposure-weighted LTV migration (the LGD driver even where the loan stays covered)
-    w_orig_ltv = w_stress_ltv = w_exposure = 0.0
-    for x in loans:
-        loan = x.get("outstanding_loan_balance_eur") or x.get("loan_eur") or 0.0
-        total_loan += loan
-        r = loan_collateral_stranding(x.get("epc_label") or x.get("epc_rating"),
-                                      x.get("asset_value_eur") or x.get("collateral_value_eur"), loan, floor_epc)
-        if not r["assessed"]:
-            no_epc += 1
-            continue
-        if r["original_ltv_pct"] is not None and r["stressed_ltv_pct"] is not None and loan:
-            w_orig_ltv += r["original_ltv_pct"] * loan
-            w_stress_ltv += r["stressed_ltv_pct"] * loan
-            w_exposure += loan
-        if r["below_floor"]:
-            below += 1
-            loan_var += r["loan_value_at_risk_eur"]
-            collat_var += r["collateral_value_at_risk_eur"]
-            capex += r["retrofit_capex_eur"]
-            loan_below += loan
-    orig_ltv = round(w_orig_ltv / w_exposure, 1) if w_exposure else None
-    stress_ltv = round(w_stress_ltv / w_exposure, 1) if w_exposure else None
+    assessed = [(x, r) for x, r in res if r["assessed"]]
+    base = {"n_re_loans": n, "n_assessed": len(assessed), "n_not_assessed": n - len(assessed),
+            "epc_coverage_pct": round(100 * len(assessed) / n, 1) if n else None}
+    gap = _gaps([r for _, r in assessed])
+    if gap:
+        return {**base, "gap": gap}
+    disc = [(x, r) for x, r in assessed if r["discounted"]]
+    exposure = sum(x["outstanding_loan_balance_eur"] for x, _ in assessed)
+    w_orig = sum(r["original_ltv_pct"] * x["outstanding_loan_balance_eur"] for x, r in assessed)
+    w_stress = sum(r["stressed_ltv_pct"] * x["outstanding_loan_balance_eur"] for x, r in assessed if r["stressed_ltv_pct"] is not None)
+    stressed_complete = all(r["stressed_ltv_pct"] is not None for _, r in assessed)
+    orig = round(w_orig / exposure, 1) if exposure else None
+    stress = round(w_stress / exposure, 1) if exposure and stressed_complete else None
+    below = sum(x["outstanding_loan_balance_eur"] for x, _ in disc)
     return {
-        "floor_epc": floor_epc,
-        "n_re_loans": n,
-        "n_assessed": n - no_epc,
-        "n_no_epc": no_epc,
-        "n_below_floor": below,
-        "collateral_value_at_risk_eur": round(collat_var),   # recovery-cushion erosion — the LGD driver
-        "loan_value_at_risk_eur": round(loan_var),           # tail: exposure uncovered once collateral strands (LTV>100%)
-        "retrofit_capex_to_derisk_eur": round(capex),
-        "exposure_weighted_ltv_pct": orig_ltv,
-        "stressed_ltv_pct": stress_ltv,
-        "ltv_uplift_pp": round(stress_ltv - orig_ltv, 1) if (orig_ltv is not None and stress_ltv is not None) else None,
-        "exposure_below_floor_eur": round(loan_below),
-        "pct_re_loans_below_floor": round(100 * loan_below / total_loan, 1) if total_loan else 0.0,
-        "epc_coverage_pct": round(100 * (n - no_epc) / n, 1) if n else 0.0,
-        "note": ("Transition risk on the bank's real-estate loan collateral: energy-performance stranding under a "
-                 "rising minimum-EPC floor erodes collateral value, lifting effective LTV and putting loan value "
-                 "at risk where the stressed collateral no longer covers the loan (an LGD driver). Disclosed "
-                 "policy scenario (EPBD-recast direction), not a market fit; loans with no EPC are excluded and "
-                 "reported as coverage, never assigned a fabricated number."),
+        **base,
+        "n_discounted": len(disc),
+        "collateral_value_at_risk_eur": round(sum(r["collateral_value_at_risk_eur"] for _, r in disc)),
+        "loan_value_at_risk_eur": round(sum(r["loan_value_at_risk_eur"] for _, r in disc)),
+        "retrofit_capex_to_derisk_eur": round(sum(r["retrofit_capex_eur"] for _, r in disc)),
+        "exposure_weighted_ltv_pct": orig, "stressed_ltv_pct": stress,
+        "ltv_uplift_pp": round(stress - orig, 1) if orig is not None and stress is not None else None,
+        "exposure_discounted_eur": round(below),
+        "pct_exposure_discounted": round(100 * below / exposure, 1) if exposure else None,
+        "note": ("Transition risk on the bank's real-estate collateral: the institution's stated brown discount per EPC "
+                 "grade erodes the collateral, lifting the effective LTV; the loan value the stressed collateral no "
+                 "longer covers is at risk (an LGD driver). Loans without an EPC, a collateral value or an outstanding "
+                 "balance are counted as not assessed, never given a number."),
     }
 
 
-def stranding_rollup(properties: list[dict], floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
-    """Portfolio energy-stranding summary: € value at risk, retrofit capex to de-risk, and honest coverage
-    (how many properties carry an EPC). `properties` rows must expose epc_rating, property_value_eur, annual_noi_eur."""
+def stranding_rollup(method, properties: list[dict]) -> dict:
+    """Portfolio energy-stranding on the stated method: € value at risk, retrofit capex and coverage. Rows expose
+    epc_rating, property_value_eur, annual_noi_eur. A gap in any assessed property makes the totals a gap."""
+    res = [(p, epc_stranding(method, p.get("epc_rating"), p.get("property_value_eur"), p.get("annual_noi_eur")))
+           for p in properties]
     n = len(properties)
-    assessed, below, no_epc = [], [], 0
-    var_total = capex_total = value_below = 0.0
-    total_value = 0.0
-    for p in properties:
-        total_value += p.get("property_value_eur") or 0.0
-        st = epc_stranding(p.get("epc_rating"), p.get("property_value_eur"), p.get("annual_noi_eur"), floor_epc)
-        if not st["assessed"]:
-            no_epc += 1
-            continue
-        assessed.append(st)
-        if st["below_floor"]:
-            below.append(st)
-            var_total += st["value_at_risk_eur"]
-            capex_total += st["retrofit_capex_eur"]
-            value_below += p.get("property_value_eur") or 0.0
+    assessed = [(p, r) for p, r in res if r["assessed"]]
+    base = {"n_properties": n, "n_assessed": len(assessed), "n_not_assessed": n - len(assessed),
+            "epc_coverage_pct": round(100 * len(assessed) / n, 1) if n else None}
+    gap = _gaps([r for _, r in assessed])
+    if gap:
+        return {**base, "gap": gap}
+    disc = [(p, r) for p, r in assessed if r["discounted"]]
+    total_value = sum(p["property_value_eur"] for p, _ in assessed)
+    value_disc = sum(p["property_value_eur"] for p, _ in disc)
     return {
-        "floor_epc": floor_epc,
-        "n_properties": n,
-        "n_assessed": len(assessed),
-        "n_no_epc": no_epc,
-        "n_below_floor": len(below),
-        "value_at_stranding_risk_eur": round(var_total),
-        "retrofit_capex_to_derisk_eur": round(capex_total),
-        "pct_portfolio_value_below_floor": round(100 * value_below / total_value, 1) if total_value else 0.0,
-        "epc_coverage_pct": round(100 * len(assessed) / n, 1) if n else 0.0,
-        "note": ("Energy-performance stranding under a rising minimum-EPC floor — a disclosed policy scenario "
-                 "(EPBD-recast direction), governable, not a market fit. Properties without an EPC on record are "
-                 "excluded and reported as coverage, never assigned a fabricated number."),
+        **base,
+        "n_discounted": len(disc),
+        "value_at_stranding_risk_eur": round(sum(r["value_at_risk_eur"] for _, r in disc)),
+        "retrofit_capex_to_derisk_eur": round(sum(r["retrofit_capex_eur"] for _, r in disc)),
+        "pct_assessed_value_discounted": round(100 * value_disc / total_value, 1) if total_value else None,
+        "note": ("Energy-performance stranding on the institution's stated brown discount and retrofit capex per EPC "
+                 "grade. Properties without an EPC or a value are counted as not assessed, never given a number."),
     }

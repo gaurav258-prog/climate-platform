@@ -9,6 +9,7 @@ import { hazardLabel, sevColor } from '../lib/hazards'
 import { actionLabel } from '../lib/actionLabels'
 import { balance, flow } from '../lib/money'
 import { CloseButton } from './Dialog'
+import MethodGap from './MethodGap'
 import { Drawer } from './Drawer'
 
 // The per-asset drill for the four financial books — the depth the agri /detail/* pages already had, plus
@@ -25,9 +26,8 @@ interface Haz { hazard_type: string; score: number; risk_bucket: string; time_ho
 interface Val {
   discounted_value_eur?: number; is_overridden?: boolean
   recommended_discount_pct?: number; effective_discount_pct?: number
-  original_ltv_pct?: number; climate_adjusted_ltv_pct?: number
-  vulnerability_factor?: number
-  vulnerability?: { applied: boolean; drivers: { attr: string; value: unknown; factor: number }[] }
+  original_ltv_pct?: number; climate_adjusted_ltv_pct?: number | null
+  damage_function_version?: string; gap?: string
 }
 interface Trigger { hazard_type?: string; attachment_score?: number; exhaustion_score?: number; status?: string }
 interface AuditRow { actor_user_id?: string; action: string; detail?: Record<string, unknown>; created_at: string }
@@ -242,16 +242,13 @@ function ValuationPanel({ cfg, id, val, onDone }: { cfg: DrawerCfg; id: string; 
         {val?.is_overridden && <span className="mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#e8b24c', background: '#e8b24c22' }}>analyst override on file</span>}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12.5px]">
-        <Row k="Risk-adjusted value" v={balance(val?.discounted_value_eur)} />
-        <Row k="Recommended discount" v={val?.recommended_discount_pct != null ? `${val.recommended_discount_pct}%` : '—'} />
+        <Row k="Risk-adjusted value" v={val?.discounted_value_eur != null ? balance(val.discounted_value_eur) : 'not stated'} />
+        <Row k="Your stated discount" v={val?.recommended_discount_pct != null ? `${val.recommended_discount_pct}%` : '—'} />
         <Row k="Effective discount" v={val?.effective_discount_pct != null ? `${val.effective_discount_pct}%` : '—'} />
-        {val?.original_ltv_pct != null && <Row k="LTV" v={`${val.original_ltv_pct}% → ${val.climate_adjusted_ltv_pct}%`} />}
+        {val?.original_ltv_pct != null && <Row k="LTV" v={`${val.original_ltv_pct}% → ${val.climate_adjusted_ltv_pct ?? '—'}%`} />}
       </div>
-      {val?.vulnerability?.applied && val.vulnerability_factor != null && (
-        <div className="mono text-[11px] text-[var(--color-faint)] leading-relaxed">
-          vulnerability <b className="text-[var(--color-mute)]">×{val.vulnerability_factor}</b> — {val.vulnerability.drivers.map(dr => `${dr.attr.replace(/_/g, ' ')} ${String(dr.value)}`).join(' · ')}
-        </div>
-      )}
+      {val?.gap && <MethodGap gap={val.gap} what="Climate-adjusted value" />}
+      <div className="mono text-[10.5px] text-[var(--color-faint)]">The discount is your stated valuation haircut for this asset's peril and hazard band (Methodology){val?.damage_function_version ? ` · ${val.damage_function_version}` : ''}.</div>
 
       {canPrice ? (
         <div className="pt-3 border-t border-[var(--color-line)] space-y-2">
@@ -304,15 +301,11 @@ function TriggerPanel({ id, item, risks, onDone }: { id: string; item?: Record<s
         {existing?.hazard_type && <span className="mono text-[10px] text-[var(--color-mute)]">{hazardLabel(existing.hazard_type)} · {existing.attachment_score}–{existing.exhaustion_score}</span>}
       </div>
       {item?.pricing != null && typeof item.pricing === 'object' && (() => {
-        const p = item.pricing as { gross_premium_eur?: number; rate_on_line_pct?: number; vulnerability_factor?: number
-          vulnerability?: { applied: boolean; drivers: { attr: string; value: unknown }[] } }
+        const p = item.pricing as { technical_premium_eur?: number | null; rate_on_line_pct?: number | null; expected_annual_loss_eur?: number | null; gap?: string }
         return (
           <div className="mono text-[11px] text-[var(--color-faint)] space-y-1">
-            <div>pricing on file — expected loss &amp; premium computed from the golden source.</div>
-            {p.gross_premium_eur != null && <div className="text-[var(--color-mute)]">premium <b className="text-[var(--color-ink)]">{flow(p.gross_premium_eur, { full: true })}</b>{p.rate_on_line_pct != null && <> · rate-on-line {p.rate_on_line_pct}%</>}</div>}
-            {p.vulnerability?.applied && p.vulnerability_factor != null && (
-              <div>vulnerability <b className="text-[var(--color-mute)]">×{p.vulnerability_factor}</b> — {p.vulnerability.drivers.map(d => `${d.attr.replace(/_/g, ' ')} ${String(d.value)}`).join(' · ')}</div>
-            )}
+            <div>pricing on file — expected loss &amp; technical premium on your stated damage ratios, event probabilities and loadings.</div>
+            {p.gap ? <MethodGap gap={p.gap} what="Pricing" /> : p.technical_premium_eur != null && <div className="text-[var(--color-mute)]">technical premium <b className="text-[var(--color-ink)]">{flow(p.technical_premium_eur, { full: true })}</b>{p.rate_on_line_pct != null && <> · rate-on-line {p.rate_on_line_pct}%</>}</div>}
           </div>
         )
       })()}

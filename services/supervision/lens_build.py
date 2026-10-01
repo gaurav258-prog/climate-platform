@@ -17,19 +17,28 @@ def _sector(p: dict) -> Optional[str]:
     return s if s and s != "?" else None
 
 
-def rebuilt_cells(session, regulator_org_id: str, subject_org_id: str, scenario: str, horizon: str) -> tuple[dict, list[dict]]:
+def rebuilt_cells(session, regulator_org_id: str, subject_org_id: str, scenario: str, horizon: str,
+                  level: float) -> tuple[dict, list[dict]]:
     pts = org_asset_points(session, regulator_org_id, scenario, horizon, source="supervisor_shadow", subject_org_id=subject_org_id)
-    return rebuild_cells(pts, _geo, _sector), pts
+    return rebuild_cells(pts, _geo, _sector, level), pts
 
 
 def build_lens(session, regulator_org_id: str, subject_org_id: str, submission: dict, reg_scenario: str, reg_horizon: str,
                precision_label: str) -> dict:
-    """submission = supervisor_submissions row (basis + cells). Rebuild at the regulator's basis and, if the bank
-    states a different one in its narrative, at the bank's too — that is what separates the 'basis' term."""
-    reg_cells, pts = rebuilt_cells(session, regulator_org_id, subject_org_id, reg_scenario, reg_horizon)
+    """submission = supervisor_submissions row (basis + cells). Rebuild at the regulator's basis (its scenario, horizon
+    and stated at-risk level) and, where the bank's differs, at the bank's too — that is what separates the 'basis'
+    term. Without the regulator's own level there is no rebuilt figure: {"available": False, "gap": …}."""
+    from services.supervision.levels import GAP_AUTHORITY, GAP_ENTITY, authority_level, entity_level
+    reg_level = authority_level(session, regulator_org_id)
+    if reg_level is None:
+        return {"available": False, "gap": GAP_AUTHORITY}
+    ent_level, ent_level_from = entity_level(session, subject_org_id, submission)
+    reg_cells, pts = rebuilt_cells(session, regulator_org_id, subject_org_id, reg_scenario, reg_horizon, reg_level)
     basis = submission.get("basis") or {}
     bank_sc, bank_hz = basis.get("scenario") or reg_scenario, basis.get("horizon") or reg_horizon
-    bank_cells = rebuilt_cells(session, regulator_org_id, subject_org_id, bank_sc, bank_hz)[0] if (bank_sc, bank_hz) != (reg_scenario, reg_horizon) else None
+    bank_level = ent_level if ent_level is not None else reg_level
+    bank_cells = (rebuilt_cells(session, regulator_org_id, subject_org_id, bank_sc, bank_hz, bank_level)[0]
+                  if (bank_sc, bank_hz, bank_level) != (reg_scenario, reg_horizon, reg_level) else None)
     n_loc = sum(1 for p in pts if p.get("lat") is not None)
     prec = {p.get("location_precision") or "unlocated": 0 for p in pts}
     for p in pts:
@@ -42,6 +51,10 @@ def build_lens(session, regulator_org_id: str, subject_org_id: str, submission: 
     separable = bank_cells is None or bool(cov.get("complete"))
     out = compare(submission["cells"], reg_cells, bank_cells if separable else None, precision=precision_label,
                   basis_separable=separable)
+    out["available"] = True
+    out["at_risk_level"] = {"regulator": reg_level, "entity": ent_level, "entity_from": ent_level_from,
+                            **({"gap": GAP_ENTITY + " — the scoring term may include a difference of definition"}
+                               if ent_level is None else {})}
     out["projection_coverage"] = cov
     out.update({"period_label": submission["period_label"], "regulator_basis": {"scenario": reg_scenario, "horizon": reg_horizon},
                 "bank_basis": {"scenario": bank_sc, "horizon": bank_hz, "stated": bool(basis.get("scenario") or basis.get("horizon")),

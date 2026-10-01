@@ -130,13 +130,8 @@ def main():
                 VALUES (:f, :sec, :mv, :w, CURRENT_DATE)
             """), {"f": fund_id, "sec": sec_id, "mv": mv, "w": round(100 * mv / book_total, 4)})
 
-        # run the transition model over the seeded issuers (populates issuer_transition_scores)
-        from services.scoring.transition_scoring import score_all_issuers
-        summary = score_all_issuers(s)
-
         print(f"Seeded fund {fund_id}: {len(ISSUERS)} issuers, {n_fac} facilities, "
               f"{len(ISSUERS)} positions (€{book_total/1e6:.0f}m book).")
-        print(f"Transition model: {summary}")
 
 
 if __name__ == "__main__":

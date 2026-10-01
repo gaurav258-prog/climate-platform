@@ -166,7 +166,7 @@
         },
         {
           "id": "high_risk_share_pct",
-          "label": "Share of book at high risk",
+          "label": "Share of book at risk (your stated level)",
           "unit": "pct",
           "adapter": "portfolio.high_risk_share",
           "direction": "lower_is_better",
@@ -175,7 +175,7 @@
         },
         {
           "id": "money_at_high_risk_eur",
-          "label": "Money at high risk",
+          "label": "Money at risk (your stated level)",
           "unit": "eur",
           "adapter": "portfolio.high_risk_value",
           "direction": "lower_is_better"
@@ -264,6 +264,10 @@
             {
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
+            },
+            {
+              "id": "at_risk_level",
+              "label": "At-risk level the template was computed on (headline score 0–100)"
             }
           ],
           "sector_key": "nace_section"
@@ -360,7 +364,7 @@
         },
         {
           "id": "high_risk_share_pct",
-          "label": "Share of sum insured at high risk",
+          "label": "Share of sum insured at risk (your stated level)",
           "unit": "pct",
           "adapter": "portfolio.high_risk_share",
           "direction": "lower_is_better",
@@ -369,7 +373,7 @@
         },
         {
           "id": "money_at_high_risk_eur",
-          "label": "Sum insured at high risk",
+          "label": "Sum insured at risk (your stated level)",
           "unit": "eur",
           "adapter": "portfolio.high_risk_value",
           "direction": "lower_is_better"
@@ -458,6 +462,10 @@
             {
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
+            },
+            {
+              "id": "at_risk_level",
+              "label": "At-risk level the template was computed on (headline score 0–100)"
             }
           ],
           "sector_key": "nace_section"
@@ -553,7 +561,7 @@
         },
         {
           "id": "high_risk_share_pct",
-          "label": "Share of holdings at high risk",
+          "label": "Share of holdings at risk (your stated level)",
           "unit": "pct",
           "adapter": "portfolio.high_risk_share",
           "direction": "lower_is_better",
@@ -562,7 +570,7 @@
         },
         {
           "id": "money_at_high_risk_eur",
-          "label": "Holdings value at high risk",
+          "label": "Holdings value at risk (your stated level)",
           "unit": "eur",
           "adapter": "portfolio.high_risk_value",
           "direction": "lower_is_better"
@@ -644,6 +652,10 @@
             {
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
+            },
+            {
+              "id": "at_risk_level",
+              "label": "At-risk level the template was computed on (headline score 0–100)"
             }
           ]
         },
@@ -736,7 +748,7 @@
         },
         {
           "id": "high_risk_share_pct",
-          "label": "Share of property value at high risk",
+          "label": "Share of property value at risk (your stated level)",
           "unit": "pct",
           "adapter": "portfolio.high_risk_share",
           "direction": "lower_is_better",
@@ -745,7 +757,7 @@
         },
         {
           "id": "money_at_high_risk_eur",
-          "label": "Property value at high risk",
+          "label": "Property value at risk (your stated level)",
           "unit": "eur",
           "adapter": "portfolio.high_risk_value",
           "direction": "lower_is_better"
@@ -827,6 +839,10 @@
             {
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
+            },
+            {
+              "id": "at_risk_level",
+              "label": "At-risk level the template was computed on (headline score 0–100)"
             }
           ]
         },
@@ -920,7 +936,7 @@
         },
         {
           "id": "high_risk_share_pct",
-          "label": "Share of value at high risk",
+          "label": "Share of value at risk (your stated level)",
           "unit": "pct",
           "adapter": "portfolio.high_risk_share",
           "direction": "lower_is_better",
@@ -1012,6 +1028,10 @@
             {
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
+            },
+            {
+              "id": "at_risk_level",
+              "label": "At-risk level the template was computed on (headline score 0–100)"
             }
           ]
         },

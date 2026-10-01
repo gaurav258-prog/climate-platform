@@ -8,19 +8,20 @@ import { severityHex } from '../components/SiteMap'
 import { SCENARIO_LABEL } from '../lib/hazards'
 import { balance } from '../lib/money'
 import { pressable } from '../lib/pressable'
+import MethodGap from '../components/MethodGap'
 
 // The horizontal risk analyst's workbench. Every chart is an engine figure under one basis; precision is
-// labelled; projections say which part of the high-risk value actually moves with the scenario.
+// labelled; projections say which part of the at-risk value actually moves with the scenario.
 interface TrendResp { entities: { org_id: string; name: string; periods: string[]; latest_period: string | null; latest_share_pct: number | null; previous_period: string | null; previous_share_pct: number | null; change_pp: number | null }[]; n_with_trend: number; note: string }
 interface TimelinessResp { rows: { org_id: string; name: string; framework_label: string; period_label: string; due_date: string | null; status: string | null; filed_at: string | null; state: string; days: number | null; intake_received_at: string | null; intake_lag_days: number | null }[]; summary: Record<string, number>; as_of: string; note: string }
 const STATE_LABEL: Record<string, string> = { outstanding_overdue: 'Outstanding · overdue', filed_late: 'Filed late', not_yet_due: 'Not yet due', filed_on_time: 'Filed on time', filed: 'Filed', no_due_date: 'No due date on record' }
 const STATE_COLOR: Record<string, string> = { outstanding_overdue: 'var(--color-bad)', filed_late: 'var(--color-warn)', not_yet_due: 'var(--color-mute)', filed_on_time: 'var(--color-good)', filed: 'var(--color-good)', no_due_date: 'var(--color-faint)' }
 interface Region { key: string; name: string; country: string | null; kind: string; value_eur: number; n_sites: number; max_score: number | null; worst_hazard: string | null; entities: string[] }
-interface Resp { scenario: string; horizon: string; profile_id: string; n_entities: number; n_assets: number; precision: string
+interface Resp { scenario: string; horizon: string; profile_id: string; n_entities: number; n_assets: number; precision: string; at_risk_level: number | null; gap?: string
   concentration: { total_value_eur: number; unlocated_value_eur: number; n_regions: number; top10_share_pct: number | null; by_region: Region[]
-    curve: { rank: number; cum_share_pct: number }[]; by_hazard: { hazard: string; value_eur: number; high_value_eur: number; n: number }[] }
+    curve: { rank: number; cum_share_pct: number }[]; by_hazard: { hazard: string; value_eur: number; high_value_eur: number | null; n: number }[] }
   scenario_shift: { scenarios: string[]; horizons: string[]; note: string
-    cells: { scenario: string; horizon: string; value_eur: number; high_risk_value_eur: number; high_risk_share_pct: number | null; projected_share_of_high_pct: number | null }[] }
+    cells: { scenario: string; horizon: string; value_eur: number | null; high_risk_value_eur: number | null; high_risk_share_pct: number | null; projected_share_of_high_pct: number | null }[] }
   anchor_coverage: { anchors: { scenario: string; horizon: string; hazards: number; hazard_list: string[] }[]; hazards_today: number; note: string }
   distribution: Record<string, { label: string; n_entities: number; metrics: { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
     distribution: { n: number; median?: number }; entities: { org_id: string; name: string; value: number | null; flag: string }[] }[] }> }
@@ -71,6 +72,7 @@ export default function SupervisorAnalytics() {
     <div className="fadeup space-y-6">
       <PageHeader eyebrow={`Analytics${d ? ` · ${d.precision}` : ''}`} title="The population, analysed"
         lead="Concentration, scenario shift and the distribution of your metrics across entities — engine figures under one basis, precision labelled, projections with the part that actually moves." />
+      {d?.gap && <MethodGap gap={d.gap} what="At-risk analytics" />}
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-[12px] text-[var(--color-mute)]">Scenario
           <select value={scenario} onChange={e => setScenario(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
@@ -118,7 +120,7 @@ export default function SupervisorAnalytics() {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Scenario shift · share of exposure at high risk</div><CsvBtn name="scenario_shift" rows={d.scenario_shift.cells} /></div>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Scenario shift · share of exposure at risk (your stated level)</div><CsvBtn name="scenario_shift" rows={d.scenario_shift.cells} /></div>
             <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{d.scenario_shift.note}</div>
             <div style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -132,7 +134,7 @@ export default function SupervisorAnalytics() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">of the high-risk value under {SCEN_LABEL[scenario]} · {horizon === 'current' ? 'today' : horizon}: {d.scenario_shift.cells.find(c => c.scenario === scenario && c.horizon === horizon)?.projected_share_of_high_pct ?? '—'}% is headlined by a CMIP6-projected hazard (flood / storm / wildfire); the rest by climatology channels with their own anchors</div>
+            <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">of the at-risk value under {SCEN_LABEL[scenario]} · {horizon === 'current' ? 'today' : horizon}: {d.scenario_shift.cells.find(c => c.scenario === scenario && c.horizon === horizon)?.projected_share_of_high_pct ?? '—'}% is headlined by a CMIP6-projected hazard (flood / storm / wildfire); the rest by climatology channels with their own anchors</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5" title={d.anchor_coverage.note}>
               <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mr-1">hazards scored per anchor</span>
               {d.scenario_shift.scenarios.flatMap(s => d.scenario_shift.horizons.map(h => {
@@ -147,14 +149,14 @@ export default function SupervisorAnalytics() {
           </Card>
           <Card className="p-5">
             <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Exposure by headline hazard</div><CsvBtn name="exposure_by_hazard" rows={d.concentration.by_hazard} /></div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">value whose biggest threat is each hazard · darker = at high risk</div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">value whose biggest threat is each hazard · darker = at or above your stated level</div>
             <div style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={d.concentration.by_hazard.slice(0, 10).map(h => ({ ...h, label: h.hazard.replace(/_/g, ' ') }))} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
                   <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} tickFormatter={(v) => balance(Number(v))} />
                   <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
-                  <Tooltip formatter={(v, n) => [balance(Number(v)), n === 'high_value_eur' ? 'at high risk' : 'exposure']} />
+                  <Tooltip formatter={(v, n) => [balance(Number(v)), n === 'high_value_eur' ? 'at risk (your level)' : 'exposure']} />
                   <Bar dataKey="value_eur" fill="#85B7EB" isAnimationActive={false} />
                   <Bar dataKey="high_value_eur" fill="#E24B4A" isAnimationActive={false} />
                 </BarChart>

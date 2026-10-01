@@ -488,12 +488,11 @@ class ReportingSettingsPatch(BaseModel):
     reporting_period_end:  Optional[str] = Field(None, description="YYYY-MM-DD")
     scenario:              Optional[str] = Field(None, max_length=40)
     horizon:               Optional[str] = Field(None, max_length=40)
-    materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
     presentation_currency: Optional[str] = Field(None, min_length=3, max_length=3,
                                                  description="ISO 4217 — the currency the organisation presents in")
 
 
-@router.get("/reporting-settings", summary="The org's reporting basis (period, scenario, horizon, materiality)")
+@router.get("/reporting-settings", summary="The org's reporting basis (period, scenario, horizon, currency)")
 def get_reporting_settings(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from services.governance.reporting_settings import get_settings
     return get_settings(session, ctx["org"]["org_id"])

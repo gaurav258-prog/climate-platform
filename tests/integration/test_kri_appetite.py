@@ -51,15 +51,16 @@ def test_platform_defaults_grade_live_kpis():
 @pytest.mark.integration
 def test_org_override_beats_default_and_regrades():
     with get_session() as s:
-        # force an org band that a healthy coverage still trips → red, proving the override is applied
-        KT.set_threshold(s, BANK_ORG, None, "bank_tcfd", "pct_at_risk", {"amber": 1, "red": 2, "direction": "higher_worse"})
+        # force an org band that any coverage trips → red, proving the override is applied (coverage is a count on the
+        # book, present whatever the bank's stated method; a money KRI is ungraded while its method is a gap)
+        KT.set_threshold(s, BANK_ORG, None, "bank_tcfd", "coverage", {"amber": 100.5, "red": 100, "direction": "lower_worse"})
         d = kri(s, BANK_ORG, "bank_tcfd")
-        p = next(k for k in d["kpis"] if k["key"] == "pct_at_risk")
-        assert p["amber"] == 1 and p["red"] == 2
+        p = next(k for k in d["kpis"] if k["key"] == "coverage")
+        assert p["amber"] == 100.5 and p["red"] == 100
         assert p["status"] == "red" and p["breached"] is True and d["breaches"] >= 1
         # clearing both edges leaves the KRI ungraded again
-        KT.set_threshold(s, BANK_ORG, None, "bank_tcfd", "pct_at_risk", {"amber": None, "red": None})
+        KT.set_threshold(s, BANK_ORG, None, "bank_tcfd", "coverage", {"amber": None, "red": None})
         d2 = kri(s, BANK_ORG, "bank_tcfd")
-        p2 = next(k for k in d2["kpis"] if k["key"] == "pct_at_risk")
+        p2 = next(k for k in d2["kpis"] if k["key"] == "coverage")
         assert p2.get("status") is None
         s.rollback()

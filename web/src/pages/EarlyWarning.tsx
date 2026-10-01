@@ -9,9 +9,10 @@ import { hazardLabel } from '../lib/hazards'
 import { flow } from '../lib/money'
 import { Radio, ChevronRight, ListPlus } from 'lucide-react'
 import { pressable } from '../lib/pressable'
+import MethodGap from '../components/MethodGap'
 
 interface Alert { commodity: string; hazard: string; avg_hazard: number; level: string; spend_eur: number }
-interface Signals { n_alerts: number; alerts: Alert[]; pending: { commodity: string; spend_eur: number }[]; commodity_ids: Record<string, string> }
+interface Signals { at_risk_level: number | null; gap?: string; n_alerts: number; alerts: Alert[]; pending: { commodity: string; spend_eur: number }[]; commodity_ids: Record<string, string> }
 
 const LEVEL: Record<string, string> = {
   VH: 'var(--color-bad)', H: 'var(--color-bad)', M: 'var(--color-warn)', L: 'var(--color-good)',
@@ -29,11 +30,12 @@ export default function EarlyWarning() {
   return (
     <div className="fadeup space-y-7">
       <PageHeader eyebrow="Agriculture · sense" title="Early warning"
-        lead="Commodities whose sourcing plots are under elevated hazard right now — the signal that lets you act before the shortfall, not after the harvest." />
+        lead={`Commodities whose sourcing plots are at or above your stated at-risk level${d.at_risk_level != null ? ` (${d.at_risk_level})` : ''} right now — the signal that lets you act before the shortfall, not after the harvest.`} />
+      {d.gap && <MethodGap gap={d.gap} what="Early warning" />}
 
       <Card className="p-5">
         <SectionHead icon={Radio} className="mb-4">{d.n_alerts} live alert{d.n_alerts === 1 ? '' : 's'}</SectionHead>
-        {alerts.length === 0 ? <div className="text-[13px] text-[var(--color-mute)]">No elevated hazard on the book right now.</div> :
+        {alerts.length === 0 ? <div className="text-[13px] text-[var(--color-mute)]">{d.gap ? 'Not computed — state your at-risk level first.' : 'No commodity at or above your at-risk level right now.'}</div> :
           <div className="space-y-5">
             {alerts.length > 1 && (
               <div>

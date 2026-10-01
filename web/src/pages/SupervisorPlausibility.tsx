@@ -7,11 +7,12 @@ import { hazardLabel, horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { money } from '../lib/money'
 import { pressable } from '../lib/pressable'
+import MethodGap from '../components/MethodGap'
 
 // Tier 1: the submitted template judged against what the platform's own hazard layers say about each geography —
 // no granular data needed. A cell is plausible when its sensitive share sits inside the spread of that share across
 // the geography's regions. The band is location-only and says so. No reference → no verdict, never a guess.
-interface Band { p10: number; p25: number; p50: number; p75: number; p90: number; share_sensitive_pct: number; n_cells: number; n_regions: number; hazard_mix: Record<string, number>; built_at: string }
+interface Band { p10: number; p25: number; p50: number; p75: number; p90: number; share_sensitive_pct: number; n_cells: number; n_regions: number; hazard_mix: Record<string, number>; built_at: string; at_risk_level: number | null }
 interface Row { key: string; geography: string; sector: string; gross_carrying_amount_eur: number | null; sensitive_physical_eur: number | null; submitted_share_pct: number | null
   band: Band | null; verdict: 'plausible' | 'above_band' | 'below_band' | 'no_reference'; verdict_label: string; reason: string }
 interface TrendResp { periods: { period_label: string; received_at: string; gross_eur: number; sensitive_eur: number; share_pct: number | null; basis: { scenario: string; horizon: string; stated: boolean }; tier1_counts: Record<string, number> | null }[]
@@ -19,6 +20,7 @@ interface TrendResp { periods: { period_label: string; received_at: string; gros
   labels: string[]; latest: string | null; previous: string | null; change_pp: number | null; n_moved: number; note: string }
 interface ExposureMeasure { cell_field: string; label: string; prior: string; prior_label: string; n_cells_without_measure: number }
 interface Resp { entity_org_id: string; period_label: string | null; source_file: string | null; stated_basis: { scenario: string; horizon: string } | null
+  status?: 'gap'; gap?: string; at_risk_level?: number; at_risk_level_from?: 'submission' | 'entity_method' 
   scenario: string; horizon: string; basis_note: string; bases_available: { scenario: string; horizon: string }[]
   rows: Row[]; counts: Record<Row['verdict'], number>; n_cells: number; coverage_value_pct: number | null; rule: string; exposure_measure: ExposureMeasure }
 const VC: Record<Row['verdict'], string> = { plausible: 'var(--color-good)', above_band: 'var(--color-warn)', below_band: 'var(--color-warn)', no_reference: 'var(--color-faint)' }
@@ -43,7 +45,8 @@ export default function SupervisorPlausibility() {
   const q = useQuery({ queryKey: ['sup-plausibility', orgId, sc, hz], queryFn: () => api.get<Resp>(`/v1/supervisor/entity/${orgId}/plausibility${sc || hz ? `?${new URLSearchParams({ ...(sc ? { scenario: sc } : {}), ...(hz ? { horizon: hz } : {}) })}` : ''}`) })
   const [open, setOpen] = useState<string | null>(null)
   const tr = useQuery({ queryKey: ['sup-trend-entity', orgId], queryFn: () => api.get<TrendResp>(`/v1/supervisor/entity/${orgId}/trend`) })
-  const d = q.data
+  const gap = q.data?.status === 'gap' ? q.data.gap : undefined
+  const d = gap ? undefined : q.data
   const setBasis = (s: string, h: string) => { const p = new URLSearchParams(params); p.set('scenario', s); p.set('horizon', h); setParams(p) }
   return (
     <div className="fadeup space-y-6">
@@ -51,7 +54,9 @@ export default function SupervisorPlausibility() {
       <PageHeader eyebrow="Plausibility band · Tier 1 · template only" title={d ? `Submitted template · ${d.period_label ?? ''}` : 'Submitted template'}
         lead={d ? `${d.basis_note} Basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}${d.stated_basis ? ` (entity stated ${scenarioLabel(d.stated_basis.scenario)} · ${horizonLabel(d.stated_basis.horizon)})` : ''}. Each cell's sensitive share of ${d.exposure_measure.label.toLowerCase()} is judged against the spread of that share across the geography's regions, from ${d.exposure_measure.prior_label}. A verdict outside the band is a question for the entity, not a finding.` : 'Judging each submitted cell against the geography priors…'} />
       {d && <div className="mono text-[10.5px] text-[var(--color-faint)] -mt-4">Exposure measure: <b className="text-[var(--color-mute)]">{d.exposure_measure.label}</b> · reference: {d.exposure_measure.prior_label}{d.exposure_measure.n_cells_without_measure > 0 ? ` · ${d.exposure_measure.n_cells_without_measure} cell(s) excluded (no ${d.exposure_measure.label.toLowerCase()} submitted)` : ''}</div>}
+      {d?.at_risk_level != null && <div className="mono text-[10.5px] text-[var(--color-faint)] -mt-3">Sensitive = headline at or above the entity's at-risk level <b className="text-[var(--color-mute)]">{d.at_risk_level}</b> ({d.at_risk_level_from === 'submission' ? 'stated with its submission' : 'its stated method on the platform'}) — the reference is read at the same level.</div>}
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">judging each cell against its geography…</div>
+        : gap ? <MethodGap gap={gap} what="Plausibility band" />
         : !d ? <Card className="p-5 text-[13px] text-[var(--color-mute)]">No submitted template on file for this entity yet. <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Ingest it →</Link></Card> : (<>
         <StatGrid cols={4} items={[
           { label: 'Plausible', value: String(d.counts.plausible), sub: `of ${d.n_cells} cells`, accent: 'var(--color-good)' },
@@ -89,7 +94,7 @@ export default function SupervisorPlausibility() {
                     <div>
                       <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">What the geography's own hazard layers say · {scenarioLabel(d.scenario)} · {horizonLabel(d.horizon)}</div>
                       {r.band ? (<>
-                        {r.band.share_sensitive_pct}% of {r.band.n_cells.toLocaleString()} scored land cells in {r.geography} sit in High/Very high; across its {r.band.n_regions} regions that share runs from {r.band.p10}% (p10) through {r.band.p25}%–{r.band.p75}% (the band) around a median of {r.band.p50}% to {r.band.p90}% (p90).
+                        {r.band.share_sensitive_pct}% of {r.band.n_cells.toLocaleString()} scored land cells in {r.geography} sit at or above {r.band.at_risk_level}; across its {r.band.n_regions} regions that share runs from {r.band.p10}% (p10) through {r.band.p25}%–{r.band.p75}% (the band) around a median of {r.band.p50}% to {r.band.p90}% (p90).
                         {Object.keys(r.band.hazard_mix).length > 0 && <div className="mt-1">Behind the sensitive cells: {Object.entries(r.band.hazard_mix).map(([h, n]) => `${hazardLabel(h)} ${n.toLocaleString()}`).join(' · ')}</div>}
                         <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">priors built {r.band.built_at.slice(0, 10)} · location-only: the sector does not move the band</div>
                       </>) : 'Not enough scored land in this geography to form a band — no verdict is given.'}

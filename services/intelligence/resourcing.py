@@ -3,8 +3,9 @@
 COGS-at-risk tells a buyer how much of the volume they paid for won't arrive because of climate hazard at
 their sourcing origins. This answers the next question: could they cut that by shifting spend to a LOWER-risk
 origin they ALREADY source from? For every commodity sourced from more than one scored origin it compares the
-origins' yield-shocks and computes the COGS-at-risk that a bounded reallocation — moving up to a capped share
-of spend from the highest-risk origin to the lowest-risk one — would avoid.
+origins' yield-shocks and computes the COGS-at-risk that a bounded reallocation — moving up to the company's
+stated share of spend (method.reallocation_cap) from the highest-risk origin to the lowest-risk one — would avoid.
+Only commodities whose € is published (status 'scored') are priced: a held commodity's € stays withheld here too.
 
 Honest by construction: it only reallocates among origins the buyer already buys from (no fabricated new
 supplier region — a single-origin commodity is reported as needing a genuinely new origin, not given a fake
@@ -19,9 +20,6 @@ from sqlalchemy.orm import Session
 
 from services.intelligence.supply_cogs import project_org_supply
 
-# Bounded, realistic near-term reallocation: at most this share of a commodity's spend shifts origin.
-REALLOC_CAP = 0.30
-
 # Common ISO-2 origin codes → readable names (display only; unknown codes fall back to the code).
 _ORIGIN_NAME = {
     "CI": "Côte d'Ivoire", "GH": "Ghana", "ES": "Spain", "PT": "Portugal", "US": "United States",
@@ -35,7 +33,7 @@ def _name(code: str | None) -> str:
     return _ORIGIN_NAME.get((code or "").upper(), code or "—")
 
 
-def evaluate_commodity(commodity: str, origins: list[dict], cap: float = REALLOC_CAP) -> dict:
+def evaluate_commodity(commodity: str, origins: list[dict], cap: float) -> dict:
     """Pure reallocation math for one commodity. origins: [{origin, name, yield_shock_pct, spend_eur}] already
     filtered to scored, positive-spend origins. Returns one of:
       {kind: 'none'}                              → nothing sourced / unusable
@@ -69,10 +67,15 @@ def evaluate_commodity(commodity: str, origins: list[dict], cap: float = REALLOC
     }
 
 
-def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "baseline",
-                             time_horizon: str = "current", realloc_cap: float = REALLOC_CAP) -> dict:
+def resourcing_opportunities(session: Session, org_id: str, method, *, scenario: str = "baseline",
+                             time_horizon: str = "current") -> dict:
     """Per-commodity origin-substitution opportunities + a book rollup. Reallocates spend among the origins the
-    buyer already sources, from the highest-risk to the lowest-risk, capped at REALLOC_CAP."""
+    buyer already sources, from the highest-risk to the lowest-risk, capped at the stated method.reallocation_cap.
+    Not stated → a named gap; a commodity whose € is held stays out of the € (listed with its reason)."""
+    realloc_cap = method.get("method.reallocation_cap")
+    if realloc_cap is None:
+        return {"available": False, "scenario": scenario, "time_horizon": time_horizon,
+                "gap": "not stated: method.reallocation_cap"}
     res = project_org_supply(session, org_id, scenario=scenario, time_horizon=time_horizon)
 
     # per (commodity, origin) spend from the buyer's own plots
@@ -85,9 +88,15 @@ def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "
 
     opportunities = []
     single_origin = []
+    held = []
     total_current = total_avoidable = 0.0
 
     for c in res.commodities:
+        if c.status != "scored":
+            # the publish gate holds this crop's € — re-sourcing does not price it through the back door
+            if c.status == "held":
+                held.append({"commodity": c.commodity, "reason": c.held_reason})
+            continue
         # origins with a scored yield-shock AND a positive spend we can move
         origins = [{"origin": o.get("origin"), "name": _name(o.get("origin")),
                     "yield_shock_pct": round(o["yield_shock_pct"], 2),
@@ -115,6 +124,7 @@ def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "
         "n_opportunities": len(opportunities),
         "opportunities": opportunities,
         "single_origin_commodities": sorted(single_origin, key=lambda x: -x["cogs_at_risk_eur"])[:8],
+        "held_commodities": held,
         "method": ("Reallocates a bounded share (≤{cap}%) of each commodity's spend from its highest-risk to "
                    "its lowest-risk EXISTING origin; the avoided COGS-at-risk is shift × the yield-shock gap. "
                    "Only origins the buyer already sources are used — a single-origin commodity needs a "

@@ -78,6 +78,7 @@ def contacts(session, supervised_org_id: str) -> list[dict]:
 # ── the entity's side: what to submit, and submitting it ─────────────────────────────────────────────────────
 def submission_spec(session, supervised_org_id: str, supervision_id: str) -> Optional[dict]:
     """The template the supervisor expects from this entity (from the supervisor's profile for the entity's sector)."""
+    from services.supervision.levels import entity_level
     from services.supervision.profiles import config_for, sector_config
     row = session.execute(text("""SELECT ss.regulator_org_id::text AS reg, o.name AS regulator, e.type FROM supervision_scope ss
                                   JOIN organizations o ON o.org_id = ss.regulator_org_id JOIN organizations e ON e.org_id = ss.supervised_org_id
@@ -92,7 +93,9 @@ def submission_spec(session, supervised_org_id: str, supervision_id: str) -> Opt
                 "reason": f"{row['regulator']} has no template intake configured for your sector yet — respond to its requests on the thread instead."}
     sub = sec["intake"]["submission"]
     return {"regulator": row["regulator"], "regulator_org_id": row["reg"], "available": True, "framework": sub["framework"], "template": sub["template"],
-            "label": sub["label"], "fields": sub["cell_fields"], "note": sec["intake"].get("_about")}
+            "label": sub["label"], "fields": sub["cell_fields"], "note": sec["intake"].get("_about"),
+            # the level the template goes with — the entity's own stated method for the period (frozen at submission)
+            "at_risk_level": entity_level(session, supervised_org_id, None)[0]}
 
 
 def submit_template(session, *, supervised_org_id: str, supervision_id: str, raw: bytes, filename: Optional[str], mapping: dict,
@@ -106,8 +109,10 @@ def submit_template(session, *, supervised_org_id: str, supervision_id: str, raw
         return {"accepted": False, "report": {k: v for k, v in rep.items() if k != "rows"}}
     from services.supervision.lens import cell_key
     cells = {cell_key(r["geography"], r["sector"]): {**r} for r in rep["rows"]}
+    from services.supervision.levels import with_entity_level
     res = save_submission(session, regulator_org_id=spec["regulator_org_id"], subject_org_id=supervised_org_id, framework=spec["framework"],
-                          template=spec["template"], period_label=period_label, basis=basis or {}, cells=cells, raw=raw, filename=filename,
+                          template=spec["template"], period_label=period_label, basis=with_entity_level(session, supervised_org_id, basis),
+                          cells=cells, raw=raw, filename=filename,
                           mapping=mapping, user_id=user_id, channel=channel)
     _tell_supervisor(session, spec["regulator_org_id"], supervised_org_id, res, channel)
     return {"accepted": True, "result": res, "regulator": spec["regulator"], "n_valid": rep["n_valid"]}

@@ -72,40 +72,42 @@ def _engine_versions(session: Session, org_id: str | None = None) -> dict:
 # the others (CSRD/ESRS entity-level, SFDR fund-aggregated) ignore them and report whole-org.
 _BUILDERS = {
     "csrd_e1": ("CSRD · ESRS E1 physical-risk report",
-                lambda s, o, sc, hz, m, ei, vw, tr, pe: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
+                lambda *a: _retired("csrd_e1"), ("manufacturer",)),
     "esrs_pack": ("ESRS sustainability statement — E1, E3, E4",
-                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _esrs_statement(s, o, ei, pe), ("manufacturer",)),
+                  lambda s, o, sc, hz, ei, vw, tr, pe: _esrs_statement(s, o, ei, pe), ("manufacturer",)),
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
     "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
-                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
+                  lambda s, o, sc, hz, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "bank_p3esg": ("Pillar 3 ESG risk disclosures (EBA)",
-                   lambda s, o, sc, hz, m, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr), ("bank",)),
+                   lambda s, o, sc, hz, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
-                 lambda s, o, sc, hz, m, ei, vw, tr, pe: _sfdr_pai(s, o), ("asset_manager",)),
+                 lambda s, o, sc, hz, ei, vw, tr, pe: _sfdr_pai(s, o), ("asset_manager",)),
     "assetmgmt_tcfd": ("TCFD · physical-risk & concentration disclosure (holdings book)",
-                       lambda s, o, sc, hz, m, ei, vw, tr, pe: _assetmgmt_tcfd(s, o, sc, hz, ei, vw, tr), ("asset_manager",)),
+                       lambda s, o, sc, hz, ei, vw, tr, pe: _assetmgmt_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("asset_manager",)),
     "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
-                  lambda s, o, sc, hz, m, ei, vw, tr, pe: _reit_tcfd(s, o, sc, hz, ei, vw, tr), ("reit",)),
+                  lambda s, o, sc, hz, ei, vw, tr, pe: _reit_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("reit",)),
     "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
-                        lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_climate(s, o, sc, hz, ei, vw, tr), ("insurer",)),
+                        lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_climate(s, o, sc, hz, ei, vw, tr, pe), ("insurer",)),
     "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
-                      lambda s, o, sc, hz, m, ei, vw, tr, pe: _reit_taxonomy(s, o, sc, hz, ei, vw, tr), ("reit",)),
+                      lambda s, o, sc, hz, ei, vw, tr, pe: _reit_taxonomy(s, o, sc, hz, ei, vw, tr, pe), ("reit",)),
     "insurer_orsa_climate": ("ORSA — climate change scenario analysis (Art. 45a)",
-                             lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_document(s, o, "insurer_orsa_climate", ei, vw, tr, pe), ("insurer",)),
+                             lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_document(s, o, "insurer_orsa_climate", ei, vw, tr, pe), ("insurer",)),
     "insurer_recovery_stress": ("Pre-emptive recovery plan — nat-cat stress and capital indicators",
-                                lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_document(s, o, "insurer_recovery_stress", ei, vw, tr, pe),
+                                lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_document(s, o, "insurer_recovery_stress", ei, vw, tr, pe),
                                 ("insurer",)),
     "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01)",
-                         lambda s, o, sc, hz, m, ei, vw, tr, pe: _insurer_solvency(s, o, sc, hz, ei, vw, tr), ("insurer",)),
+                         lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_solvency(s, o, sc, hz, ei, vw, tr, pe), ("insurer",)),
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
     "sfdr_precontractual": ("SFDR pre-contractual disclosure (RTS 2022/1288 Annex II / III)", None, ("asset_manager",)),
     "sfdr_periodic": ("SFDR periodic disclosure (RTS 2022/1288 Annex IV / V)", None, ("asset_manager",)),
 }
 
 
-def _csrd_e1(session, org_id, scenario, horizon, material):
-    from services.intelligence.csrd_e1 import build_e1_report
-    return build_e1_report(session, org_id, scenario=scenario, horizon=horizon, material_threshold=material)
+def _retired(report_type: str):
+    """A retired report freezes nothing new (services.governance.filings._not_retired guards every path to here); its
+    frozen snapshots stay readable. Its engine is gone — it read a v0 business-interruption curve and a fixed
+    'material' line of the platform's own (E69)."""
+    raise ValueError(f"{report_type} is retired — prepare its successor instead")
 
 
 # a report type whose provided values are stated under a family shared by every report that prints them
@@ -118,10 +120,10 @@ def _esrs_statement(session, org_id, entity_ids, period_end):
     return freeze(session, org_id, entity_ids=entity_ids, period_end=period_end)
 
 
-def _bank_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def _bank_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     from api.routers.bank import build_disclosure_snapshot
     return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation)
+                                     translation=translation, period_end=period_end)
 
 
 def _sfdr_pai(session, org_id):
@@ -129,25 +131,25 @@ def _sfdr_pai(session, org_id):
     return entity_pai_statement(session, org_id)
 
 
-def _assetmgmt_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def _assetmgmt_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     from api.routers.assetmgmt import build_disclosure_snapshot
     return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation)
+                                     translation=translation, period_end=period_end)
 
 
-def _reit_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def _reit_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     from api.routers.realestate import build_disclosure_snapshot
     return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation)
+                                     translation=translation, period_end=period_end)
 
 
-def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     from api.routers.insurance import build_disclosure_snapshot
     return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation)
+                                     translation=translation, period_end=period_end)
 
 
-def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     """EU Taxonomy Article 8 KPIs for the REIT property book (on top of the same frozen disclosure snapshot).
 
     Carries the full `properties` + `by_hazard` alongside `rollup` (fixed 2026-09-23 — an independent
@@ -162,13 +164,14 @@ def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_we
     accepts; see filing_lineage._LIST_CFG."""
     from api.routers.realestate import build_disclosure_snapshot
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation)
+                                     translation=translation, period_end=period_end)
     # the EU Taxonomy Art. 8 figures are built from `properties` against the governing specification when the form is
     # rendered (services.governance.taxonomy_nonfin) — the book is what is frozen
-    return {"rollup": snap.get("rollup"), "properties": snap.get("properties"), "by_hazard": snap.get("by_hazard")}
+    return {"rollup": snap.get("rollup"), "properties": snap.get("properties"), "by_hazard": snap.get("by_hazard"),
+            "method": snap.get("method")}
 
 
-def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
     """Solvency II S.27.01.01 natural-catastrophe risk, mapped from the insurer disclosure snapshot (no re-run).
 
     Carries the full `policies` + `by_hazard` alongside `rollup` and the nat-cat block — same fix and same reasoning
@@ -180,9 +183,9 @@ def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value
     from api.routers.insurance import build_disclosure_snapshot
     from services.governance.insurer_solvency import KEY, s2701_natcat
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation)
+                                     translation=translation, period_end=period_end)
     return {"rollup": snap.get("rollup"), "policies": snap.get("policies"), "by_hazard": snap.get("by_hazard"),
-            KEY: s2701_natcat(snap, group_scope=value_weights is not None)}
+            KEY: s2701_natcat(snap, group_scope=value_weights is not None), "method": snap.get("method")}
 
 
 def _insurer_document(session, org_id, report_type, entity_ids=None, value_weights=None, translation=None, period_end=None):
@@ -195,9 +198,10 @@ def _insurer_document(session, org_id, report_type, entity_ids=None, value_weigh
     doc = freeze(session, org_id, report_type, entity_ids=entity_ids, value_weights=value_weights, translation=translation,
                  period_end=period_end)
     today = build_disclosure_snapshot(session, org_id, "baseline", "current", entity_ids=entity_ids, value_weights=value_weights,
-                                      translation=translation, reporting_entity_id=root_of(session, org_id, entity_ids))
+                                      translation=translation, reporting_entity_id=root_of(session, org_id, entity_ids),
+                                      period_end=period_end)
     return {"document_report": doc, "rollup": today.get("rollup"), "policies": today.get("policies"),
-            "by_hazard": today.get("by_hazard")}
+            "by_hazard": today.get("by_hazard"), "method": today.get("method")}
 
 
 def _fx_record(session: Session, org_id: str, translation) -> dict:
@@ -264,8 +268,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     s = get_settings(session, org_id)
     from datetime import date as _pd
     period_end = _pd.fromisoformat(str(period_end)[:10])            # the filing's period — never the org's setting
-    basis = {"scenario": s["scenario"], "horizon": s["horizon"],
-             "materiality_threshold": s["materiality_threshold"], "reporting_period_end": period_end.isoformat()}
+    # 'material' is the undertaking's stated at-risk level for the period — frozen with the figures in payload['method']
+    # (services.money.params), never a reporting setting of its own (E69)
+    basis = {"scenario": s["scenario"], "horizon": s["horizon"], "reporting_period_end": period_end.isoformat()}
     # intake phase 5: the engine reads the chosen view of the book (joint / client / tellumen), and the run's input
     # manifest is read in the same view, so the output checks compare like with like
     from services.governance import engine_runs
@@ -280,7 +285,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                                       period_end)
             return out, engine_runs.inputs(session, org_id, report_type, None, fund_id=fund_id,
                                            as_of_dates=out["position_dates"])
-        out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
+        out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"],
                                         entity_ids, value_weights, translation, period_end)
         if report_type == "esrs_pack":
             return out, engine_runs.inputs(session, org_id, report_type, asset_ids=[

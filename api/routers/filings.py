@@ -81,7 +81,6 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
 class BasisPatch(BaseModel):
     scenario: Optional[str] = None
     horizon: Optional[str] = None
-    materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
     reporting_period_end: Optional[str] = None
 
 

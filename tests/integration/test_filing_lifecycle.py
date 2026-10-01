@@ -14,6 +14,7 @@ from core.db.session import get_session
 from services.governance import filings as F
 from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
+from tests.integration.money_method import state_method
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 FUTURE_PERIOD = "2099-12-31"   # a period no real filing uses, so we never collide with the live slot
@@ -22,6 +23,7 @@ FUTURE_PERIOD = "2099-12-31"   # a period no real filing uses, so we never colli
 def _mk_draft(session, actor):
     """Insert a draft filing backed by a real frozen snapshot (so the validation gate has something to check),
     on a throwaway future period so it can't collide with any live filing slot."""
+    state_method(session, BANK_ORG, reporting_period_end(session, BANK_ORG))      # the bank's stated method (E69)
     snap = create_snapshot(session, BANK_ORG, "bank_tcfd", actor, period_end=reporting_period_end(session, BANK_ORG))   # freezes real Meridian book → passes validation
     fid = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)

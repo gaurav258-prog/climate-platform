@@ -3,37 +3,36 @@
 Each adapter id named in supervision_profiles.json (`adapter`) maps to one function of the entity's asset
 points (services/geo/org_assets.org_asset_points — the same cross-sector reader the maps use), so a metric means
 the same thing for a bank's financed assets, an insurer's locations, a fund's holdings, a REIT's properties or an
-operator's sites. "High risk" is the platform's own bucket rule (core.types.score_to_bucket: High / Very high),
-the one every sector page already shows — so the supervisor's number equals the entity's number.
+operator's sites. "At risk" is the headline score at or above the authority's own stated at-risk level — one
+yardstick across its population, so entities compare on the same definition (services.supervision.levels); without
+it the at-risk metrics are None (a gap), never a band of the platform's choosing.
 """
 from __future__ import annotations
 
 from collections import defaultdict
 from typing import Callable
 
-from core.types import score_to_bucket
 
-HIGH = {"H", "VH"}
-
-
-def _is_high(p: dict) -> bool:
-    return p.get("score") is not None and score_to_bucket(float(p["score"])).value in HIGH
+def _at_risk(p: dict, level: float) -> bool:
+    return p.get("score") is not None and float(p["score"]) >= level
 
 
-def book_value(points: list[dict]) -> float:
+def book_value(points: list[dict], level: float | None = None) -> float:
     return round(sum(float(p.get("value_eur") or 0) for p in points))
 
 
-def high_risk_value(points: list[dict]) -> float:
-    return round(sum(float(p.get("value_eur") or 0) for p in points if _is_high(p)))
+def high_risk_value(points: list[dict], level: float | None) -> float | None:
+    if level is None:
+        return None
+    return round(sum(float(p.get("value_eur") or 0) for p in points if _at_risk(p, level)))
 
 
-def high_risk_share(points: list[dict]) -> float | None:
-    bv = book_value(points)
-    return round(100.0 * high_risk_value(points) / bv, 1) if bv else None
+def high_risk_share(points: list[dict], level: float | None) -> float | None:
+    bv, v = book_value(points), high_risk_value(points, level)
+    return round(100.0 * v / bv, 1) if bv and v is not None else None
 
 
-def scored_share(points: list[dict]) -> float | None:
+def scored_share(points: list[dict], level: float | None = None) -> float | None:
     return round(100.0 * sum(1 for p in points if p.get("score") is not None) / len(points), 1) if points else None
 
 
@@ -49,18 +48,18 @@ def _top_share(points: list[dict], key: Callable[[dict], str | None]) -> float |
     return round(100.0 * max(tot.values()) / bv, 1) if tot else None
 
 
-def top_hazard_share(points: list[dict]) -> float | None:
+def top_hazard_share(points: list[dict], level: float | None = None) -> float | None:
     """Share of book whose headline hazard is the single most common one — concentration in one peril."""
     return _top_share(points, lambda p: p.get("hazard"))
 
 
-def top_region_share(points: list[dict]) -> float | None:
+def top_region_share(points: list[dict], level: float | None = None) -> float | None:
     """Share of book in the single largest region (NUTS-3 / hexagon) — geographic concentration."""
     from services.geo.regions import region_for
     return _top_share(points, lambda p: region_for(p["lat"], p["lon"])["key"] if p.get("lat") is not None else None)
 
 
-ADAPTERS: dict[str, Callable[[list[dict]], float | None]] = {
+ADAPTERS: dict[str, Callable[[list[dict], float | None], float | None]] = {
     "portfolio.book_value": book_value,
     "portfolio.high_risk_value": high_risk_value,
     "portfolio.high_risk_share": high_risk_share,
@@ -70,14 +69,15 @@ ADAPTERS: dict[str, Callable[[list[dict]], float | None]] = {
 }
 
 
-def compute(metric_specs: list[dict], points: list[dict]) -> dict[str, float | None]:
-    """{metric_id: value} for every metric in a sector's spec; an unknown adapter is an error, not a silent None."""
+def compute(metric_specs: list[dict], points: list[dict], level: float | None) -> dict[str, float | None]:
+    """{metric_id: value} for every metric in a sector's spec at the authority's stated level; an unknown adapter is an
+    error, not a silent None."""
     out = {}
     for m in metric_specs:
         fn = ADAPTERS.get(m["adapter"])
         if fn is None:
             raise KeyError(f"no adapter registered for {m['adapter']!r} (metric {m['id']})")
-        out[m["id"]] = fn(points)
+        out[m["id"]] = fn(points, level)
     return out
 
 

@@ -1012,8 +1012,8 @@ def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
     r += 2
     ws3.cell(r, 1, "Methodology notes").font = h2_font; r += 1
     for note in [prov["scope_note"], prov["manager_actions_note"],
-                 "Estimated figures use NACE sector-average intensity × revenue (illustrative "
-                 "coefficients pending an EXIOBASE-sourced table); scope 3 is not estimated.",
+                 "Estimated figures use NACE sector-average intensity × revenue (EXIOBASE 3 sector intensities, "
+                 "flagged as estimated); scope 3 is not estimated.",
                  "Financed emissions use the PCAF attribution factor (investment ÷ EVIC).",
                  "Unmatched securities and missing inputs are surfaced, never fabricated."]:
         ws3.cell(r, 1, note).alignment = wrap

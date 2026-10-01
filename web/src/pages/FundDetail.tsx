@@ -11,11 +11,12 @@ import FundPositions from '../components/FundPositions'
 import ShareClasses from '../components/ShareClasses'
 import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
 import SfdrDocument from '../components/SfdrDocument'
+import MethodGap from '../components/MethodGap'
 
 // One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
 // mandatory indicators + taxonomy + narratives) ready to download or freeze as the official filing.
 
-interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_high_plus?: number; transition_value_at_high_plus?: number }
+interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_risk?: number | null; transition_value_at_risk?: number | null }
 const eur = (n?: number | null) => money(n, 'EUR')
 // fund values in the fund's own base currency (EUR in brackets); SFDR PAI metrics stay in EUR as the RTS defines them
 const inBase = (eurValue: number | null | undefined, baseValue: number | undefined, b?: Base | null) =>
@@ -25,8 +26,9 @@ const pct = (n?: number | null) => n == null ? '—' : `${Math.round(n)}%`
 
 interface Summary { fund: { fund_id: string; name: string; fund_type: string; sfdr_classification: string | null; org_name?: string }
   total_value_eur: number; positions: number; base?: Base | null
-  physical?: { value_weighted_score: number | null; coverage_pct: number | null; value_at_high_plus_eur: number | null; pct_at_high_plus: number | null }
-  transition?: { value_weighted_score: number | null; coverage_pct: number | null; value_at_high_plus_eur: number | null; pct_at_high_plus: number | null }
+  physical?: RiskBlock
+  transition?: RiskBlock
+  gap?: string
   pai?: { pcaf_data_quality_score: number | null; emissions_coverage_pct: number | null; financed_emissions_coverage_pct: number | null
     pai: { pai_3_waci_tco2e_per_meur: number | null; pai_4_fossil_fuel_exposure_pct: number | null
       pai_1_financed_emissions_tco2e: { total: number } | null; pai_2_carbon_footprint_tco2e_per_meur: number | null } } }
@@ -103,12 +105,13 @@ export default function FundDetail() {
         <p className="mono text-[11px] text-[var(--color-faint)] mt-1">{inBase(s.total_value_eur, s.base?.total_value, s.base)} · {s.positions} position{s.positions === 1 ? '' : 's'} · {s.fund.fund_type?.replace(/_/g, ' ')}</p>
       </PageHeader>
 
+      {s.gap && <MethodGap gap={s.gap} what="Fund climate report" />}
       {/* climate report */}
       {s.positions === 0
         ? <Card className="p-8 text-center text-[13px] text-[var(--color-mute)]">This fund has no holdings yet — onboard holdings by ISIN to compute its climate report and SFDR statement.</Card>
         : <div className="grid md:grid-cols-3 gap-3">
-            <RiskCard title="Physical risk" d={s.physical} base={s.base} baseHigh={s.base?.physical_value_at_high_plus} />
-            <RiskCard title="Transition risk" d={s.transition} base={s.base} baseHigh={s.base?.transition_value_at_high_plus} />
+            <RiskCard title="Physical risk" atRisk="At or above your stated level" d={s.physical} base={s.base} baseHigh={s.base?.physical_value_at_risk} />
+            <RiskCard title="Transition risk" atRisk="Value × your stated stranded share" d={s.transition} base={s.base} baseHigh={s.base?.transition_value_at_risk} />
             <Card className="p-4">
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Emissions (PAI)</div>
               <div className="display text-[22px] leading-none">{num(s.pai?.pai?.pai_3_waci_tco2e_per_meur, 0)}</div>
@@ -241,7 +244,9 @@ export default function FundDetail() {
   )
 }
 
-function RiskCard({ title, d, base, baseHigh }: { title: string; d?: { value_weighted_score: number | null; coverage_pct: number | null; value_at_high_plus_eur: number | null; pct_at_high_plus: number | null }; base?: Base | null; baseHigh?: number }) {
+interface RiskBlock { value_weighted_score: number | null; coverage_pct: number | null; value_at_risk_eur: number | null; pct_at_risk: number | null }
+
+function RiskCard({ title, atRisk, d, base, baseHigh }: { title: string; atRisk: string; d?: RiskBlock; base?: Base | null; baseHigh?: number | null }) {
   const s = d?.value_weighted_score
   const c = s == null ? 'var(--color-faint)' : s < 28 ? '#34d399' : s < 50 ? '#e8b24c' : s < 75 ? '#f0a860' : '#fb7185'
   return (
@@ -250,7 +255,7 @@ function RiskCard({ title, d, base, baseHigh }: { title: string; d?: { value_wei
       <div className="display text-[22px] leading-none" style={{ color: c }}>{s == null ? '—' : `${Math.round(s)}/100`}</div>
       <div className="mono text-[10px] text-[var(--color-faint)] mt-1">value-weighted score</div>
       <div className="mt-3 space-y-1 text-[11.5px] text-[var(--color-mute)]">
-        <div className="flex justify-between"><span>At high+ risk</span><span className="mono">{inBase(d?.value_at_high_plus_eur, baseHigh, base)}{d?.pct_at_high_plus != null ? ` · ${Math.round(d.pct_at_high_plus)}%` : ''}</span></div>
+        <div className="flex justify-between gap-2"><span>{atRisk}</span><span className="mono">{d?.value_at_risk_eur == null ? 'not stated' : <>{inBase(d.value_at_risk_eur, baseHigh ?? undefined, base)}{d.pct_at_risk != null ? ` · ${Math.round(d.pct_at_risk)}%` : ''}</>}</span></div>
         <div className="flex justify-between"><span>Coverage</span><span className="mono">{pct(d?.coverage_pct)}</span></div>
       </div>
     </Card>

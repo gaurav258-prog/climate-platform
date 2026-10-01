@@ -23,6 +23,7 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession, require_permission
 from api.services.rbac import write_audit
 from services.governance import filings as F
+from services.supervision.levels import authority_level, clean_basis, entity_level
 
 router = APIRouter(prefix="/v1/supervisor", tags=["Regulator portal"])
 
@@ -303,7 +304,8 @@ def get_benchmark(session: DbSession, ctx: Supervisor, scenario: Optional[str] =
     from services.supervision.benchmark import benchmark
     reg = ctx["org"]["org_id"]
     cfg = _config(session, reg)
-    return benchmark(session, cfg, _supervised(session, ctx), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
+    return benchmark(session, cfg, _supervised(session, ctx), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"],
+                     authority_level(session, reg))
 
 
 @router.get("/entity/{org_id}/file", summary="The entity file — what a line supervisor opens: identity, submissions, exposure, peer position, access")
@@ -331,7 +333,7 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
     for h in hazards.values():
         h["value_eur"] = round(h["value_eur"])
     ents = _supervised(session, ctx)
-    bench = benchmark(session, cfg, ents, sc, hz)
+    bench = benchmark(session, cfg, ents, sc, hz, authority_level(session, reg))
     accesses = session.execute(text("""
         SELECT action, created_at, detail FROM access_audit_log
         WHERE org_id = CAST(:o AS uuid) AND action LIKE 'supervisor.%' ORDER BY created_at DESC LIMIT 10
@@ -403,6 +405,13 @@ async def intake_validate(org_id: str, kind: str, session: DbSession, ctx: Super
     return {"kind": kind, "fields": fields, "mapping": m, **rep}
 
 
+def _clean_basis(raw: Optional[str]) -> dict:
+    try:
+        return clean_basis(json.loads(raw) if raw else {})
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+
+
 @router.post("/intake/{org_id}/{kind}", summary="Import: save the submitted template cells, or build the shadow book from granular rows")
 async def intake_import(org_id: str, kind: str, session: DbSession, ctx: Supervisor, file: UploadFile = File(...),
                         mapping: str = Form(...), period_label: str = Form(...), basis: Optional[str] = Form(None)):
@@ -427,7 +436,7 @@ async def intake_import(org_id: str, kind: str, session: DbSession, ctx: Supervi
     if kind == "submission":
         cells = cells_from_rows(rep["rows"])
         res = save_submission(session, regulator_org_id=reg, subject_org_id=org_id, framework=spec["framework"], template=spec["template"],
-                              period_label=period_label, basis=json.loads(basis) if basis else {}, cells=cells, raw=raw,
+                              period_label=period_label, basis=_clean_basis(basis), cells=cells, raw=raw,
                               filename=file.filename, mapping=m, user_id=ctx["user"]["id"])
         action = "supervisor.intake.submission"
     else:
@@ -457,6 +466,8 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
     cfg = spec["config"]
     out = build_lens(session, reg, org_id, sub, scenario or cfg["default_scenario"], horizon or cfg["default_horizon"],
                      spec["intake"]["granular"]["precision_label"])
+    if not out["available"]:
+        return {"status": "gap", "message": out["gap"], "tier": None}
     if out["shadow_book"]["n_rows"] == 0:
         out["status"] = "no_shadow_book"; out["message"] = "No granular data has been imported yet, so the rebuilt template is empty and every cell is unmatched."
     else:
@@ -508,6 +519,8 @@ def population_lens(session: DbSession, ctx: Supervisor, scenario: Optional[str]
         if not sub:
             rows.append({**e, "status": "no_submission"}); continue
         L = build_lens(session, reg, e["org_id"], sub, sc, hz, sec["intake"]["granular"]["precision_label"])
+        if not L["available"]:
+            rows.append({**e, "status": "gap", "gap": L["gap"]}); continue
         t = L["totals"]
         rows.append({**e, "status": "ok" if L["shadow_book"]["n_rows"] else "no_shadow_book", "period_label": sub["period_label"],
                      "n_cells": L["n_cells"], "n_flagged": L["n_flagged"], "totals": t, "total_gap": L["total_gap"],
@@ -525,7 +538,8 @@ def population_analytics(session: DbSession, ctx: Supervisor, scenario: Optional
     _need(ctx, "supervisor.benchmark.view")
     reg = ctx["org"]["org_id"]
     cfg = _config(session, reg)
-    return analytics(session, cfg, _supervised(session, ctx), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
+    return analytics(session, cfg, _supervised(session, ctx), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"],
+                     authority_level(session, reg))
 
 
 @router.get("/population/workflow", summary="The population with each entity's stage in the supervisory process, sorting criteria and next action")
@@ -541,7 +555,7 @@ def population_workflow(session: DbSession, ctx: Supervisor):
     pop = population(session, ctx)
     ents = _supervised(session, ctx)
     sc, hz = cfg["default_scenario"], cfg["default_horizon"]
-    bench = benchmark(session, cfg, ents, sc, hz)
+    bench = benchmark(session, cfg, ents, sc, hz, authority_level(session, reg))
     can_bench = "supervisor.benchmark.view" in (ctx.get("permissions") or [])
     can_lens = "supervisor.entity.file" in (ctx.get("permissions") or [])
     rows = []
@@ -561,8 +575,9 @@ def population_workflow(session: DbSession, ctx: Supervisor):
             proj = projection_coverage(session, shadow_cells(session, reg, e["org_id"]))
             if sub and shadow["n_rows"] and can_lens:
                 L = build_lens(session, reg, e["org_id"], sub, sc, hz, sec["intake"]["granular"]["precision_label"])
-                gap = round(100.0 * L["total_gap"] / L["totals"]["submitted"], 1) if L["totals"]["submitted"] else None
-                nflag = L["n_flagged"]
+                if L["available"]:
+                    gap = round(100.0 * L["total_gap"] / L["totals"]["submitted"], 1) if L["totals"]["submitted"] else None
+                    nflag = L["n_flagged"]
         wf = entity_workflow(session, reg, e, in_profile, sub, shadow, proj, _site_access(session, reg, e["org_id"]), headline, gap, nflag)
         rows.append({**e, "in_profile": in_profile, "sector_label": (sec or registry()["sectors"].get(e["type"]) or {}).get("label") or e["type"].replace("_", " "), **wf})
     return {"regulator": pop["regulator"], "summary": pop["summary"], "visibility": pop["visibility"],
@@ -589,7 +604,12 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
     sub = load_submission(session, reg, org_id, ss["framework"], ss["template"])
     key = cell_key(geography, sector)
     submitted = (sub or {}).get("cells", {}).get(key)
-    reb, pts = rebuilt_cells(session, reg, org_id, sc, hz)
+    level = authority_level(session, reg)
+    if level is None:
+        from services.supervision.levels import GAP_AUTHORITY
+        return {"cell": {"geography": geography.upper(), "sector": sector.upper(), "key": key}, "scenario": sc, "horizon": hz,
+                "gap": GAP_AUTHORITY}
+    reb, pts = rebuilt_cells(session, reg, org_id, sc, hz, level)
     rows = []
     for p in pts:
         if cell_key(_geo(p) or "", _sector(p) or "") != key:
@@ -599,7 +619,7 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
                      "collateral_country": p.get("country"), "region": p.get("region_name"), "location_precision": p.get("location_precision"),
                      "lat": p.get("lat"), "lon": p.get("lon"), "nace_code": p.get("nace_code"),
                      "headline_hazard": p.get("hazard"), "headline_score": p.get("score"), "bucket": b,
-                     "counts_as_sensitive": b in ("H", "VH")})
+                     "counts_as_sensitive": p.get("score") is not None and float(p["score"]) >= level})
     rows.sort(key=lambda r: -r["outstanding_eur"])
     rc = reb.get(key)
     located = float((rc or {}).get("located_value_eur") or 0); gross = float((rc or {}).get("gross_carrying_amount_eur") or 0)
@@ -614,8 +634,10 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
         "located_value_eur": round(located), "unlocated_value_eur": round(gross - located),
         "n_rows": len(rows), "n_located": sum(1 for r in rows if r["lat"] is not None),
         "n_sensitive": sum(1 for r in rows if r["counts_as_sensitive"]),
-        "rule": "A row counts as sensitive to physical risk when its headline hazard score is in the High or Very high band. "
-                "The rebuilt share is sensitive value ÷ located value; unlocated rows cannot be judged and are shown separately.",
+        "at_risk_level": level,
+        "rule": f"A row counts as sensitive to physical risk when its headline hazard score is at or above your stated at-risk "
+                f"level ({level:g}). The rebuilt share is sensitive value ÷ located value; unlocated rows cannot be judged and "
+                "are shown separately.",
     }
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.lens.cell.access", target_type="organization",
                 target_id=org_id, detail={"regulator_org_id": reg, "cell": key, "n_rows": len(rows)})
@@ -838,7 +860,13 @@ def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenar
         sc, hz = fallback
     else:
         basis_note = ("Judged at the basis the entity stated." if stated and not (scenario or horizon) else "Judged at the basis shown.")
-    result = assess_entity(session, reg, org_id, sub["cells"], sc, hz)
+    level, level_from = entity_level(session, org_id, sub)
+    if level is None:
+        from services.supervision.levels import GAP_ENTITY
+        return {"entity_org_id": org_id, "period_label": sub.get("period_label"), "status": "gap", "gap": GAP_ENTITY,
+                "scenario": sc, "horizon": hz, "template": ss}
+    result = assess_entity(session, reg, org_id, sub["cells"], sc, hz, level)
+    result["at_risk_level_from"] = level_from
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.plausibility.access", target_type="organization",
                 target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz,
                                          "exposure_measure": result["exposure_measure"]["label"], "prior": result["exposure_measure"]["prior"]})
@@ -930,9 +958,10 @@ def export_population(session: DbSession, ctx: Supervisor, scenario: Optional[st
     reg = ctx["org"]["org_id"]; cfg = _config(session, reg)
     sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
     ents = _supervised(session, ctx)
+    level = authority_level(session, reg)
     wf = population_workflow(session, ctx)
     content = population_workbook(regulator=ctx["org"].get("name"), profile=cfg["label"], scenario=sc, horizon=hz, workflow=wf,
-                                  benchmark=benchmark(session, cfg, ents, sc, hz), analytics=analytics(session, cfg, ents, sc, hz),
+                                  benchmark=benchmark(session, cfg, ents, sc, hz, level), analytics=analytics(session, cfg, ents, sc, hz, level),
                                   requests=_list(session, regulator_org_id=reg, supervised_org_ids=[e["org_id"] for e in ents]),
                                   generated_by=ctx["user"].get("full_name") or ctx["user"].get("email") or "")
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.export.population", target_type="organization",

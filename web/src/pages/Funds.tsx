@@ -24,7 +24,7 @@ const NARR: { key: keyof Narratives; label: string; hint: string }[] = [
   { key: 'standards', label: 'Standards', hint: 'Adherence to responsible-business conduct codes (UNGC / OECD)' },
 ]
 
-interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_high_plus?: number; transition_value_at_high_plus?: number }
+interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_risk?: number | null; transition_value_at_risk?: number | null }
 const eur = (n?: number | null) => money(n, 'EUR')
 // a fund's value in its own base currency (holdings are held in EUR; converted at the holdings date)
 const fundValue = (eurValue: number, b?: Base | null) =>

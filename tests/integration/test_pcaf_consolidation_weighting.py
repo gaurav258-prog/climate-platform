@@ -8,11 +8,14 @@ Meridian Leasing GmbH, a real 60%-owned 'proportional' entity in this org's live
 """
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy import text
 
 from api.routers.bank import EXT_BANKING_COLUMNS, _ltv_kwargs
 from core.db.session import get_session
+from services.money.params import Method
 from services.portfolio_engine import fetch_entities_with_risk
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
@@ -36,11 +39,11 @@ def test_outstanding_loan_balance_weighted_same_as_primary_value():
         assert method == "proportional" and pct == 60.0   # the fixture this test depends on
 
         unweighted = fetch_entities_with_risk(
-            s, BANK_ORG, "banking", "baseline", "current",
+            s, BANK_ORG, "banking", "baseline", "current", method=Method.of({}, date(2025, 12, 31)),
             ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS, valuation_kwargs=_ltv_kwargs,
             entity_ids=[leasing_id], value_weights=None)
         weighted = fetch_entities_with_risk(
-            s, BANK_ORG, "banking", "baseline", "current",
+            s, BANK_ORG, "banking", "baseline", "current", method=Method.of({}, date(2025, 12, 31)),
             ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS, valuation_kwargs=_ltv_kwargs,
             entity_ids=[leasing_id], value_weights={leasing_id: 0.6})
 

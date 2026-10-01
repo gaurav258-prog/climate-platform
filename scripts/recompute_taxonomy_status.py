@@ -6,8 +6,8 @@ for every asset using the real classifier
 assignment from before this existed.
 
 Run after the loan book has been scored (seed_demo_loanbook.py already places
-assets in scored cells) so the DNSH-climate-adaptation diagnostic can use each
-asset's real headline_bucket, not a guess. Idempotent -- safe to re-run any
+assets in scored cells) so the DNSH-climate-adaptation diagnostic can compare each
+asset's real headline score with its bank's stated at-risk level (method.at_risk_level). Idempotent -- safe to re-run any
 time canonical_scores changes.
 
 Also picks up portfolio_entities.minimum_safeguards_status (see the
@@ -33,7 +33,8 @@ BASELINE_SCENARIO, CURRENT_HORIZON = "baseline", "current"
 def main():
     with get_session() as s:
         assets = s.execute(text("""
-            SELECT e.entity_id AS asset_id, e.nace_code, e.minimum_safeguards_status, x.resilience_rating
+            SELECT e.entity_id AS asset_id, e.org_id::text AS org_id, e.nace_code, e.minimum_safeguards_status,
+                   x.resilience_rating
             FROM portfolio_entities e
             JOIN ext_banking x ON x.entity_id = e.entity_id
             JOIN organizations o ON o.org_id = e.org_id
@@ -54,11 +55,14 @@ def main():
 
         updates = []
         counts = {"eligible": 0, "not_eligible": 0, "not_determined": 0, "not_assessed": 0}
+        from services.money.params import at_risk, for_org
+        methods: dict = {}
         for a in assets:
             headline = headline_by_asset.get(a["asset_id"])
+            method = methods.get(a["org_id"]) or methods.setdefault(a["org_id"], for_org(s, a["org_id"]))
             tax = classify_taxonomy(
                 a["nace_code"],
-                headline_bucket=headline["risk_bucket"] if headline else None,
+                material_physical_risk=at_risk(method, headline["score"] if headline else None),
                 resilience_rating=a["resilience_rating"],
                 minimum_safeguards_status=a["minimum_safeguards_status"],
             )

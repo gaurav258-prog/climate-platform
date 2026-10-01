@@ -49,7 +49,8 @@ from services.intelligence.supply_cogs import _commodity_risk
 SAN_MIGUEL_LOS_LOTES = (14.4180, -90.8590)   # destroyed by PDC, June 3 2018
 ANTIGUA_GUATEMALA = (14.5586, -90.7295)       # ashfall only, not destroyed
 
-# Coffee's EXISTING calibration (Brazil, 2021 drought) -- see supply_cogs.COMMODITY_PARAMS
+# Coffee's Brazil calibration (2021 drought) — applied below as an explicit research what-if row; the live
+# engine reads only an origin's OWN validated row (v_sc_commodity_calibration, E69)
 BRAZIL_SENS, BRAZIL_GLOBAL_SHARE = 0.45, 0.35
 
 # Guatemala's REAL world coffee production share -- order-of-magnitude from
@@ -62,6 +63,13 @@ FUEGO_MAGA_HA = 13_611
 FUEGO_ANACAFE_PCT_NATIONAL_PRODUCTION = 0.9  # %, Anacafé's own projection
 TAAL_DA_TOTAL_PHP = 3_060_000_000
 TAAL_DA_COFFEE_SHARE_PCT = 10.9
+
+
+def _what_if(world_share: float) -> dict:
+    """A research what-if calibration row for the plot's origin: Brazil's coffee sensitivity on this script's hazard,
+    with the given world share — what the engine WOULD compute if that row were validated for this origin."""
+    return {"XX": {"sensitivity": BRAZIL_SENS, "world_share": world_share, "calibration_tier": "research_what_if",
+                   "hazard_driver": "volcanic"}}
 
 
 def banking_check():
@@ -104,17 +112,16 @@ def agriculture_check():
         return
     hazard_score = float(row["physical_risk_score"])
     spend = float(row["annual_spend_eur"])
-    plots = [{"spend": spend, "hazards": {"volcanic": hazard_score}}]
+    plots = [{"spend": spend, "origin": "XX", "hazards": {"volcanic": hazard_score}}]
 
     # (a) what the LIVE shared-commodity model actually computes (Brazil's calibration
     #     applied to Guatemala's hazard, isolated to just this plot's spend)
-    live = _commodity_risk("Coffee", True, spend, plots, BRAZIL_SENS, BRAZIL_GLOBAL_SHARE)
+    live = _commodity_risk("Coffee", True, spend, plots, origin_cal=_what_if(BRAZIL_GLOBAL_SHARE))
     # (b) origin-specific: same hazard->yield sensitivity, Guatemala's OWN world share
-    origin_specific = _commodity_risk("Coffee", True, spend, plots,
-                                      BRAZIL_SENS, GUATEMALA_GLOBAL_SHARE)
+    origin_specific = _commodity_risk("Coffee", True, spend, plots, origin_cal=_what_if(GUATEMALA_GLOBAL_SHARE))
 
     print(f"  Alotenango plot: volcanic hazard score {hazard_score}, spend €{spend/1e6:.1f}m")
-    print(f"\n  (a) LIVE MODEL (borrows Brazil's global_share={BRAZIL_GLOBAL_SHARE} -- what the")
+    print(f"\n  (a) WHAT-IF: Brazil's calibration with Brazil's global_share={BRAZIL_GLOBAL_SHARE} -- what the")
     print("      product shows today, since Coffee is one shared commodity):")
     print(f"      yield-shock {live.yield_shock_pct}% -> world crop {live.global_shock_pct}%")
     print(f"\n  (b) ORIGIN-SPECIFIC (Guatemala's real world coffee share={GUATEMALA_GLOBAL_SHARE}, "

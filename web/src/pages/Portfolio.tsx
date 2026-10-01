@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import MethodGap from '../components/MethodGap'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight, Coins, Percent, PieChart } from 'lucide-react'
@@ -25,13 +26,12 @@ import { balance, flow } from '../lib/money'
 interface Hazard { hazard: string; score: number; bucket: string; model_version?: string; scored_at?: string; ci_lo?: number | null; ci_hi?: number | null }
 interface FwdPoint { horizon: string; at_risk_eur: number; at_risk_pct: number; at_risk_band_eur: [number, number]; newly_crossing_eur: number; newly_crossing_count: number }
 interface FwdMover { entity_name: string; current_score: number; future_score: number; delta: number; value_eur: number }
-interface ForwardRisk { scenario: string; book_eur: number; entities: number; trajectory: FwdPoint[]; movers: FwdMover[]; runway: string | null; basis: string }
+interface ForwardRisk { scenario: string; book_eur: number; entities: number; trajectory: FwdPoint[]; movers: FwdMover[]; runway: string | null; runway_gap?: string; at_risk_threshold?: number; gap?: string; basis: string }
 interface Valuation {
   discounted_value_eur: number; is_overridden: boolean
   recommended_discount_pct?: number; effective_discount_pct?: number
   original_ltv_pct?: number; climate_adjusted_ltv_pct?: number
-  vulnerability_factor?: number
-  vulnerability?: { applied: boolean; complete: boolean; drivers: { attr: string; value: unknown; factor: number }[]; missing: string[] }
+  gap?: string
 }
 interface Asset {
   region?: string; lat?: number; lon?: number
@@ -41,17 +41,17 @@ interface Asset {
 }
 type Rollup = Record<string, number | unknown>
 type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Record<string, unknown>
-interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss_high_eur: number; band_pct: number | null; ci_coverage_pct: number }
-interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
-interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_division: string; label: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
+interface LossBand { expected_value_loss_eur: number | null; loss_low_eur: number | null; loss_high_eur: number | null; band_pct: number | null; ci_coverage_pct: number; gap?: string }
+interface Cat { available: boolean; reason?: string; gap?: string; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
+interface Transition { available: boolean; gap?: string; financed_emissions_tco2e: number; emissions_reported_pct: number | null; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number | null; exposure_weighted_transition_score: number | null; score_coverage_pct: number | null; by_sector: { nace_division: string; label: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
 interface ConcRegion { region: string; value_eur: number; climate_var_eur: number; n: number; pct_of_book: number }
 interface ConcHazard { hazard: string; value_eur: number; climate_var_eur: number; n: number; pct_of_scored: number }
 interface ConcCluster { hazard: string; region: string; value_eur: number; climate_var_eur: number; n: number; pct_of_book: number }
 interface Concentration { available: boolean; total_value_eur: number; total_climate_var_eur: number; n_scored: number; n_unscored: number; coverage_pct: number; region_hhi: number; effective_regions: number | null; hazard_hhi: number | null; effective_hazards: number | null; top_region: ConcRegion | null; top_hazard: ConcHazard | null; common_shock: ConcCluster | null; common_shock_var_pct_of_total: number; by_region: ConcRegion[]; by_hazard: ConcHazard[]; clusters: ConcCluster[]; flags: string[]; method: string }
-interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; taxonomy_adaptation_aligned_capex_eur: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
-interface EnergyStranding { floor_epc: string; n_properties: number; n_assessed: number; n_no_epc: number; n_below_floor: number; value_at_stranding_risk_eur: number; retrofit_capex_to_derisk_eur: number; pct_portfolio_value_below_floor: number; epc_coverage_pct: number; note: string }
-interface CollateralStranding { available: boolean; floor_epc: string; n_re_loans: number; n_below_floor: number; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number; retrofit_capex_to_derisk_eur: number; exposure_weighted_ltv_pct: number | null; stressed_ltv_pct: number | null; ltv_uplift_pp: number | null; pct_re_loans_below_floor: number; epc_coverage_pct: number; note: string; top_exposures: { asset_id: string; name: string; asset_type: string; epc_rating: string; brown_discount_pct: number; original_ltv_pct: number | null; stressed_ltv_pct: number | null; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number }[] }
+interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
+interface EnergyStranding { gap?: string; n_properties: number; n_assessed: number; n_not_assessed: number; n_discounted: number; value_at_stranding_risk_eur: number; retrofit_capex_to_derisk_eur: number; pct_assessed_value_discounted: number | null; epc_coverage_pct: number | null; note: string }
+interface CollateralStranding { available: boolean; gap?: string; n_re_loans: number; n_assessed: number; n_discounted: number; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number; retrofit_capex_to_derisk_eur: number; exposure_weighted_ltv_pct: number | null; stressed_ltv_pct: number | null; ltv_uplift_pp: number | null; pct_exposure_discounted: number | null; epc_coverage_pct: number | null; note: string; top_exposures: { asset_id: string; name: string; asset_type: string; epc_rating: string; brown_discount_pct: number; original_ltv_pct: number | null; stressed_ltv_pct: number | null; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number }[] }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; flow?: boolean; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -80,8 +80,8 @@ const SECTORS: Record<string, Cfg> = {
     itemKey: 'asset', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation',
     kpis: [
       { label: 'Total book value', field: 'total_value_eur', fmt: 'eur' },
-      { label: 'Money at high risk', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A', hint: 'Value at Risk (High+): value of assets in the top two severity bands' },
-      { label: 'Share of book at high risk', field: 'pct_value_at_risk', fmt: 'pct', hint: '% of book value at high risk' },
+      { label: 'Money at material risk', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A', hint: 'Value of assets at or above your stated at-risk level' },
+      { label: 'Share of book at material risk', field: 'pct_value_at_risk', fmt: 'pct', hint: '% of book value at or above your stated at-risk level' },
       { label: 'Assets analysed', num: 'n_scored', den: 'n_assets', fmt: 'frac' },
     ],
   },
@@ -92,7 +92,7 @@ const SECTORS: Record<string, Cfg> = {
     kpis: [
       { label: 'Total sum insured', field: 'total_sum_insured_eur', fmt: 'eur' },
       { label: 'Likely yearly loss', field: 'total_expected_annual_loss_eur', fmt: 'eur', flow: true, tone: '#E9744A', hint: 'Expected annual loss' },
-      { label: 'Claims vs premiums', field: 'portfolio_loss_ratio_pct', fmt: 'pct', hint: 'Loss ratio' },
+      { label: 'Sum insured at material risk', field: 'value_at_risk_eur', fmt: 'eur', hint: 'At or above your stated at-risk level' },
       { label: 'Locations priced', num: 'n_priced', den: 'n_policies', fmt: 'frac' },
     ],
   },
@@ -240,6 +240,9 @@ export default function Portfolio() {
           tone: k.tone,
           icon: k.fmt === 'eur' ? Coins : k.fmt === 'pct' ? Percent : PieChart,
         }))} />
+
+      {/* a money figure whose method the institution has not stated for the year is a gap — say which, and where (E69) */}
+      <MethodGap gap={r?.gap as string | undefined} what="Some figures" />
 
       {/* realized exposure — the real, named events that have ALREADY crossed this book (the observed hook). */}
       <RealizedExposure />
@@ -409,13 +412,7 @@ export default function Portfolio() {
                             ? ` · LTV ${a.valuation.original_ltv_pct}% → ${a.valuation.climate_adjusted_ltv_pct}%` : ''}
                           {a.lat != null && a.lon != null ? ` · ${Math.abs(a.lat).toFixed(1)}°${a.lat >= 0 ? 'N' : 'S'}, ${Math.abs(a.lon).toFixed(1)}°${a.lon >= 0 ? 'E' : 'W'}` : ''}
                         </div>
-                        {a.valuation.vulnerability?.applied && a.valuation.vulnerability_factor != null && (
-                          <div className="mono text-[11px] text-[var(--color-faint)] mt-1 leading-relaxed">
-                            vulnerability <b className="text-[var(--color-mute)]">×{a.valuation.vulnerability_factor}</b>
-                            {' — '}{a.valuation.vulnerability.drivers.map(d => `${d.attr.replace(/_/g, ' ')} ${d.value}`).join(' · ')}
-                            <span className="text-[var(--color-faint)]"> · from asset attributes, not fitted to loss history</span>
-                          </div>
-                        )}
+                        {a.valuation.gap && <div className="mono text-[11px] text-[var(--color-warn)] mt-1">climate-adjusted value not computed — {a.valuation.gap}</div>}
                       </>)}
                       <button onClick={() => setDetailId(id)} className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline">
                         Full detail{cfg.overrideMode === 'valuation' ? ' & valuation override' : ' & set trigger'} →
@@ -442,6 +439,7 @@ export default function Portfolio() {
 
 
 function ValueLossBand({ band }: { band?: LossBand }) {
+  if (band?.gap) return <MethodGap gap={band.gap} what="Expected value loss" />
   if (!band || !band.expected_value_loss_eur) return null
   const halfPct = band.band_pct != null ? (band.band_pct / 2).toFixed(1) : null
   return (
@@ -459,6 +457,7 @@ function ValueLossBand({ band }: { band?: LossBand }) {
 }
 
 function CatAccumulation({ cat }: { cat?: Cat }) {
+  if (cat?.gap) return <MethodGap gap={cat.gap} what="Catastrophe accumulation" />
   if (!cat || !cat.available) return null
   const rp = (m: Record<string, number>, k: string) => balance(m[k])
   const metrics: StatItem[] = [
@@ -487,13 +486,15 @@ function CatAccumulation({ cat }: { cat?: Cat }) {
 }
 
 function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: string }) {
+  if (t?.gap) return <MethodGap gap={t.gap} what="Transition risk · loan book" />
   if (!t || !t.available) return null
   const tco2e = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}Mt` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}kt` : `${Math.round(n)}t`
   const metrics: StatItem[] = [
-    { label: <>Transition expected loss · {t.transition_el_pct_of_outstanding}%</>, value: balance(t.transition_expected_loss_eur), accent: '#8E6FC7' },
+    { label: <>Transition expected loss · {t.transition_el_pct_of_outstanding ?? '—'}%</>, value: balance(t.transition_expected_loss_eur), accent: '#8E6FC7' },
     { label: 'Financed emissions (Scope 1+2)', value: tco2e(t.financed_emissions_tco2e) },
-    { label: 'Weighted transition score', value: t.exposure_weighted_transition_score ?? '—' },
-    { label: <>Emissions reported{t.n_emissions_estimated ? ` · ${t.n_emissions_estimated} estimated` : ''}</>, value: `${t.emissions_reported_pct}%` },
+    { label: 'Weighted transition score', value: t.exposure_weighted_transition_score ?? '—',
+      sub: t.score_coverage_pct != null ? `${t.score_coverage_pct}% of outstanding has emissions` : undefined },
+    { label: <>Emissions reported{t.n_emissions_estimated ? ` · ${t.n_emissions_estimated} estimated` : ''}</>, value: t.emissions_reported_pct != null ? `${t.emissions_reported_pct}%` : '—' },
   ]
   return (
     <Card className="p-5">
@@ -509,7 +510,7 @@ function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: s
         </div>
       )}
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
-        Transition EL = outstanding × modelled stranded-asset fraction (NGFS carbon price + sector tiers). Financed emissions here are the counterparty's GROSS Scope 1+2 (reported or NACE-estimated) — deliberately not PCAF-weighted, since this drives the stranding model on your full outstanding, not a disclosure ratio. See the KRI dashboard for the PCAF-attributed (EVIC-weighted) figure. Disclosed relative tiers, not a fitted PD model.
+        Transition EL = outstanding × your stated stranded share for the counterparty's NACE division; the score is the larger of the carbon cost at your stated carbon price (share of revenue) and that stranded share. Financed emissions here are the counterparty's gross Scope 1+2 (reported, or the EXIOBASE sector estimate, flagged) — the PCAF-attributed figure is on the KRI dashboard.
       </div>
     </Card>
   )
@@ -597,22 +598,26 @@ const HAZARD_LABEL: Record<string, string> = {
 
 interface ReinsNet { quota_share_pct: number; xol_attachment_eur: number | null; xol_limit_eur: number | null; net_pml_eur: number; ceded_pml_eur: number; cession_ratio_pct: number | null; note: string }
 interface Reinsurance { available: boolean; pml_return_period: number; gross_pml_eur: number; net: ReinsNet }
+// A what-if: the insurer enters a programme to test (nothing is pre-filled — no illustrative treaty, E69); the filed net
+// figures use the treaty attested for the period.
 function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horizon: string }) {
-  const [qs, setQs] = useState(20)
-  const [att, setAtt] = useState(50)   // €m
-  const [lim, setLim] = useState(100)  // €m
+  const [qs, setQs] = useState<number | null>(null)
+  const [att, setAtt] = useState<number | null>(null)   // €m
+  const [lim, setLim] = useState<number | null>(null)   // €m
+  const ready = qs != null && att != null && lim != null
   const q = useQuery({
-    queryKey: ['insurer-reins', scenario, horizon, qs, att, lim],
-    queryFn: () => api.get<Reinsurance>(`/v1/insurance/reinsurance?scenario=${scenario}&horizon=${horizon}&quota_share_pct=${qs}&xol_attachment_eur=${att * 1e6}&xol_limit_eur=${lim * 1e6}`),
+    queryKey: ['insurer-reins', scenario, horizon, qs, att, lim], enabled: ready,
+    queryFn: () => api.get<Reinsurance & { gap?: string }>(`/v1/insurance/reinsurance?scenario=${scenario}&horizon=${horizon}&quota_share_pct=${qs}&xol_attachment_eur=${(att ?? 0) * 1e6}&xol_limit_eur=${(lim ?? 0) * 1e6}`),
   })
-  const d = q.data
+  const d = ready ? q.data : undefined
+  if (d?.gap) return <MethodGap gap={d.gap} what="Net of reinsurance" />
   if (d && !d.available) return null
   const n = d?.net
-  const Field = ({ label, val, set, suf }: { label: string; val: number; set: (v: number) => void; suf: string }) => (
+  const Field = ({ label, val, set, suf }: { label: string; val: number | null; set: (v: number | null) => void; suf: string }) => (
     <label className="flex flex-col gap-1">
       <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{label}</span>
       <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2 py-1">
-        <input type="number" value={val} min={0} onChange={e => set(Math.max(0, Number(e.target.value)))} className="w-16 bg-transparent text-[13px] tabular-nums outline-none" />
+        <input type="number" value={val ?? ''} min={0} placeholder="—" onChange={e => set(e.target.value === '' ? null : Math.max(0, Number(e.target.value)))} className="w-16 bg-transparent text-[13px] tabular-nums outline-none" />
         <span className="mono text-[10px] text-[var(--color-faint)]">{suf}</span>
       </span>
     </label>
@@ -625,6 +630,7 @@ function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horiz
         <Field label="Cat XoL attachment" val={att} set={setAtt} suf="€m" />
         <Field label="Cat XoL limit" val={lim} set={setLim} suf="€m" />
       </div>
+      {!ready && <div className="text-[12px] text-[var(--color-mute)]">Enter a programme to test it against your book. Filings use the treaty you attest for the period.</div>}
       {n && (
         <StatGrid items={[
           { label: <>Gross PML (1-in-{d!.pml_return_period})</>, value: balance(d!.gross_pml_eur) },
@@ -671,18 +677,19 @@ function InsurerInvestmentsCard({ scenario, horizon }: { scenario: string; horiz
 }
 
 function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
+  if (es?.n_assessed && es.gap) return <MethodGap gap={es.gap} what="Energy-performance stranding" />
   if (!es || !es.n_assessed) return null
-  const hasRisk = es.n_below_floor > 0
+  const hasRisk = es.n_discounted > 0
   const metrics: StatItem[] = [
     { label: 'Value at stranding risk', value: balance(es.value_at_stranding_risk_eur), accent: hasRisk ? '#E9744A' : undefined },
     { label: 'Retrofit capex to de-risk', value: balance(es.retrofit_capex_to_derisk_eur) },
-    { label: 'Of portfolio value below floor', value: `${es.pct_portfolio_value_below_floor}%`, accent: es.pct_portfolio_value_below_floor > 0 ? '#E8B24C' : undefined },
-    { label: 'Properties below floor', value: es.n_below_floor },
+    { label: 'Assessed value in discounted grades', value: `${es.pct_assessed_value_discounted ?? '—'}%`, accent: (es.pct_assessed_value_discounted ?? 0) > 0 ? '#E8B24C' : undefined },
+    { label: 'Properties discounted', value: es.n_discounted },
   ]
   return (
     <Card className="p-5">
-      <SectionHead className="mb-1" hint={<>below a rising minimum-to-let EPC floor</>}>Energy-performance stranding · transition risk</SectionHead>
-      <div className="text-[12px] text-[var(--color-mute)] mb-3">{es.n_below_floor}/{es.n_properties} below EPC {es.floor_epc} · {es.epc_coverage_pct}% with an EPC</div>
+      <SectionHead className="mb-1" hint={<>your stated brown discount per EPC grade</>}>Energy-performance stranding · transition risk</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3">{es.n_discounted} of {es.n_assessed} assessed properties in a discounted grade · {es.epc_coverage_pct}% of {es.n_properties} assessed (EPC and value on record)</div>
       <StatGrid items={metrics} />
       <div className="text-[10px] text-[var(--color-faint)] mt-3 leading-relaxed">{es.note}</div>
     </Card>
@@ -690,24 +697,25 @@ function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
 }
 
 function CollateralStrandingCard({ cs }: { cs?: CollateralStranding }) {
+  if (cs?.available && cs.gap) return <MethodGap gap={cs.gap} what="Collateral energy-stranding" />
   if (!cs || !cs.available || !cs.n_re_loans) return null
-  const hasRisk = cs.n_below_floor > 0
+  const hasRisk = cs.n_discounted > 0
   const WARN = '#E9744A'
   const metrics: StatItem[] = [
     { label: 'Collateral value at risk', value: balance(cs.collateral_value_at_risk_eur),
-      sub: 'RE collateral sitting below the rising EPC floor', accent: hasRisk ? WARN : undefined },
+      sub: 'your stated brown discount on the RE collateral', accent: hasRisk ? WARN : undefined },
     { label: 'Effective LTV after stranding',
       value: <>{cs.exposure_weighted_ltv_pct ?? '—'}%<span className="text-[14px] text-[var(--color-faint)]"> → {cs.stressed_ltv_pct ?? '—'}%</span></>,
       sub: cs.ltv_uplift_pp != null ? `exposure-weighted · +${cs.ltv_uplift_pp}pp uplift` : 'exposure-weighted' },
     { label: 'Exposure uncovered', value: balance(cs.loan_value_at_risk_eur),
       sub: 'loan value no longer covered (LTV > 100%)', accent: cs.loan_value_at_risk_eur > 0 ? WARN : undefined },
     { label: 'Retrofit capex to de-risk', value: balance(cs.retrofit_capex_to_derisk_eur),
-      sub: 'spend to lift collateral back above the floor' },
+      sub: 'your stated retrofit capex per EPC grade' },
   ]
   return (
     <Card className="p-5">
-      <SectionHead className="mb-1" hint={<>transition risk · RE loan collateral vs a rising minimum-to-let EPC floor</>}>Collateral energy-stranding</SectionHead>
-      <div className="text-[12px] text-[var(--color-mute)] mb-3"><b className="text-[var(--color-ink)]">{cs.n_below_floor}</b> of {cs.n_re_loans} real-estate loans sit below EPC {cs.floor_epc} · {cs.epc_coverage_pct}% have an EPC on file</div>
+      <SectionHead className="mb-1" hint={<>transition risk · RE loan collateral on your stated brown discount per EPC grade</>}>Collateral energy-stranding</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3"><b className="text-[var(--color-ink)]">{cs.n_discounted}</b> of {cs.n_re_loans} real-estate loans in a discounted grade · {cs.epc_coverage_pct}% assessed (EPC, collateral value and balance on record)</div>
       <StatGrid items={metrics} />
       {hasRisk && cs.top_exposures.length > 0 && (
         <div className="mt-4">
@@ -728,7 +736,8 @@ function CollateralStrandingCard({ cs }: { cs?: CollateralStranding }) {
   )
 }
 
-function ResilienceCard({ rc }: { rc?: Resilience }) {
+function ResilienceCard({ rc }: { rc?: Resilience & { reason?: string; gap?: string } }) {
+  if (rc?.gap) return <MethodGap gap={rc.gap} what="Resilience capex" />
   if (!rc || !rc.available) return null
   const GOOD = 'var(--color-good)'
   const metrics: StatItem[] = [
@@ -736,7 +745,6 @@ function ResilienceCard({ rc }: { rc?: Resilience }) {
     { label: 'Loss avoided', value: balance(rc.total_avoided_loss_eur), sub: 'modelled physical loss the spend prevents', accent: GOOD },
     { label: 'Benefit-cost ratio', value: `${rc.portfolio_benefit_cost_ratio ?? '—'}×`, sub: 'loss avoided per euro spent',
       accent: rc.portfolio_benefit_cost_ratio && rc.portfolio_benefit_cost_ratio >= 1 ? GOOD : undefined },
-    { label: 'Modelled adaptation capex (illustrative)', value: balance(rc.taxonomy_adaptation_aligned_capex_eur), sub: 'EU-Taxonomy adaptation-aligned (Objective 2) — modelled, not a filed CapEx KPI' },
   ]
   return (
     <Card className="p-5">
@@ -877,6 +885,7 @@ function HazardExposure({ items, valueKey, onPick, active }: { items: Asset[]; v
 }
 
 function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: string }) {
+  if (d.gap) return <MethodGap gap={d.gap} what="Forward risk" />
   const traj = d.trajectory
   const now = traj.find(t => t.horizon === 'current')
   const end = traj[traj.length - 1]
@@ -885,7 +894,7 @@ function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: 
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
         <SectionHead hint={<>decision signal · {scenarioLabel}</>}>Forward risk</SectionHead>
-        <div className="mono text-[10px] text-[var(--color-faint)]">biggest threat crossing into high risk</div>
+        <div className="mono text-[10px] text-[var(--color-faint)]">crossing your stated at-risk level (score ≥ {d.at_risk_threshold})</div>
       </div>
       {/* headline */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px] mb-4">
@@ -896,7 +905,9 @@ function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: 
           <span className="text-[var(--color-mute)]">by {end.horizon}</span></>}
         {d.runway
           ? <span className="ml-1 text-[12.5px] px-2 py-0.5 rounded-md border border-[var(--color-line-2)] text-[var(--color-ink)]">material new exposure by <b>{d.runway}</b></span>
-          : <span className="ml-1 text-[12.5px] text-[var(--color-faint)]">· no material new crossing on the horizon</span>}
+          : d.runway_gap
+            ? <span className="ml-1 text-[12.5px] text-[var(--color-faint)]">· runway not computed — state your materiality (method.runway_materiality)</span>
+            : <span className="ml-1 text-[12.5px] text-[var(--color-faint)]">· no material new crossing on the horizon</span>}
       </div>
       {/* trajectory */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">

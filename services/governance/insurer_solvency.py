@@ -1,8 +1,9 @@
 """Solvency II — the natural-catastrophe risk block of the non-life catastrophe risk template S.27.01.01 (Implementing
 Regulation (EU) 2023/894, Annexes I-II), from a frozen insurer disclosure snapshot. It re-runs nothing.
 
-Two labelled bases side by side: the INTERNAL-MODEL nat-cat figure (the modelled 1-in-200 / 99.5 % VaR annual-aggregate
-loss, gross and net of the reinsurance in force) with the per-peril exposure that drives it, and the PRESCRIBED
+Two labelled bases side by side: the MODELLED nat-cat figure (the platform's 1-in-200 / 99.5 % annual-aggregate loss on
+the undertaking's stated method, gross and net of the reinsurance in force — context, not an approved internal model)
+with the per-peril exposure that drives it, and the PRESCRIBED
 STANDARD FORMULA (Del. Reg. (EU) 2015/35 Arts 90b, 119-126, in the version in force on the reporting date) region by
 region, before and after risk mitigation — see services/governance/solvency2_natcat.py.
 
@@ -39,6 +40,13 @@ _PERIL = {
 }
 
 
+
+def modelled_1_in_200(scr: dict | None):
+    """The modelled 1-in-200 annual-aggregate loss of a frozen or live solvency block. Snapshots frozen before
+    2026-10-01 carry it under 'natcat_scr_eur' — the same figure, under a name that read like the regulatory SCR."""
+    scr = scr or {}
+    return scr["modelled_1_in_200_loss_eur"] if "modelled_1_in_200_loss_eur" in scr else scr.get("natcat_scr_eur")
+
 def natcat_block(payload: dict) -> dict:
     """The frozen nat-cat block of an insurer_solvency filing payload (either key)."""
     return payload.get(KEY) or payload.get(_LEGACY_KEY) or {}
@@ -54,28 +62,6 @@ def s2701_natcat(snapshot: dict, group_scope: bool = False) -> dict:
     reins = snapshot.get("reinsurance") or {}
     by_hazard = snapshot.get("by_hazard") or {}
 
-    if not scr.get("available", True) or scr.get("natcat_scr_eur") is None:
-        return {"framework": "insurer_solvency", "available": False,
-                "reason": scr.get("reason", "no scored policies to run the catastrophe distribution"),
-                "regulation": REGULATION, "template": TEMPLATE}
-
-    # per-peril exposure that drives the aggregate NatCat SCR (from the already-computed accumulation)
-    perils: dict[str, dict] = {}
-    for hz, agg in by_hazard.items():
-        peril = _PERIL.get(hz)
-        if not peril:
-            continue
-        row = perils.setdefault(peril, {"peril": peril, "exposed_value_eur": 0.0, "n_exposed": 0, "channels": []})
-        row["exposed_value_eur"] += agg.get("exposed_value_eur") or 0
-        row["n_exposed"] += agg.get("n_exposed") or 0
-        row["channels"].append(hz)
-    peril_rows = sorted(perils.values(), key=lambda r: -r["exposed_value_eur"])
-    for r in peril_rows:
-        r["exposed_value_eur"] = round(r["exposed_value_eur"])
-
-    gross = scr.get("natcat_scr_eur")
-    # net NatCat SCR = the net-of-reinsurance annual-aggregate 1-in-200 (same AEP basis as the gross SCR)
-    net = ((reins.get("net") or {}).get("net_aep_eur") or {}).get("rp_200")
     group_method_note = None
     if group_scope:
         group_method_note = {
@@ -89,10 +75,39 @@ def s2701_natcat(snapshot: dict, group_scope: bool = False) -> dict:
                     "not as that calculation's result.",
             "regulation": "Directive 2009/138/EC (Solvency II) Title III, Arts 218-243 — group supervision",
         }
+    if not scr.get("available", True) or modelled_1_in_200(scr) is None:
+        # the modelled 1-in-200 is a gap (method not stated) or nothing is scored; the prescribed standard formula is
+        # computed from the book and the attested inputs alone and stands on its own
+        return {"framework": "insurer_solvency", "available": False,
+                "reason": scr.get("reason", "no scored policies to run the catastrophe distribution"),
+                **({"gap": scr["gap"]} if scr.get("gap") else {}),
+                "regulation": REGULATION, "template": TEMPLATE, "group_method_note": group_method_note,
+                "standard_formula_natcat": scr.get("standard_formula_natcat")}
+
+    # per-peril exposure that drives the aggregate NatCat SCR (from the already-computed accumulation)
+    perils: dict[str, dict] = {}
+    for hz, agg in by_hazard.items():
+        peril = _PERIL.get(hz)
+        if not peril:
+            continue
+        row = perils.setdefault(peril, {"peril": peril, "exposed_value_eur": 0.0, "n_exposed": 0, "channels": []})
+        if agg.get("exposed_value_eur") is None or row["exposed_value_eur"] is None:
+            row["exposed_value_eur"] = row["n_exposed"] = None      # a gap in one channel is a gap for the peril
+        else:
+            row["exposed_value_eur"] += agg["exposed_value_eur"]
+            row["n_exposed"] += agg.get("n_exposed") or 0
+        row["channels"].append(hz)
+    peril_rows = sorted(perils.values(), key=lambda r: -(r["exposed_value_eur"] or 0))
+    for r in peril_rows:
+        r["exposed_value_eur"] = None if r["exposed_value_eur"] is None else round(r["exposed_value_eur"])
+
+    gross = modelled_1_in_200(scr)
+    # net NatCat SCR = the net-of-reinsurance annual-aggregate 1-in-200 (same AEP basis as the gross SCR)
+    net = ((reins.get("net") or {}).get("net_aep_eur") or {}).get("rp_200")
     return {
         "framework": "insurer_solvency",
         "regulation": REGULATION, "template": TEMPLATE,
-        "basis": scr.get("scr_basis", "internal_model_99_5_var"),
+        "basis": scr.get("scr_basis", "modelled_1_in_200"),
         "group_method_note": group_method_note,
         "natcat_scr": {
             "gross_1_in_200_eur": round(gross) if gross is not None else None,

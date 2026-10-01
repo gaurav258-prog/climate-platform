@@ -1,11 +1,13 @@
 """Forward-change decision signal — the customer's 'what changes, when, and what do I do' view.
 
 Turns the engine's banded scenario projections into a portfolio DECISION brief, per warming pathway:
-  • the €-at-risk TRAJECTORY (value whose worst hazard crosses the High threshold) today → 2030/2050/
-    2100, with the CMIP6/AR6 model-disagreement band (an honest range, not a point);
-  • NEW crossings — value that deteriorates from below-High today into High+ by each horizon;
+  • the €-at-risk TRAJECTORY (value whose worst hazard is at or above the institution's stated at-risk level,
+    method.at_risk_level) today → 2030/2050/2100, with the CMIP6/AR6 model-disagreement band (a range, not a point);
+  • NEW crossings — value that moves from below the stated level today to at or above it by each horizon;
   • the MOVERS — the assets driving the deterioration (Δscore × value);
-  • the RUNWAY — the earliest horizon at which a material share newly crosses (the 'act by' signal).
+  • the RUNWAY — the earliest horizon at which the newly crossing share reaches the institution's stated
+    materiality (method.runway_materiality) — the 'act by' signal.
+Without a stated level the brief is a named gap; without a stated materiality the runway is.
 
 This is the input a credit officer / PM / underwriter acts on (reprice / engage / divest) AND the
 forward-looking scenario analysis mandated by TCFD / IFRS S2 / the ECB climate stress test. It reads
@@ -18,13 +20,15 @@ from __future__ import annotations
 from sqlalchemy import text
 
 HORIZONS = ["2030", "2050", "2100"]
-AT_RISK = 50.0            # High+ boundary (score ≥ 50 = H/VH bucket) — the decision line
-MATERIALITY = 0.05        # a horizon is the 'runway' when newly-crossing value ≥ 5% of the book
 
 
-def forward_risk(session, org_id: str, vertical: str, scenario: str,
-                 at_risk: float = AT_RISK) -> dict:
-    """Forward-risk decision brief for one portfolio (org × vertical) under one scenario."""
+def forward_risk(session, org_id: str, vertical: str, scenario: str, method) -> dict:
+    """Forward-risk decision brief for one portfolio (org × vertical) under one scenario, on the stated method."""
+    at_risk = method.get("method.at_risk_level")
+    if at_risk is None:
+        return {"scenario": scenario, "vertical": vertical, "gap": method.gap_text(), "trajectory": [], "movers": [],
+                "runway": None}
+    materiality = method.get("method.runway_materiality")
     # the WORST priceable hazard per (entity, horizon) — and ITS OWN band (DISTINCT ON, not a MIN/MAX
     # across hazards, which would borrow a low-scoring hazard's band onto the headline).
     rows = session.execute(text("""
@@ -47,7 +51,7 @@ def forward_risk(session, org_id: str, vertical: str, scenario: str,
         d = ent.setdefault(r["eid"], {"name": r["entity_name"], "val": r["val"] or 0.0, "h": {}})
         d["h"][r["horz"]] = (r["sc"], r["lo"], r["hi"])
 
-    book = sum(d["val"] for d in ent.values())
+    book = sum(d["val"] for d in ent.values())       # primary_value_eur is required on every entity
     # today's at-risk value (the baseline of the trajectory — no band, no crossing)
     at_now = sum(d["val"] for d in ent.values()
                  if (d["h"].get("current", (None,))[0] or 0) >= at_risk)
@@ -79,7 +83,7 @@ def forward_risk(session, org_id: str, vertical: str, scenario: str,
             "at_risk_band_eur": [round(at_lo, 2), round(at_hi, 2)],
             "newly_crossing_eur": round(newx, 2), "newly_crossing_count": n_new,
         })
-        if runway is None and book and newx / book >= MATERIALITY:
+        if runway is None and materiality is not None and book and newx / book >= materiality:
             runway = hz
 
     # movers: biggest adverse migration (Δscore × value) at the furthest horizon that has data
@@ -101,6 +105,7 @@ def forward_risk(session, org_id: str, vertical: str, scenario: str,
         "scenario": scenario, "vertical": vertical, "book_eur": round(book, 2),
         "at_risk_threshold": at_risk, "entities": len(ent),
         "trajectory": trajectory, "movers": movers, "runway": runway,
-        "basis": "worst priceable hazard per asset vs the High (score≥50) line; band = CMIP6/AR6 "
+        **({"runway_gap": "not stated: method.runway_materiality"} if materiality is None else {"runway_materiality": materiality}),
+        "basis": f"worst priceable hazard per asset vs the stated at-risk level (score ≥ {at_risk:g}); band = CMIP6/AR6 "
                  "across-model disagreement; heat_acute excluded from the headline.",
     }

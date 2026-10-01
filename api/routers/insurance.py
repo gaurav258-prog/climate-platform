@@ -44,7 +44,14 @@ from services.ingest.templates import (  # noqa: F401 — re-exported
     CONSTRUCTION_TYPES,
     POLICY_TEMPLATE_FIELDS,
 )
-from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
+from services.money.params import for_org
+from services.portfolio_engine import (
+    at_risk_by,
+    fetch_entities_with_risk,
+    get_entity_org,
+    get_entity_with_risk,
+    value_at_risk,
+)
 from services.scoring.combined_var import combined_climate_var
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -68,23 +75,17 @@ EXT_INSURANCE_COLUMNS = [
 ]
 
 
-def _insurance_extra(trigger_by_policy, return_period_model, expense_ratio=None, profit_margin=None):
+def _insurance_extra(method, trigger_by_policy):
     """extra_calc hook: layers insurance's own pricing/trigger calc on top of the
     shared fetch/join/headline logic (real estate's NOI impact is the same
     pattern). hz is the FULL unfiltered hazard list (heat_acute included) --
     exactly what the parametric trigger needs, since a trigger can legitimately
     be configured against heat_acute even though it's excluded from the
-    standing headline/pricing score."""
+    standing headline/pricing score. Pricing is on the undertaking's stated method for the year."""
     def calc(row, headline, hz):
-        # building attributes -> the mdr's bounded vulnerability multiplier, so a URM 1960s risk and a
-        # 2020 reinforced-concrete one at the same score price differently (matches the collateral path).
-        attrs = {"construction_type": row.get("construction_type"), "year_built": row.get("year_built"),
-                 "number_of_stories": row.get("number_of_stories")}
-        _pk = {} if expense_ratio is None else {"expense_ratio": expense_ratio, "profit_margin": profit_margin}
         # every insured property peril at the location, priced on its own and summed (not only the headline hazard:
         # a headline that changes between scenarios must not drop a peril's loss — ml.scoring.insurance_pricing)
-        pricing = price_perils(hz, row["primary_value_eur"], row.get("deductible_pct") or 0.0,
-                               return_period_model=return_period_model, attrs=attrs, **_pk)
+        pricing = price_perils(method, hz, row["primary_value_eur"], row.get("deductible_pct") or 0.0)
         cfg = trigger_by_policy.get(row["entity_id"])
         trigger = None
         if cfg:
@@ -114,8 +115,8 @@ def _map_policy_row(row):
     }
 
 
-def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed",
-                        entity_ids=None, value_weights=None, expense_ratio=None, profit_margin=None, translation=None):
+def _policies_with_risk(session, org_id, scenario, horizon, *, method, entity_ids=None, value_weights=None,
+                        translation=None):
     """All of an org's policies (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)
     -- the fetch/join/headline logic itself lives there, shared with banking,
@@ -130,10 +131,9 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
     """), {"o": org_id}).mappings().all()
     trigger_by_policy = {t["policy_id"]: dict(t) for t in trigger_rows}
 
-    rows = fetch_entities_with_risk(session, org_id, "insurance", scenario, horizon,
+    rows = fetch_entities_with_risk(session, org_id, "insurance", scenario, horizon, method=method,
                                      ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
-                                     extra_calc=_insurance_extra(trigger_by_policy, return_period_model,
-                                                                 expense_ratio, profit_margin),
+                                     extra_calc=_insurance_extra(method, trigger_by_policy),
                                      entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     return [_map_policy_row(r) for r in rows]
 
@@ -160,29 +160,32 @@ def standard_formula_inputs(session, org_id: str, translation=None, entity_id: s
 
 
 def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str, sf_inputs: dict) -> dict:
-    """Solvency II NatCat SCR (internal-model 99.5% basis) derived from an already-run cat distribution — the
-    single source shared by the /solvency-scr endpoint and the frozen disclosure snapshot — beside the prescribed
-    standard formula (services.governance.solvency2_natcat) on the inputs of standard_formula_inputs()."""
+    """The nat-cat capital on two labelled bases: the prescribed STANDARD FORMULA (services.governance.solvency2_natcat,
+    Delegated Regulation 2015/35 — always computed from the book and the attested inputs), and the platform's MODELLED
+    1-in-200 annual loss from the catastrophe simulation on the undertaking's stated method — a modelled figure, not an
+    approved internal model (Directive 2009/138/EC Art. 112), and a gap while the method is not stated."""
+    sf_natcat = natcat_scr(policies, **sf_inputs)
     if not cat or not cat.get("available"):
-        return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book.")}
+        return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book."),
+                **({"gap": cat.get("gap")} if (cat or {}).get("gap") else {}), "standard_formula_natcat": sf_natcat}
     aep200 = (cat.get("aep_eur") or {}).get("rp_200")
     oep200 = (cat.get("oep_eur") or {}).get("rp_200")
     gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
     mean_al = cat.get("mean_annual_loss_eur")
-    # prescribed standard-formula NatCat SCR — ALL five sub-modules (Del. Reg. 2015/35 Art. 120-125, official factors)
-    sf_natcat = natcat_scr(policies, **sf_inputs)
     return {
         "available": True, "scenario": scenario, "horizon": horizon,
-        "scr_basis": "internal_model_99_5_var",
-        "natcat_scr_eur": aep200, "aep_1_in_200_eur": aep200, "oep_1_in_200_eur": oep200,
-        "mean_annual_loss_eur": mean_al, "risk_load_eur": round((aep200 or 0) - (mean_al or 0)),
+        "scr_basis": "modelled_1_in_200_stated_method",
+        "modelled_1_in_200_loss_eur": aep200, "aep_1_in_200_eur": aep200, "oep_1_in_200_eur": oep200,
+        "mean_annual_loss_eur": mean_al,
+        "risk_load_eur": round(aep200 - mean_al) if aep200 is not None and mean_al is not None else None,
         "gross_sum_insured_eur": round(gross_si),
         "scr_pct_of_sum_insured": round(100 * aep200 / gross_si, 3) if gross_si and aep200 else None,
         "n_zones": cat.get("n_zones"),
         # prescribed STANDARD-FORMULA NatCat SCR (windstorm+earthquake+flood+hail+subsidence) — EIOPA's own factors, cited
         "standard_formula_natcat": sf_natcat,
-        "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
-                 "loss from the catastrophe accumulation model (geographic accumulation correlated). Alongside it, "
+        "note": ("Modelled 1-in-200 (99.5 %) annual-aggregate catastrophe loss from the platform's catastrophe simulation on "
+                 "the undertaking's stated damage ratios and event probabilities — a modelled figure, not an approved "
+                 "internal model. Alongside it, "
                  "the prescribed standard-formula NatCat SCR — all five sub-modules (windstorm, earthquake, flood, "
                  "hail, subsidence), before and after the attested reinsurance — on the version of Del. Reg. 2015/35 in "
                  "force on the reporting date (Arts 90b, 119-126; Annexes III, V-X, XIII, XXII-XXVI), a regulatory "
@@ -191,10 +194,14 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str, sf_inp
     }
 
 
-def _reinsurance_from_cat(cat: dict, program: dict, scenario: str, horizon: str) -> dict:
-    """Gross-vs-net retention derived from a cat distribution already run WITH the reinsurance program."""
+def _reinsurance_from_cat(cat: dict, program: dict | None, scenario: str, horizon: str) -> dict:
+    """Gross-vs-net retention derived from a cat distribution already run WITH the reinsurance program (a gap without
+    an attested programme)."""
+    if program is None:
+        return {"available": False, "reason": "gap", "gap": "no reinsurance treaty attested for the period"}
     if not cat or not cat.get("available"):
-        return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book.")}
+        return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book."),
+                **({"gap": cat.get("gap")} if (cat or {}).get("gap") else {})}
     return {
         "available": True, "scenario": scenario, "horizon": horizon,
         "pml_return_period": cat.get("pml_return_period"),
@@ -205,11 +212,11 @@ def _reinsurance_from_cat(cat: dict, program: dict, scenario: str, horizon: str)
     }
 
 
-def _investments_block(session, org_id, scenario, horizon, _st, translation=None) -> dict:
-    """Investment-side (asset) climate VaR — the other regulatory half (EIOPA/IFRS S2). Shared by the
-    /investments endpoint and the disclosure snapshot. Returns available:False where no investment book exists."""
-    dependence = ((_st.get("interpretation") or {}).get("climate_var_dependence")) or "independent"
-    rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, _st["severity_model"],
+def _investments_block(session, org_id, scenario, horizon, _st, method, translation=None) -> dict:
+    """Investment-side (asset) climate VaR — the other regulatory half (EIOPA/IFRS S2), on the stated method. Shared by
+    the /investments endpoint and the disclosure snapshot. Returns available:False where no investment book exists."""
+    from ml.scoring.valuation_discount import VAR_SIMULATIONS
+    rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, method=method,
                                     translation=translation)
     if not rows:
         return {"available": False, "reason": "No investment portfolio has been uploaded."}
@@ -220,35 +227,40 @@ def _investments_block(session, org_id, scenario, horizon, _st, translation=None
         "available": True, "scenario": scenario, "horizon": horizon,
         "n_holdings": len(holdings), "n_scored": n_scored, "total_value_eur": round(total),
         "coverage_pct": round(100 * n_scored / len(holdings), 1) if holdings else 0.0,
-        "climate_var": combined_climate_var(holdings, org_id, scenario, horizon, dependence=dependence),
+        "climate_var": combined_climate_var(method, holdings, org_id, scenario, horizon, VAR_SIMULATIONS,
+                                            _st["climate_var_dependence"]),
     }
 
 
-# The illustrative reinsurance programme (services.insurer_capital.ILLUSTRATIVE_PROGRAMME) nets a snapshot only where the
-# undertaking has attested no treaty for the period; the live /reinsurance endpoint also lets it try other programmes.
-
-
-def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_period=250, reinsurance=None, zones_of=None):
+def _rollup(policies, method, org_id=None, scenario=None, horizon=None, *, pml_return_period: int, reinsurance=None,
+            zones_of=None):
+    """The book's modelled expected annual loss and technical premium on the undertaking's stated method (a gap while any
+    priced policy's is not stated), by band, and the catastrophe accumulation. The written premium is the book's own
+    figure, not this; a 'loss ratio' of the two modelled figures would only restate the loadings, so none is shown."""
     total = sum(p["sum_insured_eur"] or 0 for p in policies)
     priced = [p for p in policies if p["pricing"]]
-    total_eal = sum(p["pricing"]["expected_annual_loss_eur"] for p in priced)
-    total_premium = sum(p["pricing"]["gross_premium_eur"] for p in priced)
+    eals = [p["pricing"]["expected_annual_loss_eur"] for p in priced]
+    prems = [p["pricing"]["technical_premium_eur"] for p in priced]
+    total_eal = None if None in eals else sum(eals)
+    total_premium = None if None in prems else sum(prems)
     by_bucket = defaultdict(lambda: {"count": 0, "sum_insured_eur": 0.0, "eal_eur": 0.0})
     for p in policies:
         b = p["headline_bucket"] or "none"
         by_bucket[b]["count"] += 1
         by_bucket[b]["sum_insured_eur"] += p["sum_insured_eur"] or 0
-        if p["pricing"]:
+        if p["pricing"] and total_eal is not None:
             by_bucket[b]["eal_eur"] += p["pricing"]["expected_annual_loss_eur"]
     return {
         "n_policies": len(policies),
         "n_priced": len(priced),
         "total_sum_insured_eur": round(total),
-        "total_expected_annual_loss_eur": round(total_eal),
-        "total_gross_premium_eur": round(total_premium),
-        "portfolio_loss_ratio_pct": round(100 * total_eal / total_premium, 1) if total_premium else 0,
+        **value_at_risk(policies, "sum_insured_eur", method),
+        "at_risk_by_region": at_risk_by(policies, "sum_insured_eur", "region", method),
+        "total_expected_annual_loss_eur": None if total_eal is None else round(total_eal),
+        "total_technical_premium_eur": None if total_premium is None else round(total_premium),
+        **({"gap": method.gap_text()} if method.gap_text() else {}),
         "by_bucket": {k: {"count": v["count"], "sum_insured_eur": round(v["sum_insured_eur"]),
-                           "eal_eur": round(v["eal_eur"])} for k, v in by_bucket.items()},
+                           "eal_eur": None if total_eal is None else round(v["eal_eur"])} for k, v in by_bucket.items()},
         # Portfolio catastrophe accumulation — AEP/OEP exceedance & PML (the tail the summed EALs hide).
         # In the frozen-snapshot path a reinsurance program is passed so the cat run also yields net-of-reinsurance.
         "catastrophe": (catastrophe_accumulation(policies, org_id, scenario, horizon,
@@ -268,55 +280,40 @@ def zones_of(policies: list) -> dict:
 
 
 def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
-                              zones=None, reporting_entity_id=None):
-    """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
+                              zones=None, reporting_entity_id=None, period_end=None):
+    """The insurer's climate / NatCat exposure disclosure — sum insured at or above the stated at-risk level by hazard, plus the
     loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view.
     entity_ids / value_weights scope + consolidation-weight the book (None = whole org). zones: accumulation zones held
     fixed across a scenario comparison (zones_of(reference book policies))."""
     _st = get_calc_settings(session, org_id)
-    return_period_model = _st["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
-                                   entity_ids=entity_ids, value_weights=value_weights,
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"],
-                                   translation=translation)
-    hazards: dict = {}
-    for p in policies:
-        for hz in p["hazards"]:
-            h = hazards.setdefault(hz["hazard"], {
-                "exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
-                "model_version": hz["model_version"], "scored_at": hz["scored_at"]})
-            if hz["bucket"] in ("H", "VH"):
-                h["exposed_value_eur"] += p["sum_insured_eur"] or 0
-                h["n_exposed"] += 1
-            h["max_score"] = max(h["max_score"], hz["score"])
-    for h in hazards.values():
-        h["exposed_value_eur"] = round(h["exposed_value_eur"])
-        h["max_score"] = round(h["max_score"], 1)
-    # One rich cat run (via _rollup, with the illustrative reinsurance program) yields the accumulation curve,
-    # the 1-in-200 for the SCR, and the net-of-reinsurance retention — so the SCR / reinsurance / cat blocks are
-    # all derived from the SAME frozen distribution rather than re-simulated three times.
-    # the reinsurance in force for the reporting period, as the undertaking attested it (services.insurer_capital);
-    # the illustrative programme only where none is attested — and the snapshot says which
     from services.governance.reporting_settings import get_settings
+    from services.portfolio_engine import exposure_by_hazard
+    pe = period_end or date.fromisoformat(str(get_settings(session, org_id)["reporting_period_end"])[:10])
+    method = for_org(session, org_id, pe)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method, entity_ids=entity_ids,
+                                   value_weights=value_weights, translation=translation)
+    hazards = exposure_by_hazard(policies, "sum_insured_eur", method)
+    # One cat run (via _rollup, with the attested reinsurance programme) yields the accumulation curve, the 1-in-200
+    # and the net-of-reinsurance retention — the three blocks derived from the SAME frozen distribution. The programme
+    # is the undertaking's attested treaty for the period (services.insurer_capital); without one the net is a gap.
     from services.insurer_capital import programme
-    pe = get_settings(session, org_id)["reporting_period_end"]
     if reporting_entity_id is None and entity_ids:          # the undertaking (or group top) this scoped book is for
         from services.governance.entities import root_of
         reporting_entity_id = root_of(session, org_id, entity_ids)
-    prog, prog_basis = programme(session, org_id, date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31),
-                                 reporting_entity_id)
-    if translation is not None and translation.presentation != "EUR":      # treaty layers are stated in EUR
+    prog, prog_basis = programme(session, org_id, pe, reporting_entity_id)
+    if prog is not None and translation is not None and translation.presentation != "EUR":   # treaty layers are in EUR
         from services.governance.translation import from_eur
         prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur") and v is not None}}
-    rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"], reinsurance=prog,
-                     zones_of=zones)
+    rollup = _rollup(policies, method, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"],
+                     reinsurance=prog, zones_of=zones)
     cat = rollup.get("catastrophe") or {}
     return {
         "rollup": rollup, "policies": policies, "by_hazard": hazards,
         "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon,
                                       standard_formula_inputs(session, org_id, translation, reporting_entity_id)),
         "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": prog_basis},
-        "investments": _investments_block(session, org_id, scenario, horizon, _st, translation=translation),
+        "investments": _investments_block(session, org_id, scenario, horizon, _st, method, translation=translation),
+        "method": method.record(),
     }
 
 
@@ -324,11 +321,10 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
     _st = get_calc_settings(session, org_id)
-    return_period_model = _st["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"]), "policies": policies}
+            "rollup": _rollup(policies, method, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"]), "policies": policies}
 
 
 @router.get("/investments", summary="Investment-side climate risk — the insurer's asset book (the other regulatory half)")
@@ -339,39 +335,45 @@ def investments(session: DbSession, org_id: OrgId,
     climate-VaR engine the asset managers use, run on the insurer's own investment book. Honest: unscored
     positions are excluded (coverage reported), nothing invented."""
     _st = get_calc_settings(session, org_id)
-    return {"org_id": org_id, **_investments_block(session, org_id, scenario, horizon, _st)}
+    return {"org_id": org_id, **_investments_block(session, org_id, scenario, horizon, _st, for_org(session, org_id))}
 
 
-@router.get("/solvency-scr", summary="Solvency II NatCat SCR — the 99.5% (1-in-200) modelled catastrophe capital charge")
+@router.get("/solvency-scr", summary="Solvency II nat-cat: the standard-formula SCR beside the modelled 1-in-200 loss")
 def solvency_scr(session: DbSession, org_id: OrgId,
                  scenario: str = Query("baseline"), horizon: str = Query("current")):
-    """The catastrophe capital an insurer must hold, on TWO labelled bases. Primary figure: the INTERNAL-MODEL
-    NatCat SCR — our modelled 1-in-200 (99.5% VaR) annual-aggregate loss, from the same common-shock cat
-    engine that drives the PML. Alongside it, under `standard_formula_natcat`: the PRESCRIBED STANDARD-FORMULA
-    SCR on the version of Delegated Regulation 2015/35 in force on the reporting date (Arts 90b, 119-126 — see
-    services/governance/solvency2_natcat.py::natcat_scr), before and after the attested reinsurance. Both are
-    labelled as such."""
+    """Nat-cat capital on TWO labelled bases: under `standard_formula_natcat` the PRESCRIBED STANDARD-FORMULA SCR on
+    the version of Delegated Regulation 2015/35 in force on the reporting date (Arts 90b, 119-126 —
+    services/governance/solvency2_natcat.py::natcat_scr), before and after the attested reinsurance; beside it the
+    MODELLED 1-in-200 (99.5%) annual-aggregate loss of the platform's catastrophe simulation on the undertaking's
+    stated method — context, not an approved internal model (Directive 2009/138/EC Art. 112)."""
     _st = get_calc_settings(session, org_id)
-    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
     cat = catastrophe_accumulation(policies, org_id, scenario, horizon, pml_return_period=200)
     return _scr_from_cat(cat, policies, scenario, horizon, standard_formula_inputs(session, org_id))
 
 
-@router.get("/reinsurance", summary="Net-of-reinsurance retention — gross catastrophe loss after ceding")
+@router.get("/reinsurance/attested", summary="Net of the reinsurance treaty attested for the period — as the filings freeze it")
+def reinsurance_attested(session: DbSession, org_id: OrgId,
+                         scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """The gross-vs-net retention on the undertaking's ATTESTED treaty for the reporting period (services.insurer_capital)
+    — the block every insurer filing freezes; a named gap until a treaty is attested."""
+    return build_disclosure_snapshot(session, org_id, scenario, horizon)["reinsurance"]
+
+
+@router.get("/reinsurance", summary="Net-of-reinsurance retention — test a programme against the gross catastrophe loss")
 def reinsurance(session: DbSession, org_id: OrgId,
                 scenario: str = Query("baseline"), horizon: str = Query("current"),
-                quota_share_pct: float = Query(20.0, ge=0, le=100),
-                xol_attachment_eur: float = Query(50_000_000, ge=0),
-                xol_limit_eur: float = Query(100_000_000, ge=0)):
+                quota_share_pct: float = Query(..., ge=0, le=100, description="the programme to test — no default"),
+                xol_attachment_eur: float = Query(..., ge=0), xol_limit_eur: float = Query(..., ge=0)):
     """The loss the insurer actually RETAINS after ceding to reinsurers — the number that hits its capital.
     Applies the reinsurance program (proportional quota share + a per-occurrence catastrophe excess-of-loss
     layer) to the same modelled gross catastrophe loss distribution and returns gross vs net PML/OEP/AEP.
     Honest: the quota share is exact; the cat XoL recovers on the single largest event (exact on the OEP), and
     a within-year aggregate treaty / reinstatements are not modelled — disclosed in the note."""
     _st = get_calc_settings(session, org_id)
-    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
     prog = {"quota_share_pct": quota_share_pct, "xol_attachment_eur": xol_attachment_eur, "xol_limit_eur": xol_limit_eur}
     cat = catastrophe_accumulation(policies, org_id, scenario, horizon,
                                    pml_return_period=_st["pml_return_period"], reinsurance=prog)
@@ -397,10 +399,11 @@ def _modeled_for_incurred(session, org_id: str, scenario: str, horizon: str) -> 
     """The ¶16(c)-(d) ANTICIPATED figures (EAL + NatCat SCR, both bases) already disclosed elsewhere — passed
     alongside the ¶16(a) actual-incurred rollup so a reader can compare modelled vs actual without re-deriving
     it. Same underlying cat run the /solvency-scr and /summary endpoints use; honest when nothing is scored."""
+    from services.governance.insurer_solvency import modelled_1_in_200
     _st = get_calc_settings(session, org_id)
-    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
-    rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
+    rollup = _rollup(policies, method, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])
     cat = rollup.get("catastrophe") or {}
     scr = _scr_from_cat(cat, policies, scenario, horizon, standard_formula_inputs(session, org_id))
     sf = scr.get("standard_formula_natcat") or {}
@@ -408,7 +411,7 @@ def _modeled_for_incurred(session, org_id: str, scenario: str, horizon: str) -> 
         "regulation": "IFRS S2 paragraph 16(c)-(d) — anticipated financial effects",
         "scenario": scenario, "horizon": horizon,
         "total_expected_annual_loss_eur": rollup.get("total_expected_annual_loss_eur"),
-        "internal_model_natcat_scr_1_in_200_eur": scr.get("natcat_scr_eur") if scr.get("available") else None,
+        "modelled_natcat_1_in_200_eur": modelled_1_in_200(scr) if scr.get("available") else None,
         "standard_formula_natcat_scr_eur": sf.get("natcat_scr_eur") if sf.get("available") else None,
         "available": bool(scr.get("available")),
     }
@@ -475,7 +478,8 @@ def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: Curre
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
 def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.forward_risk import forward_risk
-    return forward_risk(session, org_id, "insurance", scenario)
+    from services.money.params import for_org
+    return forward_risk(session, org_id, "insurance", scenario, for_org(session, org_id))
 
 
 @router.get("/summary", summary="Loss-curve pricing rollup")
@@ -485,10 +489,9 @@ def summary(session: DbSession, org_id: OrgId,
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
     _st = get_calc_settings(session, org_id)
-    return_period_model = _st["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])}
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies, method, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])}
 
 
 @router.get("/triggers", summary="Parametric trigger monitoring — live payout status across the book")
@@ -502,9 +505,8 @@ def triggers(session: DbSession, org_id: OrgId,
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
     _st = get_calc_settings(session, org_id)
-    return_period_model = _st["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
     configured = [p for p in policies if p["trigger"]]
     triggered_now = [p for p in configured if p["trigger"]["is_triggered"]]
     return {
@@ -527,8 +529,7 @@ def policy_detail(policy_id: str, session: DbSession, caller_org: OrgId):
     both ParametricTriggers.jsx lists had nowhere to click through to."""
     own_or_404(session, "portfolio_entities", "entity_id", policy_id, caller_org, "Policy")   # only your own org's record
     org_id = get_entity_org(session, policy_id)
-    _st = get_calc_settings(session, org_id)
-    return_period_model = _st["insurance_return_period_model"]
+    method = for_org(session, org_id)
     trigger_row = session.execute(text("""
         SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
                CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
@@ -538,9 +539,9 @@ def policy_detail(policy_id: str, session: DbSession, caller_org: OrgId):
     # Pre-existing quirk, same as banking's asset_detail: no scenario/horizon params,
     # so headline is picked across EVERY scenario/horizon this policy has ever been
     # scored under -- can disagree with the portfolio list's scenario-scoped headline.
-    row = get_entity_with_risk(session, policy_id, "baseline", "current",
+    row = get_entity_with_risk(session, policy_id, "baseline", "current", method=method,
                                 ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
-                                extra_calc=_insurance_extra(trigger_by_policy, return_period_model),
+                                extra_calc=_insurance_extra(method, trigger_by_policy),
                                 scope_headline_to_query=False)
     policy = {
         "policy_id": row["entity_id"], "org_id": row["org_id"], "policy_name": row["entity_name"],
@@ -648,17 +649,16 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
     _st = get_calc_settings(session, org_id)
-    return_period_model = _st["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    method = for_org(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, method=method)
     headers = ["policy_name", "region", "country", "sum_insured_eur", "construction_type", "year_built",
                "headline_hazard", "headline_score", "risk_bucket", "mdr", "scenario_loss_eur",
-               "expected_annual_loss_eur", "gross_premium_eur", "rate_on_line_pct"]
+               "expected_annual_loss_eur", "technical_premium_eur", "rate_on_line_pct"]
     rows = [[p["policy_name"], p["region"], p["country"], p["sum_insured_eur"], p.get("construction_type"),
              p.get("year_built"), p["headline_hazard"], p["headline_score"], p["headline_bucket"] or "unscored",
              p["pricing"]["mdr"] if p["pricing"] else None, p["pricing"]["scenario_loss_eur"] if p["pricing"] else None,
              p["pricing"]["expected_annual_loss_eur"] if p["pricing"] else None,
-             p["pricing"]["gross_premium_eur"] if p["pricing"] else None,
+             p["pricing"]["technical_premium_eur"] if p["pricing"] else None,
              p["pricing"]["rate_on_line_pct"] if p["pricing"] else None] for p in policies]
     buf = build_export_workbook(headers, rows, sheet_name="Loss-curve pricing")
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -7,7 +7,8 @@ import ValidatedUpload from '../components/ValidatedUpload'
 import { useAuth } from '../lib/auth'
 import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
-import { hazardLabel, bucketLabel } from '../lib/hazards'
+import { hazardLabel, bucketLabel, sevColor } from '../lib/hazards'
+import MethodGap from '../components/MethodGap'
 import { BookWithMap, severityHex } from '../components/SiteMap'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
@@ -17,12 +18,13 @@ import { pressable } from '../lib/pressable'
 interface Site {
   site_id: string; name: string; site_type: string; lat: number | null; lon: number | null
   country: string | null; value_eur: number | null; throughput_eur: number | null; bi_at_risk_eur: number | null
-  top_hazard: string | null; hazard_score: number | null; bucket: string | null
+  top_hazard: string | null; hazard_score: number | null; bucket: string | null; bi_gap?: string
 }
-interface Totals { asset_value_eur: number; throughput_eur: number; bi_at_risk_eur: number; n_elevated: number }
-interface SitesResp { sites: Site[]; site_types: string[]; totals: Totals; bi_note: string }
+interface Totals { asset_value_eur: number; throughput_eur: number; bi_at_risk_eur: number | null; n_elevated: number | null; at_risk_level: number | null }
+interface SitesResp { sites: Site[]; site_types: string[]; totals: Totals; bi_note: string; gap?: string }
 
-const hz = (s: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
+// colour by the platform's one score band (core.types), not a scale of this page's own
+const hz = (s: number | null) => s == null ? 'var(--color-faint)' : sevColor(s)
 const pretty = hazardLabel
 const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 const TypeIcon = ({ t }: { t: string }) => {
@@ -82,7 +84,7 @@ export default function Operations() {
   const sites = q.data?.sites ?? []
   const types = q.data?.site_types ?? ['hq', 'factory', 'warehouse', 'distribution_centre', 'office', 'other']
   const t = q.data?.totals
-  const highN = t?.n_elevated ?? sites.filter(s => (s.hazard_score ?? 0) >= 40).length
+  const highN = t?.n_elevated ?? null
 
   const exportSites = () => downloadCsv('tellumen-operational-sites',
     [{ key: 'name', label: 'Site' }, { key: 'type', label: 'Type' }, { key: 'country', label: 'Country' },
@@ -105,15 +107,16 @@ export default function Operations() {
 
       <HeroBanner
         eyebrow="Your operations"
-        title={highN > 0 ? 'Some sites sit in elevated hazard.' : 'Every site is running low-hazard.'}
+        title={highN == null ? 'Your at-risk level is not stated.' : highN > 0 ? 'Some sites sit at or above your at-risk level.' : 'No site is at or above your at-risk level.'}
         lead="Your own sites on the same live hazard data as your suppliers — damage and business-interruption exposure, priced."
         stat={[
           { label: 'operational sites', value: sites.length, icon: Building2, tone: 'var(--color-sky)' },
-          { label: 'at elevated hazard (≥40)', value: highN, icon: AlertTriangle, tone: highN ? '#E8853C' : undefined },
+          { label: t?.at_risk_level != null ? `at or above your level (≥${t.at_risk_level})` : 'at risk — level not stated', value: highN ?? '—', icon: AlertTriangle, tone: highN ? '#E8853C' : undefined },
           { label: 'asset value (damage exposure)', value: balance(t?.asset_value_eur), icon: Coins },
-          { label: 'business-interruption exposure', value: flow(t?.bi_at_risk_eur), icon: Activity, tone: (t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined },
+          { label: 'business-interruption exposure', value: t?.bi_at_risk_eur == null ? 'not stated' : flow(t.bi_at_risk_eur), icon: Activity, tone: (t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined },
         ]} />
       <div className="text-[11px] text-[var(--color-faint)] -mt-3">{q.data?.bi_note}</div>
+      {q.data?.gap && <MethodGap gap={q.data.gap} what="Operations at risk" />}
 
       {/* add a site */}
       <Card className="p-5">

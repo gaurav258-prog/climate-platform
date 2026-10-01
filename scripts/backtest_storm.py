@@ -39,7 +39,8 @@ from services.intelligence.supply_cogs import _commodity_risk
 SAN_JUAN = (18.4655, -66.1057)     # capital, close to Maria's track, severe direct hit
 CABO_ROJO = (18.0866, -67.1457)    # SW tip, farther from the eyewall
 
-# Coffee's EXISTING calibration (Brazil, 2021 drought) -- see supply_cogs.COMMODITY_PARAMS
+# Coffee's Brazil calibration (2021 drought) — applied below as an explicit research what-if row; the live
+# engine reads only an origin's OWN validated row (v_sc_commodity_calibration, E69)
 BRAZIL_SENS, BRAZIL_GLOBAL_SHARE = 0.45, 0.35
 
 # Puerto Rico's REAL world coffee production share -- order-of-magnitude only (far
@@ -51,6 +52,13 @@ PR_DA_TOTAL_LOSS_USD = 780_000_000
 PR_DA_PCT_CROP_VALUE = 80
 PR_COFFEE_TREES_DESTROYED = 18_000_000
 NOAA_TOTAL_DAMAGE_USD = 90_000_000_000
+
+
+def _what_if(world_share: float) -> dict:
+    """A research what-if calibration row for the plot's origin: Brazil's coffee sensitivity on this script's hazard,
+    with the given world share — what the engine WOULD compute if that row were validated for this origin."""
+    return {"XX": {"sensitivity": BRAZIL_SENS, "world_share": world_share, "calibration_tier": "research_what_if",
+                   "hazard_driver": "storm"}}
 
 
 def banking_check():
@@ -91,14 +99,13 @@ def agriculture_check():
         return
     hazard_score = float(row["physical_risk_score"])
     spend = float(row["annual_spend_eur"])
-    plots = [{"spend": spend, "hazards": {"storm": hazard_score}}]
+    plots = [{"spend": spend, "origin": "XX", "hazards": {"storm": hazard_score}}]
 
-    live = _commodity_risk("Coffee", True, spend, plots, BRAZIL_SENS, BRAZIL_GLOBAL_SHARE)
-    origin_specific = _commodity_risk("Coffee", True, spend, plots,
-                                      BRAZIL_SENS, PUERTO_RICO_GLOBAL_SHARE)
+    live = _commodity_risk("Coffee", True, spend, plots, origin_cal=_what_if(BRAZIL_GLOBAL_SHARE))
+    origin_specific = _commodity_risk("Coffee", True, spend, plots, origin_cal=_what_if(PUERTO_RICO_GLOBAL_SHARE))
 
     print(f"  Adjuntas plot: storm hazard score {hazard_score}, spend €{spend/1e6:.1f}m")
-    print(f"\n  (a) LIVE MODEL (borrows Brazil's global_share={BRAZIL_GLOBAL_SHARE}):")
+    print(f"\n  (a) WHAT-IF: Brazil's calibration with Brazil's global_share={BRAZIL_GLOBAL_SHARE}):")
     print(f"      yield-shock {live.yield_shock_pct}% -> world crop {live.global_shock_pct}%")
     print(f"\n  (b) ORIGIN-SPECIFIC (Puerto Rico's real world coffee share≈{PUERTO_RICO_GLOBAL_SHARE}, "
           f"order-of-magnitude only):")

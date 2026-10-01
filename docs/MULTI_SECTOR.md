@@ -37,10 +37,11 @@ not the sector.
 
 ## Proof
 
-`services/intelligence/insurance_pricing.py` is the second sector. It was added
-**without touching** `canonical_scores`, `core/types.py`, or
-`asset_risk_projection.project()` — it imports them. The test
-`test_bank_and_insurance_share_one_golden_source` runs banking and insurance over
-the *same* canonical rows for the *same* cell and asserts neither mutates the
-source. Adding a sector is additive; that is the architectural claim, enforced by
-a test.
+Every sector — banking, real estate, asset management, insurance — reads the
+golden source through one engine, `services/portfolio_engine.py`
+(`fetch_entities_with_risk`), and none writes to `canonical_scores`. A sector adds
+its own book and its own money figures (`ml/scoring/insurance_pricing.py` for the
+insurer, `ml/scoring/realestate_impact.py` for real estate, …) on the institution's
+stated method (`services/money/params.py`, E69); adding a sector is additive. (The
+earlier proof test ran against `services/intelligence/insurance_pricing.py`, a
+placeholder loss curve removed on 2026-09-30.)

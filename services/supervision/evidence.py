@@ -57,8 +57,12 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
     if sub:
         basis = sub.get("basis") or {}
         sc1, hz1 = (basis.get("scenario") or scenario), (basis.get("horizon") or horizon)
+        from services.supervision.levels import GAP_ENTITY, entity_level
+        level, _ = entity_level(session, org_id, sub)
         try:
-            pl = assess_entity(session, reg_id, org_id, sub["cells"], sc1, hz1)
+            if level is None:
+                raise ValueError(GAP_ENTITY)
+            pl = assess_entity(session, reg_id, org_id, sub["cells"], sc1, hz1, level)
             c["plausibility"] = {"available": True, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
                                  "scenario": sc1, "horizon": hz1, "counts": pl["counts"], "n_cells": pl["n_cells"],
                                  "coverage_value_pct": pl["coverage_value_pct"], "rule": pl["rule"], "exposure_measure": pl["exposure_measure"],
@@ -70,8 +74,12 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
         c["plausibility"] = {"available": False, "reason": "No submitted template on file for this entity under this supervisory body."}
 
     shadow = shadow_status(session, reg_id, org_id)["shadow_book"] if intake else {"n_rows": 0}
-    if sub and shadow.get("n_rows"):
-        L = build_lens(session, reg_id, org_id, sub, scenario, horizon, intake["granular"]["precision_label"])
+    L = build_lens(session, reg_id, org_id, sub, scenario, horizon, intake["granular"]["precision_label"]) \
+        if sub and shadow.get("n_rows") else None
+    if L is not None and not L["available"]:
+        c["lens"] = {"available": False, "reason": L["gap"]}
+        c["projections"] = {"available": False}
+    elif L is not None:
         c["lens"] = {"available": True, "totals": L["totals"], "total_gap": L["total_gap"], "n_flagged": L["n_flagged"], "n_cells": len(L["cells"]),
                      "shadow_book": {"n_rows": shadow.get("n_rows"), "n_located": shadow.get("n_located"), "n_scored": shadow.get("n_scored")},
                      "flagged": [{k: x.get(k) for k in ("geography", "sector", "submitted_gross", "submitted_share_pct", "rebuilt_share_pct", "coverage_pct", "reason")}
@@ -95,7 +103,8 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
     ents = session.execute(text("""SELECT o.org_id::text AS org_id, o.name, o.type, o.country FROM supervision_scope ss JOIN organizations o ON o.org_id = ss.supervised_org_id
                                    WHERE ss.regulator_org_id = CAST(:r AS uuid) AND ss.active"""), {"r": reg_id}).mappings().all()
     try:
-        bench = benchmark(session, cfg, [dict(e) for e in ents], scenario, horizon)
+        from services.supervision.levels import authority_level
+        bench = benchmark(session, cfg, [dict(e) for e in ents], scenario, horizon, authority_level(session, reg_id))
         c["peer_position"] = {"peers_in_sector": bench["sectors"].get(entity["type"], {}).get("n_entities"),
                               "metrics": [{k: m.get(k) for k in ("id", "label", "unit", "value", "flag", "percentile", "distribution")} for m in entity_position(bench, org_id)]}
     except Exception as e:
@@ -111,7 +120,8 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
                                     WHERE a.org_id = CAST(:o AS uuid) AND a.action LIKE 'supervisor.%' AND (a.detail->>'regulator_org_id') = :r
                                     ORDER BY a.created_at DESC LIMIT 100"""), {"o": org_id, "r": reg_id}).mappings().all()
     c["access_trail"] = [{"action": t["action"], "at": t["created_at"].isoformat(), "by": t["full_name"]} for t in trail]
-    c["method"] = {"engine": "Tellumen physical-risk engine — the same engine the entity's own workspace uses; headline hazard = max score across hazards (heat_acute excluded); sensitive = High/Very high.",
+    c["method"] = {"engine": "Tellumen physical-risk engine — the same engine the entity's own workspace uses; headline hazard = max score across hazards (heat_acute excluded); "
+                             "sensitive = headline at or above the stated at-risk level — the entity's for its own template (Tier 1), the authority's for the rebuilt figure and the peer benchmark.",
                    "tier_1": "Plausibility band: each submitted cell's sensitive share against the interquartile spread of that share across the geography's regions, from the platform's standing scores at the same basis. Location-only.",
                    "tier_2": "Independent lens: the submitted template rebuilt from the supervisor's own granular rows; gaps split into scope, coverage, basis, scoring and unmatched. A flag is a question, not a finding.",
                    "data": "Regional units: Eurostat GISCO NUTS-3 (2021) in the EU; land-clipped H3 cells elsewhere (GISCO countries 2020). No figure in this pack is estimated where data is missing — such cells say so."}

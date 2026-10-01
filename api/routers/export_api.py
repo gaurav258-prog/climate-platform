@@ -67,8 +67,9 @@ def book(session: DbSession, ctx: IngestOrg,
                                              f"This tenant is '{sector}'."})
     if scenario not in SCENARIOS:
         raise HTTPException(400, {"error": "bad_scenario", "message": f"scenario must be one of {SCENARIOS}."})
+    from services.money.params import for_org
     from services.portfolio_engine import fetch_entities_with_risk
-    rows = fetch_entities_with_risk(session, ctx["org_id"], vertical, scenario, horizon)
+    rows = fetch_entities_with_risk(session, ctx["org_id"], vertical, scenario, horizon, method=for_org(session, ctx["org_id"]))
     assets = [{
         "asset_id": r.get("entity_id"), "name": r.get("entity_name"), "type": r.get("entity_type"),
         "sector": r.get("sector"), "country": r.get("country"), "region": r.get("region"),
@@ -77,16 +78,19 @@ def book(session: DbSession, ctx: IngestOrg,
         "headline_hazard": r.get("headline_hazard"),
         "hazards": r.get("hazards"),
     } for r in rows]
+    from services.portfolio_engine import value_at_risk
+    method = for_org(session, ctx["org_id"])
     total = sum(a["value_eur"] or 0 for a in assets)
-    at_risk = [a for a in assets if a["headline_bucket"] in ("H", "VH")]
+    var = value_at_risk(assets, "value_eur", method)       # at or above the tenant's stated level; None when not stated
     return {
         "tenant": ctx["org_name"], "sector": sector, "scenario": scenario, "horizon": horizon,
         "generated_at": _now(),
         "rollup": {
             "n_assets": len(assets),
             "total_value_eur": round(total),
-            "value_at_risk_eur": round(sum(a["value_eur"] or 0 for a in at_risk)),
-            "n_at_risk": len(at_risk),
+            "value_at_risk_eur": var["value_at_risk_eur"],
+            "n_at_risk": var["n_at_risk"],
+            **({"gap": method.gap_text()} if method.gap_text() else {}),
         },
         "assets": assets,
     }

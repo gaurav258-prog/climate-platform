@@ -15,6 +15,7 @@ import services.governance.tasks as T
 from core.db.session import get_session
 from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
+from tests.integration.money_method import state_method
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 FUTURE_PERIOD = "2098-12-31"   # distinct from test_filing_lifecycle.py's own throwaway period
@@ -26,6 +27,7 @@ def _actor(s):
 
 def _real_draft_filing(s, u):
     """A genuine, frozen, passing filing — same recipe as test_filing_lifecycle.py."""
+    state_method(s, BANK_ORG, reporting_period_end(s, BANK_ORG))                  # the bank's stated method (E69)
     snap = create_snapshot(s, BANK_ORG, "bank_tcfd", u, period_end=reporting_period_end(s, BANK_ORG))
     fid = s.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)

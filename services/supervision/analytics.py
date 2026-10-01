@@ -1,8 +1,8 @@
 """Population analytics for the horizontal risk analyst — every figure an engine figure, precision labelled.
 
   concentration  — exposure by region (NUTS-3 / hexagon) and by headline hazard; concentration curve + top-10 share
-  scenario_shift — value at high risk per scenario across the horizon anchors (projections carry a CMIP6 band
-                   per hazard; here the band is the share of high-risk value whose headline hazard is banded)
+  scenario_shift — value at risk (the authority's stated level) per scenario across the horizon anchors (projections carry a CMIP6 band
+                   per hazard; here the band is the share of at-risk value whose headline hazard is banded)
   distribution   — the profile's metrics across entities: values, thresholds, population quartiles
 Sector-agnostic: entities of every sector in the profile are pooled by value; the sector is kept on each point
 so the page can split. Nothing is imputed: an entity with no located assets simply contributes nothing.
@@ -13,7 +13,6 @@ from collections import defaultdict
 
 from sqlalchemy import text
 
-from core.types import score_to_bucket
 from services.geo.org_assets import org_asset_points
 from services.geo.regions import aggregate_by_region
 from services.supervision.benchmark import benchmark
@@ -21,14 +20,11 @@ from services.supervision.trend import anchor_coverage
 
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
 HORIZONS = ["current", "2030", "2050", "2100"]
-HIGH = {"H", "VH"}
+def _at_risk(p: dict, level: float | None) -> bool:
+    return level is not None and p.get("score") is not None and float(p["score"]) >= level
 
 
-def _high(p: dict) -> bool:
-    return p.get("score") is not None and score_to_bucket(float(p["score"])).value in HIGH
-
-
-def concentration(points: list[dict]) -> dict:
+def concentration(points: list[dict], level: float | None) -> dict:
     total = sum(p["value_eur"] for p in points) or 0.0
     regions = aggregate_by_region([p for p in points if p.get("lat") is not None])
     by_region = sorted(({"key": r["key"], "name": r["name"], "country": r["country"], "kind": r["kind"], "value_eur": r["value_eur"],
@@ -42,24 +38,24 @@ def concentration(points: list[dict]) -> dict:
     for p in points:
         h = by_hazard[p.get("hazard") or "unscored"]
         h["value_eur"] += p["value_eur"]; h["n"] += 1
-        if _high(p):
+        if _at_risk(p, level):
             h["high_value_eur"] += p["value_eur"]
-    hz = sorted(({"hazard": k, **{kk: (round(vv) if kk != "n" else vv) for kk, vv in v.items()}} for k, v in by_hazard.items()), key=lambda x: -x["value_eur"])
+    hz = sorted(({"hazard": k, **{kk: (None if kk == "high_value_eur" and level is None else round(vv) if kk != "n" else vv)
+                                  for kk, vv in v.items()}} for k, v in by_hazard.items()), key=lambda x: -x["value_eur"])
     unlocated = sum(p["value_eur"] for p in points if p.get("lat") is None)
     return {"total_value_eur": round(total), "unlocated_value_eur": round(unlocated), "n_regions": len(by_region),
             "top10_share_pct": (round(100.0 * sum(r["value_eur"] for r in by_region[:10]) / total, 1) if total else None),
             "by_region": by_region[:40], "curve": curve[:100], "by_hazard": hz}
 
 
-def scenario_shift(session, entities: list[dict]) -> dict:
-    """High-risk value per (scenario, horizon) for the population, plus the share of that value whose headline
+def scenario_shift(session, entities: list[dict], level: float | None) -> dict:
+    """At-risk value per (scenario, horizon) for the population, plus the share of that value whose headline
     hazard is a CMIP6-projected one (flood / storm / wildfire) — the part that moves with the scenario.
     One grouped query over the population's cells: the headline is the worst standing hazard on the asset's cell
     at that anchor (nowcasts and scales that do not apply to the asset class excluded — the same rule the engine applies per asset); value = the asset's own
-    exposure; unscored assets count in the total and never in the high-risk part."""
-    from core.types import _BUCKET_THRESHOLDS, RiskBucket
-    high_from = min(lo for lo, _, b in _BUCKET_THRESHOLDS if b in (RiskBucket.H, RiskBucket.VH))
-    ids = [e["org_id"] for e in entities]
+    exposure; unscored assets count in the total and never in the at-risk part. 'At risk' = the headline score at or
+    above the authority's stated level; without it the at-risk figures are None (a gap)."""
+    ids = [e["org_id"] for e in entities] if level is not None else []
     cells = {}
     if ids:
         rows = session.execute(text("""
@@ -104,25 +100,29 @@ def scenario_shift(session, entities: list[dict]) -> dict:
             LEFT JOIN head h ON h.scenario = a.scenario AND h.time_horizon = a.time_horizon
             LEFT JOIN pop p ON p.h3_cell = h.h3_cell AND p.cls = h.cls
             GROUP BY a.scenario, a.time_horizon
-        """), {"ids": ids, "scs": SCENARIOS, "hzs": HORIZONS, "hi": high_from,
+        """), {"ids": ids, "scs": SCENARIOS, "hzs": HORIZONS, "hi": level,
                "proj": ["flood", "storm", "wildfire"]}).mappings().all()
         cells = {(r["scenario"], r["time_horizon"]): r for r in rows}
     out = []
     for sc in SCENARIOS:
         for hz in HORIZONS:
             r = cells.get((sc, hz))
+            if level is None:
+                out.append({"scenario": sc, "horizon": hz, "value_eur": None, "high_risk_value_eur": None, "high_risk_share_pct": None,
+                            "projected_share_of_high_pct": None, "scored": False})
+                continue
             tot, high, high_proj = (float(r["total"]), float(r["high"]), float(r["high_proj"])) if r else (0.0, 0.0, 0.0)
             out.append({"scenario": sc, "horizon": hz, "value_eur": round(tot), "high_risk_value_eur": round(high),
                         "high_risk_share_pct": (round(100.0 * high / tot, 1) if tot else None),
                         "projected_share_of_high_pct": (round(100.0 * high_proj / high, 1) if high else None),
                         "scored": r is not None})
-    return {"scenarios": SCENARIOS, "horizons": HORIZONS, "cells": out,
+    return {"scenarios": SCENARIOS, "horizons": HORIZONS, "cells": out, "at_risk_level": level,
             "note": "Baseline and today reflect present-day hazard; the three scenario pathways apply local CMIP6 projected change "
                     "for flood, storm and wildfire, and each model's own scenario response for the remaining hazards"}
 
 
-def distribution(session, cfg: dict, entities: list[dict], scenario: str, horizon: str) -> dict:
-    b = benchmark(session, cfg, entities, scenario, horizon)
+def distribution(session, cfg: dict, entities: list[dict], scenario: str, horizon: str, level: float | None) -> dict:
+    b = benchmark(session, cfg, entities, scenario, horizon, level)
     out = {}
     for sec, s in b["sectors"].items():
         out[sec] = {"label": s["label"], "n_entities": s["n_entities"],
@@ -130,7 +130,8 @@ def distribution(session, cfg: dict, entities: list[dict], scenario: str, horizo
     return out
 
 
-def analytics(session, cfg: dict, entities: list[dict], scenario: str, horizon: str) -> dict:
+def analytics(session, cfg: dict, entities: list[dict], scenario: str, horizon: str, level: float | None) -> dict:
+    from services.supervision.levels import GAP_AUTHORITY
     ents = [e for e in entities if e["type"] in cfg["sectors"]]
     points = []
     for e in ents:
@@ -138,6 +139,7 @@ def analytics(session, cfg: dict, entities: list[dict], scenario: str, horizon: 
             p["entity"] = e["name"]; p["sector"] = e["type"]; points.append(p)
     return {"scenario": scenario, "horizon": horizon, "profile_id": cfg["profile_id"], "n_entities": len(ents), "n_assets": len(points),
             "precision": "Point-resolved (entity portfolios)",
-            "concentration": concentration(points), "scenario_shift": scenario_shift(session, ents),
+            "at_risk_level": level, **({"gap": GAP_AUTHORITY} if level is None else {}),
+            "concentration": concentration(points, level), "scenario_shift": scenario_shift(session, ents, level),
             "anchor_coverage": anchor_coverage(session, ents),
-            "distribution": distribution(session, cfg, ents, scenario, horizon)}
+            "distribution": distribution(session, cfg, ents, scenario, horizon, level)}

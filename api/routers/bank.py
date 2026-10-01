@@ -24,7 +24,6 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from ml.scoring.valuation_discount import value_loss_band
-from services.calc_settings import get_calc_settings
 from services.ingest.templates import ASSET_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
@@ -37,7 +36,6 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
-from services.reference.carbon_price import basis as carbon_basis
 from services.scoring.loan_transition import collateral_stranding_overlay, loan_transition_overlay
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -136,41 +134,35 @@ resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for eve
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _assets_with_risk(session, org_id, scenario, horizon, severity_model="universal",
-                      entity_ids=None, value_weights=None, translation=None):
-    """All of an org's assets (metadata) + their per-hazard projected risk.
-    severity_model: org_calc_settings' choice ('universal' default, or
-    'peril_specific' -- see ml/scoring/valuation_discount.py). Thin wrapper
-    over the shared portfolio engine (services/portfolio_engine.py) -- the
-    fetch/join/headline/valuation logic itself lives there, shared with
-    real estate and asset management. entity_ids / value_weights scope +
-    consolidation-weight the book for per-entity / group filings."""
-    rows = fetch_entities_with_risk(session, org_id, "banking", scenario, horizon, severity_model,
+def _assets_with_risk(session, org_id, scenario, horizon, *, method, entity_ids=None, value_weights=None, translation=None):
+    """All of an org's assets (metadata) + their per-hazard projected risk, valued on the bank's stated method for the
+    year (services.money.params.Method). Thin wrapper over the shared portfolio engine (services/portfolio_engine.py).
+    entity_ids / value_weights scope + consolidation-weight the book for per-entity / group filings."""
+    rows = fetch_entities_with_risk(session, org_id, "banking", scenario, horizon, method=method,
                                      ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS,
                                      valuation_kwargs=_ltv_kwargs,
                                      entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     return [_map_asset_list_row(r) for r in rows]
 
 
-def _rollup(assets):
-    total = sum(a["value_eur"] or 0 for a in assets)
-    at_risk = [a for a in assets if a["headline_bucket"] in ("H", "VH")]
-    var = sum(a["value_eur"] or 0 for a in at_risk)
-    total_discounted = sum(a["valuation"]["discounted_value_eur"] for a in assets)
+def _rollup(assets, method):
+    """The book's totals: 'at material physical risk' is the bank's stated level (method.at_risk_level); the
+    climate-adjusted value is that of the scored assets (services.portfolio_engine)."""
+    from services.portfolio_engine import climate_adjusted_total, value_at_risk
     by_bucket = defaultdict(lambda: {"count": 0, "value": 0.0})
     for a in assets:
         b = a["headline_bucket"] or "none"
         by_bucket[b]["count"] += 1
         by_bucket[b]["value"] += a["value_eur"] or 0
+    var = value_at_risk(assets, "value_eur", method)
     return {
         "n_assets": len(assets),
         "n_scored": sum(1 for a in assets if a["headline_bucket"]),
-        "total_value_eur": round(total),
-        "value_at_risk_eur": round(var),
-        "pct_value_at_risk": round(100 * var / total, 1) if total else 0,
-        "n_high": len(at_risk),
-        "total_discounted_value_eur": round(total_discounted),
-        "expected_value_loss_band": value_loss_band(assets),
+        "total_value_eur": round(sum(a["value_eur"] or 0 for a in assets)),
+        **var, "n_high": var["n_at_risk"],
+        **climate_adjusted_total(assets, "value_eur"),
+        "expected_value_loss_band": value_loss_band(method, assets),
+        **({"gap": method.gap_text()} if method.gap_text() else {}),
         "n_overridden": sum(1 for a in assets if a["valuation"]["is_overridden"]),
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value"])} for k, v in by_bucket.items()},
         "top_assets": sorted(
@@ -182,24 +174,27 @@ def _rollup(assets):
 @router.get("/portfolio", summary="Loan book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    assets = _assets_with_risk(session, org_id, scenario, horizon, method=method)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(assets), "assets": assets,
-            "transition": loan_transition_overlay(assets, scenario, horizon, carbon_basis(session, "EUR")),
-            "collateral_stranding": collateral_stranding_overlay(assets)}
+            "rollup": _rollup(assets, method), "assets": assets,
+            "transition": loan_transition_overlay(method, assets, scenario, horizon),
+            "collateral_stranding": collateral_stranding_overlay(method, assets)}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
 def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.forward_risk import forward_risk
-    return forward_risk(session, org_id, "banking", scenario)
+    from services.money.params import for_org
+    return forward_risk(session, org_id, "banking", scenario, for_org(session, org_id))
 
 
 @router.get("/expected-loss", summary="Climate expected loss (€) — annual + lifetime, maturity-matched")
 def expected_loss_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.expected_loss import bank_expected_loss
-    return bank_expected_loss(session, org_id, scenario)
+    from services.money.params import for_org
+    return bank_expected_loss(session, org_id, scenario, method=for_org(session, org_id))
 
 
 @router.get("/summary", summary="Command-center rollup")
@@ -208,28 +203,17 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(assets)}
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    assets = _assets_with_risk(session, org_id, scenario, horizon, method=method)
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(assets, method)}
 
 
-def _hazard_rollup(assets):
+def _hazard_rollup(assets, method):
     """Physical risk by hazard, EU-Taxonomy alignment and financed emissions —
     the three blocks the TCFD/EU-Taxonomy disclosure pack adds on top of _rollup()."""
-    # physical risk by hazard — value of the book exposed at High+ per hazard
-    hazards: dict = {}
-    for a in assets:
-        for hz in a["hazards"]:
-            h = hazards.setdefault(hz["hazard"], {
-                "exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
-                "model_version": hz["model_version"], "scored_at": hz["scored_at"]})
-            if hz["bucket"] in ("H", "VH"):
-                h["exposed_value_eur"] += a["value_eur"] or 0
-                h["n_exposed"] += 1
-            h["max_score"] = max(h["max_score"], hz["score"])
-    for h in hazards.values():
-        h["exposed_value_eur"] = round(h["exposed_value_eur"])
-        h["max_score"] = round(h["max_score"], 1)
+    from services.portfolio_engine import exposure_by_hazard
+    hazards = exposure_by_hazard(assets, "value_eur", method)
     # EU-Taxonomy alignment, value-weighted
     tax = defaultdict(lambda: {"count": 0, "value_eur": 0.0})
     for a in assets:
@@ -251,14 +235,17 @@ def _hazard_rollup(assets):
     }
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
+                              period_end=None):
     """The single source of truth for a TCFD/EU-Taxonomy disclosure: live callers
     (GET /disclosure) and frozen callers (submission snapshots) both go through
     this, so a submission's numbers can never drift from what the live view shows
     at the moment it's taken. entity_ids / value_weights scope + consolidation-weight
-    the book for a per-entity or consolidated-group filing (None = whole org)."""
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model,
+    the book for a per-entity or consolidated-group filing (None = whole org). period_end: the financial year the
+    figures are for — its stated method is used (None = the organisation's reporting period, the live views)."""
+    from services.money.params import for_org
+    method = for_org(session, org_id, period_end)
+    assets = _assets_with_risk(session, org_id, scenario, horizon, method=method,
                                entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     # Climate expected loss (€ annual + lifetime, maturity-matched) — the IFRS-9/ECL-relevant number. Physical
     # EL is scenario-driven; under 'baseline' it uses the warming pathway the calc-settings default, so freeze it
@@ -274,15 +261,15 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     if entity_ids is None and (translation is None or (translation.identity() and not translation.eliminations)):
         from services.intelligence.expected_loss import bank_expected_loss
         el_scenario = scenario if scenario and scenario != "baseline" else "disorderly_2c"
-        el = bank_expected_loss(session, org_id, el_scenario)
+        el = bank_expected_loss(session, org_id, el_scenario, method=method)
     return {
-        "rollup": _rollup(assets),
+        "rollup": _rollup(assets, method),
         "assets": assets,
-        "transition": loan_transition_overlay(assets, scenario, horizon, carbon_basis(session, ccy),
-                                              eur_per_unit=1.0 / units_per_eur),
-        "collateral_stranding": collateral_stranding_overlay(assets),
+        "transition": loan_transition_overlay(method, assets, scenario, horizon, eur_per_unit=1.0 / units_per_eur),
+        "collateral_stranding": collateral_stranding_overlay(method, assets),
         "expected_loss": el,
-        **_hazard_rollup(assets),
+        **_hazard_rollup(assets, method),
+        "method": method.record(),
     }
 
 
@@ -301,12 +288,12 @@ def disclosure(session: DbSession, org_id: OrgId,
 def asset_detail(asset_id: str, session: DbSession, caller_org: OrgId):
     own_or_404(session, "portfolio_entities", "entity_id", asset_id, caller_org, "Asset")   # only your own org's record
     org_id = get_entity_org(session, asset_id)
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    from services.money.params import for_org
     # Pre-existing quirk, preserved exactly: this endpoint has no scenario/horizon
     # params, so its headline is picked across EVERY scenario/horizon this asset
     # has ever been scored under (scope_headline_to_query=False) -- can disagree
     # with the portfolio list's scenario-scoped headline for the same asset.
-    row = get_entity_with_risk(session, asset_id, "baseline", "current", severity_model,
+    row = get_entity_with_risk(session, asset_id, "baseline", "current", method=for_org(session, org_id),
                                 ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS,
                                 valuation_kwargs=_ltv_kwargs, scope_headline_to_query=False)
     asset = {
@@ -622,8 +609,8 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")
 def disclosure_xlsx(session: DbSession, org_id: OrgId,
                      scenario: str = Query("baseline"), horizon: str = Query("current")):
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
+    from services.money.params import for_org
+    assets = _assets_with_risk(session, org_id, scenario, horizon, method=for_org(session, org_id))
     headers = ["asset_name", "sector", "country", "value_eur", "headline_score", "risk_bucket",
                "taxonomy_status", "h3_cell", "recommended_discount_pct", "effective_discount_pct",
                "discounted_value_eur", "overridden", "outstanding_loan_balance_eur",

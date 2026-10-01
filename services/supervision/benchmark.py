@@ -3,7 +3,7 @@
 For each sector in the regulator's profile: compute every configured metric for every supervised entity of that
 type (from the cross-sector asset reader), then the population distribution (min / p25 / median / p75 / max) and
 each entity's percentile rank and supervisory flag. Thresholds come from the profile (overridable per regulator);
-the metric definitions are shared with the entity's own pages, so supervisor and entity see the same number.
+'at risk' is read at the authority's own stated level (services.supervision.levels) — one yardstick for the population.
 """
 from __future__ import annotations
 
@@ -29,16 +29,19 @@ def _quartiles(vals: list[float]) -> dict:
     return {"n": len(s), "min": s[0], "p25": q(0.25), "median": median(s), "p75": q(0.75), "max": s[-1]}
 
 
-def benchmark(session, cfg: dict, entities: list[dict], scenario: str, horizon: str) -> dict:
-    """cfg = resolved profile; entities = supervised orgs [{org_id, name, type}] → per-sector benchmark tables."""
-    out: dict = {"scenario": scenario, "horizon": horizon, "profile_id": cfg["profile_id"], "sectors": {}}
+def benchmark(session, cfg: dict, entities: list[dict], scenario: str, horizon: str, level: float | None) -> dict:
+    """cfg = resolved profile; entities = supervised orgs [{org_id, name, type}]; level = the authority's stated at-risk
+    level → per-sector benchmark tables."""
+    from services.supervision.levels import GAP_AUTHORITY
+    out: dict = {"scenario": scenario, "horizon": horizon, "profile_id": cfg["profile_id"], "at_risk_level": level,
+                 **({"gap": GAP_AUTHORITY} if level is None else {}), "sectors": {}}
     for sec, scfg in cfg["sectors"].items():
         ents = [e for e in entities if e["type"] == sec]
         rows = []
         for e in ents:
             pts = org_asset_points(session, e["org_id"], scenario, horizon)
             rows.append({"org_id": e["org_id"], "name": e["name"], "n_assets": len(pts),
-                         "values": M.compute(scfg["metrics"], pts)})
+                         "values": M.compute(scfg["metrics"], pts, level)})
         metrics_out = []
         for m in scfg["metrics"]:
             vals = [r["values"][m["id"]] for r in rows if r["values"][m["id"]] is not None]

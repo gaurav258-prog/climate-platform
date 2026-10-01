@@ -2,8 +2,7 @@
 
 Two kinds of setting live here, resolved into one flat dict by `get_calc_settings`:
 
-  * three legacy typed columns on `org_calc_settings` (severity_model / assetmgmt_var_method /
-    insurance_return_period_model), unchanged; and
+  * the typed column assetmgmt_var_method on `org_calc_settings` (the asset manager's VaR method); and
   * an open-ended `interpretation` JSONB whose keys are defined by INTERPRETATION_SCHEMA below — the places a
     regulation genuinely leaves to the institution's business model (e.g. the catastrophe PML return period,
     where Solvency II uses 1-in-200 but a rating agency uses 1-in-250). A new switch is added by extending the
@@ -23,10 +22,11 @@ from sqlalchemy import text
 
 # Legacy typed columns (kept as columns for backward compatibility).
 _TYPED_DEFAULTS = {
-    "severity_model": "universal",
     "assetmgmt_var_method": "haircut",
-    "insurance_return_period_model": "fixed",
 }
+# the damage schedule's 'universal / peril-specific' model, the return-period model and the insurer's loadings and
+# adaptation scenario are gone (E69): the institution states its own damage ratios, event probabilities, loadings and
+# adaptation effectiveness as method parameters (services.money.params) — no platform default remains to choose between
 
 def _orsa_qualifying(which: str) -> list[str]:
     """The platform scenarios that qualify for an Art. 45a(2) scenario — read from data/reference/orsa_climate_scenarios.json."""
@@ -43,24 +43,10 @@ def _orsa_qualifying(which: str) -> list[str]:
 INTERPRETATION_SCHEMA: dict = {
     "pml_return_period": {
         "frameworks": ["insurer_climate", "insurer_solvency"],
-        "default": 250, "kind": "int", "allowed": [100, 200, 250, 500],
+        "default": None, "kind": "int", "allowed": [100, 200, 250, 500],
         "label": "Catastrophe PML return period (years)",
         "description": "Return period for the probable maximum loss. Solvency II SCR is 1-in-200 (99.5% VaR); "
-                       "rating agencies commonly use 1-in-250.",
-        "sectors": ["insurer"],
-    },
-    "insurance_expense_ratio": {
-        "frameworks": ["insurer_solvency"],
-        "default": 0.25, "kind": "float", "min": 0.0, "max": 0.6,
-        "label": "Insurance expense ratio",
-        "description": "Share of gross premium absorbed by expenses; loads the technical premium. Insurer-specific.",
-        "sectors": ["insurer"],
-    },
-    "insurance_profit_margin": {
-        "frameworks": ["insurer_solvency"],
-        "default": 0.05, "kind": "float", "min": 0.0, "max": 0.4,
-        "label": "Insurance profit margin",
-        "description": "Target underwriting profit margin loaded onto the premium. Insurer-specific.",
+                       "rating agencies commonly use 1-in-250. Your choice — not set, the PML is a named gap (E69).",
         "sectors": ["insurer"],
     },
     # Directive 2009/138/EC Art. 45a(2): the undertaking's two long-term climate scenarios (data/reference/orsa_climate_scenarios.json)
@@ -134,27 +120,12 @@ INTERPRETATION_SCHEMA: dict = {
     },
     "climate_var_dependence": {
         "frameworks": ["assetmgmt_tcfd", "sfdr_pai"],
-        "default": "independent", "kind": "enum", "allowed": ["independent", "additive", "max"],
+        "default": None, "kind": "enum", "allowed": ["independent", "additive", "max"],
         "label": "Physical × transition loss dependence (combined VaR)",
         "description": "How physical and transition losses combine on a holding: 'independent' = "
                        "1−(1−physical)(1−transition); 'additive' = min(1, physical+transition), a conservative "
-                       "stack; 'max' = the larger driver only.",
+                       "stack; 'max' = the larger driver only. Your choice — not set, the combined VaR is a named gap (E69).",
         "sectors": ["asset_manager"],
-    },
-    "resourcing_reallocation_cap_pct": {
-        "frameworks": ["esrs_pack", "csrd_e1"],
-        "default": 30, "kind": "int", "min": 5, "max": 100,
-        "label": "Re-sourcing reallocation cap (%)",
-        "description": "Maximum share of a commodity's spend assumed shiftable to a lower-risk origin near-term.",
-        "sectors": ["manufacturer"],
-    },
-    "adaptation_scenario": {
-        "frameworks": ["reit_tcfd", "reit_taxonomy"],
-        "default": "reference", "kind": "enum", "allowed": ["conservative", "reference", "optimistic"],
-        "label": "Adaptation effectiveness scenario",
-        "description": "How much of the physical loss a resilience retrofit is assumed to avoid: conservative / "
-                       "reference (EU Climate-ADAPT / IPCC AR6 WGII central) / optimistic.",
-        "sectors": ["reit"],
     },
     # FX rate policy (multi-currency phase 2). BALANCES always convert at the closing rate of the book date (IAS 21
     # — not a switch); how yearly FLOWS convert is the institution's choice, stamped on every filing.
@@ -215,6 +186,8 @@ def validate_interpretation(key: str, value):
     spec = INTERPRETATION_SCHEMA.get(key)
     if spec is None:
         raise ValueError(f"unknown interpretation setting '{key}'")
+    if value is None:
+        raise ValueError(f"{key} needs a value — choose one of the allowed settings")
     kind = spec["kind"]
     if kind == "enum":
         if value not in spec["allowed"]:
@@ -239,16 +212,14 @@ def get_calc_settings(session, org_id: str) -> dict:
     """One flat dict: the three typed methods + every interpretation switch resolved (stored value over
     default). An org that never configured anything gets exactly today's behaviour."""
     row = session.execute(text("""
-        SELECT severity_model, assetmgmt_var_method, insurance_return_period_model,
-               COALESCE(interpretation, '{}'::jsonb) AS interpretation
+        SELECT assetmgmt_var_method, COALESCE(interpretation, '{}'::jsonb) AS interpretation
         FROM org_calc_settings WHERE org_id = :o
     """), {"o": org_id}).mappings().first()
     if not row:
         return dict(DEFAULTS)
     stored = row["interpretation"] or {}
     resolved = {**_interpretation_defaults(), **{k: stored[k] for k in INTERPRETATION_SCHEMA if k in stored}}
-    return {"severity_model": row["severity_model"], "assetmgmt_var_method": row["assetmgmt_var_method"],
-            "insurance_return_period_model": row["insurance_return_period_model"], **resolved}
+    return {"assetmgmt_var_method": row["assetmgmt_var_method"], **resolved}
 
 
 def upsert_calc_settings(session, org_id: str, updates: dict, updated_by: str) -> dict:
@@ -268,18 +239,14 @@ def upsert_calc_settings(session, org_id: str, updates: dict, updated_by: str) -
 
     import json
     session.execute(text("""
-        INSERT INTO org_calc_settings
-            (org_id, severity_model, assetmgmt_var_method, insurance_return_period_model, interpretation, updated_by, updated_at)
-        VALUES (:o, :sm, :vm, :rp, CAST(:it AS jsonb), :u, now())
+        INSERT INTO org_calc_settings (org_id, assetmgmt_var_method, interpretation, updated_by, updated_at)
+        VALUES (:o, :vm, CAST(:it AS jsonb), :u, now())
         ON CONFLICT (org_id) DO UPDATE SET
-            severity_model = EXCLUDED.severity_model,
             assetmgmt_var_method = EXCLUDED.assetmgmt_var_method,
-            insurance_return_period_model = EXCLUDED.insurance_return_period_model,
             interpretation = EXCLUDED.interpretation,
             updated_by = EXCLUDED.updated_by,
             updated_at = now()
-    """), {"o": org_id, "sm": typed["severity_model"], "vm": typed["assetmgmt_var_method"],
-           "rp": typed["insurance_return_period_model"], "it": json.dumps(interp), "u": updated_by})
+    """), {"o": org_id, "vm": typed["assetmgmt_var_method"], "it": json.dumps(interp), "u": updated_by})
     return get_calc_settings(session, org_id)
 
 

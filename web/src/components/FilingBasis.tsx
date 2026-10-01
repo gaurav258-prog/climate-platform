@@ -13,7 +13,7 @@ import { Card, Button, SectionHead } from './ui'
 // on the current book; scenario/horizon projections live in Analytics. The stored scenario/horizon are kept
 // as-is on save so the disclosure builder still resolves the current-basis figures.
 
-interface Basis { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string; is_override: boolean }
+interface Basis { scenario: string; horizon: string; reporting_period_end: string; is_override: boolean }
 
 export default function FilingBasis() {
   const { profile } = useAuth()
@@ -35,7 +35,7 @@ export default function FilingBasis() {
       const r = await api.patch<{ status: string; message?: string }>('/v1/filings/reporting-basis', {
         // scenario/horizon are carried through unchanged — they're the analysis basis, not a filing control
         scenario: b.scenario, horizon: b.horizon,
-        materiality_threshold: cur.materiality_threshold, reporting_period_end: cur.reporting_period_end,
+        reporting_period_end: cur.reporting_period_end,
       })
       qc.invalidateQueries({ queryKey: ['reporting-basis'] })
       setMsg(r.status === 'pending_approval' ? (r.message ?? 'Sent for approval (4-eyes).') : 'Basis updated. New filings will use it.')
@@ -59,7 +59,7 @@ export default function FilingBasis() {
       {!edit ? (
         <div className="px-5 py-3 flex flex-wrap gap-x-8 gap-y-2 text-[13px]">
           <Fact k="Reporting period end" v={b.reporting_period_end} />
-          <Fact k="Materiality" v={`${b.materiality_threshold}/100`} />
+          <Fact k="Material physical risk" v="your stated at-risk level (Methodology)" />
           {!canEdit && <span className="text-[11px] text-[var(--color-faint)] self-center">set by a reporting admin</span>}
         </div>
       ) : (
@@ -68,11 +68,6 @@ export default function FilingBasis() {
             <span className="w-32 text-[12px] text-[var(--color-mute)]">Reporting period end</span>
             <input type="date" value={cur.reporting_period_end} onChange={e => setForm(f => ({ ...f, reporting_period_end: e.target.value }))}
               className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[13px] outline-none focus:border-[var(--color-sky)]" />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="w-32 text-[12px] text-[var(--color-mute)]">Materiality</span>
-            <input type="range" min={0} max={100} value={cur.materiality_threshold} onChange={e => setForm(f => ({ ...f, materiality_threshold: Number(e.target.value) }))} className="flex-1 accent-[var(--color-sky)]" />
-            <span className="w-12 text-right mono text-[13px]">{cur.materiality_threshold}/100</span>
           </div>
           <div className="flex items-center gap-3 pt-1">
             <Button variant="primary" onClick={save} disabled={busy}><Check size={14} /> Save basis</Button>

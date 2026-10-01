@@ -15,6 +15,7 @@ import ClientRates from '../components/ClientRates'
 import { useCurrencies } from '../components/MoneyDeclaration'
 import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 import { actionLabel } from '../lib/actionLabels'
+import MethodParameters from '../components/MethodParameters'
 import { balance, money } from '../lib/money'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
@@ -80,7 +81,7 @@ export default function Admin() {
       {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SharedOnward /><RegulatoryAttributes /><WhatApplies /><TemplateSubmission /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
-      {tab === 'Methodology' && <Methodology />}
+      {tab === 'Methodology' && <div className="space-y-5"><MethodParameters /><Methodology /></div>}
       {tab === 'Integrations' && <Integrations />}
     </div>
   )
@@ -88,7 +89,7 @@ export default function Admin() {
 
 interface Token { token_id: string; name: string; token_prefix: string; is_active: boolean; created_by_email: string | null; created_at: string | null; last_used_at: string | null }
 
-interface SwitchSpec { key: string; label: string; description: string; default: string | number; kind: string; allowed?: (string | number)[] | null; min?: number | null; max?: number | null }
+interface SwitchSpec { key: string; label: string; description: string; default: string | number | null; kind: string; allowed?: (string | number)[] | null; min?: number | null; max?: number | null }
 
 function Methodology() {
   const cat = useQuery({ queryKey: ['calc-catalog'], queryFn: () => api.get<{ interpretation: SwitchSpec[] }>('/v1/calc-settings/catalog') })
@@ -110,14 +111,14 @@ function Methodology() {
       <div className="flex items-center gap-2 mb-1"><Gauge size={16} className="text-[var(--color-sky)]" />
         <h2 className="display text-xl font-semibold">Methodology &amp; interpretation</h2></div>
       <p className="text-[12.5px] text-[var(--color-mute)] max-w-2xl mb-4">
-        Where a regulation leaves a choice to your institution (e.g. the catastrophe PML return period — Solvency II 1-in-200 vs a rating-agency 1-in-250), set it here. Every default reproduces the standard figure; changes are audited (4-eyes if your approval matrix requires it) and stamped onto every frozen filing so a regulator sees which interpretation produced each number.
+        Where a regulation leaves a choice to your institution (e.g. the catastrophe PML return period — Solvency II 1-in-200 vs a rating-agency 1-in-250), set it here. A choice that drives a money figure has no default — not set, that figure is a named gap; changes are audited (4-eyes if your approval matrix requires it) and stamped onto every frozen filing so a regulator sees which interpretation produced each number.
       </p>
       {specs.length === 0 ? (
         <div className="text-[12.5px] text-[var(--color-faint)]">No interpretation switches apply to this sector.</div>
       ) : (
         <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
           {specs.map(s => {
-            const value = (cur.data?.[s.key] ?? s.default) as string | number
+            const value = (cur.data?.[s.key] ?? s.default ?? null) as string | number | null      // null: not set — a named gap
             const isEnum = s.kind === 'enum' || (Array.isArray(s.allowed) && s.allowed.length > 0)
             return (
               <div key={s.key} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3">
@@ -126,13 +127,14 @@ function Methodology() {
                   <div className="text-[11.5px] text-[var(--color-mute)]">{s.description}</div>
                 </div>
                 {isEnum ? (
-                  <select value={String(value)} disabled={busy === s.key}
+                  <select value={value == null ? '' : String(value)} disabled={busy === s.key}
                     onChange={e => save(s.key, s.kind === 'int' ? Number(e.target.value) : e.target.value)}
                     className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">
+                    {value == null && <option value="" disabled>— not set (the figures that need it are a gap) —</option>}
                     {(s.allowed ?? []).map(a => <option key={String(a)} value={String(a)}>{String(a)}{a === s.default ? ' (default)' : ''}</option>)}
                   </select>
                 ) : (
-                  <input type="number" defaultValue={Number(value)} min={s.min ?? undefined} max={s.max ?? undefined}
+                  <input type="number" defaultValue={value == null ? undefined : Number(value)} placeholder={value == null ? 'not set' : undefined} min={s.min ?? undefined} max={s.max ?? undefined}
                     step={s.kind === 'float' ? 0.01 : 1} disabled={busy === s.key}
                     onBlur={e => { const v = Number(e.target.value); if (v !== Number(value)) save(s.key, v) }}
                     className="w-28 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] tabular-nums" />
@@ -564,7 +566,7 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
   )
 }
 
-interface RSettings { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string; presentation_currency: string; is_override: boolean }
+interface RSettings { scenario: string; horizon: string; reporting_period_end: string; presentation_currency: string; is_override: boolean }
 const SCENARIOS = [['baseline', 'Baseline (today)'], ['rcp45', 'RCP 4.5 — moderate'], ['rcp85', 'RCP 8.5 — high']]
 const HORIZONS = [['current', 'Current'], ['2030', '2030'], ['2040', '2040'], ['2050', '2050']]
 
@@ -576,7 +578,7 @@ function ReportingBasis() {
   const [msg, setMsg] = useState<string | null>(null)
   const d = q.data
   const currencies = useCurrencies()
-  const start = () => { if (d) setF({ scenario: d.scenario, horizon: d.horizon, materiality_threshold: d.materiality_threshold, reporting_period_end: d.reporting_period_end, presentation_currency: d.presentation_currency }); setEdit(true); setMsg(null) }
+  const start = () => { if (d) setF({ scenario: d.scenario, horizon: d.horizon, reporting_period_end: d.reporting_period_end, presentation_currency: d.presentation_currency }); setEdit(true); setMsg(null) }
   const save = async () => {
     setBusy(true); setMsg(null)
     try {
@@ -600,18 +602,16 @@ function ReportingBasis() {
       <p className="text-[11.5px] text-[var(--color-faint)] mb-3">The as-of assumptions every CSRD/ESRS filing is computed on. The r²≥0.40 publish gate is a fixed honesty constant — not settable here.</p>
       {q.isLoading || !d ? <div className="text-[13px] text-[var(--color-faint)] py-2">loading…</div> : !edit ? (
         <div className="grid sm:grid-cols-4 gap-x-8 gap-y-2 text-[13px]">
-          {[['Reporting period', d.reporting_period_end], ['Scenario', label(SCENARIOS, d.scenario)], ['Horizon', label(HORIZONS, d.horizon)], ['Materiality threshold', `score ≥ ${d.materiality_threshold}`], ['Presentation currency', d.presentation_currency]].map(([k, v]) => (
+          {[['Reporting period', d.reporting_period_end], ['Scenario', label(SCENARIOS, d.scenario)], ['Horizon', label(HORIZONS, d.horizon)], ['Presentation currency', d.presentation_currency]].map(([k, v]) => (
             <div key={k}><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5 mono">{k}</div><div className="text-[var(--color-ink)]">{v}</div></div>
           ))}
-          <div className="sm:col-span-4 text-[11px] text-[var(--color-faint)]">{d.is_override ? 'Custom basis set for this organization.' : 'Using platform defaults.'}</div>
+          <div className="sm:col-span-4 text-[11px] text-[var(--color-faint)]">{d.is_override ? 'Custom basis set for this organization.' : 'Using platform defaults.'} What counts as material physical risk is your stated at-risk level for the year — set under Methodology, attested by a second person.</div>
         </div>
       ) : (
         <div className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Reporting period end</div>
               <input type="date" className={inp} value={f.reporting_period_end ?? ''} onChange={e => setF({ ...f, reporting_period_end: e.target.value })} /></label>
-            <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Materiality threshold (0–100)</div>
-              <input type="number" min={0} max={100} className={inp} value={f.materiality_threshold ?? 40} onChange={e => setF({ ...f, materiality_threshold: Number(e.target.value) })} /></label>
             <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Scenario</div>
               <select className={sel + ' w-full'} value={f.scenario} onChange={e => setF({ ...f, scenario: e.target.value })}>{SCENARIOS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
             <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Time horizon</div>
@@ -1441,7 +1441,7 @@ export function RegulatoryAttributes() {
 }
 
 // ── Submit the required template to a supervisor — the same intake the supervisor keys in, from our side ────────
-interface SpecResp { regulator: string; regulator_org_id: string; available: boolean; reason?: string; framework?: string; template?: string; label?: string
+interface SpecResp { regulator: string; regulator_org_id: string; available: boolean; reason?: string; framework?: string; template?: string; label?: string; at_risk_level?: number | null
   fields?: { id: string; label: string; required?: boolean; type?: string }[]; on_file: { period_label: string; created_at: string; n_cells: number; source_file: string | null; basis: Record<string, string> | null }[] }
 interface ValResp { fields: { id: string; label: string; required?: boolean }[]; mapping: Record<string, string | null>; columns: string[]; n_total: number; n_valid: number; n_error: number; missing_required: string[]; errors: { row: number; problems: string[] }[] }
 export function TemplateSubmission() {
@@ -1493,6 +1493,9 @@ export function TemplateSubmission() {
                 <select value={horizon} onChange={e => setHorizon(e.target.value)} className="ml-1 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px]"><option value="">—</option>{['current', '2030', '2050', '2100'].map(x => <option key={x} value={x}>{x}</option>)}</select></label>
               <Button variant="ghost" onClick={validate} disabled={!file || busy}>Check the file</Button>
             </div>
+            <div className="mono text-[10.5px] text-[var(--color-faint)]">{spec.data?.at_risk_level != null
+              ? <>Sent with the template: your stated at-risk level <b className="text-[var(--color-mute)]">{spec.data.at_risk_level}</b> — the supervisor reads your sensitive share at it.</>
+              : <>Your at-risk level is not stated (Methodology) — the supervisor will not be able to read your sensitive share on your definition.</>}</div>
             {val && (
               <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
                 <div className="text-[var(--color-ink)]">{val.n_valid} of {val.n_total} rows valid{val.missing_required.length ? ` · missing required: ${val.missing_required.join(', ')}` : ''}{val.n_error ? ` · ${val.n_error} rows with problems` : ''}</div>

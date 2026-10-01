@@ -12,7 +12,7 @@ import { Dialog } from './Dialog'
 
 interface Preflight {
   framework: string; label: string; period_label: string
-  basis: { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string }
+  basis: { scenario: string; horizon: string; reporting_period_end: string }
   can_generate: boolean; existing_status: string | null; entity_scoped: boolean
   coverage: { label: string; done: number; total: number; pct: number } | null
   total_value_eur: number | null; value_at_risk_eur?: number | null; noun: string; positions?: number; gaps: string[]
@@ -81,7 +81,7 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
           {!d ? <div className="text-[13px] text-[var(--color-faint)]">checking the book…</div> : (<>
             <div>
               <h3 className="display text-lg font-semibold">{d.label}</h3>
-              <div className="mono text-[11px] text-[var(--color-faint)]">{d.period_label} · basis {d.basis.scenario}/{d.basis.horizon} · materiality {d.basis.materiality_threshold}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)]">{d.period_label} · basis {d.basis.scenario}/{d.basis.horizon}</div>
             </div>
 
             {obligation && (

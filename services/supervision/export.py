@@ -30,7 +30,7 @@ def population_workbook(*, regulator: str, profile: str, scenario: str, horizon:
                 ["Note", "Every figure comes from the same engine and services the supervisory workspace shows. Cells without data are blank, never estimated."]]:
         ws.append(row)
     ws.column_dimensions["A"].width = 22; ws.column_dimensions["B"].width = 90
-    _sheet(wb, "Population", ["Entity", "Sector", "Country", "Jurisdiction", "In profile", "Stage", "Filed", "Expected", "Book at high risk %", "High-risk flag",
+    _sheet(wb, "Population", ["Entity", "Sector", "Country", "Jurisdiction", "In profile", "Stage", "Filed", "Expected", "Book at risk % (stated level)", "At-risk flag",
                               "Lens gap %", "Open questions", "Site access", "Requests open", "Next action"],
            [[e["name"], e.get("sector_label"), e.get("country"), e.get("jurisdiction"), e.get("in_profile"), e.get("stage"), e.get("filed"), e.get("expected"),
              e.get("high_risk_share_pct"), e.get("high_risk_flag"), e.get("lens_gap_pct"), e.get("n_questions"), e.get("site_access"),
@@ -49,10 +49,10 @@ def population_workbook(*, regulator: str, profile: str, scenario: str, horizon:
            [[r.get("name"), r.get("country"), r.get("kind"), r.get("n_sites"), r.get("value_eur"),
              round(100.0 * float(r.get("value_eur") or 0) / total, 2) if total else None, r.get("max_score"), r.get("worst_hazard"), ", ".join(r.get("entities") or [])]
             for r in conc.get("by_region", [])])
-    _sheet(wb, "Exposure by hazard", ["Headline hazard", "Assets", "Value €", "Of which High/Very high €"],
+    _sheet(wb, "Exposure by hazard", ["Headline hazard", "Assets", "Value €", "Of which at or above the stated level €"],
            [[h.get("hazard"), h.get("n"), h.get("value_eur"), h.get("high_value_eur")] for h in conc.get("by_hazard", [])])
     shift = analytics.get("scenario_shift") or {}
-    _sheet(wb, "Scenario shift", ["Scenario", "Horizon", "Value €", "High-risk value €", "High-risk share %", "Projected share of high %"],
+    _sheet(wb, "Scenario shift", ["Scenario", "Horizon", "Value €", "At-risk value € (stated level)", "At-risk share %", "Projected share of at-risk %"],
            [[c.get("scenario"), c.get("horizon"), c.get("value_eur"), c.get("high_risk_value_eur"), c.get("high_risk_share_pct"), c.get("projected_share_of_high_pct")] for c in shift.get("cells", [])])
     _sheet(wb, "Requests & findings", ["Entity", "Kind", "Title", "Status", "Severity", "Due", "Overdue", "Raised", "Closed"],
            [[r.get("entity"), r.get("kind_label"), r.get("title"), r.get("status_label"), r.get("severity"), r.get("due_date"), r.get("overdue"), (r.get("raised_at") or "")[:10], (r.get("closed_at") or "")[:10]] for r in requests])

@@ -6,17 +6,20 @@ the Taxonomy report never lists a non-climate hazard as materially exposed. Requ
 """
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.intelligence import csrd_e1, taxonomy_adaptation
+from services.intelligence import taxonomy_adaptation
 from services.intelligence.hazard_scope import CLIMATE
+from services.money.params import Method
 
 
 def test_reports_share_one_climate_scope():
-    # the two modules must reference the exact same object — not two copies that can drift
-    assert csrd_e1.CLIMATE is CLIMATE
+    # the Taxonomy report must reference the one climate scope — not a copy that can drift
+    assert taxonomy_adaptation.CLIMATE is CLIMATE
 
 
 @pytest.mark.integration
@@ -27,7 +30,7 @@ def test_taxonomy_lists_no_non_climate_hazard_as_exposed():
         )).scalars().all()
         assert orgs, "no org to test against"
         for org in orgs:
-            kpi = taxonomy_adaptation.adaptation_kpi(s, str(org))
+            kpi = taxonomy_adaptation.adaptation_kpi(s, str(org), Method.of({("method.at_risk_level", None): 40.0}, date(2025, 12, 31)))
             hazards = kpi["physical_risk"]["hazards"]
             non_climate = [h for h in hazards if h not in CLIMATE]
             assert not non_climate, (

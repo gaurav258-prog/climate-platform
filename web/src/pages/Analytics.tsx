@@ -16,15 +16,17 @@ import { hazardLabel } from '../lib/hazards'
 import { balance } from '../lib/money'
 import { CloseButton } from '../components/Dialog'
 import { Drawer } from '../components/Drawer'
+import MethodGap from '../components/MethodGap'
 
 // Analytics — the forward-looking read: how the book's climate exposure moves across the two parameters
 // (scenario × horizon). The centrepiece is the scenario TRAJECTORY (value-at-risk over Now→2100, one line
 // per warming pathway); below it, per-hazard small-multiples show what drives the change. Every figure is the
 // projected book from the golden source — nothing invented; a table view carries the exact numbers.
 
-interface HazardBlock { exposed_value_eur: number }
+interface HazardBlock { exposed_value_eur: number | null; peril_class?: 'acute' | 'chronic' | null }
 interface TaxBlock { value_eur: number }
-interface Disc { by_hazard: Record<string, HazardBlock>; taxonomy: Record<string, TaxBlock>; financed_emissions_tco2e?: { scope1: number; scope2: number; scope3: number } }
+interface Rollup { value_at_risk_eur?: number | null; at_risk_level?: number | null; at_risk_by_peril_class?: { acute_eur: number; chronic_eur: number } | null; gap?: string }
+interface Disc { by_hazard: Record<string, HazardBlock>; taxonomy: Record<string, TaxBlock>; rollup?: Rollup; financed_emissions_tco2e?: { scope1: number; scope2: number; scope3: number } }
 
 const PREFIX: Record<string, string> = { bank: 'bank', asset_manager: 'assetmgmt', reit: 'realestate' }
 // each sector's /disclosure returns its book under a different key, with a different id/name/value field —
@@ -44,10 +46,9 @@ const SCEN = [
 const HZ: [string, string][] = [['current', 'Now'], ['2030', '2030'], ['2050', '2050'], ['2100', '2100']]
 
 const tco2e = (n?: number | null) => n == null ? '—' : Math.round(n).toLocaleString('en-GB')
-const totExposed = (d?: Disc) => d ? Object.values(d.by_hazard).reduce((s, v) => s + (v.exposed_value_eur || 0), 0) : null
-// acute (event-driven) vs chronic (gradual) peril keys — mirror services/governance/pillar3_templates.py
-const ACUTE_PERILS = new Set(['flood', 'storm', 'wildfire', 'heat_acute', 'frost'])
-const CHRONIC_PERILS = new Set(['drought', 'heat_chronic', 'soil_water', 'coastal_flood', 'water_stress'])
+// the engine's value at risk — each asset once, at or above the stated at-risk level (never a sum of per-hazard exposures,
+// which counts an asset exposed to two hazards twice); null when the level is not stated (a gap, never 0)
+const totExposed = (d?: Disc) => d?.rollup?.value_at_risk_eur ?? null
 const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_tco2e.scope1 + d.financed_emissions_tco2e.scope2 + d.financed_emissions_tco2e.scope3 : null
 
 export default function Analytics() {
@@ -75,12 +76,12 @@ export default function Analytics() {
     if (pf === 'acute' || pf === 'chronic') setPerils(pf)
     if (fr) setFromKri(fr)
   }, [params, canDrill])
-  const perilSet = perils === 'acute' ? ACUTE_PERILS : perils === 'chronic' ? CHRONIC_PERILS : null
-  // value exposed at High+, scoped to the peril subset when we came from an acute/chronic KRI (else whole book)
+  // value at risk (the stated level), scoped to the acute / chronic perils when we came from that KRI — the engine's
+  // Template 5 split (services.portfolio_engine.value_at_risk), each asset once
   const scopedExposed = (d?: Disc) => {
     if (!d) return null
-    if (!perilSet) return totExposed(d)
-    return Object.entries(d.by_hazard || {}).reduce((s, [k, v]) => s + (perilSet.has(k) ? (v?.exposed_value_eur || 0) : 0), 0)
+    if (!perils) return totExposed(d)
+    return d.rollup?.at_risk_by_peril_class?.[`${perils}_eur`] ?? null
   }
   const clearFocus = () => { setPerils(null); setFromKri(null); setParams({}, { replace: true }) }
 
@@ -110,7 +111,7 @@ export default function Analytics() {
   // scenario trajectories. `hasEm` gates the emissions KPI (asset managers / insurers carry no such block).
   const hasEm = SCEN.some((_, si) => HZ.some((_, hi) => sumEm(results[si * 4 + hi]?.data) != null))
 
-  // trajectory rows for the hero line chart: value exposed at High+, one column per scenario
+  // trajectory rows for the hero line chart: value at risk (the stated level), one column per scenario
   const traj = HZ.map(([, lbl], hi) => {
     const row: Record<string, number | string | null> = { hz: lbl }
     SCEN.forEach(s => { row[s.key] = scopedExposed(at(s.key, hi)) })
@@ -120,8 +121,9 @@ export default function Analytics() {
   // headline: value at risk for the SELECTED pathway/horizon (delta vs the same pathway Now) + its sparkline;
   // taxonomy & emissions are the current book facts.
   const scen = SCEN.find(s => s.key === sel) ?? SCEN[3]
-  const sparkVar = HZ.map(([, l], hi) => ({ hz: l, v: scopedExposed(at(sel, hi)) ?? 0 }))
+  const sparkVar = HZ.map(([, l], hi) => ({ hz: l, v: scopedExposed(at(sel, hi)) }))
   const now = sparkVar[0].v, end = sparkVar[hz].v
+  const methodGap = at(sel, hz)?.rollup?.gap ?? at('baseline', 0)?.rollup?.gap
   const taxBook = at('baseline', 0)?.taxonomy?.eligible?.value_eur ?? null   // point-in-time book fact
   const emBook = sumEm(at('baseline', 0))                                    // point-in-time book fact
   const hzLabel = HZ[hz][1]
@@ -133,10 +135,11 @@ export default function Analytics() {
   // hazard facets for the selected scenario: top hazards by exposure at the selected horizon
   const hazards = useMemo(() => {
     const bh = at(sel, hz)?.by_hazard ?? at(sel, 0)?.by_hazard ?? {}
-    return Object.entries(bh).filter(([k, v]) => (v?.exposed_value_eur ?? 0) > 0 && (!perilSet || perilSet.has(k)))
-      .sort((a, b) => b[1].exposed_value_eur - a[1].exposed_value_eur).slice(0, 6).map(([k]) => k)
+    return Object.entries(bh).filter(([, v]) => (v?.exposed_value_eur ?? 0) > 0 && (!perils || v.peril_class === perils))
+      .sort((a, b) => (b[1].exposed_value_eur ?? 0) - (a[1].exposed_value_eur ?? 0)).slice(0, 6).map(([k]) => k)
   }, [results, sel, hz, perils])
-  const hazTraj = (hazKey: string) => HZ.map(([, lbl], hi) => ({ hz: lbl, v: at(sel, hi)?.by_hazard?.[hazKey]?.exposed_value_eur ?? 0 }))
+  // a hazard absent at a horizon exposes nothing there (0); a gap stays a gap (null)
+  const hazTraj = (hazKey: string) => HZ.map(([, lbl], hi) => { const b = at(sel, hi)?.by_hazard; return { hz: lbl, v: !b ? null : hazKey in b ? b[hazKey].exposed_value_eur : 0 } })
 
   return (
     <div className="fadeup space-y-6">
@@ -193,11 +196,13 @@ export default function Analytics() {
         </div>
       </Card>
 
+      {methodGap && <MethodGap gap={methodGap} what="Value at risk" />}
+
       {/* headline KPIs — value at risk is the forward number (recomputed for the selected pathway × horizon,
           delta vs the same pathway Now, with its trajectory sparkline). Taxonomy-eligible and financed
           emissions are point-in-time BOOK facts — they don't move with the warming pathway, so no delta/spark. */}
       <div className={`grid gap-3 ${hasEm ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-        <Kpi label="Value at risk" sub={`${scen.label} · ${hzLabel}`} value={balance(end)} base={now} end={end} spark={sparkVar} mark={hz} tone={scen.color} worseUp loading={loading} />
+        <Kpi label="Value at risk" sub={`${scen.label} · ${hzLabel}`} value={end == null ? 'not stated' : balance(end)} base={now} end={end} spark={sparkVar.every(p => p.v != null) ? sparkVar as { hz: string; v: number }[] : undefined} mark={hz} tone={scen.color} worseUp loading={loading} />
         <Kpi label="Taxonomy-eligible" sub="book · point-in-time" value={balance(taxBook)} tone="var(--scn-baseline)" loading={loading} />
         {hasEm && <Kpi label="Financed emissions" sub="book · point-in-time · tCO₂e" value={tco2e(emBook)} tone="var(--scn-baseline)" loading={loading} />}
       </div>
@@ -207,7 +212,7 @@ export default function Analytics() {
           {/* hero — scenario trajectories for the selected metric */}
           <Card className="p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-[var(--color-line)]">
-              <SectionHead hint="by warming pathway">Value exposed at High+</SectionHead>
+              <SectionHead hint="by warming pathway · at or above your stated at-risk level">Value at risk</SectionHead>
               <div className="flex items-center gap-3">
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {SCEN.map(s => (
@@ -308,7 +313,8 @@ const BUCKET: Record<string, { label: string; color: string }> = {
 }
 
 // drill-down — the exposures driving one hazard at the selected pathway/horizon. Fetches the FULL disclosure
-// (with the per-item array) on demand, filters to items exposed to this hazard at High+, ranks by value.
+// (with the per-item array) on demand, filters to items whose score on this hazard is at or above the stated at-risk
+// level the disclosure was computed on, ranks by value.
 // `cfg` says which array key and id/name/value fields this sector's /disclosure uses (see SECTOR_ITEMS).
 function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenarioLabel, horizonLabel, onClose }:
   { prefix: string; items: { arrKey: string; idKey: string; nameKey: string; valueKey: string }; hazard: string; scenario: string; horizonKey: string; scenarioLabel: string; horizonLabel: string; onClose: () => void }) {
@@ -318,6 +324,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
   })
   const [openSev, setOpenSev] = useState<Record<string, boolean>>({})
   const raw = (q.data?.[cfg.arrKey] as Record<string, unknown>[] | undefined) ?? []
+  const level = (q.data?.rollup as Rollup | undefined)?.at_risk_level ?? null
   const book: DrillItem[] = raw.map(r => ({
     id: r[cfg.idKey] as string, name: r[cfg.nameKey] as string, value_eur: r[cfg.valueKey] as number | null,
     country: r.country as string | null, region: r.region as string | null,
@@ -325,7 +332,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
   }))
   const rows = book
     .map(a => ({ a, hz: a.hazards.find(x => x.hazard === hazard) }))
-    .filter(x => x.hz && (x.hz.bucket === 'H' || x.hz.bucket === 'VH'))
+    .filter(x => x.hz && level != null && x.hz.score != null && x.hz.score >= level)
     .sort((x, y) => (y.a.value_eur ?? 0) - (x.a.value_eur ?? 0))
   const total = rows.reduce((s, x) => s + (x.a.value_eur ?? 0), 0)
   // group the exposures by severity band so the list reads as neat, collapsible sections
@@ -346,10 +353,11 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
           <CloseButton onClick={onClose} />
         </div>
         {q.isLoading ? <div className="p-8 text-[13px] text-[var(--color-faint)]">reading the book…</div>
-          : rows.length === 0 ? <div className="p-8 text-[13px] text-[var(--color-faint)]">No exposures at High+ for this hazard under the selected pathway.</div>
+          : level == null ? <div className="p-5"><MethodGap gap="not stated: method.at_risk_level" what="Exposures at risk" /></div>
+          : rows.length === 0 ? <div className="p-8 text-[13px] text-[var(--color-faint)]">No exposures at or above your stated level ({level}) for this hazard under the selected pathway.</div>
           : (
             <div className="p-5">
-              <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at High+ · {balance(total)} exposed</div>
+              <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at or above your level ({level}) · {balance(total)} exposed</div>
               <div className="space-y-2">
                 {groups.map(g => {
                   const open = isOpen(g.bk)
@@ -410,7 +418,7 @@ function exportCsv(traj: Record<string, number | string | null>[]) {
   downloadCsv('analytics-value-at-risk',
     [{ key: 'hz', label: 'Horizon' }, ...SCEN.map(s => ({ key: s.key, label: s.label }))],
     traj.map(r => { const o: Record<string, unknown> = { hz: r.hz }; SCEN.forEach(s => { const v = r[s.key]; o[s.key] = typeof v === 'number' ? Math.round(v) : '' }); return o }),
-    { title: 'Value exposed at High+ (EUR) — projected scenario × horizon' })
+    { title: 'Value at risk — at or above the stated at-risk level (EUR) — projected scenario × horizon' })
 }
 
 function FacetTip({ active, payload, label }: { active?: boolean; payload?: readonly any[]; label?: any }) {
@@ -478,7 +486,7 @@ function TrajTable({ at }: { at: (scen: string, hIdx: number) => Disc | undefine
       <table className="w-full text-[12.5px]">
         <thead>
           <tr className="text-left border-b border-[var(--color-line)]">
-            <th className="px-4 py-2.5 mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] font-medium">Pathway · value at High+</th>
+            <th className="px-4 py-2.5 mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] font-medium">Pathway · value at risk</th>
             {HZ.map(([, l]) => <th key={l} className="px-4 py-2.5 mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] font-medium text-right">{l}</th>)}
           </tr>
         </thead>

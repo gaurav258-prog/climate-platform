@@ -11,6 +11,7 @@ from services.data.feeds import HAZARD_FEEDS
 from services.governance.filing_lineage import cell_lineage, cell_upstream, reported_hazards
 from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
+from tests.integration.money_method import state_method
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 
@@ -19,6 +20,7 @@ def _mk_filing(session, org_id: str, framework: str, actor_email: str) -> str:
     """Freeze a real, current snapshot into a throwaway-period draft filing (rolled back by the caller) —
     same non-polluting pattern as tests/integration/test_filing_lifecycle.py's _mk_draft."""
     u = session.execute(text("SELECT user_id::text FROM users WHERE email = :e"), {"e": actor_email}).scalar()
+    state_method(session, org_id, reporting_period_end(session, org_id))          # the institution's stated method (E69)
     snap = create_snapshot(session, org_id, framework, u, period_end=reporting_period_end(session, org_id))
     fid = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
@@ -58,6 +60,9 @@ def test_forward_lineage_traces_cell_to_golden_source():
         lin = cell_lineage(s, BANK_ORG, fid, hz)
         assert lin["supported"] is True
         assert lin["contributors"], "an exposed cell must have contributing assets"
+        # the contributors are exactly the ones the filed cell was computed from — their values add up to it
+        cell = next(h for h in hazards if h["hazard"] == hz)["exposed_value_eur"]
+        assert abs(sum(c["value_eur"] or 0 for c in lin["contributors"]) - cell) <= 1
         # the score→source hop must resolve to at least one real feed for a mapped hazard
         if hz in HAZARD_FEEDS:
             assert lin["sources"], f"{hz} should map to a source feed"

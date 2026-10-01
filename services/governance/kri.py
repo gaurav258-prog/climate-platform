@@ -1,6 +1,6 @@
 """Key Regulatory Indicator (KRI) dashboard — the regulator's-eye consolidated risk view.
 
-One place for the headline physical-risk indicators of the book: how much value sits at High+ risk, the
+One place for the headline physical-risk indicators of the book: how much value sits at or above the stated at-risk level, the
 share of the book, coverage, financed emissions and taxonomy eligibility, plus the same figures over the
 org's filed history so a trend is visible. Current figures come from the live engine (the same source the
 disclosure uses); the history comes from the immutable filed snapshots, so the trend is auditable.
@@ -21,6 +21,15 @@ def _money_text(session: Session, org_id: str, v: float) -> str:
     """An engine (EUR) amount written into a hint, in the organisation's currency (closing rate)."""
     from services.governance.display_currency import balance, view
     return balance(v, view(session, org_id))
+
+
+def _amount(v):
+    """A KRI money value as computed — a gap stays None (shown as not computed), never 0."""
+    return None if v is None else round(v)
+
+
+def _millions(v) -> str:
+    return "—" if v is None else f"{round(v / 1e6, 1)}m"
 
 
 def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integrated_note=None):
@@ -98,10 +107,6 @@ def kri(session: Session, org_id: str, framework: str, entity_id: str | None = N
     return result
 
 
-def _hplus(by_bucket: dict, key: str) -> float:
-    return sum((by_bucket.get(b, {}).get(key, 0) or 0) for b in ("H", "VH"))
-
-
 def _reit_kri(session: Session, org_id: str) -> dict:
     from api.routers.realestate import build_disclosure_snapshot
     from services.governance.reporting_settings import get_settings
@@ -110,37 +115,38 @@ def _reit_kri(session: Session, org_id: str) -> dict:
     r = snap["rollup"]
     tax = snap.get("taxonomy", {})
     total = r.get("total_value_eur", 0) or 0
-    var = _hplus(r.get("by_bucket", {}), "value_eur")
     elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
     tax_total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
     cov = round(100 * r.get("n_scored", 0) / r.get("n_properties", 1), 1) if r.get("n_properties") else 0
     kpis = [
         _kpi("total_value", "Property book value", total, "eur"),
-        _kpi("value_at_risk", "Value at risk (High+)", round(var), "eur", tone="#fb7185"),
-        _kpi("pct_at_risk", "Share at risk", round(100 * var / total, 1) if total else 0, "pct", tone="#f0a860"),
+        _kpi("value_at_risk", "Value at material physical risk", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
+             hint="Value at or above the stated at-risk level (method.at_risk_level)"),
+        _kpi("pct_at_risk", "Share at risk", r.get("pct_value_at_risk"), "pct", tone="#f0a860"),
         _kpi("noi_impact", "NOI impact", r.get("portfolio_noi_impact_pct"), "pct",
-             hint="Modelled hit to net operating income"),
+             hint="Insurance cost of the insured perils on the insured values (stated method), as a share of NOI"),
         _kpi("coverage", "Book scored", cov, "pct"),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
     ]
-    # transition risk — energy-performance stranding (share of value below the rising minimum-EPC floor)
+    # transition risk — energy-performance stranding on the owner's stated brown discount per EPC grade
     es = r.get("energy_stranding") or {}
     if es.get("n_assessed"):
-        kpis.append(_kpi("stranding", "Value below EPC floor", es.get("pct_portfolio_value_below_floor"), "pct",
-                         tone="#f0a860", hint=f"Share of portfolio value below the modelled EPC-{es.get('floor_epc')} "
-                                              f"minimum-to-let (transition/stranding risk); {es.get('epc_coverage_pct')}% "
-                                              "of the book carries an EPC"))
+        kpis.append(_kpi("stranding", "Value at stranding risk", es.get("value_at_stranding_risk_eur"), "eur",
+                         tone="#f0a860", hint=(es.get("gap") and f"Not computed — {es['gap']}") or
+                         (f"Value the owner's stated brown discount per EPC grade takes (transition risk); "
+                          f"{es.get('epc_coverage_pct')}% of the book is assessed (EPC and value on record)")))
     # adaptation — resilience capex to de-risk and the loss it avoids (benefit-cost)
     rc = r.get("resilience_capex") or {}
     if rc.get("available"):
-        kpis.append(_kpi("resilience_capex", "Resilience capex to de-risk", round(rc.get("total_resilience_capex_eur") or 0), "eur",
-                         tone="#f0a860", hint=(f"Adaptation capex modelled against {round((rc.get('total_avoided_loss_eur') or 0)/1e6,1)}m "
-                                               f"avoided physical loss (benefit-cost {rc.get('portfolio_benefit_cost_ratio')}×); "
-                                               f"{round((rc.get('taxonomy_adaptation_aligned_capex_eur') or 0)/1e6,1)}m Taxonomy adaptation-aligned")))
+        kpis.append(_kpi("resilience_capex", "Resilience capex to de-risk", _amount(rc.get("total_resilience_capex_eur")), "eur",
+                         tone="#f0a860", hint=(f"Adaptation capex modelled against {_millions(rc.get('total_avoided_loss_eur'))} "
+                                               f"avoided physical loss (benefit-cost {rc.get('portfolio_benefit_cost_ratio')}×), "
+                                               "on the stated method")))
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
-                "value_at_risk": _hplus((h["payload"].get("rollup") or {}).get("by_bucket", {}), "value_eur"),
-                "pct_at_risk": None} for h in _snapshot_history(session, org_id, "reit_tcfd")]
+                "value_at_risk": (h["payload"].get("rollup") or {}).get("value_at_risk_eur"),
+                "pct_at_risk": (h["payload"].get("rollup") or {}).get("pct_value_at_risk")}
+               for h in _snapshot_history(session, org_id, "reit_tcfd")]
     return {"framework": "reit_tcfd", "supported": True, "label": "REIT physical-risk KRIs",
             "kpis": kpis, "by_hazard": by_hazard, "history": history}
 
@@ -152,42 +158,41 @@ def _insurer_kri(session: Session, org_id: str) -> dict:
     snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
     r = snap["rollup"]
     total = r.get("total_sum_insured_eur", 0) or 0
-    var = _hplus(r.get("by_bucket", {}), "sum_insured_eur")
     cov = round(100 * r.get("n_priced", 0) / r.get("n_policies", 1), 1) if r.get("n_policies") else 0
     kpis = [
         _kpi("sum_insured", "Sum insured", total, "eur"),
         _kpi("eal", "Expected annual loss", r.get("total_expected_annual_loss_eur"), "eur", tone="#fb7185"),
-        _kpi("loss_ratio", "Loss ratio", r.get("portfolio_loss_ratio_pct"), "pct", tone="#f0a860",
-             hint="Expected annual loss ÷ gross premium"),
-        _kpi("value_at_risk", "Sum insured at risk (High+)", round(var), "eur"),
+        _kpi("value_at_risk", "Sum insured at material physical risk", r.get("value_at_risk_eur"), "eur",
+             hint="Sum insured at or above the stated at-risk level (method.at_risk_level)"),
         _kpi("coverage", "Policies priced", cov, "pct"),
     ]
     # Catastrophe PML — the correlated 1-in-N tail the summed EALs hide (read from the frozen snapshot).
     cat = r.get("catastrophe") or {}
     if cat.get("available"):
-        kpis.append(_kpi("cat_pml", f"Catastrophe PML (1-in-{cat.get('pml_return_period')})", round(cat.get("pml_eur") or 0), "eur",
-                         tone="#fb7185", hint="Probable maximum loss — the single largest modelled event at the chosen "
-                                              "return period, from the common-shock accumulation engine"))
-    # Solvency II NatCat capital — the 1-in-200 (99.5% VaR) modelled catastrophe charge (internal-model basis)
+        rp_ = cat.get("pml_return_period")
+        kpis.append(_kpi("cat_pml", f"Catastrophe PML (1-in-{rp_})" if rp_ else "Catastrophe PML", _amount(cat.get("pml_eur")), "eur",
+                         tone="#fb7185", hint=cat.get("pml_gap") or ("Probable maximum loss — the single largest modelled "
+                                              "event at your chosen return period, from the common-shock accumulation engine")))
+    # the modelled 1-in-200 annual loss (platform catastrophe simulation on the stated method — not an internal model)
+    from services.governance.insurer_solvency import modelled_1_in_200
     scr = snap.get("solvency_scr") or {}
     if scr.get("available"):
-        kpis.append(_kpi("natcat_scr", "NatCat SCR (99.5%, modelled)", round(scr.get("natcat_scr_eur") or 0), "eur",
-                         tone="#f0a860", hint="Modelled 1-in-200 (99.5% VaR) catastrophe capital charge, internal-model "
-                                              "basis; the standard-formula SCR uses EIOPA's prescribed regional factors "
-                                              "(governed input to load)"))
-    # Net-of-reinsurance retention — the loss that actually hits capital after ceding (illustrative program).
+        kpis.append(_kpi("natcat_scr", "Modelled 1-in-200 nat-cat loss", _amount(modelled_1_in_200(scr)), "eur",
+                         tone="#f0a860", hint="The 1-in-200 annual loss of the platform's catastrophe simulation on the "
+                                              "undertaking's stated damage ratios and event probabilities — not an "
+                                              "approved internal model; the standard formula is on the Solvency page"))
+    # Net-of-reinsurance retention — the loss that hits capital after ceding (the attested treaty).
     reins = snap.get("reinsurance") or {}
     net = reins.get("net") or {}
     if reins.get("available") and net:
-        kpis.append(_kpi("net_retention", "Net retention (post-reinsurance PML)", round(net.get("net_pml_eur") or 0), "eur",
-                         tone="#f0a860", hint=f"PML retained after the illustrative reinsurance program "
-                                              f"({net.get('cession_ratio_pct')}% ceded); the insurer configures their own "
-                                              "program on the live workspace"))
+        kpis.append(_kpi("net_retention", "Net retention (post-reinsurance PML)", _amount(net.get("net_pml_eur")), "eur",
+                         tone="#f0a860", hint=f"PML retained after the attested reinsurance treaty "
+                                              f"({net.get('cession_ratio_pct')}% ceded)"))
     # the ASSET side — climate VaR on the insurer's own investment book (EIOPA/IFRS S2 require both sides)
     inv = snap.get("investments") or {}
     iv = inv.get("climate_var") or {}
     if inv.get("available") and iv.get("available"):
-        kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", round(iv.get("var99_eur") or 0), "eur",
+        kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", _amount(iv.get("var99_eur")), "eur",
                          tone="#fb7185", hint=f"Combined physical+transition climate VaR on the insurer's own investment "
                                               f"book ({inv.get('coverage_pct')}% of positions scored) — the asset side, "
                                               "EIOPA/IFRS S2"))
@@ -270,10 +275,14 @@ def kri_hazard(session: Session, org_id: str, framework: str, hazard: str, entit
     cfg = _LIST_CFG.get(framework)
     if cfg:
         snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
+        from services.governance.pillar3_templates import hazard_hit, stated_level
+        level = stated_level(snap)
+        if level is None:
+            return {"supported": True, "hazard": hazard, "noun": _NOUN.get(framework, "items"), "entities": [],
+                    "gap": "not stated: method.at_risk_level"}
         ents = []
         for e in snap.get(cfg["list"], []):
-            hz = next((h for h in e.get("hazards", []) if h.get("hazard") == hazard
-                       and h.get("bucket") in ("H", "VH")), None)
+            hz = next((h for h in e.get("hazards", []) if h.get("hazard") == hazard and hazard_hit(h, level)), None)
             if hz:
                 ents.append({"name": e.get(cfg["name"]), "value": e.get(cfg["value"]),
                              "h3_cell": e.get("h3_cell"), "country": e.get("country"), "score": hz.get("score")})
@@ -310,11 +319,11 @@ _FORWARD_KEYS = {"forward_share", "acute_share", "chronic_share"}
 # own hint. Written to be honest about calibration gates and integrated (client-provided) datapoints.
 _METHODOLOGY = {
     "total_value": "Total euro exposure of the book in scope for this filing, summed from your uploaded book.",
-    "value_at_risk": "Exposure sitting in the top two physical-risk severity bands (High + Very High), in euro. Scored per asset by Tellumen's hazard engine, then aggregated.",
-    "pct_at_risk": "Value at risk as a share of total book value — how concentrated the book is in High+ physical risk.",
+    "value_at_risk": "Value of the book whose headline hazard score is at or above the institution's stated level of material physical risk (method.at_risk_level), in euro. A gap until that level is stated.",
+    "pct_at_risk": "Value at risk as a share of total book value.",
     "acute_share": "Share of the book in the top two bands (High + Very High) whose driver is an ACUTE, event-driven peril — flood, storm, wildfire, frost, acute heat. This is the sudden-loss / provisioning lens of Pillar 3 Template 5; an exposure can also count as chronic.",
     "chronic_share": "Share of the book in the top two bands whose driver is a CHRONIC, gradual peril — drought, chronic heat, coastal/sea-level, water stress. This is the long-run repricing lens of Template 5; the acute and chronic shares overlap where an exposure faces both.",
-    "forward_share": "Projected share of the book crossing into High+ at the furthest modelled horizon under a warming pathway (per your reporting-settings scenario, or Disorderly 2°C). The forward early-warning to compare against today's point-in-time share.",
+    "forward_share": "Projected share of the book crossing the stated at-risk level at the furthest modelled horizon under a warming pathway (per your reporting-settings scenario, or Disorderly 2°C). The forward early-warning to compare against today's point-in-time share.",
     "sector_concentration": "Share of the book in the EBA high-climate-impact sectors (NACE sections A–H and L), with the single most-concentrated sector called out. Concentration in these sectors is the axis Pillar 3 Templates 1 & 5 are organised around and a standard prudential concentration control.",
     "p3_alignment": "Pillar 3 Template 3 / EU CRFR4 (pending adoption) — the gross-weighted distance of the book's counterparty CO₂-intensity to the IEA Net-Zero-by-2050 2030 pathway per sector: 100×((current intensity − IEA 2030 target)/IEA 2030 target). Tellumen holds the IEA benchmark and does the calculation; the counterparty physical intensity (gCO₂/kWh, tCO₂/t…) is a vendor/counterparty feed, so this reads '—' until that feed is provided. A TCFD-not-required, Pillar-3-specific indicator.",
     "p3_top20": "Pillar 3 Template 4 (in force under ITS 2024/3172; removed by the EBA final draft EBA/ITS/2026/02 once adopted) — share of the book lent to the world's 20 most carbon-intensive companies (the Carbon Majors list), matched by counterparty identity. Policy action against top emitters can deteriorate their creditworthiness, so this is a concentrated transition-credit indicator prescribed by Pillar 3 (not TCFD).",
@@ -377,10 +386,11 @@ def _kri_projection(session: Session, org_id: str, framework: str, kri_key: str,
     try:
         from services.governance.reporting_settings import get_settings
         from services.intelligence.forward_risk import forward_risk
+        from services.money.params import for_org
         vert = {"reit_tcfd": "realestate"}.get(framework, "banking")
         s = get_settings(session, org_id)
         scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
-        fr = forward_risk(session, org_id, vert, scen)
+        fr = forward_risk(session, org_id, vert, scen, for_org(session, org_id))
         book = fr.get("book_eur") or 0
         is_pct = kri_key in ("pct_at_risk", "forward_share")
         pts = []
@@ -388,14 +398,14 @@ def _kri_projection(session: Session, org_id: str, framework: str, kri_key: str,
             band = t.get("at_risk_band_eur") or [t.get("at_risk_eur"), t.get("at_risk_eur")]
             to = (lambda v: round(100 * v / book, 1) if book else 0) if is_pct else (lambda v: round(v))
             pts.append({"horizon": t.get("horizon"),
-                        "value": t.get("at_risk_pct") if is_pct else round(t.get("at_risk_eur") or 0),
+                        "value": t.get("at_risk_pct") if is_pct else _amount(t.get("at_risk_eur")),
                         "lo": to(band[0]), "hi": to(band[1])})
         if len(pts) < 2:
             return None
         return {"points": pts, "unit": "pct" if is_pct else "eur",
                 "warn": kpi.get("amber"), "breach": kpi.get("red"),
                 "scenario": scen.replace("_", " "),
-                "note": "Central estimate of value exposed at High+ across horizons under " + scen.replace("_", " ")
+                "note": "Central estimate of value at or above the stated at-risk level across horizons under " + scen.replace("_", " ")
                         + "; the shaded band is the CMIP6/AR6 climate-model uncertainty range (lower–upper "
                         + "confidence bound of the hazard scores), not a best/worst policy case."}
     except Exception:  # noqa: BLE001 — a missing projection must not break the drawer
@@ -412,23 +422,35 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
     """The most granular view: the individual exposures (assets) behind a KRI, largest-contribution first —
     the actual names a risk officer acts on, each carrying its asset id so the row opens the asset detail.
     Without a segment, the filter follows the KRI. With a segment (from a click on a composition bar) the
-    filter narrows to that slice: seg_type 'scope' (emissions Scope 1/2/3), 'hazard' (High+ on one peril),
+    filter narrows to that slice: seg_type 'scope' (emissions Scope 1/2/3), 'hazard' (at or above the stated level on one peril),
     or 'sector' (one NACE section). Only for bank/REIT books; never fabricated."""
     if framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
         return None
     if not seg_type and kri_key not in _DRIVER_KEYS:
         return None
-    from services.governance.pillar3_templates import HIGH_CLIMATE_NACE, _asset_hits, _section
+    from services.governance.pillar3_templates import (
+        HIGH_CLIMATE_NACE,
+        _asset_hits,
+        _section,
+        hazard_hit,
+        stated_level,
+    )
     from services.governance.reporting_settings import get_settings
     s = get_settings(session, org_id)
     snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
-    assets = (snap or {}).get("assets") or []
+    assets = (snap or {}).get("assets") or (snap or {}).get("properties") or []
     if not assets:
         return None
+    level = stated_level(snap)
+    needs_level = seg_type == "hazard" or (not seg_type and kri_key in ("value_at_risk", "pct_at_risk", "forward_share",
+                                                                       "acute_share", "chronic_share"))
+    if needs_level and level is None:
+        return None                                   # 'at risk' is the stated level; not stated → no drill (the KRI names the gap)
+    vkey = "value_eur" if framework != "reit_tcfd" else "property_value_eur"
     def _val(a):
-        return a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
+        return a.get(vkey) or 0
     def high(a):
-        return (a.get("headline_bucket") in ("H", "VH"))
+        return a.get("headline_score") is not None and a["headline_score"] >= level
 
     if seg_type == "scope" and seg_value in ("1", "2", "3"):
         def keep(a):
@@ -438,7 +460,7 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
         unit = "num"
     elif seg_type == "hazard" and seg_value:
         def keep(a):
-            return any(h.get("hazard") == seg_value and h.get("bucket") in ("H", "VH") for h in (a.get("hazards") or []))
+            return any(h.get("hazard") == seg_value and hazard_hit(h, level) for h in (a.get("hazards") or []))
         weight, unit = _val, "eur"
     elif seg_type == "sector" and seg_value:
         def keep(a):
@@ -449,9 +471,9 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
             if kri_key in ("value_at_risk", "pct_at_risk", "forward_share"):
                 return high(a)
             if kri_key == "acute_share":
-                return _asset_hits(a)[1]
+                return _asset_hits(a, level)[1]
             if kri_key == "chronic_share":
-                return _asset_hits(a)[0]
+                return _asset_hits(a, level)[0]
             if kri_key == "sector_concentration":
                 return _section(a.get("nace_code")) in HIGH_CLIMATE_NACE
             return True                               # total_value / fin_emissions → whole book
@@ -467,7 +489,8 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
     rows = [a for a in assets if keep(a) and weight(a) > 0]
     rows.sort(key=weight, reverse=True)
     items = [{
-        "id": a.get("asset_id"), "name": a.get("asset_name") or a.get("asset_id"), "sector": a.get("sector"),
+        "id": a.get("asset_id") or a.get("property_id"),
+        "name": a.get("asset_name") or a.get("property_name") or a.get("asset_id") or a.get("property_id"), "sector": a.get("sector"),
         "country": a.get("country"), "nace": a.get("nace_code"),
         "value": round(weight(a)), "hazard": a.get("headline_hazard"),
         "bucket": a.get("headline_bucket"), "score": a.get("headline_score"),
@@ -504,10 +527,14 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
     # acute / chronic peril exposure — the value-weighted hazard breakdown WITHIN that peril category
     if kri_key in ("acute_share", "chronic_share"):
         from services.governance.pillar3_templates import (
-            _HIGH_BUCKETS,
             ACUTE_HAZARDS,
             CHRONIC_HAZARDS,
+            hazard_hit,
+            stated_level,
         )
+        level = stated_level(snap)
+        if level is None:
+            return None
         cats = ACUTE_HAZARDS if kri_key == "acute_share" else CHRONIC_HAZARDS
         by_h: dict[str, float] = {}
         for a in snap.get("assets") or []:
@@ -515,7 +542,7 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
             if not v:
                 continue
             for h in a.get("hazards") or []:
-                if h.get("hazard") in cats and h.get("bucket") in _HIGH_BUCKETS:
+                if h.get("hazard") in cats and hazard_hit(h, level):
                     by_h[h["hazard"]] = by_h.get(h["hazard"], 0.0) + v
         items = sorted(({"label": k, "value": round(v)} for k, v in by_h.items()), key=lambda x: -x["value"])
         return {"type": "hazard", "unit": "eur", "items": items} if items else None
@@ -526,7 +553,7 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
             NACE_SECTIONS,
             concentration_split,
         )
-        cs = concentration_split(snap.get("assets") or [])
+        cs = concentration_split(snap.get("assets") or [], None)
         items = sorted(
             ({"label": f"{sec} · {NACE_SECTIONS.get(sec, 'Unclassified')}"[:34], "value": round(val)}
              for sec, val in cs["by_sector"].items() if sec in HIGH_CLIMATE_NACE),
@@ -536,8 +563,9 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
     if kri_key == "forward_share":
         try:
             from services.intelligence.forward_risk import forward_risk
+            from services.money.params import for_org
             scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
-            traj = forward_risk(session, org_id, "banking", scen).get("trajectory") or []
+            traj = forward_risk(session, org_id, "banking", scen, for_org(session, org_id)).get("trajectory") or []
             items = [{"label": t.get("horizon"), "value": t.get("at_risk_pct") or 0} for t in traj]
             return {"type": "horizon", "unit": "pct", "items": items} if len(items) >= 2 else None
         except Exception:  # noqa: BLE001
@@ -578,20 +606,21 @@ def _bank_kri(session: Session, org_id: str) -> dict:
 
     # Decision / concentration KRIs computed from the same per-asset book the Pillar 3 templates use.
     # Acute vs chronic split (Template 5), climate-sector concentration (the NACE axis of Templates 1 & 5),
-    # and the forward early-warning (projected share crossing High+). Nothing new-sourced.
-    from services.governance.pillar3_templates import concentration_split
-    cs = concentration_split(snap.get("assets") or [])
+    # and the forward early-warning (projected share crossing the stated level). Nothing new-sourced.
+    from services.governance.pillar3_templates import concentration_split, stated_level
+    cs = concentration_split(snap.get("assets") or [], stated_level(snap))
     acute_val, chronic_val, hci_val = cs["acute_val"], cs["chronic_val"], cs["high_climate_val"]
     top_sec, top_val = cs["top_sector"], cs["top_sector_val"]
     def _share(x):
-        return round(100 * x / total, 1) if total else 0
+        return None if x is None else round(100 * x / total, 1) if total else 0
 
     # Forward early-warning: projected share-at-risk at the furthest horizon under a warming pathway.
     fwd_share = fwd_note = None
     try:
         from services.intelligence.forward_risk import forward_risk
+        from services.money.params import for_org
         scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
-        traj = (forward_risk(session, org_id, "banking", scen).get("trajectory") or [])
+        traj = (forward_risk(session, org_id, "banking", scen, for_org(session, org_id)).get("trajectory") or [])
         fut = [t for t in traj if t.get("horizon") != "current"]
         if fut:
             pt = fut[-1]
@@ -602,17 +631,17 @@ def _bank_kri(session: Session, org_id: str) -> dict:
 
     kpis = [
         _kpi("total_value", "Total book value", total, "eur"),
-        _kpi("value_at_risk", "Value at risk (High+)", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
-             hint="Value of the book in the top two severity bands"),
+        _kpi("value_at_risk", "Value at material physical risk", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
+             hint="Value at or above the bank's stated at-risk level (method.at_risk_level)"),
         _kpi("pct_at_risk", "Share at risk", r.get("pct_value_at_risk"), "pct", tone="#f0a860"),
         _kpi("acute_share", "Acute-peril exposure", _share(acute_val), "pct", tone="#fb7185",
-             hint="Share of the book High/Very-High on an ACUTE, event-driven peril (flood, storm, wildfire, "
-                  "frost, acute heat) — the sudden-loss / provisioning driver. Template 5 acute column."),
+             hint="Share of the book at or above the stated at-risk level on an ACUTE, event-driven peril (flood, "
+                  "storm, wildfire, frost, acute heat) — the sudden-loss / provisioning driver. Template 5 acute column."),
         _kpi("chronic_share", "Chronic-peril exposure", _share(chronic_val), "pct", tone="#f0a860",
-             hint="Share High/Very-High on a CHRONIC, gradual peril (drought, chronic heat, coastal/sea-level, "
-                  "water stress) — the long-run repricing driver. Template 5 chronic column."),
+             hint="Share at or above the stated at-risk level on a CHRONIC, gradual peril (drought, chronic heat, "
+                  "coastal/sea-level, water stress) — the long-run repricing driver. Template 5 chronic column."),
         _kpi("forward_share", "Projected share at risk", fwd_share, "pct", tone="#fb7185",
-             hint=("Share of the book projected to cross into High+ " + (fwd_note or "under a warming pathway")
+             hint=("Share of the book projected at or above the stated at-risk level " + (fwd_note or "under a warming pathway")
                    + " — the forward early-warning vs today's share at risk.")),
         _kpi("sector_concentration", "Climate-sector concentration", _share(hci_val), "pct", tone="#f0a860",
              hint=(f"Share of the book in EBA high-climate-impact sectors (NACE A–H, L). Largest single sector: "
@@ -630,25 +659,25 @@ def _bank_kri(session: Session, org_id: str) -> dict:
     # Climate expected loss (IFRS-9 / ECL-relevant) — annual + lifetime, maturity-matched, from the frozen snapshot.
     elb = snap.get("expected_loss") or {}
     if elb.get("annual_el_eur") is not None:
-        kpis.append(_kpi("expected_loss", "Climate expected loss (annual)", round(elb.get("annual_el_eur") or 0), "eur",
+        kpis.append(_kpi("expected_loss", "Climate expected loss (annual)", _amount(elb.get("annual_el_eur")), "eur",
                          tone="#fb7185", hint=(f"Physical climate annual EL ({elb.get('annual_el_bps')} bps of EAD); "
-                                               f"lifetime {round((elb.get('lifetime_el_eur') or 0)/1e6,1)}m "
+                                               f"lifetime {_millions(elb.get('lifetime_el_eur'))} "
                                                f"({elb.get('lifetime_el_bps')} bps), maturity-matched. Exposure × P(event) × "
-                                               f"collateral severity under {elb.get('scenario')} — a disclosed relative model, not a fitted PD·LGD.")))
+                                               f"the stated damage ratio under {elb.get('scenario')} — the bank's own method, not a fitted PD·LGD.")))
 
-    # Transition risk ON THE COLLATERAL — loan value at risk if RE collateral strands below the rising EPC floor
-    # (an LGD driver, distinct from the counterparty carbon-price transition). Only where the bank has RE collateral.
+    # Transition risk ON THE COLLATERAL — the stated brown discount per EPC grade erodes RE collateral (an LGD driver,
+    # distinct from the counterparty transition). Only where the bank has RE collateral.
     csr = snap.get("collateral_stranding") or {}
     if csr.get("available"):
         kpis.append(_kpi(
             "collateral_stranding", "Collateral value at risk · EPC stranding",
             csr.get("collateral_value_at_risk_eur"), "eur", tone="#fb7185",
-            hint=(f"Recovery-cushion erosion if real-estate collateral strands below the modelled EPC-{csr.get('floor_epc')} "
-                  f"minimum-to-let floor — the LGD driver on {csr.get('n_below_floor')} of {csr.get('n_re_loans')} "
-                  f"RE-collateralised loans ({csr.get('pct_re_loans_below_floor')}% of RE-book exposure below floor). "
-                  f"Exposure-weighted LTV migrates {csr.get('exposure_weighted_ltv_pct')}%→{csr.get('stressed_ltv_pct')}% "
-                  f"(+{csr.get('ltv_uplift_pp')}pp); {_money_text(session, org_id, csr.get('loan_value_at_risk_eur') or 0)} exposure "
-                  f"uncovered (LTV>100%). {csr.get('epc_coverage_pct')}% carry an EPC. Disclosed EPBD-recast scenario, not a market fit.")))
+            hint=(f"Not computed — {csr['gap']}" if csr.get("gap") else
+                  f"Recovery-cushion erosion on the stated brown discount per EPC grade — {csr.get('n_discounted')} of "
+                  f"{csr.get('n_re_loans')} RE-collateralised loans in a discounted grade ({csr.get('pct_exposure_discounted')}% "
+                  f"of assessed exposure). Exposure-weighted LTV {csr.get('exposure_weighted_ltv_pct')}%→{csr.get('stressed_ltv_pct')}%; "
+                  f"{_money_text(session, org_id, csr.get('loan_value_at_risk_eur'))} exposure uncovered (LTV>100%). "
+                  f"{csr.get('epc_coverage_pct')}% assessed.")))
     by_hazard = sorted(
         [{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
          for h, b in (snap.get("by_hazard") or {}).items() if (b.get("exposed_value_eur") or 0) > 0],

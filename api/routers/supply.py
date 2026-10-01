@@ -81,10 +81,9 @@ def _eudr_summary(session, org_id):
 @router.get("/resourcing", summary="Re-sourcing opportunities — cut COGS-at-risk by shifting to a lower-risk origin")
 def resourcing(session: DbSession, org_id: OrgId,
                scenario: str = Query("baseline"), horizon: str = Query("current")):
-    from services.calc_settings import get_calc_settings
     from services.intelligence.resourcing import resourcing_opportunities
-    cap = get_calc_settings(session, org_id)["resourcing_reallocation_cap_pct"] / 100.0
-    return resourcing_opportunities(session, org_id, scenario=scenario, time_horizon=horizon, realloc_cap=cap)
+    from services.money.params import for_org
+    return resourcing_opportunities(session, org_id, for_org(session, org_id), scenario=scenario, time_horizon=horizon)
 
 
 @router.get("/summary", summary="Procurement book → COGS-at-risk rollup")
@@ -260,6 +259,11 @@ class SiteCreate(BaseModel):
 def sites(session: DbSession, org_id: OrgId):
     rows = list_sites_with_risk(session, org_id)
     from core.types import score_to_bucket
+    from services.intelligence.site_interruption import sites_bi
+    from services.money.params import for_org
+    method = for_org(session, org_id)
+    level = method.get("method.at_risk_level")
+    bi = sites_bi(method, rows)
     for r in rows:
         hs = r.get("hazard_score")
         r["bucket"] = score_to_bucket(hs).value if hs is not None else None
@@ -267,11 +271,15 @@ def sites(session: DbSession, org_id: OrgId):
     totals = {
         "asset_value_eur": sum(r.get("value_eur") or 0 for r in rows),
         "throughput_eur": sum(r.get("throughput_eur") or 0 for r in rows),
-        "bi_at_risk_eur": sum(r.get("bi_at_risk_eur") or 0 for r in rows),  # v0 illustrative
-        "n_elevated": sum(1 for r in rows if (r.get("hazard_score") or 0) >= 40),
+        "bi_at_risk_eur": bi["bi_at_risk_eur"],
+        "n_elevated": None if level is None else sum(1 for r in rows if r.get("hazard_score") is not None and r["hazard_score"] >= level),
+        "at_risk_level": level,
     }
-    return {"org_id": org_id, "sites": rows, "site_types": sorted(SITE_TYPES),
-            "totals": totals, "bi_note": "Business-interruption is a v0 illustrative estimate (throughput × expected downtime by hazard band); downtime factors are not yet calibrated."}
+    gaps = sorted({g for g in (bi.get("gap"), None if level is not None else "not stated: method.at_risk_level") if g})
+    return {"org_id": org_id, "sites": rows, "site_types": sorted(SITE_TYPES), "totals": totals,
+            **({"gap": "not stated: " + ", ".join(g.removeprefix("not stated: ") for g in gaps)} if gaps else {}),
+            "bi_note": "Business interruption = annual throughput × your stated downtime share for the site's headline hazard "
+                       "and band (method.bi_downtime_share)."}
 
 
 @router.get("/site/{site_id}", summary="One operational site — record + all hazards + adaptation actions")
@@ -279,7 +287,8 @@ def site_detail(site_id: str, session: DbSession, caller_org: OrgId):
     site_id = _valid_id(site_id)
     own_or_404(session, "sc_company_sites", "site_id", site_id, caller_org, "Site")   # only your own org's record
     from services.intelligence.adaptation import actions_for
-    from services.intelligence.company_sites import bi_downtime_fraction
+    from services.intelligence.site_interruption import bi_at_risk
+    from services.money.params import for_org
     row = session.execute(text("""
         SELECT s.site_id::text, s.name, s.site_type, CAST(s.latitude AS FLOAT) lat, CAST(s.longitude AS FLOAT) lon,
                s.country, s.address, s.h3_cell, CAST(s.annual_value_eur AS FLOAT) value_eur,
@@ -289,10 +298,15 @@ def site_detail(site_id: str, session: DbSession, caller_org: OrgId):
     if not row:
         raise HTTPException(status_code=404, detail="site not found")
     hazards = site_hazards(session, site_id)
-    worst = max((h["score"] for h in hazards if h["score"] is not None), default=None)
-    bi = round((row["throughput_eur"] or 0) * bi_downtime_fraction(worst), 0) or None
-    return {"kind": "site", "site": dict(row), "hazards": hazards,
-            "bi_at_risk_eur": bi, "adaptation": actions_for([h["hazard_type"] for h in hazards if (h["score"] or 0) >= 40])}
+    method = for_org(session, caller_org)
+    level = method.get("method.at_risk_level")
+    top = next((h for h in hazards if h["score"] is not None), None)          # site_hazards is sorted worst first
+    bi = bi_at_risk(method, row["throughput_eur"], top and top["hazard_type"], top and top["score"])
+    gaps = [g for g in (bi.get("gap"), None if level is not None else "not stated: method.at_risk_level") if g]
+    return {"kind": "site", "site": dict(row), "hazards": hazards, "bi_at_risk_eur": bi["bi_at_risk_eur"],
+            **({"gap": "not stated: " + ", ".join(g.removeprefix("not stated: ") for g in gaps)} if gaps else {}), "at_risk_level": level,
+            "adaptation": [] if level is None else actions_for([h["hazard_type"] for h in hazards
+                                                                  if h["score"] is not None and h["score"] >= level])}
 
 
 @router.post("/sites", summary="Add one operational site (by address or coordinates) → geocode + score")
@@ -705,8 +719,9 @@ def _plots_with_hazard(session, org_id, scenario, horizon):
     return sorted(rows, key=lambda r: -(r["spend_eur"] or 0))
 
 
-def early_warning_alerts(commodities) -> list[dict]:
-    """Elevated-hazard early-warning alerts, most severe first.
+def early_warning_alerts(commodities, level: float) -> list[dict]:
+    """Early-warning alerts, most severe first: a commodity whose average hazard is at or above the company's stated
+    at-risk level (method.at_risk_level); its band is the platform's one score classification (core.types).
 
     Fires on the physical HAZARD, not on whether the euro is publishable: a commodity whose € is 'held' by the
     honesty gate (real hazard scored, but not-yet-backtested so the € is withheld) is exactly the exposure a
@@ -714,14 +729,13 @@ def early_warning_alerts(commodities) -> list[dict]:
     `euro_published` so a withheld € is never mistaken for a calibrated one. 'pending' (no hazard score yet)
     raises no alert and is surfaced separately by the caller.
     """
-    def level(h):
-        return "VH" if h >= 75 else "H" if h >= 55 else "M" if h >= 35 else "L"
+    from core.types import score_to_bucket
     alerts = [{
         "commodity": c.commodity, "hazard": c.top_hazard, "avg_hazard": c.avg_hazard,
-        "level": level(c.avg_hazard or 0), "spend_eur": c.annual_spend_eur,
+        "level": score_to_bucket(c.avg_hazard).value, "spend_eur": c.annual_spend_eur,
         "cogs_at_risk_p50": c.cogs_at_risk_p50, "calibration": c.calibration,
         "status": c.status, "euro_published": c.status == "scored",
-    } for c in commodities if c.status in ("scored", "held") and (c.avg_hazard or 0) >= 55]
+    } for c in commodities if c.status in ("scored", "held") and c.avg_hazard is not None and c.avg_hazard >= level]
     alerts.sort(key=lambda a: -(a["avg_hazard"] or 0))
     return alerts
 
@@ -730,13 +744,16 @@ def early_warning_alerts(commodities) -> list[dict]:
 def signals(session: DbSession, org_id: OrgId,
             scenario: str = Query("baseline"), horizon: str = Query("current")):
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
-    alerts = early_warning_alerts(r.commodities)
+    from services.money.params import for_org
+    level = for_org(session, org_id).get("method.at_risk_level")
+    alerts = early_warning_alerts(r.commodities, level) if level is not None else []
     pending = [{"commodity": c.commodity, "spend_eur": c.annual_spend_eur}
                for c in r.commodities if c.status == "pending"]
     # name → commodity_id so the UI can open each alert's commodity detail page
     commodity_ids = {row["name"]: str(row["commodity_id"]) for row in
                      session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}
-    return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
+    return {"org_id": org_id, "scenario": scenario, "horizon": horizon, "at_risk_level": level,
+            **({"gap": "not stated: method.at_risk_level"} if level is None else {}),
             "n_alerts": len(alerts), "alerts": alerts, "pending": pending, "commodity_ids": commodity_ids}
 
 
@@ -745,7 +762,10 @@ def disclosure(session: DbSession, org_id: OrgId,
                scenario: str = Query("baseline"), horizon: str = Query("current")):
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
     plots = _plots_with_hazard(session, org_id, scenario, horizon)
-    # EUDR overlay: deforestation-free AND climate-viable (hazard < 60)?
+    # EUDR overlay: deforestation-free AND climate-viable (hazard below the company's stated at-risk level)? The EUDR
+    # sets no climate test — this is the company's own overlay, on its own level; not stated → not judged (None).
+    from services.money.params import for_org
+    level = for_org(session, org_id).get("method.at_risk_level")
     eudr = []
     for p in plots:
         hs = p["hazard_score"]
@@ -758,7 +778,7 @@ def disclosure(session: DbSession, org_id: OrgId,
             "forest_source": p["eudr_forest_source"],
             "determined_at": p["eudr_determined_at"].isoformat() if p["eudr_determined_at"] else None,
             "hazard_score": round(hs, 1) if hs is not None else None,
-            "climate_viable": (hs is not None and hs < 60), "scored": hs is not None,
+            "climate_viable": (None if hs is None or level is None else hs < level), "scored": hs is not None,
         })
     covered = [e for e in eudr if e["eudr_covered"]]
     def det(status):
@@ -771,7 +791,8 @@ def disclosure(session: DbSession, org_id: OrgId,
         "non_compliant": det("non_compliant"),
         "geolocation_incomplete": det("geolocation_incomplete"),
         "insufficient": det("insufficient"),
-        "climate_at_risk": sum(1 for e in covered if e["scored"] and not e["climate_viable"]),
+        "climate_at_risk": (None if level is None else sum(1 for e in covered if e["climate_viable"] is False)),
+        "at_risk_level": level,
         "unscored": sum(1 for e in covered if not e["scored"]),
     }
     # CSRD physical-risk: COGS-at-risk by commodity × top hazard
@@ -823,9 +844,9 @@ def disclosure_xlsx(session: DbSession, org_id: OrgId,
 
 @router.get("/taxonomy-adaptation", summary="EU Taxonomy — climate-adaptation substantial-contribution evidence (CRVA)")
 def taxonomy_adaptation(session: DbSession, org_id: OrgId):
-    from services.governance.reporting_settings import get_settings
     from services.intelligence.taxonomy_adaptation import adaptation_kpi
-    return adaptation_kpi(session, org_id, threshold=get_settings(session, org_id)["materiality_threshold"])
+    from services.money.params import for_org
+    return adaptation_kpi(session, org_id, for_org(session, org_id))
 
 
 @router.get("/report-snapshots", summary="Frozen filings for this org (metadata, newest first)")
@@ -916,7 +937,7 @@ def validation(session: DbSession):
 
 @router.get("/models", summary="Agriculture hazard models + impact-fn + per-commodity calibration")
 def models(session: DbSession, org_id: OrgId):
-    from services.intelligence.supply_cogs import BACKTESTED, COMMODITY_PARAMS, CROP_SENSITIVITY
+    from services.intelligence.supply_cogs import get_calibrations
     # ag hazard models (climatology-based) from the registry
     hz = session.execute(text("""
         SELECT hazard_type, model_version, algorithm, training_data_vintage, validation_note, is_active
@@ -935,10 +956,16 @@ def models(session: DbSession, org_id: OrgId):
     # override row, which carries a differently-named field (override_cogs_at_risk_p50_eur) and
     # no model figure to compare against.
     risk_by_commodity = {c.commodity: c for c in project_org_supply(session, org_id).commodities}
+    # the tier is the one the engine derived from THIS book's origins; the parameters are each origin's validated
+    # calibration row (v_sc_commodity_calibration) — never a code constant (E69)
+    cal = get_calibrations(session)
     commodities = [{
         "commodity_id": c["commodity_id"], "commodity": c["name"],
-        "calibration": "backtested" if c["name"] in BACKTESTED else "indicative",
-        "params": COMMODITY_PARAMS.get(c["name"]) or {"sensitivity": CROP_SENSITIVITY.get(c["name"]), "global_share": 1.0, "stock_to_use": None},
+        "calibration": (risk_by_commodity[c["name"]].calibration if c["name"] in risk_by_commodity else "indicative"),
+        "origins": [{"origin": o, "sensitivity": v.get("sensitivity"), "world_share": v.get("world_share"),
+                     "hazard_driver": v.get("hazard_driver"), "calibration_tier": v.get("calibration_tier"),
+                     "fit_r2_oos": (v.get("fit") or {}).get("r2_oos"), "event_ref": v.get("event_ref")}
+                    for o, v in sorted((cal.get(c["name"]) or {}).items(), key=lambda kv: str(kv[0]))],
         "override": (risk_by_commodity[c["name"]].override if c["name"] in risk_by_commodity else None),
     } for c in coms]
     frost_active = any(r["hazard_type"] == "frost" for r in hz)

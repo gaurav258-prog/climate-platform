@@ -171,7 +171,7 @@ def _in_functional(session: Session, t: Translation, entry: dict, f: str) -> flo
 
 
 def from_eur(session: Session, t: Translation, amount: float) -> float:
-    """A figure the platform sets in EUR (an illustrative reinsurance layer), in the presentation currency at closing."""
+    """A figure held in EUR (an attested treaty amount, an engine amount), in the presentation currency at closing."""
     return amount * _rate(session, t, t.presentation, average=False, start=None, end=t.period_end)
 
 

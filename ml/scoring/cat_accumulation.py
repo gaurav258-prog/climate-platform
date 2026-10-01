@@ -11,10 +11,11 @@ scenario loss CONDITIONAL on that shared event. That conditioning preserves each
 a zone move together, which is what fattens the tail. From the simulated distribution we read the aggregate
 (AEP) and single-occurrence (OEP) exceedance losses and the probable maximum loss (PML = 1-in-250 OEP).
 
-Honest by construction: the frequency and per-policy scenario loss are the SAME quantities the pricing
-engine already produces. The only added assumptions are the correlation structure — perfect within a
-(peril, region) zone, independent across zones — and that a zone's event rate is its most-exposed policy's
-occurrence rate. Both are disclosed. This is NOT a fitted vendor catastrophe model.
+The frequency and per-policy scenario loss are the SAME quantities the pricing engine produces on the undertaking's
+stated method (E69: its damage ratios and event probabilities — a policy whose inputs are not stated makes the whole
+result a gap, never a book with that policy left out). What the simulation adds is its DEFINITION of dependence —
+perfect within a (peril, region) zone, independent across zones, a zone's event rate being its most-exposed policy's
+occurrence rate — stated with every result. It is not a fitted vendor catastrophe model, nor an approved internal model.
 
 Common random numbers: every zone draws its simulated years from its own stream, seeded by the organisation and the
 zone — not by the scenario or horizon — and a policy's draw is fixed by its id. So the same simulated years are
@@ -29,14 +30,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-_BASE_RETURN_PERIODS = [10, 50, 100, 200, 250]   # 200 = Solvency II 99.5% VaR; always in the ladder
-_DEFAULT_PML_RETURN_PERIOD = 250
-_DEFAULT_SIMS = 30000
+RETURN_PERIODS = (10, 50, 100, 200, 250)      # the reported ladder; 200 = the 99.5 % one-year level (Directive 2009/138/EC Art. 101(3))
+SIMULATED_YEARS = 30000                        # simulated years per run (a setting of the computation, seeded)
+RECONCILE_TOLERANCE = 0.05                     # the simulated mean is checked to lie within 5 % of the sum of expected losses
 
 
-def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, horizon: str,
-                             n_years: int = _DEFAULT_SIMS,
-                             pml_return_period: int = _DEFAULT_PML_RETURN_PERIOD,
+def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, horizon: str, *,
+                             pml_return_period: int | None, n_years: int = SIMULATED_YEARS,
                              reinsurance: dict | None = None, zones_of: dict | None = None) -> dict:
     """policies: the priced insurance book (each with pricing.net_scenario_loss_eur /
     .annual_occurrence_prob / .expected_annual_loss_eur, plus headline_hazard and region). Returns the
@@ -44,14 +44,15 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
 
     pml_return_period: the return period the PML is read at — an institution interpretation switch. Solvency II
     SCR is 1-in-200 (99.5% VaR); rating agencies commonly use 1-in-250. The chosen period is always included in
-    the reported AEP/OEP curves so the ladder shows it.
+    the reported AEP/OEP curves so the ladder shows it. Not chosen (None) → the ladder is reported and the PML is a
+    named gap (E69): the platform picks no return period.
 
     zones_of: {policy id: (peril, region)} — hold the accumulation zones fixed across a scenario comparison (taken from
     the reference book). Otherwise a policy's zone follows its headline hazard in THIS scenario, and a policy whose
     headline hazard changes between scenarios would regroup the zones — changing the tail for a reason that is not
     the climate."""
     # the reported return-period ladder always includes the chosen PML period
-    return_periods = sorted(set(_BASE_RETURN_PERIODS) | {pml_return_period})
+    return_periods = sorted(set(RETURN_PERIODS) | ({pml_return_period} if pml_return_period else set()))
     import hashlib
 
     import numpy as np
@@ -61,6 +62,10 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
     comps = []
     for p in policies:
         pr = p.get("pricing") or {}
+        if pr and (pr.get("gap") or any(c.get("net_scenario_loss_eur") is None or c.get("annual_occurrence_prob") is None
+                                        for c in (pr.get("perils") or []))):
+            return {"available": False, "reason": "gap", "gap": pr.get("gap") or "a peril's damage ratio or event "
+                                                                                   "probability is not stated"}
         pid = str(p.get("policy_id") or p.get("entity_id") or "")
         region = p.get("region") or "unspecified"
         if pr.get("perils") is not None:
@@ -144,23 +149,26 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
         "mean_annual_loss_eur": round(mean_annual),
         "sum_independent_eal_eur": round(sum_eal),
         # the simulated mean should sit within Monte-Carlo error of the independent EAL sum
-        "mean_reconciles": bool(abs(mean_annual - sum_eal) <= 0.05 * sum_eal) if sum_eal else True,
+        "mean_reconciles": bool(abs(mean_annual - sum_eal) <= RECONCILE_TOLERANCE * sum_eal) if sum_eal else True,
         "aep_eur": {f"rp_{t}": round(rp(annual, t)) for t in return_periods},
         "oep_eur": {f"rp_{t}": round(rp(occ_max, t)) for t in return_periods},
-        "pml_eur": round(rp(occ_max, pml_return_period)),
+        "pml_eur": round(rp(occ_max, pml_return_period)) if pml_return_period else None,
         "pml_return_period": pml_return_period,
-        "tail_to_mean_multiple": round(rp(annual, pml_return_period) / mean_annual, 1) if mean_annual else None,
-        "method": ("common-shock Monte-Carlo: a (peril, region) zone event fires at the zone's occurrence "
-                   "rate; policies realise their scenario loss conditional on that shared event, preserving "
-                   "each policy's marginal EAL. Correlation perfect within a zone, independent across zones. "
-                   "Not a fitted vendor cat model."),
+        "tail_to_mean_multiple": (round(rp(annual, pml_return_period) / mean_annual, 1)
+                                  if mean_annual and pml_return_period else None),
+        **({} if pml_return_period else {"pml_gap": "not stated: the PML return period (calculation settings — pml_return_period)"}),
+        "method": ("common-shock Monte-Carlo on the undertaking's stated damage ratios and event probabilities: a "
+                   "(peril, region) zone event fires at the zone's occurrence rate; policies realise their scenario loss "
+                   "conditional on that shared event, preserving each policy's marginal expected loss. Dependence by "
+                   "definition: perfect within a zone, independent across zones. Not a fitted vendor catastrophe model, "
+                   "nor an approved internal model."),
     }
 
     # ── Net of reinsurance ── every zone event netted as it occurs (above): the quota share on every loss, the
     # per-occurrence cat XoL on each event, in the aggregate as well as the largest-event view.
     if reinsurance:
         gross_pml = out["pml_eur"]
-        net_pml = round(rp(net_occ, pml_return_period))
+        net_pml = round(rp(net_occ, pml_return_period)) if pml_return_period else None
         out["net_of_reinsurance"] = {
             "quota_share_pct": round(qs * 100, 1),
             "xol_attachment_eur": round(att) if att is not None else None,
@@ -169,8 +177,8 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
             "net_oep_eur": {f"rp_{t}": round(rp(net_occ, t)) for t in return_periods},
             "net_pml_eur": net_pml,
             "net_mean_annual_loss_eur": round(float(net_annual.mean())),
-            "ceded_pml_eur": round((gross_pml or 0) - net_pml),
-            "cession_ratio_pct": round(100 * (1 - net_pml / gross_pml), 1) if gross_pml else None,
+            "ceded_pml_eur": round(gross_pml - net_pml) if gross_pml is not None and net_pml is not None else None,
+            "cession_ratio_pct": round(100 * (1 - net_pml / gross_pml), 1) if gross_pml and net_pml is not None else None,
             "note": ("Net = gross after ceding, event by event: the quota share on every loss, the per-occurrence "
                      "cat excess of loss on each zone event (aggregate and largest-event views). Reinstatements are "
                      "taken as unlimited; their premiums and any aggregate treaty are not modelled."),

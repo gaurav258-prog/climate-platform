@@ -69,7 +69,15 @@ TOP_GEOGRAPHIES = 10
 
 
 def gross_of(a: dict) -> float:
-    return float(a.get("outstanding_loan_balance_eur") or a.get("value_eur") or 0)
+    """The gross carrying amount of an exposure: its outstanding balance, as the loan tape states it. Never the collateral
+    value; an exposure without one sits in no row, and the Pillar 3 filing is blocked until it is stated
+    (filing_validation: gross_carrying_amount_stated)."""
+    return float(a.get("outstanding_loan_balance_eur") or 0)
+
+
+def no_gross(assets: list[dict]) -> int:
+    """How many exposures state no gross carrying amount."""
+    return sum(1 for a in assets if not a.get("outstanding_loan_balance_eur"))
 
 
 def counterparty(a: dict) -> tuple[str | None, bool]:
@@ -189,7 +197,7 @@ def _stage(a: dict) -> str | None:
     return s or None
 
 
-def _cells(assets: list[dict], template_id: str) -> tuple[dict, dict]:
+def _cells(assets: list[dict], template_id: str, level: float | None = None) -> tuple[dict, dict]:
     """Every column value for one row population, and how many exposures stated each supplied fact."""
     g = {k: 0.0 for k in ("gross", "sens", "le5", "m5_10", "m10_20", "gt20", "mx", "mg", "chronic_only", "acute_only",
                           "both", "s2", "npe", "imp", "imp_s2", "imp_npe", "pab", "ccm", "rep", "ghg", "ghg3")}
@@ -198,7 +206,7 @@ def _cells(assets: list[dict], template_id: str) -> tuple[dict, dict]:
         x = gross_of(a)
         if not x:
             continue
-        chronic, acute = _asset_hits(a)
+        chronic, acute = _asset_hits(a, level) if template_id == "T5" else (False, False)
         sensitive = chronic or acute
         in_scope = sensitive if template_id == "T5" else True     # T5 c-o describe the sensitive exposures only
         g["gross"] += x
@@ -254,8 +262,11 @@ def _columns(g: dict, n: dict, template_id: str) -> dict:
             "n": blank("imp", g["imp_s2"]), "o": blank("imp", g["imp_npe"]), "sensitive": g["sens"]}
 
 
-def build(spec: dict, template_id: str, assets: list[dict]) -> dict:
-    """One template instance: every spec row with its column values, plus the population notes."""
+def build(spec: dict, template_id: str, assets: list[dict], level: float | None = None) -> dict:
+    """One template instance: every spec row with its column values, plus the population notes. Template 5 needs the
+    institution's stated at-risk level (what makes an exposure sensitive)."""
+    if template_id == "T5" and level is None:
+        raise ValueError("Template 5 needs the stated at-risk level (method.at_risk_level)")
     from services.regspec import template as spec_template
     t = spec_template(spec, template_id)
     binding = BINDING[template_id]["rows"]
@@ -274,26 +285,27 @@ def build(spec: dict, template_id: str, assets: list[dict]) -> dict:
     for r in t["rows"]:
         keep = _row_filter(t, r, binding[r["id"]])
         pop = [a for a, cp, col in tagged if keep(a, cp, col)]
-        g, n = _cells(pop, template_id)
+        g, n = _cells(pop, template_id, level)
         rows.append({"id": r["id"], "label": r["label"], "n": n["all"], "values": _columns(g, n, template_id)})
         shown.update({id(a): a for a in pop})
-    stated = _cells(list(shown.values()), template_id)[1]      # each exposure once, however many rows it sits in
+    stated = _cells(list(shown.values()), template_id, level)[1]      # each exposure once, however many rows it sits in
     return {"template": template_id, "rows": rows, "stated": stated, "inferred_counterparty": inferred_cp,
-            "inferred_collateral": inferred_col, "unallocated_no_nace": unallocated}
+            "inferred_collateral": inferred_col, "unallocated_no_nace": unallocated, "no_gross_carrying_amount": no_gross(assets),
+            **({"at_risk_level": level} if template_id == "T5" else {})}
 
 
-def template5(spec: dict, assets: list[dict]) -> dict:
+def template5(spec: dict, assets: list[dict], level: float) -> dict:
     """Template 5 for the whole book and per geography (column a): the countries with the largest exposure, and the
     rest together, so no exposure leaves the geography axis."""
-    whole = build(spec, "T5", assets)
+    whole = build(spec, "T5", assets, level)
     by_c: dict[str, list] = {}
     for a in assets:
         if gross_of(a):
             by_c.setdefault((a.get("country") or "").strip().upper() or "?", []).append(a)
     ranked = sorted(by_c, key=lambda c: -sum(gross_of(a) for a in by_c[c]))
     top, rest = ranked[:TOP_GEOGRAPHIES], ranked[TOP_GEOGRAPHIES:]
-    geos = [{"geography": c, "label": "Geography not stated" if c == "?" else c, **build(spec, "T5", by_c[c])} for c in top]
+    geos = [{"geography": c, "label": "Geography not stated" if c == "?" else c, **build(spec, "T5", by_c[c], level)} for c in top]
     if rest:
         geos.append({"geography": "OTHER", "label": "Other countries (" + ", ".join(rest[:8]) + ("…" if len(rest) > 8 else "") + ")",
-                     **build(spec, "T5", [a for c in rest for a in by_c[c]])})
+                     **build(spec, "T5", [a for c in rest for a in by_c[c]], level)})
     return {**whole, "geographies": geos}

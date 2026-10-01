@@ -52,7 +52,7 @@ EPC_MEETS_SUBSTANTIAL_CONTRIBUTION = {"A"}
 
 def classify_taxonomy(
     nace_code: Optional[str],
-    headline_bucket: Optional[str] = None,
+    material_physical_risk: Optional[bool] = None,
     resilience_rating: Optional[str] = None,
     epc_rating: Optional[str] = None,
     minimum_safeguards_status: Optional[str] = None,
@@ -63,12 +63,12 @@ def classify_taxonomy(
     (DNSH across the other five environmental objectives is never assessed
     here, regardless of what evidence is supplied).
 
-    headline_bucket/resilience_rating (if given) feed a DNSH-climate-adaptation
-    diagnostic: Tellumen's own physical-risk score IS the kind of evidence a
-    real Article 17 climate-adaptation DNSH check needs, so a High/Very High
-    bucket with no documented resilience measures is flagged as a genuine
-    concern -- but it's one data point among several unverified ones, not by
-    itself sufficient to reach "aligned".
+    material_physical_risk (the asset's headline score at or above the
+    institution's stated at-risk level — True/False, or None when the level is
+    not stated) and resilience_rating feed a DNSH-climate-adaptation
+    diagnostic: a material physical risk with no documented resilience measures
+    is flagged as a genuine concern -- one data point among several unverified
+    ones, not by itself sufficient to reach "aligned".
 
     epc_rating (real estate's building EPC grade, if supplied on upload) and
     minimum_safeguards_status ('compliant'/'non_compliant', a counterparty ESG-
@@ -149,10 +149,12 @@ def classify_taxonomy(
         "dnsh_climate_adaptation_flag": None,
     }
 
-    if headline_bucket in ("VH", "H") and not resilience_rating:
+    if material_physical_risk is None:
+        reasoning["dnsh_climate_adaptation_gap"] = "not stated: method.at_risk_level"
+    elif material_physical_risk and not resilience_rating:
         reasoning["dnsh_climate_adaptation_flag"] = (
-            "This asset's own physical-risk score is High/Very High with no documented "
-            "adaptation measures on record -- a real DNSH-climate-adaptation concern "
+            "This asset's physical-risk score is at or above the institution's stated at-risk level with no "
+            "documented adaptation measures on record -- a real DNSH-climate-adaptation concern "
             "(Article 17), though this alone does not determine overall alignment."
         )
 

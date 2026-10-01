@@ -29,6 +29,7 @@ import pytest
 from sqlalchemy import text
 
 from tests.integration.conftest import login as _login
+from tests.integration.money_method import state_method
 
 pytestmark = pytest.mark.integration
 IBERIA = "22222222-2222-4222-8222-222222222222"
@@ -176,6 +177,7 @@ def test_a_solo_undertaking_from_its_statement_of_values_to_the_acknowledged_s27
     s = api.s
     from services.governance.filings import reporting_period_end
     pe = reporting_period_end(s, IBERIA)
+    state_method(s, IBERIA, pe)          # the insurer's stated method (E69)
 
     # 1 · input: every risk with its postal code
     _resend_with_postcodes(api, maker, s, "Iberia Mutual Seguros", SEGUROS, pe)
@@ -274,6 +276,7 @@ def test_the_group_files_on_consolidated_data_with_its_own_treaty(api):
     s = api.s
     from services.governance.filings import reporting_period_end
     pe = reporting_period_end(s, IBERIA)
+    state_method(s, IBERIA, pe)          # the insurer's stated method (E69)
     _state(api, maker, checker, pe, {"ri_quota_share_pct": 50, "ri_xol_attachment_eur": 5_000_000,
                                      "ri_xol_limit_eur": 50_000_000}, GROUP)
     _state(api, maker, checker, pe, {"ri_quota_share_pct": 10}, SEGUROS)        # a solo treaty the group must not use

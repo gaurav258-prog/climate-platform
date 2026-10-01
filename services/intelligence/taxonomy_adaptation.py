@@ -19,19 +19,19 @@ from services.intelligence.adaptation import actions_for
 from services.intelligence.company_sites import list_sites_with_risk
 from services.intelligence.hazard_scope import CLIMATE
 
-MATERIAL = 40
 
-
-def adaptation_kpi(session: Session, org_id: str, threshold: int = MATERIAL) -> dict:
-    """Own-operations CRVA + climate-adaptation substantial-contribution evidence."""
+def adaptation_kpi(session: Session, org_id: str, method) -> dict:
+    """Own-operations CRVA + climate-adaptation substantial-contribution evidence. 'Materially exposed' = a climate
+    hazard at or above the undertaking's stated at-risk level (method.at_risk_level, E69); not stated → a named gap."""
+    threshold = method.get("method.at_risk_level")
     sites = list_sites_with_risk(session, org_id)
     located = [s for s in sites if s.get("lat") is not None]
     total_value = sum((s.get("value_eur") or 0) for s in located)
     # Scope to CLIMATE hazards on the SAME basis as ESRS E1 (audit T8): the Taxonomy climate-adaptation
     # objective covers climate-related physical hazards only, so a site whose worst hazard is geophysical
     # (seismic/volcanic) is not "materially exposed" here — exactly as E1 excludes it.
-    exposed = [s for s in located
-               if s.get("top_hazard") in CLIMATE and (s.get("hazard_score") or 0) >= threshold]
+    exposed = [] if threshold is None else [s for s in located if s.get("top_hazard") in CLIMATE
+                                            and s.get("hazard_score") is not None and s["hazard_score"] >= threshold]
     exposed_value = sum((s.get("value_eur") or 0) for s in exposed)
     exposed_hazards = sorted({s["top_hazard"] for s in exposed if s.get("top_hazard")})
 
@@ -48,19 +48,20 @@ def adaptation_kpi(session: Session, org_id: str, threshold: int = MATERIAL) -> 
             "coverage_pct": pct(len(located), len(sites)),
             "asset_value_assessed_eur": round(total_value),
         },
-        "physical_risk": {
+        "physical_risk": ({"gap": "not stated: method.at_risk_level", "at_risk_level": None} if threshold is None else {
+            "at_risk_level": threshold,
             "sites_materially_exposed": len(exposed),
             "asset_value_exposed_eur": round(exposed_value),
             "share_of_assets_exposed_pct": pct(exposed_value, total_value),
             "hazards": exposed_hazards,
-        },
+        }),
         # substantial-contribution to adaptation needs adaptation solutions addressing the identified risks;
         # we supply reference measures for every material hazard, so the exposed base has solutions IDENTIFIED
         # (identified, not certified as implemented — an honest distinction).
         "substantial_contribution": {
-            "adaptation_solutions_identified": len(exposed) > 0,
+            "adaptation_solutions_identified": None if threshold is None else len(exposed) > 0,
             "measures": actions_for(exposed_hazards),
-            "candidate_contributing_value_eur": round(exposed_value),
+            "candidate_contributing_value_eur": None if threshold is None else round(exposed_value),
         },
         "out_of_scope": {
             "note": "This is the CRVA + substantial-contribution evidence for the climate-adaptation objective. "

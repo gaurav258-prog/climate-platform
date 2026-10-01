@@ -1,5 +1,6 @@
 """Forward-risk decisions — the 'Act' step. Reads the same projection the forward-risk brief uses, finds the
-exposures that CROSS from below-High today into High+ by a chosen scenario/horizon, and lets an officer
+exposures that CROSS from below the institution's stated at-risk level today (method.at_risk_level) to at or
+above it by a chosen scenario/horizon, and lets an officer
 record a decision on each (reprice / engage / disclose / monitor / accept) with a rationale. The
 risk_decision table is the audit trail; the latest row per (entity, scenario, horizon) is the standing call.
 
@@ -10,8 +11,6 @@ from __future__ import annotations
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-AT_RISK = 50.0                       # High+ boundary (score ≥ 50) — the decision line
 
 # ── Sector verb-packs — the ONLY sector-specific part of the decision engine ──────────────────────────────
 # The subject (dial 1) and the action vocabulary (dial 2) vary by sector; the lifecycle, playbook automation,
@@ -59,10 +58,9 @@ class DecisionError(ValueError):
     pass
 
 
-def crossings(session: Session, org_id: str, vertical: str, scenario: str, horizon: str,
-              at_risk: float = AT_RISK) -> list[dict]:
-    """Subjects newly crossing into High+ by (scenario, horizon): worst priceable hazard today < line, at the
-    horizon ≥ line. Ranked by adverse migration × value. Each carries its latest standing decision (if any).
+def crossings(session: Session, org_id: str, vertical: str, scenario: str, horizon: str, at_risk: float) -> list[dict]:
+    """Subjects newly crossing the stated at-risk level by (scenario, horizon): worst priceable hazard today < level,
+    at the horizon ≥ level. Ranked by adverse migration × value. Each carries its latest standing decision (if any).
     The subject is the financial entity (FIN) or the sourcing commodity/origin (agri) — same shape, same
     lifecycle. Dial 1 of the standardized decision layer."""
     if horizon not in ("2030", "2050", "2100"):
@@ -262,7 +260,7 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
             pass
     if pb.get("watchlist") and entity_id:
         # put the exposure on a watchlist with a re-review date; the scheduled re-check re-scores it and
-        # escalates if it deteriorates further. Baseline = the projected High+ score it was watched under.
+        # escalates if it deteriorates further. Baseline = the projected score it was watched under.
         review_days = int(pb["due_days"]) if pb.get("due_days") is not None else WATCH_REVIEW_DAYS
         base = _projected_score(session, org_id, entity_id, scenario, horizon)
         session.execute(text("""

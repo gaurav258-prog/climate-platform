@@ -22,7 +22,6 @@ from services.reference import nace as _nace
 _EBA_CHRONIC_OVERRIDE = frozenset({"coastal_flood"})
 ACUTE_HAZARDS = frozenset(_HAZARD_ACUTE) - _EBA_CHRONIC_OVERRIDE
 CHRONIC_HAZARDS = frozenset(_HAZARD_CHRONIC) | _EBA_CHRONIC_OVERRIDE
-_HIGH_BUCKETS = frozenset({"H", "VH"})
 
 # NACE section (letter) → official title, and code → section: from the platform's ONE NACE reference (Eurostat's
 # official NACE Rev. 2 code list — services/reference/nace.py), not a copy kept here. Template 5 rows are by sector.
@@ -34,13 +33,37 @@ def _section(nace_code) -> str:
     return _nace.section(nace_code) or "?"
 
 
-def _asset_hits(asset: dict) -> tuple[bool, bool]:
-    """(chronic_hit, acute_hit) — is this exposure sensitive to a High+ chronic / acute climate peril?
-    Reads the asset's per-hazard list; an exposure counts for a category if ANY of its hazards in that
-    category sits in the top-two severity bands (H/VH)."""
+# Before the stated method (E69, 2026-09-30) every snapshot counted 'at risk' as the High and Very-high score bands —
+# score ≥ 50 (core.types.score_to_bucket: M < 50 ≤ H). A snapshot frozen then carries no 'method' record; its figures
+# were computed on that definition and are traced and re-rendered on it, never on today's.
+LEGACY_LEVEL = 50.0
+
+
+def stated_level(payload: dict | None) -> float | None:
+    """The at-risk level a snapshot's figures were computed on — the institution's method.at_risk_level for the period,
+    frozen with the snapshot (payload['method'], services.money.params.Method.record); LEGACY_LEVEL for a snapshot frozen
+    before there was a method record. None when the level was not stated."""
+    if payload and "method" not in payload:
+        return LEGACY_LEVEL
+    for u in ((payload or {}).get("method") or {}).get("used") or []:
+        if u and u.get("key") == "method.at_risk_level" and u.get("member") is None:
+            return float(u["value"])
+    return None
+
+
+def hazard_hit(h: dict, level: float) -> bool:
+    """A hazard makes an exposure sensitive when its score is at or above the institution's stated level (Annex XL leaves
+    the identification of sensitive exposures to the institution's methodology). A scale that does not apply to the
+    exposure (the relevance registry) never does."""
+    return h.get("relevant") is not False and h.get("score") is not None and float(h["score"]) >= level
+
+
+def _asset_hits(asset: dict, level: float) -> tuple[bool, bool]:
+    """(chronic_hit, acute_hit) — is this exposure sensitive to a chronic / acute climate peril: any hazard of that
+    category at or above the stated level."""
     chronic = acute = False
     for h in asset.get("hazards") or []:
-        if h.get("bucket") not in _HIGH_BUCKETS or h.get("relevant") is False:   # a scale that does not apply to buildings never makes an exposure sensitive
+        if not hazard_hit(h, level):
             continue
         hz = h.get("hazard")
         if hz in CHRONIC_HAZARDS:
@@ -65,19 +88,20 @@ _GAR_CENTRAL_LEVELS = frozenset({"central"})
 HIGH_CLIMATE_NACE = _nace.sector_set("high_impact_climate_sectors")      # cited in data/reference/nace_sector_sets.json
 
 
-def concentration_split(assets: list[dict]) -> dict:
+def concentration_split(assets: list[dict], level: float | None) -> dict:
     """Decision/concentration measures over the banking book, from the SAME per-asset fields the Pillar 3
     templates use: acute- vs chronic-peril exposure (Template 5 split), and concentration in the EBA high-
     climate-impact NACE sectors (the axis of Templates 1 & 5), with the single most-concentrated sector.
     Acute and chronic overlap where an exposure faces both — they are lenses on the at-risk book, not a
-    partition. Nothing new-sourced."""
+    partition. Measured on the book value (value_eur, the basis of the book total). Without a stated level the acute
+    and chronic values are None (a gap)."""
     acute_val = chronic_val = hci_val = 0.0
     sector_val: dict[str, float] = {}
     for a in assets:
-        v = a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
+        v = a["value_eur"]
         if not v:
             continue
-        chronic, acute = _asset_hits(a)
+        chronic, acute = _asset_hits(a, level) if level is not None else (False, False)
         if acute:
             acute_val += v
         if chronic:
@@ -87,5 +111,6 @@ def concentration_split(assets: list[dict]) -> dict:
         if sec in HIGH_CLIMATE_NACE:
             hci_val += v
     top_sec, top_val = max(sector_val.items(), key=lambda kv: kv[1], default=("?", 0.0))
-    return {"acute_val": acute_val, "chronic_val": chronic_val, "high_climate_val": hci_val,
+    return {"acute_val": acute_val if level is not None else None, "chronic_val": chronic_val if level is not None else None,
+            "high_climate_val": hci_val,
             "top_sector": top_sec, "top_sector_val": top_val, "by_sector": sector_val}

@@ -9,9 +9,11 @@ import { Card, Button, SectionHead, PageHeader, HeroBanner, StatGrid } from '../
 import { HBar } from '../components/Charts'
 import { HAZARD_LABEL, hazardLabel } from '../lib/hazards'
 import { balance, flow } from '../lib/money'
+import MethodGap from '../components/MethodGap'
 
 // Solvency II capital for a property insurer — the catastrophe SCR on TWO labelled bases:
-//  · internal-model: our common-shock cat engine's 1-in-200 (99.5% VaR), gross & net of reinsurance
+//  · modelled: the platform's catastrophe simulation on your stated method — its 1-in-200 (99.5%) annual loss, gross &
+//    net of the attested treaty. Context beside the standard formula, NOT an approved internal model.
 //  · standard formula: Del. Reg. 2015/35 Arts 90b, 119-126 in the version in force on the reporting date — region by
 //    region, before and after the attested reinsurance, as S.27.01.01 reports it (services/governance/solvency2_natcat).
 
@@ -35,8 +37,8 @@ interface SF {
 const METHOD: Record<SFRegion['method'], string> = { exact_zonal: 'exact zones', grouped_art90b: 'grouped · Art. 90b', single_zone: 'one zone' }
 interface ScrResp {
   available: boolean; reason?: string; scr_basis?: string
-  natcat_scr_eur?: number; aep_1_in_200_eur?: number; oep_1_in_200_eur?: number
-  mean_annual_loss_eur?: number; risk_load_eur?: number; gross_sum_insured_eur?: number
+  modelled_1_in_200_loss_eur?: number; aep_1_in_200_eur?: number; oep_1_in_200_eur?: number; gap?: string
+  mean_annual_loss_eur?: number; risk_load_eur?: number | null; gross_sum_insured_eur?: number
   scr_pct_of_sum_insured?: number | null; note?: string; standard_formula_natcat?: SF
 }
 interface ReinResp {
@@ -57,7 +59,7 @@ interface ModelledLossRow { modelled: 'modelled' | 'non_modelled'; gross_incurre
 interface ModeledFigures {
   available?: boolean; scenario?: string; horizon?: string
   total_expected_annual_loss_eur?: number | null
-  internal_model_natcat_scr_1_in_200_eur?: number | null
+  modelled_natcat_1_in_200_eur?: number | null
   standard_formula_natcat_scr_eur?: number | null
 }
 interface IncurredSummary {
@@ -70,21 +72,23 @@ interface IncurredSummary {
 
 export default function Solvency() {
   const scr = useQuery({ queryKey: ['ins-scr'], queryFn: () => api.get<ScrResp>('/v1/insurance/solvency-scr?scenario=baseline&horizon=current') })
-  const reins = useQuery({ queryKey: ['ins-reins'], queryFn: () => api.get<ReinResp>('/v1/insurance/reinsurance?scenario=baseline&horizon=current') })
+  const reins = useQuery({ queryKey: ['ins-reins'], queryFn: () => api.get<ReinResp>('/v1/insurance/reinsurance/attested?scenario=baseline&horizon=current') })
   const incurred = useQuery({ queryKey: ['ins-incurred'], queryFn: () => api.get<IncurredSummary>('/v1/insurance/incurred-losses?scenario=baseline&horizon=current') })
   const d = scr.data
   const sf = d?.standard_formula_natcat
 
   if (scr.isLoading) return <div className="fadeup"><PageHeader eyebrow="Assess · Solvency II" title="Catastrophe capital" /><Card><div className="p-6 mono text-[12px] text-[var(--color-faint)]">loading the catastrophe SCR…</div></Card></div>
-  if (!d?.available) return <div className="fadeup"><PageHeader eyebrow="Assess · Solvency II" title="Catastrophe capital" /><Card><div className="p-6 text-[13px] text-[var(--color-mute)]">{d?.reason ?? 'No scored policies yet — upload your Statement of Values under “Your data”.'}</div></Card></div>
+  if (!d) return <div className="fadeup"><PageHeader eyebrow="Assess · Solvency II" title="Catastrophe capital" /><Card><div className="p-6 text-[13px] text-[var(--color-mute)]">We couldn't load this data.</div></Card></div>
+  // the modelled figure can be a gap (method not stated) while the standard formula — the regulatory figure — stands
+  if (!d.available && !sf?.available) return <div className="fadeup"><PageHeader eyebrow="Assess · Solvency II" title="Catastrophe capital" /><Card><div className="p-6 text-[13px] text-[var(--color-mute)]">{d.reason ?? 'No scored policies yet — upload your Statement of Values under “Your data”.'}</div></Card></div>
 
-  const im = d.natcat_scr_eur
+  const im = d.available ? d.modelled_1_in_200_loss_eur : undefined
   const imNet = ((reins.data?.net?.net_aep_eur) || {}).rp_200 ?? reins.data?.net?.net_pml_eur
   const heroStats: { label: string; value: string; tone?: string }[] = [
     { label: 'Standard formula · after mitigation', value: balance(sf?.natcat_scr_eur), tone: 'sky' },
-    { label: 'Internal model · 1-in-200 gross', value: balance(im) },
-    { label: 'Net of reinsurance', value: balance(imNet) },
-    { label: 'SCR / sum insured', value: `${d.scr_pct_of_sum_insured ?? '—'}%` },
+    { label: 'Modelled 1-in-200 · gross', value: im != null ? balance(im) : 'not stated' },
+    { label: 'Modelled · net of treaty', value: imNet != null ? balance(imNet) : 'not stated' },
+    { label: 'Modelled 1-in-200 / sum insured', value: `${d.scr_pct_of_sum_insured ?? '—'}%` },
   ]
 
   const perilBars = sf?.scr_by_peril_eur
@@ -95,24 +99,25 @@ export default function Solvency() {
   return (
     <div className="fadeup space-y-5 max-w-5xl">
       <PageHeader eyebrow="Assess · Solvency II" title="Catastrophe capital"
-        lead="Your natural-catastrophe SCR on two labelled bases — our internal-model 1-in-200, and the prescribed standard formula (Del. Reg. 2015/35 Arts 119-126, the version in force on your reporting date). Every number is computed from your book; the standard-formula tables are the Regulation’s own." />
+        lead="Your natural-catastrophe SCR under the prescribed standard formula (Del. Reg. 2015/35 Arts 119-126, the version in force on your reporting date), and beside it the modelled 1-in-200 loss of our catastrophe simulation on your stated method — context, not an approved internal model. Every number is computed from your book; the standard-formula tables are the Regulation’s own." />
 
       <HeroBanner eyebrow="Disclose · catastrophe SCR" title="What you must hold against a bad cat year."
-        lead={sf?.available ? 'The standard formula combines five prescribed perils, after your attested reinsurance; the internal model is shown beside it.' : 'Internal-model catastrophe SCR.'}
+        lead={sf?.available ? 'The standard formula combines five prescribed perils, after your attested reinsurance; the modelled 1-in-200 is shown beside it as context.' : 'Modelled 1-in-200 catastrophe loss (context — the standard formula could not be computed).'}
         stat={heroStats} />
 
       <div className="grid md:grid-cols-2 gap-4">
-        {/* internal model */}
+        {/* modelled — context, not an internal model */}
         <Card>
-          <SectionHead icon={Building2} hint="99.5% VaR · our common-shock cat engine">Internal model</SectionHead>
+          <SectionHead icon={Building2} hint="99.5% · catastrophe simulation on your stated method · not an approved internal model">Modelled 1-in-200</SectionHead>
+          {!d.available ? <div className="mt-3"><MethodGap gap={d.gap ?? d.reason ?? 'not stated'} what="Modelled 1-in-200" /></div> : (
           <div className="mt-3">
             <StatGrid cols={2} items={[
-              { label: 'NatCat SCR — gross (1-in-200)', value: balance(im, { full: true }), accent: 'var(--color-ink)' },
-              { label: 'Net of reinsurance', value: balance(imNet, { full: true }) },
+              { label: 'Modelled 1-in-200 loss — gross', value: balance(im, { full: true }), accent: 'var(--color-ink)' },
+              { label: 'Net of the attested treaty', value: imNet != null ? balance(imNet, { full: true }) : 'treaty not attested' },
               { label: 'Mean annual cat loss', value: flow(d.mean_annual_loss_eur, { full: true }) },
-              { label: 'Risk load (SCR − mean)', value: balance(d.risk_load_eur, { full: true }) },
+              { label: 'Risk load (1-in-200 − mean)', value: d.risk_load_eur != null ? balance(d.risk_load_eur, { full: true }) : '—' },
             ]} />
-          </div>
+          </div>)}
           {reins.data?.available && (
             <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3.5 py-2.5 text-[12px] text-[var(--color-mute)]">
               Reinsurance cedes <b className="text-[var(--color-ink)]">{balance(reins.data?.net?.ceded_pml_eur, { full: true })}</b> of the single-event PML — gross {balance(reins.data?.gross_pml_eur, { full: true })} → net {balance(reins.data?.net?.net_pml_eur, { full: true })}.
@@ -248,7 +253,7 @@ const apiErrText = (e: unknown, fb: string) => {
 }
 
 // IFRS S2 ¶16(a): actual, incurred NatCat losses for the reporting period — customer-supplied, shown alongside
-// the ¶16(c)-(d) modelled figures (EAL, standard-formula/internal-model SCR) that already appear above. Never a
+// the ¶16(c)-(d) modelled figures (EAL, the standard-formula SCR and the modelled 1-in-200) that already appear above. Never a
 // silent zero: an honest "not yet supplied" state when nothing has been submitted.
 function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; loading: boolean; onSaved: () => void }) {
   const { profile } = useAuth()
@@ -275,7 +280,7 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
             { label: 'Total gross incurred', value: flow(data.total_gross_incurred_loss_eur, { full: true }), accent: 'var(--color-ink)' },
             { label: 'Total net (after reinsurance)', value: data.total_net_incurred_loss_eur != null ? flow(data.total_net_incurred_loss_eur, { full: true }) : 'not supplied' },
             { label: 'Modelled EAL — pricing model (¶16(c)-(d))', value: flow(data.modeled?.total_expected_annual_loss_eur, { full: true }),
-              sub: 'Per-policy pricing-model sum — a different methodology from "Mean annual cat loss" on the Internal model card above (Monte-Carlo simulation mean). Both are anticipated/¶16(c)-(d); they are not expected to match exactly.' },
+              sub: 'Per-policy pricing-model sum — a different methodology from "Mean annual cat loss" on the Modelled 1-in-200 card above (Monte-Carlo simulation mean). Both are anticipated/¶16(c)-(d); they are not expected to match exactly.' },
             { label: 'Standard-formula SCR (¶16(c)-(d))', value: balance(data.modeled?.standard_formula_natcat_scr_eur, { full: true }) },
           ]} />
           <table className="w-full text-[12px]">

@@ -131,7 +131,8 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
         { k: 'Country', v: (s.country as string) ?? '—' },
         { k: 'Asset value', v: balance(s.value_eur as number) },
         { k: 'Annual throughput', v: flow(s.throughput_eur as number) },
-        { k: 'Business-interruption', v: flow(d.bi_at_risk_eur as number) },  // annual throughput × downtime share
+        // annual throughput × your stated downtime share (method.bi_downtime_share); a gap names what is not stated
+        { k: 'Business-interruption', v: d.bi_at_risk_eur != null ? flow(d.bi_at_risk_eur as number) : (d.gap ? 'not stated — see Methodology' : '—') },
         { k: 'Grid cell', v: (s.h3_cell as string) ?? '—' },
       ],
       hazards: (d.hazards as { hazard_type: string; score: number | null }[]).map(h => ({ hazard: h.hazard_type, score: h.score })),

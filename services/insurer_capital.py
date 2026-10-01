@@ -3,8 +3,8 @@ the undertaking states under Solvency II (datapoint catalog 'insurer_solvency', 
 services.governance.provided_data). Every insurer report that needs them (net nat-cat losses, the ORSA climate
 analysis, the recovery-plan stress) reads them from here, so a figure is stated once and frozen with the filing.
 
-A value not yet attested is absent (None) — never assumed. The reinsurance programme falls back to the platform's
-illustrative programme only where no treaty is attested, and says so (basis 'illustrative_standard').
+A value not yet attested is absent (None) — never assumed; so is a reinsurance programme no treaty term of which is
+attested (E69: the platform's former illustrative programme is gone — a net figure without the treaty is a gap).
 """
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ CAPITAL = ("eligible_own_funds_scr", "scr_total", "mcr_total")
 TREATY = {"ri_quota_share_pct": "quota_share_pct", "ri_xol_attachment_eur": "xol_attachment_eur",
           "ri_xol_limit_eur": "xol_limit_eur"}
 REINSTATEMENT = {"ri_xol_reinstatements": "xol_reinstatements", "ri_xol_reinstatement_premium_eur": "xol_reinstatement_premium_eur"}
-ILLUSTRATIVE_PROGRAMME = {"quota_share_pct": 20.0, "xol_attachment_eur": 50_000_000, "xol_limit_eur": 100_000_000}
 
 
 def _attested(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> dict:
@@ -39,13 +38,13 @@ def position(session: Session, org_id: str, period_end: date, entity_id: str | N
                            for k in CAPITAL if k in a}}
 
 
-def programme(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> tuple[dict, str]:
-    """(the reinsurance programme in force, its basis): the attested treaty terms, or — where none is attested — the
-    illustrative programme, labelled as such. A partly attested programme uses what is attested and 0 for the rest
-    (no quota share / no cat layer), never the illustrative figure."""
+def programme(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> tuple[dict | None, str]:
+    """(the reinsurance programme in force, its basis): the attested treaty terms ('attested'), or (None,
+    'not_attested') when no term is attested. A partly attested programme uses what is attested and 0 for the rest
+    (no quota share / no cat layer) — a term the undertaking states as absent."""
     a = _attested(session, org_id, period_end, entity_id)
     if not any(k in a for k in TREATY):
-        return dict(ILLUSTRATIVE_PROGRAMME), "illustrative_standard"
+        return None, "not_attested"
     prog = {name: float(a[k]["value"]) if k in a and a[k]["value"] is not None else 0.0 for k, name in TREATY.items()}
     # reinstatements: absent stays absent (None) — the nat-cat scenarios then assume none (declared reading)
     prog.update({name: float(a[k]["value"]) if k in a and a[k]["value"] is not None else None

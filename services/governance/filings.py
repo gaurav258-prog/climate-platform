@@ -908,6 +908,15 @@ def _open_for_new(framework: str, org_type: str) -> None:
                           f"{FRAMEWORKS[FRAMEWORKS[framework]['retired_for']]['label']} instead")
 
 
+def _not_retired(framework: str) -> None:
+    """A retired framework's engine freezes nothing new — not a new filing, a refreshed draft or a restatement: its
+    filings stay readable as frozen, and a correction is prepared under its successor."""
+    succ = FRAMEWORKS.get(framework, {}).get("retired_for")
+    if succ:
+        raise FilingError(f"{FRAMEWORKS[framework]['label']} is retired — its filings stay as filed; prepare the "
+                          f"correction as a {FRAMEWORKS[succ]['label']} for the same period")
+
+
 def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):
     """What a filing's book is: the reporting entities it covers, their consolidation weights, and how its money is
     presented (multi-currency phase 3: solo in the entity's functional currency, consolidated in the group's
@@ -1090,6 +1099,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     if r["status"] != "draft":
         raise FilingError(f"only a draft filing can be refreshed — this one is '{r['status']}'. "
                           f"Restate it as a new version to bring in updated data.")
+    _not_retired(r["framework"])
 
     snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"],
                         r["view"], r["figure_sources"], r["fund_id"], r["disclosure_date"])
@@ -1205,6 +1215,7 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     cur = _load(session, org_id, filing_id)
     if cur["status"] not in ("submitted", "accepted"):
         raise FilingError(f"only a filed (submitted/accepted) filing can be restated — this is '{cur['status']}'")
+    _not_retired(cur["framework"])
 
     # period_end of the filing being restated (restatement keeps the same reference period)
     #

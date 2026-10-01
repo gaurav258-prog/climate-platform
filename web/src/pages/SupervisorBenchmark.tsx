@@ -7,11 +7,12 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import { balance } from '../lib/money'
+import MethodGap from '../components/MethodGap'
 // ── Peer benchmark — every sector in the profile, every configured metric, every supervised entity ────────
 interface BenchEntity { org_id: string; name: string; value: number | null; flag: string; percentile: number | null }
 interface BenchMetric { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
   distribution: { n: number; min?: number; p25?: number; median?: number; p75?: number; max?: number }; entities: BenchEntity[] }
-interface BenchResp { scenario: string; horizon: string; profile_id: string
+interface BenchResp { scenario: string; horizon: string; profile_id: string; at_risk_level: number | null; gap?: string
   sectors: Record<string, { label: string; book_noun: string; frameworks: string[]; n_entities: number; metrics: BenchMetric[] }> }
 const FLAGC: Record<string, string> = { act: 'var(--color-bad)', watch: 'var(--color-warn)', ok: 'var(--color-good)', na: 'var(--color-faint)' }
 const fmtV = (unit: string, v: number | null | undefined) => v == null ? '—' : unit === 'eur' ? balance(v) : `${v}%`
@@ -33,7 +34,8 @@ function BenchmarkCard() {
       <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
         <div>
           <div className="text-[15px] font-semibold">Peer benchmark</div>
-          <div className="text-[12px] text-[var(--color-mute)] mt-0.5">Each entity's own engine figures, side by side. Flags are your profile's supervisory expectations, not a judgement of the entity.{d ? ` Basis ${d.scenario} · ${d.horizon}.` : ''}</div>
+          <div className="text-[12px] text-[var(--color-mute)] mt-0.5">Each entity's own engine figures, side by side. Flags are your profile's supervisory expectations, not a judgement of the entity.{d ? ` Basis ${d.scenario} · ${d.horizon}.` : ''}{d?.at_risk_level != null ? ` At risk = headline at or above your stated level (${d.at_risk_level}).` : ''}</div>
+          {d?.gap && <div className="mt-2"><MethodGap gap={d.gap} what="At-risk metrics" /></div>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {keys.length > 1 && (

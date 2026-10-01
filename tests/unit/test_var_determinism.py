@@ -12,10 +12,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 
 _SNIPPET = (
+    "from datetime import date;"
     "from ml.scoring.valuation_discount import monte_carlo_var;"
-    "h=[{'position_value_eur':1_000_000,'bucket':'high','hazard':'flood'},"
-    "   {'position_value_eur':500_000,'bucket':'moderate','hazard':'drought'}];"
-    "r=monte_carlo_var(h,'org-123','baseline','current',n_sims=5000);"
+    "from services.money.params import Method;"
+    "m=Method.of({('method.valuation_haircut','flood/H'):0.15,('method.valuation_haircut','drought/M'):0.05,"
+    "            ('method.var_relative_uncertainty',None):0.4}, date(2025,12,31));"
+    "h=[{'position_value_eur':1_000_000,'score':60,'hazard':'flood'},"
+    "   {'position_value_eur':500_000,'score':30,'hazard':'drought'}];"
+    "r=monte_carlo_var(m,h,'org-123','baseline','current',5000);"
     "print(f\"{r['var95_eur']:.4f}|{r['var99_eur']:.4f}|{r['median_loss_eur']:.4f}\")"
 )
 

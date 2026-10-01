@@ -18,8 +18,8 @@ This module builds the two roll-ups portfolio_engine cannot express:
   2. fund roll-ups (services layer for the router): value-weight issuer scores by
      position market_value_eur up the fund -> parent-fund hierarchy.
 
-Transition risk (issuer_transition_scores) is joined in the router alongside the
-physical score; the transition MODEL that populates that table is Phase 4.
+Transition risk (issuer_transition) is computed at read time for the reading
+organisation, on its stated method (ml.scoring.transition_risk).
 """
 from __future__ import annotations
 
@@ -101,24 +101,31 @@ def issuer_physical_scores(
     return out
 
 
-def issuer_transition_scores(
-    session, scenario: str, horizon: str, issuer_ids: Optional[list[str]] = None
+def issuer_transition(
+    session, org_id: str, method, scenario: str, horizon: str, issuer_ids: list[str]
 ) -> dict[str, dict]:
-    """issuer_id -> current transition-risk row (valid_to IS NULL). Empty until the
-    Phase-4 model populates issuer_transition_scores — an honest absence, never a
-    fabricated zero."""
-    where_issuer = "AND issuer_id = ANY(:ids)" if issuer_ids else ""
-    rows = session.execute(text(f"""
-        SELECT issuer_id::text AS issuer_id,
-               CAST(transition_risk_score AS FLOAT) AS transition_risk_score, risk_bucket,
-               CAST(carbon_intensity_tco2e_per_meur AS FLOAT) AS carbon_intensity_tco2e_per_meur,
-               CAST(stranded_asset_pct AS FLOAT) AS stranded_asset_pct,
-               CAST(carbon_price_impact_eur AS FLOAT) AS carbon_price_impact_eur,
-               model_version, data_vintage
-        FROM   issuer_transition_scores
-        WHERE  scenario = :s AND time_horizon = :h AND valid_to IS NULL {where_issuer}
-    """), {"s": scenario, "h": horizon, **({"ids": issuer_ids} if issuer_ids else {})}).mappings().all()
-    return {r["issuer_id"]: dict(r) for r in rows}
+    """issuer_id -> transition block, computed now for the reading organisation: the issuer's facts (this org's own
+    emissions row first, else the public / estimated one — never another organisation's private figures) on the org's
+    stated carbon price and stranded share (ml.scoring.transition_risk). A missing parameter is a named gap."""
+    from ml.scoring.transition_risk import transition_block
+    from services.reference import nace
+    rows = session.execute(text("""
+        SELECT i.issuer_id::text AS issuer_id, i.nace_code,
+               CAST(e.scope1_tco2e AS FLOAT) AS s1, CAST(e.scope2_tco2e AS FLOAT) AS s2,
+               CAST(e.revenue_eur AS FLOAT) AS revenue_eur, e.reporting_year, e.source
+        FROM   issuers i
+        LEFT   JOIN LATERAL (
+            SELECT scope1_tco2e, scope2_tco2e, revenue_eur, reporting_year, source
+            FROM issuer_emissions
+            WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL)
+            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
+        ) e ON TRUE
+        WHERE  i.issuer_id = ANY(:ids)
+    """), {"org": org_id, "ids": issuer_ids}).mappings().all()
+    return {r["issuer_id"]: {**transition_block(method, r["s1"], r["s2"], r["revenue_eur"], nace.division(r["nace_code"]),
+                                                scenario, horizon),
+                             "emissions_year": r["reporting_year"], "emissions_source": r["source"]}
+            for r in rows}
 
 
 def fund_descendant_ids(session, fund_id: str) -> list[str]:
@@ -135,7 +142,7 @@ def fund_descendant_ids(session, fund_id: str) -> list[str]:
     return [str(x) for x in rows]
 
 
-def fund_positions_with_risk(session, fund_id: str, scenario: str, horizon: str,
+def fund_positions_with_risk(session, org_id: str, method, fund_id: str, scenario: str, horizon: str,
                               as_of_date: Optional[str] = None) -> list[dict]:
     """Every position in a fund (and its sub-funds), each enriched with its
     issuer's materiality-weighted physical score and its transition score.
@@ -163,7 +170,7 @@ def fund_positions_with_risk(session, fund_id: str, scenario: str, horizon: str,
 
     issuer_ids = list({p["issuer_id"] for p in positions})
     phys = issuer_physical_scores(session, scenario, horizon, issuer_ids)
-    trans = issuer_transition_scores(session, scenario, horizon, issuer_ids)
+    trans = issuer_transition(session, org_id, method, scenario, horizon, issuer_ids)
 
     out = []
     for p in positions:
@@ -180,6 +187,6 @@ def fund_positions_with_risk(session, fund_id: str, scenario: str, horizon: str,
                 "n_facilities": ph.get("n_facilities", 0),
                 "n_scored_facilities": ph.get("n_scored_facilities", 0),
             },
-            "transition": tr,  # None until Phase-4 model runs — honest absence
+            "transition": tr,
         })
     return out
