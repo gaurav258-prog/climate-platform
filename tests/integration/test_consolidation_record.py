@@ -37,8 +37,12 @@ def _file(s, framework, entity_id):
     return F.generate_filing(s, BANK_ORG, "bank", framework, user, confirm_token=tok, entity_id=entity_id)
 
 
-def test_a_group_filing_freezes_its_rule_and_the_form_shows_its_signoff(session_rolled_back):
+def test_a_group_filing_freezes_its_rule_and_the_form_shows_its_signoff(session_rolled_back, monkeypatch):
     s = session_rolled_back
+    # the file as this test reviews it: a version no one has signed yet (the real file's own sign-off, if it has one,
+    # belongs to its own sha and must not decide what this test sees)
+    real = rules.load
+    monkeypatch.setattr(rules, "load", lambda f, v: {**real(f, v), "_sha256": "7e57" * 16})
     group, _, leasing, _ = _tree(s)
     f = _file(s, "bank_tcfd", group["entity_id"])
     cons = F.get_filing(s, BANK_ORG, f["filing_id"])["snapshot"]["payload"]["_consolidation"]
