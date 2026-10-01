@@ -25,6 +25,22 @@
    "sha256": "019db5f8d582b0cdba287fa1361d4d56a52fc6a44e4587dc170e159f44f18f9c",
    "chars": 145136
   },
+  "02023R1115-20251226": {
+   "title": "Regulation (EU) 2023/1115 of the European Parliament and of the Council of 31 May 2023 on the making available on the Union market and the export from the Union of certain commodities and products associated with deforestation and forest degradation and repealing Regulation (EU) No 995/2010 (Text with EEA relevance)",
+   "celex": "02023R1115-20251226",
+   "source": "http://publications.europa.eu/resource/celex/02023R1115-20251226",
+   "retrieved": "2026-10-01",
+   "sha256": "289ae55e68490d0d9e9b1731ed9ff9345a9df81bbe814dac356230437139d595",
+   "chars": 109414
+  },
+  "02023R1115-20260918": {
+   "title": "Regulation (EU) 2023/1115 of the European Parliament and of the Council of 31 May 2023 on the making available on the Union market and the export from the Union of certain commodities and products associated with deforestation and forest degradation and repealing Regulation (EU) No 995/2010 (Text with EEA relevance)",
+   "celex": "02023R1115-20260918",
+   "source": "http://publications.europa.eu/resource/celex/02023R1115-20260918",
+   "retrieved": "2026-10-01",
+   "sha256": "99cd7ac8d9ca7cecc3a25dc729ff826a4ceb8cb328253a6378e1ffb03650025a",
+   "chars": 124077
+  },
   "02023R2772-20250101": {
    "title": "Commission Delegated Regulation (EU) 2023/2772 (ESRS), consolidated text of 1 January 2025",
    "celex": "02023R2772-20250101",
@@ -32,6 +48,14 @@
    "retrieved": "2026-09-30",
    "sha256": "13a23c024c1a17ea440a48dc612bc6a45c26487e144253fdbc2397b8301634f6",
    "chars": 881852
+  },
+  "02024R3084-20260717": {
+   "title": "Commission Implementing Regulation (EU) 2024/3084 of 4 December 2024 on the functioning of the information system pursuant to Regulation (EU) 2023/1115 of the European Parliament and of the Council on the making available on the Union market and the export from the Union of certain commodities and products associated with deforestation and forest degradation",
+   "celex": "02024R3084-20260717",
+   "source": "http://publications.europa.eu/resource/celex/02024R3084-20260717",
+   "retrieved": "2026-10-01",
+   "sha256": "d4b85eab305d674fe0b5c91332d250d7a0398dc1b227f4cd1b3995a23fb3cf5b",
+   "chars": 33023
   },
   "32004L0109": {
    "title": "Directive 2004/109/EC (Transparency Directive), as published",
@@ -65,6 +89,14 @@
    "sha256": "b5370e612f1b2db138a424dba81596386dc52e47dfdf1734bfd0ed0579ab7cfd",
    "chars": 267181
   },
+  "32023R1115": {
+   "title": "Regulation (EU) 2023/1115 of the European Parliament and of the Council of 31 May 2023 on the making available on the Union market and the export from the Union of certain commodities and products associated with deforestation and forest degradation and repealing Regulation (EU) No 995/2010 (Text with EEA relevance)",
+   "celex": "32023R1115",
+   "source": "http://publications.europa.eu/resource/celex/32023R1115",
+   "retrieved": "2026-10-01",
+   "sha256": "44b29904a91c8198fc5d0d3c94f0aa2fdbd47817d294d9ff2be39f0c2db1c1fb",
+   "chars": 172114
+  },
   "32023R2772": {
    "title": "Commission Delegated Regulation (EU) 2023/2772 (ESRS), as published",
    "celex": "32023R2772",
@@ -72,6 +104,22 @@
    "retrieved": "2026-09-30",
    "sha256": "88d9e395dd430deebeb4ddebedf30677d974de3333fdce65b27f9940027ec47e",
    "chars": 880076
+  },
+  "32024R3084": {
+   "title": "Commission Implementing Regulation (EU) 2024/3084 of 4 December 2024 on the functioning of the information system pursuant to Regulation (EU) 2023/1115 of the European Parliament and of the Council on the making available on the Union market and the export from the Union of certain commodities and products associated with deforestation and forest degradation",
+   "celex": "32024R3084",
+   "source": "http://publications.europa.eu/resource/celex/32024R3084",
+   "retrieved": "2026-10-01",
+   "sha256": "3436ff2ee6da5ed40e482b8a96fc960161106a2ffc6c0cb2bbeb73a2f8168524",
+   "chars": 35959
+  },
+  "32024R3234": {
+   "title": "Regulation (EU) 2024/3234 of the European Parliament and of the Council of 19 December 2024 amending Regulation (EU) 2023/1115 as regards provisions relating to the date of application",
+   "celex": "32024R3234",
+   "source": "http://publications.europa.eu/resource/celex/32024R3234",
+   "retrieved": "2026-10-01",
+   "sha256": "29cabb9ba19d26f95e709b5d5144fbbc18c821ec551d12749dd1865ccd8e00bc",
+   "chars": 10075
   },
   "32025L0794": {
    "title": "Directive (EU) 2025/794 (stop-the-clock), as published",
@@ -81,6 +129,14 @@
    "sha256": "fb143c0cfa7657346ff45947eeeca1f9fffbfc30e1f7aa961c7b1fa84f047976",
    "chars": 13552
   },
+  "32025R1093": {
+   "title": "Commission Implementing Regulation (EU) 2025/1093 of 22 May 2025 laying down rules for the application of Regulation (EU) 2023/1115 of the European Parliament and of the Council as regards a list of countries that present a low or high risk of producing relevant commodities for which the relevant products do not comply with Article 3, point (a)",
+   "celex": "32025R1093",
+   "source": "http://publications.europa.eu/resource/celex/32025R1093",
+   "retrieved": "2026-10-01",
+   "sha256": "b8234dd7e83d1009ad4dc4264a360e80a2346d4f459ff9839d303a54fc9b0385",
+   "chars": 7692
+  },
   "32025R1416": {
    "title": "Commission Delegated Regulation (EU) 2025/1416 amending 2023/2772, as published",
    "celex": "32025R1416",
@@ -88,6 +144,14 @@
    "retrieved": "2026-09-30",
    "sha256": "b5b10c031c234a31fc054d5b9d076f57a5fe789b2166b91a9e8a7f3555533c13",
    "chars": 22951
+  },
+  "32025R2650": {
+   "title": "Regulation (EU) 2025/2650 of the European Parliament and of the Council of 19 December 2025 amending Regulation (EU) 2023/1115 as regards certain obligations of operators and traders",
+   "celex": "32025R2650",
+   "source": "http://publications.europa.eu/resource/celex/32025R2650",
+   "retrieved": "2026-10-01",
+   "sha256": "0a1d3d2ceea06676b7c47dc3ea7813ee33efdb0011e31886d75fd13bfaa32192",
+   "chars": 62708
   },
   "32026L0470": {
    "title": "Directive (EU) 2026/470 amending the corporate sustainability reporting requirements, as published",
@@ -104,6 +168,22 @@
    "retrieved": "2026-09-30",
    "sha256": "86ea8ba1e205900945b873dcd37cfcad7ab2e3f1161571f554176411e4cf3f8f",
    "chars": 495843
+  },
+  "32026R1565": {
+   "title": "Commission Implementing Regulation (EU) 2026/1565 of 13 July 2026 amending Implementing Regulation (EU) 2024/3084 as regards the submission of due diligence statements, simplified declarations for micro or small primary operators, contingency arrangements and other measures simplifying the use of the information system",
+   "celex": "32026R1565",
+   "source": "http://publications.europa.eu/resource/celex/32026R1565",
+   "retrieved": "2026-10-01",
+   "sha256": "ddddb90d154a20219f833b1013851d8c753013fd61508fcdc3374fe8c44c61d4",
+   "chars": 27028
+  },
+  "32026R2102": {
+   "title": "Commission Delegated Regulation (EU) 2026/2102 of 13 July 2026 amending Regulation (EU) 2023/1115 of the European Parliament and of the Council as regards the list of relevant commodities and relevant products",
+   "celex": "32026R2102",
+   "source": "http://publications.europa.eu/resource/celex/32026R2102",
+   "retrieved": "2026-10-01",
+   "sha256": "8684e8da92383d2196a20d89633f98a50070251ce570157dff72c9541da4edf5",
+   "chars": 51681
   }
  }
 }
