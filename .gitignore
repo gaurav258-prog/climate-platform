@@ -107,3 +107,6 @@ data/exposure_val/
 data/windstorm_val/
 data/landslide/
 data/storm_synthetic/
+
+# isolated agent worktrees (each on its own branch)
+.claude/worktrees/

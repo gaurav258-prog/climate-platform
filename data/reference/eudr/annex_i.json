@@ -580,7 +580,8 @@
      "printed_code": null,
      "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
      "notes": [],
-     "code_basis": "no code printed; the description names Chapters 47 and 48"
+     "code_basis": "no code printed; the description names Chapters 47 and 48",
+     "printed_exception": "with the exception of bamboo-based and recovered (waste and scrap) products"
     },
     {
      "commodity": "wood",
@@ -589,7 +590,8 @@
      "printed_code": null,
      "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
      "notes": [],
-     "code_basis": "no code printed; the description names Chapters 47 and 48"
+     "code_basis": "no code printed; the description names Chapters 47 and 48",
+     "printed_exception": "with the exception of bamboo-based and recovered (waste and scrap) products"
     },
     {
      "commodity": "wood",
@@ -1236,7 +1238,8 @@
      "printed_code": null,
      "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
      "notes": [],
-     "code_basis": "no code printed; the description names Chapters 47 and 48"
+     "code_basis": "no code printed; the description names Chapters 47 and 48",
+     "printed_exception": "with the exception of bamboo-based and recovered (waste and scrap) products"
     },
     {
      "commodity": "wood",
@@ -1245,7 +1248,8 @@
      "printed_code": null,
      "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
      "notes": [],
-     "code_basis": "no code printed; the description names Chapters 47 and 48"
+     "code_basis": "no code printed; the description names Chapters 47 and 48",
+     "printed_exception": "with the exception of bamboo-based and recovered (waste and scrap) products"
     },
     {
      "commodity": "wood",

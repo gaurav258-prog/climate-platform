@@ -28,7 +28,7 @@ celery_app = Celery(
     # hazard_tasks.py, so none of its @celery_app.task decorators run and the
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
-    include=["services.tasks.intake_tasks", "services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
+    include=["services.tasks.intake_tasks", "services.tasks.eudr_tasks", "services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
              "services.tasks.decision_tasks", "services.tasks.kri_tasks", "services.tasks.reg_scan_tasks",
              "services.tasks.supervision_tasks"],
 )

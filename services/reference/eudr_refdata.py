@@ -63,6 +63,10 @@ def scope(hs_code: str, on: date) -> dict:
         out = {**base, "entry": e, "ex": e["ex"], "description": e["description"], "notes": notes}
         if e.get("application_ambiguous"):
             return {**out, "in_scope": None, "why": e["application_note"]}
+        if e.get("printed_exception"):           # the row excepts part of what it names: the product's nature decides
+            return {**out, "in_scope": None,
+                    "why": f"the entry excepts part of what it names ('{e['printed_exception']}') — whether this product "
+                           "is excepted is the product's own fact"}
         if e["ex"]:
             return {**out, "in_scope": None,
                     "why": f"printed as 'ex {e['printed_code'].replace('ex ', '')}': only the part of the heading "

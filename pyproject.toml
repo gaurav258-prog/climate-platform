@@ -128,6 +128,8 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+# agents' isolated worktrees live inside the checkout: their in-progress work is linted by their own gate, never main's
+extend-exclude = [".claude/worktrees"]
 
 [tool.ruff.lint]
 # The gate enforces the rules that catch real problems — undefined names,

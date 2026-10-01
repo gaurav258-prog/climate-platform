@@ -101,3 +101,13 @@ def test_country_risk():
     assert R.country_risk("BR")["risk"] == "standard"
     assert R.country_risk("ZZ") is None
     assert R.country_risk("BR", date(2025, 5, 25)) is None
+
+
+def test_a_row_that_excepts_part_of_what_it_names_leaves_the_product_to_decide():
+    """Pulp and paper 'of Chapters 47 and 48 … with the exception of bamboo-based and recovered (waste and scrap)
+    products' (original Annex I): no code is printed and part is excepted — a chapter-48 code is not known to be in scope."""
+    from datetime import date
+
+    from services.reference.eudr_refdata import scope
+    r = scope("4802", date(2025, 6, 1))
+    assert r["in_scope"] is None and "bamboo-based and recovered" in r["why"]
