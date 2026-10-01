@@ -67,7 +67,7 @@ def _csv(df):
     return df.to_csv(index=False).encode()
 
 
-@pytest.mark.parametrize("key", sorted(k for k, t in TEMPLATES.items() if not t.sector.history))   # asset books
+@pytest.mark.parametrize("key", sorted(k for k, t in TEMPLATES.items() if not t.sector.history and t.sector.asset_book))   # asset books
 def test_customer_layout_is_proposed_confirmed_then_reused_automatically(key, session_rolled_back):
     s, tpl, tag = session_rolled_back, TEMPLATES[key], uuid.uuid4().hex[:8]
     org_id, user_id = _org_and_admin(s, tpl.org_type)
@@ -102,7 +102,7 @@ def test_customer_layout_is_proposed_confirmed_then_reused_automatically(key, se
     assert (m["new"], m["update"], m["unchanged"]) == (0, 1, 3)
 
 
-@pytest.mark.parametrize("key", sorted(k for k, t in TEMPLATES.items() if not t.sector.history))   # asset books
+@pytest.mark.parametrize("key", sorted(k for k, t in TEMPLATES.items() if not t.sector.history and t.sector.asset_book))   # asset books
 def test_unrecognised_values_are_reported_never_silently_blanked(key, session_rolled_back):
     s, tpl, tag = session_rolled_back, TEMPLATES[key], uuid.uuid4().hex[:8]
     org_id, _ = _org_and_admin(s, tpl.org_type)

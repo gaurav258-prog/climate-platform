@@ -67,6 +67,11 @@ VOCABS: dict[str, Vocab] = {
     "country": Vocab((), dynamic=True),
     "currency": Vocab((), dynamic=True),             # ISO 4217 codes any FX source or fixed rate covers, plus EUR              # ISO alpha-2 via every accepted written form (ref_country_names)
     "boolean": Vocab(("true", "false"), {"yes": "true", "y": "true", "1": "true", "no": "false", "n": "false", "0": "false"}),
+    # Regulation (EU) 2023/1115: placing on the market, making available on the market, export (Art. 2(16), 2(18), 4, 5)
+    "eudr_movement": Vocab(("placing", "making_available", "export"),
+                           {"placing_on_the_market": "placing", "import": "placing", "making_available_on_the_market": "making_available"}),
+    # Art. 2(15) operator, 2(15a) micro or small primary operator, 2(15b) downstream operator, 2(17) trader
+    "eudr_role": Vocab(("operator", "micro_small_primary_operator", "downstream_operator", "trader")),
 }
 
 
@@ -232,6 +237,59 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        aliases=("intragroup", "intercompany", "intercompany_counterparty", "group_counterparty", "ic_partner", "trading_partner")),
     _f("plot_area_ha", "Plot area (ha)", "fraction", "Hectares; computed from the boundary when given.", "2.3", aliases=("area_ha", "area", "hectares"),
        range=(0, 1_000_000)),
+    # ── EUDR (Regulation (EU) 2023/1115): parties, placings / exports and the plots they came from ──
+    _f("party_name", "Name", "name", "The business or person's name (Art. 9(1)(e)-(f)).", "Ashanti Cocoa Cooperative",
+       aliases=("name", "supplier", "supplier_name", "customer", "customer_name", "company", "company_name")),
+    _f("trade_name", "Trade name", "text", "Registered trade name or trade mark (Art. 5(3)), or the product's trade name "
+       "(Annex II point 2).", "Golden Bean", aliases=("trade_mark", "brand", "registered_trade_name")),
+    _f("contact_email", "Email", "text", "Email address (Art. 9(1)(e)-(f)).", "trade@example.com", aliases=("email", "e_mail", "mail")),
+    _f("web_address", "Web address", "text", "Web address, if available (Art. 5(3)).", "https://example.com",
+       aliases=("website", "url", "web", "homepage")),
+    _f("party_ref", "Your party ID", "id", _REF.format(what="supplier / customer"), "SUP-0042",
+       aliases=("external_ref", "supplier_id", "customer_id", "party_id", "vendor_id", "id")),
+    _f("supplier_ref", "Supplier ID", "id", "Your own id of the supplier (as in your suppliers file).", "SUP-0042",
+       aliases=("supplier", "supplier_id", "vendor", "vendor_id")),
+    _f("customer_ref", "Customer ID", "id", "Your own id of the customer (as in your customers file).", "CUS-0007",
+       aliases=("customer", "customer_id", "buyer", "buyer_id")),
+    _f("movement_ref", "Shipment ID", "id", "Your own id of this placing on the market, making available or export "
+       "(e.g. the consignment or contract line).", "SHP-2027-0001", aliases=("shipment", "shipment_id", "consignment",
+                                                                              "consignment_id", "lot", "lot_id", "external_ref")),
+    _f("movement_kind", "Placing, making available or export", "vocab", "placing, making_available or export.", "placing",
+       vocab="eudr_movement", aliases=("kind", "movement", "activity", "flow")),
+    _f("actor_role", "Your role", "vocab", "Your role in it: operator, micro_small_primary_operator, downstream_operator "
+       "or trader (Art. 2(15)-(17)).", "operator", vocab="eudr_role", aliases=("role", "eudr_role")),
+    _f("planned_on", "Date", "date", "The date of the placing on the market, making available or export (YYYY-MM-DD).",
+       "2027-01-15", aliases=("date", "placing_date", "export_date", "shipment_date")),
+    _f("hs_code", "HS code", "id", "Harmonised System code, 4 to 10 digits, no spaces (Annex II point 2).", "180100",
+       aliases=("hs", "cn_code", "tariff_code", "commodity_code", "taric")),
+    _f("description", "Description", "text", "Free-text description of the product (Annex II point 2).", "Cocoa beans, whole, raw",
+       aliases=("product", "product_description", "goods_description")),
+    _f("scientific_names", "Scientific names", "text", "For wood: the full scientific names of the species, separated by ';' "
+       "(Annex II point 2).", "Tectona grandis", aliases=("species", "scientific_name", "botanical_name")),
+    _f("customs_flow", "Through customs", "vocab", "true when the goods enter or leave the market through customs: the "
+       "quantity is then in kilograms of net mass (Annex II point 2).", "true", vocab="boolean",
+       aliases=("customs", "import_export", "via_customs")),
+    _f("net_mass_kg", "Net mass (kg)", "fraction", "Kilograms of net mass.", "25000", aliases=("net_mass", "net_weight_kg", "kg"),
+       range=(0, 1e12)),
+    _f("mass_deviation_pct", "Net mass estimate / deviation (%)", "fraction", "Outside customs: the percentage estimate or "
+       "deviation of the net mass (Annex II point 2).", "5", aliases=("deviation_pct", "mass_deviation"), range=(0, 100)),
+    _f("supplementary_unit", "Supplementary unit", "text", "The supplementary unit of Annex I to Regulation (EEC) No 2658/87 "
+       "for the HS code, where applicable.", "p/st", aliases=("supp_unit",)),
+    _f("supplementary_qty", "Supplementary quantity", "fraction", "The quantity in that unit.", "120",
+       aliases=("supp_qty", "supplementary_quantity"), range=(0, 1e12)),
+    _f("volume_m3", "Volume (m³)", "fraction", "Where applicable, volume instead of net mass (outside customs).", "40",
+       aliases=("volume", "m3"), range=(0, 1e12)),
+    _f("items_count", "Number of items", "int", "Where applicable, number of items (outside customs).", "120",
+       aliases=("items", "units", "pieces")),
+    _f("upstream_refs", "Reference numbers received", "text", "When your supplier is an operator: the reference numbers of its "
+       "due diligence statements or its declaration identifier, separated by ';' (Art. 5(3)(a)).", "25NLXYZ0000001",
+       aliases=("dds_reference", "reference_numbers", "declaration_identifier")),
+    _f("plot_ref", "Plot ID", "id", "Your own id of the plot (as in your plots file).", "PLOT-0012",
+       aliases=("plot", "plot_id", "farm_id", "field_id")),
+    _f("production_from", "Produced from", "date", "First day of production on the plot for this shipment (Art. 9(1)(d)).",
+       "2025-10-01", aliases=("harvest_from", "production_start", "from")),
+    _f("production_to", "Produced until", "date", "Last day of production on the plot for this shipment (Art. 9(1)(d)).",
+       "2026-03-31", aliases=("harvest_to", "production_end", "to")),
 )}
 
 # the validator's kind for each catalogue kind (upload_validation understands these)

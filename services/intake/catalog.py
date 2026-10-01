@@ -75,6 +75,17 @@ TEMPLATES: dict[str, Template] = {
                                      ("csv", "xlsx"), lambda df: T.SITE_YEAR_END_TEMPLATE_FIELDS,
                                      lambda df: "carrying_amount_eur" if "carrying_amount_eur" in df.columns else "net_revenue_eur",
                                      "sites.year_end.upload"),
+    # EUDR (Regulation (EU) 2023/1115): the parties, each placing / making available / export, and the plots it came from
+    "eudr_suppliers": Template("eudr_suppliers", si.SECTORS["eudr_suppliers"], "manufacturer", "suppliers", ("csv", "xlsx"),
+                               lambda df: T.EUDR_SUPPLIER_TEMPLATE_FIELDS, lambda df: None, "eudr.suppliers.upload"),
+    "eudr_customers": Template("eudr_customers", si.SECTORS["eudr_customers"], "manufacturer", "customers", ("csv", "xlsx"),
+                               lambda df: T.EUDR_CUSTOMER_TEMPLATE_FIELDS, lambda df: None, "eudr.customers.upload"),
+    "eudr_movements": Template("eudr_movements", si.SECTORS["eudr_movements"], "manufacturer",
+                               "placings on the market and exports", ("csv", "xlsx"), lambda df: T.EUDR_MOVEMENT_TEMPLATE_FIELDS,
+                               lambda df: "net_mass_kg" if "net_mass_kg" in df.columns else None, "eudr.movements.upload"),
+    "eudr_movement_plots": Template("eudr_movement_plots", si.SECTORS["eudr_movement_plots"], "manufacturer",
+                                    "the plots each shipment came from", ("csv", "xlsx"),
+                                    lambda df: T.EUDR_MOVEMENT_PLOT_TEMPLATE_FIELDS, lambda df: None, "eudr.movement_plots.upload"),
 }
 
 

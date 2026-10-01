@@ -38,6 +38,7 @@ try:
     from api.routers import bank_submissions as bank_submissions_router
     from api.routers import calc_settings as calc_settings_router
     from api.routers import esrs as esrs_router
+    from api.routers import eudr as eudr_router
     from api.routers import funds as funds_router
     from api.routers import insurance as insurance_router
     from api.routers import insurer_documents as insurer_documents_router
@@ -283,6 +284,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(insurer_documents_router.router)
     app.include_router(periods_router.router)
     app.include_router(esrs_router.router)
+    app.include_router(eudr_router.router)
     app.include_router(calc_settings_router.router)
     app.include_router(realized_router.router)
     app.include_router(source_systems_router.router)

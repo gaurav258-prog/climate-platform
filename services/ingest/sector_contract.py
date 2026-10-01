@@ -136,4 +136,7 @@ class Sector:
     group_entities: bool = False            # rows may name the holding legal entity and an intragroup counterparty
     history: bool = False                   # an append-only record per period, not an asset: every landed record is a new
                                             # statement written with its money and batch; no asset facts are observed
+    asset_book: bool = True                 # a book of located assets whose facts are observed per source (intake
+                                            # observations); False for records that point to other books (EUDR parties,
+                                            # movements, their plots) — identified by the undertaking's own ids only
     notes: dict = field(default_factory=dict)

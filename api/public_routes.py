@@ -69,9 +69,8 @@ PUBLIC_ROUTES: dict[str, str] = {
     "GET /v1/entity-structure/template.csv": "blank template", "GET /v1/gl/template.csv": "blank template",
     "GET /v1/holdings/template.csv": "blank template", "GET /v1/insurance/policies/template.xlsx": "blank template",
     "GET /v1/prices/template.csv": "blank template", "GET /v1/realestate/properties/template.xlsx": "blank template",
-    "GET /v1/supply/customers/attributes/template.xlsx": "blank template", "GET /v1/supply/plots/template.xlsx": "blank template",
+    "GET /v1/supply/plots/template.xlsx": "blank template", "GET /v1/eudr/intake/{book}/template.xlsx": "blank template",
     "GET /v1/supply/sites/template.xlsx": "blank template", "GET /v1/supply/sites/year-end/template.xlsx": "blank template",
-    "GET /v1/supply/suppliers/attributes/template.xlsx": "blank template",
 }
 
 # routes that resolve the caller's organisation anonymously AND take an id of a shared reference record (not a tenant

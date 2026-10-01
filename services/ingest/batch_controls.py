@@ -172,6 +172,8 @@ def normalise_rows(rows: list[dict], specs: list[dict]) -> list[dict]:
                 n[k] = parse_money(v)
             elif kind in ("lat", "lon", "number"):
                 n[k] = parse_money(v)
+                if kind in ("lat", "lon"):               # as sent: how many decimals it carried (EUDR Art. 2(28)) is
+                    n[f"_sent_{k}"] = str(v).strip()     # not recoverable from the number
             elif kind == "int":
                 f = parse_money(v)
                 n[k] = int(f) if f is not None and f == int(f) else None

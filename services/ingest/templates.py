@@ -90,6 +90,7 @@ PLOT_TEMPLATE_FIELDS = _template(
     ("commodity", True), ("annual_spend_eur", True), ("plot_geojson", False), ("plot_area_ha", False),
     ("region", False, {"example": "Ashanti"}), ("country", False, {"example": "GH"}), ("irrigation_status", False),
     ("external_ref", False, _ref("plot or farm")), ("held_from", False), ("held_until", False), ("reporting_entity", False),
+    ("supplier_ref", False),
     ("currency", False), ("book_date", False),
 )
 
@@ -109,6 +110,27 @@ SITE_YEAR_END_TEMPLATE_FIELDS = _template(
                          "(YYYY-MM-DD). The carrying amount converts at that day's closing rate, net revenue at the average "
                          "of the year to it.", "example": "2025-12-31"}),
     ("carrying_amount_eur", False), ("carrying_amount_adapted_eur", False), ("net_revenue_eur", False), ("currency", False),
+)
+
+# EUDR (Regulation (EU) 2023/1115): the parties (Art. 5(3), 9(1)(e)-(f)), each placing on the market / making available /
+# export (Annex II points 1-3, Art. 9(1)(a)-(f)) and the plots each came from with the production dates (Art. 9(1)(d))
+EUDR_SUPPLIER_TEMPLATE_FIELDS = _template(
+    ("party_name", True), ("party_ref", True), ("address", True, {"description": "Postal address (Art. 9(1)(e))."}),
+    ("contact_email", True), ("trade_name", False), ("web_address", False), ("country", False),
+)
+EUDR_CUSTOMER_TEMPLATE_FIELDS = _template(
+    ("party_name", True), ("party_ref", True), ("address", True, {"description": "Postal address (Art. 9(1)(f))."}),
+    ("contact_email", True), ("trade_name", False), ("web_address", False), ("country", False),
+)
+EUDR_MOVEMENT_TEMPLATE_FIELDS = _template(
+    ("movement_ref", True), ("movement_kind", True), ("actor_role", True), ("planned_on", True), ("hs_code", True),
+    ("description", True), ("customs_flow", True), ("trade_name", False), ("scientific_names", False),
+    ("net_mass_kg", False), ("mass_deviation_pct", False), ("supplementary_unit", False), ("supplementary_qty", False),
+    ("volume_m3", False), ("items_count", False), ("supplier_ref", False), ("customer_ref", False), ("upstream_refs", False),
+    ("reporting_entity", False),
+)
+EUDR_MOVEMENT_PLOT_TEMPLATE_FIELDS = _template(
+    ("movement_ref", True), ("plot_ref", True), ("production_from", True), ("production_to", True),
 )
 
 # value sets used by the sector rules — the same vocabularies the checks use

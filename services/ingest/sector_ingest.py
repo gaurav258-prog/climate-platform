@@ -22,6 +22,9 @@ import h3
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.ingest import (
+    eudr_sectors as _eudr,  # the EUDR books (parties, movements, their plots)
+)
 from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector are re-exported for callers
     RowIssue,
     Sector,
@@ -353,7 +356,24 @@ HOLDINGS = Sector("assetmgmt_holdings", "entity_name", "primary_value_eur",
 def _plot_prepare(session: Session, org_id: str) -> dict:
     return {**_default_entity(session, org_id),
             "commodity_ids": {r["name"]: str(r["commodity_id"]) for r in
-                              session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}}
+                              session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()},
+            "suppliers": {r[0]: str(r[1]) for r in session.execute(text(
+                "SELECT external_ref, supplier_id FROM sc_suppliers WHERE org_id = CAST(:o AS uuid) AND external_ref IS NOT NULL"),
+                {"o": org_id}).all()}}
+
+
+def _decimals(v) -> int | None:
+    """Decimal digits a coordinate was SENT with (the file is read as text): Art. 2(28) of Regulation (EU) 2023/1115 —
+    'at least six decimal digits'. A number not given as text (a spreadsheet cell) says nothing about it: None."""
+    if not isinstance(v, str) or "." not in v:
+        return 0 if isinstance(v, str) and v.strip().lstrip("-").isdigit() else None
+    return len(v.strip().split(".", 1)[1])
+
+
+def _geojson_decimals(geo: str) -> int | None:
+    import re
+    d = [len(m) for m in re.findall(r"-?\d+\.(\d+)", geo)]
+    return min(d) if d else None
 
 
 def _held(row: dict) -> tuple[str | None, str | None]:
@@ -397,15 +417,22 @@ def _plot_build(ctx: dict, row: dict) -> dict:
             area = round(v["area_ha"], 2)
         needs_polygon = bool(v["needs_polygon"])
         cell = h3.latlng_to_cell(lat, lon, 8)
+        decimals = _geojson_decimals(geo)
     else:
         geojson = None
         lat, lon, cell = _location(row)
         needs_polygon = area is not None and area > 4.0
+        dl, dn = _decimals(row.get("_sent_latitude")), _decimals(row.get("_sent_longitude"))
+        decimals = None if dl is None or dn is None else min(dl, dn)
     country = _s(row, "country")
     if country and not is_valid_country(country):
         raise RowIssue(f"country '{country}' is not a valid ISO-2 code")
     held_from, held_until = _held(row)
-    return {"plot_name": name, "commodity_id": cid, "latitude": lat, "longitude": lon, "h3_cell": cell,
+    sup = _s(row, "supplier_ref")
+    if sup and sup not in ctx["suppliers"]:
+        raise RowIssue(f"supplier '{sup}' is not in your suppliers (send the suppliers file first)")
+    return {"supplier_id": ctx["suppliers"].get(sup) if sup else None, "coordinate_decimals": decimals,
+            "plot_name": name, "commodity_id": cid, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": _s(row, "region"), "country": country.upper() if country else None, "annual_spend_eur": spend,
             "plot_area_ha": area, "plot_geometry": geojson, "irrigation_status": _vocab(row, "irrigation_status", "irrigation"),
             "external_ref": _s(row, "external_ref"), "held_from": held_from, "held_until": held_until,
@@ -417,7 +444,8 @@ def _plot_existing(session: Session, org_id: str) -> list[dict]:
         SELECT plot_id::text AS entity_id, external_ref, plot_name, commodity_id::text AS commodity_id, latitude, longitude, h3_cell,
                region, country, CAST(annual_spend_eur AS FLOAT) AS annual_spend_eur, CAST(plot_area_ha AS FLOAT) AS plot_area_ha,
                plot_geometry::text AS plot_geometry, irrigation_status, held_from::text AS held_from, held_until::text AS held_until,
-               entity_id::text AS reporting_entity_id, NULL::text AS intragroup_entity_id
+               entity_id::text AS reporting_entity_id, NULL::text AS intragroup_entity_id,
+               supplier_id::text AS supplier_id, coordinate_decimals
         FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid) AND source = 'own'
     """), {"o": org_id}).mappings().all()
     out = []
@@ -436,11 +464,12 @@ def _plot_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude, h3_cell, region, country,
                                        annual_spend_eur, plot_area_ha, plot_geometry, confidence, geocode_precision,
-                                       irrigation_status, external_ref, held_from, held_until, entity_id)
+                                       irrigation_status, external_ref, held_from, held_until, entity_id, supplier_id,
+                                       coordinate_decimals)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), CAST(:commodity_id AS uuid), :plot_name, :latitude, :longitude,
                 :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb), 1.0, 'exact',
                 :irrigation_status, :external_ref, CAST(:held_from AS date), CAST(:held_until AS date),
-                CAST(:reporting_entity_id AS uuid))
+                CAST(:reporting_entity_id AS uuid), CAST(:supplier_id AS uuid), :coordinate_decimals)
     """), recs)
 
 
@@ -459,14 +488,18 @@ def _plot_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
                h3_cell = :h3_cell, region = :region, country = :country, annual_spend_eur = :annual_spend_eur,
                plot_area_ha = :plot_area_ha, plot_geometry = CAST(:plot_geometry AS jsonb), irrigation_status = :irrigation_status,
                external_ref = :external_ref, held_from = CAST(:held_from AS date), held_until = CAST(:held_until AS date),
-               entity_id = COALESCE(CAST(:reporting_entity_id AS uuid), p.entity_id)
+               entity_id = COALESCE(CAST(:reporting_entity_id AS uuid), p.entity_id),
+               supplier_id = COALESCE(CAST(:supplier_id AS uuid), p.supplier_id),
+               coordinate_decimals = CASE WHEN p.latitude IS DISTINCT FROM :latitude OR p.longitude IS DISTINCT FROM :longitude
+                                          OR p.plot_geometry IS DISTINCT FROM CAST(:plot_geometry AS jsonb)
+                                          THEN :coordinate_decimals ELSE COALESCE(:coordinate_decimals, p.coordinate_decimals) END
         WHERE p.plot_id = CAST(:entity_id AS uuid) AND p.org_id = CAST(:org_id AS uuid)
     """), recs)
 
 
 PLOTS = Sector("supply_plots", "plot_name", "annual_spend_eur",
                ("plot_name", "commodity_id", "latitude", "longitude", "region", "country", "annual_spend_eur", "plot_area_ha",
-                "plot_geometry", "irrigation_status", "external_ref", "held_from", "held_until"),
+                "plot_geometry", "irrigation_status", "external_ref", "held_from", "held_until", "supplier_id"),
                _plot_prepare, _plot_build, _plot_existing, _plot_insert, _plot_update,
                table="sc_sourcing_plots", id_column="plot_id", group_entities=True)
 
@@ -661,7 +694,7 @@ YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", tu
                   table="site_period_values", id_column="value_id", history=True)
 
 
-SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES, YEAR_END)}
+SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES, YEAR_END, *_eudr.SECTORS)}
 
 
 def write(session: Session, sector: Sector, org_id: str, ctx: dict, new: list[dict], updates: list[dict]) -> dict:

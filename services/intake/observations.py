@@ -50,7 +50,7 @@ def books() -> tuple[Book, ...]:
     name_col = {"portfolio_entities": "entity_name", "sc_company_sites": "name"}
     return tuple(Book(s.key, s.table, s.id_column, name_col.get(s.table, s.name_field),
                       tuple(f for f in s.compare if f not in _NOT_FACTS), s.existing) for s in SECTORS.values()
-                 if not s.history)                     # a year-end value is its own append-only history, not an asset fact
+                 if not s.history and s.asset_book)                     # a year-end value is its own append-only history, not an asset fact
 
 
 def book_for(table: str) -> list[Book]:
