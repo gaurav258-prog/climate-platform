@@ -99,10 +99,11 @@ def flagged_filings(session: Session, org_id: str) -> list[dict]:
         JOIN engine_runs er ON er.run_id = rs.run_id
         WHERE rf.org_id = CAST(:o AS uuid) AND rf.status NOT IN ('superseded', 'withdrawn')
     """), {"o": org_id}).mappings().all()
+    from services.governance.filings import retirement
     out = []
     for r in runs:
         tables = _tables_for(r["report_type"])
-        if not tables:
+        if not tables or retirement(r["framework"]):   # a retired report is neither refreshed nor restated: nothing to act on
             continue
         scope = ""
         params = {"o": org_id, "since": r["since"] or 0, "t": tables, "at": r["created_at"]}

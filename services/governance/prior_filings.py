@@ -39,13 +39,12 @@ def _esrs_sectors() -> list[str]:
 # quantities together); an ESRS statement's lines are mapped to the concepts its year's version prints.
 FRAMEWORKS: list[dict] = [
     {"key": "bank_p3esg", "label": "Pillar 3 ESG risk disclosures", "sectors": ["bank"]},
-    {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate (retired)", "sectors": [], "retired_for": "esrs_pack"},
+    {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate (retired)", "sectors": []},
     {"key": "esrs_pack",  "label": "ESRS sustainability statement (E1 · E3 · E4)", "sectors": None},
     {"key": "sfdr_pai",   "label": "SFDR principal adverse impacts", "sectors": ["asset_manager"]},
     {"key": "bank_tcfd",  "label": "TCFD climate disclosures", "sectors": ["bank", "asset_manager", "reit"]},
 ]
 _LABEL = {f["key"]: f["label"] for f in FRAMEWORKS}
-_RETIRED = {f["key"]: f["retired_for"] for f in FRAMEWORKS if f.get("retired_for")}
 
 
 def frameworks_for(org_type: str) -> list[dict]:
@@ -88,8 +87,12 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     from services.reference.iso4217 import codes
     if framework not in _LABEL:
         raise FilingError("Unknown framework.")
-    if framework in _RETIRED:
-        raise FilingError(f"{_LABEL[framework]} takes no new filings — upload it as {_LABEL[_RETIRED[framework]]}.")
+    from services.governance.filings import retirement
+    retired = retirement(framework)
+    if retired:
+        succ = retired.get("replaced_by")
+        raise FilingError(f"{_LABEL[framework]} takes no new filings — "
+                          + (f"upload it as {_LABEL[succ]}." if succ in _LABEL else f"it is retired since {retired['since']}."))
     if not period_label or not period_label.strip():
         raise FilingError("A reporting period is required.")
     ccy = (currency or "").strip().upper() or None

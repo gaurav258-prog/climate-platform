@@ -112,8 +112,8 @@ def test_ensure_obligations_skips_entity_scoping_for_non_entity_scoped_framework
     """sfdr_pai isn't entity-scoped — only the whole-org row should exist for it, never per-entity solo.
     org_id and org_type are decoupled params (ensure_obligations never looks up the org's real registered
     type), so the sandbox org_id can stand in under org_type='asset_manager' purely to reach a
-    non-entity-scoped framework — assetmgmt_tcfd (also asset_manager-sector) is entity-scoped and still
-    gets checked here for contrast."""
+    non-entity-scoped framework. The retired assetmgmt_tcfd (once the entity-scoped contrast here) is owed nothing:
+    no obligation row at all (E87)."""
     with get_session() as s:
         parent = E.create_entity(s, EMPTY_BANK_ORG, name="Test NES Parent", kind="group")
         E.create_entity(s, EMPTY_BANK_ORG, name="Test NES Sub", kind="legal_entity",
@@ -130,7 +130,7 @@ def test_ensure_obligations_skips_entity_scoping_for_non_entity_scoped_framework
             SELECT entity_id FROM regulatory_obligation
             WHERE org_id = CAST(:o AS uuid) AND framework = 'assetmgmt_tcfd'
         """), {"o": EMPTY_BANK_ORG}).mappings().all()
-        assert len(tcfd_rows) == 3  # whole_org + 2 solo (parent + sub)
+        assert tcfd_rows == []
         s.rollback()
 
 

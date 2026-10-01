@@ -3,7 +3,7 @@
   a Statement of Values upload (three properties on scored locations) → every insured peril priced on its own, the
   policy the sum of its perils, nothing priced for a peril the property cover does not indemnify → own funds, SCR,
   MCR and the reinsurance treaty submitted by one person and attested by another (not before) → the book nets its
-  losses with the attested treaty (before it, the net is a named gap — no illustrative treaty, E69) → the Solvency II nat-cat and climate filings freeze,
+  losses with the attested treaty (before it, the net is a named gap — no illustrative treaty, E69) → the Solvency II nat-cat filing freezes (the climate disclosure is retired),
   their frozen figures tie to the engine at the filing's basis, and export → another organisation sees none of it.
 
 The API runs in one rolled-back transaction: nothing is left behind.
@@ -109,7 +109,9 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     from services.governance.reporting_settings import get_settings
     basis_settings = get_settings(s, IBERIA)
     engine = build_disclosure_snapshot(s, IBERIA, basis_settings["scenario"], basis_settings["horizon"])
-    for fw in ("insurer_solvency", "insurer_climate"):
+    # the climate / NatCat disclosure is retired (E87): offered no more, its preparation refused with the reason
+    assert "retired" in api.get("/v1/filings/preflight?framework=insurer_climate", headers=maker).text
+    for fw in ("insurer_solvency",):
         # a live draft of the demo (from an earlier walkthrough) is withdrawn first, through the governed withdraw
         for (live,) in s.execute(text("""SELECT filing_id::text FROM regulatory_filing WHERE org_id = CAST(:o AS uuid)
                                          AND framework = :f AND period_end = :pe AND entity_id IS NULL AND status = 'draft'"""),

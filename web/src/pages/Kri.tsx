@@ -26,17 +26,19 @@ import { pressable } from '../lib/pressable'
 const DRAWER_CFG: Record<string, DrawerCfg> = {
   bank_tcfd:  { prefix: 'bank', itemKey: 'asset', nameKey: 'asset_name', valueKey: 'value_eur', typeKey: 'asset_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
   bank_p3esg: { prefix: 'bank', itemKey: 'asset', nameKey: 'asset_name', valueKey: 'value_eur', typeKey: 'asset_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
-  reit_tcfd:  { prefix: 'realestate', itemKey: 'property', nameKey: 'property_name', valueKey: 'property_value_eur', typeKey: 'property_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
+  reit_taxonomy: { prefix: 'realestate', itemKey: 'property', nameKey: 'property_name', valueKey: 'property_value_eur', typeKey: 'property_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
 }
 
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated'; flow?: boolean }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated'; flow?: boolean; live_only?: boolean; filed_basis?: string | null }
 interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
 interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
-interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
+// `figures`: what the anchor report printed (a set anchored on a governed report — services.governance.kri_sectors)
+interface HistFig { key: string; label: string; value: number | null; fmt: string }
+interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null; figures?: HistFig[] }
 interface Basis { kpis: 'live'; note: string; last_filed: { period_label: string; filing_id: string | null } | null }
 // an ESRS KRI set is one undertaking's statement for the year; `undertakings` are those with a stated statement role
 interface Undertaking { entity_id: string | null; name: string; role?: string }
@@ -58,7 +60,7 @@ interface HazDrill { supported: boolean; hazard: string; noun: string; entities:
 const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? (k.flow ? flow(k.value) : balance(k.value)) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
 // appetite bands are set in EUR, the engine's currency — shown as set, never translated
 const band_ = (k: Kpi, v?: number | null) => v == null ? '—' : k.fmt === 'eur' ? money(v, 'EUR') : String(v)
-const FRAMEWORKS: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_tcfd', insurer: 'insurer_climate', manufacturer: 'esrs_pack' }
+const FRAMEWORKS: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_taxonomy', insurer: 'insurer_solvency', manufacturer: 'esrs_pack' }
 interface Fw { framework: string; label: string }
 
 export default function Kri() {
@@ -227,6 +229,7 @@ export default function Kri() {
                   </div>
                   {k.reg && <div className="text-[8.5px] text-[var(--color-faint)] mt-1 truncate leading-tight" title={k.reg}>{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
                   {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}
+                  {k.live_only && <div className="mono text-[8px] uppercase tracking-wide text-[var(--color-faint)] mt-1" title={k.filed_basis ?? undefined}>live only · no filed basis</div>}
                   {k.status === 'red' && canRaise && (
                     <button onClick={e => { e.stopPropagation(); raiseTask(k) }} disabled={raising === k.key}
                       className="mt-2 inline-flex items-center gap-1 mono text-[9px] uppercase tracking-wide text-[var(--color-bad)] hover:underline disabled:opacity-50"
@@ -284,8 +287,10 @@ function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
               {d.history.map((h, i) => (
                 <button key={i} onClick={() => h.filing_id && nav(filingLink(orgType, h.filing_id))} className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition" title="Open this filing">
                   <div className="flex-1 mono text-[12px] text-[var(--color-mute)]">{h.label}</div>
-                  <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{balance(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>
-                  {h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{balance(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
+                  {h.figures ? h.figures.map(f => (
+                    <div key={f.key} className="text-right"><div className="mono text-[12.5px] tabular-nums">{f.value == null ? '—' : f.fmt === 'pct' ? `${f.value}%` : f.fmt === 'eur' ? balance(f.value) : String(f.value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">{f.label}</div></div>
+                  )) : <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{balance(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>}
+                  {!h.figures && h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{balance(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
                   <ChevronRight size={14} className="text-[var(--color-faint)] shrink-0" />
                 </button>
               ))}
@@ -515,7 +520,9 @@ function KriDetail({ framework, entityQ, kriKey, onClose }: { framework: string;
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                  ) : <p className="text-[12px] text-[var(--color-faint)] leading-relaxed">This metric's trend appears once you have two or more filed reports (filed history currently tracks book value, value-at-risk and share-at-risk).</p>}
+                  ) : <p className="text-[12px] text-[var(--color-faint)] leading-relaxed">{d.kpi.live_only
+                    ? (d.kpi.filed_basis ?? 'Live only — no governed report prints this figure, so it has no filed history.')
+                    : "This metric's trend appears once you have two or more filed reports that print it."}</p>}
                 </div>
                 {d.composition && d.composition.items.length > 0 && (() => {
                   const comp = d.composition

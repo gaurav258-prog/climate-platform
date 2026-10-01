@@ -46,7 +46,7 @@ def test_last_filed_reflects_the_real_most_recent_filed_snapshot():
 def test_insurer_kri_also_carries_the_basis_disclosure():
     """The fix is in the shared dispatcher, not one framework's builder — must apply uniformly."""
     with get_session() as s:
-        d = kri(s, INSURER_ORG, "insurer_climate")
+        d = kri(s, INSURER_ORG, "insurer_solvency")     # the insurer set, anchored on its nat-cat filing (E87)
         assert d["supported"]
         assert d["basis"]["kpis"] == "live"
         s.rollback()

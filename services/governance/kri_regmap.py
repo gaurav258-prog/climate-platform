@@ -50,20 +50,13 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "taxonomy":      ("GAR + BTAR (Templates 7–8) — Taxonomy-eligible %", "core"),
         "gar":           ("GAR + BTAR (Templates 7–8) — aligned % (Green Asset Ratio)", "core"),
     },
-    "reit_tcfd": {
-        "total_value":   ("Property book value — Art. 8 denominator", "support"),
-        "value_at_risk": ("TCFD — physical-risk exposure (value at or above the stated at-risk level)", "core"),
-        "pct_at_risk":   ("TCFD — share of the portfolio at risk", "core"),
-        "noi_impact":    ("TCFD — physical-risk impact on net operating income", "core"),
-        "coverage":      ("Data coverage", "support"),
-        "taxonomy":      ("Taxonomy Art. 8 — eligible %", "core"),
+    # anchored on the sector's governed report (services.governance.kri_sectors, E87): only a KRI that report prints feeds
+    # a datapoint of it; the others are live only and carry no tag
+    "reit_taxonomy": {
+        "taxonomy":      ("EU Taxonomy Art. 8 — Turnover KPI, Taxonomy-eligible share", "core"),
     },
-    "insurer_climate": {
-        "sum_insured":   ("Total sum insured — denominator", "support"),
-        "eal":           ("EIOPA / IFRS S2 — expected annual loss (NatCat)", "core"),
-        "loss_ratio":    ("EIOPA — NatCat loss ratio", "core"),
-        "value_at_risk": ("Sum insured at or above the stated at-risk level by peril", "core"),
-        "coverage":      ("Book priced / coverage", "support"),
+    "insurer_solvency": {
+        "natcat_scr":    ("Nat-cat filing — modelled 1-in-200 loss, gross (stated method; not an S.27.01.01 cell)", "support"),
     },
     "sfdr_pai": {
         "nav":            ("NAV in scope — denominator", "support"),

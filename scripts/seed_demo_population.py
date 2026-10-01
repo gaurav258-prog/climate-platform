@@ -183,7 +183,7 @@ def clone_agri_book(s, template_org: str, org_id: str, name: str, home: str, siz
 
 def seed_filings(s, org_id: str, typ: str, rng: random.Random) -> None:
     for fw, f in FRAMEWORKS.items():
-        if typ not in f["sectors"]:
+        if typ not in f["sectors"] or f.get("retired"):
             continue
         due = date(PERIOD_END.year + 1, *f["due"])
         s.execute(text("""INSERT INTO regulatory_obligation (obligation_id, org_id, framework, period_end, period_label, due_date, frequency)

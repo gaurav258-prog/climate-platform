@@ -139,44 +139,6 @@
     "declared": "2026-10-01",
     "reading": "The bank TCFD filing freezes one book that carries the bank's Article 8 KPIs (green asset ratio), which Annex V 1.1.1 ties to the prudential scope of consolidation; TCFD sets no scope of its own, so the rest of the report is computed on the same book rather than a second one."
    }
-  },
-  "reit_tcfd": {
-   "regime": "accounting_group",
-   "basis": "declared",
-   "refs": [
-    "Delegated Regulation (EU) 2021/2178 Annex I (f)",
-    "Directive 2013/34/EU Art. 27(1)"
-   ],
-   "declaration": {
-    "declared_by": "Tellumen",
-    "declared": "2026-10-01",
-    "reading": "The property company's TCFD filing freezes one book that carries its Article 8 KPIs, which Annex I (f) ties to the group of the consolidated statements (an associate is a separate item, Art. 27(1)); TCFD sets no scope of its own, so the report is computed on the same book."
-   }
-  },
-  "assetmgmt_tcfd": {
-   "regime": "accounting_group",
-   "basis": "declared",
-   "refs": [
-    "Delegated Regulation (EU) 2021/2178 Annex III (g)",
-    "Directive 2013/34/EU Art. 27(1)"
-   ],
-   "declaration": {
-    "declared_by": "Tellumen",
-    "declared": "2026-10-01",
-    "reading": "The asset manager's TCFD filing is computed on the group whose Article 8 KPI Annex III (g) ties to the consolidated statements (an associate is a separate item, Art. 27(1)); TCFD sets no scope of its own."
-   }
-  },
-  "insurer_climate": {
-   "regime": "solvency2_method1",
-   "basis": "declared",
-   "refs": [
-    "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)"
-   ],
-   "declaration": {
-    "declared_by": "Tellumen",
-    "declared": "2026-10-01",
-    "reading": "The insurer climate filing is prepared on the undertaking's Solvency II data (its basis is Solvency II · IFRS S2); a group report uses Solvency II method 1's consolidated data. IFRS S2's own wording on the reporting entity (via IFRS S1) is not held on file and is not relied on."
-   }
   }
  }
 }

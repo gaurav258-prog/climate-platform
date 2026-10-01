@@ -21,9 +21,9 @@ LIBRARY_REVIEWED = "January 2026"
 # ── which supervisor reads each framework ───────────────────────────────────────────────────────────
 FRAMEWORK_SUPERVISOR: dict[str, str] = {
     "bank_p3esg": "eba_ecb", "bank_tcfd": "eba_ecb",
-    "insurer_climate": "eiopa", "insurer_solvency": "eiopa", "insurer_orsa_climate": "eiopa", "insurer_recovery_stress": "eiopa",
-    "sfdr_pai": "esas", "assetmgmt_tcfd": "esas",
-    "esrs_pack": "nca_sustainability", "reit_tcfd": "nca_sustainability",
+    "insurer_solvency": "eiopa", "insurer_orsa_climate": "eiopa", "insurer_recovery_stress": "eiopa",
+    "sfdr_pai": "esas",
+    "esrs_pack": "nca_sustainability", "reit_taxonomy": "nca_sustainability",
     "eudr_dds": "ec_traces",
 }
 
@@ -152,7 +152,9 @@ SUPERVISORY_QUESTIONS: dict[str, list[dict]] = {
         {"q": "How much of the book crosses into high physical risk under a warming pathway?",
          "focus": "Forward-looking risk", "kri_key": "forward_share"},
     ],
-    "insurer_climate": [
+    # re-anchored (E87) from the retired insurer_climate / assetmgmt_tcfd / reit_tcfd: each question reads the sector's
+    # live KRI set, now anchored on its governed report; an answer from a live-only KRI says it has no filed basis
+    "insurer_solvency": [
         {"q": "What is your sum insured at high risk, by peril and geography?",
          "focus": "NatCat exposure & accumulation", "kri_key": "value_at_risk"},
         {"q": "What is your modelled NatCat capital at the 99.5% (≈1-in-200) level?",
@@ -167,8 +169,6 @@ SUPERVISORY_QUESTIONS: dict[str, list[dict]] = {
          "focus": "PAI completeness", "metric": "PAI statement — Annex I Table 1 (14 mandatory indicators)"},
         {"q": "What is the GHG footprint / intensity of your holdings?",
          "focus": "Greenwashing prevention", "metric": "Carbon footprint & GHG intensity of investments"},
-    ],
-    "assetmgmt_tcfd": [
         {"q": "What is your portfolio climate value-at-risk?",
          "focus": "Greenwashing prevention", "kri_key": "climate_var"},
         {"q": "What is your concentration in the largest common-shock zone?",
@@ -188,7 +188,7 @@ SUPERVISORY_QUESTIONS: dict[str, list[dict]] = {
         {"q": "How many of your own sites are located in or near biodiversity-sensitive areas?",
          "focus": "Water & biodiversity (E3 / E4)", "kri_key": "e4.sites.sensitive.count"},
     ],
-    "reit_tcfd": [
+    "reit_taxonomy": [
         {"q": "What property value is at high climate risk?",
          "focus": "Double materiality (E1)", "kri_key": "value_at_risk"},
         {"q": "What is the net-operating-income impact of climate risk?",
@@ -242,7 +242,8 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
             kk = kmap.get(q.get("kri_key")) if q.get("kri_key") else None
             if kk is not None:
                 answer = {"label": kk.get("label"), "value": kk.get("value"),
-                          "fmt": kk.get("fmt"), "flow": bool(kk.get("flow")), "breached": bool(kk.get("breached"))}
+                          "fmt": kk.get("fmt"), "flow": bool(kk.get("flow")), "breached": bool(kk.get("breached")),
+                          "live_only": bool(kk.get("live_only")), "filed_basis": kk.get("filed_basis")}
             row = {"framework": fw, "question": q["q"], "focus": q["focus"],
                    "metric": q.get("metric"), "answer": answer, "answered": answer is not None,
                    "review": bool(fw_changes)}

@@ -103,16 +103,9 @@ CATALOG: dict[str, list[dict]] = {
                  "strategy and risk-management processes. There is no figure to compute; you write the narrative directly "
                  "on the filing form (we version + attest it with the rest of the filing)."),
     ],
-    "reit_tcfd": [
-        _dp("phys_risk", "Physical climate-risk to property value + net-operating-income impact",
-            "tellumen", "compute", provider="Tellumen hazard engine"),
-        _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility", "tellumen", "compute", provider="Tellumen + your property book"),
-        _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment", "customer", "provided", provider="Your Taxonomy alignment determination"),
-        _dp("epc", "Energy performance (EPC ratings)", "egov", "provided",
-            provider="National EPC registers (UK/IE public) or a property-data vendor",
-            note="Free-gov where a public register exists; otherwise a commercial feed. Attached per property."),
-        _dp("tcfd_narrative", "TCFD governance & strategy narrative", "customer", "report", provider="You author"),
-    ],
+    # reit_tcfd, insurer_climate: retired (services.governance.filings.FRAMEWORKS) — they take no provided value
+    # (provided_data.submit) and no prior-filing upload, so they list no datapoints; csrd_e1 keeps its own for the labels
+    # of its confirmed prior filings
     "sfdr_pai": [
         _dp("pai_climate", "PAI 1–6 climate indicators — emissions, carbon footprint, WACI, fossil-fuel, energy",
             "tellumen", "compute", provider="Tellumen PAI engine (from your issuer-data feed)",
@@ -136,13 +129,6 @@ CATALOG: dict[str, list[dict]] = {
             note="We ingest + reconcile the inventory; activity data is yours, emission factors are free-gov."),
         _dp("e1_transition", "ESRS E1-1/4 — transition plan, targets, carbon price", "none", "none"),
         _dp("e1_narrative", "ESRS E1 — governance & impact/risk/opportunity narrative", "customer", "report", provider="You author"),
-    ],
-    "insurer_climate": [
-        _dp("natcat_eal", "NatCat expected annual loss + loss ratio by peril",
-            "tellumen", "compute", provider="Tellumen NatCat engine"),
-        _dp("sum_insured_at_risk", "Sum insured at risk (stated level) by peril & geography",
-            "tellumen", "compute", provider="Tellumen hazard engine + your SoV"),
-        _dp("uw_narrative", "Underwriting strategy & climate narrative", "customer", "report", provider="You author"),
     ],
     # Solvency II: the nat-cat SCR is computed; the undertaking's capital position and the reinsurance programme in force
     # come from its own records (S.23.01 own funds, the SCR / MCR it reports, its treaties) — stated once here, attested

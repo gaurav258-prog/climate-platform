@@ -101,9 +101,12 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
     filed = session.execute(text("""SELECT framework, period_label, status, submission_ref, updated_at FROM regulatory_filing
                                     WHERE org_id = CAST(:o AS uuid) AND updated_at::date BETWEEN :f AND :t ORDER BY updated_at DESC"""),
                             {"o": org_id, "f": period_from, "t": period_to}).mappings().all()
+    from services.governance.filings import retired_frameworks
     due = session.execute(text("""SELECT framework, period_label, due_date, source FROM regulatory_obligation
-                                  WHERE org_id = CAST(:o AS uuid) AND due_date BETWEEN :t AND :t2 ORDER BY due_date"""),
-                          {"o": org_id, "t": period_to, "t2": period_to + timedelta(days=120)}).mappings().all()
+                                  WHERE org_id = CAST(:o AS uuid) AND due_date BETWEEN :t AND :t2
+                                    AND framework <> ALL(CAST(:retired AS text[])) ORDER BY due_date"""),   # owed no more
+                          {"o": org_id, "t": period_to, "t2": period_to + timedelta(days=120),
+                           "retired": retired_frameworks()}).mappings().all()
     c["filings"] = {"requirements": [{"framework": r["framework"], "label": r.get("official_name") or r.get("label"), "regulator": r.get("regulator"), "due_label": r.get("due_label"),
                                       "last_filed": _last(r.get("last_filed")), "n_filings": r.get("n_filings", 0)} for r in reqs],
                     "filed_in_period": [{**dict(r), "updated_at": _iso(r["updated_at"])} for r in filed],

@@ -17,15 +17,15 @@
   "topics": [
     {"key": "pillar3_esg", "label": "Pillar 3 ESG disclosures", "frameworks": ["bank_p3esg"],
      "words": ["pillar 3", "pillar iii", "esg risk", "esg risks", "prudential disclosure"]},
-    {"key": "taxonomy", "label": "EU Taxonomy", "frameworks": ["bank_tcfd", "reit_tcfd", "reit_taxonomy"],
+    {"key": "taxonomy", "label": "EU Taxonomy", "frameworks": ["bank_tcfd", "reit_taxonomy"],
      "words": ["taxonomy", "green asset ratio", "gar"]},
-    {"key": "sfdr", "label": "SFDR", "frameworks": ["sfdr_pai", "assetmgmt_tcfd"],
+    {"key": "sfdr", "label": "SFDR", "frameworks": ["sfdr_pai"],
      "words": ["sfdr", "sustainable finance disclosure", "principal adverse", "fund names", "esg-related terms"]},
     {"key": "csrd_esrs", "label": "CSRD / ESRS", "frameworks": ["csrd_e1", "esrs_pack"],
      "words": ["csrd", "esrs", "sustainability reporting standard", "omnibus", "efrag"]},
     {"key": "eudr", "label": "EU Deforestation Regulation", "frameworks": ["eudr_dds"],
      "words": ["eudr", "deforestation"]},
-    {"key": "solvency_natcat", "label": "Solvency II / natural catastrophe", "frameworks": ["insurer_climate", "insurer_solvency"],
+    {"key": "solvency_natcat", "label": "Solvency II / natural catastrophe", "frameworks": ["insurer_solvency"],
      "words": ["solvency ii", "natural catastrophe", "nat cat", "natcat", "climate change risk scenario"]},
     {"key": "climate_disclosure", "label": "Climate disclosure (general)", "frameworks": [],
      "words": ["climate-related disclosure", "climate disclosure", "sustainability disclosure", "sustainability-related disclosure", "transition plan", "issb", "sdr"]}

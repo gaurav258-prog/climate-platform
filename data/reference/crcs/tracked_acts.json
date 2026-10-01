@@ -8,13 +8,6 @@
     "role": "base"
    }
   ],
-  "reit_tcfd": [
-   {
-    "celex": "32021R2178",
-    "title": "Taxonomy Disclosures Delegated Act",
-    "role": "base"
-   }
-  ],
   "sfdr_pai": [
    {
     "celex": "32019R2088",
@@ -43,13 +36,6 @@
    {
     "celex": "32022L2464",
     "title": "CSRD Directive",
-    "role": "base"
-   }
-  ],
-  "insurer_climate": [
-   {
-    "celex": "32009L0138",
-    "title": "Solvency II Directive",
     "role": "base"
    }
   ],

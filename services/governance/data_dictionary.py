@@ -51,9 +51,12 @@ def data_dictionary(session: Session) -> dict:
     # reporting datapoints by framework — each classified by where the data comes from (source category)
     # and how it enters Tellumen (ingestion lane), read from the canonical datapoint catalog.
     from services.governance.datapoint_catalog import CATALOG, coverage_source
+    from services.governance.filings import retirement
     from services.governance.reg_reference import reference as _ref
     frameworks = []
     for fw, dps in CATALOG.items():
+        if retirement(fw):                            # a retired report takes no data; its filings keep their own
+            continue
         ref = _ref(fw) or {}
         frameworks.append({
             "framework": fw,

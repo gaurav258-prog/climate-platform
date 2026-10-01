@@ -18,8 +18,9 @@ made on the regulator's own system (supervisory reporting / ESEF iXBRL / TRACES)
 > specification of its governing text, captured item by item, second-passed and signed. The source of truth for which
 > report types are on that route, and under which specification families, is `data/reference/regspec_usage.json`; the
 > specifications themselves are `data/reference/regspec/<family>/<version>.json`; each run's errors and guards are
-> the E-rows of `docs/ENGINEERING_PROCESS.md`. A report type absent from `regspec_usage.json` (today: `reit_tcfd`,
-> `insurer_climate`, `assetmgmt_tcfd`, and EUDR) is still as this assessment describes it. Section 5 (ESRS) is
+> the E-rows of `docs/ENGINEERING_PROCESS.md`. A report type absent from `regspec_usage.json` (today: EUDR) is still as
+> this assessment describes it. `reit_tcfd`, `insurer_climate` and `assetmgmt_tcfd` are retired (2026-10-01, E87): tied
+> to no regulatory text, they take no new filing; their sections below describe the filings frozen before. Section 5 (ESRS) is
 > rewritten below to the statement as built; the other sections describe their pre-route state.
 
 Data we hold (per catalog + forms): counterparty **NACE code**, **outstanding balance** (≈ gross carrying
@@ -69,7 +70,7 @@ in regulatory order, computed at form-view time from the frozen snapshot's per-a
 columns (Stage2/NPE/impairment), alignment flags + % company-reported, and EPC (Template 2) — all customer/integrated.
 _Source: [CELEX:32022R2453](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2453) OJ L 324/1; [EBA ITS final report](https://eba.europa.eu/sites/default/files/document_library/Publications/Draft%20Technical%20Standards/2022/1026171/EBA%20draft%20ITS%20on%20Pillar%203%20disclosures%20on%20ESG%20risks.pdf)._
 
-## 2. Bank — EU Taxonomy Art. 8 (GAR) + TCFD · `bank_tcfd`
+## 2. Bank — EU Taxonomy Art. 8 (GAR) · `bank_tcfd` (its key keeps the historical name; the report also prints TCFD-style sections — E87)
 **Governing text.** Del. Reg. **(EU) 2021/2178**, **Annex V** (methodology) + **Annex VI** (credit-institution KPI
 templates). **Annex VI = 8 templates** (read from the Commission Annex VI PDF): **T0** Summary of KPIs · **T1**
 Assets for GAR calc · **T2** GAR sector information · **T3** GAR KPI **stock** · **T4** GAR KPI **flow** · **T5**
@@ -92,7 +93,7 @@ needs TSC + DNSH + per-activity objective mapping the institution supplies). The
 GAR + T3 objective eligibility) is in place; the rest is honestly declared, not fabricated.
 _Source: [CELEX:32021R2178](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178); [Annex VI PDF](https://ec.europa.eu/finance/docs/level-2-measures/taxonomy-regulation-delegated-act-2021-4987-annex-6_en.pdf)._
 
-## 3. REIT — EU Taxonomy Art. 8 (non-financial) + TCFD · `reit_tcfd`  ✅ correctness bug FIXED
+## 3. REIT — EU Taxonomy Art. 8 (non-financial) + TCFD · `reit_tcfd` (retired 2026-10-01; the live report is `reit_taxonomy`)  ✅ correctness bug FIXED
 **Governing text.** A REIT is a **non-financial undertaking** → Del. Reg. 2021/2178 **Annexes I & II**: three KPI
 templates — **Turnover / CapEx / OpEx**. Rows: **A. eligible → A.1 aligned (of-which enabling/transitional) ·
 A.2 eligible-not-aligned · B. non-eligible · Total**. Columns: activity+NACE, absolute €, proportion %, **SC (6
@@ -148,7 +149,7 @@ item filled or omitted with a reason, phase-ins held, stated relations, period c
 `docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` item 1); an XBRL file under element names EFRAG never published is not built.
 The E1-only report (`csrd_e1`) is retired: its filings stay readable.
 
-## 6. Insurer — climate / NatCat · `insurer_climate`  ✅ own IFRS-S2 annex (builder mismatch FIXED)
+## 6. Insurer — climate / NatCat · `insurer_climate` (retired 2026-10-01; the live report is `insurer_solvency`)  ✅ own IFRS-S2 annex (builder mismatch FIXED)
 **Governing text.** **No fixed EU quantitative NatCat disclosure template.** Layer 1 = **IFRS S2** (Governance /
 Strategy / Risk mgmt / Metrics & targets) with **insurance industry metrics (SASB FN-IN-450a)**: **450a.1 PML from
 weather-related natural catastrophes**; **450a.2 cat monetary losses by event type & geographic segment, net &
