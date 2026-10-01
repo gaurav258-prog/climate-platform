@@ -144,13 +144,12 @@ SUPERVISORY_QUESTIONS: dict[str, list[dict]] = {
         {"q": "What are your financed emissions across Scope 1–3?",
          "focus": "Transition risk & financed emissions", "kri_key": "fin_emissions"},
     ],
+    # the EU Taxonomy Art. 8 report (E95): only what its templates print — physical risk is asked under Pillar 3
     "bank_tcfd": [
-        {"q": "What is the Taxonomy eligibility and alignment (GAR) of your exposures?",
-         "focus": "Green Asset Ratio credibility", "metric": "EU-Taxonomy eligibility & GAR (Art. 8)"},
-        {"q": "What value of the book is at high climate risk today?",
-         "focus": "Physical-risk concentration", "kri_key": "value_at_risk"},
-        {"q": "How much of the book crosses into high physical risk under a warming pathway?",
-         "focus": "Forward-looking risk", "kri_key": "forward_share"},
+        {"q": "What is your Green Asset Ratio (stock), turnover-based and CapEx-based?",
+         "focus": "Green Asset Ratio credibility", "kri_key": "gar"},
+        {"q": "What share of your total assets does the Green Asset Ratio cover?",
+         "focus": "Green Asset Ratio credibility", "kri_key": "gar_coverage"},
     ],
     # re-anchored (E87) from the retired insurer_climate / assetmgmt_tcfd / reit_tcfd: each question reads the sector's
     # live KRI set, now anchored on its governed report; an answer from a live-only KRI says it has no filed basis

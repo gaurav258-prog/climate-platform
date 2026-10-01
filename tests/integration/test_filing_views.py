@@ -90,29 +90,30 @@ def test_a_filing_frozen_in_a_view_says_so_and_reflects_it(session_rolled_back):
 
 def _attest_financed_emissions(s, value: float):
     s.execute(text("""UPDATE provided_datapoint SET status = 'superseded' WHERE org_id = CAST(:o AS uuid)
-                      AND framework = 'bank_tcfd' AND datapoint_key = 'financed_emissions' AND status <> 'superseded'"""),
+                      AND framework = 'bank_p3esg' AND datapoint_key = 'p3_scope3' AND status <> 'superseded'"""),
               {"o": BANK_ORG})
     from services.governance.filings import reporting_period_end
     s.execute(text("""INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, unit, source, provider_name,
                                                       status, decided_at, reporting_period_end)
-                      VALUES (CAST(:o AS uuid), 'bank_tcfd', 'financed_emissions', :v, 'tCO2e', 'client', 'Audited PCAF',
+                      VALUES (CAST(:o AS uuid), 'bank_p3esg', 'p3_scope3', :v, 'tCO2e', 'client', 'Audited PCAF',
                               'attested', now(), :pe)"""), {"o": BANK_ORG, "v": value, "pe": reporting_period_end(s, BANK_ORG)})
 
 
 def test_the_clients_attested_figure_is_reported_by_default_and_ours_on_request(session_rolled_back):
+    # financed emissions are a figure of Pillar 3 (Template 1); the EU Taxonomy Art. 8 report prints none (E95)
     s = session_rolled_back
     _attest_financed_emissions(s, 123456.0)
-    snap = create_snapshot(s, BANK_ORG, "bank_tcfd", None, period_end=reporting_period_end(s, BANK_ORG))
+    snap = create_snapshot(s, BANK_ORG, "bank_p3esg", None, period_end=reporting_period_end(s, BANK_ORG))
     figs = s.execute(text("SELECT payload->'_figures' FROM report_snapshots WHERE snapshot_id = CAST(:s AS uuid)"),
                      {"s": snap["snapshot_id"]}).scalar()
-    f = next(x for x in figs if x["datapoint"] == "financed_emissions")
-    assert f["reported"] == "client" and f["client_value"] == 123456.0 and f["form_key"] == "emissions.total"
-    groups = [{"group": "g", "datapoints": [{"key": "emissions.total", "value": f["tellumen_value"], "source": "calculated"}]}]
+    f = next(x for x in figs if x["datapoint"] == "p3_scope3")
+    assert f["reported"] == "client" and f["client_value"] == 123456.0 and f["form_key"] == "emissions.scope3"
+    groups = [{"group": "g", "datapoints": [{"key": "emissions.scope3", "value": f["tellumen_value"], "source": "calculated"}]}]
     FV.apply_to_form(groups, figs)
     d = groups[0]["datapoints"][0]
     assert d["value"] == 123456.0 and d["source"] == "provided" and d["figure"]["tellumen_value"] == f["tellumen_value"]
     if f["tellumen_value"] is not None:                                # ours exists: it can be the reported figure
-        snap2 = create_snapshot(s, BANK_ORG, "bank_tcfd", None, figure_sources={"financed_emissions": "tellumen"}, period_end=reporting_period_end(s, BANK_ORG))
+        snap2 = create_snapshot(s, BANK_ORG, "bank_p3esg", None, figure_sources={"p3_scope3": "tellumen"}, period_end=reporting_period_end(s, BANK_ORG))
         figs2 = s.execute(text("SELECT payload->'_figures' FROM report_snapshots WHERE snapshot_id = CAST(:s AS uuid)"),
                           {"s": snap2["snapshot_id"]}).scalar()
-        assert next(x for x in figs2 if x["datapoint"] == "financed_emissions")["reported"] == "tellumen"
+        assert next(x for x in figs2 if x["datapoint"] == "p3_scope3")["reported"] == "tellumen"

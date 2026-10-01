@@ -14,19 +14,12 @@ from __future__ import annotations
 from typing import Callable, Optional
 
 
-def _sum_scopes(p: dict) -> Optional[float]:
-    from services.scoring.pcaf import financed_total
-    v = financed_total(p.get("financed_emissions_tco2e") or {})
-    return float(v) if v is not None else None
-
-
 def _scope3(p: dict) -> Optional[float]:
     v = (p.get("financed_emissions_tco2e") or {}).get("scope3")
     return float(v) if v is not None else None
 
 
 FIGURES: dict[tuple[str, str], dict] = {
-    ("bank_tcfd", "financed_emissions"): {"ours": _sum_scopes, "form_key": "emissions.total", "unit": "tCO2e"},
     ("bank_p3esg", "p3_scope3"): {"ours": _scope3, "form_key": "emissions.scope3", "unit": "tCO2e"},
 }
 SOURCES = ("client", "tellumen")

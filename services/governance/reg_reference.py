@@ -23,8 +23,10 @@ REFERENCE: dict[str, dict] = {
                    "including the Green Asset Ratio, on the templates of Annex VI to Delegated Regulation (EU) 2021/2178.",
         "official_form": "Annex VI templates of Delegated Reg. (EU) 2021/2178 (credit-institution KPIs)",
         "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
-        "inputs": "Loan / exposure book: counterparty, NACE sector, collateral location, outstanding balance, "
-                  "and EU-Taxonomy eligibility & alignment flags.",
+        "inputs": "Loan / exposure book: counterparty type and whether it is subject to the CSRD, NACE sector, instrument, "
+                  "purpose of the financing, gross carrying amount, the exposure's own EU-Taxonomy status, objective and "
+                  "contribution (specific-purpose lending), and the counterparty's own Taxonomy KPIs (general-purpose "
+                  "lending); the off-balance-sheet, fee and trading-book KPIs are entered by the institution.",
     },
     "bank_p3esg": {
         "official_name": "Pillar 3 disclosures of ESG risks (EBA prudential templates)",

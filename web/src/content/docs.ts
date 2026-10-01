@@ -146,7 +146,7 @@ Tellumen assembles the mandated tables for the frameworks in scope and takes the
 - **EU Taxonomy (Art. 8)** — alignment and the climate-adaptation objective, with DNSH / minimum-safeguards.
 - **CSRD / ESRS** — E1 physical risk, E3 water, E4 deforestation, bound to the EFRAG taxonomy.
 - **EUDR** — the due-diligence statement against forest-loss data *(TRACES submission is sandbox-ready)*.
-- **PCAF / TCFD** — financed emissions and physical-risk scenario reporting.
+- **Pillar 3 ESG (banks)** — the EBA templates, including financed emissions (Template 1) and physical-risk exposure (Template 5).
 
 ## The release
 1. An **analyst** prepares the filing on the chosen basis.

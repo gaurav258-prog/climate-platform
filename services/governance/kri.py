@@ -47,7 +47,8 @@ def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integra
 
 
 # the frameworks with a KRI builder, and their short picker labels (one org-type can report several)
-# (the REIT / insurer / asset-manager sets are anchored on their sector's governed report — services.governance.kri_sectors)
+# (each set is anchored on its governed report — the bank's in services.governance.kri_bank, the REIT / insurer /
+# asset-manager sets in services.governance.kri_sectors)
 _KRI_LABELS = {"bank_tcfd": "EU Taxonomy Art. 8", "bank_p3esg": "Pillar 3 ESG", "sfdr_pai": "SFDR PAI",
                "reit_taxonomy": "EU Taxonomy · property", "insurer_solvency": "Solvency II · nat-cat",
                "esrs_pack": "ESRS E1·E3·E4"}
@@ -63,13 +64,15 @@ def kri_frameworks(org_type: str | None) -> list[dict]:
 def kri(session: Session, org_id: str, framework: str, entity_id: str | None = None) -> dict:
     """entity_id: the undertaking an ESRS KRI set is for (services.governance.kri_esrs.undertaking); other sets are the
     organisation's book."""
-    if framework == "bank_tcfd":
-        result = _bank_kri(session, org_id)
+    if framework == "bank_tcfd":                       # anchored on the report each set belongs to (kri_bank, E95)
+        from services.governance.kri_bank import taxonomy_kri
+        result = taxonomy_kri(session, org_id)
     elif framework == "bank_p3esg":
-        result = _p3esg_kri(session, org_id)
+        from services.governance.kri_bank import pillar3_kri
+        result = pillar3_kri(session, org_id)
     elif framework == "sfdr_pai":
-        from services.governance.kri_sectors import holdings_kpis
-        result = _sfdr_kri(session, org_id)
+        from services.governance.kri_sectors import holdings_kpis, sfdr_kri
+        result = sfdr_kri(session, org_id)
         held, by_hazard = holdings_kpis(session, org_id)          # the holdings book's KRIs: live only
         result["kpis"] = result["kpis"] + held
         result["by_hazard"] = result.get("by_hazard") or by_hazard
@@ -468,214 +471,3 @@ def _snapshot_history(session: Session, org_id: str, framework: str) -> list[dic
             p = json.loads(p)
         out.append({"label": f'{r["period_label"]} v{r["version"]}', "payload": p, "filing_id": r["filing_id"]})
     return out
-
-
-def _bank_kri(session: Session, org_id: str) -> dict:
-    from api.routers.bank import build_disclosure_snapshot
-    from services.governance.reporting_settings import get_settings
-    s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
-    r = snap.get("rollup", {})
-    em = snap.get("financed_emissions_tco2e", {})
-    pcaf = snap.get("financed_emissions_pcaf", {})
-    from services.scoring.pcaf import financed_total
-    tax = snap.get("taxonomy", {})
-    total = r.get("total_value_eur", 0) or 0
-    elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
-    tax_total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
-    cov = round(100 * r.get("n_scored", 0) / r.get("n_assets", 1), 1) if r.get("n_assets") else 0
-
-    # Decision / concentration KRIs computed from the same per-asset book the Pillar 3 templates use.
-    # Acute vs chronic split (Template 5), climate-sector concentration (the NACE axis of Templates 1 & 5),
-    # and the forward early-warning (projected share crossing the stated level). Nothing new-sourced.
-    from services.governance.pillar3_templates import concentration_split, stated_level
-    cs = concentration_split(snap.get("assets") or [], stated_level(snap))
-    acute_val, chronic_val, hci_val = cs["acute_val"], cs["chronic_val"], cs["high_climate_val"]
-    top_sec, top_val = cs["top_sector"], cs["top_sector_val"]
-    def _share(x):
-        return None if x is None else round(100 * x / total, 1) if total else 0
-
-    # Forward early-warning: projected share-at-risk at the furthest horizon under a warming pathway.
-    fwd_share = fwd_note = None
-    try:
-        from services.intelligence.forward_risk import forward_risk
-        from services.money.params import for_org
-        scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
-        traj = (forward_risk(session, org_id, "banking", scen, for_org(session, org_id)).get("trajectory") or [])
-        fut = [t for t in traj if t.get("horizon") != "current"]
-        if fut:
-            pt = fut[-1]
-            fwd_share = pt.get("at_risk_pct")
-            fwd_note = f"under {scen.replace('_', ' ')} by {pt.get('horizon')}"
-    except Exception:  # noqa: BLE001 — a missing projection must not sink the whole KRI set
-        pass
-
-    kpis = [
-        _kpi("total_value", "Total book value", total, "eur"),
-        _kpi("value_at_risk", "Value at material physical risk", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
-             hint="Value at or above the bank's stated at-risk level (method.at_risk_level)"),
-        _kpi("pct_at_risk", "Share at risk", r.get("pct_value_at_risk"), "pct", tone="#f0a860"),
-        _kpi("acute_share", "Acute-peril exposure", _share(acute_val), "pct", tone="#fb7185",
-             hint="Share of the book at or above the stated at-risk level on an ACUTE, event-driven peril (flood, "
-                  "storm, wildfire, frost, acute heat) — the sudden-loss / provisioning driver. Template 5 acute column."),
-        _kpi("chronic_share", "Chronic-peril exposure", _share(chronic_val), "pct", tone="#f0a860",
-             hint="Share at or above the stated at-risk level on a CHRONIC, gradual peril (drought, chronic heat, "
-                  "coastal/sea-level, water stress) — the long-run repricing driver. Template 5 chronic column."),
-        _kpi("forward_share", "Projected share at risk", fwd_share, "pct", tone="#fb7185",
-             hint=("Share of the book projected at or above the stated at-risk level " + (fwd_note or "under a warming pathway")
-                   + " — the forward early-warning vs today's share at risk.")),
-        _kpi("sector_concentration", "Climate-sector concentration", _share(hci_val), "pct", tone="#f0a860",
-             hint=(f"Share of the book in EBA high-climate-impact sectors (NACE A–H, L). Largest single sector: "
-                   f"{top_sec} · {_share(top_val)}%. The concentration axis of Pillar 3 Templates 1 & 5.")),
-        _kpi("coverage", "Book scored", cov, "pct", hint="Share of assets scored on the golden source"),
-        # PCAF-attributed, over the counterparties that state emissions AND carry EVIC — none attributable is no figure
-        _kpi("fin_emissions", "Financed emissions",
-             financed_total(em) if pcaf.get("n_evic_covered") else None,
-             "num", hint=(f"tCO₂e · PCAF-attributed (factor = outstanding ÷ counterparty EVIC, capped at 100%) · "
-                          f"{pcaf.get('n_counterparties_with_emissions', 0)} of {pcaf.get('n_counterparties', 0)} counterparties "
-                          f"state emissions ({pcaf.get('exposure_with_emissions_pct')}% of outstanding; scope 3 by "
-                          f"{(pcaf.get('n_stating') or {}).get('scope3', 0)}), {pcaf.get('n_evic_covered', 0)} of them carry EVIC"
-                          + (f", {pcaf['n_attributed_all_scopes']} of those state all three scopes — the total sums only them"
-                             if "n_attributed_all_scopes" in pcaf else "")
-                          + (f" · {pcaf.get('not_covered_total', 0):,} tCO₂e stated without EVIC, not attributed" if pcaf.get("not_covered_total") else "")
-                          + " · a counterparty that states no emissions is not counted as zero")),
-        _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
-        _kpi("gar", "Green Asset Ratio", None, "pct", integrated=True, integrated_note="needs alignment",
-             hint="Taxonomy-ALIGNED share (the Art. 8 GAR) needs alignment flags — substantial contribution + DNSH + minimum safeguards — provided in your book; only eligibility is computed here."),
-    ]
-    # Climate expected loss (IFRS-9 / ECL-relevant) — annual + lifetime, maturity-matched, from the frozen snapshot.
-    elb = snap.get("expected_loss") or {}
-    if elb.get("annual_el_eur") is not None:
-        kpis.append(_kpi("expected_loss", "Climate expected loss (annual)", _amount(elb.get("annual_el_eur")), "eur",
-                         tone="#fb7185", hint=(f"Physical climate annual EL ({elb.get('annual_el_bps')} bps of EAD); "
-                                               f"lifetime {_millions(elb.get('lifetime_el_eur'))} "
-                                               f"({elb.get('lifetime_el_bps')} bps), maturity-matched. Exposure × P(event) × "
-                                               f"the stated damage ratio under {elb.get('scenario')} — the bank's own method, not a fitted PD·LGD.")))
-
-    # Transition risk ON THE COLLATERAL — the stated brown discount per EPC grade erodes RE collateral (an LGD driver,
-    # distinct from the counterparty transition). Only where the bank has RE collateral.
-    csr = snap.get("collateral_stranding") or {}
-    if csr.get("available"):
-        kpis.append(_kpi(
-            "collateral_stranding", "Collateral value at risk · EPC stranding",
-            csr.get("collateral_value_at_risk_eur"), "eur", tone="#fb7185",
-            hint=(f"Not computed — {csr['gap']}" if csr.get("gap") else
-                  f"Recovery-cushion erosion on the stated brown discount per EPC grade — {csr.get('n_discounted')} of "
-                  f"{csr.get('n_re_loans')} RE-collateralised loans in a discounted grade ({csr.get('pct_exposure_discounted')}% "
-                  f"of assessed exposure). Exposure-weighted LTV {csr.get('exposure_weighted_ltv_pct')}%→{csr.get('stressed_ltv_pct')}%; "
-                  f"{_money_text(session, org_id, csr.get('loan_value_at_risk_eur'))} exposure uncovered (LTV>100%). "
-                  f"{csr.get('epc_coverage_pct')}% assessed.")))
-    by_hazard = sorted(
-        [{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
-         for h, b in (snap.get("by_hazard") or {}).items() if (b.get("exposed_value_eur") or 0) > 0],
-        key=lambda x: -x["value"])
-    history = [{"label": h["label"], "filing_id": h["filing_id"],
-                "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
-                "value_at_risk": (h["payload"].get("rollup") or {}).get("value_at_risk_eur"),
-                "pct_at_risk": (h["payload"].get("rollup") or {}).get("pct_value_at_risk")}
-               for h in _snapshot_history(session, org_id, "bank_tcfd")]
-    return {"framework": "bank_tcfd", "supported": True, "label": "TCFD physical-risk KRIs",
-            "kpis": kpis, "by_hazard": by_hazard, "history": history}
-
-
-def _p3esg_kri(session: Session, org_id: str) -> dict:
-    """Pillar 3 ESG KRIs — the shared banking-book core (physical risk, financed emissions, GAR/Taxonomy) PLUS
-    the indicators the EBA prudential templates prescribe that TCFD does NOT: the IEA-NZE2050 alignment-metric
-    distance (Template 3 / EU CRFR4 pending adoption) and exposure to the top-20 carbon-intensive firms (Template 4,
-    deleted by the pending EBA/ITS/2026/02 amendment). Tagged to the Pillar 3
-    framework so it grades against its own appetite bands and regulator framing."""
-    r = _bank_kri(session, org_id)
-    r["framework"] = "bank_p3esg"
-    r["label"] = "Pillar 3 ESG KRIs"
-    # append the Pillar-3-only prescribed indicators, computed from the same book via the transition engine
-    try:
-        from services.governance.reporting_settings import get_settings
-        from services.governance.transition_alignment import template3_grid, template4_top20
-        s = get_settings(session, org_id)
-        snap = _live_snapshot(session, org_id, "bank_p3esg", s["scenario"], s["horizon"])
-        assets = (snap or {}).get("assets") or []
-        total = (snap or {}).get("rollup", {}).get("total_value_eur") or sum(a.get("value_eur") or 0 for a in assets)
-        # Pillar 3 Template 1 col (i) is the GROSS Scope 1+2+3 total (services/governance/pillar3_templates.py's
-        # template1_grid: "no new attribution" — ITS 2022/2453 does not ask for PCAF weighting here). The shared
-        # _bank_kri() figure is PCAF-attributed (the correct TCFD/PAI figure) -- on the Pillar-3 tab specifically,
-        # replace it with the SAME gross total the actual filed template will show, so the KRI never disagrees
-        # with the form a supervisor pulls up next to it.
-        from services.scoring.pcaf import gross_emissions
-        gross = gross_emissions(assets, exposure_key="outstanding_loan_balance_eur")
-        for kpi in r["kpis"]:
-            if kpi["key"] == "fin_emissions":
-                kpi["value"] = gross["total"]
-                kpi["hint"] = (f"tCO₂e · GROSS Scope 1–3 of the counterparties that state all three (Template 1 col. i "
-                               f"methodology — no PCAF attribution there): {gross['n_all_scopes']} of "
-                               f"{gross['n_counterparties']} counterparties, {gross['exposure_all_scopes_pct']}% of "
-                               f"outstanding ({gross['n_with_emissions']} state at least one scope). A scope not stated is "
-                               "never counted as zero. Not the same basis as the TCFD tab's PCAF-attributed figure.")
-                break
-        g3 = template3_grid(assets)
-        g4 = template4_top20(assets)
-        align_pending = g3.get("portfolio_distance") is None
-        r["kpis"].append(_kpi(
-            "p3_alignment", "IEA alignment distance", g3.get("portfolio_distance"), "pct",
-            integrated=align_pending, integrated_note="needs intensity feed" if align_pending else None, tone="#fb7185",
-            hint="Template 3 / EU CRFR4 (pending adoption) — gross-weighted distance of the book's counterparty CO₂-intensity to the IEA NZE2050 "
-                 "2030 pathway (100×((current−IEA2030)/IEA2030)). Needs a counterparty physical-intensity feed "
-                 "(vendor/counterparty) — shows '—' until provided."))
-        r["kpis"].append(_kpi(
-            "p3_top20", "Top-20 carbon-intensive exposure", round(100 * (g4.get("total_exposure") or 0) / total, 1) if total else 0,
-            "pct", tone="#f0a860",
-            hint=f'Template 4 — share of the book lent to the world\'s 20 most carbon-intensive firms (Carbon Majors). '
-                 f'{g4.get("matched_count", 0)} of {g4.get("list_size", 20)} matched.'))
-    except Exception:  # noqa: BLE001 — a missing transition input must not sink the KRI set
-        pass
-    r["history"] = [{**h, } for h in [{"label": x["label"], "filing_id": x["filing_id"],
-                     "total_value": (x["payload"].get("rollup") or {}).get("total_value_eur"),
-                     "value_at_risk": (x["payload"].get("rollup") or {}).get("value_at_risk_eur"),
-                     "pct_at_risk": (x["payload"].get("rollup") or {}).get("pct_value_at_risk")}
-                    for x in _snapshot_history(session, org_id, "bank_p3esg")]]
-    return r
-
-
-def _sfdr_kri(session: Session, org_id: str) -> dict:
-    from ml.regulatory.sfdr_pai import entity_pai_statement
-    st = entity_pai_statement(session, org_id)
-    if st.get("error"):
-        return {"framework": "sfdr_pai", "supported": True, "label": "SFDR KRIs", "kpis": [],
-                "by_hazard": [], "history": [], "note": st["error"]}
-    ent = st.get("entity", {})
-    cs = st.get("coverage_summary", {})
-    ind = {i["number"]: i for i in (st.get("indicators") or [])}
-
-    def _val(n):
-        return (ind.get(n) or {}).get("value")
-    em1 = _val(1)
-    total_em = em1.get("total") if isinstance(em1, dict) else em1   # PAI 1 total (Scope 1-3)
-    # The mandatory climate PAI indicators, surfaced as KRIs (values, not just counts) — the RTS Annex I
-    # Table 1 climate block. Each is the value-weighted figure the fund statement already computes.
-    kpis = [
-        _kpi("nav", "NAV in scope", ent.get("total_value_eur"), "eur"),
-        _kpi("positions", "Positions", ent.get("positions"), "num"),
-        _kpi("pai_emissions", "Financed emissions", total_em, "num", hint="tCO₂e · PAI 1 total (Scope 1-3)"),
-        _kpi("carbon_footprint", "Carbon footprint", _val(2), "num", hint="tCO₂e per €M invested · SFDR PAI 2"),
-        _kpi("waci", "WACI", _val(3), "num", hint="Weighted-avg carbon intensity · tCO₂e/€M revenue · PAI 3"),
-        _kpi("fossil_fuel", "Fossil-fuel exposure", _val(4), "pct", hint="Share of value in fossil-fuel companies · PAI 4"),
-        _kpi("non_renewable", "Non-renewable energy", _val(5), "pct", hint="Share of non-renewable energy · PAI 5"),
-        _kpi("energy_intensity", "Energy intensity", _val(6), "dec", hint="GWh per €M revenue (high-impact sectors) · SFDR PAI 6"),
-        _kpi("biodiversity", "Biodiversity areas", _val(7), "pct", hint="Share of value in/near biodiversity-sensitive areas · PAI 7"),
-        _kpi("emissions_water", "Emissions to water", _val(8), "dec", hint="Tonnes per €M invested · SFDR PAI 8"),
-        _kpi("hazardous_waste", "Hazardous waste", _val(9), "dec", hint="Tonnes per €M invested · SFDR PAI 9"),
-        _kpi("ungc_violations", "UNGC / OECD violations", _val(10), "pct", hint="Share of value in violation · SFDR PAI 10"),
-        _kpi("ungc_no_process", "No UNGC monitoring", _val(11), "pct", hint="Share lacking monitoring processes · SFDR PAI 11"),
-        _kpi("gender_pay_gap", "Gender pay gap", _val(12), "pct", hint="Unadjusted · SFDR PAI 12"),
-        _kpi("board_diversity", "Board gender diversity", _val(13), "pct", hint="Share female on boards · SFDR PAI 13"),
-        _kpi("controversial_weapons", "Controversial weapons", _val(14), "pct", hint="Share exposed to controversial weapons · SFDR PAI 14"),
-        _kpi("emissions_cov", "Emissions coverage", cs.get("emissions_coverage_pct"), "pct",
-             hint="Share of NAV with issuer emissions data"),
-        _kpi("indicators", "PAI indicators computed", cs.get("computed"), "num",
-             hint=f'of {cs.get("mandatory_indicators")} mandatory'),
-    ]
-    history = [{"label": h["label"], "filing_id": h["filing_id"],
-                "total_value": (h["payload"].get("entity") or {}).get("total_value_eur"),
-                "value_at_risk": None, "pct_at_risk": None}
-               for h in _snapshot_history(session, org_id, "sfdr_pai")]
-    return {"framework": "sfdr_pai", "supported": True, "label": "SFDR entity KRIs",
-            "kpis": kpis, "by_hazard": [], "history": history}

@@ -26,21 +26,54 @@ def _period_end(payload: dict) -> date:
     return pe(payload)
 
 
-def sections(payload: dict, report_type: str = "bank_tcfd") -> list[dict]:
-    """Every template of the governing version, in the order the Annex prints them."""
-    from services.governance.filing_annex import _supplied
+def grids(payload: dict) -> tuple[dict, dict] | None:
+    """(the specification the filing was frozen under, taxonomy_gar.build over its frozen book), or None without a book."""
     assets = payload.get("assets") or []
     if not assets:
-        return []
+        return None
     rec = (payload.get("_specs") or {}).get(FAMILY) or {}
     spec = R.load(FAMILY, rec.get("version") or BEFORE_SPECS)
     pe = _period_end(payload)
     from services.governance.filing_annex import _disclosed_on
-    disclosed = _disclosed_on(payload, FAMILY, pe)
     prev = payload.get("_previous_period") or {}
-    out = G.build(spec, assets, pe, previous_assets=prev.get("assets"),
-                  previous_period_end=date.fromisoformat(prev["period_end"]) if prev.get("period_end") else None,
-                  disclosure_date=disclosed)
+    return spec, G.build(spec, assets, pe, previous_assets=prev.get("assets"),
+                         previous_period_end=date.fromisoformat(prev["period_end"]) if prev.get("period_end") else None,
+                         disclosure_date=_disclosed_on(payload, FAMILY, pe))
+
+
+def kpi_summary(payload: dict) -> dict | None:
+    """The main row of the Summary of KPIs (Template 0) as the filing prints it — the GAR stock, turnover-based and
+    CapEx-based, and its coverage over total assets: {'turnover', 'capex', 'coverage': value or None, 'cells': {name:
+    'T0 r1 c3'}}. A cell a phase-in leaves undisclosed, or no exposure states the fact for, is None."""
+    built = grids(payload)
+    if built is None:
+        return None
+    spec, out = built
+    res = V.resolve(spec, "T0")
+    row = next((rid for rid, r in res["rows"].items() if r.get("kpi") == "gar_stock"), None)
+    vals = ((out.get("T0") or {}).get("all") or {}).get(row) or {}
+    got: dict = {"turnover": None, "capex": None, "coverage": None, "cells": {}}
+    for cid, c in res["columns"].items():
+        name = ("coverage" if c.get("coverage") == "stock" else
+                c.get("basis") if c.get("unit") == "pct" and not c.get("measure") and not c.get("share_of_total") else None)
+        if name in got and name != "cells":
+            v = vals.get(cid)
+            got[name] = float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+            got["cells"][name] = f"Template 0, row {row}, column {cid}"
+    got["version"] = spec["version"]
+    return got
+
+
+def sections(payload: dict, report_type: str = "bank_tcfd") -> list[dict]:
+    """Every template of the governing version, in the order the Annex prints them."""
+    from services.governance.filing_annex import _supplied
+    built = grids(payload)
+    if built is None:
+        return []
+    spec, out = built
+    rec = (payload.get("_specs") or {}).get(FAMILY) or {}
+    pe = _period_end(payload)
+    prev = payload.get("_previous_period") or {}
     supplied = _supplied(payload)
     common = _common_notes(spec, out["counts"], rec, prev, pe)
     result = []

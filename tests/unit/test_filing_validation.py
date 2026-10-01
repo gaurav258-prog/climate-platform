@@ -65,6 +65,18 @@ def test_bank_hazard_exposure_exceeding_book_is_flagged():
     assert not f["passed"]
 
 
+def test_the_taxonomy_report_checks_its_book_not_scores():
+    """A bank_tcfd filing of the current shape (E95) reads no physical-risk score: it is checked for its book and the
+    gross carrying amount the Annex VI templates are built on — never for scoring. (The payloads above are of the
+    earlier report shape, which keeps the checks it was made under.)"""
+    p = {"rollup": {"n_assets": 2, "total_value_eur": 1000},
+         "assets": [{"outstanding_loan_balance_eur": 600}, {"outstanding_loan_balance_eur": None}]}
+    findings = _validate_bank_tcfd(p)
+    rules = {f["rule"]: f for f in findings}
+    assert _blocking(findings) == [] and "some_scored" not in rules and "buckets_reconcile" not in rules
+    assert rules["gross_carrying_amount_stated"]["severity"] == "warning" and not rules["gross_carrying_amount_stated"]["passed"]
+
+
 def test_sfdr_missing_manager_identity_is_blocking():
     payload = {
         "entity": {"positions": 20, "total_value_eur": 5000},

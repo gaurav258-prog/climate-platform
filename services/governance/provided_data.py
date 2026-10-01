@@ -60,17 +60,17 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
     """Tellumen's own value for a provided datapoint, where we compute a counterpart — the recon anchor.
     Only the datapoints where we genuinely have a comparable number return a baseline; others reconcile to
     None (stored as provided, no divergence check) — honest, never invented."""
-    try:
-        from services.governance.reporting_settings import get_settings
-        s = get_settings(session, org_id)
-        # financed emissions: we compute a PCAF estimate a bank can reconcile its audited figure against
-        if framework == "bank_tcfd" and key == "financed_emissions":
+    # financed emissions are reconciled where a governed report prints them — Pillar 3 (p3_scope3, the figure
+    # services.governance.figure_views reads as ours); bank_tcfd's financed_emissions left with its PCAF section (E95)
+    if framework == "bank_p3esg" and key == "p3_scope3":
+        try:
             from api.routers.bank import build_disclosure_snapshot
-            em = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"]).get("financed_emissions_tco2e", {})
-            from services.scoring.pcaf import financed_total
-            return financed_total(em) or None
-    except Exception:
-        return None
+            from services.governance.figure_views import FIGURES
+            from services.governance.reporting_settings import get_settings
+            s = get_settings(session, org_id)
+            return FIGURES[(framework, key)]["ours"](build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"]))
+        except Exception:  # noqa: BLE001 — no baseline is stored as provided, never invented
+            return None
     return None
 
 

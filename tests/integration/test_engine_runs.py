@@ -36,7 +36,8 @@ def test_a_freeze_records_its_run_and_the_snapshot_names_it(session_rolled_back)
     n, total = s.execute(text("""SELECT count(*), sum(primary_value_eur) FROM portfolio_entities
                                  WHERE org_id = CAST(:o AS uuid) AND vertical = 'banking' AND source = 'own'"""), {"o": BANK_ORG}).one()
     assert book["book"] == "bank_assets" and book["n_assets"] == n and book["total_value_eur"] == pytest.approx(float(total), abs=0.01)
-    assert {c["key"] for c in run["checks"]} >= {"finite", "identity", "totals", "input_tie", "scored", "differences", "feeds"}
+    assert {c["key"] for c in run["checks"]} >= {"finite", "identity", "totals", "input_tie", "differences", "feeds"}
+    assert "scored" not in {c["key"] for c in run["checks"]}      # the Taxonomy templates read no physical-risk score (E95)
     assert all(c["status"] != "fail" for c in run["checks"]) and run["view"] == "joint"
 
 

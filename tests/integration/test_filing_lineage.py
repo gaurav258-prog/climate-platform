@@ -30,9 +30,9 @@ def _mk_filing(session, org_id: str, framework: str, actor_email: str) -> str:
 
 
 def _a_bank_filing(session):
-    return session.execute(text(
-        "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND framework = 'bank_tcfd' "
-        "AND snapshot_id IS NOT NULL ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
+    """A Pillar 3 ESG filing frozen now (rolled back by the caller) — the bank report that prints hazard cells; the EU
+    Taxonomy Art. 8 report (bank_tcfd) prints none (E95)."""
+    return _mk_filing(session, BANK_ORG, "bank_p3esg", "admin@meridian.demo")
 
 
 @pytest.mark.integration
@@ -50,8 +50,6 @@ def test_forward_lineage_traces_cell_to_golden_source():
     """A reported hazard cell resolves to contributing assets, each linked to a golden-source row + a feed."""
     with get_session() as s:
         fid = _a_bank_filing(s)
-        if not fid:
-            pytest.skip("no bank_tcfd filing to trace")
         hazards = reported_hazards(s, BANK_ORG, fid)
         # pick a hazard that actually has exposed contributors
         hz = next((h["hazard"] for h in hazards if (h["exposed_value_eur"] or 0) > 0), None)
@@ -70,6 +68,7 @@ def test_forward_lineage_traces_cell_to_golden_source():
         c = lin["contributors"][0]
         assert c["h3_cell"]
         assert "granular" in c and "drift" in c
+        s.rollback()
 
 
 @pytest.mark.integration
@@ -77,8 +76,6 @@ def test_reverse_lineage_finds_the_filing_that_reuses_a_cell():
     """A granular cell traces back to this org's holdings on it and the framework/filing that consumes them."""
     with get_session() as s:
         fid = _a_bank_filing(s)
-        if not fid:
-            pytest.skip("no bank_tcfd filing")
         hz = next((h["hazard"] for h in reported_hazards(s, BANK_ORG, fid)
                    if (h["exposed_value_eur"] or 0) > 0), None)
         lin = cell_lineage(s, BANK_ORG, fid, hz)
@@ -87,7 +84,8 @@ def test_reverse_lineage_finds_the_filing_that_reuses_a_cell():
         assert up["h3_cell"] == cell
         assert up["used_by"], "the cell must be reused by at least the filing we came from"
         banking = next((g for g in up["used_by"] if g["vertical"] == "banking"), None)
-        assert banking and banking["framework"] == "bank_tcfd" and banking["n"] >= 1
+        assert banking and banking["framework"] == "bank_p3esg" and banking["n"] >= 1
+        s.rollback()
 
 
 @pytest.mark.integration

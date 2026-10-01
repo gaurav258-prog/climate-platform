@@ -21,7 +21,11 @@ def test_parse_number_units_and_separators():
 def test_mapping_ordering_traps():
     # 'aligned' must beat 'eligible'; 'transition' must beat gar-'alignment'; 'emissions to water' -> nature
     assert match_datapoint("bank_p3esg", "Green Asset Ratio aligned share") == "p3_gar_aligned"
-    assert match_datapoint("bank_tcfd", "Transition alignment distance NZE2050") == "transition_risk"
+    assert match_datapoint("bank_p3esg", "Transition alignment distance NZE2050") == "p3_transition_align"
+    # the EU Taxonomy Art. 8 report has no keyword map: only the exact label of a Template 0 cell (E95)
+    assert match_datapoint("bank_tcfd", "Financed emissions Scope 3") is None
+    t0 = {"T0.r1.c3": "Main KPI > Green asset ratio (GAR) stock — KPI (%) > Turnover-based"}
+    assert match_datapoint("bank_tcfd", "Main KPI > Green asset ratio (GAR) stock — KPI (%) > Turnover-based", t0) == "T0.r1.c3"
     assert match_datapoint("sfdr_pai", "PAI 8 emissions to water") == "pai_nature"
     # an ESRS statement: only the exact label of a concept its version prints (or the concept key) — never a keyword
     targets = {"e1.ghg.scope1.gross": "Gross Scope 1 GHG emissions", "e3.water.consumption": "Total water consumption"}

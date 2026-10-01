@@ -121,7 +121,7 @@ def _sfdr_annex(dps: dict, payload: dict) -> list[dict]:
     return sections
 
 
-# ── EU-Taxonomy Article 8 (GAR summary) + PCAF financed emissions + TCFD physical-risk metrics ─────────────
+# ── shared sections: the flat GAR summary, the bank's credit-risk analytics, physical-risk exposure by hazard ──────
 def _gar_flat_summary_section(dps: dict, total) -> dict | None:
     """Fallback GAR section when there is no per-asset book — the flat eligibility summary."""
     if not any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
@@ -139,36 +139,6 @@ def _gar_flat_summary_section(dps: dict, total) -> dict | None:
             "note": "Eligibility KPI per Disclosures Delegated Act (EU) 2021/2178. Alignment (DNSH + minimum "
                     "safeguards) additionally needs the technical screening criteria (per-asset book unavailable "
                     "for the full counterparty grid)."}
-
-
-def _located_annex(dps: dict, payload: dict | None = None) -> list[dict]:
-    total = (dps.get("book.total_value_eur") or {}).get("value")
-    assets = (payload or {}).get("assets") or []
-    sections: list[dict] = []
-
-    # EU Taxonomy Art. 8 — every template of Annex VI (Del. Reg. 2021/2178) in the version the filing was frozen under,
-    # built from the frozen book (services.governance.taxonomy_forms). Without a per-asset book, the flat eligibility summary.
-    if assets:
-        from services.governance import taxonomy_forms
-        sections += taxonomy_forms.sections(payload or {}, "bank_tcfd")
-    else:
-        flat = _gar_flat_summary_section(dps, total)
-        if flat:
-            sections.append(flat)
-
-    # PCAF financed emissions
-    if any(k in dps for k in ("emissions.scope1", "emissions.total")):
-        em_rows = [{"type": "row", "cells": [_txt(label), _cell(dps, key)]} for key, label in [
-            ("emissions.scope1", "Scope 1"), ("emissions.scope2", "Scope 2"),
-            ("emissions.scope3", "Scope 3 (financed)"), ("emissions.total", "Total financed emissions")]]
-        sections.append({"title": "Financed emissions · PCAF (tCO₂e)", "columns": ["Scope", "tCO₂e"],
-                         "rows": em_rows, "note": None})
-
-    # TCFD metrics & targets — physical-risk exposure by hazard
-    sections += _tcfd_physical_sections(dps)
-    # Computed credit-risk analytics from the projected book (expected loss, transition, collateral stranding)
-    sections += _bank_analytics_sections(payload or {})
-    return sections
 
 
 def _bank_analytics_sections(payload: dict) -> list[dict]:
@@ -837,7 +807,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             ("emissions.scope3", "Scope 3 (financed) emissions"), ("emissions.total", "Total financed emissions")]]
         sections.append({"title": "Transition risk — financed emissions (PCAF, tCO₂e)", "columns": ["Scope", "tCO₂e"],
                          "rows": em_rows, "note": "Counterparty Scope-3 basis for the transition-risk templates (Templates 1–4)."})
-    # Computed credit-risk analytics (physical EL, transition EL, collateral stranding) — shared with the bank TCFD annex
+    # Computed credit-risk analytics (physical EL, transition EL, collateral stranding) — as frozen with this filing
     sections += _bank_analytics_sections(payload or {})
     return sections
 
@@ -946,8 +916,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
         sections = _insurer_annex(dps, payload or {})
     elif framework == "assetmgmt_tcfd":
         sections = _assetmgmt_annex(dps, payload or {})
-    elif framework == "bank_tcfd":
-        sections = _located_annex(dps, payload or {})
+    elif framework == "bank_tcfd":                   # the EU Taxonomy Art. 8 report (E95)
+        from services.governance import bank_taxonomy_report
+        sections = bank_taxonomy_report.annex(dps, payload or {})
     elif framework == "reit_taxonomy":
         from services.governance import taxonomy_nonfin_forms
         sections = taxonomy_nonfin_forms.sections(payload or {}, "reit_taxonomy")

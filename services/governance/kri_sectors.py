@@ -156,3 +156,51 @@ def holdings_kpis(session: Session, org_id: str) -> tuple[list[dict], list[dict]
                                f"(1/HHI): {conc.get('effective_regions')} · hazards: {conc.get('effective_hazards')}")))
     anchor(kpis, {})
     return kpis, _by_hazard(snap)
+
+
+def sfdr_kri(session: Session, org_id: str) -> dict:
+    """The asset manager's entity-level SFDR PAI KRIs (the holdings-book ones join them: holdings_kpis)."""
+    from ml.regulatory.sfdr_pai import entity_pai_statement
+    from services.governance.kri import _kpi, _snapshot_history
+    st = entity_pai_statement(session, org_id)
+    if st.get("error"):
+        return {"framework": "sfdr_pai", "supported": True, "label": "SFDR KRIs", "kpis": [],
+                "by_hazard": [], "history": [], "note": st["error"]}
+    ent = st.get("entity", {})
+    cs = st.get("coverage_summary", {})
+    ind = {i["number"]: i for i in (st.get("indicators") or [])}
+
+    def _val(n):
+        return (ind.get(n) or {}).get("value")
+    em1 = _val(1)
+    total_em = em1.get("total") if isinstance(em1, dict) else em1   # PAI 1 total (Scope 1-3)
+    # The mandatory climate PAI indicators, surfaced as KRIs (values, not just counts) — the RTS Annex I
+    # Table 1 climate block. Each is the value-weighted figure the fund statement already computes.
+    kpis = [
+        _kpi("nav", "NAV in scope", ent.get("total_value_eur"), "eur"),
+        _kpi("positions", "Positions", ent.get("positions"), "num"),
+        _kpi("pai_emissions", "Financed emissions", total_em, "num", hint="tCO₂e · PAI 1 total (Scope 1-3)"),
+        _kpi("carbon_footprint", "Carbon footprint", _val(2), "num", hint="tCO₂e per €M invested · SFDR PAI 2"),
+        _kpi("waci", "WACI", _val(3), "num", hint="Weighted-avg carbon intensity · tCO₂e/€M revenue · PAI 3"),
+        _kpi("fossil_fuel", "Fossil-fuel exposure", _val(4), "pct", hint="Share of value in fossil-fuel companies · PAI 4"),
+        _kpi("non_renewable", "Non-renewable energy", _val(5), "pct", hint="Share of non-renewable energy · PAI 5"),
+        _kpi("energy_intensity", "Energy intensity", _val(6), "dec", hint="GWh per €M revenue (high-impact sectors) · SFDR PAI 6"),
+        _kpi("biodiversity", "Biodiversity areas", _val(7), "pct", hint="Share of value in/near biodiversity-sensitive areas · PAI 7"),
+        _kpi("emissions_water", "Emissions to water", _val(8), "dec", hint="Tonnes per €M invested · SFDR PAI 8"),
+        _kpi("hazardous_waste", "Hazardous waste", _val(9), "dec", hint="Tonnes per €M invested · SFDR PAI 9"),
+        _kpi("ungc_violations", "UNGC / OECD violations", _val(10), "pct", hint="Share of value in violation · SFDR PAI 10"),
+        _kpi("ungc_no_process", "No UNGC monitoring", _val(11), "pct", hint="Share lacking monitoring processes · SFDR PAI 11"),
+        _kpi("gender_pay_gap", "Gender pay gap", _val(12), "pct", hint="Unadjusted · SFDR PAI 12"),
+        _kpi("board_diversity", "Board gender diversity", _val(13), "pct", hint="Share female on boards · SFDR PAI 13"),
+        _kpi("controversial_weapons", "Controversial weapons", _val(14), "pct", hint="Share exposed to controversial weapons · SFDR PAI 14"),
+        _kpi("emissions_cov", "Emissions coverage", cs.get("emissions_coverage_pct"), "pct",
+             hint="Share of NAV with issuer emissions data"),
+        _kpi("indicators", "PAI indicators computed", cs.get("computed"), "num",
+             hint=f'of {cs.get("mandatory_indicators")} mandatory'),
+    ]
+    history = [{"label": h["label"], "filing_id": h["filing_id"],
+                "total_value": (h["payload"].get("entity") or {}).get("total_value_eur"),
+                "value_at_risk": None, "pct_at_risk": None}
+               for h in _snapshot_history(session, org_id, "sfdr_pai")]
+    return {"framework": "sfdr_pai", "supported": True, "label": "SFDR entity KRIs",
+            "kpis": kpis, "by_hazard": [], "history": history}

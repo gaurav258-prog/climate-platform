@@ -77,9 +77,9 @@ _BUILDERS = {
                   lambda s, o, sc, hz, ei, vw, tr, pe: _esrs_statement(s, o, ei, pe), ("manufacturer",)),
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
     "bank_tcfd": ("EU Taxonomy Art. 8 — credit institutions (loan book)",
-                  lambda s, o, sc, hz, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
+                  lambda s, o, sc, hz, ei, vw, tr, pe: _bank_taxonomy(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "bank_p3esg": ("Pillar 3 ESG risk disclosures (EBA)",
-                   lambda s, o, sc, hz, ei, vw, tr, pe: _bank_tcfd(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
+                   lambda s, o, sc, hz, ei, vw, tr, pe: _bank_pillar3(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
                  lambda s, o, sc, hz, ei, vw, tr, pe: _sfdr_pai(s, o), ("asset_manager",)),
     # retired (services.governance.filings.FRAMEWORKS[..]["retired"]): their frozen snapshots stay readable; nothing new
@@ -121,7 +121,14 @@ def _esrs_statement(session, org_id, entity_ids, period_end):
     return freeze(session, org_id, entity_ids=entity_ids, period_end=period_end)
 
 
-def _bank_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
+def _bank_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
+    """The loan book the EU Taxonomy Art. 8 templates read (services.governance.bank_taxonomy_report, E95)."""
+    from services.governance.bank_taxonomy_report import freeze
+    return freeze(session, org_id, scenario, horizon, entity_ids, value_weights, translation, period_end)
+
+
+def _bank_pillar3(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
+    """The bank disclosure snapshot — Pillar 3 ESG freezes it whole (its templates print physical risk and emissions)."""
     from api.routers.bank import build_disclosure_snapshot
     return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
                                      translation=translation, period_end=period_end)

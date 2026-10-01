@@ -51,6 +51,28 @@ def _eur(n) -> str:
 # ── framework rule sets ─────────────────────────────────────────────────
 
 def _validate_bank_tcfd(payload: dict) -> list[dict]:
+    """EU Taxonomy Art. 8 (bank_tcfd): the frozen book is there, has value, and every exposure states the gross carrying
+    amount the templates are built on. A filing frozen under the earlier report shape keeps the checks it was made under."""
+    from services.governance.bank_taxonomy_report import is_earlier_shape
+    from services.governance.pillar3_grids import no_gross
+    if is_earlier_shape(payload):
+        return _validate_bank_book(payload)
+    rollup, assets = payload.get("rollup") or {}, payload.get("assets") or []
+    n, total, missing = rollup.get("n_assets", len(assets)), rollup.get("total_value_eur", 0) or 0, no_gross(assets)
+    return [
+        _f("has_assets", "completeness", "blocking", n > 0,
+           f"{n} exposures in scope" if n > 0 else "No exposures in scope — nothing to file"),
+        _f("total_value_positive", "plausibility", "blocking", total > 0,
+           f"Total book value {_eur(total)}" if total > 0 else "Total book value is zero"),
+        _f("gross_carrying_amount_stated", "completeness", "warning", not missing,
+           f"Every exposure states its gross carrying amount ({len(assets)})" if not missing
+           else f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they sit in "
+                "no template row; state it on the loan tape"),
+    ]
+
+
+def _validate_bank_book(payload: dict) -> list[dict]:
+    """The located loan book's checks (Pillar 3 ESG, and bank_tcfd filings of the earlier report shape)."""
     out: list[dict] = []
     rollup = payload.get("rollup") or {}
     n_assets = rollup.get("n_assets", 0)
@@ -111,7 +133,7 @@ def _validate_bank_p3esg(payload: dict) -> list[dict]:
     from services.governance.pillar3_grids import no_gross
     assets = payload.get("assets") or []
     missing = no_gross(assets)
-    return _validate_bank_tcfd(payload) + [_f(
+    return _validate_bank_book(payload) + [_f(
         "gross_carrying_amount_stated", "completeness", "blocking", not missing,
         f"Every exposure states its gross carrying amount ({len(assets)})" if not missing
         else f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they would sit "

@@ -107,7 +107,7 @@ FRAMEWORKS = {
 # machine-readable export formats available per framework (rendered from the FROZEN snapshot — see
 # services/governance/filing_export.py). json is the universal record; xlsx/xbrl where a renderer exists.
 EXPORT_FORMATS = {
-    "bank_tcfd": ("json", "xlsx", "xbrl"),
+    "bank_tcfd": ("json", "xlsx"),        # no official XBRL binding of the Annex VI templates is held (E95)
     "bank_p3esg": ("json", "xlsx", "xbrl"),
     "sfdr_pai":  ("json", "xlsx", "xbrl", "ixbrl"),
     "assetmgmt_tcfd": ("json", "xlsx"),
@@ -865,7 +865,10 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
     freeze."""
     entity_ids, value_weights, translation = scope
     gaps: list[str] = []
-    if framework in ("bank_tcfd", "bank_p3esg"):
+    if framework == "bank_tcfd":                       # the loan book the Taxonomy templates read (E95)
+        from services.governance.bank_taxonomy_report import preflight
+        return preflight(session, org_id, basis, entity_ids, value_weights, translation)
+    if framework == "bank_p3esg":
         from api.routers.bank import build_disclosure_snapshot
         snap = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"],
                                          entity_ids=entity_ids, value_weights=value_weights, translation=translation)

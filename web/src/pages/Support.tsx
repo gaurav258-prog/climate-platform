@@ -203,7 +203,7 @@ function DocSearch({ guides, mode, onFile }: { guides: typeof DOCS; mode: 'brows
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-faint)]" />
         <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-          placeholder={mode === 'ask' ? 'Ask a question — e.g. how do I file a TCFD report?' : 'Search the help guides…'}
+          placeholder={mode === 'ask' ? 'Ask a question — e.g. how do I file a Pillar 3 report?' : 'Search the help guides…'}
           className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg pl-9 pr-3 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
       </div>
       {mode === 'ask' && !s && <p className="text-[13px] text-[var(--color-mute)]">Type your question and we'll surface the matching how-to guides instantly — no waiting. Still stuck? <button onClick={onFile} className="text-[var(--color-sky)] hover:underline">File a ticket</button>.</p>}

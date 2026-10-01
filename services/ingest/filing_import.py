@@ -12,6 +12,8 @@ Three readers, one output shape:
 
 Output cell: {template_ref, label, datapoint_key, value_num, value_text, unit, read_method}
 
+The EU Taxonomy Art. 8 report (bank_tcfd) has none either: a line is one of the Summary of KPIs cells the governing
+version prints (services.governance.bank_taxonomy_report.prior_targets) only when its label is that cell's (E95).
 The ESRS statement (esrs_pack) has no keyword map: a line is one of the concepts the governing version prints
 (data/reference/esrs/concepts.json) only when its label is that concept's label — XBRL element names of EFRAG's ESRS
 taxonomy are not bound yet, so a tagged fact is left for the preparer to map.
@@ -40,15 +42,6 @@ _KEYWORDS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
         ("p3_scope3",           ("financed emission", "scope 3", "scope3", "ghg", "pcaf", "tco2", "emissions")),
         ("p3_physical",         ("physical", "template 5", "template5", "acute", "chronic", "flood", "hazard")),
         ("p3_qualitative",      ("governance", "strategy", "risk management", "qualitative", "narrative")),
-    ],
-    "bank_tcfd": [
-        ("phys_risk",         ("physical", "value at risk", "acute", "chronic", "flood", "hazard")),
-        # transition BEFORE taxonomy-aligned, so "transition alignment …" maps to transition risk, not GAR
-        ("transition_risk",   ("transition", "carbon price", "carbon-price", "stranded")),
-        ("taxonomy_aligned",  ("aligned", "alignment", "dnsh", "safeguard")),
-        ("taxonomy_eligible", ("gar", "green asset ratio", "taxonomy-eligible", "taxonomy eligible", "eligible")),
-        ("financed_emissions",("financed emission", "scope 3", "scope3", "pcaf", "ghg", "tco2", "emissions")),
-        ("tcfd_narrative",    ("governance", "strategy", "narrative", "transition plan")),
     ],
     "sfdr_pai": [
         ("pai_nature",     ("biodiversity", "emissions to water", "water", "hazardous waste", "nature", "pai 7", "pai 8", "pai 9")),

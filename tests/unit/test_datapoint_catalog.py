@@ -31,10 +31,11 @@ def test_coverage_source_mapping():
 
 
 def test_coverage_derives_from_catalog():
-    # bank: 3 computed / 1 integrated (GAR alignment) / 1 client / 1 out-of-scope → 50% produced
+    # the bank's EU Taxonomy Art. 8 report (E95): eligibility computed / alignment integrated / the entered KPIs client
     c = coverage("bank_tcfd")
-    assert c["counts"] == {"computed": 3, "integrated": 1, "client": 1, "out_of_scope": 1}
-    assert c["pct_computed"] == 50
+    assert c["counts"] == {"computed": 1, "integrated": 1, "client": 1, "out_of_scope": 0}
+    assert c["pct_computed"] == 33
+    assert not {"phys_risk", "financed_emissions", "transition_risk", "tcfd_narrative"} & {d["key"] for d in catalog("bank_tcfd")}
     # sections carry the full taxonomy for the data dictionary / customer docs
     aligned = next(s for s in c["sections"] if "alignment" in s["section"])
     assert aligned["source"] == "integrated" and aligned["lane"] == "provided" and aligned["source_category"] == "customer"

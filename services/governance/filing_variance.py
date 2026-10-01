@@ -59,6 +59,12 @@ def variance(session: Session, org_id: str, filing_id: str, vs_filing_id: str | 
 
     cp = (cur.get("snapshot") or {}).get("payload") or {}
     pp = (prior.get("snapshot") or {}).get("payload") or {}
+    if cur["framework"] == "bank_tcfd":                 # E95: the Taxonomy templates print their own T-1 columns
+        from services.governance.bank_taxonomy_report import is_earlier_shape
+        if not (is_earlier_shape(cp) and is_earlier_shape(pp)):
+            return {"supported": False, "framework": cur["framework"], "prior_filing_id": prior_id,
+                    "message": "The EU Taxonomy Art. 8 templates print no physical-risk figure to decompose; the "
+                               "templates themselves carry the previous disclosure reference date (T-1) columns."}
     # multi-currency phase 3: a movement between filings in different currencies would mix exchange rates with risk
     cc, pc = presentation_of(cp), presentation_of(pp)
     if cc != pc:

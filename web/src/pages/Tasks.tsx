@@ -211,7 +211,7 @@ function CompletionModal({ task, onClose, onConfirm }: { task: Task; onClose: ()
           “{task.title}” moves to Done only once a <b className="text-[var(--color-ink)]">different colleague</b> approves
           it on the Approvals page — the same 4-eyes mechanism used everywhere else in Tellumen. You can't approve your own request.
         </p>
-        <textarea autoFocus value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="What's the outcome? (e.g. filed as bank_tcfd v3, accepted by the regulator)"
+        <textarea autoFocus value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="What's the outcome? (e.g. filed as v3, accepted by the regulator)"
           className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
         <div className="flex items-center justify-end gap-2 mt-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>

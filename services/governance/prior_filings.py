@@ -23,6 +23,9 @@ def _dp_label(framework: str, key: str) -> str:
     if framework == "esrs_pack":
         from services.governance.esrs_binding import concepts
         return (concepts().get(key) or {}).get("label", key)
+    if framework == "bank_tcfd":                       # a Template 0 cell (bank_taxonomy_report.prior_targets)
+        from services.governance.bank_taxonomy_report import prior_targets
+        return prior_targets().get(key, key)
     for dp in (catalog(framework) or []):
         if dp["key"] == key:
             return dp["label"]
@@ -42,7 +45,9 @@ FRAMEWORKS: list[dict] = [
     {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate (retired)", "sectors": []},
     {"key": "esrs_pack",  "label": "ESRS sustainability statement (E1 · E3 · E4)", "sectors": None},
     {"key": "sfdr_pai",   "label": "SFDR principal adverse impacts", "sectors": ["asset_manager"]},
-    {"key": "bank_tcfd",  "label": "TCFD climate disclosures", "sectors": ["bank", "asset_manager", "reit"]},
+    # the credit institution's EU Taxonomy Art. 8 report (the key keeps its historical name): its lines map to the cells
+    # of the Summary of KPIs of the version governing the year (E95)
+    {"key": "bank_tcfd",  "label": "EU Taxonomy Art. 8 — credit institutions (Summary of KPIs)", "sectors": ["bank"]},
 ]
 _LABEL = {f["key"]: f["label"] for f in FRAMEWORKS}
 
@@ -65,13 +70,25 @@ def esrs_targets(session, org_id: str, period_end) -> dict[str, str]:
     return {k: cs[k]["label"] for k in sorted(concepts_of(spec)) if not cs[k].get("breakdown")}
 
 
+def _targets(session, org_id: str, framework: str, period_end) -> dict[str, str] | None:
+    """The cells a line may be mapped to, chosen by the version governing the year — an ESRS statement's concepts, a
+    Taxonomy report's Summary of KPIs cells; None for a framework mapped by its catalog keywords."""
+    if framework not in ("esrs_pack", "bank_tcfd"):
+        return None
+    if period_end is None:
+        raise FilingError("The version is chosen by the financial year — give the period end (or a year in the label).")
+    if framework == "bank_tcfd":
+        from services.governance.bank_taxonomy_report import prior_targets
+        return prior_targets(period_end)
+    return esrs_targets(session, org_id, period_end)
+
+
 def datapoints(framework: str, *, session=None, org_id: Optional[str] = None, period_end=None) -> list[dict]:
-    """The datapoints a reported line can be mapped to, for the confirm-time remap control (an ESRS statement: the
-    concepts of the version governing its year — period_end required)."""
-    if framework == "esrs_pack":
-        if period_end is None:
-            raise FilingError("The ESRS version is chosen by the financial year — give the filing's period end.")
-        return [{"key": k, "label": lb} for k, lb in esrs_targets(session, org_id, period_end).items()]
+    """The datapoints a reported line can be mapped to, for the confirm-time remap control (an ESRS statement, a
+    Taxonomy report: the cells of the version governing its year — period_end required)."""
+    targets = _targets(session, org_id, framework, period_end)
+    if targets is not None:
+        return [{"key": k, "label": lb} for k, lb in targets.items()]
     return [{"key": dp["key"], "label": dp["label"]} for dp in (catalog(framework) or [])]
 
 
@@ -106,11 +123,7 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     else:
         m = _re.search(r"(19|20)\d{2}", period_label)
         pe = _date(int(m.group(0)), 12, 31) if m else None
-    targets = None
-    if framework == "esrs_pack":
-        if pe is None:
-            raise FilingError("The ESRS version is chosen by the financial year — give the period end (or a year in the label).")
-        targets = esrs_targets(session, org_id, pe)
+    targets = _targets(session, org_id, framework, pe)
     try:
         read = filing_import.extract(framework, filename, data, targets)
         for c in read["cells"]:
@@ -255,9 +268,9 @@ def _check_esrs_mapping(session, filing_id: str, org_id: str, edits: list[dict])
     one concept would be added together as one figure). Read with the edits applied, and refused before any is written."""
     f = session.execute(text("SELECT framework, period_end FROM reported_filing WHERE filing_id = :fid"),
                         {"fid": filing_id}).mappings().first()
-    if f["framework"] != "esrs_pack":
+    targets = _targets(session, org_id, f["framework"], f["period_end"])
+    if targets is None:
         return
-    targets = esrs_targets(session, org_id, f["period_end"])
     mapped = {str(r[0]): r[1] for r in session.execute(text(
         "SELECT figure_id, datapoint_key FROM reported_figure WHERE filing_id = :fid"), {"fid": filing_id}).all()}
     for e in edits:
@@ -271,7 +284,7 @@ def _check_esrs_mapping(session, filing_id: str, org_id: str, edits: list[dict])
     twice = sorted({k for k in keys if keys.count(k) > 1})
     if unknown or twice:
         raise FilingError("; ".join(
-            ([f"not a figure the ESRS version for this year prints: {', '.join(unknown)}"] if unknown else []) +
+            ([f"not a figure the version for this year prints: {', '.join(unknown)}"] if unknown else []) +
             ([f"more than one line is mapped to {', '.join(twice)} — keep one"] if twice else [])))
 
 
