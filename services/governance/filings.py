@@ -868,18 +868,9 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
     if framework == "bank_tcfd":                       # the loan book the Taxonomy templates read (E95)
         from services.governance.bank_taxonomy_report import preflight
         return preflight(session, org_id, basis, entity_ids, value_weights, translation)
-    if framework == "bank_p3esg":
-        from api.routers.bank import build_disclosure_snapshot
-        snap = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"],
-                                         entity_ids=entity_ids, value_weights=value_weights, translation=translation)
-        r = snap["rollup"]
-        n_total, n_done = r.get("n_assets", 0), r.get("n_scored", 0)
-        if n_total and n_done < n_total:
-            gaps.append(f"{n_total - n_done} of {n_total} assets not yet scored — they'd be excluded from exposure")
-        return {"coverage": {"label": "assets scored", "done": n_done, "total": n_total,
-                             "pct": round(100 * n_done / n_total, 1) if n_total else 0},
-                "total_value_eur": r.get("total_value_eur"), "value_at_risk_eur": r.get("value_at_risk_eur"),
-                "noun": "assets", "gaps": gaps}
+    if framework == "bank_p3esg":                      # the banking book the Pillar 3 templates read (E97)
+        from services.governance.pillar3_report import preflight as p3_preflight
+        return p3_preflight(session, org_id, basis, entity_ids, value_weights, translation)
     if framework == "sfdr_pai":
         from ml.regulatory.sfdr_pai import entity_pai_statement
         st = entity_pai_statement(session, org_id)

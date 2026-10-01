@@ -68,12 +68,16 @@ _LIST_CFG = {
 # (reit_taxonomy / insurer_solvency used to be routed through a "trace the sibling filing" workaround here —
 # fixed foundationally instead: they're in _LIST_CFG above now, since the data they need was always computed,
 # just discarded before freezing. See report_snapshots._reit_taxonomy/_insurer_solvency.)
-# a report traced spatially only in the filings that froze hazard cells — its current shape prints none (E95)
+# a report traced spatially only in the filings that froze hazard cells — its current shape prints none (E95, E97)
 _NO_HAZARD_CELLS = {
     "bank_tcfd": "Per exposure: the frozen loan book lists every exposure with the facts the EU Taxonomy Art. 8 templates "
                  "read (counterparty, instrument, Taxonomy status, objective, gross carrying amount); the templates print "
                  "no hazard cell, so there is no spatial trace. (A filing of the earlier report shape traces its hazard "
                  "cells as frozen.)",
+    "bank_p3esg": "Per exposure: the frozen banking book lists every exposure with the facts the Pillar 3 templates read, "
+                  "its hazard scores among them; Template 5 prints the gross carrying amount sensitive to chronic / acute "
+                  "events per sector and geography row, not a value per hazard, so there is no hazard cell to trace (E97). "
+                  "(A filing of the earlier report shape traces its hazard cells as frozen.)",
 }
 _ALT_LINEAGE = {
     "sfdr_pai": "Per-issuer drill-down: GET /v1/issuers/{issuer_id} (full facility footprint + physical + "

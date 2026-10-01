@@ -27,6 +27,14 @@ class ApprovalCreate(BaseModel):
     payload:      dict = Field(default_factory=dict)
 
 
+# a request type whose mechanism is retired: no new request, and a pending one can only be rejected (closed)
+RETIRED_TYPES = {
+    "submission.release": "The separate bank disclosure submission mechanism is retired (E99): it froze the bank's whole "
+                          "disclosure snapshot outside the filing lifecycle. A disclosure is filed through /v1/filings "
+                          "(freeze, four eyes, submit, amend), and its period-over-period comparison is the filing's variance.",
+}
+
+
 class ApprovalDecision(BaseModel):
     # 'returned' = send back to the maker for more info (not terminal; the change is NOT applied)
     decision: str = Field(..., pattern="^(approved|rejected|returned)$")
@@ -59,6 +67,8 @@ def _serialize(r) -> dict:
 def create_approval(body: ApprovalCreate, session: DbSession,
                     ctx: dict = Depends(require_permission("approvals.create"))):
     import json
+    if body.request_type in RETIRED_TYPES:
+        raise HTTPException(410, {"error": "retired", "message": RETIRED_TYPES[body.request_type]})
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (:o, :t, :ti, CAST(:p AS jsonb), :m)
@@ -162,6 +172,9 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     if str(row["maker_user_id"]) == ctx["user"]["id"]:
         raise HTTPException(422, {"error": "maker_checker_violation",
                                   "message": "The maker cannot approve their own request (4-eyes)."})
+    if row["request_type"] in RETIRED_TYPES and body.decision == "approved":
+        raise HTTPException(410, {"error": "retired", "message": RETIRED_TYPES[row["request_type"]]
+                                  + " Reject this request to close it; its draft is closed with it."})
     if row["request_type"] == "submission.release" and "submissions.release" not in ctx["permissions"]:
         raise HTTPException(403, {"error": "forbidden",
                                   "message": "Missing permission: submissions.release"})
@@ -172,18 +185,16 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         WHERE  request_id = :r
     """), {"s": body.decision, "c": ctx["user"]["id"], "reason": body.reason, "r": request_id})
 
-    if row["request_type"] == "submission.release" and body.decision in ("approved", "rejected"):
-        new_status = "released" if body.decision == "approved" else "rejected"
+    if row["request_type"] == "submission.release" and body.decision == "rejected":     # closes a legacy draft (E99)
         try:
-            session.execute(text(f"""
+            session.execute(text("""
                 UPDATE bank_disclosure_submissions
-                SET    status = :s, checker_user_id = :c, checker_at = now(),
-                       released_at = {"now()" if new_status == "released" else "NULL"}
+                SET    status = 'rejected', checker_user_id = :c, checker_at = now(), released_at = NULL
                 WHERE  approval_request_id = :r
-            """), {"s": new_status, "c": ctx["user"]["id"], "r": request_id})
+            """), {"c": ctx["user"]["id"], "r": request_id})
         except Exception as e:
             raise HTTPException(409, {"error": "submission_transition_failed",
-                                      "message": f"Could not {new_status} the linked submission: {e}"})
+                                      "message": f"Could not reject the linked submission: {e}"})
 
     # Governed location changes: apply the mutation on approval (shares the exact same apply path
     # the direct edit uses, so an approved change is identical to a direct one). Audited within.

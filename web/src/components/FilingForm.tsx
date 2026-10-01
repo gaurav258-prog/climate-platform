@@ -181,8 +181,11 @@ function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }:
 
 // The 13 Pillar 3 forms grouped into 4 tabs by the EBA's own risk themes, so a preparer lands on the group they
 // own (qualitative author / risk team / taxonomy team) instead of scrolling one 13-form page. bank_p3esg only.
-type P3Group = 'qual' | 'trans' | 'phys' | 'tax'
+type P3Group = 'qual' | 'trans' | 'phys' | 'tax' | 'earlier'
+// a filing frozen before E97 also carried figures no Pillar 3 template prints: shown on their own tab, marked
+const EARLIER = 'Earlier report shape'
 function p3Group(title: string): P3Group {
+  if (title.startsWith(EARLIER)) return 'earlier'
   if (/\btable\b/i.test(title)) return 'qual'
   const m = title.match(/template[s]?\s*(\d+)/i)
   const n = m ? parseInt(m[1], 10) : 0
@@ -201,8 +204,11 @@ function P3FormTabs({ annex, supplied, periodEnd, onSupplied, ...ep }: { annex: 
   const [tab, setTab] = useState<P3Group>('qual')
   const qual = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
   const sectionsOf = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.title) === g) })
+  const tabs = annex.sections.some(s => p3Group(s.title) === 'earlier')
+    ? [...P3_TABS, { k: 'earlier' as P3Group, label: EARLIER, sub: 'not printed by the templates' }] : P3_TABS
 
   const badge = (g: P3Group): { t: string; c: string } | null => {
+    if (g === 'earlier') return null
     if (g === 'qual') return qual.data ? { t: `${qual.data.authored}/${qual.data.total_rows}`, c: 'var(--color-viz,#a78bfa)' } : null
     const secs = annex.sections.filter(s => p3Group(s.title) === g)
     const supplyKeys = secs.flatMap(s => s.rows.flatMap(r => (r.cells ?? []).map(c => c.supply?.key).filter(Boolean))) as string[]
@@ -221,7 +227,7 @@ function P3FormTabs({ annex, supplied, periodEnd, onSupplied, ...ep }: { annex: 
       </div>
       {/* form-group tabs — each holds only its templates, with a readiness badge */}
       <div className="flex gap-1.5 flex-wrap border-b border-[var(--color-line)] mb-3">
-        {P3_TABS.map(t => {
+        {tabs.map(t => {
           const b = badge(t.k); const on = tab === t.k
           return (
             <button key={t.k} onClick={() => setTab(t.k)}
@@ -239,6 +245,7 @@ function P3FormTabs({ annex, supplied, periodEnd, onSupplied, ...ep }: { annex: 
       {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
       {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
       {tab === 'tax' && <AnnexView annex={sectionsOf('tax')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
+      {tab === 'earlier' && <AnnexView annex={sectionsOf('earlier')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
     </div>
   )
 }

@@ -29,7 +29,8 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "gar_coverage":  ("Template 0 — GAR stock, % coverage over total assets", "support"),
     },
     # Pillar 3 ESG (kri_bank, E95): Template 1 prints the financed emissions; Template 5 prints physical risk per sector
-    # and geography row, not as the book-level figures the other KRIs are — they are live only and carry no tag
+    # and geography row, not as the book-level figures the other KRIs are — they are live only and carry no tag; the
+    # KRI per Template 5 row and column carries its own tag, the printed cell (kri_t5, E98)
     "bank_p3esg": {
         "fin_emissions": ("Template 1, total row, column i — financed emissions (gross Scope 1–3)", "core"),
     },

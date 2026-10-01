@@ -128,10 +128,9 @@ def _bank_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_we
 
 
 def _bank_pillar3(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
-    """The bank disclosure snapshot — Pillar 3 ESG freezes it whole (its templates print physical risk and emissions)."""
-    from api.routers.bank import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
-                                     translation=translation, period_end=period_end)
+    """The banking book the Pillar 3 ESG templates read (services.governance.pillar3_report, E97)."""
+    from services.governance.pillar3_report import freeze
+    return freeze(session, org_id, scenario, horizon, entity_ids, value_weights, translation, period_end)
 
 
 def _sfdr_pai(session, org_id):
