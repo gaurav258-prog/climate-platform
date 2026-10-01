@@ -1,0 +1,757 @@
+{
+ "title": "Implementing Regulation (EU) 2025/1093: countries presenting a low or high risk (EUDR Art. 29)",
+ "celex": "32025R1093",
+ "legal_basis": {
+  "quote": "and in particular Article 29(2) thereof",
+  "annex_quote": "List of countries which are considered to present low or high risk according to the assessment based on Article 29 of Regulation (EU) 2023/1115",
+  "celex": "32025R1093"
+ },
+ "article_1": {
+  "quote_1": "The countries that present a low, or high risk, shall be those listed in the Annex.",
+  "quote_2": "A standard level shall be maintained for all countries not listed in the Annex."
+ },
+ "dates": {
+  "published_quote": "2025/1093 23.5.2025",
+  "entry_into_force_quote": "This Regulation shall enter into force on the third day following that of its publication in the Official Journal of the European Union.",
+  "in_force_from": "2025-05-26",
+  "arithmetic": "published 23.5.2025 + 3 days = 26.5.2025",
+  "date_of_application": "not stated separately (Art. 2 sets only entry into force)"
+ },
+ "sub_national": {
+  "finding": "not stated: the Annex lists only whole countries; no part of a country is listed",
+  "context_quote": "to assess the risk of producing relevant commodities for which the relevant product does not comply with the condition of being deforestation-free at the level of a country or parts thereof",
+  "context_source": "recital (3)"
+ },
+ "high": [
+  {
+   "name": "Belarus",
+   "iso2": "BY",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Democratic People’s Republic of Korea",
+   "iso2": "KP",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "Myanmar",
+   "iso2": "MM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Russian Federation",
+   "iso2": "RU",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  }
+ ],
+ "low": [
+  {
+   "name": "Afghanistan",
+   "iso2": "AF",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Albania",
+   "iso2": "AL",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Algeria",
+   "iso2": "DZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Andorra",
+   "iso2": "AD",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Antigua and Barbuda",
+   "iso2": "AG",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  },
+  {
+   "name": "Armenia",
+   "iso2": "AM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Australia",
+   "iso2": "AU",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Austria",
+   "iso2": "AT",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Azerbaijan",
+   "iso2": "AZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Bahamas",
+   "iso2": "BS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Bahrain",
+   "iso2": "BH",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Bangladesh",
+   "iso2": "BD",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Barbados",
+   "iso2": "BB",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Belgium",
+   "iso2": "BE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Bhutan",
+   "iso2": "BT",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Bosnia and Herzegovina",
+   "iso2": "BA",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  },
+  {
+   "name": "Brunei Darussalam",
+   "iso2": "BN",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Bulgaria",
+   "iso2": "BG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Burundi",
+   "iso2": "BI",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Cabo Verde",
+   "iso2": "CV",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Canada",
+   "iso2": "CA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Central African Republic",
+   "iso2": "CF",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Chile",
+   "iso2": "CL",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "China",
+   "iso2": "CN",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Comoros",
+   "iso2": "KM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Congo",
+   "iso2": "CG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Costa Rica",
+   "iso2": "CR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Croatia",
+   "iso2": "HR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Cuba",
+   "iso2": "CU",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Cyprus",
+   "iso2": "CY",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Czechia",
+   "iso2": "CZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Denmark",
+   "iso2": "DK",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Djibouti",
+   "iso2": "DJ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Dominica",
+   "iso2": "DM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Dominican Republic",
+   "iso2": "DO",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Egypt",
+   "iso2": "EG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Estonia",
+   "iso2": "EE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Eswatini",
+   "iso2": "SZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Fiji",
+   "iso2": "FJ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Finland",
+   "iso2": "FI",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "France",
+   "iso2": "FR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Gabon",
+   "iso2": "GA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Georgia",
+   "iso2": "GE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Germany",
+   "iso2": "DE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Ghana",
+   "iso2": "GH",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Greece",
+   "iso2": "GR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Grenada",
+   "iso2": "GD",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Guyana",
+   "iso2": "GY",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Hungary",
+   "iso2": "HU",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Iceland",
+   "iso2": "IS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "India",
+   "iso2": "IN",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Iran (Islamic Republic of)",
+   "iso2": "IR",
+   "mapped_by": "printed name without its parenthetical qualifier, matched in CLDR/GISCO"
+  },
+  {
+   "name": "Iraq",
+   "iso2": "IQ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Ireland",
+   "iso2": "IE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Italy",
+   "iso2": "IT",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Jamaica",
+   "iso2": "JM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Japan",
+   "iso2": "JP",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Jordan",
+   "iso2": "JO",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Kazakhstan",
+   "iso2": "KZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Kenya",
+   "iso2": "KE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Kiribati",
+   "iso2": "KI",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Kuwait",
+   "iso2": "KW",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Kyrgyzstan",
+   "iso2": "KG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Lao People’s Democratic Republic",
+   "iso2": "LA",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "Latvia",
+   "iso2": "LV",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Lebanon",
+   "iso2": "LB",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Lesotho",
+   "iso2": "LS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Libya",
+   "iso2": "LY",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Liechtenstein",
+   "iso2": "LI",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Lithuania",
+   "iso2": "LT",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Luxembourg",
+   "iso2": "LU",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Madagascar",
+   "iso2": "MG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Maldives",
+   "iso2": "MV",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Mali",
+   "iso2": "ML",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Malta",
+   "iso2": "MT",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Marshall Islands",
+   "iso2": "MH",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Mauritius",
+   "iso2": "MU",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Micronesia (Federated States of)",
+   "iso2": "FM",
+   "mapped_by": "printed name without its parenthetical qualifier, matched in CLDR/GISCO"
+  },
+  {
+   "name": "Monaco",
+   "iso2": "MC",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Mongolia",
+   "iso2": "MN",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Montenegro",
+   "iso2": "ME",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Morocco",
+   "iso2": "MA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Nauru",
+   "iso2": "NR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Nepal",
+   "iso2": "NP",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Netherlands (Kingdom of the)",
+   "iso2": "NL",
+   "mapped_by": "printed name without its parenthetical qualifier, matched in CLDR/GISCO"
+  },
+  {
+   "name": "New Zealand",
+   "iso2": "NZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "North Macedonia",
+   "iso2": "MK",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Norway",
+   "iso2": "NO",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Oman",
+   "iso2": "OM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Palau",
+   "iso2": "PW",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Palestine",
+   "iso2": "PS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Papua New Guinea",
+   "iso2": "PG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Philippines",
+   "iso2": "PH",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Poland",
+   "iso2": "PL",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Portugal",
+   "iso2": "PT",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Qatar",
+   "iso2": "QA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Republic of Korea",
+   "iso2": "KR",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "Republic of Moldova",
+   "iso2": "MD",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "Romania",
+   "iso2": "RO",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Rwanda",
+   "iso2": "RW",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Saint Kitts and Nevis",
+   "iso2": "KN",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  },
+  {
+   "name": "Saint Lucia",
+   "iso2": "LC",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Saint Vincent and the Grenadines",
+   "iso2": "VC",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  },
+  {
+   "name": "Samoa",
+   "iso2": "WS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "San Marino",
+   "iso2": "SM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "São Tomé and Príncipe",
+   "iso2": "ST",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  },
+  {
+   "name": "Saudi Arabia",
+   "iso2": "SA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Serbia",
+   "iso2": "RS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Seychelles",
+   "iso2": "SC",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Singapore",
+   "iso2": "SG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Slovakia",
+   "iso2": "SK",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Slovenia",
+   "iso2": "SI",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Solomon Island",
+   "iso2": "SB",
+   "mapped_by": "declared reading (see readings)"
+  },
+  {
+   "name": "South Africa",
+   "iso2": "ZA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "South Sudan",
+   "iso2": "SS",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Spain",
+   "iso2": "ES",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Sri Lanka",
+   "iso2": "LK",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Suriname",
+   "iso2": "SR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Sweden",
+   "iso2": "SE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Switzerland",
+   "iso2": "CH",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Syrian Arab Republic",
+   "iso2": "SY",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "Tajikistan",
+   "iso2": "TJ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Thailand",
+   "iso2": "TH",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Timor-Leste",
+   "iso2": "TL",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Togo",
+   "iso2": "TG",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Tonga",
+   "iso2": "TO",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Trinidad and Tobago",
+   "iso2": "TT",
+   "mapped_by": "Eurostat GISCO country name (data/reference/geo/countries_world_03m_2020)"
+  },
+  {
+   "name": "Tunisia",
+   "iso2": "TN",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Türkiye",
+   "iso2": "TR",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Turkmenistan",
+   "iso2": "TM",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Tuvalu",
+   "iso2": "TV",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Ukraine",
+   "iso2": "UA",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "United Arab Emirates",
+   "iso2": "AE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "United Kingdom of Great Britain and Northern Ireland",
+   "iso2": "GB",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "United States of America",
+   "iso2": "US",
+   "mapped_by": "curated alias (ISO 3166-1 / UN M49 English short name), services/reference/countries.py"
+  },
+  {
+   "name": "Uruguay",
+   "iso2": "UY",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Uzbekistan",
+   "iso2": "UZ",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Vanuatu",
+   "iso2": "VU",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Vietnam",
+   "iso2": "VN",
+   "mapped_by": "CLDR name (ref_country_names)"
+  },
+  {
+   "name": "Yemen",
+   "iso2": "YE",
+   "mapped_by": "CLDR name (ref_country_names)"
+  }
+ ],
+ "readings": [
+  {
+   "printed": "Solomon Island",
+   "read_as": "SB",
+   "why": "the only country of that name is Solomon Islands (SB); the act prints it in the singular"
+  }
+ ],
+ "unmapped": []
+}

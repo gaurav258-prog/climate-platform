@@ -32,7 +32,12 @@ LOCALES = ("en", "bg", "cs", "da", "de", "el", "es", "et", "fi", "fr", "ga", "hr
 CURATED = {"USA": "US", "U.S.A.": "US", "U.S.": "US", "United States of America": "US", "UAE": "AE",
            "Holland": "NL", "The Netherlands": "NL", "Great Britain": "GB", "England": "GB", "Scotland": "GB",
            "Wales": "GB", "Northern Ireland": "GB", "Republic of Ireland": "IE", "South Korea": "KR",
-           "Russia": "RU", "Czech Rep.": "CZ", "Slovak Republic": "SK"}
+           "Russia": "RU", "Czech Rep.": "CZ", "Slovak Republic": "SK",
+           # Official short names (ISO 3166-1 / UN M49 English names) that CLDR does not carry; EU acts print them,
+           # e.g. Implementing Regulation (EU) 2025/1093 (EUDR country classification).
+           "Lao People's Democratic Republic": "LA", "Republic of Korea": "KR", "Republic of Moldova": "MD",
+           "Syrian Arab Republic": "SY", "United Kingdom of Great Britain and Northern Ireland": "GB",
+           "Democratic People's Republic of Korea": "KP"}
 
 
 def _get(path: str) -> dict:

@@ -1,0 +1,3039 @@
+{
+ "title": "Regulation (EU) 2023/1115 (EUDR), Annex I: relevant commodities and relevant products",
+ "conventions": {
+  "code": "HS/CN digits as printed, spaces removed; a row printing several codes gives one entry per code (printed_code keeps the row as printed)",
+  "ex": "true when printed with 'ex': only part of the heading/subheading is listed, the description decides",
+  "description": "verbatim as printed, without trailing (not including …) / (This provision …) parentheticals",
+  "notes": "the (not including …) parentheticals printed with the entry, verbatim; commodity table notes are in the version's commodity_notes",
+  "quotes": "every quote is found word for word (legal_texts.contains, normalised) in the version's source_celex"
+ },
+ "versions": [
+  {
+   "id": "original",
+   "applies_from": "2023-06-29",
+   "until": "2025-12-25",
+   "source_celex": "32023R1115",
+   "reflects": [
+    "32023R1115"
+   ],
+   "date_basis": {
+    "quotes": [
+     "OJ L 150, 9.6.2023",
+     "This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union."
+    ],
+    "quote_celex": [
+     "32025R1093",
+     "32023R1115"
+    ],
+    "arithmetic": "published 9.6.2023 + 20 days = 29.6.2023 (Art. 38(1))"
+   },
+   "general_exclusions": [
+    {
+     "text": "Except for by-products of a manufacturing process, where that process involved material that was not waste as defined in Article 3, point (1), of Directive 2008/98/EC, this Regulation does not apply to goods if they are produced entirely from material that has completed its lifecycle and would otherwise have been discarded as waste as defined in Article 3, point (1), of that Directive.",
+     "source": "Annex I, introductory text"
+    }
+   ],
+   "commodity_notes": {},
+   "entries": [
+    {
+     "commodity": "cattle",
+     "code": "010221",
+     "ex": false,
+     "printed_code": "0102 21 , 0102 29",
+     "description": "Live cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "010229",
+     "ex": false,
+     "printed_code": "0102 21 , 0102 29",
+     "description": "Live cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0201",
+     "ex": true,
+     "printed_code": "ex 0201",
+     "description": "Meat of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0202",
+     "ex": true,
+     "printed_code": "ex 0202",
+     "description": "Meat of cattle, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020610",
+     "ex": true,
+     "printed_code": "ex 0206 10",
+     "description": "Edible offal of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020622",
+     "ex": true,
+     "printed_code": "ex 0206 22",
+     "description": "Edible cattle livers, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020629",
+     "ex": true,
+     "printed_code": "ex 0206 29",
+     "description": "Edible cattle offal (excluding tongues and livers), frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "160250",
+     "ex": true,
+     "printed_code": "ex 1602 50",
+     "description": "Other prepared or preserved meat, meat offal, blood, of cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "4101",
+     "ex": true,
+     "printed_code": "ex 4101",
+     "description": "Raw hides and skins of cattle (fresh, or salted, dried, limed, pickled or otherwise preserved, but not tanned, parchment-dressed or further prepared), whether or not dehaired or split",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "4104",
+     "ex": true,
+     "printed_code": "ex 4104",
+     "description": "Tanned or crust hides and skins of cattle, without hair on, whether or not split, but not further prepared",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "4107",
+     "ex": true,
+     "printed_code": "ex 4107",
+     "description": "Leather of cattle, further prepared after tanning or crusting, including parchment-dressed leather, without hair on, whether or not split, other than leather of heading 4114",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1801",
+     "ex": false,
+     "printed_code": "1801",
+     "description": "Cocoa beans, whole or broken, raw or roasted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1802",
+     "ex": false,
+     "printed_code": "1802",
+     "description": "Cocoa shells, husks, skins and other cocoa waste",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1803",
+     "ex": false,
+     "printed_code": "1803",
+     "description": "Cocoa paste, whether or not defatted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1804",
+     "ex": false,
+     "printed_code": "1804",
+     "description": "Cocoa butter, fat and oil",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1805",
+     "ex": false,
+     "printed_code": "1805",
+     "description": "Cocoa powder, not containing added sugar or other sweetening matter",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1806",
+     "ex": false,
+     "printed_code": "1806",
+     "description": "Chocolate and other food preparations containing cocoa",
+     "notes": []
+    },
+    {
+     "commodity": "coffee",
+     "code": "0901",
+     "ex": false,
+     "printed_code": "0901",
+     "description": "Coffee, whether or not roasted or decaffeinated; coffee husks and skins; coffee substitutes containing coffee in any proportion",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "120710",
+     "ex": false,
+     "printed_code": "1207 10",
+     "description": "Palm nuts and kernels",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "1511",
+     "ex": false,
+     "printed_code": "1511",
+     "description": "Palm oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151321",
+     "ex": false,
+     "printed_code": "1513 21",
+     "description": "Crude palm kernel and babassu oil and fractions thereof, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151329",
+     "ex": false,
+     "printed_code": "1513 29",
+     "description": "Palm kernel and babassu oil and their fractions, whether or not refined, but not chemically modified (excluding crude oil)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "230660",
+     "ex": false,
+     "printed_code": "2306 60",
+     "description": "Oilcake and other solid residues of palm nuts or kernels, whether or not ground or in the form of pellets, resulting from the extraction of palm nut or kernel fats or oils",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "290545",
+     "ex": true,
+     "printed_code": "ex 2905 45",
+     "description": "Glycerol, with a purity of 95 % or more (calculated on the weight of the dry product)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291570",
+     "ex": false,
+     "printed_code": "2915 70",
+     "description": "Palmitic acid, stearic acid, their salts and esters",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291590",
+     "ex": false,
+     "printed_code": "2915 90",
+     "description": "Saturated acyclic monocarboxylic acids, their anhydrides, halides, peroxides and peroxyacids; their halogenated, sulphonated, nitrated or nitrosated derivatives (excluding formic acid, acetic acid, mono-, di- or trichloroacetic acids, propionic acid, butanoic acids, pentanoic acids, palmitic acid, stearic acid, their salts and esters, and acetic anhydride)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382311",
+     "ex": false,
+     "printed_code": "3823 11",
+     "description": "Stearic acid, industrial",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382312",
+     "ex": false,
+     "printed_code": "3823 12",
+     "description": "Oleic acid, industrial",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382319",
+     "ex": false,
+     "printed_code": "3823 19",
+     "description": "Industrial monocarboxylic fatty acids; acid oils from refining (excluding stearic acid, oleic acid and tall oil fatty acids)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382370",
+     "ex": false,
+     "printed_code": "3823 70",
+     "description": "Industrial fatty alcohols",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4001",
+     "ex": false,
+     "printed_code": "4001",
+     "description": "Natural rubber, balata, gutta-percha, guayule, chicle and similar natural gums, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4005",
+     "ex": true,
+     "printed_code": "ex 4005",
+     "description": "Compounded rubber, unvulcanised, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4006",
+     "ex": true,
+     "printed_code": "ex 4006",
+     "description": "Unvulcanised rubber in other forms (e.g. rods, tubes and profile shapes) and articles (e.g. discs and rings)",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4007",
+     "ex": true,
+     "printed_code": "ex 4007",
+     "description": "Vulcanised rubber thread and cord",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4008",
+     "ex": true,
+     "printed_code": "ex 4008",
+     "description": "Plates, sheets, strips, rods and profile shapes, of vulcanised rubber other than hard rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4010",
+     "ex": true,
+     "printed_code": "ex 4010",
+     "description": "Conveyer or transmission belts or belting, of vulcanised rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4011",
+     "ex": true,
+     "printed_code": "ex 4011",
+     "description": "New pneumatic tyres, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4012",
+     "ex": true,
+     "printed_code": "ex 4012",
+     "description": "Retreaded or used pneumatic tyres of rubber; solid or cushion tyres, tyre treads and tyre flaps, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4013",
+     "ex": true,
+     "printed_code": "ex 4013",
+     "description": "Inner tubes, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4015",
+     "ex": true,
+     "printed_code": "ex 4015",
+     "description": "Articles of apparel and clothing accessories (including gloves, mittens and mitts), for all purposes, of vulcanised rubber other than hard rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4016",
+     "ex": true,
+     "printed_code": "ex 4016",
+     "description": "Other articles of vulcanised rubber other than hard rubber, not elsewhere specified in chapter 40",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4017",
+     "ex": true,
+     "printed_code": "ex 4017",
+     "description": "Hard rubber (e.g. ebonite) in all forms including waste and scrap; articles of hard rubber",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "1201",
+     "ex": false,
+     "printed_code": "1201",
+     "description": "Soya beans, whether or not broken",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "120810",
+     "ex": false,
+     "printed_code": "1208 10",
+     "description": "Soya bean flour and meal",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "1507",
+     "ex": false,
+     "printed_code": "1507",
+     "description": "Soya-bean oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "2304",
+     "ex": false,
+     "printed_code": "2304",
+     "description": "Oilcake and other solid residues, whether or not ground or in the form of pellets, resulting from the extraction of soya-bean oil",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4401",
+     "ex": false,
+     "printed_code": "4401",
+     "description": "Fuel wood, in logs, in billets, in twigs, in faggots or in similar forms; wood in chips or particles; sawdust and wood waste and scrap, whether or not agglomerated in logs, briquettes, pellets or similar forms",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4402",
+     "ex": false,
+     "printed_code": "4402",
+     "description": "Wood charcoal (including shell or nut charcoal), whether or not agglomerated",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4403",
+     "ex": false,
+     "printed_code": "4403",
+     "description": "Wood in the rough, whether or not stripped of bark or sapwood, or roughly squared",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4404",
+     "ex": false,
+     "printed_code": "4404",
+     "description": "Hoopwood; split poles; piles, pickets and stakes of wood, pointed but not sawn lengthwise; wooden sticks, roughly trimmed but not turned, bent or otherwise worked, suitable for the manufacture of walking sticks, umbrellas, tool handles or the like; chipwood and the like",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4405",
+     "ex": false,
+     "printed_code": "4405",
+     "description": "Wood wool; wood flour",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4406",
+     "ex": false,
+     "printed_code": "4406",
+     "description": "Railway or tramway sleepers (cross-ties) of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4407",
+     "ex": false,
+     "printed_code": "4407",
+     "description": "Wood sawn or chipped lengthwise, sliced or peeled, whether or not planed, sanded or end-jointed, of a thickness exceeding 6 mm",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4408",
+     "ex": false,
+     "printed_code": "4408",
+     "description": "Sheets for veneering (including those obtained by slicing laminated wood), for plywood or for other similar laminated wood and other wood, sawn lengthwise, sliced or peeled, whether or not planed, sanded, spliced or end-jointed, of a thickness not exceeding 6 mm",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4409",
+     "ex": false,
+     "printed_code": "4409",
+     "description": "Wood (including strips and friezes for parquet flooring, not assembled) continuously shaped (tongued, grooved, rebated, chamfered, V-jointed, beaded, moulded, rounded or the like) along any of its edges, ends or faces, whether or not planed, sanded or end-jointed",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4410",
+     "ex": false,
+     "printed_code": "4410",
+     "description": "Particle board, oriented strand board (OSB) and similar board (for example, waferboard) of wood or other ligneous materials, whether or not agglomerated with resins or other organic binding substances",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4411",
+     "ex": false,
+     "printed_code": "4411",
+     "description": "Fibreboard of wood or other ligneous materials, whether or not bonded with resins or other organic substances",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4412",
+     "ex": false,
+     "printed_code": "4412",
+     "description": "Plywood, veneered panels and similar laminated wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4413",
+     "ex": false,
+     "printed_code": "4413",
+     "description": "Densified wood, in blocks, plates, strips or profile shapes",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4414",
+     "ex": false,
+     "printed_code": "4414",
+     "description": "Wooden frames for paintings, photographs, mirrors or similar objects",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4415",
+     "ex": false,
+     "printed_code": "4415",
+     "description": "Packing cases, boxes, crates, drums and similar packings, of wood; cable-drums of wood; pallets, box pallets and other load boards, of wood; pallet collars of wood",
+     "notes": [
+      "(not including packing material used exclusively as packing material to support, protect or carry another product placed on the market)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4416",
+     "ex": false,
+     "printed_code": "4416",
+     "description": "Casks, barrels, vats, tubs and other coopers' products and parts thereof, of wood, including staves",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4417",
+     "ex": false,
+     "printed_code": "4417",
+     "description": "Tools, tool bodies, tool handles, broom or brush bodies and handles, of wood; boot or shoe lasts and trees, of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4418",
+     "ex": false,
+     "printed_code": "4418",
+     "description": "Builders' joinery and carpentry of wood, including cellular wood panels, assembled flooring panels, shingles and shakes",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4419",
+     "ex": false,
+     "printed_code": "4419",
+     "description": "Tableware and kitchenware, of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4420",
+     "ex": false,
+     "printed_code": "4420",
+     "description": "Wood marquetry and inlaid wood; caskets and cases for jewellery or cutlery, and similar articles, of wood; statuettes and other ornaments, of wood; wooden articles of furniture not falling in Chapter 94",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4421",
+     "ex": false,
+     "printed_code": "4421",
+     "description": "Other articles of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "47",
+     "ex": false,
+     "printed_code": null,
+     "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
+     "notes": [],
+     "code_basis": "no code printed; the description names Chapters 47 and 48"
+    },
+    {
+     "commodity": "wood",
+     "code": "48",
+     "ex": false,
+     "printed_code": null,
+     "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
+     "notes": [],
+     "code_basis": "no code printed; the description names Chapters 47 and 48"
+    },
+    {
+     "commodity": "wood",
+     "code": "49",
+     "ex": true,
+     "printed_code": "ex 49",
+     "description": "Printed books, newspapers, pictures and other products of the printing industry, manuscripts, typescripts and plans, of paper",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "9401",
+     "ex": true,
+     "printed_code": "ex 9401",
+     "description": "Seats (other than those of heading 9402 ), whether or not convertible into beds, and parts thereof, of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940330",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940340",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940350",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940360",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940391",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940610",
+     "ex": false,
+     "printed_code": "9406 10",
+     "description": "Prefabricated buildings of wood",
+     "notes": []
+    }
+   ]
+  },
+  {
+   "id": "amended_2025_2650",
+   "applies_from": "2025-12-26",
+   "until": "2026-09-17",
+   "source_celex": "02023R1115-20251226",
+   "reflects": [
+    "32023R1115",
+    "32024R3234",
+    "32025R2650"
+   ],
+   "change": {
+    "celex": "32025R2650",
+    "quote": "in Annex I, in the table, the line ‘ex 49 Printed books, newspapers, pictures and other products of the printing industry, manuscripts, typescripts and plans, of paper' is deleted"
+   },
+   "date_basis": {
+    "quotes": [
+     "2025/2650 23.12.2025",
+     "This Regulation shall enter into force on the third day following that of its publication in the Official Journal of the European Union."
+    ],
+    "quote_celex": [
+     "32025R2650",
+     "32025R2650"
+    ],
+    "arithmetic": "published 23.12.2025 + 3 days = 26.12.2025; 2025/2650 states no separate application date for the Annex I deletion (Art. 2 sets only entry into force)"
+   },
+   "reflects_note": "32024R3234 does not amend Annex I (its text contains no Annex I amendment)",
+   "general_exclusions": [
+    {
+     "text": "Except for by-products of a manufacturing process, where that process involved material that was not waste as defined in Article 3, point (1), of Directive 2008/98/EC, this Regulation does not apply to goods if they are produced entirely from material that has completed its lifecycle and would otherwise have been discarded as waste as defined in Article 3, point (1), of that Directive.",
+     "source": "Annex I, introductory text"
+    }
+   ],
+   "commodity_notes": {},
+   "entries": [
+    {
+     "commodity": "cattle",
+     "code": "010221",
+     "ex": false,
+     "printed_code": "0102 21 , 0102 29",
+     "description": "Live cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "010229",
+     "ex": false,
+     "printed_code": "0102 21 , 0102 29",
+     "description": "Live cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0201",
+     "ex": true,
+     "printed_code": "ex 0201",
+     "description": "Meat of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0202",
+     "ex": true,
+     "printed_code": "ex 0202",
+     "description": "Meat of cattle, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020610",
+     "ex": true,
+     "printed_code": "ex 0206 10",
+     "description": "Edible offal of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020622",
+     "ex": true,
+     "printed_code": "ex 0206 22",
+     "description": "Edible cattle livers, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020629",
+     "ex": true,
+     "printed_code": "ex 0206 29",
+     "description": "Edible cattle offal (excluding tongues and livers), frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "160250",
+     "ex": true,
+     "printed_code": "ex 1602 50",
+     "description": "Other prepared or preserved meat, meat offal, blood, of cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "4101",
+     "ex": true,
+     "printed_code": "ex 4101",
+     "description": "Raw hides and skins of cattle (fresh, or salted, dried, limed, pickled or otherwise preserved, but not tanned, parchment-dressed or further prepared), whether or not dehaired or split",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "4104",
+     "ex": true,
+     "printed_code": "ex 4104",
+     "description": "Tanned or crust hides and skins of cattle, without hair on, whether or not split, but not further prepared",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "4107",
+     "ex": true,
+     "printed_code": "ex 4107",
+     "description": "Leather of cattle, further prepared after tanning or crusting, including parchment-dressed leather, without hair on, whether or not split, other than leather of heading 4114",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1801",
+     "ex": false,
+     "printed_code": "1801",
+     "description": "Cocoa beans, whole or broken, raw or roasted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1802",
+     "ex": false,
+     "printed_code": "1802",
+     "description": "Cocoa shells, husks, skins and other cocoa waste",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1803",
+     "ex": false,
+     "printed_code": "1803",
+     "description": "Cocoa paste, whether or not defatted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1804",
+     "ex": false,
+     "printed_code": "1804",
+     "description": "Cocoa butter, fat and oil",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1805",
+     "ex": false,
+     "printed_code": "1805",
+     "description": "Cocoa powder, not containing added sugar or other sweetening matter",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1806",
+     "ex": false,
+     "printed_code": "1806",
+     "description": "Chocolate and other food preparations containing cocoa",
+     "notes": []
+    },
+    {
+     "commodity": "coffee",
+     "code": "0901",
+     "ex": false,
+     "printed_code": "0901",
+     "description": "Coffee, whether or not roasted or decaffeinated; coffee husks and skins; coffee substitutes containing coffee in any proportion",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "120710",
+     "ex": false,
+     "printed_code": "1207 10",
+     "description": "Palm nuts and kernels",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "1511",
+     "ex": false,
+     "printed_code": "1511",
+     "description": "Palm oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151321",
+     "ex": false,
+     "printed_code": "1513 21",
+     "description": "Crude palm kernel and babassu oil and fractions thereof, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151329",
+     "ex": false,
+     "printed_code": "1513 29",
+     "description": "Palm kernel and babassu oil and their fractions, whether or not refined, but not chemically modified (excluding crude oil)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "230660",
+     "ex": false,
+     "printed_code": "2306 60",
+     "description": "Oilcake and other solid residues of palm nuts or kernels, whether or not ground or in the form of pellets, resulting from the extraction of palm nut or kernel fats or oils",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "290545",
+     "ex": true,
+     "printed_code": "ex 2905 45",
+     "description": "Glycerol, with a purity of 95 % or more (calculated on the weight of the dry product)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291570",
+     "ex": false,
+     "printed_code": "2915 70",
+     "description": "Palmitic acid, stearic acid, their salts and esters",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291590",
+     "ex": false,
+     "printed_code": "2915 90",
+     "description": "Saturated acyclic monocarboxylic acids, their anhydrides, halides, peroxides and peroxyacids; their halogenated, sulphonated, nitrated or nitrosated derivatives (excluding formic acid, acetic acid, mono-, di- or trichloroacetic acids, propionic acid, butanoic acids, pentanoic acids, palmitic acid, stearic acid, their salts and esters, and acetic anhydride)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382311",
+     "ex": false,
+     "printed_code": "3823 11",
+     "description": "Stearic acid, industrial",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382312",
+     "ex": false,
+     "printed_code": "3823 12",
+     "description": "Oleic acid, industrial",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382319",
+     "ex": false,
+     "printed_code": "3823 19",
+     "description": "Industrial monocarboxylic fatty acids; acid oils from refining (excluding stearic acid, oleic acid and tall oil fatty acids)",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382370",
+     "ex": false,
+     "printed_code": "3823 70",
+     "description": "Industrial fatty alcohols",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4001",
+     "ex": false,
+     "printed_code": "4001",
+     "description": "Natural rubber, balata, gutta-percha, guayule, chicle and similar natural gums, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4005",
+     "ex": true,
+     "printed_code": "ex 4005",
+     "description": "Compounded rubber, unvulcanised, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4006",
+     "ex": true,
+     "printed_code": "ex 4006",
+     "description": "Unvulcanised rubber in other forms (e.g. rods, tubes and profile shapes) and articles (e.g. discs and rings)",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4007",
+     "ex": true,
+     "printed_code": "ex 4007",
+     "description": "Vulcanised rubber thread and cord",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4008",
+     "ex": true,
+     "printed_code": "ex 4008",
+     "description": "Plates, sheets, strips, rods and profile shapes, of vulcanised rubber other than hard rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4010",
+     "ex": true,
+     "printed_code": "ex 4010",
+     "description": "Conveyer or transmission belts or belting, of vulcanised rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4011",
+     "ex": true,
+     "printed_code": "ex 4011",
+     "description": "New pneumatic tyres, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4012",
+     "ex": true,
+     "printed_code": "ex 4012",
+     "description": "Retreaded or used pneumatic tyres of rubber; solid or cushion tyres, tyre treads and tyre flaps, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4013",
+     "ex": true,
+     "printed_code": "ex 4013",
+     "description": "Inner tubes, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4015",
+     "ex": true,
+     "printed_code": "ex 4015",
+     "description": "Articles of apparel and clothing accessories (including gloves, mittens and mitts), for all purposes, of vulcanised rubber other than hard rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4016",
+     "ex": true,
+     "printed_code": "ex 4016",
+     "description": "Other articles of vulcanised rubber other than hard rubber, not elsewhere specified in chapter 40",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4017",
+     "ex": true,
+     "printed_code": "ex 4017",
+     "description": "Hard rubber (e.g. ebonite) in all forms including waste and scrap; articles of hard rubber",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "1201",
+     "ex": false,
+     "printed_code": "1201",
+     "description": "Soya beans, whether or not broken",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "120810",
+     "ex": false,
+     "printed_code": "1208 10",
+     "description": "Soya bean flour and meal",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "1507",
+     "ex": false,
+     "printed_code": "1507",
+     "description": "Soya-bean oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "2304",
+     "ex": false,
+     "printed_code": "2304",
+     "description": "Oilcake and other solid residues, whether or not ground or in the form of pellets, resulting from the extraction of soya-bean oil",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4401",
+     "ex": false,
+     "printed_code": "4401",
+     "description": "Fuel wood, in logs, in billets, in twigs, in faggots or in similar forms; wood in chips or particles; sawdust and wood waste and scrap, whether or not agglomerated in logs, briquettes, pellets or similar forms",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4402",
+     "ex": false,
+     "printed_code": "4402",
+     "description": "Wood charcoal (including shell or nut charcoal), whether or not agglomerated",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4403",
+     "ex": false,
+     "printed_code": "4403",
+     "description": "Wood in the rough, whether or not stripped of bark or sapwood, or roughly squared",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4404",
+     "ex": false,
+     "printed_code": "4404",
+     "description": "Hoopwood; split poles; piles, pickets and stakes of wood, pointed but not sawn lengthwise; wooden sticks, roughly trimmed but not turned, bent or otherwise worked, suitable for the manufacture of walking sticks, umbrellas, tool handles or the like; chipwood and the like",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4405",
+     "ex": false,
+     "printed_code": "4405",
+     "description": "Wood wool; wood flour",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4406",
+     "ex": false,
+     "printed_code": "4406",
+     "description": "Railway or tramway sleepers (cross-ties) of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4407",
+     "ex": false,
+     "printed_code": "4407",
+     "description": "Wood sawn or chipped lengthwise, sliced or peeled, whether or not planed, sanded or end-jointed, of a thickness exceeding 6 mm",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4408",
+     "ex": false,
+     "printed_code": "4408",
+     "description": "Sheets for veneering (including those obtained by slicing laminated wood), for plywood or for other similar laminated wood and other wood, sawn lengthwise, sliced or peeled, whether or not planed, sanded, spliced or end-jointed, of a thickness not exceeding 6 mm",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4409",
+     "ex": false,
+     "printed_code": "4409",
+     "description": "Wood (including strips and friezes for parquet flooring, not assembled) continuously shaped (tongued, grooved, rebated, chamfered, V-jointed, beaded, moulded, rounded or the like) along any of its edges, ends or faces, whether or not planed, sanded or end-jointed",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4410",
+     "ex": false,
+     "printed_code": "4410",
+     "description": "Particle board, oriented strand board (OSB) and similar board (for example, waferboard) of wood or other ligneous materials, whether or not agglomerated with resins or other organic binding substances",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4411",
+     "ex": false,
+     "printed_code": "4411",
+     "description": "Fibreboard of wood or other ligneous materials, whether or not bonded with resins or other organic substances",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4412",
+     "ex": false,
+     "printed_code": "4412",
+     "description": "Plywood, veneered panels and similar laminated wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4413",
+     "ex": false,
+     "printed_code": "4413",
+     "description": "Densified wood, in blocks, plates, strips or profile shapes",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4414",
+     "ex": false,
+     "printed_code": "4414",
+     "description": "Wooden frames for paintings, photographs, mirrors or similar objects",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4415",
+     "ex": false,
+     "printed_code": "4415",
+     "description": "Packing cases, boxes, crates, drums and similar packings, of wood; cable-drums of wood; pallets, box pallets and other load boards, of wood; pallet collars of wood",
+     "notes": [
+      "(not including packing material used exclusively as packing material to support, protect or carry another product placed on the market)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4416",
+     "ex": false,
+     "printed_code": "4416",
+     "description": "Casks, barrels, vats, tubs and other coopers' products and parts thereof, of wood, including staves",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4417",
+     "ex": false,
+     "printed_code": "4417",
+     "description": "Tools, tool bodies, tool handles, broom or brush bodies and handles, of wood; boot or shoe lasts and trees, of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4418",
+     "ex": false,
+     "printed_code": "4418",
+     "description": "Builders' joinery and carpentry of wood, including cellular wood panels, assembled flooring panels, shingles and shakes",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4419",
+     "ex": false,
+     "printed_code": "4419",
+     "description": "Tableware and kitchenware, of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4420",
+     "ex": false,
+     "printed_code": "4420",
+     "description": "Wood marquetry and inlaid wood; caskets and cases for jewellery or cutlery, and similar articles, of wood; statuettes and other ornaments, of wood; wooden articles of furniture not falling in Chapter 94",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4421",
+     "ex": false,
+     "printed_code": "4421",
+     "description": "Other articles of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "47",
+     "ex": false,
+     "printed_code": null,
+     "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
+     "notes": [],
+     "code_basis": "no code printed; the description names Chapters 47 and 48"
+    },
+    {
+     "commodity": "wood",
+     "code": "48",
+     "ex": false,
+     "printed_code": null,
+     "description": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
+     "notes": [],
+     "code_basis": "no code printed; the description names Chapters 47 and 48"
+    },
+    {
+     "commodity": "wood",
+     "code": "9401",
+     "ex": true,
+     "printed_code": "ex 9401",
+     "description": "Seats (other than those of heading 9402 ), whether or not convertible into beds, and parts thereof, of wood",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940330",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940340",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940350",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940360",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940391",
+     "ex": false,
+     "printed_code": "9403 30 , 9403 40 , 9403 50 , 9403 60 and 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "940610",
+     "ex": false,
+     "printed_code": "9406 10",
+     "description": "Prefabricated buildings of wood",
+     "notes": []
+    }
+   ]
+  },
+  {
+   "id": "amended_2026_2102",
+   "applies_from": "2026-09-18",
+   "until": "2027-12-29",
+   "source_celex": "02023R1115-20260918",
+   "reflects": [
+    "32023R1115",
+    "32024R3234",
+    "32025R2650",
+    "32026R2102"
+   ],
+   "date_basis": {
+    "quotes": [
+     "2026/2102 17.9.2026",
+     "This Regulation shall enter into force on the day following that of its publication in the Official Journal of the European Union."
+    ],
+    "quote_celex": [
+     "32026R2102",
+     "32026R2102"
+    ],
+    "arithmetic": "published 17.9.2026 + 1 day = 18.9.2026"
+   },
+   "general_exclusions": [
+    {
+     "text": "Except for by-products of a manufacturing process, where that process involved material that was not waste as defined in Article 3, point (1), of Directive 2008/98/EC, this Regulation does not apply to goods if they are produced entirely from material that has completed its lifecycle and would otherwise have been discarded as waste as defined in Article 3, point (1), of that Directive.",
+     "source": "Annex I, introductory text"
+    },
+    {
+     "text": "(5) This Regulation does not apply to: (a) Samples of products, which are of negligible value and quantity and can be consumed or used only to solicit orders for goods of the type they represent under the condition that the manner of presentation and quantity, for products of the same type or quality, rule out its consumption or use for any purpose other than that of seeking orders; (b) Products which are to undergo examination, analysis or tests to determine their composition, quality or other technical characteristics for purposes of information or industrial or commercial research under the condition that the products to be analysed, examined or tested are either completely used up or destroyed in the course of the examination, analysis or testing, or kept or returned for no other reason and purposes than complying with legal or contractual obligations related to examination, analysis or testing. ◄ ►M3",
+     "source": "Annex I, table note (5) to the heading 'Relevant products' (added by 2026/2102)"
+    }
+   ],
+   "commodity_notes": {
+    "cattle": "(1) This Regulation only applies to cattle of the genus Bos and its sub-generas: Bos, Bibos, Novibos, and Poephagus falling under HS subheadings 0102 21 and 0102 29 . It does not apply to buffalo (Syncerus genus) or bison (Bison genus) or any other live bovine animals. ◄ ►M3",
+    "oil_palm": "(2) This Regulation applies to oil palm of Elaeis spp. (including Elaeis guineensis). It does not apply to babassu oil from genus Attalea spp. (including Attalea speciosa) and other vegetable oils from other palm tree species. ◄ ►M3",
+    "rubber": "(3) This Regulation applies to rubber of Hevea brasiliensis. It does not apply to balata, gutta-percha, guayule, chicle and similar natural gums produced with other species and to synthetic rubber products. ◄ ►M3",
+    "wood": "(4) This Regulation does not apply to bamboo, rattan and other materials of a woody nature and therefore it does also not apply to relevant products listed under the relevant commodity ‘Wood' to the extent that those products are made of bamboo, rattan and other materials of a woody nature. ◄ ►M3"
+   },
+   "entries_applying_later": "entries printed with (This provision shall apply from 30 December 2027) are left out here and listed in the next version",
+   "entries": [
+    {
+     "commodity": "cattle",
+     "code": "0102",
+     "ex": true,
+     "printed_code": "ex 0102",
+     "description": "Live cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0201",
+     "ex": true,
+     "printed_code": "ex 0201",
+     "description": "Meat of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0202",
+     "ex": true,
+     "printed_code": "ex 0202",
+     "description": "Meat of cattle, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020610",
+     "ex": true,
+     "printed_code": "ex 0206 10",
+     "description": "Edible offal of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020622",
+     "ex": true,
+     "printed_code": "ex 0206 22",
+     "description": "Edible cattle livers, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020629",
+     "ex": true,
+     "printed_code": "ex 0206 29",
+     "description": "Edible cattle offal (excluding tongues and livers), frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "160250",
+     "ex": true,
+     "printed_code": "ex 1602 50",
+     "description": "Other prepared or preserved meat, meat offal, blood, of cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1801",
+     "ex": false,
+     "printed_code": "1801",
+     "description": "Cocoa beans, whole or broken, raw or roasted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1802",
+     "ex": false,
+     "printed_code": "1802",
+     "description": "Cocoa shells, husks, skins and other cocoa waste",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1803",
+     "ex": false,
+     "printed_code": "1803",
+     "description": "Cocoa paste, whether or not defatted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1804",
+     "ex": false,
+     "printed_code": "1804",
+     "description": "Cocoa butter, fat and oil",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1805",
+     "ex": false,
+     "printed_code": "1805",
+     "description": "Cocoa powder, not containing added sugar or other sweetening matter",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1806",
+     "ex": false,
+     "printed_code": "1806",
+     "description": "Chocolate and other food preparations containing cocoa",
+     "notes": []
+    },
+    {
+     "commodity": "coffee",
+     "code": "0901",
+     "ex": false,
+     "printed_code": "0901",
+     "description": "Coffee, whether or not roasted or decaffeinated; coffee husks and skins; coffee substitutes containing coffee in any proportion",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "12071000",
+     "ex": true,
+     "printed_code": "ex 1207 10 00",
+     "description": "Palm nuts and kernels",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "1511",
+     "ex": true,
+     "printed_code": "ex 1511",
+     "description": "Palm oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151321",
+     "ex": true,
+     "printed_code": "ex 1513 21",
+     "description": "Crude palm kernel and babassu oil and fractions thereof, whether or not refined, but not chemically modified",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151329",
+     "ex": true,
+     "printed_code": "ex 1513 29",
+     "description": "Palm kernel and babassu oil and their fractions, whether or not refined, other than crude oil, but not chemically modified",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "152000",
+     "ex": true,
+     "printed_code": "ex 1520 00",
+     "description": "Crude glycerol, glycerol waters and lyes that have been produced using oil palm",
+     "notes": [],
+     "application_ambiguous": true,
+     "applies_from_quote": "oil palm'; (This provision shall apply from 30 December 2027)",
+     "application_note": "the 2026/2102 Annex prints the 30.12.2027 application clause after the closing quote of the inserted text, so whether this entry applies from 18.9.2026 or from 30.12.2027 is not stated unambiguously"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "23066000",
+     "ex": true,
+     "printed_code": "ex 2306 60 00",
+     "description": "Oilcake and other solid residues of palm nuts or kernels, whether or not ground or in the form of pellets, resulting from the extraction of palm nut or kernel fats or oils",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "290545",
+     "ex": true,
+     "printed_code": "ex 2905 45",
+     "description": "Glycerol, with a purity of 95 % or more (calculated on the weight of the dry product), that has been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291570",
+     "ex": true,
+     "printed_code": "ex 2915 70",
+     "description": "Palmitic acid, stearic acid, their salts and esters that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291590",
+     "ex": true,
+     "printed_code": "ex 2915 90",
+     "description": "Saturated acyclic monocarboxylic acids, their anhydrides, halides, peroxides and peroxyacids; their halogenated, sulphonated, nitrated or nitrosated derivatives, other than formic acid, its salts and esters, acetic acid and its salts; acetic anhydride, esters of acetic acid, mono-, di- or trichloroacetic acids, their salts and esters, propionic acid, its salts and esters that have been synthesized using oil palm, butanoic acids, pentanoic acids, their salts and esters and palmitic acid, stearic acid, their salts and esters, that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "38231100",
+     "ex": true,
+     "printed_code": "ex 3823 11 00",
+     "description": "Stearic acid, industrial that has been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "38231200",
+     "ex": true,
+     "printed_code": "ex 3823 12 00",
+     "description": "Oleic acid, industrial that has been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382319",
+     "ex": true,
+     "printed_code": "ex 3823 19",
+     "description": "Industrial monocarboxylic fatty acids; acid oils from refining other than stearic acid, oleic acid and tall oil fatty acids, that have been synthesized using oil palm",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "38237000",
+     "ex": true,
+     "printed_code": "ex 3823 70 00",
+     "description": "Industrial fatty alcohols that have been synthesized using oil palm",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4001",
+     "ex": true,
+     "printed_code": "ex 4001",
+     "description": "Natural rubber, balata, gutta-percha, guayule, chicle and similar natural gums, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4005",
+     "ex": true,
+     "printed_code": "ex 4005",
+     "description": "Compounded rubber, unvulcanised, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4006",
+     "ex": true,
+     "printed_code": "ex 4006",
+     "description": "Unvulcanised rubber in other forms (e.g. rods, tubes and profile shapes) and articles (e.g. discs and rings)",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4007",
+     "ex": true,
+     "printed_code": "ex 4007",
+     "description": "Vulcanised rubber thread and cord",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4008",
+     "ex": true,
+     "printed_code": "ex 4008",
+     "description": "Plates, sheets, strips, rods and profile shapes, of vulcanised rubber other than hard rubber",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "rubber",
+     "code": "4011",
+     "ex": true,
+     "printed_code": "ex 4011",
+     "description": "New pneumatic tyres, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "40129030",
+     "ex": true,
+     "printed_code": "ex 4012 90 30",
+     "description": "Tyre treads",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4013",
+     "ex": true,
+     "printed_code": "ex 4013",
+     "description": "Inner tubes, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4015",
+     "ex": true,
+     "printed_code": "ex 4015",
+     "description": "Articles of apparel and clothing accessories (including gloves, mittens and mitts), for all purposes, of vulcanised rubber other than hard rubber",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "rubber",
+     "code": "4017",
+     "ex": true,
+     "printed_code": "ex 4017",
+     "description": "Hard rubber (e.g. ebonite) in all forms including waste and scrap; articles of hard rubber",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)",
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "soya",
+     "code": "12019000",
+     "ex": false,
+     "printed_code": "1201 90 00",
+     "description": "Soya beans, whether or not broken: other",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "120810",
+     "ex": false,
+     "printed_code": "1208 10",
+     "description": "Soya bean flour and meal",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "1507",
+     "ex": false,
+     "printed_code": "1507",
+     "description": "Soya-bean oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "2304",
+     "ex": false,
+     "printed_code": "2304",
+     "description": "Oilcake and other solid residues, whether or not ground or in the form of pellets, resulting from the extraction of soya-bean oil",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4401",
+     "ex": true,
+     "printed_code": "ex 4401",
+     "description": "Fuel wood, in logs, in billets, in twigs, in faggots or in similar forms; wood in chips or particles; sawdust and wood waste and scrap, whether or not agglomerated in logs, briquettes, pellets or similar forms",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4402",
+     "ex": true,
+     "printed_code": "ex 4402",
+     "description": "Wood charcoal (including shell or nut charcoal), whether or not agglomerated",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4403",
+     "ex": true,
+     "printed_code": "ex 4403",
+     "description": "Wood in the rough, whether or not stripped of bark or sapwood, or roughly squared",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4404",
+     "ex": true,
+     "printed_code": "ex 4404",
+     "description": "Hoopwood; split poles; piles, pickets and stakes of wood, pointed but not sawn lengthwise; wooden sticks, roughly trimmed but not turned, bent or otherwise worked, suitable for the manufacture of walking sticks, umbrellas, tool handles or the like; chipwood and the like",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4405",
+     "ex": true,
+     "printed_code": "ex 4405",
+     "description": "Wood wool; wood flour",
+     "notes": [
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4406",
+     "ex": true,
+     "printed_code": "ex 4406",
+     "description": "Railway or tramway sleepers (cross-ties) of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4407",
+     "ex": true,
+     "printed_code": "ex 4407",
+     "description": "Wood sawn or chipped lengthwise, sliced or peeled, whether or not planed, sanded or end-jointed, of a thickness exceeding 6 mm",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4408",
+     "ex": true,
+     "printed_code": "ex 4408",
+     "description": "Sheets for veneering (including those obtained by slicing laminated wood), for plywood or for other similar laminated wood and other wood, sawn lengthwise, sliced or peeled, whether or not planed, sanded, spliced or end-jointed, of a thickness not exceeding 6 mm",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4409",
+     "ex": true,
+     "printed_code": "ex 4409",
+     "description": "Wood (including strips and friezes for parquet flooring, not assembled) continuously shaped (tongued, grooved, rebated, chamfered, V-jointed, beaded, moulded, rounded or the like) along any of its edges, ends or faces, whether or not planed, sanded or end-jointed",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4410",
+     "ex": true,
+     "printed_code": "ex 4410",
+     "description": "Particle board, oriented strand board (OSB) and similar board (for example, waferboard) of wood or other ligneous materials, whether or not agglomerated with resins or other organic binding substances",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4411",
+     "ex": true,
+     "printed_code": "ex 4411",
+     "description": "Fibreboard of wood or other ligneous materials, whether or not bonded with resins or other organic substances",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4412",
+     "ex": true,
+     "printed_code": "ex 4412",
+     "description": "Plywood, veneered panels and similar laminated wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4413",
+     "ex": true,
+     "printed_code": "ex 4413",
+     "description": "Densified wood, in blocks, plates, strips or profile shapes",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4414",
+     "ex": true,
+     "printed_code": "ex 4414",
+     "description": "Wooden frames for paintings, photographs, mirrors or similar objects",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4415",
+     "ex": true,
+     "printed_code": "ex 4415",
+     "description": "Packing cases, boxes, crates, drums and similar packings, of wood; cable-drums of wood; pallets, box pallets and other load boards, of wood; pallet collars of wood",
+     "notes": [
+      "(not including used products and second-hand products)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)",
+      "(not including packing material and packing containers clearly suitable for repetitive use used exclusively to support, protect or carry another product made available on the market or exported and presented with that product from the moment they are used for such purpose and onwards)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4416",
+     "ex": true,
+     "printed_code": "ex 4416",
+     "description": "Casks, barrels, vats, tubs and other coopers' products and parts thereof, of wood, including staves",
+     "notes": [
+      "(not including used products and second-hand products)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)",
+      "(not including packing material and packing containers clearly suitable for repetitive use used exclusively to support, protect or carry another product made available on the market or exported and presented with that product from the moment they are used for such purpose and onwards)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4417",
+     "ex": true,
+     "printed_code": "ex 4417",
+     "description": "Tools, tool bodies, tool handles, broom or brush bodies and handles, of wood; boot or shoe lasts and trees, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4418",
+     "ex": true,
+     "printed_code": "ex 4418",
+     "description": "Builders' joinery and carpentry of wood, including cellular wood panels, assembled flooring panels, shingles and shakes",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4419",
+     "ex": true,
+     "printed_code": "ex 4419",
+     "description": "Tableware and kitchenware, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4420",
+     "ex": true,
+     "printed_code": "ex 4420",
+     "description": "Wood marquetry and inlaid wood; caskets and cases for jewellery or cutlery, and similar articles, of wood; statuettes and other ornaments, of wood; wooden articles of furniture not falling in Chapter 94",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4421",
+     "ex": true,
+     "printed_code": "ex 4421",
+     "description": "Other articles of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "47",
+     "ex": true,
+     "printed_code": "ex 47",
+     "description": "Pulp of wood",
+     "notes": [
+      "(not including used products and second-hand products)",
+      "(not including recovered (waste and scrap) products and products derived from recovered (waste and scrap) products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "48",
+     "ex": true,
+     "printed_code": "ex 48",
+     "description": "Paper and Paperboard: Articles of paper pulp, of paper or of paperboard",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)",
+      "(not including used products and second-hand products)",
+      "(not including recovered (waste and scrap) products and products derived from recovered (waste and scrap) products)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)",
+      "(not including packing material and packing containers clearly suitable for repetitive use used exclusively to support, protect or carry another product made available on the market or exported and presented with that product from the moment they are used for such purpose and onwards)",
+      "(not including items of correspondence and marketing and information materials exclusively accompanying another product made available on the market or exported, or supplied for marketing or information purposes free of charge)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94013100",
+     "ex": true,
+     "printed_code": "ex 9401 31 00",
+     "description": "Swivel seats with variable height adjustment, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94014100",
+     "ex": true,
+     "printed_code": "ex 9401 41 00",
+     "description": "Seats other than garden seats or camping equipment, convertible into beds, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94016100",
+     "ex": true,
+     "printed_code": "ex 9401 61 00",
+     "description": "Other seats, with wooden frames, upholstered",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94016900",
+     "ex": true,
+     "printed_code": "ex 9401 69 00",
+     "description": "Other seats, with wooden frames, other than upholstered",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94018000",
+     "ex": true,
+     "printed_code": "ex 9401 80 00",
+     "description": "Other seats, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94019190",
+     "ex": true,
+     "printed_code": "ex 9401 91 90",
+     "description": "Other parts of seats, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940330",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940340",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940350",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940360",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940391",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94061000",
+     "ex": true,
+     "printed_code": "ex 9406 10 00",
+     "description": "Prefabricated buildings of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "amended_2026_2102_from_2027_12_30",
+   "applies_from": "2027-12-30",
+   "until": null,
+   "source_celex": "02023R1115-20260918",
+   "reflects": [
+    "32023R1115",
+    "32024R3234",
+    "32025R2650",
+    "32026R2102"
+   ],
+   "date_basis": {
+    "quotes": [
+     "(This provision shall apply from 30 December 2027)"
+    ],
+    "quote_celex": [
+     "32026R2102"
+    ]
+   },
+   "general_exclusions": [
+    {
+     "text": "Except for by-products of a manufacturing process, where that process involved material that was not waste as defined in Article 3, point (1), of Directive 2008/98/EC, this Regulation does not apply to goods if they are produced entirely from material that has completed its lifecycle and would otherwise have been discarded as waste as defined in Article 3, point (1), of that Directive.",
+     "source": "Annex I, introductory text"
+    },
+    {
+     "text": "(5) This Regulation does not apply to: (a) Samples of products, which are of negligible value and quantity and can be consumed or used only to solicit orders for goods of the type they represent under the condition that the manner of presentation and quantity, for products of the same type or quality, rule out its consumption or use for any purpose other than that of seeking orders; (b) Products which are to undergo examination, analysis or tests to determine their composition, quality or other technical characteristics for purposes of information or industrial or commercial research under the condition that the products to be analysed, examined or tested are either completely used up or destroyed in the course of the examination, analysis or testing, or kept or returned for no other reason and purposes than complying with legal or contractual obligations related to examination, analysis or testing. ◄ ►M3",
+     "source": "Annex I, table note (5) to the heading 'Relevant products' (added by 2026/2102)"
+    }
+   ],
+   "commodity_notes": {
+    "cattle": "(1) This Regulation only applies to cattle of the genus Bos and its sub-generas: Bos, Bibos, Novibos, and Poephagus falling under HS subheadings 0102 21 and 0102 29 . It does not apply to buffalo (Syncerus genus) or bison (Bison genus) or any other live bovine animals. ◄ ►M3",
+    "oil_palm": "(2) This Regulation applies to oil palm of Elaeis spp. (including Elaeis guineensis). It does not apply to babassu oil from genus Attalea spp. (including Attalea speciosa) and other vegetable oils from other palm tree species. ◄ ►M3",
+    "rubber": "(3) This Regulation applies to rubber of Hevea brasiliensis. It does not apply to balata, gutta-percha, guayule, chicle and similar natural gums produced with other species and to synthetic rubber products. ◄ ►M3",
+    "wood": "(4) This Regulation does not apply to bamboo, rattan and other materials of a woody nature and therefore it does also not apply to relevant products listed under the relevant commodity ‘Wood' to the extent that those products are made of bamboo, rattan and other materials of a woody nature. ◄ ►M3"
+   },
+   "entries": [
+    {
+     "commodity": "cattle",
+     "code": "0102",
+     "ex": true,
+     "printed_code": "ex 0102",
+     "description": "Live cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0201",
+     "ex": true,
+     "printed_code": "ex 0201",
+     "description": "Meat of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "0202",
+     "ex": true,
+     "printed_code": "ex 0202",
+     "description": "Meat of cattle, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020610",
+     "ex": true,
+     "printed_code": "ex 0206 10",
+     "description": "Edible offal of cattle, fresh or chilled",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "02062100",
+     "ex": true,
+     "printed_code": "ex 0206 21 00",
+     "description": "Frozen cattle tongues",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "cattle",
+     "code": "020622",
+     "ex": true,
+     "printed_code": "ex 0206 22",
+     "description": "Edible cattle livers, frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "020629",
+     "ex": true,
+     "printed_code": "ex 0206 29",
+     "description": "Edible cattle offal (excluding tongues and livers), frozen",
+     "notes": []
+    },
+    {
+     "commodity": "cattle",
+     "code": "160250",
+     "ex": true,
+     "printed_code": "ex 1602 50",
+     "description": "Other prepared or preserved meat, meat offal, blood, of cattle",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1801",
+     "ex": false,
+     "printed_code": "1801",
+     "description": "Cocoa beans, whole or broken, raw or roasted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1802",
+     "ex": false,
+     "printed_code": "1802",
+     "description": "Cocoa shells, husks, skins and other cocoa waste",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1803",
+     "ex": false,
+     "printed_code": "1803",
+     "description": "Cocoa paste, whether or not defatted",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1804",
+     "ex": false,
+     "printed_code": "1804",
+     "description": "Cocoa butter, fat and oil",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1805",
+     "ex": false,
+     "printed_code": "1805",
+     "description": "Cocoa powder, not containing added sugar or other sweetening matter",
+     "notes": []
+    },
+    {
+     "commodity": "cocoa",
+     "code": "1806",
+     "ex": false,
+     "printed_code": "1806",
+     "description": "Chocolate and other food preparations containing cocoa",
+     "notes": []
+    },
+    {
+     "commodity": "coffee",
+     "code": "0901",
+     "ex": false,
+     "printed_code": "0901",
+     "description": "Coffee, whether or not roasted or decaffeinated; coffee husks and skins; coffee substitutes containing coffee in any proportion",
+     "notes": []
+    },
+    {
+     "commodity": "coffee",
+     "code": "21011100",
+     "ex": false,
+     "printed_code": "2101 11 00",
+     "description": "Extracts, essences, and concentrates of coffee",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "12071000",
+     "ex": true,
+     "printed_code": "ex 1207 10 00",
+     "description": "Palm nuts and kernels",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "1511",
+     "ex": true,
+     "printed_code": "ex 1511",
+     "description": "Palm oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151321",
+     "ex": true,
+     "printed_code": "ex 1513 21",
+     "description": "Crude palm kernel and babassu oil and fractions thereof, whether or not refined, but not chemically modified",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151329",
+     "ex": true,
+     "printed_code": "ex 1513 29",
+     "description": "Palm kernel and babassu oil and their fractions, whether or not refined, other than crude oil, but not chemically modified",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151620",
+     "ex": true,
+     "printed_code": "ex 1516 20",
+     "description": "Palm, palm kernel and babassu oils and their fractions, partly or wholly hydrogenated, inter-esterified, re-esterified or elaidinised, whether or not refined, but not further prepared",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC of the European Parliament and of the Council (6), Regulation (EC) No 726/2004 of the European parliament and of the Council (7), or Regulation (EU) 2019/6 of the European Parliament and of the Council (8))"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "151800",
+     "ex": true,
+     "printed_code": "ex 1518 00",
+     "description": "Palm, palm kernel and babassu oils and their fractions boiled, oxidised, dehydrated, sulphurised, blown, polymerised by heat in vacuum or in inert gas or otherwise chemically modified, excluding those of heading 1516 ; inedible mixtures or preparations of animal, vegetable or microbial fats or oils or of fractions of different fats or oils of this chapter, that contain or have been made using oil palm",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "152000",
+     "ex": true,
+     "printed_code": "ex 1520 00",
+     "description": "Crude glycerol, glycerol waters and lyes that have been produced using oil palm",
+     "notes": [],
+     "applies_from_quote": "oil palm'; (This provision shall apply from 30 December 2027)",
+     "applies_from": "2027-12-30",
+     "application_note": "applies from 30.12.2027 on either reading of the misplaced closing quote; whether it already applied from 18.9.2026 is not resolved (see ambiguities)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "23066000",
+     "ex": true,
+     "printed_code": "ex 2306 60 00",
+     "description": "Oilcake and other solid residues of palm nuts or kernels, whether or not ground or in the form of pellets, resulting from the extraction of palm nut or kernel fats or oils",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "290516",
+     "ex": true,
+     "printed_code": "ex 2905 16",
+     "description": "Octanol (octyl alcohol) and isomers thereof, that have been synthesized using oil palm",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "29051700",
+     "ex": true,
+     "printed_code": "ex 2905 17 00",
+     "description": "Dodecan-1-ol (lauryl alcohol), hexadecan-1-ol (cetyl alcohol) and octadecan-1-ol (stearyl alcohol), that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "29051900",
+     "ex": true,
+     "printed_code": "ex 2905 19 00",
+     "description": "Other saturated monohydric alcohols, not elsewhere specified or included, that have synthesized using oil palm",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "290545",
+     "ex": true,
+     "printed_code": "ex 2905 45",
+     "description": "Glycerol, with a purity of 95 % or more (calculated on the weight of the dry product), that has been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291539",
+     "ex": true,
+     "printed_code": "ex 2915 39",
+     "description": "Esters of acetic acid, other than ethyl acetate, vinyl acetate, n-butyl acetate and dinoseb (ISO) acetate, that have been synthesized using oil palm",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291570",
+     "ex": true,
+     "printed_code": "ex 2915 70",
+     "description": "Palmitic acid, stearic acid, their salts and esters that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291590",
+     "ex": true,
+     "printed_code": "ex 2915 90",
+     "description": "Saturated acyclic monocarboxylic acids, their anhydrides, halides, peroxides and peroxyacids; their halogenated, sulphonated, nitrated or nitrosated derivatives, other than formic acid, its salts and esters, acetic acid and its salts; acetic anhydride, esters of acetic acid, mono-, di- or trichloroacetic acids, their salts and esters, propionic acid, its salts and esters that have been synthesized using oil palm, butanoic acids, pentanoic acids, their salts and esters and palmitic acid, stearic acid, their salts and esters, that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "291615",
+     "ex": true,
+     "printed_code": "ex 2916 15",
+     "description": "Oleic, linoleic, linolenic acids, their salts and esters that have been synthesized using oil palm",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "29161910",
+     "ex": true,
+     "printed_code": "ex 2916 19 10",
+     "description": "Undecenoic acids, its salts and esters that have been synthesized using oil palm",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "292119",
+     "ex": true,
+     "printed_code": "ex 2921 19",
+     "description": "Acyclic monoamines and their derivatives; salts thereof, other than methylamine, di- or trimethylamine and their salts, 2-(N,N-dimethylamino)ethylchloride hydrochloride, 2-(N,N-diethylamino)ethylchloride hydrochloride and 2-(N,N-diisopropylamino)ethylchloride hydrochloride, that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "29239000",
+     "ex": true,
+     "printed_code": "ex 2923 90 00",
+     "description": "Quaternary ammonium salts and hydroxides, other than choline and its salts, tetraethylammonium perfluorooctane sulphonate and didecyldimethylammonium perfluorooctane sulphonate, that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "29241900",
+     "ex": true,
+     "printed_code": "ex 2924 19 00",
+     "description": "Acyclic amides, carbamates and their salts, other than meprobamate (INN), fluoroacetamide (ISO), monocrotophos (ISO) and phosphamidon (ISO), that have been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "34011100",
+     "ex": true,
+     "printed_code": "ex 3401 11 00",
+     "description": "Soap in the form of bars, cakes, moulded pieces or shapes for toilet use (including medicated products), that contain or have been made using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "340120",
+     "ex": true,
+     "printed_code": "ex 3401 20",
+     "description": "Soap in forms other than bars, cakes, moulded pieces or shapes, that contain or have been made using oil palm",
+     "notes": [],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "38231100",
+     "ex": true,
+     "printed_code": "ex 3823 11 00",
+     "description": "Stearic acid, industrial that has been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "38231200",
+     "ex": true,
+     "printed_code": "ex 3823 12 00",
+     "description": "Oleic acid, industrial that has been synthesized using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382319",
+     "ex": true,
+     "printed_code": "ex 3823 19",
+     "description": "Industrial monocarboxylic fatty acids; acid oils from refining other than stearic acid, oleic acid and tall oil fatty acids, that have been synthesized using oil palm",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)"
+     ]
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "38237000",
+     "ex": true,
+     "printed_code": "ex 3823 70 00",
+     "description": "Industrial fatty alcohols that have been synthesized using oil palm",
+     "notes": []
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "382499",
+     "ex": true,
+     "printed_code": "ex 3824 99",
+     "description": "Other chemical products and preparations of the chemical or allied industries (including those consisting of mixtures of natural products), not elsewhere specified or included, that contain or have been made using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "oil_palm",
+     "code": "390729",
+     "ex": true,
+     "printed_code": "ex 3907 29",
+     "description": "Other polyethers in primary forms, other than bis(polyoxyethylene) methylphosphonate, that have been made using oil palm",
+     "notes": [
+      "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC, Regulation (EC) No 726/2004 or Regulation (EU) 2019/6)"
+     ],
+     "applies_from": "2027-12-30",
+     "applies_from_quote": "(This provision shall apply from 30 December 2027)"
+    },
+    {
+     "commodity": "rubber",
+     "code": "4001",
+     "ex": true,
+     "printed_code": "ex 4001",
+     "description": "Natural rubber, balata, gutta-percha, guayule, chicle and similar natural gums, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4005",
+     "ex": true,
+     "printed_code": "ex 4005",
+     "description": "Compounded rubber, unvulcanised, in primary forms or in plates, sheets or strip",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4006",
+     "ex": true,
+     "printed_code": "ex 4006",
+     "description": "Unvulcanised rubber in other forms (e.g. rods, tubes and profile shapes) and articles (e.g. discs and rings)",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4007",
+     "ex": true,
+     "printed_code": "ex 4007",
+     "description": "Vulcanised rubber thread and cord",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4008",
+     "ex": true,
+     "printed_code": "ex 4008",
+     "description": "Plates, sheets, strips, rods and profile shapes, of vulcanised rubber other than hard rubber",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "rubber",
+     "code": "4011",
+     "ex": true,
+     "printed_code": "ex 4011",
+     "description": "New pneumatic tyres, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "40129030",
+     "ex": true,
+     "printed_code": "ex 4012 90 30",
+     "description": "Tyre treads",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4013",
+     "ex": true,
+     "printed_code": "ex 4013",
+     "description": "Inner tubes, of rubber",
+     "notes": []
+    },
+    {
+     "commodity": "rubber",
+     "code": "4015",
+     "ex": true,
+     "printed_code": "ex 4015",
+     "description": "Articles of apparel and clothing accessories (including gloves, mittens and mitts), for all purposes, of vulcanised rubber other than hard rubber",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "rubber",
+     "code": "4017",
+     "ex": true,
+     "printed_code": "ex 4017",
+     "description": "Hard rubber (e.g. ebonite) in all forms including waste and scrap; articles of hard rubber",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)",
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "soya",
+     "code": "12019000",
+     "ex": false,
+     "printed_code": "1201 90 00",
+     "description": "Soya beans, whether or not broken: other",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "120810",
+     "ex": false,
+     "printed_code": "1208 10",
+     "description": "Soya bean flour and meal",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "1507",
+     "ex": false,
+     "printed_code": "1507",
+     "description": "Soya-bean oil and its fractions, whether or not refined, but not chemically modified",
+     "notes": []
+    },
+    {
+     "commodity": "soya",
+     "code": "2304",
+     "ex": false,
+     "printed_code": "2304",
+     "description": "Oilcake and other solid residues, whether or not ground or in the form of pellets, resulting from the extraction of soya-bean oil",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4401",
+     "ex": true,
+     "printed_code": "ex 4401",
+     "description": "Fuel wood, in logs, in billets, in twigs, in faggots or in similar forms; wood in chips or particles; sawdust and wood waste and scrap, whether or not agglomerated in logs, briquettes, pellets or similar forms",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4402",
+     "ex": true,
+     "printed_code": "ex 4402",
+     "description": "Wood charcoal (including shell or nut charcoal), whether or not agglomerated",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4403",
+     "ex": true,
+     "printed_code": "ex 4403",
+     "description": "Wood in the rough, whether or not stripped of bark or sapwood, or roughly squared",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4404",
+     "ex": true,
+     "printed_code": "ex 4404",
+     "description": "Hoopwood; split poles; piles, pickets and stakes of wood, pointed but not sawn lengthwise; wooden sticks, roughly trimmed but not turned, bent or otherwise worked, suitable for the manufacture of walking sticks, umbrellas, tool handles or the like; chipwood and the like",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4405",
+     "ex": true,
+     "printed_code": "ex 4405",
+     "description": "Wood wool; wood flour",
+     "notes": [
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4406",
+     "ex": true,
+     "printed_code": "ex 4406",
+     "description": "Railway or tramway sleepers (cross-ties) of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4407",
+     "ex": true,
+     "printed_code": "ex 4407",
+     "description": "Wood sawn or chipped lengthwise, sliced or peeled, whether or not planed, sanded or end-jointed, of a thickness exceeding 6 mm",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4408",
+     "ex": true,
+     "printed_code": "ex 4408",
+     "description": "Sheets for veneering (including those obtained by slicing laminated wood), for plywood or for other similar laminated wood and other wood, sawn lengthwise, sliced or peeled, whether or not planed, sanded, spliced or end-jointed, of a thickness not exceeding 6 mm",
+     "notes": []
+    },
+    {
+     "commodity": "wood",
+     "code": "4409",
+     "ex": true,
+     "printed_code": "ex 4409",
+     "description": "Wood (including strips and friezes for parquet flooring, not assembled) continuously shaped (tongued, grooved, rebated, chamfered, V-jointed, beaded, moulded, rounded or the like) along any of its edges, ends or faces, whether or not planed, sanded or end-jointed",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4410",
+     "ex": true,
+     "printed_code": "ex 4410",
+     "description": "Particle board, oriented strand board (OSB) and similar board (for example, waferboard) of wood or other ligneous materials, whether or not agglomerated with resins or other organic binding substances",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4411",
+     "ex": true,
+     "printed_code": "ex 4411",
+     "description": "Fibreboard of wood or other ligneous materials, whether or not bonded with resins or other organic substances",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4412",
+     "ex": true,
+     "printed_code": "ex 4412",
+     "description": "Plywood, veneered panels and similar laminated wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4413",
+     "ex": true,
+     "printed_code": "ex 4413",
+     "description": "Densified wood, in blocks, plates, strips or profile shapes",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4414",
+     "ex": true,
+     "printed_code": "ex 4414",
+     "description": "Wooden frames for paintings, photographs, mirrors or similar objects",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4415",
+     "ex": true,
+     "printed_code": "ex 4415",
+     "description": "Packing cases, boxes, crates, drums and similar packings, of wood; cable-drums of wood; pallets, box pallets and other load boards, of wood; pallet collars of wood",
+     "notes": [
+      "(not including used products and second-hand products)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)",
+      "(not including packing material and packing containers clearly suitable for repetitive use used exclusively to support, protect or carry another product made available on the market or exported and presented with that product from the moment they are used for such purpose and onwards)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4416",
+     "ex": true,
+     "printed_code": "ex 4416",
+     "description": "Casks, barrels, vats, tubs and other coopers' products and parts thereof, of wood, including staves",
+     "notes": [
+      "(not including used products and second-hand products)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)",
+      "(not including packing material and packing containers clearly suitable for repetitive use used exclusively to support, protect or carry another product made available on the market or exported and presented with that product from the moment they are used for such purpose and onwards)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4417",
+     "ex": true,
+     "printed_code": "ex 4417",
+     "description": "Tools, tool bodies, tool handles, broom or brush bodies and handles, of wood; boot or shoe lasts and trees, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4418",
+     "ex": true,
+     "printed_code": "ex 4418",
+     "description": "Builders' joinery and carpentry of wood, including cellular wood panels, assembled flooring panels, shingles and shakes",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4419",
+     "ex": true,
+     "printed_code": "ex 4419",
+     "description": "Tableware and kitchenware, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4420",
+     "ex": true,
+     "printed_code": "ex 4420",
+     "description": "Wood marquetry and inlaid wood; caskets and cases for jewellery or cutlery, and similar articles, of wood; statuettes and other ornaments, of wood; wooden articles of furniture not falling in Chapter 94",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "4421",
+     "ex": true,
+     "printed_code": "ex 4421",
+     "description": "Other articles of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "47",
+     "ex": true,
+     "printed_code": "ex 47",
+     "description": "Pulp of wood",
+     "notes": [
+      "(not including used products and second-hand products)",
+      "(not including recovered (waste and scrap) products and products derived from recovered (waste and scrap) products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "48",
+     "ex": true,
+     "printed_code": "ex 48",
+     "description": "Paper and Paperboard: Articles of paper pulp, of paper or of paperboard",
+     "notes": [
+      "(not including waste as defined in Article 3, point (1), of Directive 2008/98/EC)",
+      "(not including used products and second-hand products)",
+      "(not including recovered (waste and scrap) products and products derived from recovered (waste and scrap) products)",
+      "(not including single use packing material and packing containers used exclusively to support, protect or carry another product made available on the market or exported and presented with that product)",
+      "(not including packing material and packing containers clearly suitable for repetitive use used exclusively to support, protect or carry another product made available on the market or exported and presented with that product from the moment they are used for such purpose and onwards)",
+      "(not including items of correspondence and marketing and information materials exclusively accompanying another product made available on the market or exported, or supplied for marketing or information purposes free of charge)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94013100",
+     "ex": true,
+     "printed_code": "ex 9401 31 00",
+     "description": "Swivel seats with variable height adjustment, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94014100",
+     "ex": true,
+     "printed_code": "ex 9401 41 00",
+     "description": "Seats other than garden seats or camping equipment, convertible into beds, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94016100",
+     "ex": true,
+     "printed_code": "ex 9401 61 00",
+     "description": "Other seats, with wooden frames, upholstered",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94016900",
+     "ex": true,
+     "printed_code": "ex 9401 69 00",
+     "description": "Other seats, with wooden frames, other than upholstered",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94018000",
+     "ex": true,
+     "printed_code": "ex 9401 80 00",
+     "description": "Other seats, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94019190",
+     "ex": true,
+     "printed_code": "ex 9401 91 90",
+     "description": "Other parts of seats, of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940330",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940340",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940350",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940360",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "940391",
+     "ex": true,
+     "printed_code": "ex 9403 30 , ex 9403 40 , ex 9403 50 , ex 9403 60 and ex 9403 91",
+     "description": "Wooden furniture, and parts thereof",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    },
+    {
+     "commodity": "wood",
+     "code": "94061000",
+     "ex": true,
+     "printed_code": "ex 9406 10 00",
+     "description": "Prefabricated buildings of wood",
+     "notes": [
+      "(not including used products and second-hand products)"
+     ]
+    }
+   ]
+  }
+ ],
+ "ambiguities": [
+  {
+   "code": "152000",
+   "celex": "32026R2102",
+   "quote": "ex 1520 00 Crude glycerol, glycerol waters and lyes that have been produced using oil palm'; (This provision shall apply from 30 December 2027)",
+   "issue": "in point (6)(g) the closing quote of the inserted entries comes before the application clause of ex 1520 00, so the clause sits outside the inserted text; the consolidated text 02023R1115-20260918 reproduces it the same way. Whether ex 1520 00 applies from 18.9.2026 or from 30.12.2027 is not stated unambiguously; scope() answers None for it before 30.12.2027."
+  },
+  {
+   "code": "151800",
+   "celex": "02023R1115-20260918",
+   "quote": "(This provision shall apply from30 December 2027)",
+   "issue": "the consolidated text prints \"from30\" (missing space) for ex 1518 00; 2026/2102 prints it with the space. Typographical only; the date is the same."
+  },
+  {
+   "code": "340111",
+   "celex": "32026R2102",
+   "quote": "that contain or have been made using oil palm (This provision shall apply from 30 December 2027 ) (not including products",
+   "issue": "for ex 3401 11 00 the application clause is printed before the (not including …) note; both are kept (note in notes, clause in applies_from_quote)."
+  },
+  {
+   "code": "47/48",
+   "celex": "32023R1115",
+   "quote": "Pulp and paper of Chapters 47 and 48 of the Combined Nomenclature, with the exception of bamboo-based and recovered (waste and scrap) products",
+   "issue": "in the original and 2025/2650 versions this row prints no code: the description names Chapters 47 and 48 and excepts bamboo-based and recovered products. It is recorded as two non-ex entries (47, 48); scope() returns True with that description, so the printed exception travels with the answer."
+  }
+ ],
+ "consolidated_vs_2102_differences": [
+  {
+   "code": "151620",
+   "text": "(not including products to the extent they are used in the manufacturing of medicinal products for human or veterinary use within the scope of Directive 2001/83/EC of the European Parliament and of the Council (6), Regulation (EC) No 726/2004 of the European parliament and of the Council (7), or Regulation (EU) 2019/6 of the European Parliament and of the Council (8))"
+  }
+ ]
+}
