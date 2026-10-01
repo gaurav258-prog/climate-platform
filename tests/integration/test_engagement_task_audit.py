@@ -30,7 +30,7 @@ def _entity_user(s):
 def _events(s, task_id):
     return s.execute(text("""
         SELECT kind, from_val, to_val, note, actor_user_id FROM regulatory_task_event
-        WHERE task_id = CAST(:t AS uuid) ORDER BY created_at
+        WHERE task_id = CAST(:t AS uuid) ORDER BY seq
     """), {"t": task_id}).mappings().all()
 
 

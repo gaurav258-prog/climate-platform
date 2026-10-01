@@ -42,7 +42,7 @@ def get_case(session: Session, org_id: str, case_id: str) -> dict | None:
         return None
     msgs = session.execute(text("""
         SELECT direction, author, body, attachment_ref, created_at
-        FROM reg_case_message WHERE case_id = :c ORDER BY created_at
+        FROM reg_case_message WHERE case_id = :c ORDER BY seq
     """), {"c": case_id}).mappings().all()
     return {**{k: c[k] for k in ("case_id", "regulator", "reference", "stage", "filing_id", "framework", "period_label")},
             "created_at": c["created_at"].isoformat(), "updated_at": c["updated_at"].isoformat(),

@@ -15,10 +15,11 @@ interface Fund {
   fund_id: string; name: string; fund_type: string; sfdr_classification: string | null; parent_fund_id: string | null
   total_value_eur: number; base?: Base | null; positions: number; physical_score: number | null; transition_score: number | null; waci: number | null
 }
-interface Narratives { policies?: string; actions?: string; engagement?: string; standards?: string }
+interface Narratives { policies?: string; best_efforts?: string; actions?: string; engagement?: string; standards?: string }
 interface Profile { name?: string; legal_name?: string; lei?: string; filing_contact_email?: string; country?: string; sfdr_narratives?: Narratives | null }
 const NARR: { key: keyof Narratives; label: string; hint: string }[] = [
   { key: 'policies', label: 'Policies', hint: 'How principal adverse impacts are identified & prioritised' },
+  { key: 'best_efforts', label: 'Best efforts', hint: 'Where an indicator\'s data is not readily available: how you sought it (RTS 2022/1288 Art. 7(2))' },
   { key: 'actions', label: 'Actions', hint: 'Actions taken / planned this period to mitigate the PAIs' },
   { key: 'engagement', label: 'Engagement', hint: 'Engagement policy with investee companies' },
   { key: 'standards', label: 'Standards', hint: 'Adherence to responsible-business conduct codes (UNGC / OECD)' },

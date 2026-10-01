@@ -174,6 +174,12 @@ def _validate_sfdr_pai(payload: dict) -> list[dict]:
     nm = (payload.get("narratives") or {}).get("missing") or []
     out.append(_f("narratives_present", "completeness", "warning", not nm,
                   "All required narratives present" if not nm else f"{len(nm)} required narrative(s) missing"))
+    if mand > 0 and comp < mand:     # information not readily available: the statement says how it was sought
+        stated = bool(((payload.get("narratives") or {}).get("best_efforts") or "").strip())
+        out.append(_f("best_efforts_stated", "completeness", "blocking", stated,
+                      "The best efforts to obtain the indicators not computed are described" if stated
+                      else f"{mand - comp} mandatory indicator(s) not computed — describe the best efforts used to obtain "
+                           "the information in the policies section", "RTS 2022/1288 Art. 7(2)"))
 
     # per-fund thin coverage — surfaced, never averaged away (info)
     thin = [f["fund_name"] for f in (payload.get("per_fund") or [])

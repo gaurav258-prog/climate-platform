@@ -149,7 +149,7 @@ def get_task(session: Session, org_id: str, task_id: str) -> dict | None:
     evs = session.execute(text("""
         SELECT e.kind, e.from_val, e.to_val, e.note, e.created_at, u.full_name AS actor
         FROM regulatory_task_event e LEFT JOIN users u ON u.user_id = e.actor_user_id
-        WHERE e.task_id = :t ORDER BY e.created_at
+        WHERE e.task_id = :t ORDER BY e.seq
     """), {"t": task_id}).mappings().all()
     out["events"] = [{"kind": e["kind"], "from": e["from_val"], "to": e["to_val"], "note": e["note"],
                       "at": e["created_at"].isoformat(), "actor": e["actor"]} for e in evs]

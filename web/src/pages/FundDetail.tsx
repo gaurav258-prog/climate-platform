@@ -51,7 +51,7 @@ interface Statement { error?: string; message?: string
     // CapEx-based, shown separately, never blended.
     taxonomy_aligned_turnover_pct?: number | null; turnover_alignment_coverage_pct?: number | null; turnover_alignment_note?: string
     taxonomy_aligned_capex_pct?: number | null; capex_alignment_coverage_pct?: number | null; capex_alignment_note?: string }
-  narratives?: { policies?: string; actions?: string; engagement?: string; standards?: string; missing?: string[] }
+  narratives?: { policies?: string; best_efforts?: string; actions?: string; engagement?: string; standards?: string; missing?: string[] }
   additional_indicators?: { selected?: string[] }
   coverage_summary?: { mandatory_indicators: number; computed: number; partial: number; not_available: number; emissions_coverage_pct?: number } }
 interface Filing { reference_year: number; filed_at: string; filed_by: string; status: string }
@@ -204,9 +204,9 @@ export default function FundDetail() {
             </div>
             <div className="p-5">
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Narratives</div>
-              {(['policies', 'actions', 'engagement', 'standards'] as const).map(k => (
+              {(['policies', 'best_efforts', 'actions', 'engagement', 'standards'] as const).map(k => (
                 <div key={k} className="text-[12px] mb-1.5">
-                  <span className="capitalize text-[var(--color-mute)]">{k}: </span>
+                  <span className="capitalize text-[var(--color-mute)]">{k.replace('_', ' ')}: </span>
                   <span className={st.narratives?.[k] ? 'text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}>{st.narratives?.[k] ? st.narratives[k] : 'not set — required to file'}</span>
                 </div>
               ))}

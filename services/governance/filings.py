@@ -641,7 +641,7 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
         FROM regulatory_filing_event e
         LEFT JOIN users u ON u.user_id = e.actor_user_id
         WHERE e.filing_id = :f
-        ORDER BY e.created_at, e.event_id
+        ORDER BY e.seq
     """), {"f": filing_id}).mappings().all()
     out["events"] = [{"from": e["from_status"], "to": e["to_status"], "action": e["action"],
                       "detail": e["detail"], "at": e["created_at"].isoformat(),

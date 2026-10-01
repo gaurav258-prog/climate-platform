@@ -192,7 +192,7 @@ def support_detail(request_id: str, session: DbSession,
                u.email AS author_email, u.full_name AS author_name
         FROM   service_request_messages m
         LEFT   JOIN users u ON u.user_id = m.author_user_id
-        WHERE  m.request_id = :r ORDER BY m.created_at ASC
+        WHERE  m.request_id = :r ORDER BY m.seq
     """), {"r": request_id}).mappings().all()
     return {"request": _sr_serialize(r), "messages": [
         {"id": str(m["message_id"]), "author_side": m["author_side"], "author_email": m.get("author_email"),

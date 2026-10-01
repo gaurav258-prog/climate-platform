@@ -105,7 +105,7 @@ def test_a_legal_hold_is_set_with_a_reason_and_lifted_only_by_a_second_person(s)
     payload = s.execute(text("SELECT payload FROM approval_requests WHERE request_id = CAST(:r AS uuid)"), {"r": req["approval_request_id"]}).scalar()
     assert R.apply_lift(s, BANK_ORG, payload, "approved", checker)["applied"]
     assert not R.retention_for(s, BANK_ORG, fid)["legal_hold"]["on"]
-    events = [r[0] for r in s.execute(text("SELECT action FROM regulatory_filing_event WHERE filing_id = CAST(:f AS uuid) ORDER BY created_at, event_id"), {"f": fid}).all()]
+    events = [r[0] for r in s.execute(text("SELECT action FROM regulatory_filing_event WHERE filing_id = CAST(:f AS uuid) ORDER BY seq"), {"f": fid}).all()]
     assert events[-2:] == ["legal_hold.set", "legal_hold.lifted"]
 
 

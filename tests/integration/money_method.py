@@ -28,8 +28,18 @@ TEST_METHOD = {
 }
 
 
+def set_aside_method(session, org_id: str, period_end) -> None:
+    """Inside the rolled-back transaction: the organisation's method for that year as the database holds it (e.g. the
+    demo seed, E82) is set aside, so a test reads only the method it states itself (E85)."""
+    session.execute(text("""UPDATE provided_datapoint SET status = 'superseded' WHERE org_id = CAST(:o AS uuid)
+                            AND framework = 'method' AND reporting_period_end = CAST(:pe AS date) AND status <> 'superseded'"""),
+                    {"o": org_id, "pe": str(period_end)[:10]})
+
+
 def state_method(session, org_id: str, period_end, values: dict | None = None) -> None:
-    """State `values` (default TEST_METHOD) as the organisation's attested method for the year ending period_end."""
+    """State `values` (default TEST_METHOD) as the organisation's attested method for the year ending period_end — the
+    whole method: whatever the database already held for that year is set aside first."""
+    set_aside_method(session, org_id, period_end)
     for (key, member), v in (values or TEST_METHOD).items():
         session.execute(text("""
             INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, unit, source, status,

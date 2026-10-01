@@ -70,12 +70,25 @@ MANDATORY_PAI_INDICATORS = [
 # planned, the engagement policies, the references to international standards). They are the manager's answers to
 # family 'sfdr_pai', document 'pai_statement', in the one store of template answers (services.governance.template_answers).
 NARRATIVE_FAMILY, NARRATIVE_DOCUMENT = "sfdr_pai", "pai_statement"
-NARRATIVE_SECTIONS = ("policies", "actions", "engagement", "standards")
+NARRATIVE_SECTIONS = ("policies", "best_efforts", "actions", "engagement", "standards")
 _REQUIRED_NARRATIVES = {
     "policies": "policies to identify and prioritise principal adverse impacts",
     "actions": "actions taken and planned",
     "engagement": "engagement policies",
 }
+# RTS 2022/1288 Art. 7(2): 'Where information relating to any of the indicators used is not readily available, financial
+# market participants shall include in the section 'Description of policies to identify and prioritise principal adverse
+# impacts on sustainability factors' … details of the best efforts used to obtain the information'
+BEST_EFFORTS = ("best_efforts", "details of the best efforts used to obtain the information not readily available "
+                                "(RTS 2022/1288 Art. 7(2))")
+
+
+def missing_narratives(narratives: dict, computed: int, total: int) -> list[str]:
+    """The required narrative sections not authored — the best-efforts details only when an indicator is not computed."""
+    out = [label for key, label in _REQUIRED_NARRATIVES.items() if not (narratives.get(key) or "").strip()]
+    if computed < total and not (narratives.get(BEST_EFFORTS[0]) or "").strip():
+        out.append(BEST_EFFORTS[1])
+    return out
 
 
 def entity_narratives(session, org_id: str) -> dict:
@@ -597,8 +610,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         filing_missing.append("reference period (supply issuer emissions with a reporting year)")
     # SFDR Annex I mandatory narrative sections.
     narratives = entity_narratives(session, fund["org_id"])
-    missing_narratives = [label for key, label in _REQUIRED_NARRATIVES.items() if not (narratives.get(key) or "").strip()]
-    filing_missing += [f"narrative: {n}" for n in missing_narratives]
+    not_authored = missing_narratives(narratives, computed, len(indicators))
+    filing_missing += [f"narrative: {n}" for n in not_authored]
     ready_to_file = not filing_missing
 
     return {
@@ -652,11 +665,11 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         "look_through": _look_through(session, fund_id, comp),
         # Mandatory qualitative sections (manager-authored); missing ones flagged.
         "narratives": {
-            "policies": narratives.get("policies"),
+            "policies": narratives.get("policies"), "best_efforts": narratives.get("best_efforts"),
             "actions": narratives.get("actions"),
             "engagement": narratives.get("engagement"),
             "standards": narratives.get("standards"),
-            "missing": missing_narratives,
+            "missing": not_authored,
         },
         "coverage_summary": {
             "mandatory_indicators": len(indicators),
@@ -785,9 +798,8 @@ def entity_pai_statement(session, org_id: str) -> dict:
     if not org.get("filing_contact_email"):
         filing_missing.append("filing contact email")
     narratives = entity_narratives(session, org_id)
-    missing_narratives = [label for key, label in _REQUIRED_NARRATIVES.items()
-                          if not (narratives.get(key) or "").strip()]
-    filing_missing += [f"narrative: {n}" for n in missing_narratives]
+    not_authored = missing_narratives(narratives, computed, len(indicators))
+    filing_missing += [f"narrative: {n}" for n in not_authored]
     ready_to_file = not filing_missing
 
     return {
@@ -827,9 +839,10 @@ def entity_pai_statement(session, org_id: str) -> dict:
         "additional_indicators": compute_voluntary_pai(session, None, comp, **scope),
         "per_fund": per_fund,
         "narratives": {
-            "policies": narratives.get("policies"), "actions": narratives.get("actions"),
+            "policies": narratives.get("policies"), "best_efforts": narratives.get("best_efforts"),
+            "actions": narratives.get("actions"),
             "engagement": narratives.get("engagement"), "standards": narratives.get("standards"),
-            "missing": missing_narratives,
+            "missing": not_authored,
         },
         "coverage_summary": {
             "mandatory_indicators": len(indicators),

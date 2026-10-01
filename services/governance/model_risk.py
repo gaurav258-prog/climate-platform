@@ -47,7 +47,7 @@ def _score_cards(session) -> list[dict]:
                                    FROM model_registry WHERE lifecycle_status IN ('active', 'approved', 'challenger', 'candidate') AND hazard_type <> 'loop_test'
                                    ORDER BY hazard_type, is_active DESC, created_at DESC""")).mappings().all()
     events = {}
-    for e in session.execute(text("SELECT model_id::text AS model_id, from_status, to_status, actor, reason, r2_oos, created_at FROM model_status_event ORDER BY created_at")).mappings().all():
+    for e in session.execute(text("SELECT model_id::text AS model_id, from_status, to_status, actor, reason, r2_oos, created_at FROM model_status_event ORDER BY seq")).mappings().all():
         events.setdefault(e["model_id"], []).append({"from": e["from_status"], "to": e["to_status"], "actor": e["actor"], "reason": e["reason"], "r2_oos": float(e["r2_oos"]) if e["r2_oos"] is not None else None, "at": _iso(e["created_at"])})
     # hazard-level evidence: the validation ledger's latest run per hazard (when no run is linked to the model
     # version) and the honest coverage map (event-catalogue backtests, economic validation, what is still pending)

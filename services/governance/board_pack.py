@@ -150,7 +150,7 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
     reg = model_registry(session)
     active = [r for r in reg if r.get("is_active")]
     ev = session.execute(text("""SELECT hazard_type, from_status, to_status, actor, reason, r2_oos, created_at FROM model_status_event
-                                 WHERE created_at::date BETWEEN :f AND :t ORDER BY created_at DESC"""), {"f": period_from, "t": period_to}).mappings().all()
+                                 WHERE created_at::date BETWEEN :f AND :t ORDER BY seq DESC"""), {"f": period_from, "t": period_to}).mappings().all()
     c["models"] = {"active": [{"hazard": r["hazard_type"], "version": r["model_version"], "algorithm": r["algorithm"], "r2_oos": float(r["r2_oos"]) if r["r2_oos"] is not None else None,
                                "status": r["lifecycle_status"], "approved_by": r["approved_by"], "activated_at": _iso(r["activated_at"])} for r in active],
                    "events_in_period": [{**dict(r), "r2_oos": float(r["r2_oos"]) if r["r2_oos"] is not None else None, "created_at": _iso(r["created_at"])} for r in ev[:30]],

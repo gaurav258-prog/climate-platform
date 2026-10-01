@@ -84,8 +84,8 @@ def preflight_summary(session: Session, org_id: str, framework: str, fund_id: st
     built = S.build(spec, tid, book)
     todo = [i for i in built if i["source"] != "fixed"]
     open_ = missing(built)
-    if not book["holdings"]:
-        gaps.append("no holdings on file for the reference period" if doc == "periodic" else "no holdings on file")
+    if doc == "periodic" and not book["holdings"]:     # the pre-contractual document computes nothing from holdings
+        gaps.append("no holdings on file for the reference period")
     if open_:
         gaps.append(f"{len(open_)} items have no answer yet — answer them on the fund's disclosure page")
     total = sum(h["value"] for h in book["holdings"]) / max(1, len(book["position_dates"]))

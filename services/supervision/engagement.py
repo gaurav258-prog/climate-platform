@@ -78,7 +78,7 @@ def messages(session, request_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT m.message_id::text AS message_id, m.side, m.body, m.status_to, m.created_at, u.full_name AS author
         FROM supervision_request_message m LEFT JOIN users u ON u.user_id = m.author_id
-        WHERE m.request_id = CAST(:i AS uuid) ORDER BY m.created_at
+        WHERE m.request_id = CAST(:i AS uuid) ORDER BY m.seq
     """), {"i": request_id}).mappings().all()
     return [dict(r) | {"created_at": r["created_at"].isoformat(), "status_label": status_label(r["status_to"]) if r["status_to"] else None} for r in rows]
 

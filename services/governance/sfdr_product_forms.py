@@ -77,7 +77,9 @@ def checks(payload: dict, report_type: str) -> list[dict]:
     out = [_f("items_answered", "completeness", "warning", not gaps,
               "every item of the template is answered" if not gaps else
               f"{len(gaps)} items have no answer yet: " + "; ".join(g["id"] for g in gaps[:8]) + ("…" if len(gaps) > 8 else ""))]
-    if not payload.get("holdings"):
+    # the periodic document reports the reference period's investments; the pre-contractual one (Annexes II / III) states
+    # the planned allocation and commitments — nothing in it is computed from holdings, and a new product has none
+    if S.document_of(tid) == "periodic" and not payload.get("holdings"):
         out.append(_f("holdings", "completeness", "blocking", False, "no holdings on file for the reference period"))
     if S.document_of(tid) == "periodic":
         cov = S.taxonomy(payload)["incl"]["turnover"]["kpi_coverage"]

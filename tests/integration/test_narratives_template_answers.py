@@ -63,4 +63,7 @@ def test_sfdr_pai_narratives_are_template_answers(api, monkeypatch):
     stmt = entity_pai_statement(api.s, NORDKAP)
     if not stmt.get("error"):
         assert stmt["narratives"]["policies"] == "PAI policy." and stmt["narratives"]["standards"] is None
-        assert stmt["narratives"]["missing"] == []
+        cs = stmt["coverage_summary"]                     # indicators not computed: the best efforts are asked (E83)
+        expect = [] if cs["computed"] == cs["mandatory_indicators"] else [
+            "details of the best efforts used to obtain the information not readily available (RTS 2022/1288 Art. 7(2))"]
+        assert stmt["narratives"]["missing"] == expect

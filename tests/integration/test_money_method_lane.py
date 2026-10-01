@@ -25,6 +25,8 @@ def test_a_stated_method_parameter_is_what_the_engine_reads(api):
     dr = next(d for d in cat if d["key"] == "method.damage_ratio")
     assert dr["breakdown"] == "peril_band" and "flood/H" in dr["members"]
 
+    from tests.integration.money_method import set_aside_method
+    set_aside_method(api.s, TERRA, date(2025, 12, 31))          # read only what this test states (E85)
     m = Method(api.s, TERRA, date(2025, 12, 31))
     assert m.get("method.damage_ratio", "flood/H") is None and "method.damage_ratio (flood/H)" in m.gap_text()
 
