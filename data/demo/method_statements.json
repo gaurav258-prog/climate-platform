@@ -1,0 +1,2035 @@
+{
+ "_about": "Demo companies only (fictitious, labelled demo): the platform's own values before commit 3e8f518 (E69), stated by each demo company as its method; not regulatory, not validated. Taken only where the old code had an explicit literal or a literal table keyed by the same breakdown; percent values divided by 100 where the old value was a percent of the same quantity; return periods turned into probabilities by the old code's own 1/return_period. EPC brown discount / retrofit capex and stranded share are arithmetic on the old literal rules (rate × grades below floor D; base × scenario factor × horizon factor), noted on each entry.",
+ "values": [
+  {
+   "key": "method.valuation_haircut",
+   "member": "any/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "any/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of value / 100; universal schedule = bank EL severity and the insurer fallback for perils not in PERIL_DISCOUNT_PCT"
+  },
+  {
+   "key": "method.valuation_haircut",
+   "member": "any/M",
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "any/M",
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of value / 100; universal schedule = bank EL severity and the insurer fallback for perils not in PERIL_DISCOUNT_PCT"
+  },
+  {
+   "key": "method.valuation_haircut",
+   "member": "any/H",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "any/H",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of value / 100; universal schedule = bank EL severity and the insurer fallback for perils not in PERIL_DISCOUNT_PCT"
+  },
+  {
+   "key": "method.valuation_haircut",
+   "member": "any/VH",
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "any/VH",
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:45 RECOMMENDED_DISCOUNT_PCT = {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 30.0}",
+   "note": "percent of value / 100; universal schedule = bank EL severity and the insurer fallback for perils not in PERIL_DISCOUNT_PCT"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "seismic/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:51 \"seismic\":      {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "seismic/M",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:51 \"seismic\":      {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "seismic/H",
+   "value": 0.25,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:51 \"seismic\":      {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "seismic/VH",
+   "value": 0.45,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:51 \"seismic\":      {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "volcanic/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:52 \"volcanic\":     {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "volcanic/M",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:52 \"volcanic\":     {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "volcanic/H",
+   "value": 0.25,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:52 \"volcanic\":     {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "volcanic/VH",
+   "value": 0.45,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:52 \"volcanic\":     {\"L\": 0.0, \"M\": 8.0, \"H\": 25.0, \"VH\": 45.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "wildfire/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:53 \"wildfire\":     {\"L\": 0.0, \"M\": 6.0, \"H\": 20.0, \"VH\": 38.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "wildfire/M",
+   "value": 0.06,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:53 \"wildfire\":     {\"L\": 0.0, \"M\": 6.0, \"H\": 20.0, \"VH\": 38.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "wildfire/H",
+   "value": 0.2,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:53 \"wildfire\":     {\"L\": 0.0, \"M\": 6.0, \"H\": 20.0, \"VH\": 38.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "wildfire/VH",
+   "value": 0.38,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:53 \"wildfire\":     {\"L\": 0.0, \"M\": 6.0, \"H\": 20.0, \"VH\": 38.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "flood/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:54 \"flood\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 18.0, \"VH\": 32.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "flood/M",
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:54 \"flood\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 18.0, \"VH\": 32.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "flood/H",
+   "value": 0.18,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:54 \"flood\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 18.0, \"VH\": 32.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "flood/VH",
+   "value": 0.32,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:54 \"flood\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 18.0, \"VH\": 32.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "coastal_flood/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:55 \"coastal_flood\": {\"L\": 0.0, \"M\": 6.0, \"H\": 22.0, \"VH\": 40.0},  # permanent inundation skews to total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "coastal_flood/M",
+   "value": 0.06,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:55 \"coastal_flood\": {\"L\": 0.0, \"M\": 6.0, \"H\": 22.0, \"VH\": 40.0},  # permanent inundation skews to total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "coastal_flood/H",
+   "value": 0.22,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:55 \"coastal_flood\": {\"L\": 0.0, \"M\": 6.0, \"H\": 22.0, \"VH\": 40.0},  # permanent inundation skews to total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "coastal_flood/VH",
+   "value": 0.4,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:55 \"coastal_flood\": {\"L\": 0.0, \"M\": 6.0, \"H\": 22.0, \"VH\": 40.0},  # permanent inundation skews to total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "storm/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:56 \"storm\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 16.0, \"VH\": 30.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "storm/M",
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:56 \"storm\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 16.0, \"VH\": 30.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "storm/H",
+   "value": 0.16,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:56 \"storm\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 16.0, \"VH\": 30.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "storm/VH",
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:56 \"storm\":        {\"L\": 0.0, \"M\": 5.0, \"H\": 16.0, \"VH\": 30.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "drought/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:57 \"drought\":      {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "drought/M",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:57 \"drought\":      {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "drought/H",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:57 \"drought\":      {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "drought/VH",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:57 \"drought\":      {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_acute/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:58 \"heat_acute\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_acute/M",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:58 \"heat_acute\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_acute/H",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:58 \"heat_acute\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_acute/VH",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:58 \"heat_acute\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_chronic/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:59 \"heat_chronic\": {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_chronic/M",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:59 \"heat_chronic\": {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_chronic/H",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:59 \"heat_chronic\": {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heat_chronic/VH",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:59 \"heat_chronic\": {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "pollution/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:60 \"pollution\":    {\"L\": 0.0, \"M\": 2.0, \"H\": 5.0,  \"VH\": 10.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "pollution/M",
+   "value": 0.02,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:60 \"pollution\":    {\"L\": 0.0, \"M\": 2.0, \"H\": 5.0,  \"VH\": 10.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "pollution/H",
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:60 \"pollution\":    {\"L\": 0.0, \"M\": 2.0, \"H\": 5.0,  \"VH\": 10.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "pollution/VH",
+   "value": 0.1,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:60 \"pollution\":    {\"L\": 0.0, \"M\": 2.0, \"H\": 5.0,  \"VH\": 10.0},",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "soil_water/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:65 \"soil_water\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},  # root-zone water stress (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "soil_water/M",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:65 \"soil_water\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},  # root-zone water stress (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "soil_water/H",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:65 \"soil_water\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},  # root-zone water stress (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "soil_water/VH",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:65 \"soil_water\":   {\"L\": 0.0, \"M\": 3.0, \"H\": 8.0,  \"VH\": 15.0},  # root-zone water stress (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "frost/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:66 \"frost\":        {\"L\": 0.0, \"M\": 3.0, \"H\": 9.0,  \"VH\": 16.0},  # cold-snap / freeze damage (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "frost/M",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:66 \"frost\":        {\"L\": 0.0, \"M\": 3.0, \"H\": 9.0,  \"VH\": 16.0},  # cold-snap / freeze damage (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "frost/H",
+   "value": 0.09,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:66 \"frost\":        {\"L\": 0.0, \"M\": 3.0, \"H\": 9.0,  \"VH\": 16.0},  # cold-snap / freeze damage (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "frost/VH",
+   "value": 0.16,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:66 \"frost\":        {\"L\": 0.0, \"M\": 3.0, \"H\": 9.0,  \"VH\": 16.0},  # cold-snap / freeze damage (chronic)",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "landslide/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:67 \"landslide\":    {\"L\": 0.0, \"M\": 7.0, \"H\": 22.0, \"VH\": 42.0},  # slope failure — structural/total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "landslide/M",
+   "value": 0.07,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:67 \"landslide\":    {\"L\": 0.0, \"M\": 7.0, \"H\": 22.0, \"VH\": 42.0},  # slope failure — structural/total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "landslide/H",
+   "value": 0.22,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:67 \"landslide\":    {\"L\": 0.0, \"M\": 7.0, \"H\": 22.0, \"VH\": 42.0},  # slope failure — structural/total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "landslide/VH",
+   "value": 0.42,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:67 \"landslide\":    {\"L\": 0.0, \"M\": 7.0, \"H\": 22.0, \"VH\": 42.0},  # slope failure — structural/total loss",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heavy_precip/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:68 \"heavy_precip\": {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 28.0},  # surface-water (pluvial) flooding",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heavy_precip/M",
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:68 \"heavy_precip\": {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 28.0},  # surface-water (pluvial) flooding",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heavy_precip/H",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:68 \"heavy_precip\": {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 28.0},  # surface-water (pluvial) flooding",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.damage_ratio",
+   "member": "heavy_precip/VH",
+   "value": 0.28,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/damage_function.py:68 \"heavy_precip\": {\"L\": 0.0, \"M\": 5.0, \"H\": 15.0, \"VH\": 28.0},  # surface-water (pluvial) flooding",
+   "note": "percent of value / 100; insurer mean damage ratio (df-v2.0) read PERIL_DISCOUNT_PCT per peril"
+  },
+  {
+   "key": "method.annual_event_probability",
+   "member": "any/L",
+   "value": 0.002,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/insurance_pricing.py:86 RETURN_PERIOD_YEARS = {\"L\": 500, \"M\": 200, \"H\": 100, \"VH\": 50}",
+   "note": "1 / 500 years (the old code's own annual_prob = 1.0 / return_period)"
+  },
+  {
+   "key": "method.annual_event_probability",
+   "member": "any/M",
+   "value": 0.005,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/insurance_pricing.py:86 RETURN_PERIOD_YEARS = {\"L\": 500, \"M\": 200, \"H\": 100, \"VH\": 50}",
+   "note": "1 / 200 years (the old code's own annual_prob = 1.0 / return_period)"
+  },
+  {
+   "key": "method.annual_event_probability",
+   "member": "any/H",
+   "value": 0.01,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/insurance_pricing.py:86 RETURN_PERIOD_YEARS = {\"L\": 500, \"M\": 200, \"H\": 100, \"VH\": 50}",
+   "note": "1 / 100 years (the old code's own annual_prob = 1.0 / return_period)"
+  },
+  {
+   "key": "method.annual_event_probability",
+   "member": "any/VH",
+   "value": 0.02,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/insurance_pricing.py:86 RETURN_PERIOD_YEARS = {\"L\": 500, \"M\": 200, \"H\": 100, \"VH\": 50}",
+   "note": "1 / 50 years (the old code's own annual_prob = 1.0 / return_period)"
+  },
+  {
+   "key": "method.expense_ratio",
+   "member": null,
+   "value": 0.25,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/insurance_pricing.py:77 EXPENSE_RATIO = 0.25"
+  },
+  {
+   "key": "method.profit_margin",
+   "member": null,
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/insurance_pricing.py:78 PROFIT_MARGIN = 0.05"
+  },
+  {
+   "key": "method.var_relative_uncertainty",
+   "member": null,
+   "value": 0.4,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/valuation_discount.py:99 relative_uncertainty: float = 0.4) -> dict:",
+   "note": "old spread also floored at 0.02 absolute (max(mean*0.4, 0.02)); the floor has no counterpart in the new parameter"
+  },
+  {
+   "key": "method.transition_var_relative_uncertainty",
+   "member": null,
+   "value": 0.5,
+   "unit": "ratio",
+   "source": "3e8f518^:services/scoring/combined_var.py:96 tspread = max(trans * 0.5, 0.01)",
+   "note": "old spread also floored at 0.01 absolute; the floor has no counterpart in the new parameter"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "flood",
+   "value": 0.45,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:28 \"flood\": 0.45, \"coastal_flood\": 0.40, \"storm\": 0.40, \"wildfire\": 0.50, \"seismic\": 0.50,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "coastal_flood",
+   "value": 0.4,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:28 \"flood\": 0.45, \"coastal_flood\": 0.40, \"storm\": 0.40, \"wildfire\": 0.50, \"seismic\": 0.50,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "storm",
+   "value": 0.4,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:28 \"flood\": 0.45, \"coastal_flood\": 0.40, \"storm\": 0.40, \"wildfire\": 0.50, \"seismic\": 0.50,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "wildfire",
+   "value": 0.5,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:28 \"flood\": 0.45, \"coastal_flood\": 0.40, \"storm\": 0.40, \"wildfire\": 0.50, \"seismic\": 0.50,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "seismic",
+   "value": 0.5,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:28 \"flood\": 0.45, \"coastal_flood\": 0.40, \"storm\": 0.40, \"wildfire\": 0.50, \"seismic\": 0.50,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "volcanic",
+   "value": 0.2,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:29 \"volcanic\": 0.20, \"heat_chronic\": 0.35, \"heat_acute\": 0.35, \"drought\": 0.25, \"soil_water\": 0.30,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "heat_chronic",
+   "value": 0.35,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:29 \"volcanic\": 0.20, \"heat_chronic\": 0.35, \"heat_acute\": 0.35, \"drought\": 0.25, \"soil_water\": 0.30,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "heat_acute",
+   "value": 0.35,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:29 \"volcanic\": 0.20, \"heat_chronic\": 0.35, \"heat_acute\": 0.35, \"drought\": 0.25, \"soil_water\": 0.30,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "drought",
+   "value": 0.25,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:29 \"volcanic\": 0.20, \"heat_chronic\": 0.35, \"heat_acute\": 0.35, \"drought\": 0.25, \"soil_water\": 0.30,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "soil_water",
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:29 \"volcanic\": 0.20, \"heat_chronic\": 0.35, \"heat_acute\": 0.35, \"drought\": 0.25, \"soil_water\": 0.30,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "pollution",
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:30 \"pollution\": 0.30,",
+   "note": "reference adaptation scenario (default; scenario factor 1.0)"
+  },
+  {
+   "key": "method.adaptation_effectiveness",
+   "member": "any",
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:32 _DEFAULT_EFFECTIVENESS = 0.30",
+   "note": "fallback for every peril not listed; reference scenario"
+  },
+  {
+   "key": "method.resilience_capex_share",
+   "member": "L",
+   "value": 0.003,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:36 RESILIENCE_CAPEX_PCT = {\"VH\": 4.0, \"H\": 2.5, \"M\": 1.0, \"L\": 0.3}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.resilience_capex_share",
+   "member": "M",
+   "value": 0.01,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:36 RESILIENCE_CAPEX_PCT = {\"VH\": 4.0, \"H\": 2.5, \"M\": 1.0, \"L\": 0.3}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.resilience_capex_share",
+   "member": "H",
+   "value": 0.025,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:36 RESILIENCE_CAPEX_PCT = {\"VH\": 4.0, \"H\": 2.5, \"M\": 1.0, \"L\": 0.3}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.resilience_capex_share",
+   "member": "VH",
+   "value": 0.04,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resilience_capex.py:36 RESILIENCE_CAPEX_PCT = {\"VH\": 4.0, \"H\": 2.5, \"M\": 1.0, \"L\": 0.3}",
+   "note": "percent of asset value / 100"
+  },
+  {
+   "key": "method.at_risk_level",
+   "member": null,
+   "value": 50.0,
+   "unit": "score",
+   "source": "3e8f518^:services/intelligence/forward_risk.py:21 AT_RISK = 50.0            # High+ boundary (score ≥ 50 = H/VH bucket) — the decision line",
+   "note": "also forward_decisions.py AT_RISK = 50.0 and the H/VH bucket rule of Pillar 3 T5, KRIs and supervisor lens; ESRS/Taxonomy used 40 (see report)"
+  },
+  {
+   "key": "method.runway_materiality",
+   "member": null,
+   "value": 0.05,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/forward_risk.py:22 MATERIALITY = 0.05        # a horizon is the 'runway' when newly-crossing value ≥ 5% of the book"
+  },
+  {
+   "key": "method.reallocation_cap",
+   "member": null,
+   "value": 0.3,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/resourcing.py:23 REALLOC_CAP = 0.30"
+  },
+  {
+   "key": "method.frequency_review_tolerance",
+   "member": null,
+   "value": 0.5,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/underwriting_review.py:29 _UNDER = 1.5    # observed ≥ 1.5× the priced frequency -> potentially under-priced | 3e8f518^:services/intelligence/underwriting_review.py:30 _OVER = 0.5     # observed ≤ 0.5× the priced frequency -> potentially conservative",
+   "note": "old thresholds 1.5x and 0.5x of priced frequency = 1 + 0.5 and 1 - 0.5"
+  },
+  {
+   "key": "method.bi_downtime_share",
+   "member": "any/VH",
+   "value": 0.06,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/company_sites.py:39 if score >= 75:   # ~22 days/yr / :40 return 0.06",
+   "note": "score >= 75 is exactly band VH"
+  },
+  {
+   "key": "method.bi_downtime_share",
+   "member": "any/L",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:services/intelligence/company_sites.py:45 return 0.0",
+   "note": "every score < 40 returned 0.0, which covers all of band L (< 25)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "A",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 0 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "A",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 0 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "B",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 0 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "B",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 0 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "C",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 0 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "C",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 0 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "D",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 0 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "D",
+   "value": 0.0,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 0 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "E",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 1 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "E",
+   "value": 0.04,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 1 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "F",
+   "value": 0.06,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 2 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "F",
+   "value": 0.08,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 2 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.brown_discount",
+   "member": "G",
+   "value": 0.09,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:23 _BROWN_DISCOUNT_PER_GRADE = 0.03   # value discount per EPC grade below the floor | 3e8f518^:ml/scoring/epc_stranding.py:24 _MAX_DISCOUNT = 0.20               # cap the modelled discount | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.03 × 3 grades below D (capped at 0.20 as the old code did; the cap does not bind)"
+  },
+  {
+   "key": "method.retrofit_capex_share",
+   "member": "G",
+   "value": 0.12,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/epc_stranding.py:25 _RETROFIT_CAPEX_PER_GRADE = 0.04   # retrofit capex as a share of value, per grade to lift toward the floor | 3e8f518^:ml/scoring/epc_stranding.py:26 _DEFAULT_FLOOR_EPC = \"D\"           # a widely-signalled 2030s minimum-to-let (EPBD-recast direction); configurable",
+   "note": "arithmetic on the old per-grade rule: 0.04 × 3 grades below D (the old code had no cap on capex)"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@baseline/current",
+   "value": 0.00675,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.1 × 0.15; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@baseline/current",
+   "value": 0.006,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.1 × 0.15; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@baseline/current",
+   "value": 0.00525,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.1 × 0.15; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@baseline/current",
+   "value": 0.003,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 0.15; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@baseline/current",
+   "value": 0.003,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 0.15; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@baseline/current",
+   "value": 0.0027,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.1 × 0.15; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@baseline/current",
+   "value": 0.00225,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.1 × 0.15; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@baseline/current",
+   "value": 0.0015,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.1 × 0.15; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@baseline/current",
+   "value": 0.0018,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.1 × 0.15; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@baseline/2030",
+   "value": 0.02025,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.1 × 0.45; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@baseline/2030",
+   "value": 0.018,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.1 × 0.45; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@baseline/2030",
+   "value": 0.01575,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.1 × 0.45; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@baseline/2030",
+   "value": 0.009,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 0.45; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@baseline/2030",
+   "value": 0.009,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 0.45; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@baseline/2030",
+   "value": 0.0081,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.1 × 0.45; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@baseline/2030",
+   "value": 0.00675,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.1 × 0.45; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@baseline/2030",
+   "value": 0.0045,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.1 × 0.45; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@baseline/2030",
+   "value": 0.0054,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.1 × 0.45; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@baseline/2050",
+   "value": 0.045,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.1 × 1.0; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@baseline/2050",
+   "value": 0.04,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.1 × 1.0; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@baseline/2050",
+   "value": 0.035,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.1 × 1.0; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@baseline/2050",
+   "value": 0.02,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 1.0; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@baseline/2050",
+   "value": 0.02,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 1.0; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@baseline/2050",
+   "value": 0.018,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.1 × 1.0; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@baseline/2050",
+   "value": 0.015,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.1 × 1.0; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@baseline/2050",
+   "value": 0.01,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.1 × 1.0; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@baseline/2050",
+   "value": 0.012,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.1 × 1.0; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@baseline/2100",
+   "value": 0.0495,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.1 × 1.1; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@baseline/2100",
+   "value": 0.044,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.1 × 1.1; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@baseline/2100",
+   "value": 0.0385,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.1 × 1.1; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@baseline/2100",
+   "value": 0.022,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 1.1; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@baseline/2100",
+   "value": 0.022,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.1 × 1.1; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@baseline/2100",
+   "value": 0.0198,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.1 × 1.1; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@baseline/2100",
+   "value": 0.0165,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.1 × 1.1; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@baseline/2100",
+   "value": 0.011,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.1 × 1.1; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@baseline/2100",
+   "value": 0.0132,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.1 × 1.1; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@orderly_1_5c/current",
+   "value": 0.0675,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 1.0 × 0.15; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@orderly_1_5c/current",
+   "value": 0.06,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 1.0 × 0.15; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@orderly_1_5c/current",
+   "value": 0.0525,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 1.0 × 0.15; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@orderly_1_5c/current",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 0.15; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@orderly_1_5c/current",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 0.15; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@orderly_1_5c/current",
+   "value": 0.027,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 1.0 × 0.15; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@orderly_1_5c/current",
+   "value": 0.0225,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 1.0 × 0.15; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@orderly_1_5c/current",
+   "value": 0.015,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 1.0 × 0.15; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@orderly_1_5c/current",
+   "value": 0.018,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 1.0 × 0.15; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@orderly_1_5c/2030",
+   "value": 0.2025,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 1.0 × 0.45; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@orderly_1_5c/2030",
+   "value": 0.18,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 1.0 × 0.45; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@orderly_1_5c/2030",
+   "value": 0.1575,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 1.0 × 0.45; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@orderly_1_5c/2030",
+   "value": 0.09,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 0.45; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@orderly_1_5c/2030",
+   "value": 0.09,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 0.45; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@orderly_1_5c/2030",
+   "value": 0.081,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 1.0 × 0.45; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@orderly_1_5c/2030",
+   "value": 0.0675,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 1.0 × 0.45; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@orderly_1_5c/2030",
+   "value": 0.045,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 1.0 × 0.45; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@orderly_1_5c/2030",
+   "value": 0.054,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 1.0 × 0.45; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@orderly_1_5c/2050",
+   "value": 0.45,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 1.0 × 1.0; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@orderly_1_5c/2050",
+   "value": 0.4,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 1.0 × 1.0; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@orderly_1_5c/2050",
+   "value": 0.35,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 1.0 × 1.0; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@orderly_1_5c/2050",
+   "value": 0.2,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 1.0; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@orderly_1_5c/2050",
+   "value": 0.2,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 1.0; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@orderly_1_5c/2050",
+   "value": 0.18,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 1.0 × 1.0; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@orderly_1_5c/2050",
+   "value": 0.15,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 1.0 × 1.0; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@orderly_1_5c/2050",
+   "value": 0.1,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 1.0 × 1.0; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@orderly_1_5c/2050",
+   "value": 0.12,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 1.0 × 1.0; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@orderly_1_5c/2100",
+   "value": 0.495,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 1.0 × 1.1; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@orderly_1_5c/2100",
+   "value": 0.44,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 1.0 × 1.1; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@orderly_1_5c/2100",
+   "value": 0.385,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 1.0 × 1.1; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@orderly_1_5c/2100",
+   "value": 0.22,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 1.1; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@orderly_1_5c/2100",
+   "value": 0.22,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 1.0 × 1.1; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@orderly_1_5c/2100",
+   "value": 0.198,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 1.0 × 1.1; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@orderly_1_5c/2100",
+   "value": 0.165,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 1.0 × 1.1; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@orderly_1_5c/2100",
+   "value": 0.11,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 1.0 × 1.1; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@orderly_1_5c/2100",
+   "value": 0.132,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 1.0 × 1.1; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@disorderly_2c/current",
+   "value": 0.057375,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.85 × 0.15; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@disorderly_2c/current",
+   "value": 0.051,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.85 × 0.15; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@disorderly_2c/current",
+   "value": 0.044625,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.85 × 0.15; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@disorderly_2c/current",
+   "value": 0.0255,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 0.15; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@disorderly_2c/current",
+   "value": 0.0255,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 0.15; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@disorderly_2c/current",
+   "value": 0.02295,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.85 × 0.15; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@disorderly_2c/current",
+   "value": 0.019125,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.85 × 0.15; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@disorderly_2c/current",
+   "value": 0.01275,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.85 × 0.15; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@disorderly_2c/current",
+   "value": 0.0153,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.85 × 0.15; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@disorderly_2c/2030",
+   "value": 0.172125,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.85 × 0.45; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@disorderly_2c/2030",
+   "value": 0.153,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.85 × 0.45; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@disorderly_2c/2030",
+   "value": 0.133875,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.85 × 0.45; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@disorderly_2c/2030",
+   "value": 0.0765,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 0.45; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@disorderly_2c/2030",
+   "value": 0.0765,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 0.45; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@disorderly_2c/2030",
+   "value": 0.06885,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.85 × 0.45; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@disorderly_2c/2030",
+   "value": 0.057375,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.85 × 0.45; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@disorderly_2c/2030",
+   "value": 0.03825,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.85 × 0.45; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@disorderly_2c/2030",
+   "value": 0.0459,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.85 × 0.45; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@disorderly_2c/2050",
+   "value": 0.3825,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.85 × 1.0; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@disorderly_2c/2050",
+   "value": 0.34,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.85 × 1.0; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@disorderly_2c/2050",
+   "value": 0.2975,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.85 × 1.0; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@disorderly_2c/2050",
+   "value": 0.17,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 1.0; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@disorderly_2c/2050",
+   "value": 0.17,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 1.0; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@disorderly_2c/2050",
+   "value": 0.153,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.85 × 1.0; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@disorderly_2c/2050",
+   "value": 0.1275,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.85 × 1.0; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@disorderly_2c/2050",
+   "value": 0.085,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.85 × 1.0; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@disorderly_2c/2050",
+   "value": 0.102,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.85 × 1.0; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@disorderly_2c/2100",
+   "value": 0.42075,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.85 × 1.1; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@disorderly_2c/2100",
+   "value": 0.374,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.85 × 1.1; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@disorderly_2c/2100",
+   "value": 0.32725,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.85 × 1.1; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@disorderly_2c/2100",
+   "value": 0.187,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 1.1; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@disorderly_2c/2100",
+   "value": 0.187,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.85 × 1.1; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@disorderly_2c/2100",
+   "value": 0.1683,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.85 × 1.1; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@disorderly_2c/2100",
+   "value": 0.14025,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.85 × 1.1; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@disorderly_2c/2100",
+   "value": 0.0935,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.85 × 1.1; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@disorderly_2c/2100",
+   "value": 0.1122,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.85 × 1.1; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@hot_house_3_5c/current",
+   "value": 0.010125,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.15 × 0.15; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@hot_house_3_5c/current",
+   "value": 0.009,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.15 × 0.15; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@hot_house_3_5c/current",
+   "value": 0.007875,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.15 × 0.15; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@hot_house_3_5c/current",
+   "value": 0.0045,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 0.15; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@hot_house_3_5c/current",
+   "value": 0.0045,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 0.15; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@hot_house_3_5c/current",
+   "value": 0.00405,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.15 × 0.15; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@hot_house_3_5c/current",
+   "value": 0.003375,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.15 × 0.15; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@hot_house_3_5c/current",
+   "value": 0.00225,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.15 × 0.15; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@hot_house_3_5c/current",
+   "value": 0.0027,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.15 × 0.15; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@hot_house_3_5c/2030",
+   "value": 0.030375,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.15 × 0.45; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@hot_house_3_5c/2030",
+   "value": 0.027,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.15 × 0.45; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@hot_house_3_5c/2030",
+   "value": 0.023625,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.15 × 0.45; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@hot_house_3_5c/2030",
+   "value": 0.0135,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 0.45; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@hot_house_3_5c/2030",
+   "value": 0.0135,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 0.45; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@hot_house_3_5c/2030",
+   "value": 0.01215,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.15 × 0.45; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@hot_house_3_5c/2030",
+   "value": 0.010125,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.15 × 0.45; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@hot_house_3_5c/2030",
+   "value": 0.00675,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.15 × 0.45; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@hot_house_3_5c/2030",
+   "value": 0.0081,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.15 × 0.45; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@hot_house_3_5c/2050",
+   "value": 0.0675,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.15 × 1.0; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@hot_house_3_5c/2050",
+   "value": 0.06,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.15 × 1.0; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@hot_house_3_5c/2050",
+   "value": 0.0525,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.15 × 1.0; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@hot_house_3_5c/2050",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 1.0; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@hot_house_3_5c/2050",
+   "value": 0.03,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 1.0; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@hot_house_3_5c/2050",
+   "value": 0.027,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.15 × 1.0; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@hot_house_3_5c/2050",
+   "value": 0.0225,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.15 × 1.0; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@hot_house_3_5c/2050",
+   "value": 0.015,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.15 × 1.0; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@hot_house_3_5c/2050",
+   "value": 0.018,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.15 × 1.0; old key '51' (nace_code[:2]) is NACE division H51"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B05@hot_house_3_5c/2100",
+   "value": 0.07425,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:70 \"05\": 0.45,  # mining of coal and lignite | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.45 × 0.15 × 1.1; old key '05' (nace_code[:2]) is NACE division B05"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "B06@hot_house_3_5c/2100",
+   "value": 0.066,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:71 \"06\": 0.40,  # extraction of crude petroleum and natural gas | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.4 × 0.15 × 1.1; old key '06' (nace_code[:2]) is NACE division B06"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C19@hot_house_3_5c/2100",
+   "value": 0.05775,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:72 \"19\": 0.35,  # manufacture of coke and refined petroleum products | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.35 × 0.15 × 1.1; old key '19' (nace_code[:2]) is NACE division C19"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "D35@hot_house_3_5c/2100",
+   "value": 0.033,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:73 \"35\": 0.20,  # electricity, gas, steam (mix unknown here → a moderate tier) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 1.1; old key '35' (nace_code[:2]) is NACE division D35"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C24@hot_house_3_5c/2100",
+   "value": 0.033,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:74 \"24\": 0.20,  # manufacture of basic metals (steel) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.2 × 0.15 × 1.1; old key '24' (nace_code[:2]) is NACE division C24"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C23@hot_house_3_5c/2100",
+   "value": 0.0297,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:75 \"23\": 0.18,  # manufacture of other non-metallic mineral products (cement) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.18 × 0.15 × 1.1; old key '23' (nace_code[:2]) is NACE division C23"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "C29@hot_house_3_5c/2100",
+   "value": 0.02475,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:76 \"29\": 0.15,  # manufacture of motor vehicles (ICE exposure) | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.15 × 0.15 × 1.1; old key '29' (nace_code[:2]) is NACE division C29"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H49@hot_house_3_5c/2100",
+   "value": 0.0165,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:77 \"49\": 0.10,  # land transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.1 × 0.15 × 1.1; old key '49' (nace_code[:2]) is NACE division H49"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "H51@hot_house_3_5c/2100",
+   "value": 0.0198,
+   "unit": "ratio",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:78 \"51\": 0.12,  # air transport | 3e8f518^:ml/scoring/transition_risk.py:62 SCENARIO_STRAND_FACTOR = { / :63 \"baseline\": 0.10, \"orderly_1_5c\": 1.00, \"disorderly_2c\": 0.85, \"hot_house_3_5c\": 0.15, | 3e8f518^:ml/scoring/transition_risk.py:65 HORIZON_STRAND_FACTOR = {\"current\": 0.15, \"2030\": 0.45, \"2050\": 1.00, \"2100\": 1.10}",
+   "note": "arithmetic on old literal tables: base × scenario × horizon = 0.12 × 0.15 × 1.1; old key '51' (nace_code[:2]) is NACE division H51"
+  }
+ ],
+ "not_tabulated": [
+  {
+   "key": "method.carbon_price",
+   "reason": "old table CARBON_PRICE_USD2010 is by scenario/horizon but in constant 2010 US dollars; the parameter is EUR/tCO2e and the old code converted per run via a price basis (services/reference/carbon_price.basis) — not a percent conversion, so not restated",
+   "source": "3e8f518^:ml/scoring/transition_risk.py:53 CARBON_PRICE_USD2010 = {"
+  },
+  {
+   "key": "method.bi_downtime_share",
+   "reason": "members any/M and any/H: old score thresholds 40 and 60 cut across bands M [25,50) and H [50,75) (M was 0.0 or 0.01, H 0.01 or 0.03), so no single value per band",
+   "source": "3e8f518^:services/intelligence/company_sites.py:41 if score >= 60:   # ~11 days/yr ; 3e8f518^:services/intelligence/company_sites.py:43 if score >= 40:   # ~3.6 days/yr"
+  },
+  {
+   "key": "method.stranded_share",
+   "member": "any@<scenario>/<horizon>",
+   "reason": "the old code gave a division on the default base no transition result without emissions; stating a default would add figures the old platform never showed — left a named gap",
+   "source": "3e8f518^:services/intelligence/transition_risk.py:130"
+  }
+ ]
+}
