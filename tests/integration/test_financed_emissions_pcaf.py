@@ -204,7 +204,8 @@ def test_evic_attribution_capped_and_positive():
         iid = str(s.execute(text("INSERT INTO issuers (name,issuer_type,country,source) VALUES ('EVIC Cap Co','corporate','DE','manual') RETURNING issuer_id")).scalar())
         sid = str(s.execute(text("INSERT INTO securities (isin,name,issuer_id,asset_class,source) VALUES ('DE00EVICCAP','x',:i,'equity','manual') RETURNING security_id"), {"i": iid}).scalar())
         # mv 5m, evic 2m → uncapped af = 2.5; capped → 1.0 → financed = full scopes
-        s.execute(text("INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,evic_eur,source) VALUES (:i,2023,100000,50000,1000000000,2000000,'client')"), {"i": iid})
+        # all three scopes stated (scope 3 = 0): the total is over investees stating every scope (E79)
+        s.execute(text("INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,scope3_tco2e,revenue_eur,evic_eur,source) VALUES (:i,2023,100000,50000,0,1000000000,2000000,'client')"), {"i": iid})
         s.execute(text("INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) VALUES (:f,:s,5000000,100,'2026-07-12')"), {"f": fid, "s": sid})
     try:
         with get_session() as s:
@@ -254,3 +255,43 @@ def test_a_scope_an_investee_does_not_state_is_never_read_as_zero():
     assert p["pai_3_waci_s12_tco2e_per_meur"] == 40.0 and p["pai_3_s12_coverage_pct"] == 40.0
     inv = p["pai_1_investee_emissions_tco2e"]
     assert inv["scope_3"] is None and inv["coverage_pct"]["scope_1"] == 40.0
+
+
+@pytest.mark.integration
+def test_each_pai_row_covers_exactly_the_investees_it_sums():
+    """E79: an investee stating scope 1 only enters the scope-1 figures, never a total, PAI 2 or PAI 3 — and each
+    statement row carries the coverage of the investees it sums (PAI 3 its own, not scope 1's)."""
+    from ml.regulatory.sfdr_pai import _mandatory_indicator_rows
+    from services.fund_disclosure import fund_pai
+    with get_session() as s:
+        fid = str(s.execute(text("INSERT INTO funds (org_id,name,fund_type) VALUES (:o,'TEST PAI COVER','fund') RETURNING fund_id"), {"o": DEMO_ORG}).scalar())
+        for name, isin, mv, scopes in (("Cover Full Co", "DE00COVFULL", 6_000_000, (1000, 500, 2000)),
+                                       ("Cover S1 Co", "DE00COVS1", 4_000_000, (3000, None, None))):
+            iid = str(s.execute(text("INSERT INTO issuers (name,issuer_type,country,source) VALUES (:n,'corporate','DE','manual') RETURNING issuer_id"), {"n": name}).scalar())
+            sid = str(s.execute(text("INSERT INTO securities (isin,name,issuer_id,asset_class,source) VALUES (:x,'x',:i,'equity','manual') RETURNING security_id"), {"x": isin, "i": iid}).scalar())
+            s.execute(text("""INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,scope3_tco2e,revenue_eur,evic_eur,source)
+                              VALUES (:i,2023,:a,:b,:c,100000000,60000000,'client')"""), {"i": iid, "a": scopes[0], "b": scopes[1], "c": scopes[2]})
+            s.execute(text("INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) VALUES (:f,:s,:m,50,'2026-07-12')"),
+                      {"f": fid, "s": sid, "m": mv})
+    try:
+        with get_session() as s:
+            pai = fund_pai(s, fid)
+        p = pai["pai"]
+        fin = p["pai_1_financed_emissions_tco2e"]
+        assert fin["scope_1"] == round(0.1 * 1000 + 4 / 60 * 3000) and fin["scope_2"] == 50
+        assert fin["total"] == 350                                  # the full investee only: 0.1 × 3500
+        assert fin["coverage_pct"] == {"scope_1": 100.0, "scope_2": 60.0, "scope_3": 60.0, "total": 60.0}
+        assert p["pai_1_investee_emissions_tco2e"]["total"] == 3500
+        assert p["pai_2_carbon_footprint_tco2e_per_meur"] == 35.0   # 350 / €10m — never mixing in scope 1 alone
+        assert p["pai_3_coverage_pct"] == 60.0 and pai["emissions_coverage_pct"] == 100.0
+
+        rows = {r["number"]: r for r in _mandatory_indicator_rows(pai, {})[0]}
+        assert rows[1]["coverage_pct"] == 60.0 and rows[1]["coverage_by_scope"]["scope_1"] == 100.0
+        assert rows[2]["coverage_pct"] == 60.0 and rows[2]["method"] == "partial"
+        assert rows[3]["coverage_pct"] == 60.0 and rows[3]["method"] == "partial"
+        assert "remaining 40.0%" in rows[3]["input_required"]
+    finally:
+        with get_session() as s:
+            s.execute(text("DELETE FROM funds WHERE fund_id=:f"), {"f": fid})
+            s.execute(text("DELETE FROM securities WHERE isin IN ('DE00COVFULL','DE00COVS1')"))
+            s.execute(text("DELETE FROM issuers WHERE name IN ('Cover Full Co','Cover S1 Co')"))

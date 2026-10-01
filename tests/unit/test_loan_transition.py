@@ -29,7 +29,7 @@ def _loan(nace, outstanding, revenue=100_000_000, ghg1=None, ghg2=None):
 
 def test_the_expected_loss_is_the_outstanding_times_the_stated_stranded_share_of_its_division():
     r = loan_transition_overlay(_m(), [_loan("35.11", 100_000_000, ghg1=400_000, ghg2=50_000),
-                                       _loan("62.01", 50_000_000, ghg1=500)], S, H)
+                                       _loan("62.01", 50_000_000, ghg1=500, ghg2=0)], S, H)
     assert r["available"] and "gap" not in r
     assert r["transition_expected_loss_eur"] == 100_000_000 * 0.20 + 50_000_000 * 0.02     # own division, then 'any'
     assert r["financed_emissions_tco2e"] == 450_500 and r["emissions_reported_pct"] == 100.0
@@ -52,7 +52,7 @@ def test_missing_emissions_are_estimated_and_flagged():
 
 
 def test_an_unstated_parameter_is_a_named_gap_not_a_number():
-    r = loan_transition_overlay(_m({}), [_loan("35.11", 100_000_000, ghg1=1000)], S, H)
+    r = loan_transition_overlay(_m({}), [_loan("35.11", 100_000_000, ghg1=1000, ghg2=0)], S, H)
     assert "transition_expected_loss_eur" not in r
     assert "method.stranded_share (D35@disorderly_2c/2050)" in r["gap"] and "method.carbon_price" in r["gap"]
     # a stranded share alone: the expected loss is computed, but without the carbon price the score is not
@@ -78,3 +78,20 @@ def test_revenue_in_another_currency_is_brought_back_to_eur():
 
 def test_an_empty_book_is_unavailable():
     assert loan_transition_overlay(_m(), [], S, H)["available"] is False
+
+
+def test_a_scope_not_stated_is_never_read_as_zero():
+    """Scope 1 without scope 2 (or the reverse) gives no carbon cost, no intensity and no score — and says what is
+    missing; the stranded share still applies. The loan is out of the scope 1+2 figure and counted as partial (E79)."""
+    blk = transition_block(_m(), 400_000, None, 100_000_000, "D35", S, H)
+    assert blk["transition_risk_score"] is None and blk["carbon_intensity_tco2e_per_meur"] is None
+    assert blk["carbon_price_impact"] is None and blk["emissions_missing"] == ["scope 2"]
+    assert blk["stranded_asset_pct"] == 20.0 and "gap" not in blk          # a fact missing is not a method gap
+    assert transition_block(_m(), None, 10, 100_000_000, "D35", S, H)["emissions_missing"] == ["scope 1"]
+    assert transition_block(_m(), 1, 1, 0, "D35", S, H)["emissions_missing"] == ["revenue above 0"]
+
+    r = loan_transition_overlay(_m(), [_loan("35.11", 100_000_000, ghg1=400_000, ghg2=50_000),
+                                       _loan("35.11", 100_000_000, ghg1=900_000)], S, H)
+    assert r["financed_emissions_tco2e"] == 450_000 and r["n_with_emissions"] == 1 and r["n_emissions_partial"] == 1
+    assert r["emissions_coverage_pct"] == 50.0 and r["score_coverage_pct"] == 50.0
+    assert r["transition_expected_loss_eur"] == 2 * 100_000_000 * 0.20

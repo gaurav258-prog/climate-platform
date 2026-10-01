@@ -144,6 +144,9 @@ from services.governance.product_filings import PRODUCT_SCOPED as _PRODUCT_SCOPE
 
 _ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd",
                   "insurer_orsa_climate", "insurer_recovery_stress", "esrs_pack"}
+# filed for a group by weighting each entity's book by the consolidation rule of data/reference/consolidation/regimes.json
+# (the ESRS statement has its own scope, services.governance.esrs_statement.scope)
+GROUP_FRAMEWORKS = _ENTITY_SCOPED - {"esrs_pack"}
 
 
 def available_frameworks(org_type: str) -> list[dict]:
@@ -260,7 +263,20 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
             "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex,
             "reporting_entity_id": ((r["payload"] or {}).get("_scope") or {}).get("reporting_entity_id"),
-            "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx"))}
+            "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx")),
+            # a group filing: the rule its entities were weighted on, quoted, as frozen (and any declared reading)
+            "consolidation": _consolidation_view(session, (r["payload"] or {}).get("_consolidation"))}
+
+
+def _consolidation_view(session: Session, cons: dict | None) -> dict | None:
+    """The consolidation record a group filing froze, with the sign-off of the exact rule file it was computed on."""
+    if not cons:
+        return None
+    f = cons.get("rule_file")
+    if not f:                                     # frozen before the rule file was on the change route
+        return {**cons, "signoff": None}
+    from services.regspec.signoff import signed_on
+    return {**cons, "signoff": signed_on(session, f["framework"], f["version"], f["sha256"])}
 
 
 def _fx_view(fx: dict | None) -> dict | None:

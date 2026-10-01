@@ -1,59 +1,182 @@
 {
- "_about": "How a group filing weights the book of each reporting entity, by the rule of the text that governs the filing — never an institution switch or a platform default (E75). Each regime gives the factor per consolidation method of an entity's link to its parent: 'full' (a subsidiary, the whole book), 'proportional' (a jointly managed undertaking, its ownership share), 'equity' (an equity-method holding — the associate's book is not consolidated; the holding itself is an exposure of the parent). Every quote is checked word for word against the downloaded text (tests/unit/test_consolidation_regimes.py with ESRS_SOURCE_TEXTS). Read by services.governance.entities.",
+ "_about": "How a group filing weights the book of each reporting entity, by the rule of the text that governs the filing — never an institution switch or a platform default (E75). Each regime gives the factor per consolidation method of an entity's link to its parent: 'full' (a subsidiary, the whole book), 'proportional' (a jointly managed undertaking, its ownership share), 'equity' (an equity-method holding — the associate's book is not consolidated; the holding itself is an exposure of the parent). Every quote is checked word for word against the official texts held in data/sources/legal (services.reference.legal_texts). A framework's regime is either the text's own rule (basis 'text', the refs that set it) or a reading Tellumen declares where the governing text sets no scope of its own (basis 'declared'). The file is on the regulatory-change route (services.regspec.rules): two people sign its exact sha256, any edit voids the sign-off, and every group filing stamps the record and the sha it was computed on. The ESRS statement's scope is not here: it is the undertaking's group as ESRS 1 §62 sets it, with joint ventures and joint operations told apart (services.governance.esrs_statement.scope).",
+ "title": "Consolidation rules",
+ "act": {
+  "celex": null,
+  "title": "Consolidation scope of group filings — CRR Part One Title II, Solvency II Delegated Regulation Art. 335, Accounting Directive Art. 27, Taxonomy Art. 8 Delegated Act Annexes I, III, V",
+  "url": "https://eur-lex.europa.eu/eli/reg/2013/575/oj",
+  "short": "consolidation scope of group filings"
+ },
+ "applies": {
+  "from": "2026-10-01",
+  "until": null,
+  "basis": "disclosure_date"
+ },
+ "legal_basis": {},
  "regimes": {
   "crr_prudential": {
    "label": "CRR prudential consolidation (Pillar 3; a credit institution's Taxonomy KPIs)",
-   "factors": {"full": "full", "proportional": "proportional", "equity": "excluded"},
+   "factors": {
+    "full": "full",
+    "proportional": "proportional",
+    "equity": "excluded"
+   },
    "refs": [
-    {"ref": "Regulation (EU) No 575/2013 Art. 13(1)", "quote": "EU parent institutions shall comply with Part Eight on the basis of their consolidated situation."},
-    {"ref": "Regulation (EU) No 575/2013 Art. 18(4)", "quote": "shall be consolidated proportionally according to the share of capital held, where the liability of those undertakings is limited to the share of the capital they hold."},
-    {"ref": "Regulation (EU) No 575/2013 Art. 18(5)", "quote": "In particular, they may permit or require the use of the equity method. That method shall not, however, constitute inclusion of the undertakings concerned in supervision on a consolidated basis."},
-    {"ref": "Regulation (EU) No 575/2013 Art. 18(7)", "quote": "it shall apply the equity method to that subsidiary or participation. That method shall not, however, constitute inclusion of the undertakings concerned in supervision on a consolidated basis."},
-    {"ref": "Delegated Regulation (EU) 2021/2178 Annex V 1.1.1", "quote": "Credit institutions shall disclose relevant KPIs on the basis of the scope of their prudential consolidation determined in accordance with Regulation (EU) No 575/2013, Title II, Chapter 2, Section 2."}
+    {
+     "ref": "Regulation (EU) No 575/2013 Art. 13(1)",
+     "quote": "EU parent institutions shall comply with Part Eight on the basis of their consolidated situation."
+    },
+    {
+     "ref": "Regulation (EU) No 575/2013 Art. 18(4)",
+     "quote": "shall be consolidated proportionally according to the share of capital held, where the liability of those undertakings is limited to the share of the capital they hold."
+    },
+    {
+     "ref": "Regulation (EU) No 575/2013 Art. 18(5)",
+     "quote": "In particular, they may permit or require the use of the equity method. That method shall not, however, constitute inclusion of the undertakings concerned in supervision on a consolidated basis."
+    },
+    {
+     "ref": "Regulation (EU) No 575/2013 Art. 18(7)",
+     "quote": "it shall apply the equity method to that subsidiary or participation. That method shall not, however, constitute inclusion of the undertakings concerned in supervision on a consolidated basis."
+    },
+    {
+     "ref": "Delegated Regulation (EU) 2021/2178 Annex V 1.1.1",
+     "quote": "Credit institutions shall disclose relevant KPIs on the basis of the scope of their prudential consolidation determined in accordance with Regulation (EU) No 575/2013, Title II, Chapter 2, Section 2."
+    }
    ]
   },
   "solvency2_method1": {
    "label": "Solvency II group solvency, method 1 (consolidated data)",
-   "factors": {"full": "full", "proportional": "proportional", "equity": "excluded"},
+   "factors": {
+    "full": "full",
+    "proportional": "proportional",
+    "equity": "excluded"
+   },
    "refs": [
-    {"ref": "Delegated Regulation (EU) 2015/35 Art. 335(1)(a)", "quote": "full consolidation of data of all the insurance or reinsurance undertakings, third-country insurance or reinsurance undertakings, insurance holding companies, mixed financial holding companies and ancillary services undertakings which are subsidiaries of the parent undertaking;"},
-    {"ref": "Delegated Regulation (EU) 2015/35 Art. 335(1)(c)", "quote": "where those undertakings' responsibility is limited to the share of the capital they hold;"},
-    {"ref": "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)", "quote": "on the basis of the adjusted equity method in accordance with Article 13(3), data of all holdings in related insurance or reinsurance undertakings"}
+    {
+     "ref": "Delegated Regulation (EU) 2015/35 Art. 335(1)(a)",
+     "quote": "full consolidation of data of all the insurance or reinsurance undertakings, third-country insurance or reinsurance undertakings, insurance holding companies, mixed financial holding companies and ancillary services undertakings which are subsidiaries of the parent undertaking;"
+    },
+    {
+     "ref": "Delegated Regulation (EU) 2015/35 Art. 335(1)(c)",
+     "quote": "where those undertakings' responsibility is limited to the share of the capital they hold;"
+    },
+    {
+     "ref": "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)",
+     "quote": "on the basis of the adjusted equity method in accordance with Article 13(3), data of all holdings in related insurance or reinsurance undertakings"
+    }
    ]
   },
   "accounting_group": {
    "label": "The group of the consolidated financial statements (a non-financial undertaking's or an asset manager's Taxonomy KPIs)",
-   "factors": {"full": "full", "proportional": "proportional", "equity": "excluded"},
+   "factors": {
+    "full": "full",
+    "proportional": "proportional",
+    "equity": "excluded"
+   },
    "refs": [
-    {"ref": "Delegated Regulation (EU) 2021/2178 Annex I (f)", "quote": "the KPIs shall be provided at the level of the individual undertaking where that undertaking prepares only individual non-financial statements or at the level of the group where the undertaking prepares consolidated non-financial statements."},
-    {"ref": "Delegated Regulation (EU) 2021/2178 Annex III (g)", "quote": "provide the KPIs at the level of the individual asset manager where that undertaking prepares only individual non-financial statements or at the level of the group where the undertaking prepares consolidated non-financial statements."},
-    {"ref": "Directive 2013/34/EU Art. 27(1)", "quote": "Where an undertaking included in a consolidation has an associated undertaking, that associated undertaking shall be shown in the consolidated balance sheet as a separate item with an appropriate heading."}
-   ]
-  },
-  "esrs_financial_statements": {
-   "label": "ESRS — the same reporting undertaking as the financial statements",
-   "factors": {"full": "full", "proportional": "proportional", "equity": "excluded"},
-   "refs": [
-    {"ref": "ESRS 1 §62", "quote": "The sustainability statement shall be for the same reporting undertaking as the financial statements."},
-    {"ref": "ESRS 1 §67", "quote": "When associates or joint ventures, accounted for under the equity method or proportionally consolidated in the financial statements, are part of the undertaking’s value chain, for example as suppliers, the undertaking shall include information related to those associates or joint ventures in accordance with paragraph 63 consistent with the approach adopted for the other business relationships in the value chain."}
+    {
+     "ref": "Delegated Regulation (EU) 2021/2178 Annex I (f)",
+     "quote": "the KPIs shall be provided at the level of the individual undertaking where that undertaking prepares only individual non-financial statements or at the level of the group where the undertaking prepares consolidated non-financial statements."
+    },
+    {
+     "ref": "Delegated Regulation (EU) 2021/2178 Annex III (g)",
+     "quote": "provide the KPIs at the level of the individual asset manager where that undertaking prepares only individual non-financial statements or at the level of the group where the undertaking prepares consolidated non-financial statements."
+    },
+    {
+     "ref": "Directive 2013/34/EU Art. 27(1)",
+     "quote": "Where an undertaking included in a consolidation has an associated undertaking, that associated undertaking shall be shown in the consolidated balance sheet as a separate item with an appropriate heading."
+    }
    ]
   }
  },
  "frameworks": {
-  "bank_tcfd": "crr_prudential",
-  "bank_p3esg": "crr_prudential",
-  "insurer_climate": "solvency2_method1",
-  "insurer_solvency": "solvency2_method1",
-  "insurer_orsa_climate": "solvency2_method1",
-  "insurer_recovery_stress": "solvency2_method1",
-  "reit_tcfd": "accounting_group",
-  "reit_taxonomy": "accounting_group",
-  "assetmgmt_tcfd": "accounting_group",
-  "esrs_pack": "esrs_financial_statements"
- },
- "_notes": {
-  "bank_tcfd": "One frozen book carries the bank's Article 8 KPIs (green asset ratio), which Annex V 1.1.1 ties to the prudential scope; the rest of the report is computed on the same book.",
-  "insurer_climate": "Prepared on the undertaking's Solvency II data (the filing's basis); a group report uses method 1's consolidated data.",
-  "reit_tcfd": "One frozen book carries the property company's Article 8 KPIs; Annex I (f) ties them to the group of the consolidated statements."
+  "bank_p3esg": {
+   "regime": "crr_prudential",
+   "basis": "text",
+   "refs": [
+    "Regulation (EU) No 575/2013 Art. 13(1)",
+    "Regulation (EU) No 575/2013 Art. 18(5)",
+    "Regulation (EU) No 575/2013 Art. 18(7)"
+   ]
+  },
+  "insurer_solvency": {
+   "regime": "solvency2_method1",
+   "basis": "text",
+   "refs": [
+    "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)"
+   ]
+  },
+  "insurer_orsa_climate": {
+   "regime": "solvency2_method1",
+   "basis": "text",
+   "refs": [
+    "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)"
+   ]
+  },
+  "insurer_recovery_stress": {
+   "regime": "solvency2_method1",
+   "basis": "text",
+   "refs": [
+    "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)"
+   ]
+  },
+  "reit_taxonomy": {
+   "regime": "accounting_group",
+   "basis": "text",
+   "refs": [
+    "Delegated Regulation (EU) 2021/2178 Annex I (f)",
+    "Directive 2013/34/EU Art. 27(1)"
+   ]
+  },
+  "bank_tcfd": {
+   "regime": "crr_prudential",
+   "basis": "declared",
+   "refs": [
+    "Delegated Regulation (EU) 2021/2178 Annex V 1.1.1"
+   ],
+   "declaration": {
+    "declared_by": "Tellumen",
+    "declared": "2026-10-01",
+    "reading": "The bank TCFD filing freezes one book that carries the bank's Article 8 KPIs (green asset ratio), which Annex V 1.1.1 ties to the prudential scope of consolidation; TCFD sets no scope of its own, so the rest of the report is computed on the same book rather than a second one."
+   }
+  },
+  "reit_tcfd": {
+   "regime": "accounting_group",
+   "basis": "declared",
+   "refs": [
+    "Delegated Regulation (EU) 2021/2178 Annex I (f)",
+    "Directive 2013/34/EU Art. 27(1)"
+   ],
+   "declaration": {
+    "declared_by": "Tellumen",
+    "declared": "2026-10-01",
+    "reading": "The property company's TCFD filing freezes one book that carries its Article 8 KPIs, which Annex I (f) ties to the group of the consolidated statements (an associate is a separate item, Art. 27(1)); TCFD sets no scope of its own, so the report is computed on the same book."
+   }
+  },
+  "assetmgmt_tcfd": {
+   "regime": "accounting_group",
+   "basis": "declared",
+   "refs": [
+    "Delegated Regulation (EU) 2021/2178 Annex III (g)",
+    "Directive 2013/34/EU Art. 27(1)"
+   ],
+   "declaration": {
+    "declared_by": "Tellumen",
+    "declared": "2026-10-01",
+    "reading": "The asset manager's TCFD filing is computed on the group whose Article 8 KPI Annex III (g) ties to the consolidated statements (an associate is a separate item, Art. 27(1)); TCFD sets no scope of its own."
+   }
+  },
+  "insurer_climate": {
+   "regime": "solvency2_method1",
+   "basis": "declared",
+   "refs": [
+    "Delegated Regulation (EU) 2015/35 Art. 335(1)(d)"
+   ],
+   "declaration": {
+    "declared_by": "Tellumen",
+    "declared": "2026-10-01",
+    "reading": "The insurer climate filing is prepared on the undertaking's Solvency II data (its basis is Solvency II · IFRS S2); a group report uses Solvency II method 1's consolidated data. IFRS S2's own wording on the reporting entity (via IFRS S1) is not held on file and is not relied on."
+   }
+  }
  }
 }

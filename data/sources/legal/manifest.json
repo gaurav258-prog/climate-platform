@@ -1,0 +1,109 @@
+{
+ "_about": "The official EU legal texts the platform quotes, as retrieved: each normalised to plain text (tags removed, whitespace collapsed) and gzipped. sha256 is of the normalised text. A quote in data/reference is valid only if it is found word for word in one of these (tests/unit/test_legal_texts.py and the quote checks that read services.reference.legal_texts).",
+ "texts": {
+  "02013R0575-20250101": {
+   "title": "Regulation (EU) No 575/2013 (Capital Requirements Regulation), consolidated text of 1 January 2025",
+   "celex": "02013R0575-20250101",
+   "source": "http://publications.europa.eu/resource/celex/02013R0575-20250101",
+   "retrieved": "2026-10-01",
+   "sha256": "58e6d6177dcb9505375273a3d1a0faf5f93280c3e70bc59abd17cf166db52fa6",
+   "chars": 1806106
+  },
+  "02015R0035-20241114": {
+   "title": "Commission Delegated Regulation (EU) 2015/35 (Solvency II), consolidated text of 14 November 2024",
+   "celex": "02015R0035-20241114",
+   "source": "http://publications.europa.eu/resource/celex/02015R0035-20241114",
+   "retrieved": "2026-10-01",
+   "sha256": "d2c5feb51669a52aa49b591bca5b6077f05a3fb798fe89d3826bef0e61cb2c89",
+   "chars": 2207979
+  },
+  "02021R2178-20240101": {
+   "title": "Commission Delegated Regulation (EU) 2021/2178 (Taxonomy Article 8 disclosures), consolidated text of 1 January 2024",
+   "celex": "02021R2178-20240101",
+   "source": "http://publications.europa.eu/resource/celex/02021R2178-20240101",
+   "retrieved": "2026-10-01",
+   "sha256": "019db5f8d582b0cdba287fa1361d4d56a52fc6a44e4587dc170e159f44f18f9c",
+   "chars": 145136
+  },
+  "02023R2772-20250101": {
+   "title": "Commission Delegated Regulation (EU) 2023/2772 (ESRS), consolidated text of 1 January 2025",
+   "celex": "02023R2772-20250101",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02023R2772-20250101",
+   "retrieved": "2026-09-30",
+   "sha256": "13a23c024c1a17ea440a48dc612bc6a45c26487e144253fdbc2397b8301634f6",
+   "chars": 881852
+  },
+  "32004L0109": {
+   "title": "Directive 2004/109/EC (Transparency Directive), as published",
+   "celex": "32004L0109",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32004L0109",
+   "retrieved": "2026-09-30",
+   "sha256": "e0b00beb3187076ad0b976ecc9058ac0fcc825dba750974ae850838a7f1c7440",
+   "chars": 95428
+  },
+  "32013L0034": {
+   "title": "Directive 2013/34/EU (Accounting Directive), as published",
+   "celex": "32013L0034",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32013L0034",
+   "retrieved": "2026-09-30",
+   "sha256": "3eb27c3da129110f26e45eb504ad989f70f82476a4c6953ae26b740d4331b719",
+   "chars": 192616
+  },
+  "32013L0050": {
+   "title": "Directive 2013/50/EU amending the Transparency Directive, as published",
+   "celex": "32013L0050",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32013L0050",
+   "retrieved": "2026-09-30",
+   "sha256": "c4effdb74c6c32c64abd8fe1ea5283616d2bde52d33a4d926f718c8e21d28e83",
+   "chars": 63966
+  },
+  "32022L2464": {
+   "title": "Directive (EU) 2022/2464 (CSRD), as published",
+   "celex": "32022L2464",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022L2464",
+   "retrieved": "2026-09-30",
+   "sha256": "b5370e612f1b2db138a424dba81596386dc52e47dfdf1734bfd0ed0579ab7cfd",
+   "chars": 267181
+  },
+  "32023R2772": {
+   "title": "Commission Delegated Regulation (EU) 2023/2772 (ESRS), as published",
+   "celex": "32023R2772",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32023R2772",
+   "retrieved": "2026-09-30",
+   "sha256": "88d9e395dd430deebeb4ddebedf30677d974de3333fdce65b27f9940027ec47e",
+   "chars": 880076
+  },
+  "32025L0794": {
+   "title": "Directive (EU) 2025/794 (stop-the-clock), as published",
+   "celex": "32025L0794",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32025L0794",
+   "retrieved": "2026-09-30",
+   "sha256": "fb143c0cfa7657346ff45947eeeca1f9fffbfc30e1f7aa961c7b1fa84f047976",
+   "chars": 13552
+  },
+  "32025R1416": {
+   "title": "Commission Delegated Regulation (EU) 2025/1416 amending 2023/2772, as published",
+   "celex": "32025R1416",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32025R1416",
+   "retrieved": "2026-09-30",
+   "sha256": "b5b10c031c234a31fc054d5b9d076f57a5fe789b2166b91a9e8a7f3555533c13",
+   "chars": 22951
+  },
+  "32026L0470": {
+   "title": "Directive (EU) 2026/470 amending the corporate sustainability reporting requirements, as published",
+   "celex": "32026L0470",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32026L0470",
+   "retrieved": "2026-09-30",
+   "sha256": "bdcc1b88bd35f077bdab0aa0c00d864f3b514a59258c2c10a8606377b6eefe3f",
+   "chars": 133277
+  },
+  "32026R1563": {
+   "title": "Commission Delegated Regulation (EU) 2026/1563 amending 2023/2772 (simplified ESRS), as published",
+   "celex": "32026R1563",
+   "source": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32026R1563",
+   "retrieved": "2026-09-30",
+   "sha256": "86ea8ba1e205900945b873dcd37cfcad7ab2e3f1161571f554176411e4cf3f8f",
+   "chars": 495843
+  }
+ }
+}

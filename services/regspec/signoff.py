@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 import services.regspec as R
+from services.regspec import rules as RULES
 
 ROLES = ("regulatory", "engineering")
 
@@ -19,8 +20,13 @@ class SignoffError(ValueError):
     pass
 
 
+def _document(framework: str, version: str) -> dict:
+    """A template spec, or a reference rule file on the same route (services.regspec.rules)."""
+    return RULES.load(framework, version) if RULES.is_rule(framework, version) else R.load(framework, version)
+
+
 def status(session: Session, framework: str, version: str) -> dict:
-    spec = R.load(framework, version)
+    spec = _document(framework, version)
     rows = session.execute(text("""
         SELECT s.role, s.sha256, s.signed_at, s.note, s.sole_reviewer, u.email, u.full_name, s.user_id::text AS user_id
         FROM regspec_signoff s JOIN users u ON u.user_id = s.user_id
@@ -44,10 +50,14 @@ def sign(session: Session, framework: str, version: str, role: str, user_id: str
     `sole_reviewer` declares that the person who signed the other role is signing this one too (a team of one)."""
     if role not in ROLES:
         raise SignoffError(f"role must be one of {ROLES}")
-    spec = R.load(framework, version)
+    spec = _document(framework, version)
     if sha256 != spec["_sha256"]:
         raise SignoffError("the file has changed since you reviewed it — review the current version")
-    if role == "engineering":
+    if role == "engineering" and RULES.is_rule(framework, version):
+        problems = RULES.check(spec)
+        if problems:
+            raise SignoffError("the rule file does not pass its checks yet: " + "; ".join(problems[:8]))
+    elif role == "engineering":
         from services.regspec.bindings import binding_for
         b = binding_for(framework, spec)
         cov = R.coverage(spec, b) if b is not None else None
@@ -95,4 +105,21 @@ def overview(session: Session) -> list[dict]:
                                       for t in s["templates"]],
                         "coverage": cov, "diff_from_previous": R.diff(prev, s) if prev else None})
             prev = s
+    for (fw, v) in RULES.RULES:
+        doc = RULES.load(fw, v)
+        out.append({**status(session, fw, v), **RULES.card(doc)})
     return out
+
+
+def signed_on(session: Session, framework: str, version: str, sha256: str) -> dict:
+    """The sign-off of one exact version of a file (the sha a filing stamped) — it stays what it was after later edits."""
+    rows = session.execute(text("""
+        SELECT s.role, s.sole_reviewer, s.signed_at, s.user_id::text AS user_id, u.full_name, u.email
+        FROM regspec_signoff s JOIN users u ON u.user_id = s.user_id
+        WHERE s.framework = :f AND s.version = :v AND s.sha256 = :h ORDER BY s.signed_at"""),
+        {"f": framework, "v": version, "h": sha256}).mappings().all()
+    signed = [{"role": r["role"], "by": r["full_name"] or r["email"], "signed_at": r["signed_at"].isoformat(),
+               "sole_reviewer": r["sole_reviewer"]} for r in rows]
+    roles = {r["role"] for r in rows}
+    return {"sha256": sha256, "signed": signed, "approved": roles == set(ROLES),
+            "one_person": roles == set(ROLES) and len({r["user_id"] for r in rows}) == 1}

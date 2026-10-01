@@ -29,12 +29,14 @@ def _stated(v) -> Optional[float]:
 def gross_emissions(rows: list[dict], scope_keys: tuple[str, str, str] = ("ghg1", "ghg2", "ghg3"),
                     exposure_key: Optional[str] = None) -> dict:
     """The gross (un-attributed) emissions of a book, per scope, over the counterparties that STATE that scope — never
-    a missing figure counted as 0 (E76). A scope no counterparty states has no total (None). Returns the coverage with
-    the figure: how many counterparties state any scope / each scope, and the share of exposure they carry."""
+    a missing figure counted as 0 (E76). A scope no counterparty states has no total (None). The scope 1-3 total sums
+    the counterparties stating all three — never scope 1 of one and scope 3 of another (E79). Returns the coverage with
+    the figures: how many counterparties state any scope / each scope / all three, and the share of exposure."""
     totals: dict[str, Optional[float]] = {k: None for k in _SCOPES}
     n_scope = {k: 0 for k in _SCOPES}
-    n_with = 0
-    exp_with = exp_all = 0.0
+    n_with = n_all = 0
+    total = None
+    exp_with = exp_all = exp_complete = 0.0
     for r in rows:
         vals = [_stated(r.get(k)) for k in scope_keys]
         exp = float(r.get(exposure_key) or 0) if exposure_key else 0.0
@@ -47,11 +49,25 @@ def gross_emissions(rows: list[dict], scope_keys: tuple[str, str, str] = ("ghg1"
             if v is not None:
                 totals[name] = (totals[name] or 0.0) + v
                 n_scope[name] += 1
-    stated = [v for v in totals.values() if v is not None]
+        if all(v is not None for v in vals):
+            n_all += 1
+            exp_complete += exp
+            total = (total or 0.0) + sum(vals)
     return {**{k: (None if v is None else round(v)) for k, v in totals.items()},
-            "total": round(sum(stated)) if stated else None,
+            "total": None if total is None else round(total), "n_all_scopes": n_all,
             "n_counterparties": len(rows), "n_with_emissions": n_with, "n_stating": n_scope,
-            **({"exposure_with_emissions_pct": round(100 * exp_with / exp_all, 1) if exp_all else None} if exposure_key else {})}
+            **({"exposure_with_emissions_pct": round(100 * exp_with / exp_all, 1) if exp_all else None,
+                "exposure_all_scopes_pct": round(100 * exp_complete / exp_all, 1) if exp_all else None}
+               if exposure_key else {})}
+
+
+def financed_total(em: dict) -> Optional[float]:
+    """The scope 1-3 total of a frozen financed-emissions block. A block frozen since E79 carries its own 'total'
+    (counterparties stating all three scopes); an older filing is re-read as it was filed — the sum of its scopes."""
+    if "total" in em:
+        return em["total"]
+    vals = [em.get(k) for k in _SCOPES]
+    return float(sum(v or 0 for v in vals)) if any(v is not None for v in vals) else None
 
 
 def attributed_financed_emissions(rows: list[dict], *, exposure_key: str, evic_key: str,
@@ -61,10 +77,12 @@ def attributed_financed_emissions(rows: list[dict], *, exposure_key: str, evic_k
     un-attributed, disclosed separately — never silently summed into the attributed figure or hidden). A scope a
     counterparty does not state is not counted (never 0); a counterparty stating none is reported as without
     emissions data, with the share of exposure that carries data (E76)."""
-    attributed = {k: 0.0 for k in _SCOPES}
-    not_covered = {k: 0.0 for k in _SCOPES}
-    n_covered = n_not_covered = 0
-    covered_exposure_eur = 0.0
+    attributed: dict[str, Optional[float]] = {k: None for k in _SCOPES}
+    not_covered: dict[str, Optional[float]] = {k: None for k in _SCOPES}
+    # the scope 1-3 totals sum counterparties stating all three scopes (E79)
+    att_total = nc_total = None
+    n_covered = n_not_covered = n_att_all = 0
+    covered_exposure_eur = att_all_exposure_eur = 0.0
     for r in rows:
         exp, evic = r.get(exposure_key), r.get(evic_key)
         vals = [_stated(r.get(k)) for k in scope_keys]
@@ -75,21 +93,33 @@ def attributed_financed_emissions(rows: list[dict], *, exposure_key: str, evic_k
             if v is None:
                 continue
             if af is None:
-                not_covered[name] += v
+                not_covered[name] = (not_covered[name] or 0.0) + v
             else:
-                attributed[name] += af * v
+                attributed[name] = (attributed[name] or 0.0) + af * v
+        complete = all(v is not None for v in vals)
         if af is None:
             n_not_covered += 1
+            if complete:
+                nc_total = (nc_total or 0.0) + sum(vals)
         else:
             n_covered += 1
             covered_exposure_eur += exp or 0
+            if complete:
+                n_att_all += 1
+                att_all_exposure_eur += exp or 0
+                att_total = (att_total or 0.0) + af * sum(vals)
     n_total = n_covered + n_not_covered
     gross = gross_emissions(rows, scope_keys, exposure_key)
+    def _r(v):
+        return None if v is None else round(v)
     return {
-        "attributed": {k: round(v) for k, v in attributed.items()},
-        "attributed_total": round(sum(attributed.values())),
-        "not_covered": {k: round(v) for k, v in not_covered.items()},
-        "not_covered_total": round(sum(not_covered.values())),
+        # per scope over the EVIC-covered counterparties stating it; 'total' over those stating all three
+        "attributed": {**{k: _r(v) for k, v in attributed.items()}, "total": _r(att_total)},
+        "attributed_total": _r(att_total),
+        "n_attributed_all_scopes": n_att_all,
+        "attributed_all_scopes_exposure_eur": round(att_all_exposure_eur),
+        "not_covered": {**{k: _r(v) for k, v in not_covered.items()}, "total": _r(nc_total)},
+        "not_covered_total": _r(nc_total),
         "n_counterparties": len(rows),
         "n_counterparties_with_emissions": n_total,
         "n_stating": gross["n_stating"],

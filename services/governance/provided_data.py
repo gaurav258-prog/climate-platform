@@ -67,7 +67,8 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
         if framework == "bank_tcfd" and key == "financed_emissions":
             from api.routers.bank import build_disclosure_snapshot
             em = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"]).get("financed_emissions_tco2e", {})
-            return sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")) or None
+            from services.scoring.pcaf import financed_total
+            return financed_total(em) or None
     except Exception:
         return None
     return None

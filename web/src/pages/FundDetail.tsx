@@ -30,8 +30,11 @@ interface Summary { fund: { fund_id: string; name: string; fund_type: string; sf
   transition?: RiskBlock
   gap?: string
   pai?: { pcaf_data_quality_score: number | null; emissions_coverage_pct: number | null; financed_emissions_coverage_pct: number | null
-    pai: { pai_3_waci_tco2e_per_meur: number | null; pai_4_fossil_fuel_exposure_pct: number | null
-      pai_1_financed_emissions_tco2e: { total: number } | null; pai_2_carbon_footprint_tco2e_per_meur: number | null } } }
+    pai: { pai_3_waci_tco2e_per_meur: number | null; pai_3_coverage_pct?: number | null; pai_4_fossil_fuel_exposure_pct: number | null
+      pai_1_financed_emissions_tco2e: { total: number | null; coverage_pct?: ScopeCov } | null; pai_2_carbon_footprint_tco2e_per_meur: number | null
+      pai_1_investee_emissions_tco2e?: { coverage_pct?: ScopeCov } } } }
+// share of the fund's value whose investees state each scope (a scope not stated is never read as 0); 'total' = all three
+type ScopeCov = { scope_1: number; scope_2: number; scope_3: number; total: number }
 
 type IndVal = number | { scope_1?: number; scope_2?: number; scope_3?: number; total?: number; note?: string } | null
 interface Indicator { number: number | string; area: string; metric: string; unit: string; value: IndVal; coverage_pct: number | null; source?: string; method: string; input_required?: string }
@@ -115,10 +118,14 @@ export default function FundDetail() {
             <Card className="p-4">
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Emissions (PAI)</div>
               <div className="display text-[22px] leading-none">{num(s.pai?.pai?.pai_3_waci_tco2e_per_meur, 0)}</div>
-              <div className="mono text-[10px] text-[var(--color-faint)] mt-1">WACI · tCO₂e / €m revenue</div>
+              <div className="mono text-[10px] text-[var(--color-faint)] mt-1">WACI · tCO₂e / €m revenue · covers {pct(s.pai?.pai?.pai_3_coverage_pct)} of value</div>
               <div className="mt-3 space-y-1 text-[11.5px] text-[var(--color-mute)]">
                 <div className="flex justify-between"><span>Financed emissions</span><span className="mono">{num(s.pai?.pai?.pai_1_financed_emissions_tco2e?.total, 0)} tCO₂e</span></div>
-                <div className="flex justify-between"><span>Emissions coverage</span><span className="mono">{pct(s.pai?.emissions_coverage_pct)}</span></div>
+                {(() => {
+                  const c = s.pai?.pai?.pai_1_investee_emissions_tco2e?.coverage_pct
+                  return c && <div className="flex justify-between" title="Share of the fund's value whose investees state each scope. The financed total and the carbon footprint use only investees stating all three (with EVIC); WACI those stating all three and revenue">
+                    <span>Scope 1 · 2 · 3 stated</span><span className="mono">{pct(c.scope_1)} · {pct(c.scope_2)} · {pct(c.scope_3)}</span></div>
+                })()}
                 <div className="flex justify-between"><span>PCAF data quality</span><span className="mono">{s.pai?.pcaf_data_quality_score != null ? `${s.pai.pcaf_data_quality_score}/5` : '—'}</span></div>
               </div>
             </Card>

@@ -358,18 +358,32 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
 
 def consolidation_regimes() -> dict:
     """The consolidation rule of each text a group filing can be governed by (data/reference/consolidation/regimes.json),
-    every one quoted. An equity-method holding's book is consolidated by none of them (E75)."""
-    import json
-    from pathlib import Path
-    return json.loads((Path(__file__).resolve().parents[2] / "data" / "reference" / "consolidation" / "regimes.json").read_text())
+    every one quoted. An equity-method holding's book is consolidated by none of them (E75). The file is on the change
+    route (services.regspec.rules): `_sha256` is the exact version read, which a filing stamps."""
+    from services.regspec import rules
+    return rules.load("consolidation", "regimes")
 
 
 def regime_for(framework: str) -> str:
-    """The consolidation regime of the text that governs a framework's group filing."""
-    regime = consolidation_regimes()["frameworks"].get(framework)
-    if regime is None:
+    """The consolidation regime that governs a framework's group filing (the text's rule, or Tellumen's declared reading)."""
+    entry = consolidation_regimes()["frameworks"].get(framework)
+    if entry is None:
         raise ValueError(f"no consolidation regime is declared for '{framework}' (data/reference/consolidation/regimes.json)")
-    return regime
+    return entry["regime"]
+
+
+def consolidation_record(framework: str) -> dict:
+    """What a group filing is consolidated on, as frozen with it (payload['_consolidation']): the regime, whether the
+    governing text sets it or Tellumen declares the reading (by whom, when), the quoted refs, and the sha of the rule
+    file — its sign-off is looked up by that sha, so a later edit never changes what this filing was computed on."""
+    reg = consolidation_regimes()
+    entry = reg["frameworks"][framework]
+    regime = reg["regimes"][entry["regime"]]
+    quotes = {x["ref"]: x["quote"] for x in regime["refs"]}
+    return {"framework": framework, "regime": entry["regime"], "label": regime["label"], "basis": entry["basis"],
+            "rule_file": {"framework": "consolidation", "version": "regimes", "sha256": reg["_sha256"]},
+            "factors": regime["factors"], "refs": [{"ref": r, "quote": quotes[r]} for r in entry["refs"]],
+            **({"declaration": entry["declaration"]} if entry["basis"] == "declared" else {})}
 
 
 def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None, *, regime: str) -> dict[str, float]:

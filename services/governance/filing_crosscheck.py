@@ -29,7 +29,8 @@ def _shared_figures(framework: str, payload: dict) -> dict:
         r = payload.get("rollup") or {}
         em = payload.get("financed_emissions_tco2e") or {}
         out = {"total book value": r.get("total_value_eur"), "value at risk": r.get("value_at_risk_eur")}
-        et = sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3"))
+        from services.scoring.pcaf import financed_total
+        et = financed_total(em)
         if et:
             out["financed emissions (tCO₂e)"] = et
         return {k: v for k, v in out.items() if v}

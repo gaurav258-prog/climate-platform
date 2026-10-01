@@ -97,9 +97,8 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
     top = []
     for a, blk, div, outstanding, source, s1, s2 in rows:
         el = outstanding * blk["stranded_asset_pct"] / 100
-        # the scopes the counterparty states (or the sector estimate of scope 1+2); a missing scope is not 0 (E76)
-        stated = [v for v in (s1, s2) if v is not None]
-        fin = sum(stated) if stated and blk["has_emissions"] else None
+        # scope 1+2 needs both stated (or the sector estimate of the two together); a missing scope is not 0 (E76/E79)
+        fin = s1 + s2 if blk["has_emissions"] else None
         total_out += outstanding
         total_el += el
         if fin is not None:
@@ -121,6 +120,7 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
                     "transition_el_eur": round(el), "financed_emissions_tco2e": round(fin) if fin is not None else None,
                     "emissions_source": source if fin is not None else None})
     n_em = sum(1 for _, blk, *_ in rows if blk["has_emissions"])
+    n_part = sum(1 for _, blk, _d, _o, _s, s1, s2 in rows if not blk["has_emissions"] and (s1 is not None or s2 is not None))
     top.sort(key=lambda r: -r["transition_el_eur"])
     sectors = sorted(
         [{"nace_division": k or "—", "label": _label(k), "outstanding_eur": round(v["outstanding"]),
@@ -130,6 +130,10 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
         "available": True, **base,
         "financed_emissions_tco2e": round(total_fin),
         "n_with_emissions": n_em, "n_emissions_estimated": n_est,
+        # counterparties stating one of scope 1 / scope 2 only: not in the scope 1+2 figure, not scored on carbon cost
+        "n_emissions_partial": n_part,
+        "emissions_coverage_pct": round(100 * sum(o for _, blk, _d, o, *_ in rows if blk["has_emissions"]) / total_out, 1)
+                                  if total_out else None,
         "emissions_reported_pct": round(100 * (n_em - n_est) / n_em, 1) if n_em else None,
         "transition_expected_loss_eur": round(total_el),
         "transition_el_pct_of_outstanding": round(100 * total_el / total_out, 2) if total_out else None,

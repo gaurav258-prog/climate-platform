@@ -511,8 +511,9 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
         return None
     if kri_key == "fin_emissions":
         em = snap.get("financed_emissions_tco2e", {}) or {}
-        items = [{"label": f"Scope {i}", "value": round(em.get(f"scope{i}") or 0)} for i in (1, 2, 3)]
-        return {"type": "scope", "unit": "num", "items": items} if sum(x["value"] for x in items) > 0 else None
+        # the scopes stated; a scope nobody states is left out, never drawn as 0 (E76)
+        items = [{"label": f"Scope {i}", "value": round(em[f"scope{i}"])} for i in (1, 2, 3) if em.get(f"scope{i}") is not None]
+        return {"type": "scope", "unit": "num", "items": items} if items else None
     if kri_key == "coverage":
         r = snap.get("rollup", {}) or {}
         n, sc = r.get("n_assets") or 0, r.get("n_scored") or 0
@@ -598,6 +599,7 @@ def _bank_kri(session: Session, org_id: str) -> dict:
     r = snap.get("rollup", {})
     em = snap.get("financed_emissions_tco2e", {})
     pcaf = snap.get("financed_emissions_pcaf", {})
+    from services.scoring.pcaf import financed_total
     tax = snap.get("taxonomy", {})
     total = r.get("total_value_eur", 0) or 0
     elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
@@ -649,11 +651,13 @@ def _bank_kri(session: Session, org_id: str) -> dict:
         _kpi("coverage", "Book scored", cov, "pct", hint="Share of assets scored on the golden source"),
         # PCAF-attributed, over the counterparties that state emissions AND carry EVIC — none attributable is no figure
         _kpi("fin_emissions", "Financed emissions",
-             sum(em.get(k) or 0 for k in ("scope1", "scope2", "scope3")) if pcaf.get("n_evic_covered") else None,
+             financed_total(em) if pcaf.get("n_evic_covered") else None,
              "num", hint=(f"tCO₂e · PCAF-attributed (factor = outstanding ÷ counterparty EVIC, capped at 100%) · "
                           f"{pcaf.get('n_counterparties_with_emissions', 0)} of {pcaf.get('n_counterparties', 0)} counterparties "
                           f"state emissions ({pcaf.get('exposure_with_emissions_pct')}% of outstanding; scope 3 by "
                           f"{(pcaf.get('n_stating') or {}).get('scope3', 0)}), {pcaf.get('n_evic_covered', 0)} of them carry EVIC"
+                          + (f", {pcaf['n_attributed_all_scopes']} of those state all three scopes — the total sums only them"
+                             if "n_attributed_all_scopes" in pcaf else "")
                           + (f" · {pcaf.get('not_covered_total', 0):,} tCO₂e stated without EVIC, not attributed" if pcaf.get("not_covered_total") else "")
                           + " · a counterparty that states no emissions is not counted as zero")),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
@@ -722,11 +726,11 @@ def _p3esg_kri(session: Session, org_id: str) -> dict:
         for kpi in r["kpis"]:
             if kpi["key"] == "fin_emissions":
                 kpi["value"] = gross["total"]
-                kpi["hint"] = (f"tCO₂e · GROSS Scope 1–3 of the counterparties that state them (Template 1 col. i "
-                               f"methodology — no PCAF attribution there): {gross['n_with_emissions']} of "
-                               f"{gross['n_counterparties']} counterparties, {gross['exposure_with_emissions_pct']}% of "
-                               f"outstanding; scope 3 stated by {gross['n_stating']['scope3']}. A counterparty that states "
-                               "none is not counted as zero. Not the same basis as the TCFD tab's PCAF-attributed figure.")
+                kpi["hint"] = (f"tCO₂e · GROSS Scope 1–3 of the counterparties that state all three (Template 1 col. i "
+                               f"methodology — no PCAF attribution there): {gross['n_all_scopes']} of "
+                               f"{gross['n_counterparties']} counterparties, {gross['exposure_all_scopes_pct']}% of "
+                               f"outstanding ({gross['n_with_emissions']} state at least one scope). A scope not stated is "
+                               "never counted as zero. Not the same basis as the TCFD tab's PCAF-attributed figure.")
                 break
         g3 = template3_grid(assets)
         g4 = template4_top20(assets)

@@ -99,6 +99,9 @@ def test_template1_golden_book(version):
     assert r["2"]["o"] == 300 and r["2"]["l"] == 400 + 100             # equity → '> 20 years'; 3y and 4y ≤ 5
     assert r["3"]["b"] == 40 and r["2"]["b"] is None                   # Paris exclusion stated only on the coal loan
     assert r["3"]["i"] == 10 and r["3"]["j"] == 4
+    # column i (scope 1, 2 and 3) sums only exposures stating all three; scope 3 alone still counts in j (E79)
+    part = _rows(G.build(R.load("bank_p3esg", version), "T1", BOOK + [_a("05.10", 10, ghg1=7, ghg3=3)]))
+    assert part["3"]["i"] == 10 and part["3"]["j"] == 7
     assert r["3"]["k"] == 100.0 and r["2"]["k"] is None                # share of gross from company-reported emissions
 
 

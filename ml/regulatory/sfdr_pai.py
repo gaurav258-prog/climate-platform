@@ -432,50 +432,54 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
     computed pai + esg block. Shared by the fund and entity-level assemblers.
     Returns (indicators, computed_count, partial_count, missing_count)."""
     p = pai["pai"]
-    emis_cov = pai.get("emissions_coverage_pct")
     emis_est = pai.get("emissions_estimated_pct", 0.0)
-    fin_cov = pai.get("financed_emissions_coverage_pct", 0.0)
     inv = p["pai_1_investee_emissions_tco2e"]
     fin = p.get("pai_1_financed_emissions_tco2e")
 
+    # each row carries the coverage of exactly the investees it sums (E79): a scope over those stating it, a total and
+    # PAI 2 over those stating all three scopes (with EVIC), PAI 3 over those stating all three and revenue
+    def _status(value, cov, rest):
+        if value is None:
+            return "not_available", rest(100.0)
+        return ("computed", None) if cov >= 99.9 else ("partial", rest(round(100 - cov, 1)))
+
     filled: dict[int, dict] = {}
     if fin:
+        cov = fin["coverage_pct"]["total"]
+        method, need = _status(fin["total"], cov, lambda r: f"issuer EVIC and scope 1, 2 and 3 emissions on the remaining {r}% by value")
         filled[1] = _row(1, "Climate & environment",
                          "GHG emissions — financed (Scope 1, 2, 3, total)", "tCO₂e",
                          value={"scope_1": fin["scope_1"], "scope_2": fin["scope_2"],
                                 "scope_3": fin["scope_3"], "total": fin["total"]},
-                         coverage=fin_cov, source=_GOLDEN_SOURCE + " · PCAF attribution (investment ÷ EVIC)",
-                         method="computed" if fin_cov >= 99.9 else "partial",
-                         input_required=None if fin_cov >= 99.9
-                         else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
+                         coverage=cov, source=_GOLDEN_SOURCE + " · PCAF attribution (investment ÷ EVIC)",
+                         method=method, input_required=need)
+        filled[1]["coverage_by_scope"] = fin["coverage_pct"]
     else:
         filled[1] = _row(1, "Climate & environment",
                          "GHG emissions (Scope 1, 2 and 3, and total)", "tCO₂e",
                          value={"scope_1": inv["scope_1"], "scope_2": inv["scope_2"],
-                                "scope_3": inv["scope_3"],
-                                # the scopes investees state; a scope nobody states has no figure (E76)
-                                "total": (sum(v for v in (inv["scope_1"], inv["scope_2"], inv["scope_3"]) if v is not None)
-                                          if any(v is not None for v in (inv["scope_1"], inv["scope_2"], inv["scope_3"])) else None)},
-                         coverage=emis_cov, source=_GOLDEN_SOURCE, method="partial",
+                                "scope_3": inv["scope_3"], "total": inv.get("total")},
+                         coverage=inv["coverage_pct"]["total"], source=_GOLDEN_SOURCE, method="partial",
                          input_required="issuer EVIC (enterprise value incl. cash) to attribute "
                                         "financed emissions per PCAF")
+        filled[1]["coverage_by_scope"] = inv["coverage_pct"]
     cf = p.get("pai_2_carbon_footprint_tco2e_per_meur")
+    cov2 = fin["coverage_pct"]["total"] if fin else 0.0
+    method, need = _status(cf, cov2, lambda r: f"issuer EVIC and scope 1, 2 and 3 emissions on the remaining {r}% by value")
     filled[2] = _row(2, "Climate & environment",
                      "Carbon footprint (financed emissions per €M invested)", "tCO₂e/€M",
-                     value=cf, coverage=fin_cov if cf is not None else None,
+                     value=cf, coverage=cov2 if cf is not None else None,
                      source=_GOLDEN_SOURCE + " · PCAF" if cf is not None else None,
-                     method=("computed" if fin_cov >= 99.9 else "partial") if cf is not None else "not_available",
-                     input_required=None if cf is None or fin_cov >= 99.9
-                     else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
+                     method=method, input_required=need)
     waci_src = _GOLDEN_SOURCE + (f" · {emis_est}% of covered value estimated" if emis_est else "")
+    waci, cov3 = p["pai_3_waci_tco2e_per_meur"], p.get("pai_3_coverage_pct", 0.0)
+    method, need = _status(waci, cov3, lambda r: f"issuer scope 1, 2 and 3 emissions and revenue on the remaining {r}% by value")
     filled[3] = _row(3, "Climate & environment",
                      "GHG intensity of investee companies (WACI)", "tCO₂e/€M revenue",
-                     value=p["pai_3_waci_tco2e_per_meur"], coverage=emis_cov,
-                     source=waci_src,
-                     method="computed" if p["pai_3_waci_tco2e_per_meur"] is not None else "not_available",
-                     input_required=None if p["pai_3_waci_tco2e_per_meur"] is not None
-                     else "issuer Scope 1/2 emissions + revenue")
+                     value=waci, coverage=cov3 if waci is not None else None,
+                     source=waci_src if waci is not None else None, method=method, input_required=need)
     filled[3]["value_scope_1_2"] = p.get("pai_3_waci_s12_tco2e_per_meur")   # EET 30300 asks Scope 1+2 separately
+    filled[3]["coverage_scope_1_2"] = p.get("pai_3_s12_coverage_pct")
     filled[4] = _row(4, "Climate & environment",
                      "Exposure to companies active in the fossil fuel sector", "% of value",
                      value=p["pai_4_fossil_fuel_exposure_pct"], coverage=p.get("pai_4_coverage_pct", 100.0),

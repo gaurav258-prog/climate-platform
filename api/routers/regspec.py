@@ -28,7 +28,7 @@ def overview(session: DbSession, ctx: dict = Depends(require_permission("reports
 @router.get("/{framework}/{version}", summary="One specification in full (templates, rows, columns, quoted instructions)")
 def one(framework: str, version: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     try:
-        spec = R.load(framework, version)
+        spec = S._document(framework, version)
     except R.SpecError as e:
         raise HTTPException(404, {"error": "not_found", "message": str(e)}) from e
     return {**{k: v for k, v in spec.items() if k != "_sha256"}, "sha256": spec["_sha256"],

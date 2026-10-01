@@ -4,13 +4,11 @@
           specification prints (so a renumbered text can never leave a rule pointing at nothing)
   quotes  every quote in data/reference/csrd/scope.json, data/reference/esrs/phase_ins.json and the CSRD mandate of
           data/reference/regulatory_mandates.json (its article, its deadline rule) appears word for word in one of the
-          downloaded texts (Directive 2004/109/EC among them) — checked when ESRS_SOURCE_TEXTS names the folder of their .txt renderings
-          (EUR-Lex / Cellar), skipped otherwise
+          official texts stored in data/sources/legal (Directive 2004/109/EC among them) — checked on every run
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 from pathlib import Path
 
@@ -67,13 +65,11 @@ def _quotes():
                 yield f"phase-in {v}/{r['id']}", r["quote"]
 
 
-@pytest.mark.skipif(not os.getenv("ESRS_SOURCE_TEXTS"), reason="ESRS_SOURCE_TEXTS (the downloaded texts) not set")
 def test_every_quote_is_in_the_texts():
-    texts = [_norm(p.read_text(errors="ignore")) for p in Path(os.environ["ESRS_SOURCE_TEXTS"]).glob("*.txt")]
-    assert texts
+    from services.reference import legal_texts
     missing = []
     for where, q in _quotes():
-        parts = [_norm(x) for x in re.split(r"\s*(?:…|\.\.\.)\s*", q) if x.strip()]   # an elision quotes each part
-        if not all(any(part in t for t in texts) for part in parts):
+        parts = [x for x in re.split(r"\s*(?:…|\.\.\.)\s*", q) if x.strip()]   # an elision quotes each part
+        if not all(legal_texts.contains(part) for part in parts):
             missing.append(where)
     assert not missing, missing

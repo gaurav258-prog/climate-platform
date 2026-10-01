@@ -86,7 +86,7 @@ export default function SpecRegister({ canSign, userId }: { canSign: boolean; us
                   {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}{s.name} · {s.act.short ?? s.act.title}
                 </div>
                 <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">
-                  {s.version} · applies {s.applies.from}{s.applies.until ? ` to ${s.applies.until}` : ' onwards'} (by {s.applies.basis.replace('_', ' ')}) · {s.templates.length} templates · sha {s.sha256.slice(0, 10)}
+                  {s.version} · applies {s.applies.from}{s.applies.until ? ` to ${s.applies.until}` : ' onwards'} (by {s.applies.basis.replace('_', ' ')}) {s.templates.length ? ` · ${s.templates.length} templates` : ' · rule file'} · sha {s.sha256.slice(0, 10)}
                 </div>
               </button>
               <div className="flex items-center gap-1.5 flex-wrap">

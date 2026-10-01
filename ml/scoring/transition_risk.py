@@ -15,8 +15,9 @@ Facts and method are kept apart (E69):
                          the share of the counterparty's economics the transition takes, in per cent (a definition,
                          not a fitted scale). Bucketed by the one shared score_to_bucket.
 
-Without emissions the carbon channel is absent, so the score is not given (the stranded share still is); a parameter
-not stated is a named gap. Computed at read time for the reading organisation — never stored across organisations.
+The carbon channel needs both scope 1 and scope 2 stated, and revenue: a scope not stated is never read as 0 (E76/E79).
+Without them the carbon channel is absent, so the score is not given (the stranded share still is) and
+'emissions_missing' names what the counterparty does not state; a method parameter not stated is a named gap. Computed at read time for the reading organisation — never stored across organisations.
 """
 from __future__ import annotations
 
@@ -33,8 +34,11 @@ def transition_block(method, scope1_tco2e: Optional[float], scope2_tco2e: Option
                      eur_per_unit: float = 1.0) -> dict:
     """One counterparty × scenario × horizon. `revenue` is in the book's currency; eur_per_unit converts it to EUR (the
     unit the carbon price is stated in). Every figure that needs a missing input is None, and 'gap' names it."""
-    have_emissions = (scope1_tco2e is not None or scope2_tco2e is not None) and bool(revenue)
-    tonnes = (scope1_tco2e or 0.0) + (scope2_tco2e or 0.0) if have_emissions else None
+    missing = [n for n, v in (("scope 1", scope1_tco2e), ("scope 2", scope2_tco2e), ("revenue", revenue)) if v is None]
+    if revenue is not None and revenue <= 0:
+        missing.append("revenue above 0")
+    have_emissions = not missing
+    tonnes = scope1_tco2e + scope2_tco2e if have_emissions else None
     gaps = []
 
     stranded = method.per_division("method.stranded_share", division or "any", scenario, horizon)
@@ -65,6 +69,7 @@ def transition_block(method, scope1_tco2e: Optional[float], scope2_tco2e: Option
         "carbon_cost_pct_of_revenue": round(100 * cost_share, 2) if cost_share is not None else None,
         "dominant_channel": (None if score is None else "carbon_cost" if cost_share >= stranded else "stranded_asset"),
         "has_emissions": have_emissions,
+        "emissions_missing": missing or None,          # the counterparty's facts not stated (data, not method)
         "model_version": MODEL_VERSION,
         **({"gap": "not stated: " + ", ".join(gaps)} if gaps else {}),
     }

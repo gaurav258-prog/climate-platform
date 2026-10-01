@@ -15,9 +15,9 @@ from typing import Callable, Optional
 
 
 def _sum_scopes(p: dict) -> Optional[float]:
-    em = p.get("financed_emissions_tco2e") or {}
-    vals = [em.get(k) for k in ("scope1", "scope2", "scope3")]
-    return float(sum(v or 0 for v in vals)) if any(v is not None for v in vals) else None
+    from services.scoring.pcaf import financed_total
+    v = financed_total(p.get("financed_emissions_tco2e") or {})
+    return float(v) if v is not None else None
 
 
 def _scope3(p: dict) -> Optional[float]:

@@ -216,9 +216,10 @@ def _cells(assets: list[dict], template_id: str, level: float | None = None) -> 
             g["sens"] += x
             g["both" if chronic and acute else "chronic_only" if chronic else "acute_only"] += x
         if template_id == "T1":
-            # financed emissions (i, j): only what an exposure states — a missing scope is not counted as 0 (E76)
+            # financed emissions (i, j): only what an exposure states — a missing scope is not counted as 0 (E76);
+            # column i (scope 1, 2 and 3) sums exposures stating all three, never one scope of one and another of the next (E79)
             ghg = [a.get(k) for k in ("ghg1", "ghg2", "ghg3")]
-            if any(v not in (None, "") for v in ghg):
+            if all(v not in (None, "") for v in ghg):
                 n["ghg"] += 1
                 g["ghg"] += sum(float(v) for v in ghg if v not in (None, ""))
             if a.get("ghg3") not in (None, ""):

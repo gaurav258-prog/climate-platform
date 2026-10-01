@@ -18,7 +18,8 @@ BANK_ORG = "11111111-1111-4111-8111-111111111111"
 def _a_frozen_bank_filing(session):
     return session.execute(text(
         "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND framework = 'bank_tcfd' "
-        "AND snapshot_id IS NOT NULL ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
+        "AND snapshot_id IS NOT NULL AND status NOT IN ('withdrawn', 'superseded') "   # a discarded draft is no filing
+        "ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
 
 
 @pytest.mark.integration
@@ -79,7 +80,8 @@ def test_unavailable_format_is_refused():
 def _a_frozen_p3esg_filing(session):
     return session.execute(text(
         "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND framework = 'bank_p3esg' "
-        "AND snapshot_id IS NOT NULL ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
+        "AND snapshot_id IS NOT NULL AND status NOT IN ('withdrawn', 'superseded') "   # a discarded draft is no filing
+        "ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
 
 
 @pytest.mark.integration

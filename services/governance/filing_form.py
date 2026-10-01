@@ -66,7 +66,8 @@ def _located_book_form(framework: str, payload: dict) -> list[dict]:
     fe = payload.get("financed_emissions_tco2e") or {}
     if fe:
         s1, s2, s3 = fe.get("scope1"), fe.get("scope2"), fe.get("scope3")
-        tot = sum(x for x in (s1, s2, s3) if isinstance(x, (int, float)))
+        from services.scoring.pcaf import financed_total
+        tot = financed_total(fe)                        # counterparties stating all three scopes (E79)
         groups.append({"group": "Financed emissions (PCAF)", "datapoints": [
             _dp("emissions.scope1", "Scope 1", s1, "tco2e"),
             _dp("emissions.scope2", "Scope 2", s2, "tco2e"),

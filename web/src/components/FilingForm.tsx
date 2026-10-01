@@ -9,6 +9,7 @@ import { hazardLabel } from '../lib/hazards'
 import { toast } from '../lib/toast'
 import { money } from '../lib/money'
 import FilingFx, { type Fx } from './FilingFx'
+import FilingConsolidation, { type Consolidation } from './FilingConsolidation'
 
 // The final form — the frozen disclosure, shown two ways over ONE set of figures:
 //   • Official form — the regulator's actual Annex / template layout (SFDR RTS Annex I Table 1, EU-Taxonomy
@@ -31,7 +32,7 @@ interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; ke
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string; kind?: 'document'; items?: DocItem[] }   // kind 'document': a template printed as a document (SFDR Annexes II–V)
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
-interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; reporting_entity_id?: string | null }
+interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null }
 
 // the currency the frozen filing presents in (fmt 'eur' = a money figure, whatever its currency)
 const CurrencyCtx = createContext('EUR')
@@ -78,6 +79,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   return (
     <CurrencyCtx.Provider value={d.currency ?? 'EUR'}>
     <div>
+      {d.consolidation && <FilingConsolidation c={d.consolidation} />}
       {d.fx && <FilingFx fx={d.fx} />}
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Final form · as it will be submitted

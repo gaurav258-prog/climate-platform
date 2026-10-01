@@ -66,7 +66,7 @@ def _engine_versions(session: Session, org_id: str | None = None) -> dict:
 
 # report_type -> (human label, builder, applicable org-type sectors). The builder takes
 # (session, org_id, scenario, horizon, material); FIN builders ignore the extra basis args.
-# builder args are (session, org_id, scenario, horizon, material, entity_ids, value_weights, translation, period_end) —
+# builder args are (session, org_id, scenario, horizon, entity_ids, value_weights, translation, period_end) —
 # period_end is the filing's reporting period (the figures are for the financial year ending on it). entity_ids /
 # value_weights scope + consolidation-weight the book — supported by the located FIN books (bank/reit/insurer);
 # the others (CSRD/ESRS entity-level, SFDR fund-aggregated) ignore them and report whole-org.
@@ -294,6 +294,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     (payload, observed), view_record = in_view(session, org_id, view, compute)
     payload["_view"] = view_record
     payload["_fx"] = _fx_record(session, org_id, translation)
+    if value_weights:                         # a group filing: the consolidation rule it was weighted on, frozen with it
+        from services.governance.entities import consolidation_record
+        payload["_consolidation"] = consolidation_record(report_type)
     basis["presentation_currency"] = payload["_fx"]["presentation_currency"]
     basis["view"] = view
     # Lane 2 (customer/vendor provided values, attested under 4-eyes) is baked into the frozen payload here,

@@ -26,7 +26,7 @@ import MethodGap from '../components/MethodGap'
 interface HazardBlock { exposed_value_eur: number | null; peril_class?: 'acute' | 'chronic' | null }
 interface TaxBlock { value_eur: number }
 interface Rollup { value_at_risk_eur?: number | null; at_risk_level?: number | null; at_risk_by_peril_class?: { acute_eur: number; chronic_eur: number } | null; gap?: string }
-interface Disc { by_hazard: Record<string, HazardBlock>; taxonomy: Record<string, TaxBlock>; rollup?: Rollup; financed_emissions_tco2e?: { scope1: number; scope2: number; scope3: number } }
+interface Disc { by_hazard: Record<string, HazardBlock>; taxonomy: Record<string, TaxBlock>; rollup?: Rollup; financed_emissions_tco2e?: { scope1: number | null; scope2: number | null; scope3: number | null; total?: number | null } }
 
 const PREFIX: Record<string, string> = { bank: 'bank', asset_manager: 'assetmgmt', reit: 'realestate' }
 // each sector's /disclosure returns its book under a different key, with a different id/name/value field —
@@ -49,7 +49,8 @@ const tco2e = (n?: number | null) => n == null ? '—' : Math.round(n).toLocaleS
 // the engine's value at risk — each asset once, at or above the stated at-risk level (never a sum of per-hazard exposures,
 // which counts an asset exposed to two hazards twice); null when the level is not stated (a gap, never 0)
 const totExposed = (d?: Disc) => d?.rollup?.value_at_risk_eur ?? null
-const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_tco2e.scope1 + d.financed_emissions_tco2e.scope2 + d.financed_emissions_tco2e.scope3 : null
+// the scope 1-3 total the server computes over counterparties stating all three — a scope not stated is never 0 (E79)
+const sumEm = (d?: Disc) => d?.financed_emissions_tco2e?.total ?? null
 
 export default function Analytics() {
   const { profile } = useAuth()
