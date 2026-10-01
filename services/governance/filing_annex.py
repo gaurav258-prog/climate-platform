@@ -807,9 +807,10 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             ("emissions.scope3", "Scope 3 (financed) emissions"), ("emissions.total", "Total financed emissions")]]
         sections.append({"title": "Transition risk — financed emissions (PCAF, tCO₂e)", "columns": ["Scope", "tCO₂e"],
                          "rows": em_rows, "note": "Counterparty Scope-3 basis for the transition-risk templates (Templates 1–4)."})
-    # Computed credit-risk analytics (physical EL, transition EL, collateral stranding) — as frozen with this filing
-    sections += _bank_analytics_sections(payload or {})
-    return sections
+    # no template prints the credit-risk analytics (physical EL, transition EL, collateral stranding): a filing frozen
+    # under the earlier report shape shows what it froze, marked (E97)
+    from services.governance.pillar3_report import earlier_sections
+    return sections + earlier_sections(payload or {})
 
 
 # ── ESRS / generic — present the reported datapoints in the standard's disclosure-requirement grouping ─────

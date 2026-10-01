@@ -30,9 +30,38 @@ def _mk_filing(session, org_id: str, framework: str, actor_email: str) -> str:
 
 
 def _a_bank_filing(session):
-    """A Pillar 3 ESG filing frozen now (rolled back by the caller) — the bank report that prints hazard cells; the EU
-    Taxonomy Art. 8 report (bank_tcfd) prints none (E95)."""
-    return _mk_filing(session, BANK_ORG, "bank_p3esg", "admin@meridian.demo")
+    """A Pillar 3 ESG filing of the earlier report shape, which froze hazard cells (rolled back by the caller). Neither bank
+    report prints a hazard cell any more (E95, E97); a filing frozen before still traces its cells as frozen — what this
+    builds: the earlier builder's payload, on the method this test states."""
+    import json
+
+    from api.routers.bank import build_disclosure_snapshot
+    from services.governance.report_snapshots import _sha256
+    u = session.execute(text("SELECT user_id::text FROM users WHERE email = 'admin@meridian.demo'")).scalar()
+    pe = reporting_period_end(session, BANK_ORG)
+    state_method(session, BANK_ORG, pe)
+    old = build_disclosure_snapshot(session, BANK_ORG, "baseline", "current", period_end=pe)
+    basis = {"scenario": "baseline", "horizon": "current", "reporting_period_end": "2099-12-31"}
+    sid = session.execute(text("""INSERT INTO report_snapshots (org_id, report_type, version, reporting_basis, payload, payload_sha256)
+                                  VALUES (CAST(:o AS uuid), 'bank_p3esg', 9001, CAST(:b AS jsonb), CAST(:p AS jsonb), :h)
+                                  RETURNING snapshot_id"""),
+                          {"o": BANK_ORG, "b": json.dumps(basis), "p": json.dumps(old, default=str),
+                           "h": _sha256(json.loads(json.dumps(old, default=str)))}).scalar()
+    return str(session.execute(text("""
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
+        VALUES (:o, 'bank_p3esg', '2099-12-31', 'FY2099', 'draft', :snap, :u) RETURNING filing_id
+    """), {"o": BANK_ORG, "snap": sid, "u": u}).scalar())
+
+
+@pytest.mark.integration
+def test_a_new_pillar3_filing_says_it_prints_no_hazard_cell():
+    """E97: Pillar 3 prints Template 5 rows, not a value per hazard — the trace says so instead of tracing nothing."""
+    with get_session() as s:
+        fid = _mk_filing(s, BANK_ORG, "bank_p3esg", "admin@meridian.demo")
+        assert reported_hazards(s, BANK_ORG, fid) == []
+        lin = cell_lineage(s, BANK_ORG, fid, "flood")
+        assert lin["supported"] is False and "Template 5" in lin["message"]
+        s.rollback()
 
 
 @pytest.mark.integration

@@ -49,7 +49,7 @@ def _headline_block(framework: str, r: dict) -> list[dict]:
 
 
 def _located_book_form(framework: str, payload: dict) -> list[dict]:
-    """bank_p3esg / reit_tcfd / insurer_climate (and earlier-shape bank_tcfd) — all assembled by build_disclosure_snapshot (rollup + by_hazard
+    """reit_tcfd / insurer_climate (and the earlier-shape bank_tcfd / bank_p3esg groups) — all assembled by build_disclosure_snapshot (rollup + by_hazard
     + taxonomy + financed_emissions). The headline block is framework-specific (_headline_block); the rest
     (financed emissions / taxonomy / by-hazard) reads generic payload keys shared or gracefully absent."""
     r = payload.get("rollup", {}) or {}
@@ -145,7 +145,10 @@ def build_form(framework: str, payload: dict) -> list[dict]:
     if framework == "bank_tcfd":                       # the EU Taxonomy Art. 8 report (E95)
         from services.governance.bank_taxonomy_report import form
         return form(payload)
-    if framework in ("bank_p3esg", "reit_tcfd", "insurer_climate"):
+    if framework == "bank_p3esg":                      # what the Pillar 3 templates print (E97)
+        from services.governance.pillar3_report import form
+        return form(payload)
+    if framework in ("reit_tcfd", "insurer_climate"):
         return _located_book_form(framework, payload)
     if framework == "reit_taxonomy":
         return _reit_taxonomy_form(payload)

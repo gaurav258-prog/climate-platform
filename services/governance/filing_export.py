@@ -127,13 +127,11 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
         from services.governance.bank_taxonomy_report import XLSX_HEADERS, xlsx_rows
         return build_disclosure_workbook(_cur(XLSX_HEADERS, payload), xlsx_rows(payload),
                                          "EU Taxonomy Art. 8 — loan book", _summary_blocks(framework, payload))
-    if framework == "bank_p3esg":
-        headers = ["asset_name", "sector", "country", "value_eur", "headline_score",
-                   "risk_bucket", "taxonomy_status", "h3_cell"]
-        rows = [[a.get("asset_name"), a.get("sector"), a.get("country"), a.get("value_eur"),
-                 a.get("headline_score"), a.get("headline_bucket") or "unscored",
-                 a.get("taxonomy_status"), a.get("h3_cell")] for a in payload.get("assets", [])]
-        return build_disclosure_workbook(_cur(headers, payload), rows, "Physical risk disclosure", _summary_blocks(framework, payload))
+    if framework == "bank_p3esg":                      # the frozen book as the templates read it, then the templates (E97)
+        from services.governance.pillar3_report import XLSX_HEADERS as P3_HEADERS
+        from services.governance.pillar3_report import xlsx_rows as p3_rows
+        return build_disclosure_workbook(_cur(P3_HEADERS, payload), p3_rows(payload), "Pillar 3 ESG — banking book",
+                                         _summary_blocks(framework, payload))
     if framework == "sfdr_pai":
         # build straight from the frozen entity-level indicator rows (fund-level renderer expects a
         # different shape, so we serialize the entity statement's own mandatory-indicator table)

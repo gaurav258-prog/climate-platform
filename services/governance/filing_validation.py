@@ -127,13 +127,40 @@ def _validate_bank_book(payload: dict) -> list[dict]:
     return out
 
 
+def _validate_p3_book(payload: dict) -> list[dict]:
+    """The frozen banking book of a Pillar 3 filing (E97): there, of value, scored (Template 5 reads the scores), and its
+    financed emissions non-negative."""
+    rollup = payload.get("rollup") or {}
+    n, scored, total = rollup.get("n_assets", 0), rollup.get("n_scored", 0), rollup.get("total_value_eur", 0) or 0
+    em = payload.get("financed_emissions_tco2e") or {}
+    neg = [k for k, v in em.items() if (v or 0) < 0]
+    cov = round(100 * scored / n, 1) if n else 0
+    return [
+        _f("has_assets", "completeness", "blocking", n > 0, f"{n} exposures in scope" if n > 0 else "No exposures in scope — nothing to file"),
+        _f("some_scored", "completeness", "blocking", scored > 0,
+           f"{scored} exposures scored on the golden source" if scored > 0
+           else "No exposure scored — Template 5 would be empty"),
+        _f("full_coverage", "completeness", "warning", n > 0 and scored == n,
+           f"All {n} exposures scored ({cov}%)" if scored == n
+           else f"{scored}/{n} scored ({cov}%) — {n - scored} unscored are in no Template 5 sensitivity column"),
+        _f("total_value_positive", "plausibility", "blocking", total > 0,
+           f"Total book value {_eur(total)}" if total > 0 else "Total book value is zero"),
+        _f("emissions_non_negative", "plausibility", "warning", not neg,
+           "Financed emissions are non-negative" if not neg else f"Negative financed emissions: {neg}"),
+    ]
+
+
 def _validate_bank_p3esg(payload: dict) -> list[dict]:
     """The bank checks plus Pillar 3's own: every template amount is a gross carrying amount — the exposure's outstanding
     balance on the loan tape, never its collateral value — so an exposure that states none blocks the filing."""
     from services.governance.pillar3_grids import no_gross
+    from services.governance.pillar3_report import is_earlier_shape
     assets = payload.get("assets") or []
     missing = no_gross(assets)
-    return _validate_bank_book(payload) + [_f(
+    # a filing of the earlier report shape keeps the checks it was made under; a new one checks what its templates read —
+    # no severity-bucket, value-at-risk or per-hazard figure is frozen any more (E97)
+    base = _validate_bank_book(payload) if is_earlier_shape(payload) else _validate_p3_book(payload)
+    return base + [_f(
         "gross_carrying_amount_stated", "completeness", "blocking", not missing,
         f"Every exposure states its gross carrying amount ({len(assets)})" if not missing
         else f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they would sit "

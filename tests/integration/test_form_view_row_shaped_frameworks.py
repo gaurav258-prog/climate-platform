@@ -72,7 +72,7 @@ def test_form_view_still_merges_overrides_for_datapoint_shaped_frameworks():
         """), {"o": "11111111-1111-4111-8111-111111111111", "snap": snap["snapshot_id"], "u": u}).scalar()
         out = F.form_view(s, "11111111-1111-4111-8111-111111111111", fid)
         assert out is not None
-        assert any(g.get("group") == "Headline exposure" for g in out["groups"])
+        assert any(g.get("group") == "Financed emissions (PCAF)" for g in out["groups"])     # Template 1 i–j (E97)
         s.rollback()
 
 

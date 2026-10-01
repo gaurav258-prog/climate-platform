@@ -21,6 +21,7 @@ import { balance, flow, money } from '../lib/money'
 import { CloseButton } from '../components/Dialog'
 import { Drawer } from '../components/Drawer'
 import { pressable } from '../lib/pressable'
+import KriTemplateRows from '../components/KriTemplateRows'
 
 // the asset-detail config per bank/REIT framework — lets a KRI exposure row open the full asset drawer
 const DRAWER_CFG: Record<string, DrawerCfg> = {
@@ -32,12 +33,12 @@ const DRAWER_CFG: Record<string, DrawerCfg> = {
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated'; flow?: boolean; live_only?: boolean; filed_basis?: string | null }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated'; flow?: boolean; live_only?: boolean; filed_basis?: string | null; group?: string; row?: { id: string; label: string }; column?: string }
 interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
 interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
 // `figures`: what the anchor report printed (a set anchored on a governed report — services.governance.kri_sectors, kri_bank)
-interface HistFig { key: string; label: string; value: number | null; fmt: string }
+interface HistFig { key: string; label: string; value: number | null; fmt: string; group?: string }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null; figures?: HistFig[] }
 interface Basis { kpis: 'live'; note: string; last_filed: { period_label: string; filing_id: string | null } | null }
 // an ESRS KRI set is one undertaking's statement for the year; `undertakings` are those with a stated statement role
@@ -83,11 +84,13 @@ export default function Kri() {
   const d = q.data
   const undertakings = d?.undertakings ?? []
   const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
-  const nComputed = d?.kpis?.filter(k => kindOf(k) === 'computed').length ?? 0
-  const nIntegrated = d?.kpis?.filter(k => kindOf(k) === 'integrated').length ?? 0
-  const nRed = d?.kpis?.filter(k => k.status === 'red').length ?? 0
-  const nAmber = d?.kpis?.filter(k => k.status === 'amber').length ?? 0
-  const nOk = d?.kpis?.filter(k => k.status === 'ok').length ?? 0
+  // the grid shows the set's own indicators; a grouped set (Pillar 3 Template 5, one KRI per row and column) is picked by row below
+  const tiles = d?.kpis?.filter(k => !k.group) ?? []
+  const nComputed = tiles.filter(k => kindOf(k) === 'computed').length
+  const nIntegrated = tiles.filter(k => kindOf(k) === 'integrated').length
+  const nRed = tiles.filter(k => k.status === 'red').length
+  const nAmber = tiles.filter(k => k.status === 'amber').length
+  const nOk = tiles.filter(k => k.status === 'ok').length
   // act on breaches from here: jump to the off-appetite indicators, and raise a remediation task on one.
   const [onlyBreaches, setOnlyBreaches] = useState(false)
   const [raising, setRaising] = useState<string | null>(null)
@@ -160,7 +163,7 @@ export default function Kri() {
             title={nRed > 0 ? `${nRed} indicator${nRed === 1 ? '' : 's'} in breach.` : nAmber > 0 ? `${nAmber} indicator${nAmber === 1 ? '' : 's'} in warning.` : 'Every indicator is within appetite.'}
             lead="How the book's key risk indicators sit against appetite right now — before you drill into any one hazard."
             stat={[
-              { label: 'Indicators tracked', value: d.kpis.length, icon: Gauge, tone: 'var(--color-sky)' },
+              { label: 'Indicators tracked', value: tiles.length, icon: Gauge, tone: 'var(--color-sky)' },
               { label: 'Within appetite', value: nOk, icon: CheckCircle2, tone: nOk > 0 ? '#4FA46E' : undefined },
               { label: 'Warning', value: nAmber, icon: AlertTriangle, tone: nAmber > 0 ? '#E8853C' : undefined },
               { label: 'In breach', value: nRed, icon: ShieldAlert, tone: nRed > 0 ? '#D23B3B' : '#4FA46E', pulse: nRed > 0 },
@@ -211,7 +214,7 @@ export default function Kri() {
             {prov !== 'all' && <button onClick={() => setProv('all')} className="mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ml-0.5">show all</button>}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {d.kpis.filter(k => (prov === 'all' || kindOf(k) === prov) && (!onlyBreaches || k.status === 'red')).map(k => {
+            {tiles.filter(k => (prov === 'all' || kindOf(k) === prov) && (!onlyBreaches || k.status === 'red')).map(k => {
               const rag = k.status ? RAG[k.status] : null
               const note = bandNote(k)
               const integrated = kindOf(k) === 'integrated'
@@ -242,7 +245,7 @@ export default function Kri() {
             })}
           </div>
 
-          <KriReference d={d} hasAnalytics={hasAnalytics} nav={nav} setDrill={setDrill} orgType={profile?.org?.type} />
+          <KriReference d={d} hasAnalytics={hasAnalytics} nav={nav} setDrill={setDrill} setDetail={setDetail} orgType={profile?.org?.type} />
         </>
       )}
 
@@ -254,9 +257,11 @@ export default function Kri() {
 
 // Reference material behind a tab strip instead of stacked open below the indicators: value-at-risk by hazard,
 // the trend across filings, and the regulator framing. Keeps the KRI grid (the hero) uncluttered.
-function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
-  { d: Resp; hasAnalytics: boolean; nav: (to: string) => void; setDrill: (h: string) => void; orgType?: string }) {
+function KriReference({ d, hasAnalytics, nav, setDrill, setDetail, orgType }:
+  { d: Resp; hasAnalytics: boolean; nav: (to: string) => void; setDrill: (h: string) => void; setDetail: (k: string) => void; orgType?: string }) {
+  const rowKpis = d.kpis.filter(k => k.group)
   const tabs: { k: string; label: string }[] = [
+    ...(rowKpis.length > 0 ? [{ k: 'rows', label: 'Template 5 by row' }] : []),
     ...(d.by_hazard.length > 0 ? [{ k: 'hazard', label: 'By hazard' }] : []),
     { k: 'history', label: 'History' },
     ...(d.regulator ? [{ k: 'reg', label: 'Regulator view' }] : []),
@@ -271,6 +276,7 @@ function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
         ))}
       </div>
       <div className="p-4">
+        {tab === 'rows' && <KriTemplateRows kpis={rowKpis} history={d.history} onOpen={setDetail} />}
         {tab === 'hazard' && d.by_hazard.length > 0 && (
           <div>
             <div className="flex items-center mb-2">
@@ -287,7 +293,7 @@ function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
               {d.history.map((h, i) => (
                 <button key={i} onClick={() => h.filing_id && nav(filingLink(orgType, h.filing_id))} className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition" title="Open this filing">
                   <div className="flex-1 mono text-[12px] text-[var(--color-mute)]">{h.label}</div>
-                  {h.figures ? h.figures.map(f => (
+                  {h.figures ? h.figures.filter(f => !f.group).map(f => (
                     <div key={f.key} className="text-right"><div className="mono text-[12.5px] tabular-nums">{f.value == null ? '—' : f.fmt === 'pct' ? `${f.value}%` : f.fmt === 'eur' ? balance(f.value) : String(f.value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">{f.label}</div></div>
                   )) : <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{balance(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>}
                   {!h.figures && h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{balance(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}

@@ -51,8 +51,9 @@ def test_insurer_climate_never_shows_the_bank_field_names_or_a_fake_zero_zero():
 
 
 def test_bank_headline_is_unaffected_by_the_insurer_branch():
-    # the located bank book's headline is Pillar 3's (the EU Taxonomy Art. 8 report prints none, E95)
-    groups = build_form("bank_p3esg", _bank_snap())
+    # the located-book headline (bank / REIT field names) — kept by the retired reit_tcfd and shown, marked, on earlier-shape
+    # bank filings; neither bank report prints one any more (E95, E97)
+    groups = build_form("reit_tcfd", _bank_snap())
     headline = next(g for g in groups if g["group"] == "Headline exposure")
     dps = {d["key"]: d for d in headline["datapoints"]}
     assert dps["book.total_value_eur"]["value"] == 4_176_900_000
@@ -64,6 +65,6 @@ def test_a_figure_not_computed_stays_on_the_form_as_a_named_gap():
     snap = {"rollup": {"total_value_eur": 1_000_000, "value_at_risk_eur": None, "pct_value_at_risk": None,
                        "total_discounted_value_eur": None, "n_scored": 1, "n_assets": 1,
                        "gap": "not stated: method.at_risk_level"}}
-    headline = next(g for g in build_form("bank_p3esg", snap) if g["group"] == "Headline exposure")
+    headline = next(g for g in build_form("reit_tcfd", snap) if g["group"] == "Headline exposure")
     var = next(d for d in headline["datapoints"] if d["key"] == "book.value_at_risk_eur")
     assert var["value"] is None and "method.at_risk_level" in var["note"]

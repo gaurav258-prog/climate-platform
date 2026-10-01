@@ -7,7 +7,8 @@ does for the REIT, insurer and asset manager, E87).
   bank_p3esg  Pillar 3 ESG: Template 1 prints the counterparties' gross Scope 1, 2 and 3 emissions (column i of its total
               row) — the financed-emissions KRI's filed basis. Template 5 prints physical-risk exposure per NACE sector and
               geography row on the gross carrying amount; it prints no book-level total, so the book-level physical-risk
-              KRIs are live only on both tabs.
+              KRIs are live only on both tabs — and a KRI per Template 5 row and column (services.governance.kri_t5, E98)
+              carries what the template does print, with its filed history.
 
 Every other KRI is `live_only`: it says so and has no filed history — nothing is borrowed from another report.
 """
@@ -87,19 +88,22 @@ def _p3_live_spec(session: Session, org_id: str) -> dict | None:
 def pillar3_kri(session: Session, org_id: str) -> dict:
     """The banking-book core plus the indicators the Pillar 3 templates prescribe beyond it: the IEA-NZE2050 alignment
     distance (Template 3) and the exposure to the top-20 carbon-intensive firms (Template 4)."""
+    from services.governance import kri_t5
     from services.governance.filing_annex import _p3_spec
     from services.governance.kri import _kpi, _live_snapshot, _snapshot_history
     from services.governance.reporting_settings import get_settings
     r = book_kri(session, org_id)
+    live_spec, t5 = _p3_live_spec(session, org_id), []
     try:
         from services.governance.transition_alignment import template3_grid, template4_top20
         s = get_settings(session, org_id)
         snap = _live_snapshot(session, org_id, PILLAR3, s["scenario"], s["horizon"])
         assets = (snap or {}).get("assets") or []
+        t5 = kri_t5.kpis(live_spec, kri_t5.grid(snap, live_spec), (snap.get("rollup") or {}).get("gap"))
         total = (snap or {}).get("rollup", {}).get("total_value_eur") or sum(a.get("value_eur") or 0 for a in assets)
         for kpi in r["kpis"]:
             if kpi["key"] == "fin_emissions":           # the figure Template 1 prints (gross, no PCAF attribution)
-                kpi["value"] = _t1_emissions(_p3_live_spec(session, org_id), assets)
+                kpi["value"] = _t1_emissions(live_spec, assets)
                 kpi["hint"] = ("tCO₂e · gross Scope 1–3 of the counterparties that state all three — Template 1, total "
                                "row, column i (no PCAF attribution there). A scope not stated is never counted as zero.")
                 break
@@ -119,8 +123,10 @@ def pillar3_kri(session: Session, org_id: str) -> dict:
     except Exception:  # noqa: BLE001 — a missing transition input must not sink the KRI set
         pass
     _anchor(r["kpis"], _P3_PRINTED)
+    r["kpis"] += t5                                     # Template 5 per row and column: filed basis and history (E98)
     r["history"] = [_hist(h, [{"key": "fin_emissions", "label": "Financed emissions (Template 1, column i)", "fmt": "num",
-                               "value": _t1_emissions(_p3_spec(h["payload"]), h["payload"].get("assets") or [])}])
+                               "value": _t1_emissions(_p3_spec(h["payload"]), h["payload"].get("assets") or [])}]
+                          + kri_t5.figures(h["payload"], live_spec))
                     for h in _snapshot_history(session, org_id, PILLAR3)]
     r.update(framework=PILLAR3, label="Pillar 3 ESG KRIs")
     return r

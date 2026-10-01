@@ -246,10 +246,9 @@ def loan_book(session, org_id, scenario, horizon, entity_ids=None, value_weights
 
 def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None,
                               period_end=None):
-    """The single source of truth for the book's live analytics and the Pillar 3 ESG filing: live callers
-    (GET /disclosure) and frozen callers (submission snapshots) both go through
-    this, so a submission's numbers can never drift from what the live view shows
-    at the moment it's taken. entity_ids / value_weights scope + consolidation-weight
+    """The book's live analytics (GET /disclosure, the KRI page, the analytics views). No filing freezes it: Pillar 3
+    ESG freezes the book its templates read (services.governance.pillar3_report, E97) and the separate submission
+    mechanism that froze it whole was retired (E99). entity_ids / value_weights scope + consolidation-weight
     the book for a per-entity or consolidated-group filing (None = whole org). period_end: the financial year the
     figures are for — its stated method is used (None = the organisation's reporting period, the live views)."""
     from services.money.params import for_org
