@@ -130,15 +130,10 @@
   },
   "bank_tcfd": {
    "regime": "crr_prudential",
-   "basis": "declared",
+   "basis": "text",
    "refs": [
     "Delegated Regulation (EU) 2021/2178 Annex V 1.1.1"
-   ],
-   "declaration": {
-    "declared_by": "Tellumen",
-    "declared": "2026-10-01",
-    "reading": "The bank TCFD filing freezes one book that carries the bank's Article 8 KPIs (green asset ratio), which Annex V 1.1.1 ties to the prudential scope of consolidation; TCFD sets no scope of its own, so the rest of the report is computed on the same book rather than a second one."
-   }
+   ]
   }
  }
 }

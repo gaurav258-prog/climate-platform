@@ -48,7 +48,9 @@ def test_the_check_names_each_kind_of_problem():
 
     from services.regspec import rules
     bad = copy.deepcopy(REG)
-    bad["frameworks"]["bank_tcfd"]["declaration"]["reading"] = ""
+    bad["frameworks"]["bank_tcfd"] = {"regime": "crr_prudential", "basis": "declared", "refs": ["Delegated Regulation (EU) "
+                                      "2021/2178 Annex V 1.1.1"], "declaration": {"declared_by": "x", "declared": "2026-01-01",
+                                                                                  "reading": ""}}   # a declared reading, empty
     bad["frameworks"]["bank_p3esg"]["refs"] = ["ESRS 1 §62"]
     bad["frameworks"]["bank_p3esg"]["declaration"] = {"reading": "x", "declared_by": "x", "declared": "2026-01-01"}
     bad["regimes"]["crr_prudential"]["refs"][0]["quote"] = "a sentence no act contains"

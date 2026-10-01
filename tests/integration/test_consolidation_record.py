@@ -47,9 +47,9 @@ def test_a_group_filing_freezes_its_rule_and_the_form_shows_its_signoff(session_
     f = _file(s, "bank_tcfd", group["entity_id"])
     cons = F.get_filing(s, BANK_ORG, f["filing_id"])["snapshot"]["payload"]["_consolidation"]
     sha = rules.load("consolidation", "regimes")["_sha256"]
-    assert cons["regime"] == "crr_prudential" and cons["basis"] == "declared"
+    # Annex V 1.1.1 of Del. Reg. 2021/2178 sets it (the prudential scope of consolidation): a rule of the text, no reading
+    assert cons["regime"] == "crr_prudential" and cons["basis"] == "text" and "declaration" not in cons
     assert cons["factors"]["equity"] == "excluded" and cons["refs"][0]["quote"]
-    assert cons["declaration"]["reading"] and "confirmed_by" not in cons["declaration"]
     assert cons["rule_file"] == {"framework": "consolidation", "version": "regimes", "sha256": sha}
 
     view = F.form_view(s, BANK_ORG, f["filing_id"])["consolidation"]
@@ -81,5 +81,4 @@ def test_the_rule_file_cannot_be_signed_by_an_engineer_while_it_fails_its_checks
 def test_the_rule_file_is_in_the_spec_register(session_rolled_back):
     entry = next(x for x in S.overview(session_rolled_back) if x["framework"] == "consolidation")
     assert entry["version"] == "regimes" and entry["templates"] == [] and entry["coverage"]["complete"]
-    assert {i["subject"] for i in entry["interpretations"]} == {
-        F.FRAMEWORKS[fw]["label"] for fw in ("bank_tcfd",)}     # the TCFD-style readings left with their reports (E87)
+    assert entry["interpretations"] == []    # every consolidation rule is its governing text's own (bank_tcfd: Annex V 1.1.1)
