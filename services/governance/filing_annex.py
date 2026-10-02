@@ -699,6 +699,10 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
                 (("stage", "IFRS 9 stage"), ("mat", "maturity"), ("imp", "impairment"))
                 + ((("pab", "Paris-benchmark exclusion"), ("ccm", "CCM sustainability"), ("rep", "company-reported emissions"),
                     ("ghg", "Scope 1–3 emissions"), ("ghg3", "Scope 3 emissions"))
+                   if tid == "T1" and grid.get("t1_method") is None else
+                   (("pab", "Paris-benchmark exclusion"), ("ccm", "CCM sustainability"),
+                    ("ghg", "attributable emissions of every scope estimated"), ("ghg3", "attributable Scope 3 emissions"),
+                    ("rep", "the source of the column-i emissions (reported by the company or not)"))
                    if tid == "T1" else ())]
     notes = [_col_groups(t["columns"]),
              "Blank (—) = no exposure in the row states that fact on the loan tape; " + "; ".join(supplied) + ".",
@@ -715,8 +719,21 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
         notes.append(f"Method: an exposure is sensitive when a climate hazard at its location scores at or above the "
                      f"institution's stated level ({grid.get('at_risk_level')} of 100, method.at_risk_level).")
     if tid == "T1":
-        notes.append("Method: financed emissions (i, j) are the counterparties' reported Scope 1–3 totals; k is the share of "
-                     "the row's gross carrying amount whose emissions the company reported itself, over all the row's exposures.")
+        from services.governance import pillar3_t1 as T1
+        rec = grid.get("t1_method")
+        notes.append(T1.describe(rec))
+        if rec is not None:
+            for k, what in (("unattributed", "state emissions but not the counterparty's total liabilities and equity — "
+                                             "not attributable, left out of i and j"),
+                            ("over", "have an exposure larger than the counterparty's stated total liabilities and equity "
+                                     "— left out of i and j"),
+                            ("rep_unknown", "in column i do not record whether the counterparty reported its emissions — "
+                                            "k is not computed where they sit")):
+                if st.get(k):
+                    notes.append(f"{st[k]:,} exposures {what}; the filing is blocked until they are stated.")
+            lines = T1.narrative_lines(rec)
+            if lines:
+                notes.append("Narrative accompanying the template — " + " | ".join(lines))
     notes += _readings(spec, tid)
     title = _p3_title(spec, tid) + (f" — {scope}" if scope else "")
     return {"title": title, "key": key, "columns": ["Row"] + [_col_head(c) for c in cols],
@@ -736,7 +753,8 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     spec = _p3_spec(payload)
     if assets:
         from services.governance.pillar3_grids import build as p3_build
-        sections.append(_spec_grid_section(spec, "T1", p3_build(spec, "T1", assets), key="t1"))
+        from services.governance.pillar3_t1 import RECORD
+        sections.append(_spec_grid_section(spec, "T1", p3_build(spec, "T1", assets, t1=(payload or {}).get(RECORD)), key="t1"))
 
     # Templates 2, 3, 4 (and 6-10 below) are also rendered row for row from the spec; how each cell is filled is declared
     # in pillar3_gar / pillar3_other and checked by coverage.

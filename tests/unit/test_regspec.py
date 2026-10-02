@@ -61,33 +61,6 @@ def test_validation_refuses_unverified_text_in_an_adopted_spec():
     assert not any("UNVERIFIED" in e for e in R.validate(spec))
 
 
-def test_every_xbrl_reference_names_a_column_the_spec_has():
-    """Error log E10: the export's element map once cited Template 1 columns that do not exist."""
-    import json
-    import re
-    from pathlib import Path
-    spec = R.governing("bank_p3esg", period_end="2025-12-31")
-    cfg = json.loads((Path(R.ROOT).parents[2] / "config" / "eba_p3esg_binding.json").read_text())
-    for name, el in cfg["elements"].items():
-        for tno, col in re.findall(r"Template (\d+), column ([a-p])\b", el["its_ref"]):
-            ids = {c["id"] for c in R.template(spec, f"T{tno}")["columns"]}
-            assert col in ids, (name, el["its_ref"])
-
-
-def test_the_xbrl_export_emits_exactly_the_listed_facts():
-    """The element map file is the one list of facts: the export emits every listed fact and nothing else."""
-    import re
-    from pathlib import Path
-
-    from services.governance.filing_export import p3esg_facts
-    src = (Path(R.ROOT).parents[2] / "services" / "governance" / "filing_export.py").read_text()
-    start = src.index("def _bank_p3esg_xbrl")
-    end = src.find("\ndef ", start + 10)
-    body = src[start:end if end > 0 else len(src)]
-    emitted = set(re.findall(r'\bfact\("(\w+)"', body))
-    assert emitted == set(p3esg_facts())
-
-
 def _doc_spec(items):
     return {"framework": "x", "version": "v", "act": {"celex": "3"}, "status": "adopted", "legal_basis": {"a": 1},
             "applies": {"from": "2023-01-01", "until": None, "basis": "disclosure_date"},

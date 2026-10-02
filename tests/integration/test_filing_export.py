@@ -75,30 +75,22 @@ def test_unavailable_format_is_refused():
             export_filing(s, BANK_ORG, fid, "pdf")
 
 
-def _a_frozen_p3esg_filing(session):
-    return session.execute(text(
-        "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND framework = 'bank_p3esg' "
-        "AND snapshot_id IS NOT NULL AND status NOT IN ('withdrawn', 'superseded') "   # a discarded draft is no filing
-        "ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
-
-
 @pytest.mark.integration
-def test_pillar3_xbrl_export_is_well_formed_with_gar_and_emissions():
-    import xml.etree.ElementTree as ET
-    with get_session() as s:
-        fid = _a_frozen_p3esg_filing(s)
-        if not fid:
-            pytest.skip("no frozen bank_p3esg filing")
-        name, media, content = export_filing(s, BANK_ORG, fid, "xbrl")
-        assert name.endswith(".xbrl") and media == "application/xml"
-        root = ET.fromstring(content)                      # well-formed
-        facts = {el.tag.rsplit("}", 1)[-1] for el in root if el.get("contextRef")}
-        # the Pillar 3 headline figures are tagged as facts (Template 7 totals + financed emissions + physical risk); a GAR
-        # figure the book cannot yet support (no exposure placed in a GAR row) is not emitted rather than written as zero
-        assert {"GARTotalAssets", "GARCoveredAssets"} <= facts
-        assert {"FinancedEmissionsScope3", "PhysicalRiskSensitiveExposure"} <= facts
-        # every fact carries a unit reference (valid xbrli instance)
-        assert all(el.get("unitRef") for el in root if el.get("contextRef"))
+def test_pillar3_has_no_xbrl_until_the_eba_taxonomy_is_bound():
+    """E104: the Pillar 3 XBRL was an instance under a Tellumen-made namespace (taxonomy.tellumen.eu) — not a filing. It
+    is removed, as E95 / E60 did: the report exports JSON and the templates in a workbook, and an XBRL request for a
+    filing of any date is refused. The Pillar 3 Tellumen-made namespace is left nowhere in the code."""
+    from pathlib import Path
+
+    from services.governance.filing_export import _xbrl, formats_for
+    assert formats_for("bank_p3esg") == ("json", "xlsx")
+    with pytest.raises(ExportError):
+        _xbrl(None, "x", "bank_p3esg", {}, {})
+    root = Path(__file__).resolve().parents[2]
+    assert not (root / "config" / "eba_p3esg_binding.json").exists()
+    for d in ("services", "api", "ml"):
+        for f in (root / d).rglob("*.py"):
+            assert "taxonomy.tellumen.eu/p3esg" not in f.read_text(), f
 
 
 TERRA_ORG = "55555555-5555-4555-8555-555555555555"

@@ -49,6 +49,10 @@ EXT_BANKING_COLUMNS = [
     "CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur",
     "x.loan_origination_date",
     "CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur",   # PCAF attribution denominator
+    # Pillar 3 Template 1 column i: the counterparty's total liabilities (accounting liabilities and shareholders' equity)
+    # and the date of the balance sheet it is taken from — the proportion Annex XL names (services/governance/pillar3_t1)
+    "CAST(x.counterparty_total_liabilities_eur AS FLOAT) AS counterparty_total_liabilities_eur",
+    "x.counterparty_total_liabilities_date",
     # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
@@ -83,7 +87,8 @@ EXT_BANKING_COLUMNS = [
 
 
 _P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable",
-             "emissions_company_reported", "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose",
+             "emissions_company_reported", "counterparty_total_liabilities_eur", "counterparty_total_liabilities_date",
+             "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose",
              "trading_book", "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2",
              "ep_score_estimated",
              # EU Taxonomy Art. 8 (services.governance.taxonomy_gar): CSRD scope and the counterparty's own KPIs
@@ -423,8 +428,12 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 / EU CRFR4 (pending adoption) IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
     {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC", "kind": "money",
      "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape. In the currency you declare (or the row's currency).", "example": "185000000"},
-    {"name": "currency", "required": False, "label": "Currency", "kind": "text", "description": "ISO 4217 code of this row's EVIC; overrides the currency declared for the upload.", "example": "USD"},
-    {"name": "book_date", "required": False, "label": "Book date", "kind": "date", "description": "YYYY-MM-DD the EVIC describes (converted at that day's rate); overrides the declared book date.", "example": "2026-06-30"},
+    {"name": "counterparty_total_liabilities_eur", "required": False, "label": "Counterparty total liabilities and equity", "kind": "money",
+     "description": "The counterparty's total liabilities — its accounting liabilities and shareholders' equity — from its balance sheet "
+     "on the book date: Pillar 3 Template 1 column i, the proportion Annex XL names (your exposure compared to the counterparty's "
+     "total liabilities). In the currency you declare (or the row's currency).", "example": "420000000"},
+    {"name": "currency", "required": False, "label": "Currency", "kind": "text", "description": "ISO 4217 code of this row's amounts (EVIC, total liabilities, impairment); overrides the currency declared for the upload.", "example": "USD"},
+    {"name": "book_date", "required": False, "label": "Book date", "kind": "date", "description": "YYYY-MM-DD the row's amounts describe — for total liabilities, the counterparty's balance-sheet date (converted at that day's rate); overrides the declared book date.", "example": "2026-06-30"},
     {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
      "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
     {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
@@ -470,6 +479,7 @@ ATTR_TEMPLATE_FIELDS = [
      "description": "True if the EP score is your estimate rather than from the EPC — Template 2 column p and rows 5 and 10.", "example": "false"},
 ]
 _ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
+              "counterparty_total_liabilities_eur",
               "counterparty_govt_level", "no_stated_maturity", "counterparty_sector", "immovable_collateral",
               "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable", "emissions_company_reported",
               "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose", "trading_book",
@@ -526,6 +536,7 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         MoneyError,
         convert_amount,
         money_source_merge_sql,
+        parse_book_date,
         source_record,
     )
     matched, unmatched, updated, ambiguous, refused = 0, [], 0, [], []
@@ -554,19 +565,36 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         ei = row.get("emission_intensity")
         if ei not in (None, ""):
             sets.append("emission_intensity = :ei"); params["ei"] = float(str(ei).replace(",", ""))
-        evic = row.get("counterparty_evic_eur")
-        if evic not in (None, ""):
-            ccy = (str(row.get("currency") or "").strip() or currency or "").upper()
-            bdate = str(row.get("book_date") or "").strip() or book_date
-            try:
-                c = convert_amount(session, evic, ccy, bdate, label="counterparty EVIC", org_id=org_id)
-            except MoneyError as e:
-                refused.append({"asset": ref or name, "reason": str(e)})
+        # the row's amounts, in its (or the upload's) currency, converted at the closing rate of its book date; what was
+        # sent and the rate are kept in one merged money_source record (other fields' origins are kept)
+        ccy = (str(row.get("currency") or "").strip() or currency or "").upper()
+        bdate = str(row.get("book_date") or "").strip() or book_date
+        money, bad = {}, None
+        for fld, label in (("counterparty_evic_eur", "counterparty EVIC"),
+                           ("counterparty_total_liabilities_eur", "counterparty total liabilities"),
+                           ("accumulated_impairment_eur", "accumulated impairment")):
+            if row.get(fld) in (None, ""):
                 continue
-            sets.append("counterparty_evic_eur = :evic"); params["evic"] = c["eur"]
-            sets.append(f"money_source = {money_source_merge_sql()}")   # other fields' origins are kept
-            params["ms"] = json.dumps(source_record(ccy, bdate, {"counterparty_evic_eur": c}, origin="attributes_upload"), default=str)
-        gl = row.get("counterparty_govt_level")
+            try:
+                money[fld] = convert_amount(session, row[fld], ccy, bdate, label=label, org_id=org_id)
+            except MoneyError as e:
+                bad = str(e)
+                break
+        if bad:
+            refused.append({"asset": ref or name, "reason": bad})
+            continue
+        if money.get("counterparty_total_liabilities_eur", {}).get("eur", 1) <= 0:
+            refused.append({"asset": ref or name, "reason": "counterparty total liabilities must be positive"})
+            continue
+        for fld, c in money.items():
+            sets.append(f"{fld} = :{fld}"); params[fld] = c["eur"]
+        if "counterparty_total_liabilities_eur" in money:     # the balance sheet's date: the book date it converts at
+            sets.append("counterparty_total_liabilities_date = :cptl_date")
+            params["cptl_date"] = parse_book_date(bdate)
+        if money:
+            sets.append(f"money_source = {money_source_merge_sql()}")
+            params["ms"] = json.dumps(source_record(ccy, bdate, money, origin="attributes_upload"), default=str)
+        gl =row.get("counterparty_govt_level")
         if gl not in (None, ""):
             sets.append("counterparty_govt_level = :gl"); params["gl"] = str(gl).strip().lower()
         nsm = row.get("no_stated_maturity")
@@ -586,21 +614,6 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         ep = row.get("ep_score_kwh_m2")
         if ep not in (None, ""):
             sets.append("ep_score_kwh_m2 = :ep"); params["ep"] = float(str(ep).replace(",", ""))
-        imp = row.get("accumulated_impairment_eur")
-        if imp not in (None, ""):
-            ccy = (str(row.get("currency") or "").strip() or currency or "").upper()
-            bdate = str(row.get("book_date") or "").strip() or book_date
-            try:
-                c = convert_amount(session, imp, ccy, bdate, label="accumulated impairment", org_id=org_id)
-            except MoneyError as e:
-                refused.append({"asset": ref or name, "reason": str(e)})
-                continue
-            sets.append("accumulated_impairment_eur = :imp"); params["imp"] = c["eur"]
-            rec = source_record(ccy, bdate, {"accumulated_impairment_eur": c}, origin="attributes_upload")
-            if "ms" in params:                                   # EVIC on the same row: one merged record
-                merged = json.loads(params["ms"]); merged["fields"].update(rec["fields"]); params["ms"] = json.dumps(merged, default=str)
-            else:
-                sets.append(f"money_source = {money_source_merge_sql()}"); params["ms"] = json.dumps(rec, default=str)
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
             updated += 1

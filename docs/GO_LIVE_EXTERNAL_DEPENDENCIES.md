@@ -17,7 +17,7 @@ _Last reviewed: 2026-09-25._
 | 9 | EBA Template 3 "Chemicals" NACE code list | Bank Pillar 3 Template 3 | full official crosswalk built for the other 7 sectors (extracted + OCR'd from the real Annex XL table) + a disclosed fallback for Chemicals | **EBA itself has not published it** — confirmed via their own Q&A (not a research gap) | EBA publishes the NACE list (next DPM release) → replace the division-20 fallback in `transition_alignment.py` |
 | 10 | NACE Rev. 2.1 transition (Template 3 only — Templates 1/5 already handled) | Bank Pillar 3, all templates using NACE | Templates 1/5 read NACE at section level (stable across the revision per JBRC's own advice); Template 3's crosswalk is fine-grained class/group level | EBA/JBRC guidance for Template 3 specifically not yet published as of the June-2025 JBRC advice | EBA/JBRC publish a Rev-2.1 equivalent of the Annex XL crosswalk → rebuild `_ANNEX_XL_NACE_CROSSWALK` against it |
 | 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | the ESRS statement per undertaking and year, each figure keyed by concept (`data/reference/esrs/concepts.json`); **JSON export only — no ESRS XBRL** (the provisional engine was removed, E60/E66) | the finalised taxonomy for the ESRS as amended (Aug-2024 set being superseded, draft at SRB 29-Jul-2026); mandatory tagging suspended until the ESEF RTS is updated | the finalised element list, verified against the XSD package → we build the binding concept → element and the iXBRL export on it |
-| 2 | EBA Pillar 3 ESG element map | Bank Pillar 3 XBRL | well-formed XBRL + drop-in binding seam, verified ITS refs | EBA taxonomy publication (P3DH) | the DPM element IDs → drop `config/eba_p3esg_binding.json` |
+| 2 | EBA Pillar 3 ESG taxonomy (P3DH DPM) | Bank Pillar 3 XBRL | the templates to the ITS (Annex XL) per filing, exported as JSON and a workbook; **no Pillar 3 XBRL** — the instance under a Tellumen-made namespace was removed (E104, as E60/E95), and filings of every date are refused the format | the EBA's DPM and XBRL taxonomy for the Pillar 3 Data Hub | the published taxonomy package → we build the binding (each template cell → its DPM datapoint, verified against the package) and the export on it |
 | 3 | EUDR information-system registration + interface spec | Agri / EUDR statements | filing lifecycle built; reference recorded by hand | customer registration (EU Login) | published interface spec + test access → we map + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
@@ -76,19 +76,18 @@ _Last reviewed: 2026-09-25._
   per ESRS version, and the iXBRL/ESEF export on it, tested with Arelle. The history above (16 CONCEPTS, `tesrs:`) is
   kept as the record of why the provisional profile was never a filing format. **Do not invent element IDs.**
 
-## 2 · EBA Pillar 3 ESG element map  *(external artifact — EBA taxonomy pending)*
-- **Hook:** `config/eba_p3esg_binding.json` (override env `EBA_P3ESG_BINDING`), consumed by
-  `_load_p3_binding()` in `services/governance/filing_export.py`. No real map present → the export
-  emits well-formed, fully tagged XBRL under the provisional namespace `_P3_NS =
-  https://taxonomy.tellumen.eu/p3esg/2024` and self-documents that state; `p3esg_binding_status()`
-  reports `pending_eba_taxonomy`. All 13 facts are scaffolded with their **verified ITS 2022/2453
-  (Annex XXXIX/XL) template + column reference** — only the machine element id is pending.
-- **Needed:** the official EBA element ids/namespace. The EBA will develop the DPM and XBRL taxonomy
-  for the **Pillar 3 Data Hub (P3DH)**; the disclosure ITS was amended Jun-2026 (EBA/ITS/2026/02),
-  reference date 31 Dec 2026 (31 Dec 2027 for small & non-complex institutions). It is **not yet published**.
-- **Owner:** EBA publishes it; obtaining + dropping it in is us.
-- **When it lands:** set `namespace` + each `element` in the JSON, re-verify the instance. ~1h, no code
-  change (a simulated real map already flips all 13 facts to bound). **Do not invent element IDs.**
+## 2 · EBA Pillar 3 ESG taxonomy (P3DH DPM)  *(external artifact — EBA taxonomy pending)*
+- **State (E104, 2026-10-01):** there is **no Pillar 3 XBRL export**. The earlier export wrote an instance under a
+  Tellumen-made namespace (`https://taxonomy.tellumen.eu/p3esg/2024`) with 13 facts of our own naming, four of them
+  not template cells, waiting for element ids to be "dropped in" (`config/eba_p3esg_binding.json`). An instance under
+  invented element names is not a filing, so it was removed, as the ESRS XBRL (E60) and the EU Taxonomy XBRL (E95)
+  were: `bank_p3esg` exports JSON and the templates in a workbook (`filings.EXPORT_FORMATS`), and an XBRL request for
+  a filing of any date is refused (409). Guard: `tests/integration/test_filing_export.py`.
+- **Needed:** the EBA's own DPM and XBRL taxonomy for the **Pillar 3 Data Hub (P3DH)** — not held.
+- **Owner:** the EBA publishes it; building the binding is us.
+- **When it lands:** bind each template cell of the governing specification (`data/reference/regspec/bank_p3esg`)
+  to its DPM datapoint, every element verified against the taxonomy package (not a PDF), validate the instance with
+  the EBA's own rules, then offer the format again. **Do not invent element IDs.**
 
 ## 3 · EUDR information system: registration + machine interface  *(customer, then us)*
 - **Built (E108):** each shipment's due diligence statement is a filing (`services/eudr/filing.py`): prepared from the

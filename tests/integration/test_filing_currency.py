@@ -139,15 +139,10 @@ def test_filing_freezes_its_currency_flags_rate_revisions_and_restates_in_scope(
     assert fx["presentation_currency"] == "USD" and full["snapshot"]["reporting_basis"]["presentation_currency"] == "USD"
     assert full["fx_revisions"] == []
 
-    # every rendering says USD: the form, the official annex, the XBRL unit (whole units at decimals="0")
-    from services.governance.filing_export import export_filing
+    # every rendering says USD: the form, the official annex (Pillar 3 has no XBRL, E104)
     form = F.form_view(s, BANK_ORG, f["filing_id"])
     assert form["currency"] == "USD" and form["fx"]["presentation_currency"] == "USD"
     assert "€" not in json.dumps(form["annex"], ensure_ascii=False)
-    xml = export_filing(s, BANK_ORG, f["filing_id"], "xbrl")[2].decode()
-    assert "iso4217:USD" in xml and "iso4217:EUR" not in xml and 'unitRef="uUSD" decimals="0"' in xml
-    import re
-    assert all("." not in v for v in re.findall(r'unitRef="uUSD" decimals="0">([^<]+)<', xml))
 
     # the ECB corrects the USD rate the filing used → the filing says so
     used = next(r for r in fx["rates_used"] if r["currency"] == "USD" and r["basis"] == "closing")
@@ -195,21 +190,18 @@ def test_a_file_names_the_holding_entity_and_the_intragroup_counterparty(session
 
 
 def test_an_entity_filing_is_identified_by_the_entitys_own_lei(session_rolled_back):
-    from services.governance.filing_export import ExportError, export_filing
+    from services.governance.filing_export import ExportError, _identity
     s = session_rolled_back
     _, _, leasing, _ = _tree(s)
     with pytest.raises(E.EntityError, match="not a valid LEI"):
         E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001KJTIIGC8Y1R13")          # check digits wrong
     E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001kjtiigc8y1r12")              # stored upper-case
-    user = s.execute(text("SELECT user_id::text FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at LIMIT 1"),
-                     {"o": BANK_ORG}).scalar()
-    tok = F.preflight(s, BANK_ORG, "bank", "bank_p3esg", leasing["entity_id"])["confirm_token"]   # the scope filed (XBRL: E95)
-    f = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", user, confirm_token=tok, entity_id=leasing["entity_id"])
-    xml = export_filing(s, BANK_ORG, f["filing_id"], "xbrl")[2].decode()
-    assert ">5493001KJTIIGC8Y1R12<" in xml and "filing entity's own LEI" in xml
+    s.execute(text("UPDATE organizations SET lei = '5493001KJTIIGC8Y1R12' WHERE org_id = CAST(:o AS uuid)"), {"o": BANK_ORG})
+    # who an XBRL instance identifies (the insurer's S.27.01 — the Pillar 3 XBRL is removed, E104)
+    who = _identity(s, BANK_ORG, leasing["entity_id"])
+    assert who["lei"] == "5493001KJTIIGC8Y1R12" and "filing entity's own LEI" in who["note"]
     E.update_entity(s, BANK_ORG, leasing["entity_id"], lei=None)
-    xml = export_filing(s, BANK_ORG, f["filing_id"], "xbrl")[2].decode()
-    assert "has no LEI on file — identified by the organisation's LEI" in xml
+    assert "has no LEI on file — identified by the organisation's LEI" in _identity(s, BANK_ORG, leasing["entity_id"])["note"]
     s.execute(text("UPDATE organizations SET lei = NULL WHERE org_id = CAST(:o AS uuid)"), {"o": BANK_ORG})
     with pytest.raises(ExportError, match="no LEI on file"):                                     # never a made-up identifier
-        export_filing(s, BANK_ORG, f["filing_id"], "xbrl")
+        _identity(s, BANK_ORG, leasing["entity_id"])

@@ -74,10 +74,10 @@ _NO_HAZARD_CELLS = {
                  "read (counterparty, instrument, Taxonomy status, objective, gross carrying amount); the templates print "
                  "no hazard cell, so there is no spatial trace. (A filing of the earlier report shape traces its hazard "
                  "cells as frozen.)",
-    "bank_p3esg": "Per exposure: the frozen banking book lists every exposure with the facts the Pillar 3 templates read, "
-                  "its hazard scores among them; Template 5 prints the gross carrying amount sensitive to chronic / acute "
-                  "events per sector and geography row, not a value per hazard, so there is no hazard cell to trace (E97). "
-                  "(A filing of the earlier report shape traces its hazard cells as frozen.)",
+    "bank_p3esg": "Template 5 prints the gross carrying amount sensitive to chronic / acute events per sector and "
+                  "geography row, not a value per hazard: trace a Template 5 cell (row × column × geography) to the "
+                  "exposures it sums and the hazards that make them sensitive — GET /v1/filings/{filing_id}/lineage/t5 "
+                  "(E105). (A filing of the earlier report shape traces its hazard cells as frozen.)",
 }
 _ALT_LINEAGE = {
     "sfdr_pai": "Per-issuer drill-down: GET /v1/issuers/{issuer_id} (full facility footprint + physical + "

@@ -1,0 +1,50 @@
+{
+  "_about": "Pillar 3 ESG Template 1, columns i, j and k (GHG financed emissions, of which Scope 3, and the share of the portfolio derived from company-specific reporting): what the instructions say, quoted, and the choices they leave to the institution. The wording is the same in both versions: Annex XL to Implementing Regulation (EU) 2021/637 as inserted by Implementing Regulation (EU) 2022/2453 (Annex II, CELEX 32022R2453, stored in data/sources/legal and checked word for word by tests/unit/test_t1_financed_emissions.py), and Annex XL of the EBA IT solutions to which Article 24 of Implementing Regulation (EU) 2024/3172 refers (not EU Official Journal text; not stored here — each quote was checked word for word against the English original from the instructions_url below on 2026-10-01, and the test checks that it is the 2022/2453 wording). Read by services/governance/pillar3_t1.py.",
+  "sources": {
+    "its_2022_2453": {"act": "Implementing Regulation (EU) 2022/2453, Annex II (Annex XL to Implementing Regulation (EU) 2021/637), Template 1", "celex": "32022R2453"},
+    "its_2024_3172": {"act": "Implementing Regulation (EU) 2024/3172, Article 24: EBA IT solutions, Annex XL ('Instructions for disclosure of ESG risks'), Template 1", "instructions_url": "https://www.eba.europa.eu/sites/default/files/2025-02/5026c718-0651-4339-af89-826ac447ac4f/IT%20solutions%20%28instructions%29%20in%20all%20EU%20languages.zip", "checked": "2026-10-01, the English original (FISMA-2024-01049 (01)-21), word for word"}
+  },
+  "quotes": {
+    "point_1b": {"ref": "Annex XL, Template 1, point 1(b)", "quote": "institutions shall start disclosing information on scope 1, 2 and 3 emissions of their counterparties, if already available, including qualitative information in the narrative accompanying this template on the methodology and sources used for the calculation of those emissions."},
+    "i_scope3_in_i": {"ref": "Annex XL, Template 1, column i", "quote": "Where the information is available, institutions shall disclose the estimates of the scope of their scope 3 GHG emissions in CO2 tonnes (TCO2) as part of column (i)."},
+    "i_methods": {"ref": "Annex XL, Template 1, column i", "quote": "The methods to compute the carbon emission of companies include the Global GHG Accounting and Reporting Standard for the Financial Industry, developed by the Partnership for Carbon Accounting Financials"},
+    "i_proportion": {"ref": "Annex XL, Template 1, column i", "quote": "Institutions shall estimate the scope 3 emissions per sector in a proportionate manner, including by taking into account their exposures (loans and advances, debt securities and equity holdings) towards the counterparty compared to the total liabilities (accounting liabilities and shareholders’ equity) of the counterparty."},
+    "i_narrative": {"ref": "Annex XL, Template 1, column i", "quote": "In the narrative part accompanying the template, institutions shall provide detailed explanations of the data sources used and of the methodology that they have applied for the estimation of their scope 3 GHG emissions."},
+    "i_kinds": {"ref": "Annex XL, Template 1, column i", "quote": "In particular, institutions shall explain whether they are disclosing any of the following:"},
+    "i_kind_a": {"ref": "Annex XL, Template 1, column i, point (a)", "quote": "reported emissions (emissions are collected from the borrower or investee company directly);"},
+    "i_kind_b": {"ref": "Annex XL, Template 1, column i, point (b)", "quote": "physical activity-based emissions (emissions are estimated by the reporting financial institution based on primary physical activity data collected from the borrower or investee);"},
+    "i_kind_c": {"ref": "Annex XL, Template 1, column i, point (c)", "quote": "economic activity-based emissions (emissions are estimated by the reporting financial institution based on economic activity data collected from the borrower or investee company)."},
+    "i_plans": {"ref": "Annex XL, Template 1, column i", "quote": "Where institutions are not yet estimating their counterparties’ emissions associated to their financing activities, including lending and investment activities, they shall disclose information on their plans to implement methods to estimate that information."},
+    "j_what": {"ref": "Annex XL, Template 1, column j", "quote": "Institutions shall disclose their counterparties’ scope 3 emissions associated with institutions’ lending and investment activities."},
+    "j_blank": {"ref": "Annex XL, Template 1, column j", "quote": "Where institutions are not yet estimating their scope 3 emissions, they shall leave column (j) blank and, in the narrative part accompanying the template, they shall disclose their plans to implement methods to estimate and disclose that information."},
+    "k_what": {"ref": "Annex XL, Template 1, column k", "quote": "Institutions shall indicate the percentage of the portfolio (gross carrying amount of the exposures) for which they have been able to estimate their counterparties’ scope 1, 2 and 3 emissions associated with institutions’ lending and investment activities based on information disclosed by their counterparties or reported to the institution on bilateral basis."}
+  },
+  "statements": {
+    "p3esg_t1_emissions_estimation": {
+      "label": "Pillar 3 Template 1 — which counterparty emissions the institution estimates",
+      "quotes": ["point_1b", "i_scope3_in_i", "i_plans", "j_blank"],
+      "options": {
+        "scope_1_2_3": "Scopes 1, 2 and 3: column i is scopes 1-3, column j scope 3.",
+        "scope_1_2": "Scopes 1 and 2, not yet scope 3: column i is scopes 1 and 2 (scope 3 is part of column i only 'where the information is available'); column j is left blank and the narrative gives the plans for scope 3.",
+        "not_yet_estimating": "Not yet estimating the counterparties' emissions: columns i, j and k are blank and the narrative gives the plans."
+      }
+    },
+    "p3esg_t1_attribution": {
+      "label": "Pillar 3 Template 1 — how a counterparty's emissions are attributed to the exposure",
+      "quotes": ["i_methods", "i_proportion"],
+      "options": {
+        "exposure_over_total_liabilities": "The proportion the instructions name: the exposure (its gross carrying amount) compared to the counterparty's total liabilities (accounting liabilities and shareholders' equity), stated per exposure with the date of the counterparty's balance sheet."
+      },
+      "not_offered": {
+        "pcaf": "PCAF's own attribution is per asset class (for instance listed equity and corporate bonds over EVIC, business loans to and equity in unlisted companies over total equity plus debt, project finance over the project's equity plus debt, mortgages and commercial real estate over the property value at origination). The platform's PCAF computation (services/scoring/pcaf.py) divides every exposure by the counterparty's EVIC, whatever the asset class, and caps the factor at 1, so it is not PCAF's attribution as PCAF defines it and is not offered here."
+      }
+    }
+  },
+  "narrative": [
+    {"key": "t1.data_sources", "prompt": "Data sources used for the counterparties' emissions", "quotes": ["point_1b", "i_narrative"], "required_when": ["scope_1_2_3", "scope_1_2"]},
+    {"key": "t1.methodology", "prompt": "Methodology applied to estimate the counterparties' emissions (including how they are attributed to the exposures)", "quotes": ["point_1b", "i_narrative"], "required_when": ["scope_1_2_3", "scope_1_2"]},
+    {"key": "t1.emission_kinds", "prompt": "Whether the institution discloses (a) reported emissions, (b) physical activity-based emissions, (c) economic activity-based emissions", "quotes": ["i_kinds", "i_kind_a", "i_kind_b", "i_kind_c"], "required_when": ["scope_1_2_3", "scope_1_2"]},
+    {"key": "t1.plans_emissions", "prompt": "Plans to implement methods to estimate the counterparties' emissions", "quotes": ["i_plans"], "required_when": ["not_yet_estimating"]},
+    {"key": "t1.plans_scope3", "prompt": "Plans to implement methods to estimate and disclose the counterparties' scope 3 emissions", "quotes": ["j_blank"], "required_when": ["scope_1_2", "not_yet_estimating"]}
+  ]
+}

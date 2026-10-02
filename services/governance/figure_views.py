@@ -15,7 +15,14 @@ from typing import Callable, Optional
 
 
 def _scope3(p: dict) -> Optional[float]:
-    v = (p.get("financed_emissions_tco2e") or {}).get("scope3")
+    """Our Scope 3 financed emissions: Template 1's total row, column j, on the institution's stated method (E103); a
+    filing frozen before that, the PCAF figure it froze."""
+    from services.governance.pillar3_t1 import RECORD
+    if RECORD in p:
+        from services.governance.pillar3_report import t1_total
+        v = (t1_total(p) or {}).get("j")
+    else:
+        v = (p.get("financed_emissions_tco2e") or {}).get("scope3")
     return float(v) if v is not None else None
 
 

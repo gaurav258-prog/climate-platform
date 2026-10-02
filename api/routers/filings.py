@@ -377,6 +377,25 @@ def lineage(filing_id: str, hazard: str, session: DbSession,
         raise HTTPException(404, {"error": "not_found", "message": str(e)})
 
 
+@router.get("/filings/{filing_id}/lineage/t5", summary="Pillar 3 Template 5 as frozen — the cells a trace starts from")
+def lineage_t5(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.pillar3_lineage import t5_view
+    try:
+        return t5_view(session, ctx["org"]["org_id"], filing_id)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/filings/{filing_id}/lineage/t5/cell", summary="Forward trace: a Template 5 cell → its exposures → golden source")
+def lineage_t5_cell(filing_id: str, row: str, column: str, session: DbSession, geography: str = "ALL",
+                    ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.pillar3_lineage import t5_cell_lineage
+    try:
+        return t5_cell_lineage(session, ctx["org"]["org_id"], filing_id, row, column, geography)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
 @router.get("/lineage/cell/{h3_cell}", summary="Reverse trace: a granular cell → every holding & filing that reuses it")
 def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_lineage import cell_upstream

@@ -17,6 +17,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from services.governance.kri_sectors import anchor
+from services.governance.pillar3_t1 import RECORD as T1_RECORD
 
 TAXONOMY, PILLAR3 = "bank_tcfd", "bank_p3esg"
 _T0 = "EU Taxonomy Art. 8 filing — Summary of KPIs (Template 0), GAR stock"
@@ -65,13 +66,14 @@ def taxonomy_kri(session: Session, org_id: str) -> dict:
     return r
 
 
-def _t1_emissions(spec: dict | None, assets: list[dict]):
-    """Template 1's total row, column i, as the filing prints it (None where the version has no Template 1)."""
+def _t1_emissions(spec: dict | None, assets: list[dict], t1: dict | None):
+    """Template 1's total row, column i, as the filing prints it on its stated method `t1` (None where the version has no
+    Template 1, or the method is not stated)."""
     from services.governance.pillar3_grids import BINDING, build
     if not spec or not assets or not any(t["id"] == "T1" for t in spec["templates"]):
         return None
     total = next((rid for rid, how in BINDING["T1"]["rows"].items() if how == "computed:total"), None)
-    row = next((x for x in build(spec, "T1", assets)["rows"] if x["id"] == total), None)
+    row = next((x for x in build(spec, "T1", assets, t1=t1)["rows"] if x["id"] == total), None)
     v = None if row is None else (row.get("values") or {}).get("i")
     return None if v is None else round(v)
 
@@ -102,10 +104,14 @@ def pillar3_kri(session: Session, org_id: str) -> dict:
         t5 = kri_t5.kpis(live_spec, kri_t5.grid(snap, live_spec), (snap.get("rollup") or {}).get("gap"))
         total = (snap or {}).get("rollup", {}).get("total_value_eur") or sum(a.get("value_eur") or 0 for a in assets)
         for kpi in r["kpis"]:
-            if kpi["key"] == "fin_emissions":           # the figure Template 1 prints (gross, no PCAF attribution)
-                kpi["value"] = _t1_emissions(live_spec, assets)
-                kpi["hint"] = ("tCO₂e · gross Scope 1–3 of the counterparties that state all three — Template 1, total "
-                               "row, column i (no PCAF attribution there). A scope not stated is never counted as zero.")
+            if kpi["key"] == "fin_emissions":           # the figure Template 1 prints, on the stated method (E103)
+                from services.governance.pillar3_t1 import RECORD, gaps
+                rec = (snap or {}).get(RECORD)
+                kpi["value"] = _t1_emissions(live_spec, assets, rec)
+                why = "; ".join(gaps(rec))
+                kpi["hint"] = ("tCO₂e · Template 1, total row, column i: the counterparties' emissions of the scopes you "
+                               "estimate, attributed by your exposure compared to their total liabilities and equity. "
+                               "A scope not stated is never counted as zero." + (f" Not computed — {why}." if why else ""))
                 break
         g3, g4 = template3_grid(assets), template4_top20(assets)
         align_pending = g3.get("portfolio_distance") is None
@@ -125,7 +131,8 @@ def pillar3_kri(session: Session, org_id: str) -> dict:
     _anchor(r["kpis"], _P3_PRINTED)
     r["kpis"] += t5                                     # Template 5 per row and column: filed basis and history (E98)
     r["history"] = [_hist(h, [{"key": "fin_emissions", "label": "Financed emissions (Template 1, column i)", "fmt": "num",
-                               "value": _t1_emissions(_p3_spec(h["payload"]), h["payload"].get("assets") or [])}]
+                               "value": _t1_emissions(_p3_spec(h["payload"]), h["payload"].get("assets") or [],
+                                                      h["payload"].get(T1_RECORD))}]
                           + kri_t5.figures(h["payload"], live_spec))
                     for h in _snapshot_history(session, org_id, PILLAR3)]
     r.update(framework=PILLAR3, label="Pillar 3 ESG KRIs")

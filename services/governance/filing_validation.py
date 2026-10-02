@@ -130,9 +130,15 @@ def _validate_bank_book(payload: dict) -> list[dict]:
 def _validate_p3_book(payload: dict) -> list[dict]:
     """The frozen banking book of a Pillar 3 filing (E97): there, of value, scored (Template 5 reads the scores), and its
     financed emissions non-negative."""
+    from services.governance.pillar3_report import t1_total
+    from services.governance.pillar3_t1 import RECORD
     rollup = payload.get("rollup") or {}
     n, scored, total = rollup.get("n_assets", 0), rollup.get("n_scored", 0), rollup.get("total_value_eur", 0) or 0
-    em = payload.get("financed_emissions_tco2e") or {}
+    if RECORD in payload:                                   # Template 1 columns i and j, on the stated method (E103)
+        t = t1_total(payload) or {}
+        em = {c: t.get(c) for c in ("i", "j")}
+    else:
+        em = payload.get("financed_emissions_tco2e") or {}
     neg = [k for k, v in em.items() if (v or 0) < 0]
     cov = round(100 * scored / n, 1) if n else 0
     return [
@@ -160,12 +166,48 @@ def _validate_bank_p3esg(payload: dict) -> list[dict]:
     # a filing of the earlier report shape keeps the checks it was made under; a new one checks what its templates read —
     # no severity-bucket, value-at-risk or per-hazard figure is frozen any more (E97)
     base = _validate_bank_book(payload) if is_earlier_shape(payload) else _validate_p3_book(payload)
-    return base + [_f(
+    return base + _t1_findings(payload) + [_f(
         "gross_carrying_amount_stated", "completeness", "blocking", not missing,
         f"Every exposure states its gross carrying amount ({len(assets)})" if not missing
         else f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they would sit "
              "in no Pillar 3 row; state it on the loan tape",
         ref="ITS (EU) 2024/3172 Annex XL — gross carrying amount")]
+
+
+def _t1_findings(payload: dict) -> list[dict]:
+    """Template 1 columns i-k (E103): the institution's statements (which emissions it estimates, how they are
+    attributed) are made; every exposure the columns read states what they need; the narrative the instructions
+    require is authored. A filing frozen before the statements were recorded keeps the checks it was made under."""
+    from services.governance import pillar3_t1 as T1
+    from services.governance.pillar3_report import t1_total
+    rec = payload.get(T1.RECORD)
+    if rec is None:
+        return []
+    ref = "Annex XL, Template 1, columns i–k (ITS 2022/2453; ITS 2024/3172)"
+    gaps = T1.gaps(rec)
+    out = [_f("t1_method_stated", "completeness", "blocking", not gaps,
+              "Template 1 columns i–k follow the institution's stated estimation and attribution" if not gaps
+              else "Template 1 columns i–k are a gap — " + "; ".join(gaps), ref=ref)]
+    st = (t1_total(payload) or {}).get("stated") or {}
+    for rule, k, what in (
+            ("t1_total_liabilities_stated", "unattributed",
+             "state emissions but not the counterparty's total liabilities (accounting liabilities and shareholders' "
+             "equity) — their financed emissions cannot be attributed; state it with its balance-sheet date (per-loan attributes)"),
+            ("t1_exposure_within_liabilities", "over",
+             "have an exposure larger than the counterparty's stated total liabilities and equity — one of the two is wrong"),
+            ("t1_emissions_source_recorded", "rep_unknown",
+             "in column i do not record whether the counterparty reported its emissions — column k cannot be read; state "
+             "'emissions reported by the company' (per-loan attributes)")):
+        n = st.get(k, 0)
+        out.append(_f(rule, "completeness", "blocking", not n,
+                      f"{n} exposures {what}" if n else "Every exposure read by Template 1 columns i–k states what they need",
+                      ref=ref))
+    missing = T1.missing_narrative(rec)
+    out.append(_f("t1_narrative_authored", "completeness", "blocking", not missing,
+                  "The narrative accompanying Template 1 is authored" if not missing else
+                  "Not authored (Pillar 3 qualitative disclosures): " + "; ".join(n["prompt"] for n in missing),
+                  ref=ref))
+    return out
 
 
 # a report whose money figures are its content: a figure whose method is not stated blocks it. S.27.01.01 is the

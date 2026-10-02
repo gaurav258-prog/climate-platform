@@ -105,8 +105,8 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     # the supplied cell as the template block writes it (the per-exposure sheet once held a demo asset value that contained
     # the digits by coincidence, E97)
     assert "Template 7" in sheets and "Template 10" in sheets and "12.5m" in sheets
-    xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)
-    assert xb.status_code == 200 and b"GARCoveredAssets" in xb.content
+    xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)     # no XBRL until the EBA taxonomy is bound (E104)
+    assert xb.status_code == 409 and "not an available format" in xb.text
 
 
 def test_preparing_an_obligation_files_its_own_entity_and_period(api):

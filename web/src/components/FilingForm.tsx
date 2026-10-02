@@ -411,7 +411,7 @@ function OverrideEditor({ filingId, dp, onClose, onDone }: { filingId: string; d
 
 // ── Pillar 3 ESG qualitative Tables 1-3 (Annex XXXIX) — free-format narrative the institution AUTHORS in-app.
 // These forms have nothing to compute; the user types them here and they are versioned + attested with the filing.
-interface QRow { key: string; row: string; group: string; prompt: string; value: string }
+interface QRow { key: string; row: string; group: string; prompt: string; value: string; basis?: string; required_when?: string }
 interface QTable { table: string; title: string; rows: QRow[] }
 interface QData { tables: QTable[]; total_rows: number; authored: number }
 
@@ -424,7 +424,7 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
     <Card className="p-0 overflow-hidden mt-3">
       <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
         <div>
-          <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3</div>
+          <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3 · Template 1 narrative</div>
           <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Free-format narrative · <span style={{ color: 'var(--color-sky)' }}>you author</span> · versioned + attested with the filing</div>
         </div>
         <div className="mono text-[10px] text-[var(--color-faint)]">{d.authored}/{d.total_rows} authored</div>
@@ -442,6 +442,8 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
                     {showGroup && <div className="px-4 pt-2.5 pb-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)]">{r.group}</div>}
                     <div className="px-4 py-2">
                       <div className="text-[12px] text-[var(--color-mute)] mb-1"><span className="mono text-[10px] text-[var(--color-faint)] mr-1.5">{r.row}</span>{r.prompt}</div>
+                      {r.required_when && <div className="mono text-[9.5px] text-[var(--color-faint)] mb-1">{r.required_when}</div>}
+                      {r.basis && <div className="text-[10.5px] text-[var(--color-faint)] italic mb-1">{r.basis}</div>}
                       <QCell row={r} canEdit={canEdit} onSaved={() => qc.invalidateQueries({ queryKey: ['p3-qualitative'] })} />
                     </div>
                   </div>

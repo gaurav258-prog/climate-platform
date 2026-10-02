@@ -42,14 +42,14 @@ def test_a_new_pillar3_filing_carries_only_what_the_templates_print(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
     fid = _new_filing(api, maker)
     p = _payload(api.s, fid)
-    assert {k for k in p if not k.startswith("_")} == {"assets", "rollup", "financed_emissions_tco2e",
-                                                      "financed_emissions_pcaf", "method"}
+    # Template 1 columns i-k read the institution's statements (E103) — the EVIC-based PCAF figure is not frozen any more
+    assert {k for k in p if not k.startswith("_")} == {"assets", "rollup", "t1_emissions", "method"}
     assert set(p["rollup"]) == {"n_assets", "n_scored", "total_value_eur"} and not set(EARLIER_KEYS) & set(p)
     assert p["assets"] and all(a.get("hazards") is not None and not set(NOT_FROZEN) & set(a) for a in p["assets"])
     assert [u["key"] for u in p["method"]["used"]] == ["method.at_risk_level"]      # the one parameter the templates read
 
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
-    assert [g["group"] for g in form["groups"]] == ["Financed emissions (PCAF)", "Frozen banking book"]
+    assert [g["group"] for g in form["groups"]] == ["Template 1 · financed emissions (total row)", "Frozen banking book"]
     titles = [x["title"] for x in form["annex"]["sections"]]
     assert all(t.startswith("Template") for t in titles), titles
     assert not any(w in json.dumps(form, ensure_ascii=False) for w in _NOT_PRINTED)
@@ -97,8 +97,9 @@ def test_a_pillar3_filing_of_the_earlier_shape_still_renders(api):
     templates = [x for x in secs if x["title"].startswith("Template")]
     assert templates and earlier and secs.index(templates[-1]) < secs.index(earlier[0])
     assert any("expected loss" in x["title"] for x in earlier) and all("earlier shape" in x["note"] for x in earlier)
-    for fmt in ("json", "xlsx", "xbrl"):
+    for fmt in ("json", "xlsx"):
         assert api.get(f"/v1/filings/{fid}/export?format={fmt}", headers=maker).status_code == 200
+    assert api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker).status_code == 409    # an old filing too (E104)
 
 
 def test_template5_rows_carry_kris_with_their_filed_history(api):

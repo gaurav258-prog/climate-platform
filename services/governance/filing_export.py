@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
-from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -245,8 +243,9 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
             return instance(payload, _identity(session, org_id, entity_id))
         except XbrlError as e:
             raise ExportError(str(e)) from e
-    if framework == "bank_p3esg":
-        return _bank_p3esg_xbrl(session, org_id, payload, basis, entity_id)
+    # No XBRL for Pillar 3 ESG (E104): the EBA's own taxonomy (the Pillar 3 Data Hub DPM) is not bound, and an instance
+    # under Tellumen-made element names is not a filing — as the EU Taxonomy report (E95) and the ESRS (E60). Filings of
+    # every date are refused: the format is not offered for the report type (filings.EXPORT_FORMATS).
     raise ExportError(f"no XBRL renderer for '{framework}'")
 
 
@@ -262,167 +261,3 @@ def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: 
             raise ExportError(str(e)) from e
     raise ExportError(f"no iXBRL renderer for '{framework}' (available for SFDR filings)")
 
-
-# ── XBRL helpers ─────────────────────────────────────────────────────────────────────────────
-# (the bank_tcfd XBRL under a Tellumen-made namespace was removed, E95: no official XBRL binding of the EU Taxonomy
-# Art. 8 templates is held, and an instance under invented element names is not a filing — as E60 for the ESRS)
-_LEI_SCHEME = "http://standards.iso.org/iso/17442"
-
-
-def _at(value, dec: str):
-    """A fact's value written to the precision its `decimals` attribute states (decimals="0" → whole units), so the
-    stated accuracy and the value agree (XBRL 2.1 §4.6.5)."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return value
-    d = int(dec)
-    return int(round(value)) if d <= 0 else round(float(value), d)
-
-
-# ── Pillar 3 ESG XBRL instance from the frozen bank payload ──────────────────────
-
-def _p3_act(payload: dict) -> str:
-    """The implementing act the filing was prepared under (its frozen specification)."""
-    from services.governance.filing_annex import _p3_spec
-    spec = _p3_spec(payload)
-    return spec["act"].get("short") or spec["act"]["title"]
-# Same faithful-serialization contract: facts are recomputed deterministically from the FROZEN per-asset
-# book (the annex grids are pure functions of it), never a live re-score. Concept QNames live in Tellumen's
-# namespace; map them to the official EBA DPM taxonomy element IDs when filing to the regulator's collector.
-_P3_NS = "https://taxonomy.tellumen.eu/p3esg/2024"
-_P3_BINDING_FILE = Path(os.getenv("EBA_P3ESG_BINDING", "config/eba_p3esg_binding.json"))
-
-
-def _load_p3_binding() -> dict:
-    """Official EBA Pillar 3 ESG element map, if supplied → {namespace, elements{fact: element}}.
-    A scaffold with null elements is honestly ignored (stays provisional); only a real namespace +
-    real element names bind. Drop `config/eba_p3esg_binding.json` in when the EBA publishes the
-    Pillar-3-Data-Hub taxonomy — no code change. The file's template/column refs are checked against the governing
-    template specification by a test; only the machine element id is pending."""
-    try:
-        if _P3_BINDING_FILE.exists():
-            data = json.loads(_P3_BINDING_FILE.read_text())
-            ns = data.get("namespace")
-            els = data.get("elements", {})
-            emap = {k: v["element"] for k, v in els.items()
-                    if isinstance(v, dict) and isinstance(v.get("element"), str) and v["element"].strip()}
-            if ns and emap:
-                return {"namespace": ns, "elements": emap}
-    except Exception:
-        pass
-    return {}
-
-
-def p3esg_facts() -> list[str]:
-    """Every fact the Pillar 3 export can carry — the element map file is the one list (its 'elements' keys)."""
-    return list(json.loads(_P3_BINDING_FILE.read_text()).get("elements", {}))
-
-
-def p3esg_binding_status() -> dict:
-    """Coverage of the EBA element binding — how many of our facts carry an official element id vs provisional."""
-    b = _load_p3_binding()
-    emap = b.get("elements", {})
-    facts = p3esg_facts()                                    # the one list: config/eba_p3esg_binding.json
-    bound = [f for f in facts if f in emap]
-    return {"profile": "eba_dpm" if emap else "provisional",
-            "status": "bound" if len(bound) == len(facts) else ("partial" if bound else "pending_eba_taxonomy"),
-            "namespace": b.get("namespace") or _P3_NS,
-            "facts_total": len(facts), "facts_bound": len(bound),
-            "note": ("Bound to the supplied EBA Pillar 3 ESG element map."
-                     if bound else
-                     "Provisional Tellumen namespace — a real tagged-fact layer, NOT a validated EBA "
-                     "submission. Drop config/eba_p3esg_binding.json (EBA taxonomy pending, ITS amended "
-                     "Jun-2026, ref 31 Dec 2026 / 2027 SNCIs) to bind. Template/column refs follow the governing template specification.")}
-
-
-def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
-    from xml.sax.saxutils import escape
-
-    from services.governance import pillar3_gar
-    from services.governance.filing_annex import _p3_spec, _period_end
-    from services.governance.pillar3_grids import BINDING
-    from services.governance.pillar3_grids import build as p3_build
-
-    who = _identity(session, org_id, entity_id)
-    lei = escape(who["lei"])
-    period = str(basis.get("reporting_period_end") or "")[:4] or "2024"
-    assets = payload.get("assets") or []
-    rollup = payload.get("rollup") or {}
-    spec = _p3_spec(payload)
-    g = pillar3_gar.build(spec, assets, _period_end(payload)) if assets else {}
-    t7, t8 = g.get("T7") or {}, (g.get("T8") or {}).get("1") or {}
-    gar = {"total_assets": (t7.get("50") or {}).get("a"), "covered_assets": (t7.get("45") or {}).get("a"),
-           "eligible": (t7.get("32") or {}).get("l"), "aligned": (t7.get("32") or {}).get("m"), "gar_stock_pct": t8.get("l")}
-    t1 = next((r["values"] for r in p3_build(spec, "T1", assets)["rows"] if BINDING["T1"]["rows"][r["id"]] == "computed:total"), {}) if assets else {}
-    # Template 5 has no total row: the sector rows (non-financial corporations) summed — collateral rows are another population
-    from services.governance.pillar3_templates import stated_level
-    level = stated_level(payload)
-    t5: dict = {}
-    for r in (p3_build(spec, "T5", assets, level)["rows"] if assets and level is not None else []):
-        if not BINDING["T5"]["rows"][r["id"]].startswith("computed:collateral"):
-            for k in ("sensitive", "h", "i", "j"):
-                t5[k] = t5.get(k, 0.0) + (r["values"].get(k) or 0.0)
-    from services.scoring.pcaf import gross_emissions
-    ge = gross_emissions(assets)                      # a scope no exposure states has no total — its fact is not emitted
-    s1, s2, s3 = ge["scope1"], ge["scope2"], ge["scope3"]
-
-    binding = _load_p3_binding()
-    ns = binding.get("namespace") or _P3_NS
-    emap = binding.get("elements") or {}
-
-    facts: list[str] = []
-
-    ccy = presentation_of(payload)
-
-    listed = set(p3esg_facts())
-
-    def fact(name, unit, value, dec="2"):
-        if name not in listed:
-            raise ValueError(f"XBRL fact {name} is not in config/eba_p3esg_binding.json — add it there first")
-        if value is None:
-            return
-        el = emap.get(name, name)  # official EBA element when bound, else our provisional local-name
-        unit = f"u{ccy}" if unit == "uMONEY" else unit
-        facts.append(f'  <p3:{el} contextRef="d0" unitRef="{unit}" decimals="{dec}">{_at(value, dec)}</p3:{el}>')
-
-    # rollup + Template 5 physical risk
-    fact("TotalBookValue", "uMONEY", rollup.get("total_value_eur"), dec="0")
-    fact("PhysicalRiskSensitiveExposure", "uMONEY", t5.get("sensitive"), dec="0")
-    fact("PhysicalRiskChronicOnlyExposure", "uMONEY", t5.get("h"), dec="0")
-    fact("PhysicalRiskAcuteOnlyExposure", "uMONEY", t5.get("i"), dec="0")
-    fact("PhysicalRiskChronicAndAcuteExposure", "uMONEY", t5.get("j"), dec="0")
-    # Templates 6–8 Green Asset Ratio
-    fact("GARTotalAssets", "uMONEY", gar.get("total_assets"), dec="0")
-    fact("GARCoveredAssets", "uMONEY", gar.get("covered_assets"), dec="0")
-    fact("GAREligibleExposure", "uMONEY", gar.get("eligible"), dec="0")
-    fact("GARAlignedExposure", "uMONEY", gar.get("aligned"), dec="0")
-    fact("GreenAssetRatioStockPct", "uPure", gar.get("gar_stock_pct"))
-    # Template 1 financed emissions (Scope 1–3)
-    fact("FinancedEmissionsScope1", "uCO2e", s1 or None, dec="0")
-    fact("FinancedEmissionsScope2", "uCO2e", s2 or None, dec="0")
-    fact("FinancedEmissionsScope3", "uCO2e", s3 or None, dec="0")
-    fact("FinancedEmissionsTotal", "uCO2e", t1.get("i"), dec="0")
-
-    lines = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
-        '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
-        f'            xmlns:p3="{ns}">',
-        f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure ({escape(_p3_act(payload))}) · {escape(who["name"])} · {escape(who["note"])} -->',
-        ('  <!-- Taxonomy binding: OFFICIAL EBA element map -->' if emap else
-         '  <!-- Taxonomy binding: provisional namespace (EBA Pillar 3 XBRL taxonomy pending); drop config/eba_p3esg_binding.json to bind -->'),
-        '  <xbrli:context id="d0">',
-        '    <xbrli:entity>',
-        f'      <xbrli:identifier scheme="{_LEI_SCHEME}">{lei}</xbrli:identifier>',
-        '    </xbrli:entity>',
-        '    <xbrli:period>',
-        f'      <xbrli:startDate>{period}-01-01</xbrli:startDate>',
-        f'      <xbrli:endDate>{period}-12-31</xbrli:endDate>',
-        '    </xbrli:period>',
-        '  </xbrli:context>',
-        f'  <xbrli:unit id="u{ccy}"><xbrli:measure>iso4217:{ccy}</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uCO2e"><xbrli:measure>p3:tCO2e</xbrli:measure></xbrli:unit>',
-        *facts,
-        '</xbrli:xbrl>',
-    ]
-    return "\n".join(lines)

@@ -7,6 +7,7 @@ import { Card, Lens } from './ui'
 import { hazardLabel, sevColor, frameworkLabel, bucketLabel } from '../lib/hazards'
 import { HBar } from './Charts'
 import LineageGraph from './LineageGraph'
+import T5Lineage from './T5Lineage'
 
 // Bidirectional data lineage inside the filing drawer: click a reported figure to trace it down to the
 // satellite/agency feed (asset → H3 cell → golden-source row → source feed), and from any cell back up to
@@ -27,7 +28,8 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
   const [open, setOpen] = useState<string | null>(null)
   const hazards = q.data?.hazards ?? []
   const ccy = q.data?.currency ?? 'EUR'   // filed cells are in the filing's own currency
-  if (!hazards.length) return null
+  // a filing that froze no hazard cells: a Pillar 3 filing traces its Template 5 cells instead (E105)
+  if (!hazards.length) return q.data ? <T5Lineage filingId={filingId} /> : null
 
   const charted = hazards.filter(h => (h.exposed_value_eur ?? 0) > 0).slice(0, 8)
 

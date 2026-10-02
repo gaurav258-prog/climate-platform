@@ -29,10 +29,14 @@ def _shared_figures(framework: str, payload: dict) -> dict:
         return {k: v for k, v in {"total book value": (payload.get("rollup") or {}).get("total_value_eur")}.items() if v}
     if framework == "bank_p3esg":
         r = payload.get("rollup") or {}
-        em = payload.get("financed_emissions_tco2e") or {}
         out = {"total book value": r.get("total_value_eur"), "value at risk": r.get("value_at_risk_eur")}
-        from services.scoring.pcaf import financed_total
-        et = financed_total(em)
+        from services.governance.pillar3_t1 import RECORD
+        if RECORD in payload:                          # Template 1 total row, column i, on the stated method (E103)
+            from services.governance.pillar3_report import t1_total
+            et = (t1_total(payload) or {}).get("i")
+        else:
+            from services.scoring.pcaf import financed_total
+            et = financed_total(payload.get("financed_emissions_tco2e") or {})
         if et:
             out["financed emissions (tCO₂e)"] = et
         return {k: v for k, v in out.items() if v}

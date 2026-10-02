@@ -4,10 +4,10 @@
 What a filing freezes: the banking book per exposure — the facts the templates read (pillar3_grids, pillar3_gar,
 pillar3_other, transition_alignment), with each exposure's hazard scores (Template 5 reads them against the stated
 at-risk level), without the climate-discounted valuation no template reads —; the book's count, scored count and total
-(the engine run's checks); the counterparties' financed emissions (Template 1 columns i–j print financed emissions; the
-PCAF-attributed figure is kept: the held spec quotes no instruction for those columns, so whether they ask for PCAF
-attribution is not settled here — kept, and said so); the method record; plus the records every filing carries (_specs,
-_fx, _consolidation, provided values …).
+(the engine run's checks); the institution's statements for Template 1 columns i–k — which emissions it estimates, how
+they are attributed, and the narrative the instructions require (services.governance.pillar3_t1, E103; the EVIC-based
+PCAF figure frozen from E97 to E103 is not what the template prints, and a filing of that time shows it as frozen);
+the method record; plus the records every filing carries (_specs, _fx, _consolidation, provided values …).
 
 Not frozen any more (no template prints them; they stay live analytics — GET /v1/bank/disclosure, the KRI page):
 physical climate expected loss (IFRS 9-style EL; Templates 1 and 5 print the institution's accumulated impairment, not a
@@ -39,32 +39,58 @@ def is_earlier_shape(payload: dict | None) -> bool:
 def freeze(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None) -> dict:
     """The payload a new filing freezes (report_snapshots._BUILDERS)."""
     from api.routers.bank import loan_book
-    from services.scoring.pcaf import attributed_financed_emissions
     assets, method = loan_book(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
                                translation=translation, period_end=period_end)
-    pcaf = attributed_financed_emissions(assets, exposure_key="outstanding_loan_balance_eur", evic_key="evic_eur",
-                                         scope_keys=("ghg1", "ghg2", "ghg3"))
     book = [{k: v for k, v in a.items() if k not in NOT_FROZEN} for a in assets]
     # the method record says what the frozen figures read: the stated at-risk level, which makes an exposure sensitive
     # in Template 5 (a gap when not stated). The parameters only the valuation read are not recorded: it is not frozen.
     from services.money.params import for_org
     read = for_org(session, org_id, method.period_end)
     read.get("method.at_risk_level")
+    # Template 1 columns i-k: the institution's stated estimation and attribution, and the narrative the instructions
+    # require (E103) — the EVIC-based PCAF figure is not what the template prints, and is not frozen any more
+    from services.governance.pillar3_t1 import RECORD, record
     return {"assets": book,
             "rollup": {"n_assets": len(book), "n_scored": sum(1 for a in book if a.get("headline_bucket")),
                        "total_value_eur": round(sum(a.get("value_eur") or 0 for a in book))},
-            "financed_emissions_tco2e": pcaf["attributed"], "financed_emissions_pcaf": pcaf,
-            "method": read.record()}
+            RECORD: record(session, org_id), "method": read.record()}
+
+
+def t1_total(payload: dict) -> dict | None:
+    """Template 1's total row, columns i, j and k, as the filing prints them (its frozen spec, book and statements);
+    None where the filing froze no per-exposure book or its version has no Template 1."""
+    from services.governance.filing_annex import _p3_spec
+    from services.governance.pillar3_grids import BINDING, build
+    from services.governance.pillar3_t1 import RECORD
+    p = payload or {}
+    spec, assets = _p3_spec(p), p.get("assets") or []
+    if not spec or not assets or not any(t["id"] == "T1" for t in spec["templates"]):
+        return None
+    total = next(rid for rid, how in BINDING["T1"]["rows"].items() if how == "computed:total")
+    g = build(spec, "T1", assets, t1=p.get(RECORD))
+    row = next(x for x in g["rows"] if x["id"] == total)
+    return {**{c: row["values"].get(c) for c in ("i", "j", "k")}, "row": total, "stated": g["stated"]}
 
 
 # ── form ──────────────────────────────────────────────────────────────────────
 def form(payload: dict) -> list[dict]:
-    """The filing's datapoints: the counterparties' financed emissions (Template 1 columns i–j) and the frozen book's size.
-    A frozen earlier-shape filing also shows what it froze beyond them, each group marked as such (its keys unchanged,
-    so its overrides still apply)."""
+    """The filing's datapoints: Template 1's financed emissions (total row, columns i, j, k, on the institution's stated
+    method) and the frozen book's size. A filing frozen before the statements were recorded shows the PCAF figure it
+    froze instead; a frozen earlier-shape filing also shows what it froze beyond them, each group marked as such (its
+    keys unchanged, so its overrides still apply)."""
     from services.governance.filing_form import _dp, _located_book_form
+    from services.governance.pillar3_t1 import RECORD, gaps
     located = _located_book_form(REPORT, payload)
-    groups = [g for g in located if g["group"] in _KEPT_GROUPS]
+    if RECORD in (payload or {}):
+        t = t1_total(payload) or {}
+        why = "; ".join(gaps(payload[RECORD])) or None
+        groups = [{"group": "Template 1 · financed emissions (total row)", "datapoints": [
+            _dp("emissions.total", "GHG financed emissions — column i", t.get("i"), "tco2e", note=why),
+            _dp("emissions.scope3", "Of which Scope 3 financed emissions — column j", t.get("j"), "tco2e", note=why),
+            _dp("emissions.company_reported_pct", "Share of the portfolio derived from company-specific reporting — column k",
+                t.get("k"), "pct", note=why)]}]
+    else:
+        groups = [g for g in located if g["group"] in _KEPT_GROUPS]
     r = payload.get("rollup") or {}
     n = r.get("n_assets", len(payload.get("assets") or []))
     groups.append({"group": "Frozen banking book", "datapoints": [
@@ -113,6 +139,9 @@ def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None,
     if missing:
         gaps.append(f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they "
                     "sit in no template row")
+    from services.governance import pillar3_t1 as T1
+    gaps += [f"Template 1 columns i–k — {g}" for g in T1.gaps(p[T1.RECORD])]
+    gaps += [f"Template 1 narrative not authored: {n['prompt']}" for n in T1.missing_narrative(p[T1.RECORD])]
     return {"coverage": {"label": "exposures scored", "done": n_done, "total": n_total,
                          "pct": round(100 * n_done / n_total, 1) if n_total else 0},
             "total_value_eur": r["total_value_eur"], "value_at_risk_eur": None, "noun": "exposures", "gaps": gaps}

@@ -39,6 +39,11 @@ def _orsa_qualifying(which: str) -> list[str]:
     return sorted(k for k, v in ref["scenarios"].items() if ok(v["warming_2081_2100_c"]))
 
 
+def _p3_t1_statements() -> dict:
+    from services.governance.pillar3_t1 import switches
+    return switches()
+
+
 # The interpretation switches — regulation leaves these to the institution. default reproduces today's number.
 INTERPRETATION_SCHEMA: dict = {
     "pml_return_period": {
@@ -127,6 +132,11 @@ INTERPRETATION_SCHEMA: dict = {
                        "stack; 'max' = the larger driver only. Your choice — not set, the combined VaR is a named gap (E69).",
         "sectors": ["asset_manager"],
     },
+    # Pillar 3 ESG Template 1 columns i-k: the institution's own statements, quoted and offered from
+    # data/reference/pillar3/t1_financed_emissions.json (services.governance.pillar3_t1). No default: not stated, the
+    # columns are a named gap and the filing is blocked.
+    **{key: {"frameworks": ["bank_p3esg"], "default": None, "kind": "enum", "sectors": ["bank"], **spec}
+       for key, spec in _p3_t1_statements().items()},
     # FX rate policy (multi-currency phase 2). BALANCES always convert at the closing rate of the book date (IAS 21
     # — not a switch); how yearly FLOWS convert is the institution's choice, stamped on every filing.
     "fx_flow_rate": {

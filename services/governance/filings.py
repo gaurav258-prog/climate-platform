@@ -117,7 +117,7 @@ FRAMEWORKS = {
 # services/governance/filing_export.py). json is the universal record; xlsx/xbrl where a renderer exists.
 EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx"),        # no official XBRL binding of the Annex VI templates is held (E95)
-    "bank_p3esg": ("json", "xlsx", "xbrl"),
+    "bank_p3esg": ("json", "xlsx"),       # no XBRL until the EBA's own Pillar 3 taxonomy is bound (E104)
     "sfdr_pai":  ("json", "xlsx", "xbrl", "ixbrl"),
     "assetmgmt_tcfd": ("json", "xlsx"),
     "reit_tcfd": ("json", "xlsx"),
