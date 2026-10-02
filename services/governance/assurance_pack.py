@@ -15,66 +15,19 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import textwrap
 import zipfile
 from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.governance.assurance_methodology import methodology as _methodology
+from services.governance.assurance_methodology import principle as _principle
 from services.governance.report_snapshots import get_snapshot
 
-_METHODOLOGY = """# Methodology & basis of preparation
-
-## What this pack is
-An evidence bundle for the ESRS/CSRD disclosures frozen in snapshot **{report_type} v{version}** of
-**{entity}**, reporting period ending **{period_end}** on basis **{scenario}/{horizon}**, material physical
-risk: **{materiality}**. Generated {generated} (UTC).
-
-## How the figures are produced
-1. Each own site and each sourcing plot is geolocated and mapped to an H3 cell.
-2. Per-cell physical-hazard scores are derived from satellite & agency data — Copernicus/ECMWF (EU) and
-   NASA/USGS (US). EUDR plot readings show tree-cover loss after the 31-Dec-2020 cut-off in global forest-change
-   satellite data — a risk the operator's assessment weighs, never a verdict.
-3. Hazard is translated into euros at risk **only** through impact functions that have been back-tested
-   against real historic shocks and clear the **r² >= 0.40** skill floor (a fixed honesty constant, not a
-   configurable setting). Where that chain is not validated, exposure is mapped and the euro is **withheld**.
-
-## Controls over the numbers (who could change them)
-- Material edits and all deletes of sites/plots require **4-eyes approval** (maker != checker, DB-enforced).
-- Every change is written to an immutable **access audit log** (actor, action, target, timestamp).
-- The filed figures are **frozen as an immutable, versioned snapshot**; a correction is a new version.
-
-## What is NOT in scope here
-GHG accounting (Scope 1/2/3), pollution, circular economy, social and governance are produced by the
-entity's other tools and combined into the wider CSRD statement. See the disclosed out-of-scope list.
-
-## Contents of this pack
-{contents}
-"""
-
-
-# an EUDR due diligence statement (E108): the shipment and what its statement rests on — no hazard, scenario or money
-_EUDR_METHODOLOGY = """# Basis of preparation
-
-## What this pack is
-The evidence behind the due diligence statement frozen in snapshot **{report_type} v{version}** of **{entity}**:
-{basis}. Prepared under Regulation (EU) 2023/1115, Annex II. Generated {generated} (UTC).
-
-## What the statement rests on
-1. The undertaking's status (size class, address, EORI) on the shipment's date — stated, and approved by a second person.
-2. The plots of land the product was produced on, with their geolocation (Art. 2(28)), and for each the satellite reading
-   of tree-cover loss after 31 December 2020 — what the dataset shows, a risk the assessment weighs (Art. 10), never a verdict.
-3. The supplier (Art. 9(1)(e)), the legality evidence (Art. 9(1)(h)) and the risk assessment (Art. 10-13), approved by a
-   second person.
-4. The checks every statement passes before it can be prepared, each with its article, frozen with it.
-
-## Controls
-- Four eyes on the status, the risk assessment and the statement; attestation before submission.
-- The statement is frozen as an immutable, versioned snapshot; an amendment is a new statement that supersedes it.
-
-## Contents of this pack
-{contents}
-"""
+# methodology.md and the cover's one-line principle: one text per report family (services.governance.assurance_methodology,
+# E112) — never one family's text on another's filing
 
 
 def _basis_text(basis: dict, payload: dict) -> str:
@@ -272,13 +225,11 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
         manifest_files.append({"file": name, "sha256": h, "bytes": len(blob)})
         contents_lines.append(f"- `{name}` — sha256 `{h[:16]}…`")
 
-    methodology = (_METHODOLOGY.format(
-        report_type=snap["report_type"], version=snap["version"], entity=entity,
-        period_end=basis.get("reporting_period_end"), scenario=basis.get("scenario"),
-        horizon=basis.get("horizon"), materiality=_materiality(basis, payload),
-        generated=generated, contents="\n".join(contents_lines)) if "scenario" in basis else _EUDR_METHODOLOGY.format(
-        report_type=snap["report_type"], version=snap["version"], entity=entity, basis=_basis_text(basis, payload),
-        generated=generated, contents="\n".join(contents_lines)))
+    methodology = _methodology(snap["report_type"], version=snap["version"], entity=entity,
+                               basis_text=_basis_text(basis, payload), period_end=basis.get("reporting_period_end"),
+                               generated=generated,
+                               contents="\n".join(contents_lines))
+    gate = _principle(snap["report_type"])
     method_blob = methodology.encode("utf-8")
     manifest_files.insert(0, {"file": "methodology.md", "sha256": hashlib.sha256(method_blob).hexdigest(), "bytes": len(method_blob)})
 
@@ -308,7 +259,7 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
   <b>Frozen payload hash</b><span><code>{snap.get('payload_sha256')}</code> · {verified}</span>
   <b>Pack generated</b><span>{generated}</span>
 </div>
-<div class="gate"><b>Honesty gate.</b> A euro is a firm figure only where the hazard→yield/asset chain clears r²&nbsp;≥&nbsp;0.40; otherwise the exposure is mapped and the euro withheld. The r² floor is a fixed constant, not a per-filing setting.</div>
+<div class="gate"><b>Honesty gate.</b> {gate} The basis of preparation is in <code>methodology.md</code>.</div>
 <h3>Contents — every artifact hashed for tamper-evidence</h3>
 <table><thead><tr><th>File</th><th>SHA-256</th><th style="text-align:right">Bytes</th></tr></thead><tbody>{_rows}</tbody></table>
 <p class="foot">Tellumen assurance evidence pack. This cover summarises the bundle; every figure traces to the frozen snapshot and the artifacts above. Open in a browser and print to PDF for your working papers.</p>
@@ -332,9 +283,7 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
         (verified, "normal"),
         ("", "normal"),
         ("Honesty gate", "head"),
-        ("A euro is a firm figure only where the hazard->yield/asset chain clears", "normal"),
-        ("r2 >= 0.40; otherwise exposure is mapped and the euro withheld. The r2", "normal"),
-        ("floor is a fixed constant, not a per-filing setting.", "normal"),
+        *[(ln, "normal") for ln in textwrap.wrap(gate, 78)],
         ("", "normal"),
         ("Contents (each artifact hashed for tamper-evidence):", "head"),
     ] + [(f"- {f['file']}  ({f['bytes']:,} bytes)", "mono") for f in manifest_files]
@@ -349,8 +298,7 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
                      "hash_verified": snap.get("hash_verified"),
                      "engine_versions": snap.get("engine_versions")},
         "reporting_basis": basis, "generated_at": generated,
-        "honesty_gate": "A euro is a firm figure only where the hazard→yield/asset chain clears r²>=0.40; "
-                        "otherwise exposure is mapped and the euro withheld. The r² floor is a fixed constant.",
+        "honesty_gate": gate,
         "files": manifest_files,
     }
     manifest_blob = json.dumps(manifest, ensure_ascii=False, indent=2, default=str).encode("utf-8")
