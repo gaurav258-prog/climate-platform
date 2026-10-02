@@ -2,8 +2,7 @@
 through the HTTP API with unchanged response shapes:
 
   Pillar 3 ESG qualitative Tables 1-3 → family bank_p3esg, document qualitative (a blank text clears a row)
-  the SFDR PAI statement's narrative sections → family sfdr_pai, document pai_statement (a save replaces the set;
-  an unknown section is refused and nothing is written), which the statement's filing readiness reads.
+  (the SFDR PAI statement's sections are answered per reference period: test_e2e_sfdr_pai_statement.py)
 
 The API runs in one rolled-back transaction: nothing is left behind.
 """
@@ -33,37 +32,3 @@ def test_pillar3_qualitative_text_is_a_template_answer(api):
     got = api.get("/v1/filings/qualitative/p3esg", headers=maker).json()
     assert {x["key"]: x["value"] for t in got["tables"] for x in t["rows"]}["table1.a"] == ""
     assert set(got) == {"tables", "total_rows", "authored", "spec"}
-
-
-def test_sfdr_pai_narratives_are_template_answers(api, monkeypatch):
-    from api.routers import funds as F
-    from ml.regulatory.sfdr_pai import entity_pai_statement
-    from services.reference.gleif import GleifRecord
-    monkeypatch.setattr(F.gleif, "fetch_lei", lambda lei: GleifRecord(lei=lei, name="Nordkap AM", entity_status="ACTIVE", country="NO"))
-    maker = _login(api, "admin@nordkap.demo", "Demo!admin1")
-    lei = "5299000NORDKAPAM0001"
-
-    narratives = {"policies": "PAI policy.", "actions": "Engaged 12 issuers.", "engagement": "Stewardship code."}
-    r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "narratives": narratives})
-    assert r.status_code == 200, r.text
-    prof = api.get("/v1/manager/filing-profile", headers=maker).json()
-    assert prof["sfdr_narratives"] == narratives                      # 'standards' left out → cleared
-    assert {"name", "legal_name", "lei", "filing_contact_email", "country"} <= set(prof)
-
-    # a narratives save re-sends the same LEI alone: the manager's legal name on file is kept, not replaced by GLEIF's
-    api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "legal_name": "Nordkap Asset Management"})
-    r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "narratives": narratives})
-    assert r.status_code == 200
-    assert api.get("/v1/manager/filing-profile", headers=maker).json()["legal_name"] == "Nordkap Asset Management"
-
-    r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": lei, "narratives": {**narratives, "bogus": "x"}})
-    assert r.status_code == 422
-    assert T.read(api.s, NORDKAP, "sfdr_pai", "pai_statement") == {k: {"text": v} for k, v in narratives.items()}
-
-    stmt = entity_pai_statement(api.s, NORDKAP)
-    if not stmt.get("error"):
-        assert stmt["narratives"]["policies"] == "PAI policy." and stmt["narratives"]["standards"] is None
-        cs = stmt["coverage_summary"]                     # indicators not computed: the best efforts are asked (E83)
-        expect = [] if cs["computed"] == cs["mandatory_indicators"] else [
-            "details of the best efforts used to obtain the information not readily available (RTS 2022/1288 Art. 7(2))"]
-        assert stmt["narratives"]["missing"] == expect

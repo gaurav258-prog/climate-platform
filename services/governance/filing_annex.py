@@ -90,9 +90,17 @@ def _sfdr_annex(dps: dict, payload: dict) -> list[dict]:
                          "rows": rows, "note": None,
                          "spec": {"version": spec["version"], "template": "T1", "sha256": spec["_sha256"]}})
     period = _quote(spec, "T1", "Article 6(3)")
+    rp, prior = (payload or {}).get("reference_period") or {}, (payload or {}).get("prior_period")
     sections[0]["note"] = (f"{t1['title']} ({R.citation(spec, 'T1')}). Impact [year n] is the frozen figure"
-                           + (f", computed as {period}" if period else "")
-                           + ". The year n-1, explanation and actions columns are completed on this form.")
+                           + (f" for {rp['start']} – {rp['end']}, the average of the impacts on "
+                              f"{', '.join(rp['impact_dates'])}" if rp else "")
+                           + (f" ({period})" if period and rp else (f", computed as {period}" if period else ""))
+                           + ". Impact [year n-1] is "
+                           + (f"the figure reported for {prior['period_end']} ({prior['source']})" if prior
+                              else "not shown: no statement was reported for the previous period")
+                           + "; the explanation and actions are the answers frozen with this statement.")
+    text_sections = _sfdr_text_sections(spec, payload)
+    sections = text_sections[:1] + sections
 
     # the adopted additional indicators (Article 6(1)): at least one from Table 2 and one from Table 3, reported in the
     # Table 1 format under 'Other indicators …'
@@ -118,7 +126,65 @@ def _sfdr_annex(dps: dict, payload: dict) -> list[dict]:
                      "note": ("At least one additional indicator from Table 2 and one from Table 3 must be reported "
                               f"({R.citation(spec, 'T2')}; Article 6(1))."
                               + (f" Not yet adopted: {', '.join(missing)}." if missing else ""))})
-    return sections
+    return sections + text_sections[1:]
+
+
+def _sfdr_text_sections(spec: dict, payload: dict) -> list[dict]:
+    """The sections of Articles 5 and 7-10 (S1, S4-S7), item by item as the frozen spec quotes them, each with the
+    statement's frozen answer (or its computed value); an item not answered prints as such. A statement frozen before
+    the sections existed (no 'sections' in its payload) prints none."""
+    import services.regspec as R
+    sec = (payload or {}).get("sections")
+    if not sec:
+        return []
+    ans, comp = sec.get("answers") or {}, sec.get("computed") or {}
+    meets = {"home_official": "official language of the home Member State",
+             "international_finance": "customary in the sphere of international finance",
+             "host_official": "official language of a host Member State"}
+
+    def answer(sid, it):
+        k = f"{sid}.{it['id']}"
+        if k in comp:
+            return comp[k]
+        a = ans.get(k)
+        if not a:
+            return "— not answered"
+        if a.get("applicable") is False:
+            return "Not applicable (stated)" if it["id"] == "a_srd" else "None (stated)"
+        if "ticked" in a:
+            return ("Yes — " + a.get("text", "")) if a["ticked"] else "No"
+        return a.get("text") or "—"
+
+    out = []
+    for sid in ("S1", "S4", "S5", "S6", "S7"):
+        t = R.template(spec, sid)
+        rows = []
+        for it in t.get("items") or []:
+            if it["kind"] in ("heading", "table_column"):
+                continue
+            if it["kind"] == "text":
+                rows.append({"type": "subheader", "label": it["label"]})
+            elif it["kind"] == "table" and sid == "S1":
+                rows.append({"type": "row", "cells": [_txt(it["label"]), _txt("" if ans.get("S1.d_summary") else "— not answered")]})
+                for r in (ans.get("S1.d_summary") or {}).get("rows") or []:
+                    why = "; ".join(meets.get(m, m) + (f" ({r['d_member_state']})" if m == "host_official" else "")
+                                    for m in r.get("d_meets") or [])
+                    rows.append({"type": "row", "cells": [_txt(f"[{r['d_language']}] {why}"), _txt(r["d_text"])]})
+            elif it["kind"] == "table":                     # S7: the previous periods, as reported
+                hc = (payload or {}).get("historical_comparison") or {}
+                rows.append({"type": "row", "cells": [_txt(it["label"]), _txt(
+                    "" if hc.get("rows") else "Not applicable — no previous period was reported on")]})
+                for r in hc.get("rows") or []:
+                    rows.append({"type": "row", "cells": [_txt(f"{r['period']} · {r['indicator']}"),
+                                                          _num(f"{r['impact']:,}" if isinstance(r["impact"], (int, float))
+                                                               else str(r["impact"]))]})
+            else:
+                rows.append({"type": "row", "cells": [_txt(it["label"]), _txt(answer(sid, it))]})
+        out.append({"title": t["title"], "key": f"sfdr_{sid.lower()}", "columns": ["Required (Delegated Regulation (EU) 2022/1288)",
+                                                                                   "Statement"],
+                    "rows": rows, "note": f"{R.citation(spec, sid)}.",
+                    "spec": {"version": spec["version"], "template": sid, "sha256": spec["_sha256"]}})
+    return out
 
 
 # ── shared sections: the flat GAR summary, the bank's credit-risk analytics, physical-risk exposure by hazard ──────

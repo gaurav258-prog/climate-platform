@@ -66,52 +66,16 @@ MANDATORY_PAI_INDICATORS = [
     (14, "Social & governance",   "Exposure to controversial weapons", "% of value"),
 ]
 
-# ── The statement's narrative sections, which the manager authors (RTS Annex I: the policies, the actions taken and
-# planned, the engagement policies, the references to international standards). They are the manager's answers to
-# family 'sfdr_pai', document 'pai_statement', in the one store of template answers (services.governance.template_answers).
+# ── Earlier answers not tied to any reference period: five free-text boxes, one set for every period (family 'sfdr_pai',
+# document 'pai_statement', no period_end). The statement is now answered per reference period, item by item as Articles
+# 5 to 9 require (services.governance.sfdr_pai_answers); these are only shown, for reference, never filed or edited.
 NARRATIVE_FAMILY, NARRATIVE_DOCUMENT = "sfdr_pai", "pai_statement"
-NARRATIVE_SECTIONS = ("policies", "best_efforts", "actions", "engagement", "standards")
-_REQUIRED_NARRATIVES = {
-    "policies": "policies to identify and prioritise principal adverse impacts",
-    "actions": "actions taken and planned",
-    "engagement": "engagement policies",
-}
-# RTS 2022/1288 Art. 7(2): 'Where information relating to any of the indicators used is not readily available, financial
-# market participants shall include in the section 'Description of policies to identify and prioritise principal adverse
-# impacts on sustainability factors' … details of the best efforts used to obtain the information'
-BEST_EFFORTS = ("best_efforts", "details of the best efforts used to obtain the information not readily available "
-                                "(RTS 2022/1288 Art. 7(2))")
-
-
-def missing_narratives(narratives: dict, computed: int, total: int) -> list[str]:
-    """The required narrative sections not authored — the best-efforts details only when an indicator is not computed."""
-    out = [label for key, label in _REQUIRED_NARRATIVES.items() if not (narratives.get(key) or "").strip()]
-    if computed < total and not (narratives.get(BEST_EFFORTS[0]) or "").strip():
-        out.append(BEST_EFFORTS[1])
-    return out
 
 
 def entity_narratives(session, org_id: str) -> dict:
-    """{section: authored text} of the manager's PAI statement — only the sections it has authored."""
+    """{section: text} of the earlier answers not tied to a period (read-only)."""
     from services.governance import template_answers as T
     return {k: v["text"] for k, v in T.read(session, org_id, NARRATIVE_FAMILY, NARRATIVE_DOCUMENT).items() if v.get("text")}
-
-
-def save_entity_narratives(session, org_id: str, narratives: dict, user_id: str | None) -> dict:
-    """Replace the manager's narrative sections with `narratives` (a section left out or blank is cleared);
-    {saved, refused} — a key that is not a section, or a value that is not text, refuses the whole save."""
-    from services.governance import template_answers as T
-    refused = [{"item": k, "reason": f"{k}: the PAI statement has no such narrative section" if k not in NARRATIVE_SECTIONS
-                else f"{k}: a narrative section is text"} for k, v in narratives.items()
-               if k not in NARRATIVE_SECTIONS or not (v is None or isinstance(v, str))]
-    if refused:
-        return {"saved": [], "refused": refused}
-    template = {"items": [{"id": k, "kind": "field"} for k in NARRATIVE_SECTIONS]}
-    answers = {k: None for k in NARRATIVE_SECTIONS}
-    for k, v in narratives.items():
-        answers[k] = None if v is None or (isinstance(v, str) and not v.strip()) else {"text": v}
-    return T.save(session, org_id, NARRATIVE_FAMILY, NARRATIVE_DOCUMENT, template, {k: "input" for k in NARRATIVE_SECTIONS},
-                  answers, user_id, label="the PAI statement")
 
 
 _GOLDEN_SOURCE = "Tellumen golden source (issuer emissions + revenue, provenance-stamped)"
@@ -182,7 +146,7 @@ def _row(num, area, metric, unit, *, value=None, coverage=None, source=None,
     }
 
 
-def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
+def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=None) -> dict:
     """EU Taxonomy lines for the fund, honestly scoped.
 
     Eligibility can only be judged where we hold the issuer's NACE code; alignment
@@ -212,8 +176,8 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers   i ON i.issuer_id = s.issuer_id
         WHERE  p.fund_id = ANY(:fids)
-          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_ids}).mappings().all()]
+          AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
+    """), {"fids": fund_ids, "as_of": as_of}).mappings().all()]
     # the investee's own KPIs and the DNSH / safeguards gate, from the one store (services.issuer_taxonomy)
     from services.issuer_taxonomy import gate_failures
     from services.issuer_taxonomy import kpis as investee_kpis
@@ -289,7 +253,7 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
     }
 
 
-def _composition_and_sovereign(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
+def _composition_and_sovereign(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=None) -> dict:
     """Fund value by asset class + a value-weighted sovereign GHG intensity over
     any sovereign-bond holdings (their issuer's country → country intensity)."""
     if fund_ids is None:
@@ -300,8 +264,8 @@ def _composition_and_sovereign(session, fund_id: str, *, fund_ids=None, org_id=N
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers    i ON i.issuer_id = s.issuer_id
         WHERE  p.fund_id = ANY(:fids)
-          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_ids}).mappings().all()
+          AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
+    """), {"fids": fund_ids, "as_of": as_of}).mappings().all()
     by_class: dict[str, float] = {}
     sov_mv = covered_mv = 0.0
     sov_weighted_intensity = 0.0
@@ -608,10 +572,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         filing_missing.append("filing contact email")
     if not ref_year:
         filing_missing.append("reference period (supply issuer emissions with a reporting year)")
-    # SFDR Annex I mandatory narrative sections.
-    narratives = entity_narratives(session, fund["org_id"])
-    not_authored = missing_narratives(narratives, computed, len(indicators))
-    filing_missing += [f"narrative: {n}" for n in not_authored]
+    # the sections of Articles 5 to 10 belong to the manager's entity-level statement (answered per reference period),
+    # not to a fund: a fund's consideration of principal adverse impacts is disclosed in its SFDR product documents
     ready_to_file = not filing_missing
 
     return {
@@ -663,14 +625,6 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         # Look-through — if the book holds funds/ETFs, their constituents must be
         # looked through. Detected from asset_class; honest status, not faked.
         "look_through": _look_through(session, fund_id, comp),
-        # Mandatory qualitative sections (manager-authored); missing ones flagged.
-        "narratives": {
-            "policies": narratives.get("policies"), "best_efforts": narratives.get("best_efforts"),
-            "actions": narratives.get("actions"),
-            "engagement": narratives.get("engagement"),
-            "standards": narratives.get("standards"),
-            "missing": not_authored,
-        },
         "coverage_summary": {
             "mandatory_indicators": len(indicators),
             "computed": computed, "partial": partial, "not_available": missing,
@@ -742,12 +696,40 @@ def frozen_or_live_statement(session, fund_id: str) -> tuple[dict, bool]:
     return live, False
 
 
-def entity_pai_statement(session, org_id: str) -> dict:
-    """Entity-level SFDR PAI statement — ONE statement value-weighted across ALL of
-    a manager's funds (every position the org holds, counted once). This is what a
-    large manager files at ENTITY level, alongside the per-fund statements. Uses the
-    same computation as a fund, scoped to the whole book; prior-year comparison and
-    look-through remain per-fund concerns and are omitted here."""
+def _entity_book(session, scope: dict, as_of=None) -> dict:
+    """The entity's figures on one holdings date (default: each fund's latest) — every position of every fund of the
+    manager, counted once, value-weighted. An empty book (positions 0) where none is on file for the date."""
+    pai = fund_pai(session, None, **scope, as_of=as_of)
+    if pai.get("positions", 0) == 0:
+        return {"positions": 0, "total_value_eur": 0, "indicators": [], "sovereign_indicators": [],
+                "real_estate_indicators": [], "additional_indicators": {}, "taxonomy": {}, "holdings_composition": {},
+                "sovereign_countries": []}
+    esg = fund_esg_pai(session, None, **scope, as_of=as_of)
+    indicators, *_ = _mandatory_indicator_rows(pai, esg)
+    comp = _composition_and_sovereign(session, None, **scope, as_of=as_of)
+    return {
+        "positions": pai["positions"], "total_value_eur": pai["total_value_eur"], "indicators": indicators,
+        "sovereign_indicators": _sovereign_indicators(comp) if comp["sovereign_value_eur"] else [],
+        "real_estate_indicators": _real_estate_indicators(comp),
+        "additional_indicators": compute_voluntary_pai(session, None, comp, **scope, as_of=as_of),
+        "taxonomy": _taxonomy_rollup(session, None, **scope, as_of=as_of),
+        "holdings_composition": comp["by_asset_class"], "sovereign_countries": comp["sovereign_countries"],
+        "emissions_coverage_pct": pai.get("emissions_coverage_pct"),
+        "emissions_estimated_pct": pai.get("emissions_estimated_pct", 0.0),
+        "pcaf_data_quality_score": pai.get("pcaf_data_quality_score"),
+    }
+
+
+def entity_pai_statement(session, org_id: str, period_end=None) -> dict:
+    """Entity-level SFDR PAI statement (Delegated Regulation (EU) 2022/1288, Annex I) — one statement value-weighted
+    across ALL of a manager's funds (every position counted once).
+
+    period_end (a 31 December): the statement for that reference period — every impact the average of the impacts on
+    31 March, 30 June, 30 September and 31 December (Article 6(3); ml.regulatory.sfdr_pai_period), with the sections
+    the manager answers for that period, the previous period's figures (column 'Impact [year n-1]') and the historical
+    comparison (Article 10) (services.governance.sfdr_pai_answers). Without it: a live view on each fund's latest
+    holdings — not a statement for any period, and never filed."""
+    from ml.regulatory.sfdr_pai_period import average_books, holdings_gaps, reference_dates
     org = session.execute(text("""
         SELECT o.org_id::text AS org_id, o.name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
                o.filing_contact_email, o.country AS manager_domicile
@@ -762,25 +744,29 @@ def entity_pai_statement(session, org_id: str) -> dict:
         return {"error": "manager has no funds"}
     scope = {"fund_ids": fund_ids, "org_id": org_id}
 
-    pai = fund_pai(session, None, **scope)
-    if pai.get("positions", 0) == 0:
-        return {"error": "manager has no positions to report on",
+    dates = reference_dates(period_end) if period_end is not None else None      # PeriodError on a non-31-December end
+    if dates:
+        book = average_books({d: _entity_book(session, scope, as_of=d) for d in dates})
+        gaps = holdings_gaps(session, fund_ids, dates)
+    else:
+        book, gaps = _entity_book(session, scope), []
+    if book.get("positions", 0) == 0:
+        return {"error": "manager has no positions to report on" + (f" in {dates[-1].year}" if dates else ""),
                 "entity": {"manager": org["name"], "org_id": org["org_id"]}}
-    esg = fund_esg_pai(session, None, **scope)
-    indicators, computed, partial, missing = _mandatory_indicator_rows(pai, esg)
-    comp = _composition_and_sovereign(session, None, **scope)
-    emis_cov = pai.get("emissions_coverage_pct")
-    emis_est = pai.get("emissions_estimated_pct", 0.0)
+    indicators = book["indicators"]
+    computed = sum(1 for i in indicators if i["method"] == "computed")
+    partial = sum(1 for i in indicators if i["method"] == "partial")
+    missing = sum(1 for i in indicators if i["method"] == "not_available")
 
     # Per-fund coverage table (top-level funds), so a thinly-covered fund inside the
-    # entity total is visible rather than averaged away.
+    # entity total is visible rather than averaged away (on the period's last date).
     per_fund = []
     top = session.execute(text("""
         SELECT fund_id::text AS fund_id, name, sfdr_classification FROM funds
         WHERE org_id = :o AND parent_fund_id IS NULL ORDER BY name
     """), {"o": org_id}).mappings().all()
     for f in top:
-        fp = fund_pai(session, f["fund_id"])
+        fp = fund_pai(session, f["fund_id"], as_of=dates[-1] if dates else None)
         per_fund.append({
             "fund_id": f["fund_id"], "fund_name": f["name"],
             "sfdr_classification": f["sfdr_classification"],
@@ -797,12 +783,9 @@ def entity_pai_statement(session, org_id: str) -> dict:
         filing_missing.append("manager legal name")
     if not org.get("filing_contact_email"):
         filing_missing.append("filing contact email")
-    narratives = entity_narratives(session, org_id)
-    not_authored = missing_narratives(narratives, computed, len(indicators))
-    filing_missing += [f"narrative: {n}" for n in not_authored]
-    ready_to_file = not filing_missing
+    filing_missing += [f"holdings: {g}" for g in gaps]
 
-    return {
+    st = {
         "level": "entity",
         "entity": {
             "org_id": org["org_id"], "manager": org["name"], "manager_lei": manager_lei,
@@ -810,11 +793,17 @@ def entity_pai_statement(session, org_id: str) -> dict:
             "manager_domicile": org.get("manager_domicile"),
             "filing_contact_email": org.get("filing_contact_email"),
             "funds_count": len(top), "all_funds_scoped": len(fund_ids),
-            "total_value_eur": pai["total_value_eur"], "positions": pai["positions"],
+            "total_value_eur": book["total_value_eur"], "positions": book["positions"],
         },
+        "reference_period": ({"start": f"{dates[-1].year}-01-01", "end": dates[-1].isoformat(),
+                              "impact_dates": [d.isoformat() for d in dates],
+                              "basis": "Delegated Regulation (EU) 2022/1288, Article 4(1) and Article 6(3)"}
+                             if dates else None),
         "summary": {
             "pai_considered": True,
             "manager_lei_required": manager_lei is None,
+            "reference_period": f"1 January – 31 December {dates[-1].year}" if dates
+                                else "live view on the latest holdings — a statement is for a reference period",
             "declaration": (
                 f"This is the entity-level principal adverse impacts statement of "
                 f"{org.get('manager_legal_name') or org['name']} ({manager_lei or 'LEI required'}), "
@@ -822,46 +811,46 @@ def entity_pai_statement(session, org_id: str) -> dict:
                 "decisions on sustainability factors are considered."
             ),
         },
-        "filing_readiness": {
-            "ready_to_file": ready_to_file,
-            "missing": filing_missing,
-            "note": "Ready to file." if ready_to_file
-                    else "Not yet submittable — supply the reporting-entity identity above.",
-        },
         "statement": "Entity-level Principal Adverse Impact (PAI) statement",
         "regulatory_basis": _pai_basis(),
         "indicators": indicators,
-        "holdings_composition": comp["by_asset_class"],
-        "sovereign_indicators": _sovereign_indicators(comp) if comp["sovereign_value_eur"] else [],
-        "sovereign_countries": comp["sovereign_countries"],
-        "real_estate_indicators": _real_estate_indicators(comp),
-        "taxonomy": _taxonomy_rollup(session, None, **scope),
-        "additional_indicators": compute_voluntary_pai(session, None, comp, **scope),
+        "holdings_composition": book["holdings_composition"],
+        "sovereign_indicators": book["sovereign_indicators"],
+        "sovereign_countries": book["sovereign_countries"],
+        "real_estate_indicators": book["real_estate_indicators"],
+        "taxonomy": book["taxonomy"],
+        "additional_indicators": book["additional_indicators"],
         "per_fund": per_fund,
-        "narratives": {
-            "policies": narratives.get("policies"), "best_efforts": narratives.get("best_efforts"),
-            "actions": narratives.get("actions"),
-            "engagement": narratives.get("engagement"), "standards": narratives.get("standards"),
-            "missing": not_authored,
-        },
         "coverage_summary": {
             "mandatory_indicators": len(indicators),
             "computed": computed, "partial": partial, "not_available": missing,
-            "emissions_coverage_pct": emis_cov, "emissions_estimated_pct": emis_est,
-            "pcaf_data_quality_score": pai.get("pcaf_data_quality_score"),
+            "emissions_coverage_pct": book.get("emissions_coverage_pct"),
+            "emissions_estimated_pct": book.get("emissions_estimated_pct"),
+            "pcaf_data_quality_score": book.get("pcaf_data_quality_score"),
             "filing_readiness": (
                 f"{computed} of {len(indicators)} mandatory indicators computed, {partial} partial, "
-                f"{missing} awaiting issuer input — aggregated across {len(top)} fund(s), value-weighted."
+                f"{missing} awaiting issuer input — aggregated across {len(top)} fund(s), value-weighted"
+                + (", each the average of the four quarter-end impacts." if dates else ".")
             ),
         },
         "provenance": {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "source": _GOLDEN_SOURCE,
-            "scope_note": "Entity-level: every position across all of the manager's funds, "
-                          "counted once, value-weighted. Prior-year comparison and look-through "
-                          "are reported per-fund, not here.",
+            "scope_note": "Entity-level: every position across all of the manager's funds, counted once, value-weighted"
+                          + (f"; impacts averaged over {', '.join(d.isoformat() for d in dates)}." if dates
+                             else "; each fund's latest holdings (live view)."),
         },
     }
+    if dates:          # the sections the manager answers, the previous periods' figures (Articles 5-10)
+        from services.governance import sfdr_pai_answers as A
+        filing_missing += A.attach(session, org_id, dates[-1], st)
+    st["filing_readiness"] = {
+        "ready_to_file": bool(dates) and not filing_missing,
+        "missing": filing_missing if dates else filing_missing + ["a reference period (a statement covers 1 January to "
+                                                                   "31 December of one year)"],
+        "note": "Ready to file." if dates and not filing_missing else "Not yet submittable — see what is missing.",
+    }
+    return st
 
 
 # ── Downloadable filing document (.xlsx in the mandated table shape) ──
@@ -946,7 +935,6 @@ def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
         ("PCAF data-quality score", f"{statement['coverage_summary'].get('pcaf_data_quality_score', '—')} (1 best … 5 worst)"),
         ("Additional (voluntary) PAI", statement.get("additional_indicators", {}).get("status", "—")),
         ("Look-through", statement.get("look_through", {}).get("note") or statement.get("look_through", {}).get("status", "—")),
-        ("Narrative sections outstanding", ", ".join(statement.get("narratives", {}).get("missing") or []) or "none — complete"),
         ("Generated (UTC)", prov["generated_at"]),
     ]
     r = 7

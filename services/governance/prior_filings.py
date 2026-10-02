@@ -26,6 +26,11 @@ def _dp_label(framework: str, key: str) -> str:
     if framework == "bank_tcfd":                       # a Template 0 cell (bank_taxonomy_report.prior_targets)
         from services.governance.bank_taxonomy_report import prior_targets
         return prior_targets().get(key, key)
+    if framework == "sfdr_pai":                        # a Table 1-3 row (sfdr_binding.prior_targets)
+        from datetime import date as _d
+
+        from services.governance.sfdr_binding import prior_targets as sfdr_targets
+        return sfdr_targets(_d.today()).get(key, key)
     for dp in (catalog(framework) or []):
         if dp["key"] == key:
             return dp["label"]
@@ -72,11 +77,15 @@ def esrs_targets(session, org_id: str, period_end) -> dict[str, str]:
 
 def _targets(session, org_id: str, framework: str, period_end) -> dict[str, str] | None:
     """The cells a line may be mapped to, chosen by the version governing the year — an ESRS statement's concepts, a
-    Taxonomy report's Summary of KPIs cells; None for a framework mapped by its catalog keywords."""
-    if framework not in ("esrs_pack", "bank_tcfd"):
+    Taxonomy report's Summary of KPIs cells, an SFDR PAI statement's Table 1-3 rows; None for a framework mapped by its
+    catalog keywords."""
+    if framework not in ("esrs_pack", "bank_tcfd", "sfdr_pai"):
         return None
     if period_end is None:
         raise FilingError("The version is chosen by the financial year — give the period end (or a year in the label).")
+    if framework == "sfdr_pai":                     # the Table 1-3 rows the statement's own figures use
+        from services.governance.sfdr_binding import prior_targets as sfdr_targets
+        return sfdr_targets(period_end)
     if framework == "bank_tcfd":
         from services.governance.bank_taxonomy_report import prior_targets
         return prior_targets(period_end)
@@ -94,10 +103,12 @@ def datapoints(framework: str, *, session=None, org_id: Optional[str] = None, pe
 
 def create_from_upload(session, org_id: str, user_id: Optional[str], *, framework: str,
                        period_label: str, entity_name: Optional[str], filename: str, data: bytes,
-                       currency: Optional[str] = None, period_end: Optional[str] = None) -> dict:
+                       currency: Optional[str] = None, period_end: Optional[str] = None,
+                       undertaking: Optional[str] = None) -> dict:
     """currency: the currency the filing's money is reported in — resolves shared symbols ('$', '£', '¥') the file
-    uses; never assumed. period_end: the date the period ends (money converts at it in trends); when not given it is
-    taken from a year in the label (31 December) and stored, so it is visible, not re-guessed on every read."""
+    uses; never assumed. period_end: the date the period ends — stated, never taken from the label (E123).
+    undertaking: whom the filed report is for — 'organisation' or one of the organisation's reporting entities — so
+    its figures can be the previous period's of that undertaking (ESRS 1 §83-84); entity_name is kept as printed."""
     from datetime import date as _date
 
     from services.ingest.units import resolve_declared
@@ -115,14 +126,13 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     ccy = (currency or "").strip().upper() or None
     if ccy and ccy not in codes():
         raise FilingError(f"'{ccy}' is not an ISO 4217 currency code.")
-    if period_end:
-        try:
-            pe = _date.fromisoformat(str(period_end)[:10])
-        except ValueError:
-            raise FilingError("The period end must be a date (YYYY-MM-DD).")
-    else:
-        m = _re.search(r"(19|20)\d{2}", period_label)
-        pe = _date(int(m.group(0)), 12, 31) if m else None
+    if not period_end:
+        raise FilingError("State the date the reporting period ends (YYYY-MM-DD).")
+    try:
+        pe = _date.fromisoformat(str(period_end)[:10])
+    except ValueError:
+        raise FilingError("The period end must be a date (YYYY-MM-DD).")
+    entity_id = _undertaking(session, org_id, undertaking)
     targets = _targets(session, org_id, framework, pe)
     try:
         read = filing_import.extract(framework, filename, data, targets)
@@ -139,12 +149,13 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     sha = hashlib.sha256(data).hexdigest()
     fid = session.execute(text("""
         INSERT INTO reported_filing (org_id, framework, period_label, entity_name, file_format,
-            original_filename, file_bytes, file_sha256, file_size, n_lines, status, uploaded_by, currency, period_end)
-        VALUES (:org, :fw, :pl, :ent, :fmt, :fn, :bytes, :sha, :sz, :n, 'draft', :uid, :ccy, :pe)
+            original_filename, file_bytes, file_sha256, file_size, n_lines, status, uploaded_by, currency, period_end,
+            entity_id, undertaking_stated, period_end_stated)
+        VALUES (:org, :fw, :pl, :ent, :fmt, :fn, :bytes, :sha, :sz, :n, 'draft', :uid, :ccy, :pe, CAST(:eid AS uuid), true, true)
         RETURNING filing_id
     """), {"org": org_id, "fw": framework, "pl": period_label.strip(), "ent": entity_name, "ccy": ccy, "pe": pe,
            "fmt": read["format"], "fn": filename, "bytes": data, "sha": sha, "sz": len(data),
-           "n": read["n_total"], "uid": user_id}).scalar()
+           "n": read["n_total"], "uid": user_id, "eid": entity_id}).scalar()
 
     for c in read["cells"]:
         session.execute(text("""
@@ -158,10 +169,63 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     return get_filing(session, str(fid), org_id)
 
 
+def _undertaking(session, org_id: str, undertaking: Optional[str]) -> Optional[str]:
+    """'organisation' → None; an entity id of this organisation → itself; anything else refused (never inferred)."""
+    if undertaking == "organisation":
+        return None
+    if not undertaking:
+        raise FilingError("State whom the filed report is for: the organisation or one of its entities.")
+    ok = session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) AND org_id = CAST(:o AS uuid)"),
+                         {"e": undertaking, "o": org_id}).first()
+    if not ok:
+        raise FilingError("That undertaking is not one of this organisation's entities.")
+    return undertaking
+
+
+def state_basis(session, org_id: str, filing_id: str, *, undertaking: str, period_end: str) -> dict:
+    """For a filing uploaded before the undertaking and period end were stated (E123): state both, once."""
+    from datetime import date as _date
+    f = session.execute(text("""SELECT undertaking_stated, period_end_stated FROM reported_filing
+                                WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"""),
+                        {"f": filing_id, "o": org_id}).mappings().first()
+    if not f:
+        raise FilingError("Filing not found.")
+    if f["undertaking_stated"] and f["period_end_stated"]:
+        raise FilingError("Its undertaking and period end are already stated.")
+    try:
+        pe = _date.fromisoformat(str(period_end)[:10])
+    except ValueError:
+        raise FilingError("The period end must be a date (YYYY-MM-DD).")
+    eid = _undertaking(session, org_id, undertaking)
+    try:
+        with session.begin_nested():
+            session.execute(text("""UPDATE reported_filing SET entity_id = CAST(:e AS uuid), undertaking_stated = true,
+                                    period_end = :pe, period_end_stated = true WHERE filing_id = CAST(:f AS uuid)"""),
+                            {"e": eid, "pe": pe, "f": filing_id})
+    except IntegrityError:                  # one confirmed filing per undertaking and period (prior_undertaking_20261002)
+        raise FilingError("A confirmed filing of that undertaking for that period already exists — remove one of them first.")
+    return get_filing(session, filing_id, org_id)
+
+
+def reported_figures(session, org_id: str, framework: str, entity_id: Optional[str], period_end) -> dict:
+    """The figures a confirmed prior filing of this undertaking reported for the period ending on that date —
+    {datapoint_key: {value, filing_id}} — from filings whose undertaking and period end are stated (E123)."""
+    rows = session.execute(text("""
+        SELECT f.filing_id::text AS fid, g.datapoint_key, g.value_num, g.value_text
+        FROM reported_filing f JOIN reported_figure g USING (filing_id)
+        WHERE f.org_id = CAST(:o AS uuid) AND f.framework = :fw AND f.status = 'confirmed'
+          AND f.undertaking_stated AND f.period_end_stated AND f.period_end = :pe
+          AND f.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND g.datapoint_key IS NOT NULL
+        ORDER BY g.seq"""), {"o": org_id, "fw": framework, "pe": period_end, "e": entity_id}).mappings().all()
+    return {r["datapoint_key"]: {"value": r["value_num"] if r["value_num"] is not None else r["value_text"],
+                                 "filing_id": r["fid"]} for r in rows}
+
+
 def list_filings(session, org_id: str, framework: Optional[str] = None) -> list[dict]:
     rows = session.execute(text("""
         SELECT filing_id, framework, period_label, entity_name, file_format, original_filename,
-               status, n_lines, uploaded_at, confirmed_at
+               status, n_lines, uploaded_at, confirmed_at, period_end, entity_id::text AS entity_id, undertaking_stated,
+               period_end_stated
         FROM reported_filing
         WHERE org_id = :org AND (CAST(:fw AS text) IS NULL OR framework = :fw)
         ORDER BY period_label DESC, uploaded_at DESC, filing_id
@@ -174,13 +238,16 @@ def list_filings(session, org_id: str, framework: Optional[str] = None) -> list[
         "status": r["status"], "n_lines": r["n_lines"],
         "uploaded_at": r["uploaded_at"].isoformat() if r["uploaded_at"] else None,
         "confirmed_at": r["confirmed_at"].isoformat() if r["confirmed_at"] else None,
+        "period_end": r["period_end"].isoformat() if r["period_end"] else None, "entity_id": r["entity_id"],
+        "undertaking_stated": r["undertaking_stated"], "period_end_stated": r["period_end_stated"],
     } for r in rows]
 
 
 def get_filing(session, filing_id: str, org_id: str) -> dict:
     f = session.execute(text("""
         SELECT filing_id, framework, period_label, period_end, entity_name, file_format, original_filename,
-               file_sha256, basis_note, status, n_lines, uploaded_at, confirmed_at
+               file_sha256, basis_note, status, n_lines, uploaded_at, confirmed_at, entity_id::text AS entity_id,
+               undertaking_stated, period_end_stated
         FROM reported_filing WHERE filing_id = :fid AND org_id = :org
     """), {"fid": filing_id, "org": org_id}).mappings().first()
     if not f:
@@ -194,7 +261,8 @@ def get_filing(session, filing_id: str, org_id: str) -> dict:
         "filing_id": str(f["filing_id"]), "framework": f["framework"],
         "framework_label": _LABEL.get(f["framework"], f["framework"]),
         "period_label": f["period_label"], "entity_name": f["entity_name"],
-        "period_end": f["period_end"].isoformat() if f["period_end"] else None,
+        "period_end": f["period_end"].isoformat() if f["period_end"] else None, "entity_id": f["entity_id"],
+        "undertaking_stated": f["undertaking_stated"], "period_end_stated": f["period_end_stated"],
         "file_format": f["file_format"], "original_filename": f["original_filename"],
         "file_sha256": f["file_sha256"], "basis_note": f["basis_note"], "status": f["status"],
         "n_lines": f["n_lines"],
@@ -212,7 +280,8 @@ def get_filing(session, filing_id: str, org_id: str) -> dict:
 def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
             edits: Optional[list[dict]] = None, basis_note: Optional[str] = None) -> dict:
     """Lock a draft filing: apply any corrected values, then mark the filing and its figures confirmed.
-    An edited value is recorded as read_method 'confirmed'. One confirmed filing per (org, framework, period)."""
+    An edited value is recorded as read_method 'confirmed'. One confirmed filing per undertaking and period end
+    (per period label for a filing whose undertaking and period end are not yet stated)."""
     f = session.execute(text("""
         SELECT status FROM reported_filing WHERE filing_id = :fid AND org_id = :org
     """), {"fid": filing_id, "org": org_id}).mappings().first()
@@ -258,7 +327,7 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
         session.commit()
     except IntegrityError:
         session.rollback()
-        raise FilingError("A confirmed filing already exists for that framework and period. "
+        raise FilingError("A confirmed filing already exists for that framework, undertaking and period. "
                           "Remove it before confirming a replacement.")
     return get_filing(session, filing_id, org_id)
 
@@ -373,7 +442,8 @@ def _presentation(session, org_id: str) -> str:
 
 def _figures(session, org_id: str, framework: Optional[str], datapoint_key: Optional[str]) -> list[dict]:
     return [dict(r) for r in session.execute(text("""
-        SELECT g.framework, g.datapoint_key, rf.period_label, rf.period_end, rf.basis_note, g.value_num, g.unit
+        SELECT g.framework, g.datapoint_key, rf.period_label, rf.period_end, rf.period_end_stated, rf.basis_note,
+               g.value_num, g.unit
         FROM reported_figure g JOIN reported_filing rf ON rf.filing_id = g.filing_id
         WHERE g.org_id = :org AND rf.status = 'confirmed' AND g.datapoint_key IS NOT NULL AND g.value_num IS NOT NULL
               AND (CAST(:fw AS text) IS NULL OR g.framework = :fw) AND (CAST(:dk AS text) IS NULL OR g.datapoint_key = :dk)
@@ -389,11 +459,8 @@ def _grouped(rows: list[dict]) -> dict:
 
 
 def _period_end(fig: dict):
-    from datetime import date as _date
-    if fig.get("period_end"):
-        return fig["period_end"]
-    m = _re.search(r"(19|20)\d{2}", fig.get("period_label") or "")
-    return _date(int(m.group(0)), 12, 31) if m else None
+    """The stated period end — never a date read from the label (E123); not stated → money is not converted."""
+    return fig["period_end"] if fig.get("period_end_stated") else None
 
 
 def _combine(session, figs: list[dict], ccy: str) -> dict:

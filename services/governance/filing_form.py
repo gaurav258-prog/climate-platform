@@ -122,6 +122,22 @@ def _sfdr_form(payload: dict) -> list[dict]:
         groups.append({"group": "Additional indicators adopted (Annex I · Tables 2 and 3)", "datapoints": [
             _dp(f"additional.{i['key']}", f"Table {i.get('table')}, {i.get('row') or ''} {i.get('name')}".replace("  ", " "),
                 i.get("value"), "num", unit=i.get("unit"), note=note(i)) for i in add]})
+    # the columns the statement freezes beside each impact (services.governance.sfdr_pai_answers.attach): the previous
+    # period's reported impact, and the explanation and actions answered for the period
+    rows_ = payload.get("rows")
+    if rows_ is not None:
+        from services.governance.sfdr_pai_answers import impact_rows
+        prior = payload.get("prior_period") or {}
+        labels = {r["key"]: (r["label"], r.get("unit")) for r in impact_rows(payload)}
+        groups.append({"group": "Impact [year n-1] — as reported for the previous period", "datapoints": [
+            _dp(f"{k}.prior", labels.get(k, (k, None))[0], v.get("prior"), "num", unit=labels.get(k, (k, None))[1],
+                source="reported", note=prior.get("source") or "no statement reported for the previous period")
+            for k, v in rows_.items()]})
+        for col, title in (("expl", "Explanation"),
+                           ("action", "Actions taken, and actions planned and targets set for the next reference period")):
+            groups.append({"group": title, "datapoints": [
+                _dp(f"{k}.{col}", labels.get(k, (k, None))[0], v.get(col), "text", source="answered")
+                for k, v in rows_.items()]})
     return groups
 
 

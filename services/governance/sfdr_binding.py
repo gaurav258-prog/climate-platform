@@ -2,8 +2,11 @@
 Tables 1-3 is filled. The rows, their numbering and wording come from the spec file (data/reference/regspec/sfdr_pai);
 nothing about the template is typed here. coverage() checks this map against every adopted spec.
 
-Table 1   computed by the PAI engine from the holdings (indicator rows); the prior period, explanation and actions
-          columns are completed by the filer on the form.
+Table 1   computed by the PAI engine from the holdings (indicator rows), each impact the average of the four quarter
+          ends (Article 6(3)); the previous period's impact from the statement reported for it; the explanation and
+          actions answered per row for the period (services.governance.sfdr_pai_answers).
+S1, S4-S7 the sections of Articles 5 and 7-10, item by item: S1 (a)-(c) and S7 computed, the rest answered for the
+          period (sfdr_pai_answers.SECTION_BINDING).
 Tables 2, 3  opt-in: the filer adopts at least one indicator from each (Article 6(1)). Each investee-company row can be
           adopted; its per-issuer values are supplied by the client (issuer_voluntary_pai) and aggregated as the
           metric's wording requires:
@@ -18,7 +21,7 @@ Tables 2, 3  opt-in: the filer adopts at least one indicator from each (Article 
 from __future__ import annotations
 
 _T1_COLS = {"a": "computed:indicator", "b": "computed:metric", "c": "computed:impact",
-            "d": "input:prior_period", "e": "input:explanation", "f": "input:actions"}
+            "d": "computed:prior_period", "e": "input:explanation", "f": "input:actions"}
 _OPT_COLS = {"a": "computed:indicator", "b": "computed:impact_group", "c": "computed:metric"}
 
 
@@ -26,7 +29,10 @@ def _opt(rows: dict) -> dict:
     return {"rows": rows, "columns": dict(_OPT_COLS)}
 
 
+from services.governance.sfdr_pai_answers import SECTION_BINDING  # noqa: E402
+
 BINDING: dict[str, dict] = {
+    **{sid: {"items": dict(items)} for sid, items in SECTION_BINDING.items()},
     "T1": {
         "rows": {"1.1": "computed:indicator.1.scope_1", "1.2": "computed:indicator.1.scope_2",
                  "1.3": "computed:indicator.1.scope_3", "1.4": "computed:indicator.1.total",
@@ -74,3 +80,25 @@ def optional_catalog(spec: dict) -> dict[str, dict]:
 def _strip_number(s: str) -> str:
     import re
     return re.sub(r"^\s*(\d+\.|[a-z]\))\s*", "", s).strip()
+
+
+def prior_targets(period_end) -> dict[str, str]:
+    """The cells a line of a previously published statement for the period ending `period_end` can be mapped to (key →
+    label), from the version governing that period: every Table 1 row (the GHG emissions as their scope and total rows)
+    and every adoptable Table 2 / 3 row — the keys the statement's own figures use (sfdr_pai_answers.impact_rows), so a
+    confirmed line is the previous period's figure for exactly that row."""
+    from datetime import date
+
+    import services.regspec as R
+    spec = R.governing("sfdr_pai", period_end=date.fromisoformat(str(period_end)[:10]))
+    if spec is None:
+        return {}
+    out = {}
+    for r in R.template(spec, "T1")["rows"]:
+        key = BINDING["T1"]["rows"][r["id"]].split(":", 1)[1]
+        key = key[: -len(".total")] if key.endswith(".total") else key
+        segs = r["label"].split(" > ")
+        out[key] = f"Table 1, {r['id']} {' — '.join(segs[-2:])}"
+    for k, e in optional_catalog(spec).items():
+        out[f"additional.{k}"] = f"Table {e['table']}, {e['row']} {e['name']} — {e['metric']}"
+    return out

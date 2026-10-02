@@ -267,7 +267,9 @@ def _unnumbered(label: str) -> str:
 def _axis_diff(old: list[dict], new: list[dict]) -> dict:
     """By id, then by wording: an item whose exact wording reappears under another id has moved (renumbered), not
     been removed, added or relabelled — so a renumbering reads as what it is."""
-    o, n = {i["id"]: i["label"] for i in old or []}, {i["id"]: i["label"] for i in new or []}
+    def wording(i: dict) -> str:                  # an untitled item reads by its instruction or note (validate())
+        return i.get("label") or i.get("instruction") or i.get("note") or ""
+    o, n = {i["id"]: wording(i) for i in old or []}, {i["id"]: wording(i) for i in new or []}
     o_by_label, n_by_label = {_unnumbered(v): k for k, v in o.items()}, {_unnumbered(v): k for k, v in n.items()}
     moved = [{"label": lbl, "from": o_by_label[lbl], "to": n_by_label[lbl]}
              for lbl in n_by_label if lbl in o_by_label and o_by_label[lbl] != n_by_label[lbl]]

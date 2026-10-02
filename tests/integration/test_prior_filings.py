@@ -25,7 +25,8 @@ def test_upload_confirm_remap_trend_and_projection():
     with get_session() as s:
         u = _actor(s)
         draft = PF.create_from_upload(s, BANK_ORG, u, framework="bank_p3esg", period_label="2097",
-                                      entity_name="Meridian Bank", filename="t.html", data=_IX)
+                                      entity_name="Meridian Bank", filename="t.html", data=_IX, period_end="2097-12-31",
+                                      undertaking="organisation")
         try:
             figs = {f["label"]: f for f in draft["figures"]}
             assert draft["status"] == "draft" and len(figs) == 2
@@ -70,3 +71,35 @@ def test_kri_raise_task_is_deduped_by_source_ref():
             s.execute(text("UPDATE regulatory_task SET status='cancelled' WHERE source='kri' AND source_ref=:r"),
                       {"r": ref})
             s.commit()
+
+
+@pytest.mark.integration
+def test_one_confirmed_filing_per_undertaking_and_period():
+    """Two undertakings' reports for one year are two filings; a second confirmed report of the same undertaking for the
+    same period is refused — at confirmation and when an earlier upload states its basis (E123)."""
+    with get_session() as s:
+        u = _actor(s)
+        ent = s.execute(text("""SELECT entity_id::text FROM reporting_entities WHERE org_id = CAST(:o AS uuid)
+                                AND kind <> 'group' ORDER BY entity_id LIMIT 1"""), {"o": BANK_ORG}).scalar()
+        made = []
+
+        def up(who, label="2096"):
+            f = PF.create_from_upload(s, BANK_ORG, u, framework="bank_p3esg", period_label=label, entity_name=None,
+                                      filename="t.html", data=_IX, period_end="2096-12-31", undertaking=who)
+            made.append(f["filing_id"])
+            return f["filing_id"]
+        try:
+            assert PF.confirm(s, up("organisation"), BANK_ORG, u)["status"] == "confirmed"
+            assert PF.confirm(s, up(ent), BANK_ORG, u)["status"] == "confirmed"          # same label, other undertaking
+            with pytest.raises(PF.FilingError, match="undertaking and period"):
+                PF.confirm(s, up("organisation"), BANK_ORG, u)
+            legacy = up("organisation", "2096 legacy")
+            s.execute(text("UPDATE reported_filing SET undertaking_stated = false, entity_id = NULL WHERE filing_id = :f"),
+                      {"f": legacy})
+            assert PF.confirm(s, legacy, BANK_ORG, u)["status"] == "confirmed"         # unstated: its label is unique
+            with pytest.raises(PF.FilingError, match="already exists"):
+                PF.state_basis(s, BANK_ORG, legacy, undertaking="organisation", period_end="2096-12-31")
+        finally:
+            s.rollback()
+            for fid in made:
+                PF.delete_filing(s, fid, BANK_ORG)

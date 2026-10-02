@@ -3,7 +3,7 @@
 #
 #   scripts/commit_paths.sh "message" path [path ...]
 #
-# Builds the commit in a private index (HEAD + the named paths), moves main to it, then updates only those entries in
+# Builds the commit in a private index (HEAD + the named paths), moves the checked-out branch to it, then updates only those entries in
 # the shared index. Refuses (E39): no paths; a path with no change against HEAD; a tree identical to HEAD's.
 # Pushing is left to the caller.
 set -euo pipefail
@@ -13,6 +13,8 @@ shift
 [ "$#" -gt 0 ] || { echo "commit_paths: no paths named" >&2; exit 2; }
 
 cd "$(git rev-parse --show-toplevel)"
+# the branch checked out HERE moves — never a fixed name (from a worktree, a fixed 'main' moved another checkout's branch)
+branch="$(git symbolic-ref -q HEAD)" || { echo "commit_paths: HEAD is detached — check out a branch" >&2; exit 2; }
 for p in "$@"; do
   if [ -e "$p" ]; then
     if git cat-file -e "HEAD:$p" 2>/dev/null && git diff --quiet HEAD -- "$p"; then
@@ -33,7 +35,7 @@ if [ "$tree" = "$(git rev-parse 'HEAD^{tree}')" ]; then
   echo "commit_paths: nothing to commit — the tree equals HEAD's" >&2; exit 2
 fi
 commit="$(git commit-tree "$tree" -p HEAD -m "$msg")"
-git update-ref refs/heads/main "$commit" HEAD
+git update-ref "$branch" "$commit" HEAD
 unset GIT_INDEX_FILE
 
 for p in "$@"; do          # the shared index follows the commit for these paths only

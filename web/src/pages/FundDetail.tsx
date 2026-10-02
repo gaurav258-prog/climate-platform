@@ -14,7 +14,7 @@ import SfdrDocument from '../components/SfdrDocument'
 import MethodGap from '../components/MethodGap'
 
 // One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
-// mandatory indicators + taxonomy + narratives) ready to download or freeze as the official filing.
+// mandatory indicators + taxonomy) ready to download or freeze as the official filing.
 
 interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_risk?: number | null; transition_value_at_risk?: number | null }
 const eur = (n?: number | null) => money(n, 'EUR')
@@ -51,7 +51,6 @@ interface Statement { error?: string; message?: string
     // CapEx-based, shown separately, never blended.
     taxonomy_aligned_turnover_pct?: number | null; turnover_alignment_coverage_pct?: number | null; turnover_alignment_note?: string
     taxonomy_aligned_capex_pct?: number | null; capex_alignment_coverage_pct?: number | null; capex_alignment_note?: string }
-  narratives?: { policies?: string; best_efforts?: string; actions?: string; engagement?: string; standards?: string; missing?: string[] }
   additional_indicators?: { selected?: string[] }
   coverage_summary?: { mandatory_indicators: number; computed: number; partial: number; not_available: number; emissions_coverage_pct?: number } }
 interface Filing { reference_year: number; filed_at: string; filed_by: string; status: string }
@@ -186,7 +185,7 @@ export default function FundDetail() {
             </table>
           </div>
 
-          {/* taxonomy + narratives */}
+          {/* taxonomy + where the statement's sections are answered */}
           <div className="grid md:grid-cols-2 gap-0 border-t border-[var(--color-line)]">
             <div className="p-5 md:border-r border-[var(--color-line)]">
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">EU Taxonomy alignment</div>
@@ -200,14 +199,9 @@ export default function FundDetail() {
               {st.taxonomy?.turnover_alignment_note && <div className="text-[10.5px] text-[var(--color-faint)] mt-2">{st.taxonomy.turnover_alignment_note}</div>}
               {st.taxonomy?.capex_alignment_note && <div className="text-[10.5px] text-[var(--color-faint)] mt-1">{st.taxonomy.capex_alignment_note}</div>}
             </div>
-            <div className="p-5">
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Narratives</div>
-              {(['policies', 'best_efforts', 'actions', 'engagement', 'standards'] as const).map(k => (
-                <div key={k} className="text-[12px] mb-1.5">
-                  <span className="capitalize text-[var(--color-mute)]">{k.replace('_', ' ')}: </span>
-                  <span className={st.narratives?.[k] ? 'text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}>{st.narratives?.[k] ? st.narratives[k] : 'not set — required to file'}</span>
-                </div>
-              ))}
+            <div className="p-5 text-[12px] text-[var(--color-mute)]">
+              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Policies, engagement, standards</div>
+              The sections of Articles 5 to 10 of Delegated Regulation (EU) 2022/1288 are answered in the manager's entity-level statement, per reference period (Funds → Principal adverse impacts statement). A fund discloses how it considers principal adverse impacts in its SFDR product documents.
             </div>
           </div>
         </Card>

@@ -89,6 +89,7 @@ async def upload(session: DbSession, ctx: CurrentUser,
                  entity_name: Optional[str] = Form(None),
                  currency: Optional[str] = Form(None),
                  period_end: Optional[str] = Form(None),
+                 undertaking: Optional[str] = Form(None, description="'organisation' or one of its reporting entity ids"),
                  _p: dict = Depends(require_permission("reports.publish"))):
     data = await file.read()
     if not data:
@@ -99,9 +100,28 @@ async def upload(session: DbSession, ctx: CurrentUser,
         return PF.create_from_upload(session, ctx["org"]["org_id"], ctx["user"]["id"],
                                      framework=framework, period_label=period_label,
                                      entity_name=entity_name, filename=file.filename or "upload", data=data,
-                                     currency=currency, period_end=period_end)
+                                     currency=currency, period_end=period_end, undertaking=undertaking)
     except PF.FilingError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+
+
+class BasisBody(BaseModel):
+    undertaking: str
+    period_end: str
+
+
+@router.post("/{filing_id}/basis", summary="State whom an earlier filing is for and its period end (once)")
+def state_basis(filing_id: str, body: BasisBody, session: DbSession, ctx: CurrentUser,
+                _p: dict = Depends(require_permission("reports.publish"))):
+    from api.services.rbac import write_audit
+    try:
+        out = PF.state_basis(session, ctx["org"]["org_id"], filing_id, undertaking=body.undertaking, period_end=body.period_end)
+    except PF.FilingError as e:
+        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="prior_filing.basis_stated",
+                target_type="reported_filing", target_id=filing_id, detail=body.model_dump())
+    session.commit()
+    return out
 
 
 class ConfirmEdit(BaseModel):

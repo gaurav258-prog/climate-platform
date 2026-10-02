@@ -894,15 +894,19 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
     if framework == "bank_p3esg":                      # the banking book the Pillar 3 templates read (E97)
         from services.governance.pillar3_report import preflight as p3_preflight
         return p3_preflight(session, org_id, basis, entity_ids, value_weights, translation)
-    if framework == "sfdr_pai":
+    if framework == "sfdr_pai":                        # the statement for the period the filing will freeze
         from ml.regulatory.sfdr_pai import entity_pai_statement
-        st = entity_pai_statement(session, org_id)
+        from ml.regulatory.sfdr_pai_period import PeriodError
+        try:
+            st = entity_pai_statement(session, org_id, reporting_period_end(session, org_id))
+        except PeriodError as e:
+            st = {"error": str(e)}
         if st.get("error"):
             return {"coverage": {"label": "positions", "done": 0, "total": 0, "pct": 0},
                     "total_value_eur": None, "noun": "positions", "gaps": [st["error"]]}
         cs, ent, fr = st["coverage_summary"], st["entity"], st.get("filing_readiness", {})
         if not fr.get("ready_to_file"):
-            gaps.append("Manager identity/narratives incomplete: " + ", ".join(fr.get("missing", [])))
+            gaps += fr.get("missing", [])
         mand, done = cs.get("mandatory_indicators", 0), cs.get("computed", 0)
         if mand and done < mand:
             gaps.append(f"{done}/{mand} mandatory PAI indicators computed — the rest await issuer input")
@@ -1071,6 +1075,7 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
             figure_sources: dict | None = None, fund_id: str | None = None,
             disclosure_date: date | None = None) -> tuple[dict, str]:
     from services.governance.engine_runs import RunCheckError
+    from services.governance.report_snapshots import StatementRefused
     from services.governance.translation import TranslationError
     from services.intake.views import ViewError
     entity_ids, value_weights, translation = ((None, None, None) if framework in _PRODUCT_SCOPED
@@ -1081,7 +1086,7 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
                                figure_sources=figure_sources,
                                previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end),
                                fund_id=fund_id, disclosure_date=disclosure_date, period_end=period_end)
-    except (TranslationError, RunCheckError, ViewError) as e:
+    except (TranslationError, RunCheckError, ViewError, StatementRefused) as e:
         raise FilingError(str(e)) from e
     return snap, (translation.presentation if translation is not None else "EUR")
 

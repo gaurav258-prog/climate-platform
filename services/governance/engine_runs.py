@@ -89,7 +89,8 @@ def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional
            asset_ids: Optional[list] = None) -> tuple[dict, dict]:
     """(manifest, the in-scope rows by book) — the manifest is stored, the rows feed the identity / tie checks.
     fund_id: a per-product report reads that fund's (and its sub-funds') positions on the position dates it froze
-    (as_of_dates); their value is the average over those dates, as the document computes it.
+    (as_of_dates); their value is the average over those dates, as the document computes it. The entity PAI statement
+    reads every fund's positions on its four quarter-end dates (as_of_dates), averaged the same way.
     asset_ids: a report that decides its own scope (the ESRS statement: held at the year end, in the undertaking's
     consolidation) names the assets it read."""
     if report_type in LOCATED:
@@ -121,12 +122,14 @@ def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional
               AND (CAST(:d AS date[]) IS NULL OR p.as_of_date = ANY(CAST(:d AS date[])))
             ORDER BY p.position_id
         """), {"o": org_id, "ids": fund_descendant_ids(session, fund_id) if fund_id else None,
-               "d": list(as_of_dates) if fund_id and as_of_dates is not None else None}).mappings().all()]
+               "d": list(as_of_dates) if as_of_dates is not None else None}).mappings().all()]
+        # on dates (a product's position dates; an entity PAI statement's four quarter ends): the average over them
+        dated = as_of_dates is not None
         n_dates = len({p["as_of_date"] for p in pos}) or 1
-        total = sum(p["market_value_eur"] or 0 for p in pos) / (n_dates if fund_id else 1)
-        books.append({"book": "fund_positions", "n_assets": len({p["security_id"] for p in pos}) if fund_id else len(pos),
+        total = sum(p["market_value_eur"] or 0 for p in pos) / (n_dates if dated else 1)
+        books.append({"book": "fund_positions", "n_assets": len({p["security_id"] for p in pos}) if dated else len(pos),
                       "total_value_eur": round(total, 2), "facts_sha256": _sha(pos),
-                      **({"position_dates": n_dates} if fund_id else {})})
+                      **({"position_dates": n_dates} if dated else {})})
     for rows in rows_by_book.values():
         cells |= {r["h3_cell"] for r in rows if r.get("h3_cell")}
     sc = session.execute(text("""

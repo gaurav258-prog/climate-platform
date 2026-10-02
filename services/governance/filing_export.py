@@ -59,8 +59,9 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
         }
         return f"{stem}.json", "application/json", json.dumps(record, default=str, indent=2).encode("utf-8")
 
-    if fmt == "xlsx":
-        buf = _xlsx(filing["framework"], payload)
+    if fmt == "xlsx":                                  # the form as viewed: frozen figures with their audited overrides
+        from services.governance.filings import form_view
+        buf = _xlsx(filing["framework"], payload, ((form_view(session, org_id, filing_id) or {}).get("annex")))
         return (f"{stem}.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.getvalue())
 
@@ -95,12 +96,13 @@ def _cell_text(cell: dict):
     return cell.get("text")
 
 
-def _summary_blocks(framework: str, payload: dict) -> list[dict]:
-    """The computed official-form sections (catastrophe/SCR/stranding/concentration/…) flattened into
-    export blocks, so every analytic the annex shows also lands in the downloadable workbook. Payload-derived
-    sections render fully; datapoint-bound cells with no frozen value render '—' (the honest gap, preserved)."""
+def _summary_blocks(framework: str, payload: dict, annex: dict | None = None) -> list[dict]:
+    """The official-form sections flattened into export blocks, so everything the annex shows — figures, columns and
+    each section's note — also lands in the downloadable workbook. `annex` is the filing's form view annex (its merged
+    datapoints: the frozen figures and any audited override); without it the annex is rebuilt from the payload alone,
+    where a datapoint-bound cell renders '—'."""
     from services.governance.filing_annex import build_annex
-    ann = build_annex(framework, {}, [], payload=payload) or {}
+    ann = annex if annex is not None else (build_annex(framework, {}, [], payload=payload) or {})
     blocks = []
     for sec in ann.get("sections", []):
         rows = []
@@ -109,7 +111,8 @@ def _summary_blocks(framework: str, payload: dict) -> list[dict]:
                 rows.append([row.get("label")])
             else:
                 rows.append([_cell_text(c) for c in row.get("cells", [])])
-        blocks.append({"title": sec.get("title", ""), "columns": sec.get("columns") or [], "rows": rows})
+        blocks.append({"title": sec.get("title", ""), "columns": sec.get("columns") or [], "rows": rows,
+                       "note": sec.get("note")})
     return blocks
 
 
@@ -119,20 +122,20 @@ def _cur(headers: list[str], payload: dict) -> list[str]:
     return headers if c == "eur" else [h[:-4] + "_" + c if h.endswith("_eur") else (c if h == "eur" else h) for h in headers]
 
 
-def _xlsx(framework: str, payload: dict) -> io.BytesIO:
+def _xlsx(framework: str, payload: dict, annex: dict | None = None) -> io.BytesIO:
     from services.templates.workbook import build_disclosure_workbook, build_export_workbook
     if framework == "bank_tcfd":                       # the frozen book as the templates read it, then the templates (E95)
         from services.governance.bank_taxonomy_report import XLSX_HEADERS, xlsx_rows
         return build_disclosure_workbook(_cur(XLSX_HEADERS, payload), xlsx_rows(payload),
-                                         "EU Taxonomy Art. 8 — loan book", _summary_blocks(framework, payload))
+                                         "EU Taxonomy Art. 8 — loan book", _summary_blocks(framework, payload, annex))
     if framework == "bank_p3esg":                      # the frozen book as the templates read it, then the templates (E97)
         from services.governance.pillar3_report import XLSX_HEADERS as P3_HEADERS
         from services.governance.pillar3_report import xlsx_rows as p3_rows
         return build_disclosure_workbook(_cur(P3_HEADERS, payload), p3_rows(payload), "Pillar 3 ESG — banking book",
-                                         _summary_blocks(framework, payload))
+                                         _summary_blocks(framework, payload, annex))
     if framework == "sfdr_pai":
-        # build straight from the frozen entity-level indicator rows (fund-level renderer expects a
-        # different shape, so we serialize the entity statement's own mandatory-indicator table)
+        # the frozen indicator rows, then the statement as Annex I lays it out: Table 1 (impact, previous period,
+        # explanation, actions), the other indicators and the sections of Articles 5 and 7-10
         headers = ["number", "area", "metric", "value", "unit", "coverage_pct", "input_required"]
         rows = []
         for i in payload.get("indicators", []):
@@ -141,26 +144,27 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                 v = v.get("total", v)
             rows.append([i.get("number"), i.get("area"), i.get("metric"), v,
                          i.get("unit"), i.get("coverage_pct"), i.get("input_required")])
-        return build_export_workbook(_cur(headers, payload), rows, sheet_name="SFDR PAI · Annex I Table 1")
+        return build_disclosure_workbook(_cur(headers, payload), rows, "SFDR PAI · indicators",
+                                         _summary_blocks(framework, payload, annex))
     if framework == "reit_tcfd":
         headers = ["property_name", "property_type", "country", "property_value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[p.get("property_name"), p.get("property_type"), p.get("country"), p.get("property_value_eur"),
                  p.get("headline_score"), p.get("headline_bucket") or "unscored",
                  p.get("taxonomy_status"), p.get("h3_cell")] for p in payload.get("properties", [])]
-        return build_disclosure_workbook(_cur(headers, payload), rows, "Property physical risk", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "Property physical risk", _summary_blocks(framework, payload, annex))
     if framework == "insurer_climate":
         headers = ["policy_name", "region", "sum_insured_eur", "headline_score", "risk_bucket", "h3_cell"]
         rows = [[p.get("policy_name"), p.get("region"), p.get("sum_insured_eur"), p.get("headline_score"),
                  p.get("headline_bucket") or "unscored", p.get("h3_cell")] for p in payload.get("policies", [])]
-        return build_disclosure_workbook(_cur(headers, payload), rows, "NatCat exposure disclosure", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "NatCat exposure disclosure", _summary_blocks(framework, payload, annex))
     if framework == "assetmgmt_tcfd":
         headers = ["holding_name", "sector", "country", "position_value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[h.get("holding_name"), h.get("sector"), h.get("country"), h.get("position_value_eur"),
                  h.get("headline_score"), h.get("headline_bucket") or "unscored",
                  h.get("taxonomy_status"), h.get("h3_cell")] for h in payload.get("holdings", [])]
-        return build_disclosure_workbook(_cur(headers, payload), rows, "Holdings physical risk", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "Holdings physical risk", _summary_blocks(framework, payload, annex))
     if framework == "reit_taxonomy":
         # the property book with each building's EU Taxonomy verdict, then the Annex II templates as blocks
         from services.governance.taxonomy_nonfin import summary_of
@@ -170,7 +174,7 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                  {True: "aligned", False: "not aligned", None: "not determined"}[b["aligned"]] if b["activity"] else "not eligible",
                  b["why"]] for b in sm["buildings"]]
         return build_disclosure_workbook(_cur(headers, payload), rows, "EU Taxonomy Art. 8 — buildings",
-                                         _summary_blocks(framework, payload))
+                                         _summary_blocks(framework, payload, annex))
     if framework == "insurer_solvency":
         # the frozen payload is a summary, not a per-policy book: {"rollup", "s2701"} (report_snapshots._insurer_solvency,
         # insurer_solvency.s2701_natcat; 's2601' in filings frozen before the template was corrected)

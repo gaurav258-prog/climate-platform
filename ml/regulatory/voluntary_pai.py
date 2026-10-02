@@ -44,7 +44,7 @@ def validate_keys(keys: list[str]) -> list[str]:
 
 
 def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
-                          *, fund_ids=None, org_id=None) -> dict:
+                          *, fund_ids=None, org_id=None, as_of=None) -> dict:
     """Fund roll-up of the adopted additional indicators.
 
     comp is the composition block (for total invested value); if omitted we sum
@@ -63,8 +63,8 @@ def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
     total_value = session.execute(text("""
         SELECT COALESCE(SUM(CAST(p.market_value_eur AS FLOAT)), 0) FROM fund_positions p
         WHERE p.fund_id = ANY(:fids)
-          AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fids}).scalar() or 0.0
+          AND p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
+    """), {"fids": fids, "as_of": as_of}).scalar() or 0.0
 
     indicators = []
     for key in selected:
@@ -84,8 +84,8 @@ def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
                 ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
             ) v ON TRUE
             WHERE  p.fund_id = ANY(:fids)
-              AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-        """), {"fids": fids, "org": org_id, "k": key}).mappings().all()
+              AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
+        """), {"fids": fids, "org": org_id, "k": key, "as_of": as_of}).mappings().all()
 
         if entry["agg"] == "per_meur":
             # Σ (value / EVIC × issuer amount) ÷ € million invested — attributed like Table 1 no. 8-9 (definition (3));

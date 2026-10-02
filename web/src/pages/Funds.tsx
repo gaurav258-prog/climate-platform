@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import EetPanel from '../components/EetPanel'
+import PaiStatement from '../components/sfdr/PaiStatement'
 import { money } from '../lib/money'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -15,15 +16,7 @@ interface Fund {
   fund_id: string; name: string; fund_type: string; sfdr_classification: string | null; parent_fund_id: string | null
   total_value_eur: number; base?: Base | null; positions: number; physical_score: number | null; transition_score: number | null; waci: number | null
 }
-interface Narratives { policies?: string; best_efforts?: string; actions?: string; engagement?: string; standards?: string }
-interface Profile { name?: string; legal_name?: string; lei?: string; filing_contact_email?: string; country?: string; sfdr_narratives?: Narratives | null }
-const NARR: { key: keyof Narratives; label: string; hint: string }[] = [
-  { key: 'policies', label: 'Policies', hint: 'How principal adverse impacts are identified & prioritised' },
-  { key: 'best_efforts', label: 'Best efforts', hint: 'Where an indicator\'s data is not readily available: how you sought it (RTS 2022/1288 Art. 7(2))' },
-  { key: 'actions', label: 'Actions', hint: 'Actions taken / planned this period to mitigate the PAIs' },
-  { key: 'engagement', label: 'Engagement', hint: 'Engagement policy with investee companies' },
-  { key: 'standards', label: 'Standards', hint: 'Adherence to responsible-business conduct codes (UNGC / OECD)' },
-]
+interface Profile { name?: string; legal_name?: string; lei?: string; filing_contact_email?: string; country?: string }
 
 interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_risk?: number | null; transition_value_at_risk?: number | null }
 const eur = (n?: number | null) => money(n, 'EUR')
@@ -51,7 +44,7 @@ export default function Funds() {
         lead="Each fund's physical & transition climate risk and its SFDR Principal-Adverse-Impact statement — assembled from your holdings against the golden source, ready to file." />
 
       <FilingIdentity />
-      <SfdrNarratives />
+      <PaiStatement />
 
       <Card className="p-0 overflow-hidden">
         <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Your funds</SectionHead>
@@ -143,60 +136,3 @@ function FilingIdentity() {
   )
 }
 
-// The manager's SFDR narrative sections — one set, applied to every fund's Annex I statement, and REQUIRED
-// before a fund can be filed. Saved through the filing-profile (which re-validates the LEI vs GLEIF), so the
-// manager identity must be set first.
-function SfdrNarratives() {
-  const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['manager-profile'], queryFn: () => api.get<Profile>('/v1/manager/filing-profile') })
-  const p = q.data
-  const [edit, setEdit] = useState(false)
-  const [form, setForm] = useState<Narratives>({})
-  const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null)
-  if (!p) return null
-  const cur = p.sfdr_narratives ?? {}
-  const filled = NARR.filter(n => (cur[n.key] ?? '').trim()).length
-  const open = () => { setForm({ ...cur }); setErr(null); setEdit(true) }
-  const save = async () => {
-    setBusy(true); setErr(null)
-    try {
-      await api.put('/v1/manager/filing-profile', { lei: p.lei, narratives: form })
-      qc.invalidateQueries({ queryKey: ['manager-profile'] }); qc.invalidateQueries({ queryKey: ['fund-sfdr'] }); setEdit(false)
-    } catch (e) { setErr(apiMessage(e, 'Could not save.')) }
-    finally { setBusy(false) }
-  }
-  const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[12.5px] outline-none focus:border-[var(--color-sky)] resize-none'
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-4 mb-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <SectionHead hint="required on every statement">SFDR narratives</SectionHead>
-          <span className="mono text-[11px]" style={{ color: filled === NARR.length ? 'var(--color-good)' : 'var(--color-warn)' }}>{filled}/{NARR.length} complete</span>
-        </div>
-        {!p.lei ? <span className="mono text-[10.5px] text-[var(--color-warn)]">set the filing identity first</span>
-          : !edit ? <Button variant="ghost" onClick={open}><Pencil size={13} /> Edit</Button>
-          : <div className="flex gap-2 shrink-0"><Button variant="primary" onClick={save} disabled={busy}>Save</Button><Button variant="ghost" onClick={() => setEdit(false)}>Cancel</Button></div>}
-      </div>
-      {err && <div className="text-[12px] text-[var(--color-bad)] mb-2">{err}</div>}
-      {!edit ? (
-        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 mt-2">
-          {NARR.map(n => (
-            <div key={n.key} className="text-[12px]">
-              <span className="text-[var(--color-mute)]">{n.label}: </span>
-              <span className={(cur[n.key] ?? '').trim() ? 'text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}>{(cur[n.key] ?? '').trim() || 'not set — required to file'}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-2.5 mt-2">
-          {NARR.map(n => (
-            <label key={n.key} className="block">
-              <span className="text-[12px] text-[var(--color-mute)]">{n.label} <span className="text-[var(--color-faint)]">— {n.hint}</span></span>
-              <textarea value={form[n.key] ?? ''} onChange={e => setForm(f => ({ ...f, [n.key]: e.target.value }))} rows={2} className={`${box} mt-1`} />
-            </label>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}

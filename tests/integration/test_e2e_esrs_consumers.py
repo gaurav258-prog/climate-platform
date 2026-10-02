@@ -124,16 +124,20 @@ def _upload(api, who, framework, label, rows, **form):
 def test_a_filed_esrs_statement_is_read_onto_its_years_concepts(api):
     maker, _ = _users(api)
     assert "csrd_e1" not in {f["key"] for f in api.get("/v1/prior-filings/frameworks", headers=maker).json()["frameworks"]}
-    old = _upload(api, maker, "csrd_e1", "FY2024", [("Gross Scope 1 GHG emissions", 1)])
+    old = _upload(api, maker, "csrd_e1", "FY2024", [("Gross Scope 1 GHG emissions", 1)], period_end="2024-12-31",
+                  undertaking="organisation")
     assert old.status_code == 400 and "no new filings" in old.text
-    undated = _upload(api, maker, "esrs_pack", "last year", [("Gross Scope 1 GHG emissions", 1)])
-    assert undated.status_code == 400 and "financial year" in undated.text
-    before = _upload(api, maker, "esrs_pack", "FY2023", [("Gross Scope 1 GHG emissions", 1)])
+    undated = _upload(api, maker, "esrs_pack", "FY2024", [("Gross Scope 1 GHG emissions", 1)], undertaking="organisation")
+    assert undated.status_code == 400 and "period ends" in undated.text                      # stated, never read from the label
+    nobody = _upload(api, maker, "esrs_pack", "FY2024", [("Gross Scope 1 GHG emissions", 1)], period_end="2024-12-31")
+    assert nobody.status_code == 400 and "whom the filed report is for" in nobody.text
+    before = _upload(api, maker, "esrs_pack", "FY2023", [("Gross Scope 1 GHG emissions", 1)], period_end="2023-12-31",
+                     undertaking="organisation")
     assert before.status_code == 400 and "no ESRS version" in before.text                    # FY2023: no ESRS applies
 
     r = _upload(api, maker, "esrs_pack", "FY2024", [("Gross Scope 1 GHG emissions (tCO2eq)", 1500),
                                                     ("Total water consumption", 42000),
-                                                    ("GHG emissions scope 1 and energy", 9)])
+                                                    ("GHG emissions scope 1 and energy", 9)], period_end="2024-12-31", undertaking="organisation")
     assert r.status_code == 201, r.text
     f = r.json()
     lines = {x["label"]: x for x in f["figures"]}

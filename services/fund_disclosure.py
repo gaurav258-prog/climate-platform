@@ -63,7 +63,7 @@ def _is_fossil_fuel_nace(nace_code) -> bool:
     return any(digits.startswith(cls.replace(".", "")) for cls in FOSSIL_FUEL_NACE_CLASSES)
 
 
-def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
+def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=None) -> dict:
     """SFDR PAI 5-14 (the non-carbon indicators) for a fund, from issuer_esg_metrics.
     Pass fund_ids+org_id to scope over an entire manager (entity-level roll-up).
 
@@ -74,6 +74,7 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         → share of value exposed, over the value where the flag is known.
       * absolutes (8 water, 9 waste) → PCAF-attributed per €M invested (needs EVIC).
     Each indicator reports its own coverage; missing data is a gap, not a zero.
+    as_of: the holdings date (default: each fund's latest).
     """
     if org_id is None:
         org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
@@ -114,8 +115,8 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
             ORDER BY (org_id IS NULL), (source = 'estimated'), reporting_year DESC LIMIT 1
         ) rv ON TRUE
         WHERE  p.fund_id = ANY(:fids)
-          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_ids, "org": org_id}).mappings().all()
+          AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
+    """), {"fids": fund_ids, "org": org_id, "as_of": as_of}).mappings().all()
 
     total_mv = sum(r["mv"] for r in rows) or 0.0
     if total_mv == 0:
@@ -201,10 +202,11 @@ def _r(v):
     return None if v is None else round(v)
 
 
-def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
+def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=None) -> dict:
     """SFDR PAI table + coverage for a fund, value-weighted. Honest gaps, not zeros.
-    Pass fund_ids+org_id to scope over an entire manager (entity-level roll-up)."""
-    rows = _positions_with_emissions(session, fund_id, None, fund_ids=fund_ids, org_id=org_id)
+    Pass fund_ids+org_id to scope over an entire manager (entity-level roll-up); as_of: the holdings date
+    (default: each fund's latest)."""
+    rows = _positions_with_emissions(session, fund_id, as_of, fund_ids=fund_ids, org_id=org_id)
     total_mv = sum(r["mv"] for r in rows) or 0.0
     if total_mv == 0:
         return {"total_value_eur": 0, "positions": 0}

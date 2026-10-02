@@ -8,6 +8,7 @@ import { toast } from '../lib/toast'
 import { Card, SectionHead, Button, PageHeader } from '../components/ui'
 import ReportTabs from '../components/ReportTabs'
 import { pressable } from '../lib/pressable'
+import { Dialog } from '../components/Dialog'
 
 // Prior filings — bring in ESG reports already filed and accepted. Upload the submitted file itself;
 // the engine reads it into its reported lines, the preparer confirms them, and the figures are stored as
@@ -23,6 +24,7 @@ interface Filing {
   entity_name: string | null; file_format: string; original_filename: string; status: string
   n_lines: number | null; uploaded_at: string | null; confirmed_at: string | null
   basis_note?: string | null; file_sha256?: string | null; figures?: Figure[]; period_end?: string | null
+  entity_id?: string | null; undertaking_stated?: boolean; period_end_stated?: boolean
 }
 interface Framework { key: string; label: string }
 interface TrendPoint { period: string; value: number | null; unit: string | null; basis_note: string | null; basis_break: boolean; unit_break?: boolean; mixed_units?: string[]; note?: string; converted_from?: Record<string, number> }
@@ -53,6 +55,8 @@ export default function PriorFilings() {
   const [fileCcy, setFileCcy] = useState('')
   const currencies = useCurrencies()
   const [entity, setEntity] = useState('')
+  const [undertaking, setUndertaking] = useState('')       // 'organisation' or a reporting entity — stated, never inferred
+  const [stating, setStating] = useState<Filing | null>(null)
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Filing | null>(null)          // the report just read, awaiting confirm
   const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean; datapoint_key?: string; unit?: string }>>({})
@@ -63,6 +67,9 @@ export default function PriorFilings() {
   const [detailId, setDetailId] = useState<string | null>(null)   // a confirmed filing opened cell-by-cell
 
   const fw = useQuery({ queryKey: ['pf-frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/prior-filings/frameworks') })
+  const ents = useQuery({ queryKey: ['entities'], queryFn: () => api.get<{ entities: { entity_id: string; name: string; kind: string }[] }>('/v1/filings/entities') })
+  const undertakings = (ents.data?.entities ?? []).filter(e => e.kind !== 'group')
+  const nameOf = (id?: string | null) => id ? undertakings.find(e => e.entity_id === id)?.name ?? 'an entity' : 'the organisation'
   const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
   const trends = useQuery({ queryKey: ['pf-trends', horizon], queryFn: () => api.get<{ series: Series[] }>(`/v1/prior-filings/trends?horizon_years=${horizon}`) })
   const detail = useQuery({ enabled: !!detailId, queryKey: ['pf-detail', detailId], queryFn: () => api.get<Filing>(`/v1/prior-filings/${detailId}`) })
@@ -79,13 +86,15 @@ export default function PriorFilings() {
 
   async function onFile(f: File) {
     if (!period.trim()) { toast.error('Enter the reporting period first.'); return }
+    if (!periodEnd) { toast.error('State the date the reporting period ends.'); return }
+    if (!undertaking) { toast.error('State whom the filed report is for.'); return }
     setBusy(true)
     try {
       const fd = new FormData()
       fd.append('file', f); fd.append('framework', framework); fd.append('period_label', period.trim())
       if (entity.trim()) fd.append('entity_name', entity.trim())
       if (fileCcy) fd.append('currency', fileCcy)
-      if (periodEnd) fd.append('period_end', periodEnd)
+      fd.append('period_end', periodEnd); fd.append('undertaking', undertaking)
       const d = await api.post<Filing>('/v1/prior-filings/upload', fd)
       setDraft(d); setEdits({}); setBasis(d.basis_note ?? '')
     } catch (e) {
@@ -130,6 +139,9 @@ export default function PriorFilings() {
       <PageHeader eyebrow="Reported history" title="Prior filings"
         lead="Bring in the ESG reports you have already filed and had accepted. Upload the report you submitted — it is read into its reported lines for you to confirm, then kept as your reported record for trends and follow-up questions." />
 
+      {stating && <StateBasis f={stating} undertakings={undertakings} onClose={() => setStating(null)}
+        onDone={() => { setStating(null); qc.invalidateQueries({ queryKey: ['pf-list'] }); qc.invalidateQueries({ queryKey: ['pf-trends'] }) }} />}
+
       {/* import */}
       {!draft && (
         <Card className="p-0 overflow-hidden">
@@ -150,7 +162,7 @@ export default function PriorFilings() {
               </label>
               <label className="w-[150px]">
                 <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Period end</div>
-                <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} title="The date the reporting period ends — money converts at its rate. Blank: 31 December of the year in the period."
+                <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} title="The date the reporting period ends — required: its comparatives are matched on it, and money converts at its rate."
                   className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
               </label>
               <label className="w-[160px]">
@@ -160,8 +172,16 @@ export default function PriorFilings() {
                   <option value="">as written</option>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select>
               </label>
               <label className="flex-1 min-w-[200px]">
-                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Reporting entity <span className="normal-case tracking-normal">(optional)</span></div>
-                <input value={entity} onChange={e => setEntity(e.target.value)} placeholder="e.g. parent entity"
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Whom it is for *</div>
+                <select value={undertaking} onChange={e => setUndertaking(e.target.value)} aria-label="Whom the filed report is for"
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]">
+                  <option value="">— state it —</option><option value="organisation">The organisation</option>
+                  {undertakings.map(e => <option key={e.entity_id} value={e.entity_id}>{e.name}</option>)}
+                </select>
+              </label>
+              <label className="flex-1 min-w-[200px]">
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Name printed on the report <span className="normal-case tracking-normal">(optional)</span></div>
+                <input value={entity} onChange={e => setEntity(e.target.value)} placeholder="as the report names it"
                   className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
               </label>
             </div>
@@ -260,7 +280,7 @@ export default function PriorFilings() {
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px]">
                   <thead><tr className="text-left">
-                    {['Period', 'Framework', 'Entity', 'Format', 'Lines', 'Status', ''].map(h =>
+                    {['Period', 'Framework', 'Whom for', 'Format', 'Lines', 'Status', ''].map(h =>
                       <th key={h} className="mono text-[11px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
                   </tr></thead>
                   <tbody>
@@ -269,7 +289,10 @@ export default function PriorFilings() {
                         className={`border-b border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] transition ${detailId === f.filing_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                         <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-ink)]">{f.period_label}</td>
                         <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.framework_label}</td>
-                        <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.entity_name ?? '—'}</td>
+                        <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.undertaking_stated && f.period_end_stated
+                          ? <>{nameOf(f.entity_id)} · <span className="mono text-[11px]">{f.period_end}</span></>
+                          : <button type="button" onClick={e => { e.stopPropagation(); setStating(f) }} className="text-[12px] text-[var(--color-warn)] hover:underline">
+                              State whom for and period end</button>}</td>
                         <td className="px-4 py-2.5 mono text-[11px] text-[var(--color-faint)]">{FMT[f.file_format] ?? f.file_format}</td>
                         <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-mute)]">{f.n_lines ?? '—'}</td>
                         <td className="px-4 py-2.5">
@@ -440,3 +463,37 @@ export default function PriorFilings() {
 
 // native confirm() shadowed by our confirm handler above — small wrapper keeps the browser dialog available
 function confirm2(msg: string): boolean { return window.confirm(msg) }
+
+// A filing uploaded before its undertaking and period end had to be stated (E123): stated once, with an audit entry.
+function StateBasis({ f, undertakings, onClose, onDone }: {
+  f: Filing; undertakings: { entity_id: string; name: string }[]; onClose: () => void; onDone: () => void
+}) {
+  const [who, setWho] = useState(f.undertaking_stated ? (f.entity_id ?? 'organisation') : '')
+  const [end, setEnd] = useState(f.period_end_stated ? (f.period_end ?? '') : '')
+  const [busy, setBusy] = useState(false)
+  const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]'
+  async function save() {
+    setBusy(true)
+    try { await api.post(`/v1/prior-filings/${f.filing_id}/basis`, { undertaking: who, period_end: end }); toast.success('Stated.'); onDone() }
+    catch (e) { toast.error(e instanceof ApiError ? String((e.body as { message?: string })?.message ?? 'Not saved.') : 'Not saved.') }
+    finally { setBusy(false) }
+  }
+  return (
+    <Dialog title={`${f.framework_label} · ${f.period_label}`} onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-[12.5px] text-[var(--color-mute)]">This report was uploaded before its undertaking and period end had to be stated. Its figures are compared with a later period only once both are stated{f.entity_name ? ` (the report names “${f.entity_name}”)` : ''}. They are stated once and recorded in the audit log.</p>
+        <label className="block"><div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Whom it is for *</div>
+          <select className={box} value={who} onChange={e => setWho(e.target.value)} aria-label="Whom the filed report is for">
+            <option value="">— state it —</option><option value="organisation">The organisation</option>
+            {undertakings.map(e => <option key={e.entity_id} value={e.entity_id}>{e.name}</option>)}
+          </select></label>
+        <label className="block"><div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Period end *</div>
+          <input type="date" className={box} value={end} onChange={e => setEnd(e.target.value)} /></label>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={busy || !who || !end}>{busy ? 'Saving…' : 'State'}</Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}

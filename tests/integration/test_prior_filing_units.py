@@ -11,8 +11,8 @@ from services.reference.fx import rate_for
 pytestmark = pytest.mark.integration
 
 
-def _f(v, u, period="2024"):
-    return {"value_num": v, "unit": u, "period_label": period, "period_end": None}
+def _f(v, u, period="2024", period_end=date(2024, 12, 31), stated=True):
+    return {"value_num": v, "unit": u, "period_label": period, "period_end": period_end, "period_end_stated": stated}
 
 
 def test_money_in_two_currencies_is_converted_before_it_is_added(session_rolled_back):
@@ -29,8 +29,11 @@ def test_different_units_are_never_added(session_rolled_back):
         got = _combine(s, figs, "EUR")
         assert got["value"] is None and len(got["mixed_units"]) == 2
     assert _combine(s, [_f(5, "tCO2e"), _f(7, "tCO2e")], "EUR") == {"value": 12.0, "unit": "tCO2e"}
-    no_year = _combine(s, [_f(1, "USD", period="FY")], "EUR")
+    no_year = _combine(s, [_f(1, "USD", period="FY", period_end=None, stated=False)], "EUR")
     assert no_year["value"] is None and "no period end" in no_year["note"]
+    # a period end only read from the label (an upload from before E123) is never a rate date
+    guessed = _combine(s, [_f(1, "USD", period="2024", stated=False)], "EUR")
+    assert guessed["value"] is None and "no period end" in guessed["note"]
 
 
 def test_a_fund_shows_its_value_in_its_own_base_currency(session_rolled_back):
@@ -63,7 +66,8 @@ def test_an_upload_declares_its_currency_and_period_end(session_rolled_back):
     wb.save(buf)
     org = "11111111-1111-4111-8111-111111111111"
     f = PF.create_from_upload(s, org, None, framework="bank_p3esg", period_label="FY2024", entity_name=None,
-                              filename="p3.xlsx", data=buf.getvalue(), currency="cad", period_end="2024-09-30")
+                              filename="p3.xlsx", data=buf.getvalue(), currency="cad", period_end="2024-09-30",
+                              undertaking="organisation")
     try:
         _check_upload(s, f, PF, buf)
     finally:                                     # create_from_upload commits: remove what it wrote

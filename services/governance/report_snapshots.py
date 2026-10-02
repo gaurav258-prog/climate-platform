@@ -81,7 +81,7 @@ _BUILDERS = {
     "bank_p3esg": ("Pillar 3 ESG risk disclosures (EBA)",
                    lambda s, o, sc, hz, ei, vw, tr, pe: _bank_pillar3(s, o, sc, hz, ei, vw, tr, pe), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
-                 lambda s, o, sc, hz, ei, vw, tr, pe: _sfdr_pai(s, o), ("asset_manager",)),
+                 lambda s, o, sc, hz, ei, vw, tr, pe: _sfdr_pai(s, o, pe), ("asset_manager",)),
     # retired (services.governance.filings.FRAMEWORKS[..]["retired"]): their frozen snapshots stay readable; nothing new
     "assetmgmt_tcfd": ("TCFD · physical-risk & concentration disclosure (holdings book)",
                        lambda *a: _retired("assetmgmt_tcfd"), ("asset_manager",)),
@@ -137,9 +137,21 @@ def _bank_pillar3(session, org_id, scenario, horizon, entity_ids=None, value_wei
     return freeze(session, org_id, scenario, horizon, entity_ids, value_weights, translation, period_end)
 
 
-def _sfdr_pai(session, org_id):
+class StatementRefused(ValueError):
+    """The report cannot be prepared for this period, for the reason given (shown to the preparer)."""
+
+
+def _sfdr_pai(session, org_id, period_end):
+    """The statement for the filing's reference period — impacts averaged over its four quarter ends (Art. 6(3))."""
     from ml.regulatory.sfdr_pai import entity_pai_statement
-    return entity_pai_statement(session, org_id)
+    from ml.regulatory.sfdr_pai_period import PeriodError
+    try:
+        st = entity_pai_statement(session, org_id, period_end)
+    except PeriodError as e:
+        raise StatementRefused(str(e)) from e
+    if st.get("error"):
+        raise StatementRefused(st["error"])
+    return st
 
 
 def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None, period_end=None):
@@ -291,6 +303,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                                            as_of_dates=out["position_dates"])
         out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"],
                                         entity_ids, value_weights, translation, period_end)
+        if report_type == "sfdr_pai":                   # the holdings of the four quarter ends it averaged
+            return out, engine_runs.inputs(session, org_id, report_type,
+                                           as_of_dates=out["reference_period"]["impact_dates"])
         if report_type == "esrs_pack":
             return out, engine_runs.inputs(session, org_id, report_type, asset_ids=[
                 x["site_id"] for x in out["document_report"]["statement"]["sites"]])

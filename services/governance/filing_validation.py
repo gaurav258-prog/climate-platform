@@ -261,12 +261,25 @@ def _validate_sfdr_pai(payload: dict) -> list[dict]:
     out.append(_f("total_value_positive", "plausibility", "blocking", total > 0,
                   f"Total NAV in scope {_eur(total)}" if total > 0 else "Total value in scope is zero"))
 
-    # SFDR is not filable without the manager's reporting identity (LEI, legal name, contact) + required narratives
-    fr = payload.get("filing_readiness") or {}
-    missing = fr.get("missing") or []
-    out.append(_f("filing_identity", "completeness", "blocking", bool(fr.get("ready_to_file")),
-                  "Reporting-entity identity & narratives complete" if fr.get("ready_to_file")
-                  else f"Not submittable — missing: {', '.join(missing)}"))
+    # a statement covers 1 January - 31 December, each impact the average of the four quarter ends (Art. 4(1), 6(3))
+    rp = payload.get("reference_period")
+    out.append(_f("reference_period", "completeness", "blocking", bool(rp),
+                  f"Reference period {rp['start']} – {rp['end']}; impacts averaged over {', '.join(rp['impact_dates'])}"
+                  if rp else "Frozen without a reference period — impacts on the latest holdings, not the average of the "
+                             "four quarter ends; prepare the statement again", "RTS 2022/1288 Art. 4(1), 6(3)"))
+    missing = (payload.get("filing_readiness") or {}).get("missing") or []
+    held = [m for m in missing if m.startswith("holdings: ")]
+    answers = [m for m in missing if m.startswith("Article ")]
+    identity = [m for m in missing if m not in held and m not in answers]
+    out.append(_f("filing_identity", "completeness", "blocking", not identity,
+                  "Reporting-entity identity complete" if not identity else f"Not submittable — missing: {', '.join(identity)}"))
+    out.append(_f("holdings_on_impact_dates", "completeness", "blocking", not held,
+                  "Holdings on file for all four quarter ends" if not held
+                  else "; ".join(m[len("holdings: "):] for m in held), "RTS 2022/1288 Art. 6(3)"))
+    out.append(_f("sections_answered", "completeness", "blocking", not answers,
+                  "Every section the Regulation requires is answered" if not answers
+                  else f"{len(answers)} required answer(s) missing — {'; '.join(answers[:3])}"
+                       + (" …" if len(answers) > 3 else ""), "RTS 2022/1288 Art. 5-9"))
 
     cs = payload.get("coverage_summary") or {}
     mand = cs.get("mandatory_indicators", 0) or 0
@@ -279,16 +292,6 @@ def _validate_sfdr_pai(payload: dict) -> list[dict]:
         out.append(_f("emissions_coverage", "completeness", "warning", emis >= 50,
                       f"Emissions coverage {emis}% of NAV" if emis >= 50
                       else f"Emissions coverage only {emis}% of NAV — PAI 1–3 rest on a thin base"))
-    nm = (payload.get("narratives") or {}).get("missing") or []
-    out.append(_f("narratives_present", "completeness", "warning", not nm,
-                  "All required narratives present" if not nm else f"{len(nm)} required narrative(s) missing"))
-    if mand > 0 and comp < mand:     # information not readily available: the statement says how it was sought
-        stated = bool(((payload.get("narratives") or {}).get("best_efforts") or "").strip())
-        out.append(_f("best_efforts_stated", "completeness", "blocking", stated,
-                      "The best efforts to obtain the indicators not computed are described" if stated
-                      else f"{mand - comp} mandatory indicator(s) not computed — describe the best efforts used to obtain "
-                           "the information in the policies section", "RTS 2022/1288 Art. 7(2)"))
-
     # per-fund thin coverage — surfaced, never averaged away (info)
     thin = [f["fund_name"] for f in (payload.get("per_fund") or [])
             if (f.get("emissions_coverage_pct") or 0) < 30]

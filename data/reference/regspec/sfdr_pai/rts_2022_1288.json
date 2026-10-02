@@ -472,11 +472,98 @@
    "code": null,
    "title": "Summary",
    "ref": "Annex I, Table 1, OJ L 196, p. 41; content in Article 5",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
-   "z_axis": null,
-   "instructions": []
+   "structure": "document",
+   "instructions": [],
+   "source_form": "text",
+   "items": [
+    {
+     "id": "heading",
+     "kind": "heading",
+     "parent": null,
+     "label": "Summary"
+    },
+    {
+     "id": "intro",
+     "kind": "text",
+     "parent": null,
+     "label": "In the summary section in Table 1 of Annex I, financial market participants shall include all of the following:"
+    },
+    {
+     "id": "a_name",
+     "kind": "field",
+     "parent": null,
+     "label": "(a) the name of the financial market participant to which the adverse sustainability impacts statement relates;"
+    },
+    {
+     "id": "b_considered",
+     "kind": "field",
+     "parent": null,
+     "label": "(b) the fact that principal adverse impacts on sustainability factors are considered;"
+    },
+    {
+     "id": "c_period",
+     "kind": "field",
+     "parent": null,
+     "label": "(c) the reference period of the statement;"
+    },
+    {
+     "id": "d_summary",
+     "kind": "table",
+     "parent": null,
+     "label": "(d) a summary of the principal adverse impacts."
+    },
+    {
+     "id": "d_language",
+     "kind": "table_column",
+     "parent": "d_summary",
+     "note": "the language this text of the summary is drafted in (ISO 639-1 code)"
+    },
+    {
+     "id": "d_meets",
+     "kind": "table_column",
+     "parent": "d_summary",
+     "note": "which of the language requirements below this language meets, as the financial market participant states it: home_official (point (a), an official language of the home Member State), international_finance (point (a), a language customary in the sphere of international finance), host_official (point (b), an official language of a host Member State — with that Member State)"
+    },
+    {
+     "id": "d_member_state",
+     "kind": "table_column",
+     "parent": "d_summary",
+     "note": "for host_official: the host Member State (ISO 3166-1 alpha-2) where a financial product is made available"
+    },
+    {
+     "id": "d_text",
+     "kind": "table_column",
+     "parent": "d_summary",
+     "note": "the summary of the principal adverse impacts, in that language"
+    },
+    {
+     "id": "languages",
+     "kind": "text",
+     "parent": null,
+     "label": "The summary section in Table 1 of Annex I shall be drafted in all of the following languages:"
+    },
+    {
+     "id": "languages_a",
+     "kind": "text",
+     "parent": "languages",
+     "label": "(a) one of the official languages of the home Member State of the financial market participant and, where different, in an additional language customary in the sphere of international finance;"
+    },
+    {
+     "id": "languages_b",
+     "kind": "text",
+     "parent": "languages",
+     "label": "(b) where a financial product of the financial market participant is made available in a host Member State, one of the official languages of that host Member State."
+    },
+    {
+     "id": "length",
+     "kind": "text",
+     "parent": null,
+     "label": "The summary section shall be of a maximum length of two sides of A4-sized paper when printed."
+    }
+   ],
+   "capture_notes": [
+    "Annex I prints only the section's title; what it contains is set out in the Article named in ref. Every item is that Article's text, sliced from the stored act by scripts/build_sfdr_pai_spec.py; a table's columns are not printed and carry a note instead of a label."
+   ]
   },
   {
    "id": "S2",
@@ -505,44 +592,225 @@
    "code": null,
    "title": "Description of policies to identify and prioritise principal adverse impacts on sustainability factors",
    "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 7",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
-   "z_axis": null,
-   "instructions": []
+   "structure": "document",
+   "instructions": [],
+   "source_form": "text",
+   "items": [
+    {
+     "id": "heading",
+     "kind": "heading",
+     "parent": null,
+     "label": "Description of policies to identify and prioritise principal adverse impacts on sustainability factors"
+    },
+    {
+     "id": "policies",
+     "kind": "field",
+     "parent": null,
+     "label": "1. In the section ‘Description of policies to identify and prioritise principal adverse impacts on sustainability factors’ in Table 1 of Annex I, financial market participants shall describe their policies to identify and prioritise principal adverse impacts on sustainability factors and how those policies are kept up to date and applied, including all of the following:"
+    },
+    {
+     "id": "a_approval_date",
+     "kind": "field",
+     "parent": "policies",
+     "label": "(a) the date on which the governing body of the financial market participant approved those policies;"
+    },
+    {
+     "id": "b_responsibility",
+     "kind": "field",
+     "parent": "policies",
+     "label": "(b) how the responsibility for the implementation of those policies within organisational strategies and procedures is allocated;"
+    },
+    {
+     "id": "c_methodologies",
+     "kind": "field",
+     "parent": "policies",
+     "label": "(c) the methodologies to select the indicators referred to in Article 6(1), points (a), (b) and (c), and to identify and assess the principal adverse impacts referred to in Article 6(1), and in particular an explanation of how those methodologies take into account the probability of occurrence and the severity of those principal adverse impacts, including their potentially irremediable character;"
+    },
+    {
+     "id": "d_margin_of_error",
+     "kind": "field",
+     "parent": "policies",
+     "label": "(d) any associated margin of error within the methodologies referred to in point (c) of this paragraph, with an explanation of that margin;"
+    },
+    {
+     "id": "e_data_sources",
+     "kind": "field",
+     "parent": "policies",
+     "label": "(e) the data sources used."
+    },
+    {
+     "id": "best_efforts",
+     "kind": "field",
+     "parent": null,
+     "label": "2. Where information relating to any of the indicators used is not readily available, financial market participants shall include in the section ‘Description of policies to identify and prioritise principal adverse impacts on sustainability factors’ in Table 1 of Annex I details of the best efforts used to obtain the information either directly from investee companies, or by carrying out additional research, cooperating with third party data providers or external experts or making reasonable assumptions."
+    }
+   ],
+   "capture_notes": [
+    "Annex I prints only the section's title; what it contains is set out in the Article named in ref. Every item is that Article's text, sliced from the stored act by scripts/build_sfdr_pai_spec.py; a table's columns are not printed and carry a note instead of a label."
+   ]
   },
   {
    "id": "S5",
    "code": null,
    "title": "Engagement policies",
    "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 8",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
-   "z_axis": null,
-   "instructions": []
+   "structure": "document",
+   "instructions": [],
+   "source_form": "text",
+   "items": [
+    {
+     "id": "heading",
+     "kind": "heading",
+     "parent": null,
+     "label": "Engagement policies"
+    },
+    {
+     "id": "intro",
+     "kind": "text",
+     "parent": null,
+     "label": "1. In the section ‘Engagement policies’ in Table 1 of Annex I, financial market participants shall provide all of the following information:"
+    },
+    {
+     "id": "a_srd",
+     "kind": "field",
+     "parent": null,
+     "label": "(a) where applicable, brief summaries of the engagement policies referred to in Article 3g of Directive 2007/36/EC of the European Parliament and of the Council (14);"
+    },
+    {
+     "id": "b_other",
+     "kind": "field",
+     "parent": null,
+     "label": "(b) brief summaries of any other engagement policies to reduce principal adverse impacts."
+    },
+    {
+     "id": "describe",
+     "kind": "text",
+     "parent": null,
+     "label": "2. The brief summaries referred to in paragraph 1 shall describe all of the following:"
+    },
+    {
+     "id": "2a_indicators",
+     "kind": "field",
+     "parent": "describe",
+     "label": "(a) the indicators for adverse impacts considered in the engagement policies referred to in paragraph 1;"
+    },
+    {
+     "id": "2b_adaptation",
+     "kind": "field",
+     "parent": "describe",
+     "label": "(b) how those engagement policies will be adapted where there is no reduction of the principal adverse impacts over more than one period reported on."
+    }
+   ],
+   "capture_notes": [
+    "Annex I prints only the section's title; what it contains is set out in the Article named in ref. Every item is that Article's text, sliced from the stored act by scripts/build_sfdr_pai_spec.py; a table's columns are not printed and carry a note instead of a label."
+   ]
   },
   {
    "id": "S6",
    "code": null,
    "title": "References to international standards",
    "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 9",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
-   "z_axis": null,
-   "instructions": []
+   "structure": "document",
+   "instructions": [],
+   "source_form": "text",
+   "items": [
+    {
+     "id": "heading",
+     "kind": "heading",
+     "parent": null,
+     "label": "References to international standards"
+    },
+    {
+     "id": "adherence",
+     "kind": "field",
+     "parent": null,
+     "label": "1. In the section ‘References to international standards’ in Table 1 of Annex I, financial market participants shall describe whether and to what extent they adhere to responsible business conduct codes and internationally recognised standards for due diligence and reporting and, where relevant, the degree of their alignment with the objectives of the Paris Agreement."
+    },
+    {
+     "id": "describe",
+     "kind": "text",
+     "parent": null,
+     "label": "2. The description referred to in paragraph 1 shall contain information about all of the following:"
+    },
+    {
+     "id": "2a_indicators",
+     "kind": "field",
+     "parent": "describe",
+     "label": "(a) the indicators used to consider the principal adverse impacts on sustainability factors referred to in Article 6(1) that measure the adherence or alignment referred to in paragraph 1;"
+    },
+    {
+     "id": "2b_methodology",
+     "kind": "field",
+     "parent": "describe",
+     "label": "(b) the methodology and data used to measure the adherence or alignment referred to in paragraph 1, including a description of the scope of coverage, data sources, and how the methodology used forecasts the principal adverse impacts of investee companies;"
+    },
+    {
+     "id": "2c_scenario",
+     "kind": "choice",
+     "parent": "describe",
+     "label": "(c) whether a forward-looking climate scenario is used, and, if so, the name and provider of that scenario and when it was designed;",
+     "blank": "text"
+    },
+    {
+     "id": "2d_no_scenario",
+     "kind": "field",
+     "parent": "describe",
+     "label": "(d) where no forward-looking climate scenario is used, an explanation of why the financial market participant does consider forward-looking climate scenarios to be irrelevant."
+    }
+   ],
+   "capture_notes": [
+    "Annex I prints only the section's title; what it contains is set out in the Article named in ref. Every item is that Article's text, sliced from the stored act by scripts/build_sfdr_pai_spec.py; a table's columns are not printed and carry a note instead of a label."
+   ]
   },
   {
    "id": "S7",
    "code": null,
    "title": "Historical comparison",
    "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 10",
-   "structure": "listed",
-   "rows": [],
-   "columns": [],
-   "z_axis": null,
-   "instructions": []
+   "structure": "document",
+   "instructions": [],
+   "source_form": "text",
+   "items": [
+    {
+     "id": "heading",
+     "kind": "heading",
+     "parent": null,
+     "label": "Historical comparison"
+    },
+    {
+     "id": "comparison",
+     "kind": "table",
+     "parent": null,
+     "label": "Financial market participants that have described the adverse impacts on sustainability factors for a period preceding the period for which information is to be disclosed in accordance with Article 6 shall provide in the section ‘Description of principal adverse impacts on sustainability factors’ in Table 1 of Annex I a historical comparison of the period reported on with the previous period reported on and, subsequently, with every previous period reported on up to the last five previous periods."
+    },
+    {
+     "id": "period",
+     "kind": "table_column",
+     "parent": "comparison",
+     "note": "a previous period reported on (1 January to 31 December), most recent first, at most five"
+    },
+    {
+     "id": "indicator",
+     "kind": "table_column",
+     "parent": "comparison",
+     "note": "the indicator, as numbered in Table 1, 2 or 3"
+    },
+    {
+     "id": "impact",
+     "kind": "table_column",
+     "parent": "comparison",
+     "note": "the impact reported for that period, as reported"
+    },
+    {
+     "id": "source",
+     "kind": "table_column",
+     "parent": "comparison",
+     "note": "where the reported figure is held: the filed statement, or a previous statement uploaded and confirmed"
+    }
+   ],
+   "capture_notes": [
+    "Annex I prints only the section's title; what it contains is set out in the Article named in ref. Every item is that Article's text, sliced from the stored act by scripts/build_sfdr_pai_spec.py; a table's columns are not printed and carry a note instead of a label."
+   ]
   }
  ],
  "interpretations": [],
@@ -556,6 +824,10 @@
    "checked": "T1-T3 rows, columns and ids and S1-S7 headings against rendered OJ L 196 / L 332 pages; act, dates, legal basis and every instruction quote verbatim; 2023/363 confirmed not to amend Annex I",
    "corrected": "Table 3 and templates_in page ranges (to p. 51), S2/S3 page references (p. 44), text-basis note for the corrigendum wording"
   },
-  "text_basis": "Row wording follows the text as republished by Corrigendum OJ L 332, 27.12.2022 (e.g. '1. Share' in Table 2 row 14; OJ L 196 prints '1.Share'); page references are to OJ L 196, 25.7.2022."
+  "text_basis": "Row wording follows the text as republished by Corrigendum OJ L 332, 27.12.2022 (e.g. '1. Share' in Table 2 row 14; OJ L 196 prints '1.Share'); page references are to OJ L 196, 25.7.2022.",
+  "sections": {
+   "method": "S1, S4-S7 rebuilt as document templates from Articles 5 and 7-10 (scripts/build_sfdr_pai_spec.py), every item a slice of 32022R1288 and re-checked verbatim",
+   "captured": "2026-10-02"
+  }
  }
 }

@@ -103,7 +103,8 @@ def build_disclosure_workbook(data_headers: list[str], data_rows: list[list], da
                               summary_blocks: list[dict]) -> io.BytesIO:
     """Two-sheet disclosure export: the per-entity data sheet PLUS a 'Computed disclosure' sheet built from the
     official-form annex sections, so the computed analytics (catastrophe/SCR/reinsurance/stranding/concentration/…)
-    are in the downloadable filing, not just the per-row data. summary_blocks: [{title, columns, rows(list[list])}]."""
+    are in the downloadable filing, not just the per-row data. summary_blocks: [{title, columns, rows(list[list]),
+    note}]."""
     wb = Workbook()
     ws = wb.active
     ws.title = data_sheet_name
@@ -135,6 +136,9 @@ def build_disclosure_workbook(data_headers: list[str], data_rows: list[list], da
             for i, val in enumerate(row, start=1):
                 sw.cell(row=r, column=i, value=val)
             maxcols = max(maxcols, len(row))
+            r += 1
+        if blk.get("note"):                     # the section's note travels with it (basis, period, what is open)
+            sw.cell(row=r, column=1, value=blk["note"]).font = SECTION_COL_FONT
             r += 1
         r += 1   # spacer between sections
     _autosize(sw, maxcols)

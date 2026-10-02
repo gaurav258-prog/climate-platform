@@ -25,7 +25,6 @@ from ml.regulatory.sfdr_pai import (
     entity_narratives,
     entity_pai_statement,
     frozen_or_live_statement,
-    save_entity_narratives,
     sfdr_pai_statement,
     sfdr_pai_statement_xlsx,
 )
@@ -562,10 +561,85 @@ def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
 
 
 @router.get("/entity/sfdr-statement", summary="Entity-level SFDR PAI statement — aggregated across ALL the manager's funds")
-def entity_sfdr_statement(session: DbSession, org_id: OrgId):
-    """One PAI statement value-weighted across every fund the manager runs — what a
-    large manager files at entity level, alongside per-fund statements."""
-    return entity_pai_statement(session, org_id)
+def entity_sfdr_statement(session: DbSession, org_id: OrgId, period_end: Optional[date] = Query(None)):
+    """One PAI statement value-weighted across every fund the manager runs. With period_end (a 31 December): the
+    statement for that reference period, impacts averaged over its four quarter ends (RTS 2022/1288 Art. 4(1), 6(3));
+    without: a live view on the latest holdings."""
+    from ml.regulatory.sfdr_pai_period import PeriodError
+    try:
+        return entity_pai_statement(session, org_id, period_end)
+    except PeriodError as e:
+        raise _fail(422, str(e), code="invalid_period")
+
+
+def _statement_period(session, org_id: str, period_end: Optional[date]) -> date:
+    """The reference period asked for, else the one the organisation reports for (the last 31 December on or before
+    its reporting period end)."""
+    if period_end is not None:
+        return period_end
+    from services.governance.filings import reporting_period_end
+    pe = reporting_period_end(session, org_id)
+    return pe if (pe.month, pe.day) == (12, 31) else date(pe.year - 1, 12, 31)
+
+
+@router.get("/entity/pai-statement/answers",
+            summary="What the manager answers in its PAI statement for a reference period (RTS 2022/1288 Art. 5-10)")
+def pai_statement_answers(session: DbSession, org_id: OrgId, period_end: Optional[date] = Query(None)):
+    """The sections of the governing spec item by item (as the Regulation words them), the answers given for the period,
+    every impact row with its previous-period figure, explanation and actions, the historical comparison, and what the
+    Regulation still requires. Earlier answers not tied to any period are shown for reference, never used."""
+    import services.regspec as R
+    from ml.regulatory.sfdr_pai_period import PeriodError
+    from services.governance import sfdr_pai_answers as A
+    pe = _statement_period(session, org_id, period_end)
+    try:
+        st = entity_pai_statement(session, org_id, pe)
+    except PeriodError as e:
+        raise _fail(422, str(e), code="invalid_period")
+    if st.get("error"):
+        raise _fail(409, st["error"], code="no_statement")
+    spec = R.governing(A.FAMILY, period_end=pe)
+    sections = [{"id": sid, "title": R.template(spec, sid)["title"], "ref": R.template(spec, sid)["ref"],
+                 "items": [{**i, "binding": A.SECTION_BINDING[sid].get(i["id"])} for i in R.template(spec, sid)["items"]]}
+                for sid in A.SECTIONS]
+    legacy = entity_narratives(session, org_id)
+    return {
+        "period_end": pe.isoformat(), "reference_period": st["reference_period"],
+        "spec": {"version": spec["version"], "sha256": spec["_sha256"]},
+        "sections": sections, "computed": st["sections"]["computed"], "answers": st["sections"]["answers"],
+        "rows": [{**r, **st["rows"].get(r["key"], {})} for r in A.impact_rows(st)],
+        "prior_period": st["prior_period"], "historical_comparison": st["historical_comparison"],
+        "missing": st["filing_readiness"]["missing"], "ready_to_file": st["filing_readiness"]["ready_to_file"],
+        "legacy_narratives": legacy or None,
+    }
+
+
+class PaiAnswers(BaseModel):
+    period_end: date
+    answers: dict
+
+
+@router.put("/entity/pai-statement/answers",
+            summary="Answer items of the PAI statement for a reference period (an item set to null is cleared)")
+def save_pai_statement_answers(body: PaiAnswers, session: DbSession,
+                               ctx: dict = Depends(require_permission("approvals.create"))):
+    from api.services.rbac import write_audit
+    from ml.regulatory.sfdr_pai_period import PeriodError
+    from services.governance import sfdr_pai_answers as A
+    org_id = ctx["org"]["org_id"]
+    try:
+        out = A.save(session, org_id, body.period_end, body.answers, ctx["user"]["id"])
+    except PeriodError as e:
+        raise _fail(422, str(e), code="invalid_period")
+    except A.AnswerError as e:
+        raise _fail(409, str(e), code="no_statement")
+    if out["refused"]:                  # all or nothing: the error rolls back the answers stored before the refusal
+        raise _fail(422, "; ".join(r["reason"] for r in out["refused"]), code="invalid_answers", refused=out["refused"])
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="sfdr_pai.answers_saved",
+                target_type="template_answers", target_id=f"sfdr_pai/pai_statement/{body.period_end.isoformat()}",
+                detail={"items": out["saved"]})
+    session.commit()
+    return out
 
 
 class BatchCreate(BaseModel):
@@ -767,7 +841,7 @@ class FilingProfile(BaseModel):
     lei: str
     legal_name: Optional[str] = None
     filing_contact_email: Optional[str] = None
-    narratives: Optional[dict] = None   # {policies, actions, engagement, standards}
+    narratives: Optional[dict] = None   # retired: the statement's answers are per reference period (/entity/pai-statement/answers)
 
 
 @router.get("/manager/filing-profile", summary="The manager's SFDR filing-entity identity")
@@ -777,7 +851,7 @@ def get_filing_profile(session: DbSession, org_id: OrgId):
         "FROM organizations WHERE org_id = :o"), {"o": org_id}).mappings().first()
     if not row:
         return {"error": "org not found"}
-    return {**row, "sfdr_narratives": entity_narratives(session, org_id) or None}
+    return dict(row)
 
 
 @router.put("/manager/filing-profile", summary="Set the manager LEI + legal name + contact (LEI validated vs GLEIF)")
@@ -788,10 +862,9 @@ def set_filing_profile(body: FilingProfile, session: DbSession,
     rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
     if not rec:
         raise _fail(422, "LEI not found in GLEIF — supply a valid 20-character LEI.", code="invalid_lei")
-    if body.narratives is not None:     # the statement's narrative sections: the manager's template answers
-        refused = save_entity_narratives(session, org_id, body.narratives, ctx["user"]["id"])["refused"]
-        if refused:
-            raise _fail(422, "; ".join(r["reason"] for r in refused), code="invalid_narratives")
+    if body.narratives is not None:     # one set for every period answered nothing the Regulation asks, item by item
+        raise _fail(422, "The PAI statement is answered per reference period, item by item as Articles 5 to 9 of "
+                         "Delegated Regulation (EU) 2022/1288 require — use the statement's answers.", code="retired")
     # A legal name not given keeps the one on file for the same LEI; only a new LEI (or none on file) takes GLEIF's
     # name — a narratives save re-sends the LEI alone and must not overwrite the manager's legal name.
     session.execute(text("""

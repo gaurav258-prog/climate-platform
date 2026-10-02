@@ -1,10 +1,6 @@
 """End to end through the HTTP API, in one rolled-back transaction (Nordkap Asset Management; maker / checker):
 
-  PAI statement (RTS 2022/1288 Annex I, entity level)
-    the manager's narratives → the filing freezes the statement → indicators not computed (no investee data with a
-    reporting year) block the filing until the best efforts to obtain them are described (Art. 7(2)) → the draft is
-    refreshed → its checks pass → Table 1 on the official form → xlsx; XBRL refused, naming why → four eyes,
-    attestation, submission
+  (the entity's PAI statement, RTS 2022/1288 Annex I, per reference period: test_e2e_sfdr_pai_statement.py)
   pre-contractual document (Annex II, an Art. 8 fund)
     the live template → an answer → the filing freezes the fund as its subject → the form shows the document → the
     unanswered items counted → HTML annex → four eyes, attestation, submission
@@ -44,39 +40,6 @@ def _file_and_submit(api, maker, checker, fid, statement):
     assert at.status_code == 200, at.text
     sub = api.post(f"/v1/filings/{fid}/submit", headers=maker, json={"submission_ref": "NCA-SFDR-E2E"})
     assert sub.status_code == 200, sub.text
-
-
-def test_the_pai_statement_states_its_best_efforts_and_is_filed(api, monkeypatch):
-    from api.routers import funds as Fr
-    from services.reference.gleif import GleifRecord
-    monkeypatch.setattr(Fr.gleif, "fetch_lei", lambda lei: GleifRecord(lei=lei, name="Nordkap AM", entity_status="ACTIVE", country="NO"))
-    maker, checker = _users(api)
-    s = api.s
-    _set_aside(s, "sfdr_pai")
-    base = {"policies": "PAI policy approved by the board.", "actions": "Engaged 12 issuers.", "engagement": "Stewardship code."}
-    assert api.put("/v1/manager/filing-profile", headers=maker, json={"lei": LEI, "narratives": base}).status_code == 200
-
-    pf = api.get("/v1/filings/preflight?framework=sfdr_pai", headers=maker).json()
-    g = api.post("/v1/filings", headers=maker, json={"framework": "sfdr_pai", "confirm_token": pf["confirm_token"]})
-    assert g.status_code == 201, g.text
-    fid = g.json()["filing_id"]
-    v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
-    cov = next(f for f in v["findings"] if f["rule"] == "mandatory_indicators")
-    blocked = {f["rule"]: f for f in v["findings"] if not f["passed"] and f["severity"] == "blocking"}
-    if "All" not in cov["message"]:                               # some indicators are not readily available
-        assert blocked["best_efforts_stated"]["ref"] == "RTS 2022/1288 Art. 7(2)" and not v["passed"]
-        r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": LEI, "narratives": {
-            **base, "best_efforts": "Requested data from every investee and two data providers; no reported figures yet."}})
-        assert r.status_code == 200, r.text
-        assert api.post(f"/v1/filings/{fid}/refresh", headers=maker, json={}).status_code == 200
-        v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
-    assert v["passed"], [f for f in v["findings"] if not f["passed"] and f["severity"] == "blocking"]
-
-    form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
-    assert "sfdr_t1_1" in {x.get("key") for x in form["annex"]["sections"]}
-    assert api.get(f"/v1/filings/{fid}/export?format=xlsx", headers=maker).status_code == 200
-    assert api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker).status_code == 409   # no SFDR XBRL (E113)
-    _file_and_submit(api, maker, checker, fid, "I approve the FY PAI statement.")
 
 
 def test_an_art8_fund_files_its_precontractual_document(api):

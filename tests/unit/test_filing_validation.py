@@ -77,24 +77,32 @@ def test_the_taxonomy_report_checks_its_book_not_scores():
     assert rules["gross_carrying_amount_stated"]["severity"] == "warning" and not rules["gross_carrying_amount_stated"]["passed"]
 
 
+_RP = {"start": "2025-01-01", "end": "2025-12-31", "impact_dates": ["2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"]}
+
+
+def _sfdr(missing=(), rp=_RP):
+    return {"entity": {"positions": 20, "total_value_eur": 5000}, "reference_period": rp,
+            "filing_readiness": {"ready_to_file": not missing, "missing": list(missing)},
+            "coverage_summary": {"mandatory_indicators": 14, "computed": 14, "emissions_coverage_pct": 80}, "per_fund": []}
+
+
 def test_sfdr_missing_manager_identity_is_blocking():
-    payload = {
-        "entity": {"positions": 20, "total_value_eur": 5000},
-        "filing_readiness": {"ready_to_file": False, "missing": ["manager LEI", "narrative: policies"]},
-        "coverage_summary": {"mandatory_indicators": 14, "computed": 14, "emissions_coverage_pct": 80},
-        "narratives": {"missing": []}, "per_fund": [],
-    }
-    assert any(f["rule"] == "filing_identity" for f in _blocking(_validate_sfdr_pai(payload)))
+    assert {f["rule"] for f in _blocking(_validate_sfdr_pai(_sfdr(["manager LEI"])))} == {"filing_identity"}
 
 
 def test_sfdr_ready_statement_has_no_blockers():
-    payload = {
-        "entity": {"positions": 20, "total_value_eur": 5000},
-        "filing_readiness": {"ready_to_file": True, "missing": []},
-        "coverage_summary": {"mandatory_indicators": 14, "computed": 14, "emissions_coverage_pct": 80},
-        "narratives": {"missing": []}, "per_fund": [],
-    }
-    assert _blocking(_validate_sfdr_pai(payload)) == []
+    assert _blocking(_validate_sfdr_pai(_sfdr())) == []
+
+
+def test_sfdr_period_holdings_and_answers_each_block_with_their_article():
+    """A statement frozen without its reference period (on the latest holdings), a quarter end with no holdings, and an
+    answer the Regulation requires each block on their own, citing the RTS (Art. 4(1), 6(3); Art. 5-9)."""
+    rules = {f["rule"]: f for f in _blocking(_validate_sfdr_pai(_sfdr(rp=None)))}
+    assert set(rules) == {"reference_period"} and "6(3)" in rules["reference_period"]["ref"]
+    f = {x["rule"]: x for x in _blocking(_validate_sfdr_pai(_sfdr([
+        "holdings: Fund A: no holdings dated 2025-03-31", "Article 7(1)(a): the date on which the governing body …"])))}
+    assert set(f) == {"holdings_on_impact_dates", "sections_answered"}
+    assert "Fund A" in f["holdings_on_impact_dates"]["message"] and "Article 7(1)(a)" in f["sections_answered"]["message"]
 
 
 def test_sfdr_build_error_is_a_single_blocker():
