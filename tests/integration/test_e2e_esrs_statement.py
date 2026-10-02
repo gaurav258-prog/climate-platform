@@ -11,7 +11,10 @@ Terra Group; analyst = maker, approver = checker):
                     (1 200 employees > 750) is refused; every other item filled or omitted with its reason
            filing   the period is closed (four eyes); the pre-filing check, the frozen statement (its checks pass), the
                     official form item by item, JSON only (no ESRS XBRL), maker/checker, attestation, submission
-  FY2026   the previous period (ESRS 1 §83): the stated figures and the platform's figures as filed for FY2025
+           comparatives (2023 ESRS 1 §83, §85): a FY2025 figure needs its FY2024 comparative (second year of a wave-one
+           undertaking) — the undertaking discloses it is impracticable
+  FY2026   the comparative is the figure the filed FY2025 statement reported; an attested revision of it needs the
+           reasons (§84) and prints the difference
   FY2027   version: Delegated Regulation (EU) 2026/1563; Art. 5(2)(b) needs that year's turnover and headcount (an
            amount is stated once its year end has passed)
 """
@@ -132,7 +135,10 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
         dr = i["id"] if i["kind"] == "heading" else dr
         dr_of[i["id"]] = dr
     answers = {}
+    _state(api, maker, checker, "2025-12-31", "e1.energy.total", 1000)                     # E1-5.37, MWh
     for i in todo:
+        if i["id"] == "E1-5.37":
+            continue
         if dr_of[i["id"]] == "E1-9":            # wave one, second year (first reporting year 2024): the phase-in holds
             answers[i["id"]] = {"omitted": {"reason": "phase_in", "phase_in": "e1_9_first_years_wave1"}}
         elif i["kind"] == "choice":
@@ -144,6 +150,15 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     answers["E1-6.44c"] = {"omitted": {"reason": "not_material", "statement": "assessed not material for the undertaking"}}
     out = _answer(api, maker, "E1", answers)
     assert not out["refused"], out["refused"][:3]
+    d = _statement(api, maker)
+    # ESRS 1 §83: the second year of a wave-one undertaking (first 2024) — a comparative for FY2024 is required; none is
+    # stated or reported, so it blocks until the undertaking discloses that it is impracticable (§85)
+    assert "e1.energy.total" in _failing(d)["comparatives"]
+    bad = api.put("/v1/esrs/answers", headers=maker, json={"standard": "comparatives", "entity_id": FOODS,
+                                                           "answers": {"cmp.e1.energy.total": {}}})
+    assert bad.status_code == 422
+    _answer(api, maker, "comparatives", {"cmp.e1.energy.total": {
+        "impracticable": "Energy was not metered per site in 2024; it cannot be recreated."}})
     d = _statement(api, maker)
     assert _failing(d) == {}, _failing(d)
     assert set(_failing(d, "warning")) == {"period_closed"}
@@ -182,10 +197,31 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     # ── FY2026: the previous period beside each figure ──
     _period(api, "2026-12-31")
     d = _statement(api, maker)
-    prev = d["document_report"]["previous"]
-    assert prev["period_end"] == "2025-12-31"
-    assert prev["figures"]["fs.total_assets"] == {"value": 200e6, "source": "attested"}
-    assert prev["figures"]["e1.physrisk.assets.amount"] == {"value": assets["by_horizon"], "source": f"filing {fid}"}
+    cmp_ = d["document_report"]["comparatives"]
+    assert cmp_["previous_period_end"] == "2025-12-31" and cmp_["reported"]["filing_id"] == fid   # the filed statement
+    _state(api, maker, checker, "2026-12-31", "csrd.first_reporting_year", 2024)
+    _state(api, maker, checker, "2026-12-31", "e1.energy.total", 900)
+    _answer(api, maker, "materiality", {"E1": {"material": True},
+                                        "E3": {"material": False, "explanation": "no water-intensive operations"},
+                                        "E4": {"material": False, "explanation": "no sites in or near sensitive areas"}})
+    row = next(r for r in _statement(api, maker)["document_report"]["comparatives"]["rows"]
+               if r["concept"] == "e1.energy.total")
+    assert row["status"] == "comparative" and row["comparative"] == 1000 and row["reported"] == 1000   # as filed for FY2025
+    # the undertaking revises the FY2025 figure (2023 ESRS 1 §84): the difference and the reasons are required
+    _state(api, maker, checker, "2025-12-31", "e1.energy.total", 1100, restatement_reason="late Seville utility invoice")
+    d = _statement(api, maker)
+    row = next(r for r in d["document_report"]["comparatives"]["rows"] if r["concept"] == "e1.energy.total")
+    assert row["status"] == "reason_missing" and row["difference"] == pytest.approx(100)
+    assert "reasons for the revision" in _failing(d)["comparatives"]
+    _answer(api, maker, "comparatives", {"cmp.e1.energy.total": {
+        "reason": "a 2025 utility invoice for the Seville plant arrived after the statement was filed"}})
+    d = _statement(api, maker)
+    assert "comparatives" not in _failing(d)
+    from services.governance.esrs_document import sections as shown_sections
+    e1_shown = {i["id"]: i for i in shown_sections({"document_report": d["document_report"],
+                                                    "_specs": {"esrs": d["spec"]}})[0]["items"]}
+    printed = e1_shown["E1-5.37"]["value"]["text"]
+    assert "revised from 1,000 as reported, difference 100" in printed and "utility invoice" in printed
 
     # ── FY2027: the 2026 standards and Art. 5(2)(b) ──
     _period(api, "2027-12-31")

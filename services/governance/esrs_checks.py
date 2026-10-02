@@ -167,12 +167,31 @@ def checks(payload: dict) -> list[dict]:
         out.append(_f("phase_ins", "completeness", "blocking", False, "a phase-in claimed does not apply: " + "; ".join(bad_claims[:8])))
     if unclear:
         out.append(_f("phase_ins_open", "completeness", "warning", False, "; ".join(unclear[:8])))
+    out += _comparatives(doc.get("comparatives"))
     out += _identities(spec_rec["version"], doc.get("provided") or {})
     out += _arithmetic(st, doc.get("provided") or {})
     if not doc.get("period_closed"):
         out.append(_f("period_closed", "governance", "warning", False, "the reporting period is not closed for this "
                       "undertaking — its year-end values can still change without a restatement"))
     return out
+
+
+def _comparatives(c: dict | None) -> list[dict]:
+    """ESRS 1 chapter 7.1 on the frozen comparatives (services.governance.esrs_comparatives). A statement frozen before
+    they were computed has none to check."""
+    if c is None:
+        return []
+    if c.get("needs") and any(r["status"] == "missing" for r in c["rows"]):
+        return [_f("comparatives", "completeness", "blocking", False, "whether a first-year relief applies needs the attested "
+                   + ", ".join(c["needs"]) + f"; {len(c['missing'])} figure(s) have no comparative", "ESRS 1 chapter 7.1")]
+    if c["missing"]:
+        return [_f("comparatives", "completeness", "blocking", False, f"{len(c['missing'])} comparative(s) incomplete: "
+                   + "; ".join(c["missing"][:8]) + (" …" if len(c["missing"]) > 8 else ""), "ESRS 1 chapter 7.1")]
+    n = len(c["rows"])
+    relief = c["reliefs"].get("all")
+    return [_f("comparatives", "completeness", "info", True,
+               f"no comparative information required: {relief}" if relief else
+               f"{n} figure(s) with their comparative, revision, relief or stated impracticability", "ESRS 1 chapter 7.1")]
 
 
 def _identities(version: str, provided: dict) -> list[dict]:

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Building2, ListChecks, PenLine, Scale } from 'lucide-react'
+import { FileText, Building2, ListChecks, PenLine, Scale, History } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, SectionHead, PageHeader, Button } from '../components/ui'
@@ -10,6 +10,7 @@ import FilingPreflight from '../components/FilingPreflight'
 import EsrsItems, { Materiality } from '../components/esrs/EsrsItems'
 import EsrsFigures from '../components/esrs/EsrsFigures'
 import EsrsUndertaking from '../components/esrs/EsrsUndertaking'
+import EsrsComparatives from '../components/esrs/EsrsComparatives'
 import type { Statement } from '../components/esrs/types'
 
 // An undertaking's ESRS sustainability statement (E1 climate change, E3 water and marine resources, E4 biodiversity
@@ -92,8 +93,13 @@ export default function EsrsStatement() {
         </Card>
 
         <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--color-line)]"><SectionHead icon={History} hint={`ESRS 1 chapter 7.1 · ${d.spec.act}`}>Comparative information</SectionHead></div>
+          <EsrsComparatives key={entity} c={doc.comparatives} v2026={d.spec.version.startsWith('dr_2026')} onAnswer={(id, v) => answer('comparatives', id, v)} />
+        </Card>
+
+        <Card className="p-0 overflow-hidden">
           <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3 flex-wrap">
-            <SectionHead icon={FileText} hint={`previous period ${doc.previous.period_end}`}>The statement</SectionHead>
+            <SectionHead icon={FileText} hint={`previous period ${doc.comparatives.previous_period_end}`}>The statement</SectionHead>
             <div className="flex items-center gap-3">
               <div className="flex rounded border border-[var(--color-line-2)] overflow-hidden">
                 {doc.sections.map(s => (

@@ -39,7 +39,7 @@ def statement(session: DbSession, entity_id: Optional[str] = Query(None),
 
 
 class Answers(BaseModel):
-    standard: str = Field(..., pattern="^(E1|E3|E4|materiality)$")
+    standard: str = Field(..., pattern="^(E1|E3|E4|materiality|comparatives)$")
     answers: dict[str, Any]
     entity_id: Optional[str] = None
 
@@ -52,7 +52,7 @@ def put_answers(body: Answers, session: DbSession, ctx: dict = Depends(require_p
     try:
         out = D.save(session, org_id, ctx["user"]["id"], entity_id=body.entity_id, period_end=_period_end(session, org_id),
                      standard=body.standard, answers=body.answers)
-    except D.DocumentError as e:
+    except (D.DocumentError, D.TA.AnswerError) as e:
         raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
     session.commit()
     if out["refused"] and not out["saved"]:

@@ -72,6 +72,14 @@ def _validate_topic(item: dict, value) -> dict:
 def save(session, org_id: str, user_id: str, *, entity_id: str | None, period_end: date, standard: str,
          answers: dict) -> dict:
     spec = governing(session, org_id, period_end)
+    if standard == "comparatives":                       # the undertaking's statements on its comparative information
+        from services.governance import esrs_comparatives as C
+        from services.governance import esrs_statement
+        statement = esrs_statement.compute(session, org_id, entity_id=entity_id, period_end=period_end,
+                                           esrs_version=spec["version"])
+        secs = build(spec, statement, _provided(session, org_id, entity_id, period_end), answers_(session, org_id, entity_id, period_end))
+        return C.save(session, org_id, user_id, entity_id=entity_id, period_end=period_end, spec=spec, sections=secs,
+                      answers=answers)
     if standard == "materiality":
         return TA.save(session, org_id, FAMILY, "materiality", _MATERIALITY, {t: "input" for t in TOPICS}, answers, user_id,
                        period_end=period_end, entity_id=entity_id, label="the materiality statement", validate=_validate_topic)
@@ -84,6 +92,10 @@ def save(session, org_id: str, user_id: str, *, entity_id: str | None, period_en
 
 
 def answers(session, org_id: str, entity_id: str | None, period_end: date) -> dict:
+    return answers_(session, org_id, entity_id, period_end)
+
+
+def answers_(session, org_id: str, entity_id: str | None, period_end: date) -> dict:
     return {d: TA.read(session, org_id, FAMILY, d, period_end=period_end, entity_id=entity_id)
             for d in (*TOPICS, "materiality")}
 
@@ -155,30 +167,6 @@ def _provided(session, org_id: str, entity_id: str | None, period_end: date) -> 
             for v in attested_values(session, org_id, ESRS, period_end, reporting_entity_id=entity_id)}
 
 
-def _previous(session, org_id: str, entity_id: str | None, period_end: date) -> dict:
-    """The previous period's figures (ESRS 1 §83): the undertaking's attested values for it, and the platform's figures
-    as frozen in the latest non-withdrawn statement filed for it (the same undertaking)."""
-    from datetime import timedelta
-
-    from sqlalchemy import text
-
-    from services.regspec import fy_start
-    prev_end = fy_start(period_end) - timedelta(days=1)
-    out = {k: {"value": v["value"], "source": "attested"} for k, v in _provided(session, org_id, entity_id, prev_end).items()}
-    row = session.execute(text("""
-        SELECT rs.payload->'document_report'->'statement'->'concepts' AS c, rf.filing_id::text AS fid
-        FROM regulatory_filing rf JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
-        WHERE rf.org_id = CAST(:o AS uuid) AND rf.framework = 'esrs_pack' AND rf.period_end = :pe
-          AND rf.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND rf.status NOT IN ('withdrawn', 'superseded')
-        ORDER BY rf.seq DESC LIMIT 1
-    """), {"o": org_id, "pe": prev_end, "e": entity_id}).mappings().first()
-    for k, c in ((row or {}).get("c") or {}).items():
-        v = (c or {}).get("by_horizon") or (c or {}).get("value")        # a figure stated per time horizon, as stated
-        if v is not None:
-            out.setdefault(k, {"value": v, "source": f"filing {row['fid']}"})
-    return {"period_end": prev_end.isoformat(), "figures": out}
-
-
 def freeze(session, org_id: str, *, entity_ids=None, period_end: date) -> dict:
     """Everything the ESRS statement filing prints and its checks read, for the undertaking the filing is for."""
     from sqlalchemy import text
@@ -196,20 +184,24 @@ def freeze(session, org_id: str, *, entity_ids=None, period_end: date) -> dict:
     kind = role["role"] if role and role["role"] in ("individual", "consolidated") else None
     has_entities = bool(session.execute(text("SELECT 1 FROM reporting_entities WHERE org_id = CAST(:o AS uuid) LIMIT 1"),
                                         {"o": org_id}).first())
-    previous = _previous(session, org_id, entity, period_end)
     sections = build(spec, statement, provided, ans)
-    for sec in sections:                                    # each figure beside its previous-period figure
+    # each figure beside its comparative, and what ESRS 1 chapter 7.1 of this version requires of it
+    from services.governance import esrs_comparatives as C
+    from services.governance.esrs_checks import facts_of
+    comparatives = C.compute(session, org_id, entity, period_end, spec, sections, facts_of(provided))
+    by = {(r["item"], r["concept"]): r for r in comparatives["rows"]}
+    for sec in sections:
         for i in sec["items"]:
             for d in i.get("datapoints") or []:
-                c = d.get("concept")
-                if isinstance(c, str):
-                    d["previous"] = (previous["figures"].get(c) or {}).get("value")
+                r = by.get((i["id"], d["concept"])) if isinstance(d.get("concept"), str) else None
+                if r:
+                    d["previous"], d["comparative"] = r["comparative"], r
     return {"document_report": {
         "esrs_version": spec["version"], "period_end": period_end.isoformat(), "reporting_entity_id": entity,
         "org_has_entities": has_entities, "role": role,
         "scope_check": csrd_scope.check(session, org_id, entity, period_end, kind, get_calc_settings(session, org_id)),
         "period_closed": is_closed(session, org_id, entity, period_end), "statement": statement,
-        "provided": provided, "answers": ans, "previous": previous, "sections": sections}}
+        "provided": provided, "answers": ans, "comparatives": comparatives, "sections": sections}}
 
 
 # ───────────────────────────── the filed form: what a reader sees ─────────────────────────────
@@ -229,6 +221,27 @@ def _fmt(v) -> str:
     return "—" if v is None else str(v)
 
 
+def _comparative_text(d: dict) -> str:
+    """The comparative beside a figure (ESRS 1 chapter 7.1): the previous period's figure, a revision with its difference
+    and reasons, a relief, or the stated impracticability."""
+    r = d.get("comparative")
+    if not r:
+        return f" (previous period: {_fmt(d['previous'])})" if d.get("previous") is not None else ""
+    a = r.get("answer") or {}
+    if r["status"] == "relief":
+        return f" (no comparative: {r['relief']})"
+    if r["status"] == "impracticable":
+        return f" (comparative impracticable: {a.get('impracticable')})"
+    if r["status"] == "missing":
+        return " (previous period: not stated)"
+    out = f" (previous period: {_fmt(r['comparative'])}"
+    if "difference" in r:
+        out += (f"; revised from {_fmt(r['reported'])} as reported, difference {_fmt(r['difference'])}"
+                + (f" — {a['reason']}" if a.get("reason") else "")
+                + (" — not a significant difference, as stated" if a.get("significant") is False else ""))
+    return out + ")"
+
+
 def _shown(i: dict) -> dict:
     """One statement item in the shared document shape (web SfdrDocumentItems.DocItem)."""
     if i["status"] == "printed":
@@ -245,7 +258,7 @@ def _shown(i: dict) -> dict:
     for d in i.get("datapoints") or []:
         v = d.get("by_horizon") or d.get("value")
         cur = f" {d['currency']}" if d.get("currency") else (f" {d['unit']}" if d.get("unit") and d["unit"] not in ("count", "boolean") else "")
-        prev = f" (previous period: {_fmt(d['previous'])})" if d.get("previous") is not None else ""
+        prev = _comparative_text(d)
         lines.append(f"{d['key']}: {_fmt(v)}{cur}{prev}" if d["status"] != "missing" and d["status"] != "gap"
                      else f"{d['key']}: {d.get('gap') or 'not stated'}")
     a = i.get("answer") or {}

@@ -5,6 +5,15 @@ export interface Datapoint {
   value?: any; by_horizon?: Record<string, number | null> | null; unit?: string | null; currency?: string | null
   status: string; gap?: string | null; previous?: any
 }
+export interface CmpRow {
+  concept: string; item: string; standard: string; current: any; reported: any; comparative: any; source: string | null
+  status: string; relief?: string; difference?: any; answer?: { reason?: string; significant?: boolean; impracticable?: string } | null
+}
+export interface Comparatives {
+  previous_period_end: string; reported: { source: string | null; filing_id: string | null }
+  reliefs: { all: string | null; not_same_as_first_set: string | null }; needs: string[]; rows: CmpRow[]; missing: string[]
+  topics_first_time: Record<string, any>
+}
 export interface Omission { reason: 'not_material' | 'condition_not_applicable' | 'phase_in'; phase_in?: string; statement?: string; scope?: string }
 export interface Item {
   id: string; kind: string; label: string; parent: string | null; note: string | null; obligation: string | null
@@ -24,7 +33,7 @@ export interface Statement {
     esrs_version: string; period_end: string; reporting_entity_id: string | null; org_has_entities: boolean
     role: Role | null; scope_check: Scope; period_closed: boolean
     statement: { sites: { site_id: string; name: string; weight: number }[]; scope: { basis: string; gaps: string[] } }
-    previous: { period_end: string }
+    comparatives: Comparatives
     sections: Section[]
   }
   spec: { version: string; act: string }
