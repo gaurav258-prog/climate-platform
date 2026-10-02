@@ -36,12 +36,14 @@ export function StatusForm({ rec, onClose, onDone }: { rec: Records; onClose: ()
   const s = rec.status
   const [f, setF] = useState({ effective_from: '', size_class: s?.size_class ?? '', country: s?.country ?? '', address: s?.address ?? '',
     eori: s?.eori ?? '', established_on: s?.established_on ?? '', basis: '',
-    own: s?.primary_own_produce == null ? '' : s.primary_own_produce ? 'yes' : 'no', other_system: s?.other_system ?? '' })
+    own: s?.primary_own_produce == null ? '' : s.primary_own_produce ? 'yes' : 'no', other_system: s?.other_system ?? '',
+    is_registration: s?.is_registration ?? '' })
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const small = f.size_class === 'micro' || f.size_class === 'small'
   const m = useSend(() => api.post('/v1/eudr/status', { entity_id: rec.entity_id, effective_from: f.effective_from, size_class: f.size_class, country: f.country,
     address: f.address, eori: f.eori || null, established_on: f.established_on || null, basis: f.basis || null,
-    primary_own_produce: small && f.own ? f.own === 'yes' : null, other_system: small ? f.other_system || null : null }),
+    primary_own_produce: small && f.own ? f.own === 'yes' : null, other_system: small ? f.other_system || null : null,
+    is_registration: f.size_class === 'large' ? f.is_registration || null : null }),
     'Sent for approval.', onDone)
   return (
     <Form title={`EUDR status — ${who}`} onClose={onClose} busy={m.isPending} onSubmit={() => m.mutate()} submit="Send for approval">
@@ -63,6 +65,8 @@ export function StatusForm({ rec, onClose, onDone }: { rec: Records; onClose: ()
         <div><label className={lbl}>System holding all Annex III information, if any (Art. 4a(4))</label>
           <input className={inp} value={f.other_system} onChange={set('other_system')} placeholder="none" /></div>
       </>}
+      {f.size_class === 'large' && <div><label className={lbl}>Registration in the information system (non-SME downstream operator or trader, Art. 5(2))</label>
+        <input className={inp} value={f.is_registration} onChange={set('is_registration')} placeholder="not stated" /></div>}
       <div><label className={lbl}>Basis</label><textarea className={inp} rows={2} value={f.basis} onChange={set('basis')} /></div>
     </Form>
   )

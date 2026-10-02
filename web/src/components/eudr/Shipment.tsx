@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { Button, Card, SectionHead, StatusPill } from '../ui'
 import { api, apiMessage } from '../../lib/api'
 import { toast } from '../../lib/toast'
+import { Concerns } from './TradeRecord'
 import { EvidenceForm, EventForm, ReferenceForm, RiskForm, ScopeForm, WithdrawForm } from './EudrForms'
 import { ASPECT_LABEL, EVENT_LABEL, KIND_LABEL, type DdsEvent, type Movement, type Records, type Statement, type StatementFiling, type Window } from './types'
 
@@ -110,6 +111,8 @@ export default function Shipment({ m, rec, onChanged }: { m: Movement; rec: Reco
           ? <p className="text-[12.5px] text-[var(--color-mute)]">{blocking.length ? 'Clear the blocking checks, then prepare the statement.' : 'Ready to prepare.'}</p>
           : <div className="space-y-2">{m.filings.map(f => <FilingRow key={f.filing_id} f={f} onChanged={refresh} />)}</div>}
       </div>
+
+      <Concerns movementId={m.movement_id} concerns={s.concerns ?? []} onChanged={() => st.refetch()} />
 
       {open === 'evidence' && <EvidenceForm rec={rec} movementId={m.movement_id} plots={s.plots} onClose={() => setOpen(null)} onDone={refresh} />}
       {open === 'risk' && <RiskForm rec={rec} movementId={m.movement_id} onClose={() => setOpen(null)} onDone={refresh} />}

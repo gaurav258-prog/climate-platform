@@ -152,6 +152,10 @@ def checks(st: dict) -> list[dict]:
         if (date.fromisoformat(mv["planned_on"]) - recorded).days > 366:
             out.append(_f("risk_review", "warning", False, f"the assessment dates from {recorded}: reviewed at least annually",
                           "Art. 10(4)"))
+    # Art. 4(5): relevant new information or a substantiated concern — the authorities are informed at once
+    from services.eudr.trade import concern_checks
+    out += concern_checks({"movement": {"actor_role": mv["actor_role"], "on": mv["planned_on"]},
+                           "concerns": st.get("concerns") or []}, False, severity="warning")
     if not any(not f["passed"] and f["severity"] == "blocking" for f in out):
         out.append(_f("ready", "info", True, "every blocking check passes"))
     return out

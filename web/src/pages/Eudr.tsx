@@ -9,6 +9,7 @@ import ReportTabs from '../components/ReportTabs'
 import ValidatedUpload from '../components/ValidatedUpload'
 import Shipment from '../components/eudr/Shipment'
 import DeclarationCard from '../components/eudr/Declaration'
+import TradeRecord from '../components/eudr/TradeRecord'
 import { ReadForm, StatusForm } from '../components/eudr/EudrForms'
 import { KIND_LABEL, type Movement, type Records } from '../components/eudr/types'
 
@@ -114,7 +115,9 @@ export default function Eudr() {
         </div>
       </Card>
 
-      {current && <Shipment key={current.movement_id} m={current} rec={r} onChanged={reload} />}
+      {current && (current.actor_role === 'downstream_operator' || current.actor_role === 'trader'
+        ? <TradeRecord key={current.movement_id} m={current} />
+        : <Shipment key={current.movement_id} m={current} rec={r} onChanged={reload} />)}
 
       {r.status && (r.status.size_class === 'micro' || r.status.size_class === 'small') && <DeclarationCard key={entity} entityId={entity || null} />}
 

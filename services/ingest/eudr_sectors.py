@@ -163,12 +163,13 @@ def _mv_build(ctx: dict, row: dict) -> dict:
             "net_mass_kg": kg, "mass_deviation_pct": dev, "supplementary_unit": su, "supplementary_qty": sq,
             "volume_m3": vol, "items_count": items, "supplier_id": ctx["suppliers"].get(sup) if sup else None,
             "customer_id": ctx["customers"].get(cus) if cus else None, "upstream_refs": _list(row, "upstream_refs"),
+            "supplier_role": _vocab(row, "supplier_role", "eudr_supplier_role"),
             "latitude": None, "longitude": None, **group_entity_fields(ctx, row)}
 
 
 _MV_COLS = ("kind", "actor_role", "planned_on", "hs_code", "description", "trade_name", "scientific_names", "customs_flow",
             "net_mass_kg", "mass_deviation_pct", "supplementary_unit", "supplementary_qty", "volume_m3", "items_count",
-            "supplier_id", "customer_id", "upstream_refs")
+            "supplier_id", "customer_id", "upstream_refs", "supplier_role")
 
 
 def _mv_existing(session: Session, org_id: str) -> list[dict]:

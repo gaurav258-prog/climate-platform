@@ -52,6 +52,8 @@ def _start(runs_from: str, *, frozen: date, published: Optional[date], period_en
         return date(frozen.year, 12, 31), False
     if runs_from == "publication":
         return (published, False) if published else (frozen, True)
+    if runs_from == "movement_date":            # an EUDR movement: a statement's period end is its shipment's date (E122)
+        return period_end, False
     if runs_from == "period_end":
         return period_end, False
     if runs_from == "end_of_period_year":

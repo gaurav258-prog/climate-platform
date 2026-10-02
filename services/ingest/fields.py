@@ -72,6 +72,7 @@ VOCABS: dict[str, Vocab] = {
                            {"placing_on_the_market": "placing", "import": "placing", "making_available_on_the_market": "making_available"}),
     # Art. 2(15) operator, 2(15a) micro or small primary operator, 2(15b) downstream operator, 2(17) trader
     "eudr_role": Vocab(("operator", "micro_small_primary_operator", "downstream_operator", "trader")),
+    "eudr_supplier_role": Vocab(("operator", "downstream_operator", "trader")),
 }
 
 
@@ -261,6 +262,9 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        vocab="eudr_movement", aliases=("kind", "movement", "activity", "flow")),
     _f("actor_role", "Your role", "vocab", "Your role in it: operator, micro_small_primary_operator, downstream_operator "
        "or trader (Art. 2(15)-(17)).", "operator", vocab="eudr_role", aliases=("role", "eudr_role")),
+    _f("supplier_role", "Supplier's role", "vocab", "What your supplier is for these products: operator, downstream_operator "
+       "or trader — where it is an operator, give the reference numbers of its statements or its declaration identifiers "
+       "(Art. 5(3)(a)).", "operator", vocab="eudr_supplier_role", aliases=("supplier_type", "supplier_is")),
     _f("planned_on", "Date", "date", "The date of the placing on the market, making available or export (YYYY-MM-DD).",
        "2027-01-15", aliases=("date", "placing_date", "export_date", "shipment_date")),
     _f("hs_code", "HS code", "id", "Harmonised System code, 4 to 10 digits, no spaces (Annex II point 2).", "180100",

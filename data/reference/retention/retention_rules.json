@@ -5,7 +5,8 @@
   "end_of_calendar_year_prepared": "31 December of the year the report was prepared (frozen)",
   "end_of_period_year": "31 December of the calendar year the reporting period ends in",
   "period_end": "the reporting period end",
-  "publication": "the day the report was published (submitted)"
+  "publication": "the day the report was published (submitted)",
+  "movement_date": "the date of the placing or making available on the market or export (an EUDR movement; a statement's period end is its shipment's date)"
  },
  "national": {
   "DE": [
@@ -339,6 +340,17 @@
    "years": null,
    "coverage": "named",
    "note": "The Regulation sets no period for keeping the simplified declaration itself: the five-year record of Art. 4(3), second sentence, does not apply to micro or small primary operators. The information it rests on is kept for five years from each placing on the market or export (Art. 9(1)). Set your own policy (Settings)."
+  },
+  "eudr_5_4": {
+   "key": "eudr_5_4",
+   "act": "Regulation (EU) 2023/1115 (EUDR) as amended by (EU) 2025/2650",
+   "article": "Art. 5(4)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02023R1115-20260918",
+   "quote": "Downstream operators and traders shall keep the information referred to in paragraph 3 for at least five years from the date of the placing or making available on the market or export",
+   "years": 5,
+   "runs_from": "movement_date",
+   "coverage": "named",
+   "covers_label": "the Article 5(3) record of each movement"
   }
  },
  "documents": {

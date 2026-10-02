@@ -3,7 +3,7 @@
 export interface Reading { outcome: string; loss_ha: number | null; first_loss_year: number | null; reason: string | null; assessed_at: string }
 export interface Tally { plots: number; unread: number; no_loss_detected: number; loss_after_cutoff: number; not_assessable: number }
 export interface UndertakingStatus { size_class: string; established_on: string | null; country: string; address: string; eori: string | null; effective_from: string
-  primary_own_produce: boolean | null; other_system: string | null }
+  primary_own_produce: boolean | null; other_system: string | null; is_registration: string | null }
 export interface RecordsPlot { plot_id: string; plot_name: string | null; external_ref: string | null; commodity: string; country: string | null; area_ha: number | null; has_polygon: boolean; reading: Reading | null }
 export interface Records {
   status: UndertakingStatus | null; on: string
@@ -27,6 +27,7 @@ export interface Statement {
   art9: { supplier: { name: string; address: string | null; email: string | null } | null; customer: { name: string } | null }
   plots: StatementPlot[]; legality_evidence: { evidence_id: string; aspect: string; document_kind: string; document_ref: string | null; plot_id: string | null; movement_id: string | null }[]
   risk_assessment: { path: string; conclusion: string; recorded_at: string } | null
+  concerns: { concern_id: string; kind: string; received_on: string; detail: string; steps: { kind: string; on_date: string; conclusion: string | null; detail: string | null }[] }[]
   checks: Check[]
 }
 export interface Window { open: boolean; closes?: string; why?: string }

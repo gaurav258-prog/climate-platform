@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.eudr import spec as SP
+from services.eudr import trade as TR
 
 POLYGON_OVER_HA = 4                     # Art. 2(28): 'plots of land of more than four hectares … using polygons'
 MIN_DECIMALS = 6                        # Art. 2(28): 'at least six decimal digits'
@@ -109,6 +110,7 @@ def compute(session: Session, org_id: str, movement_id: str) -> dict:
         "plots": plots,
         "countries": countries,
         "legality_evidence": evidence,
+        "concerns": TR.concerns(session, movement_id),
         "risk_assessment": REC.live_assessment(session, movement_id),
     }
 

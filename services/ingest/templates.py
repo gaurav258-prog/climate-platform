@@ -127,7 +127,7 @@ EUDR_MOVEMENT_TEMPLATE_FIELDS = _template(
     ("movement_ref", True), ("movement_kind", True), ("actor_role", True), ("planned_on", True), ("hs_code", True),
     ("description", True), ("customs_flow", True), ("trade_name", False), ("scientific_names", False),
     ("net_mass_kg", False), ("mass_deviation_pct", False), ("supplementary_unit", False), ("supplementary_qty", False),
-    ("volume_m3", False), ("items_count", False), ("supplier_ref", False), ("customer_ref", False), ("upstream_refs", False),
+    ("volume_m3", False), ("items_count", False), ("supplier_ref", False), ("supplier_role", False), ("customer_ref", False), ("upstream_refs", False),
     ("reporting_entity", False),
 )
 EUDR_MOVEMENT_PLOT_TEMPLATE_FIELDS = _template(

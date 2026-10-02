@@ -124,6 +124,8 @@ class StatusBody(BaseModel):
                                                 "obtained from or raised on plots in its country (null: not stated)")
     other_system: Optional[str] = Field(None, max_length=300, description="Art. 4a(4): the Union or Member State system that "
                                         "holds all its Annex III information, where there is one")
+    is_registration: Optional[str] = Field(None, max_length=120, description="Art. 5(2): the registration of a non-SME "
+                                           "downstream operator or trader in the information system")
 
 
 @router.post("/status", status_code=202, summary="State the undertaking's EUDR status (a second person approves)")
@@ -488,3 +490,79 @@ def withdraw_declaration(filing_id: str, body: WithdrawBody, session: DbSession,
         _decl_fail(e)
     session.commit()
     return f
+
+
+
+# ── Article 5: what a downstream operator or trader holds and keeps; new information and concerns (E122) ──
+
+def _trade_fail(e: Exception, code: int = 409):
+    raise HTTPException(code, {"error": "eudr_trade", "message": str(e)}) from e
+
+
+@router.get("/movements/{movement_id}/trade", summary="The Article 5(3) information of a movement, its checks and kept records")
+def trade_record(movement_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.eudr import trade as T
+    org = ctx["org"]["org_id"]
+    try:
+        st = T.compute(session, org, movement_id)
+    except T.TradeError as e:
+        _trade_fail(e, 404)
+    return {**st, "checks": T.checks(st), "kept": T.kept(session, org, movement_id)}
+
+
+@router.post("/movements/{movement_id}/trade/keep", status_code=201,
+             summary="Keep the movement's Article 5(3) information (frozen, hashed, kept five years — Art. 5(4))")
+def keep_trade_record(movement_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import trade as T
+    try:
+        out = T.keep(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id)
+    except T.TradeError as e:
+        _trade_fail(e)
+    session.commit()
+    return out
+
+
+@router.get("/trade-records/{record_id}", summary="A kept Article 5 record, as provided to the competent authorities on request")
+def get_trade_record(record_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.eudr import trade as T
+    try:
+        return T.get(session, ctx["org"]["org_id"], record_id)
+    except T.TradeError as e:
+        _trade_fail(e, 404)
+
+
+class ConcernBody(BaseModel):
+    kind: str = Field(..., pattern="^(new_information|substantiated_concern)$")
+    received_on: date
+    detail: str = Field(..., min_length=10, max_length=4000)
+
+
+@router.post("/movements/{movement_id}/concerns", status_code=201,
+             summary="Record relevant new information or a substantiated concern (Art. 4(5), 5(5)-(6))")
+def add_concern(movement_id: str, body: ConcernBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import trade as T
+    try:
+        cid = T.add_concern(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id, **body.model_dump())
+    except T.TradeError as e:
+        _trade_fail(e, 422)
+    session.commit()
+    return {"concern_id": cid}
+
+
+class ConcernStepBody(BaseModel):
+    kind: str = Field(..., pattern="^(authorities_informed|downstream_informed|verified)$")
+    on_date: date
+    conclusion: Optional[str] = Field(None, pattern="^(negligible|not_negligible)$")
+    detail: Optional[str] = Field(None, max_length=4000)
+
+
+@router.post("/concerns/{concern_id}/steps", status_code=201, summary="Record what was done about a concern")
+def add_concern_step(concern_id: str, body: ConcernStepBody, session: DbSession,
+                     ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import trade as T
+    try:
+        sid = T.add_step(session, ctx["org"]["org_id"], ctx["user"]["id"], concern_id, **body.model_dump())
+    except T.TradeError as e:
+        _trade_fail(e, 422)
+    session.commit()
+    return {"step_id": sid}
