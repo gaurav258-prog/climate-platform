@@ -1,6 +1,6 @@
 """Smithsonian GVP — global Holocene volcano catalogue (feed 'volcanic_gvp').
 
-Lands ONE reference file, data/reference/gvp_holocene_volcanoes.json, from the Smithsonian Global Volcanism
+Lands the global volcano catalogue from the Smithsonian Global Volcanism
 Program "Volcanoes of the World" GeoServer WFS (the same authoritative source scripts/ingest_gvp_volcanic.py
 uses for the curated per-volcano event rows):
 
@@ -13,12 +13,18 @@ location, type, last eruption year, and the eruption-history aggregates that siz
 (max VEI of CONFIRMED eruptions over the Holocene / since 1900, eruption counts). Numbers are copied from GVP,
 never inferred; a volcano whose eruptions carry no VEI gets max_vei = null and the scorer says so.
 
-Usage:  PYTHONPATH=. .venv/bin/python scripts/fetch_gvp_catalogue.py
+Two copies (core/live_data.py, E114): the committed snapshot data/reference/gvp_holocene_volcanoes.json is the
+versioned reference, changed only by --promote; a refresh writes the live copy (<live>/reference/…, gitignored), which
+the scorer reads in preference to the snapshot.
+
+Usage:  PYTHONPATH=. venv/bin/python scripts/fetch_gvp_catalogue.py            # refresh the live copy
+        PYTHONPATH=. venv/bin/python scripts/fetch_gvp_catalogue.py --promote  # live copy → committed snapshot
 Also wired as the refresh hook of feed 'volcanic_gvp' (services/data/feeds.py) so the scheduler re-lands it.
 GVP sits behind Cloudflare: a browser-like User-Agent is required (a bare python-requests UA is 403'd).
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -27,11 +33,13 @@ from pathlib import Path
 
 import requests
 
+from core import live_data
+
 GVP_WFS = "https://webservices.volcano.si.edu/geoserver/GVP-VOTW/wfs"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; TellumenClimatePlatform/1.0)"}
 LAYER_VOLCANOES = "GVP-VOTW:Smithsonian_VOTW_Holocene_Volcanoes"
 LAYER_ERUPTIONS = "GVP-VOTW:Smithsonian_VOTW_Holocene_Eruptions"
-OUT_PATH = Path(__file__).resolve().parents[1] / "data" / "reference" / "gvp_holocene_volcanoes.json"
+SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "data" / "reference" / "gvp_holocene_volcanoes.json"
 
 # The GVP GeoServer occasionally drops the connection outright (no HTTP response at all — not a 403/5xx,
 # just a closed socket) rather than rejecting the request; a bare requests.exceptions.ConnectionError from a
@@ -117,32 +125,36 @@ def _data(cat: dict) -> dict:
     return {k: v for k, v in cat.items() if k != "fetched_at"}
 
 
-def refresh(out_path: Path = OUT_PATH) -> dict:
-    """Fetch both layers and write the catalogue — ONLY when its data changed. Raises on any source failure: the feed
-    monitor must show 'failed', never overwrite a good catalogue with a partial one.
+def refresh(snapshot: Path = SNAPSHOT_PATH) -> dict:
+    """Fetch both layers and land the catalogue as the LIVE copy of `snapshot` — only when its data differs from the
+    copy readers use now (the live copy, else the committed snapshot). Never writes the committed snapshot (E114).
+    Raises on any source failure: the feed monitor must show 'failed', never replace a good catalogue with a partial one.
 
     `fetched_at` is when THIS VERSION of the data was first fetched (volcanic scores cite it as their catalogue
-    version). A check that finds the same data leaves the file untouched: when the feed was last checked lives in the
-    feed monitor's own log (feed_refresh_log), not in a committed file. (Fixed 2026-09-28 — every scheduled check
-    rewrote the file with a new timestamp and nothing else, leaving the repository dirty; see commit 80dbcc7.)"""
+    version). A check that finds the same data writes nothing: when the feed was last checked lives in the feed
+    monitor's own log (feed_refresh_log), not in a file."""
     cat = build_catalogue(_wfs_all(LAYER_VOLCANOES), _wfs_all(LAYER_ERUPTIONS))
     if cat["n_volcanoes"] < 1000:  # GVP lists ~1,200 Holocene volcanoes; far fewer means a truncated response
         raise RuntimeError(f"GVP catalogue looks truncated: {cat['n_volcanoes']} volcanoes")
-    if out_path.exists():
-        current = json.loads(out_path.read_text())
+    current_path = live_data.prefer_live(snapshot)
+    if current_path.exists():
+        current = json.loads(current_path.read_text())
         if _data(current) == _data(cat):
-            return {**current, "changed": False}
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out_path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(cat, separators=(",", ":")))
-    tmp.replace(out_path)
-    return {**cat, "changed": True}
+            return {**current, "changed": False, "path": str(current_path)}
+    out = live_data.write_live(snapshot, json.dumps(cat, separators=(",", ":")))
+    return {**cat, "changed": True, "path": str(out)}
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--promote", action="store_true",
+                    help="copy the live catalogue over the committed snapshot (a deliberate, separately committed change)")
+    if ap.parse_args().promote:
+        print(f"promoted {live_data.live_path(SNAPSHOT_PATH)} -> {live_data.promote(SNAPSHOT_PATH)}")
+        return 0
     cat = refresh()
-    print(f"{'wrote' if cat['changed'] else 'unchanged (not rewritten)'} {OUT_PATH}: {cat['n_volcanoes']} volcanoes, {cat['n_eruptions_confirmed']} confirmed eruptions "
-          f"(of {cat['n_eruptions_total']} catalogued)")
+    print(f"{'wrote' if cat['changed'] else 'unchanged (not rewritten)'} {cat['path']}: {cat['n_volcanoes']} volcanoes, "
+          f"{cat['n_eruptions_confirmed']} confirmed eruptions (of {cat['n_eruptions_total']} catalogued)")
     with_vei = sum(1 for v in cat["volcanoes"] if v["max_vei"] is not None)
     print(f"  {with_vei} volcanoes carry a confirmed-eruption VEI; {cat['n_volcanoes'] - with_vei} do not")
     return 0

@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     STORAGE_PROVIDER: str = "local"  # local | s3 | gcs | azure
     STORAGE_BUCKET: str = "climate-platform-dev"
     STORAGE_LOCAL_PATH: str = "./data/storage"
+    # Where scheduled feed refreshes land their files (core/live_data.py). Empty = <repo>/data/live, which git
+    # ignores; never a git-tracked path — the committed reference snapshots change only deliberately (E114).
+    LIVE_DATA_PATH: str = ""
 
     # H3 — committed to resolution 8 for EU MVP (~0.7km² cells)
     H3_RESOLUTION: int = 8

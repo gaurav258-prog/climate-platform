@@ -6,6 +6,11 @@ feeds (live/proxy/partial) and skips the on-demand/planned/estimated ones; a hoo
 """
 from __future__ import annotations
 
+import hashlib
+import shutil
+import subprocess
+from pathlib import Path
+
 import pytest
 from sqlalchemy import text
 
@@ -28,8 +33,27 @@ def _is_network_unreachable(note: str | None) -> bool:
     return bool(note) and any(m in note for m in _NETWORK_UNREACHABLE_MARKERS)
 
 
+_REPO = Path(__file__).resolve().parents[2]
+
+
+def _checkout_state() -> dict | None:
+    """Every changed or untracked-and-not-ignored path under data/ (where feeds land files), with a hash of its
+    content (None when this is not a git checkout). Equal before and after a refresh = the refresh wrote nothing git
+    tracks (E114). Scoped to data/ because the checkout is shared: code edited meanwhile is not a feed's doing."""
+    if shutil.which("git") is None or not (_REPO / ".git").exists():
+        return None
+    out = subprocess.run(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "data"], cwd=_REPO,
+                         capture_output=True, text=True, check=True).stdout
+    state = {}
+    for entry in filter(None, out.split("\0")):
+        p = _REPO / entry[3:]
+        state[entry] = hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+    return state
+
+
 @pytest.mark.integration
 def test_scheduler_refreshes_only_auto_feeds():
+    before = _checkout_state()
     with get_session() as s:
         done = feeds.run_scheduled_refreshes(s, force=True)
         notes = {r["feed_key"]: r["note"] for r in s.execute(text(
@@ -46,6 +70,11 @@ def test_scheduler_refreshes_only_auto_feeds():
     real_failures = [d for d in done if d["status"] != "refreshed"
                      and not _is_network_unreachable(notes.get(d["feed_key"]))]
     assert not real_failures, f"non-network refresh failure(s), a real regression: {real_failures}"
+    # E114: a refresh lands its files under the gitignored live root (core/live_data.py), never on a tracked path
+    after = _checkout_state()
+    if before is not None:
+        moved = {k for k in before.keys() | after.keys() if before.get(k, "∅") != after.get(k, "∅")}
+        assert not moved, f"a feed refresh changed git-tracked data: {sorted(moved)}"
 
 
 @pytest.mark.integration

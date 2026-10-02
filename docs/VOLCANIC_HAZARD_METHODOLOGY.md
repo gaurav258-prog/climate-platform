@@ -173,7 +173,9 @@ Volcanic is now answerable for ANY coordinate worldwide, at SCREENING tier, by
   1,214 volcanoes, 9,916 confirmed eruptions. Per volcano we keep location, type, last eruption
   year, and the max VEI of *confirmed* eruptions (Holocene / since 1900) plus counts. Registered
   as feed `volcanic_gvp` (30-day cadence, scheduler-refreshed; a truncated response raises and
-  the feed shows *failed* rather than overwriting a good catalogue).
+  the feed shows *failed* rather than overwriting a good catalogue). A refresh lands a live copy
+  under `data/live/reference/` (gitignored, `core/live_data.py`); the scorer reads it when present,
+  else the committed snapshot, which changes only by `scripts/fetch_gvp_catalogue.py --promote`.
 - **Score** — every volcano within 150 km; the worst one wins (max, §1). Radii: curated
   `volcanic_hazard_zones` row if present → else `vei_to_zone_radii(max_vei)` → else, when GVP
   records no VEI at all (529 of 1,214 volcanoes), the VEI-3 default, labelled
@@ -191,7 +193,7 @@ Volcanic is now answerable for ANY coordinate worldwide, at SCREENING tier, by
 
 - `ml/scoring/volcanic_physics.py` — the physics (proximal/ashfall/blend/VEI-scaled defaults).
 - `scripts/ingest_gvp_volcanic.py` — GVP WFS → `volcanic_events` (curated backtest volcanoes).
-- `scripts/fetch_gvp_catalogue.py` — GVP WFS → global Holocene catalogue JSON (feed `volcanic_gvp`).
+- `scripts/fetch_gvp_catalogue.py` — GVP WFS → global Holocene catalogue JSON (feed `volcanic_gvp`; live copy, `--promote` to the snapshot).
 - `ml/scoring/volcanic_point.py` — any-address screening scorer (§7).
 - `scripts/score_volcanic_event.py` — physics → `canonical_scores` (`hazard_type='volcanic'`),
   mirrors `scripts/score_seismic_event.py`.

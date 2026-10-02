@@ -110,3 +110,7 @@ data/storm_synthetic/
 
 # isolated agent worktrees (each on its own branch)
 .claude/worktrees/
+
+# live copies landed by scheduled feed refreshes (core/live_data.py); the committed reference snapshots stay in
+# data/reference/ and change only deliberately (E114)
+data/live/

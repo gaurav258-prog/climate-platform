@@ -1,7 +1,8 @@
 """Volcanic hazard at an arbitrary point, fetch-free at runtime — Smithsonian GVP catalogue + radial physics.
 
 SCREENING-tier. For a (lat, lon) we take every Holocene volcano in the GVP catalogue
-(data/reference/gvp_holocene_volcanoes.json, scripts/fetch_gvp_catalogue.py) within INFLUENCE_KM and score the
+(the refreshed live copy, else the committed data/reference/gvp_holocene_volcanoes.json — core/live_data.py;
+scripts/fetch_gvp_catalogue.py) within INFLUENCE_KM and score the
 worst one with the two-component physics in ml/scoring/volcanic_physics.py: a near-binary proximal zone
 (lava / pyroclastic flow / lahar) and a gradual ashfall zone. Footprint radii come from, in order:
   1. a curated volcanic_hazard_zones row (published hazard map, per volcano)  → radii_source "curated:…"
@@ -26,22 +27,30 @@ from typing import Callable, Optional
 import h3
 from sqlalchemy import text
 
+from core import live_data
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.scoring.volcanic_physics import blended_volcanic_score, vei_to_zone_radii
 
 MODEL_VERSION = "volcanic-gvp-radial-v1"
 INFLUENCE_KM = 150.0        # beyond this even a VEI-7 ashfall footprint (~113 km radius) has decayed to background
-_CATALOGUE_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "gvp_holocene_volcanoes.json"
+_CATALOGUE_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "gvp_holocene_volcanoes.json"  # committed snapshot
 _DEFAULT_VEI = 3.0          # what vei_to_zone_radii assumes when VEI is unknown — named here so the shap can say so
 
 _catalogue: Optional[dict] = None
+_catalogue_key: Optional[tuple] = None
 
 
 def _load_catalogue() -> Optional[dict]:
-    global _catalogue
-    if _catalogue is None and _CATALOGUE_PATH.exists():
-        _catalogue = json.loads(_CATALOGUE_PATH.read_text())
+    """The live copy when a refresh has landed one, else the committed snapshot; re-read when that file changes,
+    so a refresh reaches a running process."""
+    global _catalogue, _catalogue_key
+    path = live_data.prefer_live(_CATALOGUE_PATH)
+    if not path.exists():
+        return None
+    key = (str(path), path.stat().st_mtime_ns)
+    if key != _catalogue_key:
+        _catalogue, _catalogue_key = json.loads(path.read_text()), key
     return _catalogue
 
 
