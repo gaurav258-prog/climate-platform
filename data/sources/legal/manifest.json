@@ -25,6 +25,14 @@
    "sha256": "019db5f8d582b0cdba287fa1361d4d56a52fc6a44e4587dc170e159f44f18f9c",
    "chars": 145136
   },
+  "02022R1288-20230220": {
+   "title": "Commission Delegated Regulation (EU) 2022/1288 of 6 April 2022 supplementing Regulation (EU) 2019/2088 of the European Parliament and of the Council with regard to regulatory technical standards specifying the details of the content and presentation of the information in relation to the principle of do no significant harm, specifying the content, methodologies and presentation of information in relation to sustainability indicators and adverse sustainability impacts, and the content and presentation of the information in relation to the promotion of environmental or social characteristics and sustainable investment objectives in precontractual documents, on websites and in periodic reports (Text with EEA relevance)",
+   "celex": "02022R1288-20230220",
+   "source": "http://publications.europa.eu/resource/celex/02022R1288-20230220",
+   "retrieved": "2026-10-02",
+   "sha256": "b9274ece64be2f6f40810f7043499b4b283bec886af99ad3b779fa8f375f6385",
+   "chars": 120210
+  },
   "02023R1115-20251226": {
    "title": "Regulation (EU) 2023/1115 of the European Parliament and of the Council of 31 May 2023 on the making available on the Union market and the export from the Union of certain commodities and products associated with deforestation and forest degradation and repealing Regulation (EU) No 995/2010 (Text with EEA relevance)",
    "celex": "02023R1115-20251226",
@@ -96,6 +104,14 @@
    "retrieved": "2026-09-30",
    "sha256": "b5370e612f1b2db138a424dba81596386dc52e47dfdf1734bfd0ed0579ab7cfd",
    "chars": 267181
+  },
+  "32022R1288": {
+   "title": "Commission Delegated Regulation (EU) 2022/1288 of 6 April 2022 supplementing Regulation (EU) 2019/2088 of the European Parliament and of the Council with regard to regulatory technical standards specifying the details of the content and presentation of the information in relation to the principle of ‘do no significant harm’, specifying the content, methodologies and presentation of information in relation to sustainability indicators and adverse sustainability impacts, and the content and presentation of the information in relation to the promotion of environmental or social characteristics and sustainable investment objectives in pre-contractual documents, on websites and in periodic reports (Text with EEA relevance)",
+   "celex": "32022R1288",
+   "source": "http://publications.europa.eu/resource/celex/32022R1288",
+   "retrieved": "2026-10-02",
+   "sha256": "7529371ce926e1e10f2b9719175cf66ce1843589c5569143deb1689c82710b2e",
+   "chars": 158457
   },
   "32022R2453": {
    "title": "Commission Implementing Regulation (EU) 2022/2453 of 30 November 2022 amending the implementing technical standards laid down in Implementing Regulation (EU) 2021/637 as regards the disclosure of environmental, social and governance risks (Text with EEA relevance)",
