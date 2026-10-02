@@ -150,6 +150,19 @@ def test_the_statement_for_a_reference_period(api):
     assert {e["key"]: e["value"] for e in form["elections"]} == {k: e["value"] for k, e in frozen.items()}   # on the record
     assert "elections" not in secs                                                     # the annex holds only the templates
 
+    # the regulatory lineage: the act and its quoted basis → the frozen specification → the templates → this record
+    lin = api.get(f"/v1/filings/{fid}/regulatory-lineage?template=S4", headers=maker).json()
+    fam = next(x for x in lin["families"] if x["family"] == "sfdr_pai")
+    assert fam["act"]["celex"] == "32022R1288" and fam["act"]["text_held"] and fam["act"]["quote_found_in"]
+    assert fam["spec"]["sha256_frozen"] == fam["spec"]["sha256_now"] and fam["spec"]["changed_since"] is False
+    tpl = {t["id"]: t for t in fam["templates"]}
+    assert {"S1", "T1", "S4", "S7"} <= set(tpl) and tpl["S1"]["items"]["by_source"]["computed"] == 3
+    det = {r["id"]: r["source"] for r in fam["template_detail"]["rows"]}
+    assert det["a_approval_date"] == "input:date" and det["best_efforts"] == "input:where_not_readily_available"
+    assert lin["filing"]["hash_verified"] and len(lin["elections"]) == len(rec["payload"]["_elections"])
+    other = _login(api, "analyst@terra.demo", "Demo!analyst1")
+    assert api.get(f"/v1/filings/{fid}/regulatory-lineage", headers=other).status_code == 404       # not another org's
+
     # a later change of answer does not reach the frozen statement
     api.put("/v1/entity/pai-statement/answers", headers=maker,
             json={"period_end": "2025-12-31", "answers": {"indicator.2.expl": {"text": "Changed after freezing."}}})

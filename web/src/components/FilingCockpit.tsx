@@ -12,6 +12,7 @@ import { frameworkLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { Card, Button, SectionHead } from './ui'
 import FilingLineage from './FilingLineage'
+import RegulatoryLineage from './RegulatoryLineage'
 import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
 import { AssuranceShareDialog } from './GrcFollowups'
@@ -499,6 +500,12 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
 
             {/* change vs the prior version (restatement / prior period) */}
             <FilingVariance filingId={filingId} />
+
+            {/* regulatory lineage — the law → the specification and its sign-off → the templates → this frozen record */}
+            {f.snapshot && <div className="space-y-2">
+              <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] px-1">Regulatory lineage — from the law to this filing</div>
+              <RegulatoryLineage filingId={filingId} />
+            </div>}
 
             {/* bidirectional data lineage — trace each reported figure to its source feed and back */}
             <FilingLineage filingId={filingId} />

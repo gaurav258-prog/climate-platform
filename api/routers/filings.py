@@ -382,6 +382,18 @@ def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
         raise HTTPException(404, {"error": "not_found", "message": str(e)})
 
 
+@router.get("/filings/{filing_id}/regulatory-lineage",
+            summary="Regulatory lineage: the act and its quoted basis → the frozen specification and its sign-off → the "
+                    "templates printed and how each cell is filled → the frozen record")
+def regulatory_lineage(filing_id: str, session: DbSession, template: Optional[str] = Query(None),
+                       ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.regulatory_lineage import LineageError, build
+    try:
+        return build(session, ctx["org"]["org_id"], filing_id, template)
+    except LineageError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
 @router.get("/filings/{filing_id}/lineage/hazards", summary="The hazard cells a filing reports (trace entry points)")
 def lineage_hazards(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_lineage import hazards_view
