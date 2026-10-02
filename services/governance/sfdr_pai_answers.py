@@ -17,9 +17,10 @@ What the text leaves to the manager is its statement (no default): whether an en
 Directive 2007/36/EC applies ('where applicable'), whether it has other engagement policies ('any other'), whether a
 forward-looking climate scenario is used, and which language requirement each language of the summary meets.
 
-Named gaps (not checked): a language code is checked for its shape only (no ISO 639 list is held); which language is
-official in which Member State, and in which host Member States a product is made available, are the manager's
-statements; the two-A4-sides limit on the summary (Article 5) depends on how it is printed and is not measured.
+A language is an ISO 639-1 code of the Registration Authority's list (services.reference.iso639). Named gaps (not
+checked): which language is official in which Member State, and in which host Member States a product is made
+available, are the manager's statements; the two-A4-sides limit on the summary (Article 5) depends on how it is printed
+and is not measured.
 """
 from __future__ import annotations
 
@@ -126,14 +127,15 @@ def _validate(item: dict, value) -> dict | None:
         if not isinstance(rows, list) or not rows:
             raise AnswerError(f"{iid}: the summary, one row per language")
         out = []
+        from services.reference.iso639 import is_language
         from services.reference.iso_country import is_valid_country
         for n, r in enumerate(rows, 1):
             lang = str(r.get("d_language") or "").strip().lower()
             meets = r.get("d_meets") or []
             ms = str(r.get("d_member_state") or "").strip().upper() or None
             body = str(r.get("d_text") or "").strip()
-            if not re.fullmatch(r"[a-z]{2}", lang):
-                raise AnswerError(f"{iid}: row {n} — the language as a two-letter ISO 639-1 code")
+            if not is_language(lang):
+                raise AnswerError(f"{iid}: row {n} — '{lang}' is not an ISO 639-1 language code")
             if not isinstance(meets, list) or not meets or set(meets) - set(LANGUAGE_MEETS):
                 raise AnswerError(f"{iid}: row {n} — which requirement the language meets: {', '.join(LANGUAGE_MEETS)}")
             if ("host_official" in meets) != bool(ms):

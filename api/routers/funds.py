@@ -520,17 +520,17 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     }
 
 
-@router.post("/funds/{fund_id}/sfdr-statement/file", summary="Freeze the current SFDR statement as the official filing for its reference year")
+@router.post("/funds/{fund_id}/sfdr-statement/file", summary="Freeze the fund's PAI analytics as its record for a reference year (not a filing)")
 def file_sfdr_statement(fund_id: str, session: DbSession, org_id: WriterOrgId):
-    """Snapshot the current statement immutably for its reference year, so next
-    year's statement can show the year-on-year comparison against what was filed."""
+    """Keep the fund's PAI analytics as its record for the reference year, so next year's analytics can compare with
+    it. Not a filing (a fund's analytics, not a filing: the principal adverse impacts statement is the manager's entity-level statement (Delegated Regulation (EU) 2022/1288, Annex I, filed per reference period); a fund discloses how it considers principal adverse impacts in its SFDR product documents (Annexes II-V)). Freezing the same year again replaces the record."""
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     st = sfdr_pai_statement(session, fund_id)
     if st.get("error"):
         return st
     ref_year = st["summary"].get("reference_year")
     if not ref_year:
-        raise _fail(422, "No reference year — supply issuer emissions with a reporting year before filing.")
+        raise _fail(422, "No reference year — supply issuer emissions with a reporting year before freezing.")
     import json
     session.execute(text("""
         INSERT INTO fund_sfdr_filings (fund_id, org_id, reference_year, period_start, period_end,
@@ -543,14 +543,14 @@ def file_sfdr_statement(fund_id: str, session: DbSession, org_id: WriterOrgId):
            "snap": json.dumps(st), "narr": st["coverage_summary"]["filing_readiness"],
            "by": st["entity"].get("manager_legal_name") or st["entity"]["manager"]})
     return {"ok": True, "reference_year": ref_year,
-            "filed": f"FY{ref_year} statement frozen for {st['entity']['fund_name']}"}
+            "filed": f"FY{ref_year} PAI analytics frozen as the record of {st['entity']['fund_name']} (not a filing)"}
 
 
 # The SFDR pre-contractual and periodic templates (Annexes II–V) are served item by item from the governing
 # specification by api/routers/sfdr_documents.py and filed as report types sfdr_precontractual / sfdr_periodic.
 
 
-@router.get("/funds/{fund_id}/sfdr-filings", summary="Prior SFDR filings for this fund (year-on-year history)")
+@router.get("/funds/{fund_id}/sfdr-filings", summary="The years of this fund's PAI analytics frozen as records (not filings)")
 def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     rows = session.execute(text("""
@@ -648,7 +648,7 @@ class BatchCreate(BaseModel):
     limit: Optional[int] = None      # cap funds processed this call (chunked runs)
 
 
-@router.post("/entity/sfdr-batch", summary="Generate SFDR statements across ALL the manager's funds (resumable batch)")
+@router.post("/entity/sfdr-batch", summary="Compute every fund's PAI analytics (resumable batch) — analytics, not filings")
 def create_sfdr_batch(body: BatchCreate, session: DbSession, org_id: WriterOrgId):
     batch_id = create_batch(session, org_id, body.reference_year)
     if body.run:
@@ -781,7 +781,7 @@ def _fail(status: int, message: str, code: str | None = None, **extra) -> HTTPEx
     return HTTPException(status, {"error": code or _CODES.get(status, "error"), "message": message, **extra})
 
 
-@router.get("/funds/{fund_id}/sfdr-statement", summary="SFDR PAI statement — the filed record if one exists for the current period, else the live draft")
+@router.get("/funds/{fund_id}/sfdr-statement", summary="A fund's PAI analytics — the frozen record for the current year if one exists, else live (not a filing)")
 def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     statement, is_frozen = frozen_or_live_statement(session, fund_id)
@@ -790,7 +790,7 @@ def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
     return statement
 
 
-@router.get("/funds/{fund_id}/sfdr-statement.xlsx", summary="Download the SFDR PAI statement as a filing-shaped .xlsx")
+@router.get("/funds/{fund_id}/sfdr-statement.xlsx", summary="Download a fund's PAI analytics as .xlsx (not a filing)")
 def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     # Fixed 2026-09-24 (E2E audit): this used to recompute live on every request, so a downloaded export

@@ -97,6 +97,8 @@ def test_the_statement_for_a_reference_period(api):
                        ({"S6.2c_scenario": {"ticked": True}}, "name, its provider"),
                        ({"S1.d_summary": {"rows": [{"d_language": "de", "d_meets": ["host_official"], "d_text": "x"}]}},
                         "host Member State"),
+                       ({"S1.d_summary": {"rows": [{"d_language": "xx", "d_meets": ["home_official"], "d_text": "x"}]}},
+                        "not an ISO 639-1 language code"),
                        ({"S9.anything": {"text": "x"}}, "no such item")):
         r = api.put("/v1/entity/pai-statement/answers", headers=maker, json={"period_end": "2025-12-31", "answers": wrong})
         assert r.status_code == 422 and why in r.text, (wrong, r.text)
@@ -228,3 +230,17 @@ def test_a_statement_reads_investee_figures_for_its_year_or_earlier(api):
     live = entity_pai_statement(s, org)
     assert next(i for i in filed["indicators"] if i["number"] == 1)["value"]["scope_1"] == 1000.0
     assert next(i for i in live["indicators"] if i["number"] == 1)["value"]["scope_1"] == 5000.0
+
+
+def test_a_funds_pai_view_says_it_is_analytics_not_a_filing(api):
+    """The per-fund view computes the indicators over one fund's holdings; it is not the Annex I statement, which is the
+    manager's entity-level one — its label and its workbook say so."""
+    maker = _login(api, "analyst@nordkap.demo", "Demo!analyst1")
+    fid = api.s.execute(text("SELECT fund_id::text FROM funds WHERE org_id = CAST(:o AS uuid) AND parent_fund_id IS NULL "
+                             "ORDER BY name LIMIT 1"), {"o": NORDKAP}).scalar()
+    st = api.get(f"/v1/funds/{fid}/sfdr-statement", headers=maker).json()
+    assert st["statement"] == "Fund PAI analytics (not a filing)" and "entity-level statement" in st["not_a_filing"]
+    assert "Analytics, not a filing" in st["summary"]["declaration"]
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(api.get(f"/v1/funds/{fid}/sfdr-statement.xlsx", headers=maker).content))
+    assert wb["Summary"]["A1"].value == "Fund PAI analytics — not a filing" and "PAI analytics" in wb.sheetnames

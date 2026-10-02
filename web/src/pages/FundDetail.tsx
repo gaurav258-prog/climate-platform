@@ -13,8 +13,9 @@ import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
 import SfdrDocument from '../components/SfdrDocument'
 import MethodGap from '../components/MethodGap'
 
-// One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
-// mandatory indicators + taxonomy) ready to download or freeze as the official filing.
+// One fund's full picture: the physical + transition climate report, and its PAI analytics (the 14 mandatory
+// indicators + taxonomy computed over this fund's holdings) — analytics, not a filing: the PAI statement is the
+// manager's entity-level one (Funds page), and a fund's PAI consideration is disclosed in its SFDR product documents.
 
 interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_risk?: number | null; transition_value_at_risk?: number | null }
 const eur = (n?: number | null) => money(n, 'EUR')
@@ -88,8 +89,8 @@ export default function FundDetail() {
     try {
       const r = await api.post<{ ok?: boolean; reference_year?: number; error?: string }>(`/v1/funds/${id}/sfdr-statement/file`, {})
       if (r.error) setMsg({ t: r.error, ok: false })
-      else { setMsg({ t: `Filed as the official SFDR statement for ${r.reference_year}.`, ok: true }); qc.invalidateQueries({ queryKey: ['fund-filings', id] }); stmt.refetch() }
-    } catch (e) { setMsg({ t: e instanceof ApiError ? String(e.body ?? e.message) : 'Could not file.', ok: false }) }
+      else { setMsg({ t: `Frozen as the fund's record for ${r.reference_year} (not a filing).`, ok: true }); qc.invalidateQueries({ queryKey: ['fund-filings', id] }); stmt.refetch() }
+    } catch (e) { setMsg({ t: e instanceof ApiError ? String(e.body ?? e.message) : 'Could not freeze.', ok: false }) }
     finally { setBusy(false) }
   }
 
@@ -110,7 +111,7 @@ export default function FundDetail() {
       {s.gap && <MethodGap gap={s.gap} what="Fund climate report" />}
       {/* climate report */}
       {s.positions === 0
-        ? <Card className="p-8 text-center text-[13px] text-[var(--color-mute)]">This fund has no holdings yet — onboard holdings by ISIN to compute its climate report and SFDR statement.</Card>
+        ? <Card className="p-8 text-center text-[13px] text-[var(--color-mute)]">This fund has no holdings yet — onboard holdings by ISIN to compute its climate report and PAI analytics.</Card>
         : <div className="grid md:grid-cols-3 gap-3">
             <RiskCard title="Physical risk" atRisk="At or above your stated level" d={s.physical} base={s.base} baseHigh={s.base?.physical_value_at_risk} />
             <RiskCard title="Transition risk" atRisk="Value × your stated stranded share" d={s.transition} base={s.base} baseHigh={s.base?.transition_value_at_risk} />
@@ -133,17 +134,17 @@ export default function FundDetail() {
       {/* onboard holdings by ISIN — the data-in path */}
       <OnboardHoldings fundId={id} onDone={refreshAll} />
 
-      {/* SFDR PAI statement */}
+      {/* the fund's PAI analytics — not a filing */}
       {st && !st.error && (
         <Card className="p-0 overflow-hidden">
           <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
             <div>
-              <SectionHead>SFDR PAI statement</SectionHead>
+              <SectionHead hint="analytics for this fund — not a filing">Fund PAI analytics</SectionHead>
               <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5 flex items-center gap-2">
                 <span>{st.summary?.reference_period ?? st.entity?.reference_period} · {cov ? `${cov.computed}/${cov.mandatory_indicators} indicators computed` : ''}</span>
                 {st.filing_status === 'filed'
-                  ? <span className="inline-flex items-center gap-1 text-[var(--color-good)]"><CheckCircle2 size={11} /> filed — this is the official record</span>
-                  : <span className="inline-flex items-center gap-1 text-[var(--color-warn)]"><Clock size={11} /> draft — not yet filed</span>}
+                  ? <span className="inline-flex items-center gap-1 text-[var(--color-good)]"><CheckCircle2 size={11} /> year frozen as a record (for next year's comparison)</span>
+                  : <span className="inline-flex items-center gap-1 text-[var(--color-warn)]"><Clock size={11} /> live — not frozen for this year</span>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -152,16 +153,16 @@ export default function FundDetail() {
             </div>
           </div>
 
-          {/* filing readiness */}
+          {/* whether the year's analytics can be frozen as a record */}
           <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[12.5px]">
               {ready ? <CheckCircle2 size={15} className="text-[var(--color-good)]" /> : <AlertTriangle size={15} className="text-[var(--color-warn)]" />}
-              <span className="text-[var(--color-ink)]">{ready ? 'Ready to file' : 'Not ready to file'}</span>
+              <span className="text-[var(--color-ink)]">{ready ? 'Ready to freeze for the year' : 'Not ready to freeze'}</span>
               {!ready && (st.filing_readiness?.missing?.length ?? 0) > 0 && <span className="text-[var(--color-mute)]">— {st.filing_readiness!.missing.join(' · ')}</span>}
             </div>
             <div className="flex items-center gap-3">
               {msg && <span className={`mono text-[10.5px] ${msg.ok ? 'text-[var(--color-good)]' : 'text-[var(--color-bad)]'}`}>{msg.t}</span>}
-              <Button variant="primary" onClick={fileStatement} disabled={busy || !ready}><FileCheck2 size={14} /> File statement</Button>
+              <Button variant="primary" onClick={fileStatement} disabled={busy || !ready}><FileCheck2 size={14} /> Freeze year as record</Button>
             </div>
           </div>
 
@@ -223,16 +224,16 @@ export default function FundDetail() {
       {/* holdings with issuer drill */}
       <FundPositions fundId={id} />
 
-      {/* prior filings */}
+      {/* the years frozen as records */}
       {(filings.data?.filings?.length ?? 0) > 0 && (
         <Card className="p-0 overflow-hidden">
-          <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Filing history</SectionHead>
+          <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Frozen yearly records</SectionHead>
           <div className="divide-y divide-[var(--color-line)]">
             {filings.data!.filings.map((f, i) => (
               <div key={i} className="px-5 py-3 flex items-center gap-3 text-[12.5px]">
                 <Clock size={13} className="text-[var(--color-faint)]" />
-                <span className="text-[var(--color-ink)]">SFDR {f.reference_year}</span>
-                <span className="mono text-[10.5px] text-[var(--color-faint)]">filed {new Date(f.filed_at).toLocaleDateString('en-GB')} · {f.filed_by}</span>
+                <span className="text-[var(--color-ink)]">PAI analytics {f.reference_year}</span>
+                <span className="mono text-[10.5px] text-[var(--color-faint)]">frozen {new Date(f.filed_at).toLocaleDateString('en-GB')} · {f.filed_by}</span>
                 <span className="ml-auto mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#34d399', background: '#34d39922' }}>{f.status}</span>
               </div>
             ))}

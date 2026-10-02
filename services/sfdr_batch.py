@@ -1,8 +1,8 @@
-"""SFDR batch orchestration — generate statements across a manager's whole book.
+"""Fund PAI analytics across a manager's whole book (analytics, not filings — the PAI statement is the entity-level
+one, services.governance.sfdr_pai_answers; a fund discloses in its SFDR product documents).
 
-A manager with hundreds of funds files annually (reference period ends 31 Dec,
-filing due 30 Jun). This runs the SFDR PAI statement for every fund, records each
-fund's coverage + filing-readiness, and is RESUMABLE: re-running processes only
+A manager with hundreds of funds reviews each fund's indicators for the reference period. This computes every fund's
+PAI analytics, records each fund's coverage and readiness, and is RESUMABLE: re-running processes only
 the funds still pending or errored, so a mid-run failure never loses progress.
 
 Kept broker-independent (plain DB + synchronous loop) so it is testable and can

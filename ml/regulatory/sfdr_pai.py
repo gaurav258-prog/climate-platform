@@ -596,10 +596,11 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
             "pai_considered": True,
             "manager_lei_required": manager_lei is None,
             "declaration": (
-                f"This is the principal adverse impacts statement on sustainability factors of "
-                f"{fund.get('manager_legal_name') or fund['org_name']} ({manager_lei or 'LEI required'}) for the fund "
-                f"'{fund['name']}', reference period {('FY' + str(ref_year)) if ref_year else '—'}. "
-                "Principal adverse impacts of investment decisions on sustainability factors are considered."
+                f"Principal adverse impact indicators computed over the holdings of the fund '{fund['name']}' of "
+                f"{fund.get('manager_legal_name') or fund['org_name']} ({manager_lei or 'LEI required'}), reference "
+                f"period {('FY' + str(ref_year)) if ref_year else '—'}. Analytics, not a filing: the principal adverse "
+                "impacts statement is the manager's entity-level statement; a fund discloses how it considers principal "
+                "adverse impacts in its SFDR product documents."
             ),
         },
         "filing_readiness": {
@@ -608,7 +609,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
             "note": "Ready to file." if ready_to_file
                     else "Not yet submittable — supply the reporting-entity identity above.",
         },
-        "statement": "Principal Adverse Impact (PAI) statement",
+        "statement": "Fund PAI analytics (not a filing)",
+        "not_a_filing": "a fund's analytics, not a filing: the principal adverse impacts statement is the manager's entity-level statement (Delegated Regulation (EU) 2022/1288, Annex I, filed per reference period); a fund discloses how it considers principal adverse impacts in its SFDR product documents (Annexes II-V)",
         "regulatory_basis": _pai_basis(),
         "comparison": comparison,   # prior-period availability + year (indicators carry prior_value/change)
         "indicators": indicators,
@@ -915,7 +917,7 @@ def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
     # ── Sheet 1: Summary / declaration ──
     ws = wb.active
     ws.title = "Summary"
-    ws["A1"] = "Principal Adverse Impacts Statement — Summary"
+    ws["A1"] = "Fund PAI analytics — not a filing"
     ws["A1"].font = title_font
     ws["A3"] = summ["declaration"]
     ws["A3"].alignment = wrap
@@ -947,7 +949,7 @@ def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
         ws.column_dimensions[get_column_letter(i)].width = w
 
     # ── Sheet 2: PAI statement (RTS Table 1 columns) ──
-    ws2 = wb.create_sheet("PAI statement")
+    ws2 = wb.create_sheet("PAI analytics")
     ref_lbl = summ["reference_period"]
     headers = ["#", "Adverse sustainability indicator", "Metric",
                f"Impact ({ref_lbl})", "Impact (prior period)", "Explanation",
