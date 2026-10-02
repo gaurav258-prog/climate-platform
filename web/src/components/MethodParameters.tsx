@@ -10,12 +10,13 @@ import { Card, Button } from './ui'
 // probabilities, loadings, stranded shares, carbon prices… Each value is stated by one person and attested by a second
 // (provided values, family 'method'); nothing has a default, and a figure that needs an unstated value is a named gap.
 
-interface Param { key: string; label: string; unit: string; used_for?: string; breakdown: string | null; members: Record<string, string> | null }
+interface Param { key: string; label: string; unit: string; used_for?: string; breakdown: string | null; members: Record<string, string> | null; requires_source?: boolean }
 interface Provided { provided_id: string; datapoint_key: string; value_num: number | null; status: string; breakdown_member: string | null
   reporting_period_end: string | null; submitted_by: string | null; decided_by: string | null }
 interface Needed { period_end: string; basis: { scenario: string; horizon: string }; needed: { key: string; member: string | null }[] }
 
-const UNIT_HINT: Record<string, string> = { ratio: 'a share between 0 and 1 (0.05 = 5%)', score: 'a headline score 0–100', 'EUR/tCO2e': 'euro per tonne CO₂e' }
+const UNIT_HINT: Record<string, string> = { ratio: 'a share between 0 and 1 (0.05 = 5%)', score: 'a headline score 0–100', 'EUR/tCO2e': 'euro per tonne CO₂e',
+  'tCO2e/EUR m': 'tonnes CO₂e per EUR million' }
 
 // a breakdown's members, split into the axes a person picks from (peril × band, division @ scenario / horizon …)
 function axes(breakdown: string): { names: string[]; split: (m: string) => string[]; join: (p: string[]) => string } {
@@ -23,7 +24,8 @@ function axes(breakdown: string): { names: string[]; split: (m: string) => strin
     return { names: breakdown === 'peril_band' ? ['Peril', 'Hazard band'] : ['Scenario', 'Horizon'], split: m => m.split('/'), join: p => p.join('/') }
   if (breakdown === 'division_scenario_horizon')
     return { names: ['NACE division', 'Scenario', 'Horizon'], split: m => { const [d, rest] = m.split('@'); return [d, ...rest.split('/')] }, join: p => `${p[0]}@${p[1]}/${p[2]}` }
-  return { names: [breakdown === 'band' ? 'Hazard band' : breakdown === 'peril' ? 'Peril' : breakdown === 'epc_grade' ? 'EPC grade' : 'Member'], split: m => [m], join: p => p[0] }
+  return { names: [breakdown === 'band' ? 'Hazard band' : breakdown === 'peril' ? 'Peril' : breakdown === 'epc_grade' ? 'EPC grade'
+    : breakdown === 'nace_division' ? 'NACE division' : 'Member'], split: m => [m], join: p => p[0] }
 }
 
 export default function MethodParameters() {
@@ -125,6 +127,8 @@ function StateForm({ param, periodEnd, initialMember, onDone }: { param: Param; 
   }, [ax, members])
   const [pick, setPick] = useState<string[]>(() => initialMember && ax ? ax.split(initialMember) : (ax ? choices.map(c => c[0]) : []))
   const [value, setValue] = useState('')
+  const [provider, setProvider] = useState('')
+  const [vintage, setVintage] = useState('')
   const [busy, setBusy] = useState(false)
   const member = ax ? ax.join(pick) : null
   const valid = !ax || members.includes(member ?? '')
@@ -132,10 +136,12 @@ function StateForm({ param, periodEnd, initialMember, onDone }: { param: Param; 
   const submit = async () => {
     const v = Number(value)
     if (value.trim() === '' || Number.isNaN(v)) { toast.error('Enter a number.'); return }
+    if (param.requires_source && (!provider.trim() || !vintage)) { toast.error('Say the source this value is taken from and its date.'); return }
     setBusy(true)
     try {
       await api.post('/v1/provided', { framework: 'method', datapoint_key: param.key, value_num: v, reporting_period_end: periodEnd,
-                                       ...(member ? { breakdown_member: member } : {}) })
+                                       ...(member ? { breakdown_member: member } : {}),
+                                       ...(param.requires_source ? { provider_name: provider.trim(), data_vintage: vintage } : {}) })
       toast.success('Stated — it takes effect when a second person attests it (Approvals).')
       setValue(''); onDone()
     } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit the value.') } finally { setBusy(false) }
@@ -152,6 +158,14 @@ function StateForm({ param, periodEnd, initialMember, onDone }: { param: Param; 
       <label className="text-[11px] text-[var(--color-faint)]">Value ({UNIT_HINT[param.unit] ?? param.unit})
         <input value={value} onChange={e => setValue(e.target.value)} inputMode="decimal" placeholder={param.unit === 'score' ? 'e.g. 60' : param.unit === 'ratio' ? 'e.g. 0.05' : ''}
           className="mt-1 block w-40 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] tabular-nums" /></label>
+      {param.requires_source && <>
+        <label className="text-[11px] text-[var(--color-faint)]">Source (name)
+          <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="the published source you use"
+            className="mt-1 block w-56 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]" /></label>
+        <label className="text-[11px] text-[var(--color-faint)]">Source date (its year)
+          <input type="date" value={vintage} onChange={e => setVintage(e.target.value)}
+            className="mt-1 block bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]" /></label>
+      </>}
       <Button variant="primary" onClick={submit} disabled={busy || !valid}><Send size={13} /> {busy ? 'Submitting…' : 'State for 4-eyes'}</Button>
       {!valid && <span className="text-[11px] text-[var(--color-warn)]">That combination is not a member of this breakdown.</span>}
     </div>

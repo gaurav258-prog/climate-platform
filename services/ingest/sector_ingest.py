@@ -23,6 +23,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest import (
+    bank_counterparties as _bank_cp,  # the banking book's counterparties (one counterparty, one figure)
+)
+from services.ingest import (
     eudr_sectors as _eudr,  # the EUDR books (parties, movements, their plots)
 )
 from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector are re-exported for callers
@@ -692,7 +695,8 @@ YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", tu
                   table="site_period_values", id_column="value_id", history=True)
 
 
-SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES, YEAR_END, *_eudr.SECTORS)}
+SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, _bank_cp.COUNTERPARTIES, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES,
+                                                 YEAR_END, *_eudr.SECTORS)}
 
 
 def write(session: Session, sector: Sector, org_id: str, ctx: dict, new: list[dict], updates: list[dict]) -> dict:

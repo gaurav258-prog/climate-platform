@@ -29,8 +29,9 @@ TOTAL = next(rid for rid, how in BINDING["T1"]["rows"].items() if how == "comput
 _LEVEL = {"period_end": "2025-12-31", "used": [{"key": "method.at_risk_level", "member": None, "value": 50}], "gaps": []}
 
 
-def _x(i, gross, *, s=(10.0, 5.0, 100.0), L=1_000_000.0, rep=True, nace="C24.10", country="DE", hazards=(), **kw):
+def _x(i, gross, *, s=(10.0, 5.0, 100.0), L=1_000_000.0, rep=True, nace="C24.10", country="DE", hazards=(), cp="auto", **kw):
     return {"asset_id": f"a{i}", "asset_name": f"Loan {i}", "nace_code": nace, "country": country,
+            "counterparty_ref": f"CP{i}" if cp == "auto" else cp,
             "counterparty_sector": "non_financial_corporation", "outstanding_loan_balance_eur": gross, "value_eur": gross,
             "ghg1": s[0], "ghg2": s[1], "ghg3": s[2], "counterparty_total_liabilities_eur": L,
             "counterparty_total_liabilities_date": "2025-12-31", "emissions_company_reported": rep,
@@ -42,9 +43,9 @@ BOOK = [_x(1, 100_000, L=1_000_000, rep=True),                       # factor 0.
         _x(3, 600_000, s=(None, None, None), rep=None)]               # no emissions: never in i, never a gap for k
 
 
-def _rec(est="scope_1_2_3", att="exposure_over_total_liabilities", narrative=None):
-    return {"estimation": est, "attribution": att, "narrative": narrative if narrative is not None else {
-        n["key"]: "stated" for n in T1.narrative_items()}}
+def _rec(est="scope_1_2_3", att="exposure_over_total_liabilities", narrative=None, **kw):
+    return {"estimation": est, "attribution": att, "reference_date": "2025-12-31", **kw,
+            "narrative": narrative if narrative is not None else {n["key"]: "stated" for n in T1.narrative_items()}}
 
 
 def _total(assets, rec):
@@ -64,7 +65,7 @@ def test_statements_and_narrative_cite_only_held_quotes_and_are_switches_without
     for n in ref["narrative"]:
         assert set(n["quotes"]) <= set(ref["quotes"]) and n["key"].startswith("t1.")
         assert set(n["required_when"]) <= set(ref["statements"][T1.ESTIMATION]["options"])
-    for key in (T1.ESTIMATION, T1.ATTRIBUTION):
+    for key in (T1.ESTIMATION, T1.ATTRIBUTION, T1.K_READING, T1.S3_BASIS):
         sw = INTERPRETATION_SCHEMA[key]
         assert sw["default"] is None and sw["frameworks"] == ["bank_p3esg"]
         assert sw["allowed"] == list(ref["statements"][key]["options"])
@@ -81,13 +82,22 @@ def test_scopes_1_to_3_attributed_by_exposure_over_total_liabilities():
     assert v["k"] == round(100_000 / 1_000_000 * 100, 1)      # reported: loan 1's gross over the row's gross
 
 
-def test_scopes_1_and_2_leave_column_j_blank():
-    v = _total(BOOK, _rec("scope_1_2"))
-    assert v["i"] == pytest.approx(0.1 * 15 + 0.5 * 6) and v["j"] is None and v["k"] == 10.0
+def test_scopes_1_and_2_leave_column_j_blank_and_k_follows_the_stated_reading():
+    v = _total(BOOK, _rec("scope_1_2"))                         # k's reading not stated: k alone is a gap
+    assert v["i"] == pytest.approx(0.1 * 15 + 0.5 * 6) and v["j"] is None and v["k"] is None
+    assert T1.k_gap(_rec("scope_1_2")) and T1.k_gap(_rec("scope_1_2", k_scope_1_2="scopes_estimated")) is None
+    assert _total(BOOK, _rec("scope_1_2", k_scope_1_2="scopes_estimated"))["k"] == 10.0
+    assert _total(BOOK, _rec("scope_1_2", k_scope_1_2="all_three_scopes"))["k"] == 0.0
 
 
-@pytest.mark.parametrize("rec", [_rec("not_yet_estimating", None), _rec(None), _rec("scope_1_2_3", None)])
-def test_not_estimating_or_not_stated_leaves_i_to_k_blank(rec):
+def test_not_yet_estimating_prints_k_as_zero_percent():
+    """Column k is the share for which the institution 'has been able to estimate' — nothing, so 0 %; i and j blank."""
+    v = _total(BOOK, _rec("not_yet_estimating", None))
+    assert (v["i"], v["j"], v["k"]) == (None, None, 0.0)
+
+
+@pytest.mark.parametrize("rec", [_rec(None), _rec("scope_1_2_3", None)])
+def test_not_stated_leaves_i_to_k_blank(rec):
     v = _total(BOOK, rec)
     assert (v["i"], v["j"], v["k"]) == (None, None, None)
 
@@ -134,7 +144,8 @@ def test_validation_blocks_an_unstated_method_and_missing_narrative():
         "t1_narrative_authored"]["passed"]
     ok = _findings(_payload(_rec()))
     assert all(ok[r]["passed"] for r in ("t1_method_stated", "t1_total_liabilities_stated", "t1_exposure_within_liabilities",
-                                         "t1_emissions_source_recorded", "t1_narrative_authored"))
+                                         "t1_emissions_source_recorded", "t1_narrative_authored", "t1_counterparty_identified",
+                                         "t1_counterparty_figure_agreed", "t1_scope3_basis", "t1_k_reading_stated"))
 
 
 def test_validation_blocks_unattributable_and_unreadable_exposures():
@@ -149,6 +160,85 @@ def test_a_filing_without_the_record_keeps_its_checks():
     p = _payload(None)
     p.pop(T1.RECORD)
     assert not any(r.startswith("t1_") for r in _findings(p))
+
+
+# ── one counterparty, one figure (E119) ───────────────────────────────────────────────────────────────────────────
+def test_an_exposure_without_a_counterparty_id_or_with_a_conflicting_figure_is_in_no_column_and_blocks():
+    book = BOOK + [_x(4, 50_000, cp=None), _x(5, 70_000, counterparty_liabilities_conflict=True)]
+    g = build(SPEC, "T1", book, t1=_rec())
+    v = next(r for r in g["rows"] if r["id"] == TOTAL)["values"]
+    assert (g["stated"]["no_counterparty"], g["stated"]["conflict"]) == (1, 1)
+    assert v["i"] == pytest.approx(0.1 * 115 + 0.5 * 46)       # neither is attributed: no figure is picked
+    f = _findings(_payload(_rec(), book))
+    assert not f["t1_counterparty_identified"]["passed"] and not f["t1_counterparty_figure_agreed"]["passed"]
+    assert f["t1_counterparty_identified"]["severity"] == "blocking"
+
+
+# ── sector-average intensity for scope 3 (E120) ───────────────────────────────────────────────────────────────────
+_SA = {"C24": {"value": 250.0, "provider": "Source X", "data_vintage": "2024-12-31"}}
+
+
+def test_scope_3_from_the_stated_sector_average_intensity():
+    """Loan 7 (gross 200 000, L 2 000 000) states scopes 1-2 only: its scope 3 is 250 tCO2e/EUR m × L, attributed by
+    x / L — i.e. 250 × 0.2 = 50 tCO2e; it is not company-specific, so not in k's share."""
+    book = BOOK + [_x(7, 200_000, L=2_000_000, s=(20.0, 10.0, None), rep=True)]
+    r = T1.exposure(book[-1], _rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity=_SA))
+    assert r["basis"] == "sector_average" and r["company_specific"] is False
+    assert r["j"] == pytest.approx(250.0 * 2_000_000 / 1_000_000 * 0.1) == pytest.approx(50.0)
+    v = _total(book, _rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity=_SA))
+    assert v["i"] == pytest.approx(0.1 * 115 + 0.5 * 46 + 0.1 * (30 + 500))
+    assert v["j"] == pytest.approx(0.1 * 100 + 0.5 * 40 + 50.0)
+    assert v["k"] == round(100_000 / 1_200_000 * 100, 1)        # only loan 1 rests on company-specific reporting
+
+
+@pytest.mark.parametrize("rec, why", [
+    (_rec(), "not stated: how sector-average intensity is used"),
+    (_rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity={}), "no sector-average scope 3 intensity stated for division C24"),
+])
+def test_no_gathered_scope_3_and_no_sector_average_is_a_named_gap_never_zero(rec, why):
+    book = BOOK + [_x(7, 200_000, L=2_000_000, s=(20.0, 10.0, None))]
+    g = build(SPEC, "T1", book, t1=rec)
+    v = next(r for r in g["rows"] if r["id"] == TOTAL)["values"]
+    assert g["stated"]["s3_gap"] == 1 and v["i"] == pytest.approx(0.1 * 115 + 0.5 * 46)
+    f = _findings(_payload(rec, book))
+    assert not f["t1_scope3_basis"]["passed"] and why in f["t1_scope3_basis"]["message"]
+
+
+# ── the scope 3 phase-in (Delegated Regulation (EU) 2020/1818 Art. 5(1); E121) ────────────────────────────────────
+def test_phase_in_is_quoted_from_the_stored_texts_and_its_dates_follow_the_words():
+    from datetime import date
+    ref = T1.phase_in_reference()
+    assert contains(ref["article"]["quote"]) == "32020R1818"
+    for b in ref["basis"]:
+        assert contains(b["quote"]) == "32022R2453"
+    words = {"a": ("05 to 09", "19 and 20"), "b": ("10 to 18", "21 to 33", "41, 42 and 43", "49 to 53", "Division 81"),
+             "c": ("all other sectors",)}
+    for p in ref["points"]:
+        assert contains(p["quote"]) == "32020R1818" and p["words"] in p["quote"] and ref["anchor"] in p["words"]
+        assert all(w in p["quote"] for w in words[p["id"]])
+        assert {"a": 0, "b": 2, "c": 4}[p["id"]] == p["years"]
+        assert ("two years" in p["words"]) == (p["years"] == 2) and ("four years" in p["words"]) == (p["years"] == 4)
+    pts = {p["point"]: p for p in T1.phase_in_points()}
+    assert [pts[x]["from"] for x in "abc"] == [date(2020, 12, 23), date(2022, 12, 23), date(2024, 12, 23)]
+    assert set(pts["a"]["divisions"]) == {"B05", "B06", "B07", "B08", "B09", "C19", "C20"}
+    assert {"C10", "C33", "F41", "F43", "H49", "H53", "N81"} <= set(pts["b"]["divisions"]) and "C19" not in pts["b"]["divisions"]
+    assert {"A01", "K64", "N82"} <= set(pts["c"]["divisions"])
+    every = [d for p in pts.values() for d in p["divisions"]]
+    assert len(every) == len(set(every))                        # each division in exactly one point
+    assert T1.all_sectors_from() == date(2024, 6, 30)
+
+
+def test_phase_in_status_on_a_reference_date():
+    from datetime import date
+    assert T1.phase_in("C24", date(2022, 6, 30))["phased_in"] is False
+    assert T1.phase_in("C24", date(2022, 12, 23))["phased_in"] is True
+    st = T1.phase_in("A01", date(2024, 6, 30))
+    assert st["phased_in"] is False and st["its_all_sectors"] is True   # the ITS requires all sectors from 30 June 2024
+    assert T1.phase_in("B06", date(2021, 1, 1))["phased_in"] is True and T1.phase_in(None, date(2025, 1, 1)) is None
+    rows = build(SPEC, "T1", BOOK + [_x(8, 10_000, nace="A01.11")], t1=_rec(reference_date="2023-12-31"))["rows"]
+    ph = next(r for r in rows if r["id"] == TOTAL)["scope3_phase_in"]
+    assert [p["division"] for p in ph["in_phase_in"]] == ["A01"] and ph["in_phase_in"][0]["n"] == 1
+    assert "A01" in T1.phase_in_note(ph)
 
 
 # ── Template 5 lineage: every cell is the sum of its contributors ─────────────────────────────────────────────────

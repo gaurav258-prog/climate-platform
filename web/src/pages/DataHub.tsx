@@ -10,6 +10,7 @@ import SeasonalArrears from '../components/SeasonalArrears'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 import FactConflicts from '../components/FactConflicts'
 import ValidatedUpload from '../components/ValidatedUpload'
+import BankCounterparties from '../components/BankCounterparties'
 import { balance } from '../lib/money'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
@@ -114,6 +115,7 @@ export default function DataHub() {
             />
           </div>
         )}
+        {type === 'bank' && <BankCounterparties />}
       </Step>
 
       {/* integration lives in the technical settings area, not the everyday workflow */}

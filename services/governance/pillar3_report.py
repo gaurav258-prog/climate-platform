@@ -53,7 +53,7 @@ def freeze(session, org_id, scenario, horizon, entity_ids=None, value_weights=No
     return {"assets": book,
             "rollup": {"n_assets": len(book), "n_scored": sum(1 for a in book if a.get("headline_bucket")),
                        "total_value_eur": round(sum(a.get("value_eur") or 0 for a in book))},
-            RECORD: record(session, org_id), "method": read.record()}
+            RECORD: record(session, org_id, method.period_end), "method": read.record()}
 
 
 def t1_total(payload: dict) -> dict | None:
@@ -79,16 +79,17 @@ def form(payload: dict) -> list[dict]:
     froze instead; a frozen earlier-shape filing also shows what it froze beyond them, each group marked as such (its
     keys unchanged, so its overrides still apply)."""
     from services.governance.filing_form import _dp, _located_book_form
-    from services.governance.pillar3_t1 import RECORD, gaps
+    from services.governance.pillar3_t1 import RECORD, gaps, k_gap
     located = _located_book_form(REPORT, payload)
     if RECORD in (payload or {}):
         t = t1_total(payload) or {}
         why = "; ".join(gaps(payload[RECORD])) or None
+        why_k = why or k_gap(payload[RECORD])
         groups = [{"group": "Template 1 · financed emissions (total row)", "datapoints": [
             _dp("emissions.total", "GHG financed emissions — column i", t.get("i"), "tco2e", note=why),
             _dp("emissions.scope3", "Of which Scope 3 financed emissions — column j", t.get("j"), "tco2e", note=why),
             _dp("emissions.company_reported_pct", "Share of the portfolio derived from company-specific reporting — column k",
-                t.get("k"), "pct", note=why)]}]
+                t.get("k"), "pct", note=why_k)]}]
     else:
         groups = [g for g in located if g["group"] in _KEPT_GROUPS]
     r = payload.get("rollup") or {}
@@ -114,7 +115,8 @@ def earlier_sections(payload: dict) -> list[dict]:
 
 # ── export ────────────────────────────────────────────────────────────────────
 XLSX_HEADERS = ["asset_name", "counterparty_sector", "nace_code", "country", "immovable_collateral", "instrument_type",
-                "outstanding_loan_balance_eur", "residual_maturity_years", "ifrs9_stage", "accumulated_impairment_eur",
+                "outstanding_loan_balance_eur", "counterparty_ref", "counterparty_total_liabilities_eur",
+                "counterparty_total_liabilities_date", "residual_maturity_years", "ifrs9_stage", "accumulated_impairment_eur",
                 "ghg1", "ghg2", "ghg3", "epc_label", "ep_score_kwh_m2", "taxonomy_status", "taxonomy_objective",
                 "headline_hazard", "headline_score"]
 
@@ -141,6 +143,15 @@ def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None,
                     "sit in no template row")
     from services.governance import pillar3_t1 as T1
     gaps += [f"Template 1 columns i–k — {g}" for g in T1.gaps(p[T1.RECORD])]
+    if T1.k_gap(p[T1.RECORD]):
+        gaps.append(f"Template 1 column k — {T1.k_gap(p[T1.RECORD])}")
+    st = (t1_total(p) or {}).get("stated") or {}
+    for k, what in (("no_counterparty", "state emissions but no counterparty id"),
+                    ("conflict", "belong to counterparties whose total liabilities are in conflict"),
+                    ("unattributed", "have no counterparty total liabilities stated"),
+                    ("s3_gap", "need a scope 3 that is neither gathered nor given by a stated sector-average intensity")):
+        if st.get(k):
+            gaps.append(f"Template 1 columns i–k — {st[k]} exposures {what}")
     gaps += [f"Template 1 narrative not authored: {n['prompt']}" for n in T1.missing_narrative(p[T1.RECORD])]
     return {"coverage": {"label": "exposures scored", "done": n_done, "total": n_total,
                          "pct": round(100 * n_done / n_total, 1) if n_total else 0},

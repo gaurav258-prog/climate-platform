@@ -190,9 +190,22 @@ def _t1_findings(payload: dict) -> list[dict]:
               else "Template 1 columns i–k are a gap — " + "; ".join(gaps), ref=ref)]
     st = (t1_total(payload) or {}).get("stated") or {}
     for rule, k, what in (
+            ("t1_counterparty_identified", "no_counterparty",
+             "state emissions but no counterparty id — Template 1 attributes per counterparty ('towards the counterparty "
+             "compared to the total liabilities ... of the counterparty'); state the counterparty id (LEI or your own id) "
+             "on the loan tape"),
+            ("t1_counterparty_figure_agreed", "conflict",
+             "belong to counterparties whose exposures stated different total liabilities — none was picked; state the "
+             "counterparty's one figure (Data → counterparties)"),
+            ("t1_scope3_basis", "s3_gap",
+             "state scopes 1 and 2 but no scope 3 gathered from the counterparty, and no sector-average intensity can stand "
+             "in (Annex XL: 'Institutions shall base the estimation of scope 3 emissions on the information on emissions "
+             "gathered from their counterparties and on the information on sector-average emissions intensity.'): "
+             + "; ".join(sorted(T1.scope3_gaps(payload)))),
             ("t1_total_liabilities_stated", "unattributed",
              "state emissions but not the counterparty's total liabilities (accounting liabilities and shareholders' "
-             "equity) — their financed emissions cannot be attributed; state it with its balance-sheet date (per-loan attributes)"),
+             "equity) — their financed emissions cannot be attributed; state it once for the counterparty, with its "
+             "balance-sheet date (Data → counterparties)"),
             ("t1_exposure_within_liabilities", "over",
              "have an exposure larger than the counterparty's stated total liabilities and equity — one of the two is wrong"),
             ("t1_emissions_source_recorded", "rep_unknown",
@@ -202,6 +215,10 @@ def _t1_findings(payload: dict) -> list[dict]:
         out.append(_f(rule, "completeness", "blocking", not n,
                       f"{n} exposures {what}" if n else "Every exposure read by Template 1 columns i–k states what they need",
                       ref=ref))
+    kg = T1.k_gap(rec)
+    out.append(_f("t1_k_reading_stated", "completeness", "blocking", kg is None,
+                  "Column k follows the institution's statement" if kg is None else "Template 1 column k is a gap — " + kg,
+                  ref="Annex XL, Template 1, column k"))
     missing = T1.missing_narrative(rec)
     out.append(_f("t1_narrative_authored", "completeness", "blocking", not missing,
                   "The narrative accompanying Template 1 is authored" if not missing else

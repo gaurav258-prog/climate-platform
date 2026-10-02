@@ -39,6 +39,10 @@ from services.portfolio_engine import (
 from services.scoring.loan_transition import collateral_stranding_overlay, loan_transition_overlay
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
+# an exposure's counterparty: the bank_counterparties row of the loan tape's counterparty id (E119 — the one link)
+_CP = "c.org_id = e.org_id AND c.counterparty_ref = e.borrower_entity_id"
+_CP_ISSUER = f"(SELECT c.issuer_id FROM bank_counterparties c WHERE {_CP})"
+
 EXT_BANKING_COLUMNS = [
     "CAST(x.annual_revenue_eur AS FLOAT) AS annual_revenue_eur",
     "x.taxonomy_status", "x.taxonomy_activity", "x.dnsh_assessment",
@@ -50,9 +54,16 @@ EXT_BANKING_COLUMNS = [
     "x.loan_origination_date",
     "CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur",   # PCAF attribution denominator
     # Pillar 3 Template 1 column i: the counterparty's total liabilities (accounting liabilities and shareholders' equity)
-    # and the date of the balance sheet it is taken from — the proportion Annex XL names (services/governance/pillar3_t1)
-    "CAST(x.counterparty_total_liabilities_eur AS FLOAT) AS counterparty_total_liabilities_eur",
-    "x.counterparty_total_liabilities_date",
+    # and the date of the balance sheet it is taken from — the proportion Annex XL names (services/governance/pillar3_t1).
+    # A fact of the COUNTERPARTY, stated once for it (bank_counterparties, reached by the loan tape's counterparty id;
+    # E119); where its exposures disagreed when the figure moved there, the conflict blocks Template 1 until stated.
+    f"(SELECT CAST(c.total_liabilities_eur AS FLOAT) FROM bank_counterparties c WHERE {_CP}) AS counterparty_total_liabilities_eur",
+    f"(SELECT c.total_liabilities_date FROM bank_counterparties c WHERE {_CP}) AS counterparty_total_liabilities_date",
+    f"(SELECT c.liabilities_conflict IS NOT NULL FROM bank_counterparties c WHERE {_CP}) AS counterparty_liabilities_conflict",
+    # where the counterparty's amount came from, under the key the filing translation reads (translation.MONEY_COLUMNS)
+    f"""(SELECT jsonb_build_object('fields', jsonb_build_object('counterparty_total_liabilities_eur',
+            c.money_source->'fields'->'total_liabilities_eur')) FROM bank_counterparties c
+         WHERE {_CP} AND c.money_source->'fields' ? 'total_liabilities_eur') AS counterparty_money_source""",
     # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
@@ -70,16 +81,16 @@ EXT_BANKING_COLUMNS = [
     # EU Taxonomy Art. 8 (Annex V/VI of Del. Reg. 2021/2178): CSRD scope of the counterparty (2026/73 templates), the
     # counterparty in the issuer reference, and its own KPIs — the latest year stated, per basis:objective — frozen
     # with the filing (services.governance.taxonomy_gar values general-purpose exposures by them)
-    "x.csrd_subject", "x.counterparty_issuer_id::text AS counterparty_issuer_id",
+    "x.csrd_subject", f"{_CP_ISSUER}::text AS counterparty_issuer_id",
     # the one store of an issuer's KPIs (services.issuer_taxonomy): the latest year stated; the organisation's own figure
     # over a shared vendor one; 'all' is a total whose split by objective is not stated
-    """(SELECT jsonb_object_agg(k.basis || ':' || k.objective, jsonb_build_object(
+    f"""(SELECT jsonb_object_agg(k.basis || ':' || k.objective, jsonb_build_object(
             'eligible', k.eligible_pct, 'aligned', k.aligned_pct, 'transitional', k.transitional_pct,
             'enabling', k.enabling_pct, 'year', k.reporting_year))
         FROM (SELECT DISTINCT ON (k1.basis, k1.objective) k1.* FROM issuer_taxonomy_kpi k1
-              WHERE k1.issuer_id = x.counterparty_issuer_id AND (k1.org_id = e.org_id OR k1.org_id IS NULL)
+              WHERE k1.issuer_id = {_CP_ISSUER} AND (k1.org_id = e.org_id OR k1.org_id IS NULL)
                 AND k1.reporting_year = (SELECT max(k2.reporting_year) FROM issuer_taxonomy_kpi k2
-                                         WHERE k2.issuer_id = x.counterparty_issuer_id
+                                         WHERE k2.issuer_id = {_CP_ISSUER}
                                            AND (k2.org_id = e.org_id OR k2.org_id IS NULL))
               ORDER BY k1.basis, k1.objective, (k1.org_id IS NULL)) k
        ) AS counterparty_taxonomy_kpi""",
@@ -88,6 +99,7 @@ EXT_BANKING_COLUMNS = [
 
 _P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable",
              "emissions_company_reported", "counterparty_total_liabilities_eur", "counterparty_total_liabilities_date",
+             "counterparty_liabilities_conflict",
              "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose",
              "trading_book", "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2",
              "ep_score_estimated",
@@ -116,6 +128,7 @@ def _map_asset_list_row(row):
         "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
         "loan_origination_date": row["loan_origination_date"],
         "evic_eur": row.get("counterparty_evic_eur"),
+        "counterparty_ref": row.get("borrower_entity_id"),   # the counterparty's identity on the loan tape (E119)
         "residual_maturity_years": row.get("residual_maturity_years"),
         "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
         "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 / EU CRFR4 (pending adoption) (IEA)
@@ -323,6 +336,7 @@ def asset_detail(asset_id: str, session: DbSession, caller_org: OrgId):
         "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
         "loan_origination_date": row["loan_origination_date"],
         "evic_eur": row.get("counterparty_evic_eur"),
+        "counterparty_ref": row.get("borrower_entity_id"),   # the counterparty's identity on the loan tape (E119)
         "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
     audit = session.execute(text("""
@@ -428,12 +442,8 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 / EU CRFR4 (pending adoption) IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
     {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC", "kind": "money",
      "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape. In the currency you declare (or the row's currency).", "example": "185000000"},
-    {"name": "counterparty_total_liabilities_eur", "required": False, "label": "Counterparty total liabilities and equity", "kind": "money",
-     "description": "The counterparty's total liabilities — its accounting liabilities and shareholders' equity — from its balance sheet "
-     "on the book date: Pillar 3 Template 1 column i, the proportion Annex XL names (your exposure compared to the counterparty's "
-     "total liabilities). In the currency you declare (or the row's currency).", "example": "420000000"},
-    {"name": "currency", "required": False, "label": "Currency", "kind": "text", "description": "ISO 4217 code of this row's amounts (EVIC, total liabilities, impairment); overrides the currency declared for the upload.", "example": "USD"},
-    {"name": "book_date", "required": False, "label": "Book date", "kind": "date", "description": "YYYY-MM-DD the row's amounts describe — for total liabilities, the counterparty's balance-sheet date (converted at that day's rate); overrides the declared book date.", "example": "2026-06-30"},
+    {"name": "currency", "required": False, "label": "Currency", "kind": "text", "description": "ISO 4217 code of this row's amounts (EVIC, impairment); overrides the currency declared for the upload.", "example": "USD"},
+    {"name": "book_date", "required": False, "label": "Book date", "kind": "date", "description": "YYYY-MM-DD the row's amounts describe (converted at that day's rate); overrides the declared book date.", "example": "2026-06-30"},
     {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
      "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
     {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
@@ -479,7 +489,6 @@ ATTR_TEMPLATE_FIELDS = [
      "description": "True if the EP score is your estimate rather than from the EPC — Template 2 column p and rows 5 and 10.", "example": "false"},
 ]
 _ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
-              "counterparty_total_liabilities_eur",
               "counterparty_govt_level", "no_stated_maturity", "counterparty_sector", "immovable_collateral",
               "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable", "emissions_company_reported",
               "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose", "trading_book",
@@ -536,7 +545,6 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         MoneyError,
         convert_amount,
         money_source_merge_sql,
-        parse_book_date,
         source_record,
     )
     matched, unmatched, updated, ambiguous, refused = 0, [], 0, [], []
@@ -571,7 +579,6 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         bdate = str(row.get("book_date") or "").strip() or book_date
         money, bad = {}, None
         for fld, label in (("counterparty_evic_eur", "counterparty EVIC"),
-                           ("counterparty_total_liabilities_eur", "counterparty total liabilities"),
                            ("accumulated_impairment_eur", "accumulated impairment")):
             if row.get(fld) in (None, ""):
                 continue
@@ -583,14 +590,8 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         if bad:
             refused.append({"asset": ref or name, "reason": bad})
             continue
-        if money.get("counterparty_total_liabilities_eur", {}).get("eur", 1) <= 0:
-            refused.append({"asset": ref or name, "reason": "counterparty total liabilities must be positive"})
-            continue
         for fld, c in money.items():
             sets.append(f"{fld} = :{fld}"); params[fld] = c["eur"]
-        if "counterparty_total_liabilities_eur" in money:     # the balance sheet's date: the book date it converts at
-            sets.append("counterparty_total_liabilities_date = :cptl_date")
-            params["cptl_date"] = parse_book_date(bdate)
         if money:
             sets.append(f"money_source = {money_source_merge_sql()}")
             params["ms"] = json.dumps(source_record(ccy, bdate, money, origin="attributes_upload"), default=str)
@@ -625,6 +626,44 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
     return {"n_matched": matched, "n_updated": updated, "n_unmatched": len(unmatched), "unmatched": unmatched[:50],
             "n_ambiguous": len(ambiguous), "ambiguous": ambiguous[:50], "n_refused": len(refused), "refused": refused[:50],
             "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+# ── The loan book's counterparties (E119): what is a fact of the counterparty — its total liabilities (accounting
+#    liabilities and shareholders' equity) with the balance-sheet date, Pillar 3 Template 1 column i — is stated ONCE per
+#    counterparty through the governed intake, matched to the exposures by the loan tape's counterparty id.
+@router.get("/counterparties", summary="Your loan book's counterparties: what is stated for each, and how many exposures link to it")
+def list_counterparties(session: DbSession, ctx: CurrentUser):
+    from services.ingest.bank_counterparties import listing
+    return listing(session, ctx["org"]["org_id"])
+
+
+@router.get("/counterparties/template.xlsx", summary="Download the counterparties template (Excel)")
+def counterparties_template_xlsx(ctx: CurrentUser):
+    from services.ingest.templates import BANK_COUNTERPARTY_TEMPLATE_FIELDS
+    buf = build_template_workbook(BANK_COUNTERPARTY_TEMPLATE_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=tellumen_counterparties_template.xlsx"})
+
+
+@router.post("/counterparties/validate", summary="Check a counterparties file (CSV or Excel) before saving — nothing is saved")
+async def validate_counterparties(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                                  mapping_profile_id: Optional[str] = Form(None),
+                                  currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
+    from api.services.intake_http import preview
+    return preview(session, ctx["org"]["org_id"], "bank_counterparties", await file.read(), file.filename, None,
+                   mapping_profile_id, currency=currency, book_date=book_date)
+
+
+@router.post("/counterparties/upload", summary="State your counterparties' figures (CSV or Excel), one row per counterparty")
+async def upload_counterparties(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                                approval_reason: Optional[str] = Form(None), mapping_profile_id: Optional[str] = Form(None),
+                                currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
+    """Runs the file through the intake pipeline like the loan tape (stored write-once, inspected, checked; a failed
+    check goes to a second person). Each row is one counterparty, by the id the loan tape gives it."""
+    from api.services.intake_http import submit
+    return submit(session, ctx["org"]["org_id"], "bank_counterparties", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], reason=approval_reason, mapping_profile_id=mapping_profile_id,
+                  currency=currency, book_date=book_date)
 
 
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")

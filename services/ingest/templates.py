@@ -115,6 +115,16 @@ SITE_YEAR_END_TEMPLATE_FIELDS = _template(
 
 # EUDR (Regulation (EU) 2023/1115): the parties (Art. 5(3), 9(1)(e)-(f)), each placing on the market / making available /
 # export (Annex II points 1-3, Art. 9(1)(a)-(f)) and the plots each came from with the production dates (Art. 9(1)(d))
+# the banking book's counterparties: one row per counterparty, its id as the loan tape states it; the date of the
+# balance sheet the total liabilities are taken from is the row's book date (the amount converts at that day's rate)
+BANK_COUNTERPARTY_TEMPLATE_FIELDS = _template(
+    ("counterparty_ref", True), ("counterparty_name", False), ("total_liabilities_eur", False),
+    ("currency", False),
+    ("book_date", False, {"label": "Balance-sheet date", "description": "The date of the counterparty's balance sheet the "
+                          "total liabilities are taken from (YYYY-MM-DD) — required with them; the amount converts at "
+                          "that day's closing rate."}),
+)
+
 EUDR_SUPPLIER_TEMPLATE_FIELDS = _template(
     ("party_name", True), ("party_ref", True), ("address", True, {"description": "Postal address (Art. 9(1)(e))."}),
     ("contact_email", True), ("trade_name", False), ("web_address", False), ("country", False),

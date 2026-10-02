@@ -241,6 +241,16 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        aliases=("intragroup", "intercompany", "intercompany_counterparty", "group_counterparty", "ic_partner", "trading_partner")),
     _f("plot_area_ha", "Plot area (ha)", "fraction", "Hectares; computed from the boundary when given.", "2.3", aliases=("area_ha", "area", "hectares"),
        range=(0, 1_000_000)),
+    # ── the banking book's counterparties (Pillar 3 Template 1 columns i-k: one counterparty, one figure) ──
+    _f("counterparty_ref", "Counterparty ID", "id", "The counterparty's id exactly as your loan tape gives it in its "
+       "'Counterparty ID (LEI)' column: its LEI, or your own stable id for it (at most 20 characters).", "5493001KJTIIGC8Y1R12",
+       aliases=("borrower_entity_id", "counterparty_id", "counterparty_lei", "lei", "obligor_id", "customer_id")),
+    _f("counterparty_name", "Counterparty name", "name", "The counterparty's name.", "Rheinstahl AG",
+       aliases=("name", "borrower", "borrower_name", "obligor", "obligor_name", "company", "company_name")),
+    _f("total_liabilities_eur", "Total liabilities and equity", "money", "The counterparty's total liabilities: its "
+       "accounting liabilities and shareholders' equity, from its balance sheet (Pillar 3 Template 1 column i: your "
+       "exposure compared to the counterparty's total liabilities).", "420000000",
+       aliases=("total_liabilities", "total_liabilities_and_equity", "liabilities_and_equity")),
     # ── EUDR (Regulation (EU) 2023/1115): parties, placings / exports and the plots they came from ──
     _f("party_name", "Name", "name", "The business or person's name (Art. 9(1)(e)-(f)).", "Ashanti Cocoa Cooperative",
        aliases=("name", "supplier", "supplier_name", "customer", "customer_name", "company", "company_name")),

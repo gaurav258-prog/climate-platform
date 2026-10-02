@@ -38,6 +38,8 @@ def members(breakdown: str) -> list[str]:
         return perils
     if breakdown == "peril_band":
         return [f"{p}/{b}" for p in perils for b in bands]
+    if breakdown == "nace_division":
+        return list(_divisions())
     if breakdown == "epc_grade":
         from ml.scoring.epc_stranding import EPC_ORDER
         return list(EPC_ORDER)

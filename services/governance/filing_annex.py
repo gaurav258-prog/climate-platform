@@ -723,7 +723,12 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
         rec = grid.get("t1_method")
         notes.append(T1.describe(rec))
         if rec is not None:
-            for k, what in (("unattributed", "state emissions but not the counterparty's total liabilities and equity — "
+            for k, what in (("no_counterparty", "state emissions but no counterparty id — left out of i to k"),
+                            ("conflict", "belong to counterparties whose exposures stated different total liabilities "
+                                         "(none picked) — left out of i to k"),
+                            ("s3_gap", "need a scope 3 that is neither gathered from the counterparty nor given by a stated "
+                                       "sector-average intensity — left out of i"),
+                            ("unattributed", "state emissions but not the counterparty's total liabilities and equity — "
                                              "not attributable, left out of i and j"),
                             ("over", "have an exposure larger than the counterparty's stated total liabilities and equity "
                                      "— left out of i and j"),
@@ -731,6 +736,12 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
                                             "k is not computed where they sit")):
                 if st.get(k):
                     notes.append(f"{st[k]:,} exposures {what}; the filing is blocked until they are stated.")
+            if st.get("s3_sector"):
+                notes.append(f"{st['s3_sector']:,} exposures carry a sector-average scope 3 (not company-specific: not in k's share).")
+            tot = next(rid for rid, how in BINDING["T1"]["rows"].items() if how == "computed:total")
+            ph = next((r.get("scope3_phase_in") for r in grid["rows"] if r["id"] == tot), None)
+            if ph:
+                notes.append(T1.phase_in_note(ph))
             lines = T1.narrative_lines(rec)
             if lines:
                 notes.append("Narrative accompanying the template — " + " | ".join(lines))

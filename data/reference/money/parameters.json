@@ -22,12 +22,23 @@
    "label": "NACE division @ scenario / horizon (e.g. C24@disorderly_2c/2030), or any@<scenario>/<horizon> — the institution's value for every division it does not state separately",
    "members_from": "data/reference/nace_rev2.csv divisions + any, × scenario × horizon"
   },
+  "nace_division": {
+   "label": "NACE division (Annex I to Regulation (EC) No 1893/2006), e.g. C24",
+   "members_from": "data/reference/nace_rev2.csv divisions"
+  },
   "epc_grade": {
    "label": "energy performance certificate grade (A best … G worst)",
    "members_from": "ml.scoring.epc_stranding.EPC_ORDER"
   }
  },
  "parameters": {
+  "method.t1_sector_scope3_intensity": {
+   "label": "Sector-average scope 3 emissions intensity of a NACE division, in tCO2e per EUR million of a counterparty's total liabilities and equity — as the source the institution uses publishes it (stated with the source's name and year)",
+   "unit": "tCO2e/EUR m",
+   "breakdown": "nace_division",
+   "requires_source": true,
+   "used_for": "Pillar 3 Template 1 columns i-j: the scope 3 of a counterparty whose scope 3 is not gathered from it (Annex XL: 'Institutions shall base the estimation of scope 3 emissions on the information on emissions gathered from their counterparties and on the information on sector-average emissions intensity.')"
+  },
   "method.at_risk_level": {
    "label": "The hazard score (0-100) at or above which the institution treats an exposure as at material physical risk",
    "unit": "score",

@@ -199,35 +199,28 @@ def _stage(a: dict) -> str | None:
 
 
 def _t1_financed(a: dict, x: float, t1: dict, g: dict, n: dict) -> None:
-    """Columns i-k for one exposure on the institution's stated method (services.governance.pillar3_t1): its emissions
-    of the scopes it estimates, attributed by the exposure compared to the counterparty's total liabilities."""
-    from services.governance.pillar3_t1 import SCOPES, factor
-    est = t1.get("estimation")
-    if est not in SCOPES or not t1.get("attribution"):
+    """Columns i-k for one exposure on the institution's stated method (services.governance.pillar3_t1.exposure)."""
+    from services.governance.pillar3_t1 import exposure
+    r = exposure(a, t1)
+    if r is None:
         return
-    vals = [a.get(k) for k in SCOPES[est]]
-    s3 = a.get("ghg3") if est == "scope_1_2_3" else None
-    if all(v in (None, "") for v in vals):
+    if r["blocked"]:
+        n[r["blocked"]] += 1                   # no counterparty id / its figure in conflict / no L / exposure above L
         return
-    f = factor(a)
-    if f is None:
-        n["unattributed"] += 1                 # emissions stated, the counterparty's total liabilities not
-        return
-    if f > 1:
-        n["over"] += 1                         # an exposure larger than everything the counterparty owes and owns
-        return
-    if all(v not in (None, "") for v in vals):
+    if r["i"] is not None:
         n["ghg"] += 1
-        g["ghg"] += f * sum(float(v) for v in vals)
-        src = a.get("emissions_company_reported")
-        if src is None:
+        g["ghg"] += r["i"]
+        if r["company_specific"] is None:
             n["rep_unknown"] += 1              # the source of these emissions is not recorded: k cannot be read
         else:
             n["rep"] += 1
-            g["rep"] += x if src else 0.0
-    if s3 not in (None, ""):
+            g["rep"] += x if r["company_specific"] else 0.0
+    if r["j"] is not None:
         n["ghg3"] += 1
-        g["ghg3"] += f * float(s3)
+        g["ghg3"] += r["j"]
+        n["s3_sector"] += r["basis"] == "sector_average"
+    if r["scope3_gap"]:
+        n["s3_gap"] += 1
 
 
 def _cells(assets: list[dict], template_id: str, level: float | None = None, t1: dict | None = None) -> tuple[dict, dict]:
@@ -237,7 +230,7 @@ def _cells(assets: list[dict], template_id: str, level: float | None = None, t1:
     g = {k: 0.0 for k in ("gross", "sens", "le5", "m5_10", "m10_20", "gt20", "mx", "mg", "chronic_only", "acute_only",
                           "both", "s2", "npe", "imp", "imp_s2", "imp_npe", "pab", "ccm", "rep", "ghg", "ghg3")}
     n = {k: 0 for k in ("stage", "imp", "mat", "pab", "ccm", "rep", "all", "sens", "ghg", "ghg3", "unattributed", "over",
-                        "rep_unknown")}
+                        "rep_unknown", "no_counterparty", "conflict", "s3_gap", "s3_sector")}
     for a in assets:
         x = gross_of(a)
         if not x:
@@ -298,18 +291,18 @@ def _cells(assets: list[dict], template_id: str, level: float | None = None, t1:
 def _t1_ijk(g: dict, n: dict, t1: dict | None) -> dict:
     """Columns i, j, k. On the stated method: i the attributed emissions of the scopes estimated; j the attributed scope 3
     — blank where the institution states it does not yet estimate scope 3 (Annex XL, column j); k the share of the row's
-    gross carrying amount (EBA Q&A 2024_7225: all its exposures) whose column-i emissions the counterparty reported — a
-    gap where a column-i exposure does not record its emissions' source. All three blank when not stated (a named gap)
-    or when the institution states it is not yet estimating."""
-    from services.governance.pillar3_t1 import ESTIMATING, gaps
+    gross carrying amount (EBA Q&A 2024_7225: all its exposures) whose column-i emissions rest on company-specific
+    information (pillar3_t1.k_value; 0 % when not yet estimating). i-k blank when the method is not stated (a gap)."""
+    from services.governance.pillar3_t1 import gaps, k_value
     if t1 is None:                                     # as a filing frozen before the stated method printed them
         return {"i": g["ghg"] if n["ghg"] else None, "j": g["ghg3"] if n["ghg3"] else None,
                 "k": (round(g["rep"] / g["gross"] * 100, 1) if g["gross"] else None) if n["rep"] else None}
-    if gaps(t1) or t1.get("estimation") not in ESTIMATING:
+    if gaps(t1):
         return {"i": None, "j": None, "k": None}
+    est = t1.get("estimation")
     return {"i": g["ghg"] if n["ghg"] else None,
-            "j": (g["ghg3"] if n["ghg3"] else None) if t1["estimation"] == "scope_1_2_3" else None,
-            "k": None if n["rep_unknown"] or not g["gross"] else round(g["rep"] / g["gross"] * 100, 1)}
+            "j": (g["ghg3"] if n["ghg3"] else None) if est == "scope_1_2_3" else None,
+            "k": k_value(g, n, t1)}
 
 
 def _columns(g: dict, n: dict, template_id: str, t1: dict | None = None) -> dict:
@@ -352,7 +345,11 @@ def build(spec: dict, template_id: str, assets: list[dict], level: float | None 
         keep = _row_filter(t, r, binding[r["id"]])
         pop = [a for a, cp, col in tagged if keep(a, cp, col)]
         g, n = _cells(pop, template_id, level, t1)
-        rows.append({"id": r["id"], "label": r["label"], "n": n["all"], "values": _columns(g, n, template_id, t1)})
+        row = {"id": r["id"], "label": r["label"], "n": n["all"], "values": _columns(g, n, template_id, t1)}
+        if template_id == "T1" and t1 is not None:   # column j's Article 5 phase-in on the reference date (pillar3_t1)
+            from services.governance.pillar3_t1 import phase_in_summary, ref_date
+            row["scope3_phase_in"] = phase_in_summary(pop, ref_date(t1))
+        rows.append(row)
         shown.update({id(a): a for a in pop})
     stated = _cells(list(shown.values()), template_id, level, t1)[1]  # each exposure once, however many rows it sits in
     return {"template": template_id, "rows": rows, "stated": stated, "inferred_counterparty": inferred_cp,

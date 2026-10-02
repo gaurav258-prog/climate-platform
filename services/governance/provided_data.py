@@ -79,7 +79,7 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
 # versions so this year's figure is next year's comparative
 ESRS = "esrs"
 METHOD = "method"          # the institution's stated methods and parameters (data/reference/money/parameters.json)
-_METHOD_RANGE = {"score": (0.0, 100.0), "ratio": (0.0, 1.0), "EUR/tCO2e": (0.0, None)}
+_METHOD_RANGE = {"score": (0.0, 100.0), "ratio": (0.0, 1.0), "EUR/tCO2e": (0.0, None), "tCO2e/EUR m": (0.0, None)}
 _ESRS_RANGE = {"percent": (0.0, 100.0), "tCO2eq": (0.0, None), "MWh": (0.0, None), "m3": (0.0, None), "ha": (0.0, None),
                "count": (0.0, None), "year": (1900.0, 2100.0), "monetary": (0.0, None), "monetary/tCO2eq": (0.0, None),
                "score": (0.0, 100.0), "boolean": (0.0, 1.0)}
@@ -149,7 +149,7 @@ def _method_target(key: str, member: str | None) -> dict:
     elif member:
         raise ProvidedError(f"'{key}' is a single figure, not a breakdown")
     return {"key": key, "label": p["label"] + (f" — {member}" if member else ""), "lane": "provided", "unit": p["unit"],
-            "recon_tol": None, "member": member or None}
+            "recon_tol": None, "member": member or None, "requires_source": bool(p.get("requires_source"))}
 
 
 def _method_check(dp: dict, value_num: float | None, currency: str | None) -> None:
@@ -170,7 +170,8 @@ def method_providable() -> dict:
     return {"datapoints": [{"key": k, "label": p["label"], "unit": p["unit"], "used_for": p.get("used_for"),
                             "breakdown": p.get("breakdown"), "members": ({m: m for m in members(p["breakdown"])}
                                                                          if p.get("breakdown") else None),
-                            "period": None, "currency_required": False, "input_only": False}
+                            "period": None, "currency_required": False, "input_only": False,
+                            "requires_source": bool(p.get("requires_source"))}
                            for k, p in parameters().items()]}
 
 
@@ -258,6 +259,9 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     elif framework == METHOD:
         _method_check(dp, value_num, currency)
         unit = dp["unit"]
+        if dp.get("requires_source") and not ((provider_name or "").strip() and data_vintage):
+            raise ProvidedError(f"'{datapoint_key}' is read from a published source: say the source's name (provider) and "
+                                "its year (data vintage)")
     else:
         if currency or breakdown_member:
             raise ProvidedError("a currency or breakdown member is stated only with an ESRS figure or a method parameter")
@@ -357,7 +361,7 @@ def attested_values(session: Session, org_id: str, framework: str, period_end=No
     rows = session.execute(text("""
         SELECT p.datapoint_key, p.value_num, p.value_text, p.unit, p.source, p.provider_name, p.reporting_period_end,
                p.tellumen_value, p.delta_pct, p.within_tolerance, p.decided_at, du.email AS attested_by,
-               p.value_currency, p.value_eur, p.breakdown_member, p.money_source
+               p.value_currency, p.value_eur, p.breakdown_member, p.money_source, p.data_vintage
         FROM provided_datapoint p
         LEFT JOIN users du ON du.user_id = p.decided_by
         WHERE p.org_id = :o AND p.framework = :f AND p.status = 'attested'
@@ -387,6 +391,7 @@ def attested_values(session: Session, org_id: str, framework: str, period_end=No
             "reporting_period_end": r["reporting_period_end"].isoformat() if r["reporting_period_end"] else None,
             "value": val, "unit": r["unit"] or units.get(r["datapoint_key"]), "source": "provided",
             "provider": r["provider_name"], "attested_by": r["attested_by"],
+            "data_vintage": r["data_vintage"].isoformat() if r["data_vintage"] else None,
             "attested_at": r["decided_at"].isoformat() if r["decided_at"] else None,
             "tellumen_value": r["tellumen_value"], "delta_pct": r["delta_pct"],
             "within_tolerance": r["within_tolerance"], "reporting_entity_id": entity,

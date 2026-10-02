@@ -1,5 +1,5 @@
 {
-  "_about": "Pillar 3 ESG Template 1, columns i, j and k (GHG financed emissions, of which Scope 3, and the share of the portfolio derived from company-specific reporting): what the instructions say, quoted, and the choices they leave to the institution. The wording is the same in both versions: Annex XL to Implementing Regulation (EU) 2021/637 as inserted by Implementing Regulation (EU) 2022/2453 (Annex II, CELEX 32022R2453, stored in data/sources/legal and checked word for word by tests/unit/test_t1_financed_emissions.py), and Annex XL of the EBA IT solutions to which Article 24 of Implementing Regulation (EU) 2024/3172 refers (not EU Official Journal text; not stored here — each quote was checked word for word against the English original from the instructions_url below on 2026-10-01, and the test checks that it is the 2022/2453 wording). Read by services/governance/pillar3_t1.py.",
+  "_about": "Pillar 3 ESG Template 1, columns i, j and k (GHG financed emissions, of which Scope 3, and the share of the portfolio derived from company-specific reporting): what the instructions say, quoted, and the choices they leave to the institution. The wording is the same in both versions: Annex XL to Implementing Regulation (EU) 2021/637 as inserted by Implementing Regulation (EU) 2022/2453 (Annex II, CELEX 32022R2453, stored in data/sources/legal and checked word for word by tests/unit/test_t1_financed_emissions.py), and Annex XL of the EBA IT solutions to which Article 24 of Implementing Regulation (EU) 2024/3172 refers (not EU Official Journal text; not stored here — each quote was checked word for word against the English original from the instructions_url below on 2026-10-01, and the test checks that it is the 2022/2453 wording). Quotes marked 'checked' were added later and checked against the stored 2022/2453 text only. Read by services/governance/pillar3_t1.py.",
   "sources": {
     "its_2022_2453": {"act": "Implementing Regulation (EU) 2022/2453, Annex II (Annex XL to Implementing Regulation (EU) 2021/637), Template 1", "celex": "32022R2453"},
     "its_2024_3172": {"act": "Implementing Regulation (EU) 2024/3172, Article 24: EBA IT solutions, Annex XL ('Instructions for disclosure of ESG risks'), Template 1", "instructions_url": "https://www.eba.europa.eu/sites/default/files/2025-02/5026c718-0651-4339-af89-826ac447ac4f/IT%20solutions%20%28instructions%29%20in%20all%20EU%20languages.zip", "checked": "2026-10-01, the English original (FISMA-2024-01049 (01)-21), word for word"}
@@ -17,7 +17,11 @@
     "i_plans": {"ref": "Annex XL, Template 1, column i", "quote": "Where institutions are not yet estimating their counterparties’ emissions associated to their financing activities, including lending and investment activities, they shall disclose information on their plans to implement methods to estimate that information."},
     "j_what": {"ref": "Annex XL, Template 1, column j", "quote": "Institutions shall disclose their counterparties’ scope 3 emissions associated with institutions’ lending and investment activities."},
     "j_blank": {"ref": "Annex XL, Template 1, column j", "quote": "Where institutions are not yet estimating their scope 3 emissions, they shall leave column (j) blank and, in the narrative part accompanying the template, they shall disclose their plans to implement methods to estimate and disclose that information."},
-    "k_what": {"ref": "Annex XL, Template 1, column k", "quote": "Institutions shall indicate the percentage of the portfolio (gross carrying amount of the exposures) for which they have been able to estimate their counterparties’ scope 1, 2 and 3 emissions associated with institutions’ lending and investment activities based on information disclosed by their counterparties or reported to the institution on bilateral basis."}
+    "k_what": {"ref": "Annex XL, Template 1, column k", "quote": "Institutions shall indicate the percentage of the portfolio (gross carrying amount of the exposures) for which they have been able to estimate their counterparties’ scope 1, 2 and 3 emissions associated with institutions’ lending and investment activities based on information disclosed by their counterparties or reported to the institution on bilateral basis."},
+    "i_basis": {"ref": "Annex XL, Template 1, column i", "quote": "Institutions shall base the estimation of scope 3 emissions on the information on emissions gathered from their counterparties and on the information on sector-average emissions intensity.", "checked": "32022R2453 only (added 2026-10-02, E120); the 2024/3172 IT-solutions wording was not re-read for this quote"},
+    "j_phase_in": {"ref": "Annex XL, Template 1, column j", "quote": "Institutions shall disclose their scope 3 emissions on a best effort basis, covering the most relevant sectors in line with PCAF approach and the phased-in approach for scope 3 emissions included in Article 5 of Delegated Regulation (EU) 2020/1818.", "checked": "32022R2453 only (added 2026-10-02, E121)"},
+    "j_all_sectors": {"ref": "Annex XL, Template 1, column j", "quote": "Institutions shall disclose information on scope 3 emissions of the counterparty for all sectors included in the template with first reference date as of 30 June 2024.", "checked": "32022R2453 only (added 2026-10-02, E121)"},
+    "k_title": {"ref": "Annex XL, Template 1, column k (its heading)", "quote": "GHG emissions (column (i)): gross carrying amount percentage of the portfolio derived from company-specific reporting", "checked": "32022R2453 only (added 2026-10-02, E120)"}
   },
   "statements": {
     "p3esg_t1_emissions_estimation": {
@@ -33,10 +37,30 @@
       "label": "Pillar 3 Template 1 — how a counterparty's emissions are attributed to the exposure",
       "quotes": ["i_methods", "i_proportion"],
       "options": {
-        "exposure_over_total_liabilities": "The proportion the instructions name: the exposure (its gross carrying amount) compared to the counterparty's total liabilities (accounting liabilities and shareholders' equity), stated per exposure with the date of the counterparty's balance sheet."
+        "exposure_over_total_liabilities": "The proportion the instructions name: the exposure (its gross carrying amount) compared to the counterparty's total liabilities (accounting liabilities and shareholders' equity), stated once per counterparty (bank_counterparties, by the loan tape's counterparty id) with the date of its balance sheet."
       },
       "not_offered": {
         "pcaf": "PCAF's own attribution is per asset class (for instance listed equity and corporate bonds over EVIC, business loans to and equity in unlisted companies over total equity plus debt, project finance over the project's equity plus debt, mortgages and commercial real estate over the property value at origination). The platform's PCAF computation (services/scoring/pcaf.py) divides every exposure by the counterparty's EVIC, whatever the asset class, and caps the factor at 1, so it is not PCAF's attribution as PCAF defines it and is not offered here."
+      }
+    },
+    "p3esg_t1_k_scope_1_2": {
+      "label": "Pillar 3 Template 1 column k — what it counts when the institution estimates scopes 1 and 2, not yet scope 3",
+      "quotes": ["k_what", "k_title"],
+      "applies_when": ["scope_1_2"],
+      "options": {
+        "scopes_estimated": "Column k is the share of the row's gross carrying amount for which the institution has estimated the scopes it estimates (1 and 2) from information the counterparty disclosed or reported to it bilaterally.",
+        "all_three_scopes": "Column k counts only exposures for which scopes 1, 2 and 3 are all estimated from the counterparty's information; with scope 3 not yet estimated it is 0 %."
+      }
+    },
+    "p3esg_t1_scope3_sector_average": {
+      "label": "Pillar 3 Template 1 — how sector-average emissions intensity gives a counterparty's scope 3 where it is not gathered from the counterparty",
+      "quotes": ["i_basis", "i_proportion"],
+      "applies_when": ["scope_1_2_3"],
+      "options": {
+        "intensity_x_total_liabilities": "The sector-average scope 3 emissions intensity the institution states for the counterparty's NACE division (method.t1_sector_scope3_intensity: tCO2e per EUR million of total liabilities and equity, with the source's name and year) × the counterparty's total liabilities and equity. It is then attributed like gathered emissions (the exposure compared to the counterparty's total liabilities), so the exposure carries the intensity × its gross carrying amount."
+      },
+      "not_offered": {
+        "revenue": "An intensity per EUR million of revenue needs the counterparty's revenue stated once for the counterparty; the banking book states revenue per exposure (ext_banking.annual_revenue_eur), so that basis is not offered until revenue is a counterparty fact."
       }
     }
   },

@@ -58,6 +58,12 @@ def _site_specs(df: pd.DataFrame) -> list[dict]:
 TEMPLATES: dict[str, Template] = {
     "bank_assets": Template("bank_assets", si.BANK, "bank", "loan tape", ("csv", "xlsx"), lambda df: T.ASSET_TEMPLATE_FIELDS,
                             lambda df: "appraised_value_eur", "assets.upload"),
+    # the loan tape's counterparties: what is a fact of the counterparty (its total liabilities and their balance-sheet
+    # date — Pillar 3 Template 1 column i) is stated once per counterparty, not per exposure (E119)
+    "bank_counterparties": Template("bank_counterparties", si.SECTORS["bank_counterparties"], "bank", "counterparties",
+                                    ("csv", "xlsx"), lambda df: T.BANK_COUNTERPARTY_TEMPLATE_FIELDS,
+                                    lambda df: "total_liabilities_eur" if "total_liabilities_eur" in df.columns else None,
+                                    "counterparties.upload"),
     "insurance_policies": Template("insurance_policies", si.INSURANCE, "insurer", "Statement of Values", ("csv", "xlsx"),
                                    lambda df: T.POLICY_TEMPLATE_FIELDS,
                                    lambda df: "sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur",

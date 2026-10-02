@@ -242,8 +242,10 @@ def fetch_entities_with_risk(
         # rent used to stay unweighted), never to the counterparty's own figures (EVIC, its revenue).
         ev = dict(e)
         ms, ext_ms = ev.pop("money_source", None), ev.pop("ext_money_source", None)
+        cp_ms = ev.pop("counterparty_money_source", None)     # a banking counterparty's own figures (bank_counterparties)
         if translation is not None:
-            merged = {"fields": {**((ext_ms or {}).get("fields") or {}), **((ms or {}).get("fields") or {})}}
+            merged = {"fields": {**((cp_ms or {}).get("fields") or {}), **((ext_ms or {}).get("fields") or {}),
+                                 **((ms or {}).get("fields") or {})}}
             translate_row(session, translation, ev, merged)
             share = elimination_share(translation, ev)
             if share > 0:
