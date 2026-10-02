@@ -1,5 +1,5 @@
 """SFDR fund export never recomputes live once a filing exists (2026-09-24 fix, platform-wide E2E audit):
-sfdr_statement_xlsx/.xbrl/.ixbrl in api/routers/funds.py used to call sfdr_pai_statement() fresh on every
+sfdr_statement_xlsx (and the .xbrl/.ixbrl retired in E113) in api/routers/funds.py used to call sfdr_pai_statement() fresh on every
 request — proven live during the audit to silently diverge from what was actually filed (froze WACI=292.0,
 made one further change, re-downloaded, got WACI=179.9). Fixed via ml.regulatory.sfdr_pai's new
 frozen_or_live_statement(): read the frozen fund_sfdr_filings row for the fund's CURRENT reference year if
@@ -81,7 +81,7 @@ def test_returns_the_frozen_record_never_the_live_recompute():
 
 @pytest.mark.integration
 def test_full_http_flow_export_endpoints_read_the_frozen_record():
-    """End-to-end through the real router: the xlsx/xbrl/json endpoints must all return the frozen sentinel,
+    """End-to-end through the real router: the xlsx/json endpoints must all return the frozen sentinel,
     not a live recompute, once a filing exists for the current period."""
     from fastapi.testclient import TestClient
 
@@ -117,9 +117,7 @@ def test_full_http_flow_export_endpoints_read_the_frozen_record():
         cd = r_xlsx.headers.get("content-disposition", "")
         assert "DRAFT" not in cd
 
-        r_xbrl = client.get(f"/v1/funds/{FUND_ID}/sfdr-statement.xbrl", headers=headers)
-        assert r_xbrl.status_code == 200
-        assert "TEST-FROZEN-SENTINEL-FUND-NAME".replace(" ", "_") in r_xbrl.text or True  # xbrl escaping varies; presence checked via xlsx/json above
+        assert client.get(f"/v1/funds/{FUND_ID}/sfdr-statement.xbrl", headers=headers).status_code == 410   # retired (E113)
     finally:
         with get_session() as s:
             s.execute(text("DELETE FROM fund_sfdr_filings WHERE fund_id = CAST(:f AS uuid) AND filed_by = 'test@nordkap.demo'"),

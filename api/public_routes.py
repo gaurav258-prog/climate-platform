@@ -63,6 +63,10 @@ PUBLIC_ROUTES: dict[str, str] = {
     "GET /v1/supply/validation": "public model validation results",
     "GET /v1/vendor/profiles": "public vendor column-mapping profiles",
     "GET /v1/voluntary-pai/catalog": "public list of adoptable SFDR indicators (from the regulation)",
+    # retired exports — answer 410 with the reason, serve no data
+    "GET /v1/funds/{fund_id}/sfdr-statement.xbrl": "retired SFDR PAI XBRL (E113): 410, no data",
+    "GET /v1/funds/{fund_id}/sfdr-statement.ixbrl": "retired SFDR PAI Inline XBRL (E113): 410, no data",
+    "GET /v1/entity/sfdr-statement.xbrl": "retired entity SFDR PAI XBRL (E113): 410, no data",
     # blank upload templates — no data
     "GET /v1/arrears/template.csv": "blank template", "GET /v1/assetmgmt/holdings/template.xlsx": "blank template",
     "GET /v1/bank/assets/attributes/template.xlsx": "blank template", "GET /v1/bank/assets/template.xlsx": "blank template",

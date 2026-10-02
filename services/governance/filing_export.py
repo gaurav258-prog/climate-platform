@@ -1,7 +1,7 @@
 """Machine-readable exports rendered from the FROZEN filing snapshot — never a live rebuild.
 
 An attested/submitted filing must be downloadable in exactly the bytes that were frozen and signed off.
-The older export endpoints (bank .xlsx, SFDR .xbrl, ESRS ixbrl) recompute from the LIVE engine, so a
+The older export endpoints (bank .xlsx, SFDR .xlsx) recompute from the LIVE engine, so a
 downloaded artifact could silently drift from the attested figures — the WORM chain stopped at the JSON
 payload. These renderers read straight from `report_snapshots.payload` (the hashed, immutable record) and
 stamp the filename with the snapshot version + content-hash prefix, so the file is provably the frozen record.
@@ -231,12 +231,6 @@ def _identity(session: Session, org_id: str, entity_id: str | None) -> dict:
 
 
 def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
-    if framework == "sfdr_pai":
-        from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_xbrl
-        try:
-            return sfdr_pai_xbrl(payload)
-        except XbrlIdentityError as e:
-            raise ExportError(str(e)) from e
     if framework == "insurer_solvency":                # EIOPA's own taxonomy (services.governance.s2701_xbrl)
         from services.governance.s2701_xbrl import XbrlError, instance
         try:
@@ -244,20 +238,13 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
         except XbrlError as e:
             raise ExportError(str(e)) from e
     # No XBRL for Pillar 3 ESG (E104): the EBA's own taxonomy (the Pillar 3 Data Hub DPM) is not bound, and an instance
-    # under Tellumen-made element names is not a filing — as the EU Taxonomy report (E95) and the ESRS (E60). Filings of
-    # every date are refused: the format is not offered for the report type (filings.EXPORT_FORMATS).
+    # under Tellumen-made element names is not a filing — as the EU Taxonomy report (E95) and the ESRS (E60). No XBRL for
+    # SFDR PAI (E113): no official SFDR PAI taxonomy is held. Filings of every date are refused: the format is not
+    # offered for the report type (filings.EXPORT_FORMATS).
     raise ExportError(f"no XBRL renderer for '{framework}'")
 
 
 def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:
-    """Inline XBRL (iXBRL/ESEF): one document a person reads and a machine parses, tagged from the FROZEN
-    snapshot so the filed bytes are exactly what was reproducible-by-hash. SFDR only: an ESRS statement is tagged with
-    EFRAG's ESRS XBRL taxonomy, whose binding is not built (no ESRS XBRL is produced)."""
-    if framework == "sfdr_pai":
-        from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_ixbrl
-        try:
-            return sfdr_pai_ixbrl(payload)
-        except XbrlIdentityError as e:
-            raise ExportError(str(e)) from e
-    raise ExportError(f"no iXBRL renderer for '{framework}' (available for SFDR filings)")
-
+    """No Inline XBRL for any report type: an ESRS statement is tagged with EFRAG's ESRS taxonomy, whose binding is not
+    built (E60), and no official SFDR PAI taxonomy is held (E113). An instance under Tellumen-made names is not a filing."""
+    raise ExportError(f"no iXBRL renderer for '{framework}'")

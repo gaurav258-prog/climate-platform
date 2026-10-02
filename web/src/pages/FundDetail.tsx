@@ -150,8 +150,6 @@ export default function FundDetail() {
             <div className="flex items-center gap-2">
               <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xlsx`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xlsx`).catch(() => toast.error('Could not download.'))}
                 className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Download size={13} /> xlsx</button>
-              <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xbrl`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xbrl`).catch(() => toast.error('Could not download.'))}
-                className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Download size={13} /> xbrl</button>
             </div>
           </div>
 

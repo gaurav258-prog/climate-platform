@@ -75,8 +75,7 @@ def test_the_pai_statement_states_its_best_efforts_and_is_filed(api, monkeypatch
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
     assert "sfdr_t1_1" in {x.get("key") for x in form["annex"]["sections"]}
     assert api.get(f"/v1/filings/{fid}/export?format=xlsx", headers=maker).status_code == 200
-    xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)
-    assert xb.status_code == 200 or (xb.status_code == 409 and "reference year" in xb.text)
+    assert api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker).status_code == 409   # no SFDR XBRL (E113)
     _file_and_submit(api, maker, checker, fid, "I approve the FY PAI statement.")
 
 

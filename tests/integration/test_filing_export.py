@@ -90,7 +90,27 @@ def test_pillar3_has_no_xbrl_until_the_eba_taxonomy_is_bound():
     assert not (root / "config" / "eba_p3esg_binding.json").exists()
     for d in ("services", "api", "ml"):
         for f in (root / d).rglob("*.py"):
-            assert "taxonomy.tellumen.eu/p3esg" not in f.read_text(), f
+            assert "taxonomy.tellumen.eu" not in f.read_text(), f      # no Tellumen-made taxonomy of any kind (E113)
+
+
+@pytest.mark.integration
+def test_sfdr_pai_has_no_xbrl_until_an_official_taxonomy_exists():
+    """E113: the SFDR PAI XBRL / iXBRL were instances under a Tellumen-made namespace (taxonomy.tellumen.eu/sfdr/pai) —
+    no official SFDR PAI taxonomy is held. Removed as E104 did for Pillar 3: the filing exports JSON and xlsx, an
+    (i)XBRL request for a filing of any date is refused, and the fund routes answer 410."""
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from services.governance.filing_export import _ixbrl, _xbrl, formats_for
+    assert formats_for("sfdr_pai") == ("json", "xlsx")
+    for fn in (_xbrl, _ixbrl):
+        with pytest.raises(ExportError):
+            fn(None, "x", "sfdr_pai", {}, {})
+    c = TestClient(app)
+    for path in ("/v1/funds/00000000-0000-0000-0000-000000000000/sfdr-statement.xbrl",
+                 "/v1/funds/00000000-0000-0000-0000-000000000000/sfdr-statement.ixbrl", "/v1/entity/sfdr-statement.xbrl"):
+        r = c.get(path)
+        assert r.status_code == 410 and "no official SFDR PAI XBRL taxonomy is held" in r.text, path
 
 
 TERRA_ORG = "55555555-5555-4555-8555-555555555555"
@@ -105,4 +125,4 @@ def test_esrs_statement_exports_json_only():
         with pytest.raises(ExportError):
             fn(None, "x", "esrs_pack", {}, {})
     with pytest.raises(ExportError):
-        _ixbrl(None, "x", "bank_tcfd", {}, {})            # iXBRL: SFDR only
+        _ixbrl(None, "x", "bank_tcfd", {}, {})            # no iXBRL for any report type (E60, E113)

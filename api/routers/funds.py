@@ -29,7 +29,6 @@ from ml.regulatory.sfdr_pai import (
     sfdr_pai_statement,
     sfdr_pai_statement_xlsx,
 )
-from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_xbrl
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
 from ml.regulatory.voluntary_pai import catalog as voluntary_catalog
 from ml.regulatory.voluntary_pai import validate_keys
@@ -735,54 +734,33 @@ def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
         headers={"Content-Disposition": attachment(fname)})
 
 
-@router.get("/funds/{fund_id}/sfdr-statement.xbrl", summary="Download the SFDR PAI statement as a machine-readable XBRL instance")
-def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
-    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
-    if statement.get("error"):
-        return statement
-    try:
-        xml = sfdr_pai_xbrl(statement)
-    except XbrlIdentityError as e:
-        raise HTTPException(422, {"error": "not_exportable", "message": str(e)})
-    suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
-    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xbrl"
-    return StreamingResponse(
-        iter([xml]), media_type="application/xml",
-        headers={"Content-Disposition": attachment(fname)})
+# SFDR PAI (i)XBRL retired (E113): the instance was written under a Tellumen-made namespace, and no official SFDR PAI
+# taxonomy is held — an XBRL file under element names we invented is not a regulatory export. The statement
+# downloads as a workbook (.xlsx, RTS Table 1 columns) and a filing exports JSON / xlsx. The routes answer 410 with the reason.
+_SFDR_XBRL_RETIRED = ("Retired: no official SFDR PAI XBRL taxonomy is held, and an instance under Tellumen-made "
+                      "element names is not a filing. Download the statement as .xlsx, or export the filing as JSON / xlsx.")
 
 
-@router.get("/funds/{fund_id}/sfdr-statement.ixbrl", summary="SFDR PAI statement as an Inline XBRL (iXBRL) report — human + machine readable")
-def sfdr_statement_ixbrl(fund_id: str, session: DbSession, org_id: OrgId):
-    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
-    statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
-    if statement.get("error"):
-        return statement
-    from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl
-    try:
-        doc = sfdr_pai_ixbrl(statement)
-    except XbrlIdentityError as e:
-        raise HTTPException(422, {"error": "not_exportable", "message": str(e)})
-    suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
-    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xhtml"
-    return StreamingResponse(
-        iter([doc]), media_type="application/xhtml+xml",
-        headers={"Content-Disposition": attachment(fname)})
+def _sfdr_xbrl_retired():
+    raise HTTPException(status_code=410, detail={"error": "retired", "message": _SFDR_XBRL_RETIRED})
 
 
-@router.get("/entity/sfdr-statement.xbrl", summary="Entity-level SFDR PAI statement as a machine-readable XBRL instance")
-def entity_statement_xbrl(session: DbSession, org_id: OrgId):
-    statement = entity_pai_statement(session, org_id)
-    if statement.get("error"):
-        return statement
-    try:
-        xml = sfdr_pai_xbrl(statement)
-    except XbrlIdentityError as e:
-        raise HTTPException(422, {"error": "not_exportable", "message": str(e)})
-    fname = f"SFDR_PAI_Entity_{statement['entity']['manager'].replace(' ', '_')}.xbrl"
-    return StreamingResponse(
-        iter([xml]), media_type="application/xml",
-        headers={"Content-Disposition": attachment(fname)})
+@router.get("/funds/{fund_id}/sfdr-statement.xbrl", summary="Retired — SFDR PAI XBRL", description=_SFDR_XBRL_RETIRED,
+            status_code=410)
+def sfdr_statement_xbrl(fund_id: str):
+    _sfdr_xbrl_retired()
+
+
+@router.get("/funds/{fund_id}/sfdr-statement.ixbrl", summary="Retired — SFDR PAI Inline XBRL", description=_SFDR_XBRL_RETIRED,
+            status_code=410)
+def sfdr_statement_ixbrl(fund_id: str):
+    _sfdr_xbrl_retired()
+
+
+@router.get("/entity/sfdr-statement.xbrl", summary="Retired — entity-level SFDR PAI XBRL", description=_SFDR_XBRL_RETIRED,
+            status_code=410)
+def entity_statement_xbrl():
+    _sfdr_xbrl_retired()
 
 
 class FilingProfile(BaseModel):

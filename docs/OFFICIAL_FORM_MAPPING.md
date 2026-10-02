@@ -219,8 +219,11 @@ _Source: [CELEX:32023R1115](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=
   `ifrs9_stage`, `epc_label`, `emission_intensity`) land on `ext_banking`, flow through `build_disclosure_snapshot`
   into the assets, and are consumed by the grids/annex (template5_grid, filing_annex EPC section, transition_alignment
   IEA Template 3). Live: 132 loans carry maturity/EPC/IFRS-9. Populates automatically as more data is provided.
-- **④ XBRL/iXBRL** — SFDR PAI tagged by `sfdr_xbrl.py`, served via funds. The ESRS E1-9 XBRL of the CSRD package was
-  retired on 2026-09-30 (E66): its element names were not EFRAG's. ESRS exports JSON until EFRAG's taxonomy is bound.
+- **④ XBRL/iXBRL** — the SFDR PAI XBRL / iXBRL (`sfdr_xbrl.py`) was removed on 2026-10-02 (E113): it was written under a
+  Tellumen-made namespace, and no official SFDR PAI taxonomy is held (GO_LIVE item 17); SFDR PAI exports JSON and the
+  workbook. The ESRS E1-9 XBRL of the CSRD package was retired on 2026-09-30 (E66): its element names were not
+  EFRAG's. ESRS exports JSON until EFRAG's taxonomy is bound. The only XBRL built is Solvency II S.27.01.01 on EIOPA's
+  own taxonomy.
 
 **Genuinely remaining = EXTERNAL / verification only:** EFRAG official element-map validation to certify the ESRS
 XBRL element IDs cell-perfect; TRACES DDS schema alignment (sandbox credentials); IFRS-S2 / SASB / finest GAR

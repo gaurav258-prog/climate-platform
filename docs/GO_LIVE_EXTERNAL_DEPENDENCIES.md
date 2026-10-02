@@ -8,7 +8,7 @@ already built and tested**; this file exists so none of these is forgotten when 
 Companion docs: agri last-mile detail is in [`AGRI_OPS_READINESS.md`](AGRI_OPS_READINESS.md). Every item below
 degrades honestly in-product today (shows "pending" / "prepared" / withholds the figure) — nothing is faked.
 
-_Last reviewed: 2026-09-25._
+_Last reviewed: 2026-10-02._
 
 ## Status at a glance
 
@@ -30,6 +30,7 @@ _Last reviewed: 2026-09-25._
 | 14 | **Production Kubernetes cluster** | All sectors — deployment | CI builds, tests and pushes the image (`ghcr.io/<owner>/climate-platform:<sha>`, Python 3.14) on every push to main; the deploy job applies `infra/k8s/*` and waits for the rollout, and skips with a notice while no cluster is connected (error log E26) | a cluster (namespace `climate-platform`), its secrets pre-created (`infra/k8s/secret.yaml`), and the GitHub `production` environment approval gate | set the repository secret `KUBECONFIG` (base64 kubeconfig) → the next push to main deploys |
 | 15 | S.27.01.01 rows added from 2027 (EIOPA taxonomy 2.10.0) | Insurer Solvency II | 2027 calculation; form names regions without a row; 2027 XBRL refused with the rows named | the amending ITS / legal act not yet identified (Cellar: none, 2026-09-30) | the act → new spec version on the change route, `s2701.REGION_ROW` extended |
 | 16 | EIOPA XBRL validation files | Insurer Solvency II XBRL | Arelle validation with EIOPA's rules (`scripts/validate_s2701_xbrl.py`), run by the E2E test when present | EIOPA / Eurofiling files are not redistributed in the repository | set `EIOPA_XBRL_PACKAGE` and `EIOPA_IAF_FILE` in CI |
+| 17 | Official SFDR PAI XBRL taxonomy | Asset manager SFDR PAI XBRL / iXBRL | the PAI statement per fund and entity (RTS Table 1), exported as JSON and a workbook; **no SFDR XBRL** — the instance and Inline XBRL under a Tellumen-made namespace were removed (E113, as E60/E95/E104); filings of every date are refused the format (409), the fund routes answer 410 | no official SFDR PAI XBRL taxonomy is held | an official taxonomy package → we bind each Table 1 indicator to its element (verified against the package), validate, and offer the format again |
 
 ---
 
@@ -166,6 +167,22 @@ _Last reviewed: 2026-09-25._
 - **Needs:** `EIOPA_XBRL_PACKAGE` = EIOPA_SolvencyII_XBRL_Taxonomy_2.8.2_Final_with_external_files.zip
   (dev.eiopa.europa.eu) and `EIOPA_IAF_FILE` = interval-arithmetics.xml (www.eurofiling.info/eu/fr/xbrl/func/). The
   end-to-end test runs the validation when both are set and skips that step otherwise → set both in CI.
+
+## 17 · Official SFDR PAI XBRL taxonomy  *(external artifact — none held)*
+- **State (E113, 2026-10-02):** there is **no SFDR PAI XBRL or Inline XBRL export**. The earlier export
+  (`ml/regulatory/sfdr_xbrl.py`, since v1.21, now removed) wrote instances under a Tellumen-made namespace
+  (`https://taxonomy.tellumen.eu/sfdr/pai/2022`, schema `pai.xsd`) with element names and units of our own naming,
+  labelled a placeholder to be swapped for an official taxonomy. An instance under invented element names is not a
+  filing, so it was removed, as the ESRS (E60), EU Taxonomy (E95) and Pillar 3 (E104) XBRL were: `sfdr_pai` exports
+  JSON and the workbook (`filings.EXPORT_FORMATS`); an `xbrl` or `ixbrl` request for a filing of any date is refused
+  (409); `/v1/funds/{id}/sfdr-statement.xbrl`, `.ixbrl` and `/v1/entity/sfdr-statement.xbrl` answer 410 with the
+  reason. Guard: `tests/integration/test_filing_export.py` (no `taxonomy.tellumen.eu` anywhere in services, api, ml).
+- **What the regulation asks today:** RTS 2022/1288 Art. 4 — the participant "shall publish on their website" the
+  statement (quoted in `data/reference/regspec/sfdr_pai/rts_2022_1288.json`); the workbook carries the Table 1 columns.
+- **Needed:** an official SFDR PAI XBRL taxonomy package — not held.
+- **When it lands:** bind each Table 1 indicator of the governing specification (`data/reference/regspec/sfdr_pai`) to
+  its element, every element verified against the taxonomy package (not a PDF), validate the instance with the
+  publisher's rules, then offer the format again. **Do not invent element IDs.**
 
 ## Copernicus EGMS (European Ground Motion Service) account
 
