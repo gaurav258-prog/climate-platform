@@ -81,6 +81,14 @@
    "sha256": "c4effdb74c6c32c64abd8fe1ea5283616d2bde52d33a4d926f718c8e21d28e83",
    "chars": 63966
   },
+  "32020R1818": {
+   "title": "Commission Delegated Regulation (EU) 2020/1818 of 17 July 2020 supplementing Regulation (EU) 2016/1011 of the European Parliament and of the Council as regards minimum standards for EU Climate Transition Benchmarks and EU Paris-aligned Benchmarks",
+   "celex": "32020R1818",
+   "source": "http://publications.europa.eu/resource/celex/32020R1818",
+   "retrieved": "2026-10-02",
+   "sha256": "ccd3db396ba2c14f8c0469376df4fd1db79d3b491d12c03bc756113fddcbb78e",
+   "chars": 28437
+  },
   "32022L2464": {
    "title": "Directive (EU) 2022/2464 (CSRD), as published",
    "celex": "32022L2464",
