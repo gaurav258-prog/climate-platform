@@ -152,6 +152,9 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        vocab="counterparty_sector", aliases=("finrep_sector", "counterparty_type", "institutional_sector")),
     _f("immovable_collateral", "Immovable-property collateral", "vocab", "residential / commercial (by predominant use) / "
        "repossessed / none.", "residential", vocab="immovable_collateral", aliases=("re_collateral", "property_collateral")),
+    _f("postal_address", "Postal address", "text", "The postal address of the plot or of the establishment it is farmed "
+       "from. A micro or small primary operator may give it instead of the geolocation (EUDR Art. 4a(5)).",
+       "Plot 7, Ejisu Road, Kumasi, Ghana", aliases=("postal", "plot_address", "establishment_address")),
     _f("irrigation_status", "Irrigation", "vocab", "irrigated / rain_fed / mixed.", "irrigated", vocab="irrigation", aliases=("irrigation", "irrigated")),
     _f("commodity", "Commodity", "vocab", "Must match a commodity on this platform (e.g. Cocoa, Coffee, Citrus).", "Cocoa",
        vocab="commodity", aliases=("crop", "product", "commodity_name")),

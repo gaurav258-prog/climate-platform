@@ -34,7 +34,7 @@ def test_only_the_esrs_statement_speaks_of_esrs_and_only_eudr_of_plots(rt):
     md = _md(rt).replace(FRAMEWORKS[rt]["label"], "").replace(FRAMEWORKS[rt]["basis"], "")   # the text, past its own name
     if rt not in ("esrs_pack", "csrd_e1"):
         assert "ESRS" not in md and "CSRD" not in md
-    if rt != "eudr_dds":
+    if rt not in ("eudr_dds", "eudr_simplified"):           # Annex II point 3 and Annex III point 3 are about the plots
         assert "plot" not in md.lower()
     assert "r² >= 0.40" not in md and "r2 >= 0.40" not in md
 

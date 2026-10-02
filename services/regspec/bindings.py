@@ -49,6 +49,13 @@ def binding_for(framework: str, spec: dict | None = None) -> dict | None:
         from services.governance import esrs_binding
         spec = spec or R.governing(framework, period_end=date.today())
         return esrs_binding.item_binding(spec) if spec else None
+    if framework == "eudr":                           # Annex II from the statement, Annex III from the simplified declaration
+        import services.regspec as R
+        from services.eudr import declaration, statement
+        spec = spec or R.governing(framework, period_end=date.today())
+        if spec is None:
+            return None
+        return {**statement.binding(spec), **(declaration.binding(spec) if any(t["id"] == "AIII" for t in spec["templates"]) else {})}
     if framework == "sfdr_pai":
         from services.governance.sfdr_binding import BINDING
         return BINDING

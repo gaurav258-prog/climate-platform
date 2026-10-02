@@ -2,12 +2,14 @@
 // a risk the operator weighs (Art. 10), never a verdict.
 export interface Reading { outcome: string; loss_ha: number | null; first_loss_year: number | null; reason: string | null; assessed_at: string }
 export interface Tally { plots: number; unread: number; no_loss_detected: number; loss_after_cutoff: number; not_assessable: number }
-export interface UndertakingStatus { size_class: string; established_on: string | null; country: string; address: string; eori: string | null; effective_from: string }
+export interface UndertakingStatus { size_class: string; established_on: string | null; country: string; address: string; eori: string | null; effective_from: string
+  primary_own_produce: boolean | null; other_system: string | null }
 export interface RecordsPlot { plot_id: string; plot_name: string | null; external_ref: string | null; commodity: string; country: string | null; area_ha: number | null; has_polygon: boolean; reading: Reading | null }
 export interface Records {
   status: UndertakingStatus | null; on: string
   criteria: Record<string, string>; mitigation: Record<string, string>; aspects: string[]; size_classes: string[]
   plots: RecordsPlot[]; readings_tally: Tally
+  entities: { entity_id: string; name: string; country: string | null }[]; entity_id: string | null
   pending: { request_id: string; request_type: string; title: string; movement_id: string | null }[]
 }
 export interface StatementFiling { filing_id: string; status: string; reference_number: string | null; verification_number: string | null }

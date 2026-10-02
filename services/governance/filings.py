@@ -102,6 +102,17 @@ FRAMEWORKS = {
                  "own_page": "/eudr",
                  "regulator": "Competent authority (EUDR) via the EU information system",
                  "basis": "Regulation (EU) 2023/1115 Art. 4(2), Annex II · Implementing Regulation (EU) 2024/3084"},
+    # EUDR Art. 4a (E115): the one-time simplified declaration of a micro or small primary operator, before placing on the
+    # market or export, updated after major changes (Art. 4a(3)); prepared from the undertaking's records
+    "eudr_simplified": {"label": "EUDR simplified declaration", "sectors": ("manufacturer",),
+                        "frequency": "once, before the first placing on the market or export; updated after major changes",
+                        "due": None,
+                        "frozen_by": "from the undertaking's records (EUDR → simplified declaration → prepare)",
+                        "accepted_by": "when the declaration identifier the information system assigned is recorded "
+                                       "(EUDR → simplified declaration)",
+                        "own_page": "/eudr",
+                        "regulator": "Competent authority (EUDR) via the EU information system",
+                        "basis": "Regulation (EU) 2023/1115 Art. 4a, Annex III · Implementing Regulation (EU) 2024/3084 Art. 4a"},
     "sfdr_precontractual": {"label": "SFDR pre-contractual disclosure", "sectors": ("asset_manager",),
                             "frequency": "on change", "due": None,
                             "regulator": "National competent authority (SFDR)", "basis": "SFDR Art. 8 / 9 · RTS 2022/1288 Annex II / III"},
@@ -354,7 +365,7 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
             LEFT JOIN report_snapshots s ON s.snapshot_id = rf.snapshot_id
             LEFT JOIN reporting_entities re ON re.entity_id = rf.entity_id
             WHERE rf.org_id = :o AND rf.framework = :fk
-            ORDER BY rf.period_end DESC, rf.created_at DESC
+            ORDER BY rf.period_end DESC, rf.seq DESC
         """), {"o": org_id, "fk": fk}).mappings().all()
         filings = [{"filing_id": r["filing_id"], "period_label": r["period_label"], "status": r["status"],
                     "submission_ref": r["submission_ref"], "snapshot_version": r["snapshot_version"],
@@ -578,7 +589,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
               AND rf.period_end = ob.period_end AND rf.status NOT IN ('superseded', 'withdrawn')
               AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id AND rf.fund_id IS NOT DISTINCT FROM ob.fund_id
-            ORDER BY rf.created_at DESC LIMIT 1
+            ORDER BY rf.seq DESC LIMIT 1
         ) f ON TRUE
         WHERE ob.org_id = :o
         ORDER BY ob.due_date, (ob.filing_role = 'whole_org') DESC, (ob.filing_role = 'consolidated') DESC
@@ -653,7 +664,7 @@ def list_filings(session: Session, org_id: str) -> list[dict]:
         LEFT JOIN users u ON u.user_id = rf.created_by
         LEFT JOIN reporting_entities re ON re.entity_id = rf.entity_id
         WHERE rf.org_id = :o
-        ORDER BY rf.created_at DESC
+        ORDER BY rf.seq DESC
     """), {"o": org_id}).mappings().all()
     return [_row_to_summary(r) for r in rows]
 
@@ -1048,7 +1059,7 @@ def _previous_period_book(session: Session, org_id: str, framework: str, entity_
         FROM regulatory_filing f JOIN report_snapshots s ON s.snapshot_id = f.snapshot_id
         WHERE f.org_id = CAST(:o AS uuid) AND f.framework = :fw AND f.period_end = :pe
           AND f.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND f.status NOT IN ('superseded', 'withdrawn')
-        ORDER BY f.created_at DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id,
+        ORDER BY f.seq DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id,
                                                  "key": book_key}).mappings().first()
     if not row or not row["assets"]:
         return None
@@ -1364,5 +1375,5 @@ def prior_filing_id(session: Session, org_id: str, filing_id: str) -> str | None
         SELECT filing_id::text FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end < :pe AND status IN ('submitted','accepted','superseded')
               AND entity_id IS NOT DISTINCT FROM :ent
-        ORDER BY period_end DESC, created_at DESC LIMIT 1
+        ORDER BY period_end DESC, seq DESC LIMIT 1
     """), {"o": org_id, "fk": cur["framework"], "pe": cur["period_end"], "ent": cur["entity_id"]}).scalar()

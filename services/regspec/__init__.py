@@ -59,6 +59,9 @@ def validate(doc: dict) -> list[str]:
             errs.append(f"missing '{k}'")
     if errs:
         return errs
+    for k in ("article", "templates_in", "instructions_in", "quote"):      # every reader cites all four (E117)
+        if not (doc["legal_basis"] or {}).get(k):
+            errs.append(f"legal_basis needs '{k}'")
     if doc["status"] not in STATUSES:
         errs.append(f"status must be one of {STATUSES}")
     ap = doc["applies"]

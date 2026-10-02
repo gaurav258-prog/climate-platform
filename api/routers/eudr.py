@@ -51,15 +51,17 @@ async def upload(book: str, session: DbSession, ctx: CurrentUser, file: UploadFi
 
 
 @router.get("/movements", summary="Placings on the market, makings available and exports on file, with their plots")
-def movements(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+def movements(session: DbSession, entity_id: Optional[str] = None, ctx: dict = Depends(require_permission("reports.view"))):
+    """The shipments of one undertaking: the organisation's own (entity_id omitted) or one reporting entity's — the
+    undertaking whose status, statements and declaration go with them."""
     rows = session.execute(text("""
         SELECT m.movement_id::text AS movement_id, m.external_ref, m.kind, m.actor_role, m.planned_on, m.hs_code,
                m.description, m.customs_flow, CAST(m.net_mass_kg AS FLOAT) AS net_mass_kg, s.name AS supplier, c.name AS customer,
                (SELECT count(*) FROM eudr_movement_plot l WHERE l.movement_id = m.movement_id) AS n_plots
         FROM eudr_movement m LEFT JOIN sc_suppliers s USING (supplier_id) LEFT JOIN sc_customers c USING (customer_id)
-        WHERE m.org_id = CAST(:o AS uuid) ORDER BY m.planned_on DESC, m.seq DESC"""), {"o": ctx["org"]["org_id"]}).mappings().all()
-    # each shipment's statements, newest first (regulatory_filing has no sequence; each statement of a shipment is
-    # prepared in its own request, so created_at never ties within one shipment)
+        WHERE m.org_id = CAST(:o AS uuid) AND m.reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid)
+        ORDER BY m.planned_on DESC, m.seq DESC"""), {"o": ctx["org"]["org_id"], "e": entity_id}).mappings().all()
+    # each shipment's statements, newest first — by insert sequence, never by timestamp (E116)
     filings: dict[str, list[dict]] = {}
     for f in session.execute(text("""
         SELECT f.eudr_movement_id::text AS movement_id, f.filing_id::text AS filing_id, f.status,
@@ -68,7 +70,7 @@ def movements(session: DbSession, ctx: dict = Depends(require_permission("report
         LEFT JOIN LATERAL (SELECT reference_number, verification_number FROM eudr_dds_reference x
                            WHERE x.filing_id = f.filing_id ORDER BY x.seq DESC LIMIT 1) r ON true
         WHERE f.org_id = CAST(:o AS uuid) AND f.framework = 'eudr_dds'
-        ORDER BY f.created_at DESC, f.filing_id"""), {"o": ctx["org"]["org_id"]}).mappings().all():
+        ORDER BY f.seq DESC"""), {"o": ctx["org"]["org_id"]}).mappings().all():
         filings.setdefault(f["movement_id"], []).append({k: f[k] for k in ("filing_id", "status", "reference_number",
                                                                           "verification_number")})
     return {"movements": [{**dict(r), "planned_on": r["planned_on"].isoformat(), "filings": filings.get(r["movement_id"], [])}
@@ -88,7 +90,12 @@ def records(session: DbSession, on: Optional[date] = None, entity_id: Optional[s
         SELECT p.plot_id::text AS plot_id, p.plot_name, p.external_ref, co.name AS commodity, p.country,
                CAST(p.plot_area_ha AS FLOAT) AS area_ha, p.plot_geometry IS NOT NULL AS has_polygon
         FROM sc_sourcing_plots p JOIN sc_commodities co USING (commodity_id)
-        WHERE p.org_id = CAST(:o AS uuid) AND co.eudr_covered ORDER BY p.plot_name"""), {"o": org}).mappings().all()]
+        WHERE p.org_id = CAST(:o AS uuid) AND co.eudr_covered AND (CAST(:e AS uuid) IS NULL OR p.entity_id = CAST(:e AS uuid))
+        ORDER BY p.plot_name"""), {"o": org, "e": entity_id}).mappings().all()]
+    # the undertakings it can speak for: the organisation itself, or one of its legal entities
+    entities = [dict(x) for x in session.execute(text("""
+        SELECT entity_id::text AS entity_id, name, country FROM reporting_entities
+        WHERE org_id = CAST(:o AS uuid) AND kind = 'legal_entity' ORDER BY name"""), {"o": org}).mappings().all()]
     readings = current(session, [p["plot_id"] for p in plots]) if plots else {}
     # requests a second person has not decided yet (status; risk assessments by shipment)
     pending = [dict(x) for x in session.execute(text("""
@@ -100,6 +107,7 @@ def records(session: DbSession, on: Optional[date] = None, entity_id: Optional[s
             "criteria": REC.CRITERIA, "mitigation": REC.MITIGATION, "aspects": list(REC.ASPECTS),
             "size_classes": list(REC.SIZE_CLASSES),
             "plots": [{**p, "reading": readings.get(p["plot_id"])} for p in plots], "readings_tally": tally(readings),
+            "entities": entities, "entity_id": entity_id,
             "pending": pending}
 
 
@@ -112,6 +120,10 @@ class StatusBody(BaseModel):
     eori: Optional[str] = Field(None, max_length=17)
     established_on: Optional[date] = None
     basis: Optional[str] = Field(None, max_length=2000)
+    primary_own_produce: Optional[bool] = Field(None, description="Art. 2(15a): it places products it itself grew, harvested, "
+                                                "obtained from or raised on plots in its country (null: not stated)")
+    other_system: Optional[str] = Field(None, max_length=300, description="Art. 4a(4): the Union or Member State system that "
+                                        "holds all its Annex III information, where there is one")
 
 
 @router.post("/status", status_code=202, summary="State the undertaking's EUDR status (a second person approves)")
@@ -330,3 +342,149 @@ def amend_filing(filing_id: str, body: PrepareBody, session: DbSession,
         _fail(e)
     session.commit()
     return out
+
+
+
+# ── the simplified declaration of a micro or small primary operator (Art. 4a, Annex III; E115) ──
+
+def _decl_fail(e: Exception, code: int = 409):
+    raise HTTPException(code, {"error": "eudr_declaration", "message": str(e)}) from e
+
+
+@router.get("/declaration", summary="The simplified declaration as it stands, its checks, product lines and history")
+def declaration(session: DbSession, entity_id: Optional[str] = None, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.eudr import declaration as D
+    from services.eudr import declaration_filing as DF
+    org = ctx["org"]["org_id"]
+    try:
+        st = D.compute(session, org, entity_id)
+    except D.DeclarationError as e:
+        _decl_fail(e, 404)
+    return {**st, "checks": D.checks(st), "history": DF.history(session, org, entity_id)}
+
+
+class LineBody(BaseModel):
+    entity_id: Optional[str] = None
+    hs_code: str = Field(..., min_length=4, max_length=12)
+    description: str = Field(..., min_length=2, max_length=500)
+    trade_name: Optional[str] = Field(None, max_length=200)
+    customs_flow: bool
+    est_net_mass_kg: Optional[float] = Field(None, gt=0)
+    mass_deviation_pct: Optional[float] = Field(None, ge=0, le=100)
+    supplementary_unit: Optional[str] = Field(None, max_length=20)
+    supplementary_qty: Optional[float] = Field(None, gt=0)
+    volume_m3: Optional[float] = Field(None, gt=0)
+    items_count: Optional[int] = Field(None, gt=0)
+    scope_in: Optional[bool] = None
+    scope_basis: Optional[str] = Field(None, max_length=2000)
+
+
+@router.post("/declaration/lines", status_code=201, summary="Declare a relevant product with its estimated annual quantity")
+def add_declaration_line(body: LineBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import declaration as D
+    try:
+        lid = D.add_line(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
+    except D.DeclarationError as e:
+        _decl_fail(e, 422)
+    session.commit()
+    return {"line_id": lid}
+
+
+@router.delete("/declaration/lines/{line_id}", summary="Remove a product line (dated, never deleted)")
+def remove_declaration_line(line_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import declaration as D
+    try:
+        D.remove_line(session, ctx["org"]["org_id"], line_id)
+    except D.DeclarationError as e:
+        _decl_fail(e, 404)
+    session.commit()
+    return {"removed": line_id}
+
+
+class DeclarationPrepareBody(BaseModel):
+    entity_id: Optional[str] = None
+    note: Optional[str] = Field(None, max_length=500)
+
+
+@router.post("/declaration/filing", status_code=201, summary="Prepare the simplified declaration (a filing)")
+def prepare_declaration(body: DeclarationPrepareBody, session: DbSession,
+                        ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import declaration_filing as DF
+    try:
+        f = DF.prepare(session, ctx["org"]["org_id"], ctx["user"]["id"], body.entity_id, note=body.note)
+    except DF.DeclarationFilingError as e:
+        _decl_fail(e)
+    session.commit()
+    return f
+
+
+@router.post("/declaration/filings/{filing_id}/refresh", summary="Replace a draft declaration after the records were corrected")
+def refresh_declaration(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import declaration_filing as DF
+    try:
+        f = DF.refresh(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id)
+    except DF.DeclarationFilingError as e:
+        _decl_fail(e)
+    session.commit()
+    return f
+
+
+@router.post("/declaration/filings/{filing_id}/update", status_code=201,
+             summary="Update the declaration after major changes (a new declaration keeping the identifier)")
+def update_declaration(filing_id: str, body: PrepareBody, session: DbSession,
+                       ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.eudr import declaration_filing as DF
+    try:
+        f = DF.update(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
+    except DF.DeclarationFilingError as e:
+        _decl_fail(e)
+    session.commit()
+    return f
+
+
+class IdentifierBody(BaseModel):
+    identifier: str = Field(..., min_length=4, max_length=64)
+    verification_number: Optional[str] = Field(None, max_length=64)
+    source: str = Field("manual_entry", pattern="^(information_system|manual_entry|contingency|member_state)$")
+
+
+@router.post("/declaration/filings/{filing_id}/identifier", summary="Record the declaration identifier assigned")
+def declaration_identifier(filing_id: str, body: IdentifierBody, session: DbSession,
+                           ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.eudr import declaration_filing as DF
+    try:
+        f = DF.record_identifier(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, identifier=body.identifier,
+                                 verification_number=body.verification_number, source=body.source)
+    except DF.DeclarationFilingError as e:
+        _decl_fail(e)
+    session.commit()
+    return f
+
+
+class DeclarationEventBody(BaseModel):
+    kind: str
+    detail: Optional[str] = Field(None, max_length=1000)
+
+
+@router.post("/declaration/filings/{filing_id}/events", status_code=201, summary="Record what happened to a declaration")
+def declaration_event(filing_id: str, body: DeclarationEventBody, session: DbSession,
+                      ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.eudr import declaration_filing as DF
+    try:
+        out = DF.record_event(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.kind, body.detail)
+    except DF.DeclarationFilingError as e:
+        _decl_fail(e)
+    session.commit()
+    return out
+
+
+@router.post("/declaration/filings/{filing_id}/withdraw", summary="Withdraw a submitted declaration (not once grouped)")
+def withdraw_declaration(filing_id: str, body: WithdrawBody, session: DbSession,
+                         ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.eudr import declaration_filing as DF
+    try:
+        f = DF.withdraw(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.reason)
+    except DF.DeclarationFilingError as e:
+        _decl_fail(e)
+    session.commit()
+    return f

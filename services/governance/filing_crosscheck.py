@@ -76,7 +76,7 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
         FROM regulatory_filing rf JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         WHERE rf.org_id = :o AND rf.framework = :fw AND rf.filing_id <> :f AND rf.snapshot_id IS NOT NULL
               AND rf.entity_id IS NOT DISTINCT FROM CAST(:ent AS uuid)
-        ORDER BY rf.period_end DESC, rf.created_at DESC
+        ORDER BY rf.period_end DESC, rf.seq DESC
     """), {"o": org_id, "fw": framework, "f": filing["filing_id"], "ent": filing.get("entity_id")}).mappings().all()
     # siblings are the same reporting entity's filings (fixed 2026-09-26: a solo filing was reconciled against the
     # whole organisation's, raising false "unusually large swing" warnings)

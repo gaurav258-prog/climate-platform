@@ -93,6 +93,9 @@ _ALT_LINEAGE = {
     "sfdr_periodic": "Item by item: every item of the frozen template carries its source; the frozen holdings (each "
                      "position date of the reference period, with the investee's own Taxonomy KPIs) are in the "
                      "filing; per holding, GET /v1/issuers/{issuer_id}.",
+    "eudr_simplified": "Per undertaking: the frozen declaration holds its status, every product line with its estimated "
+                       "annual quantity and every plot with its geolocation or postal address; per plot, "
+                       "GET /v1/supply/plot/{plot_id}; the declaration as it stands, GET /v1/eudr/declaration.",
     "eudr_dds": "Per shipment: the frozen statement holds its plots (geolocation, country, the satellite reading of "
                 "each), the supplier, the legality evidence and the risk assessment it was prepared from; per plot, "
                 "GET /v1/supply/plot/{plot_id}; the shipment, GET /v1/eudr/movements/{movement_id}/statement.",
@@ -240,7 +243,7 @@ def cell_upstream(session: Session, org_id: str, h3_cell: str) -> dict:
             f = session.execute(text("""
                 SELECT filing_id::text AS filing_id, status FROM regulatory_filing
                 WHERE org_id = :o AND framework = :fk AND status NOT IN ('superseded', 'withdrawn')
-                ORDER BY created_at DESC LIMIT 1
+                ORDER BY seq DESC LIMIT 1
             """), {"o": org_id, "fk": fw}).mappings().first()
             g["filing"] = {"filing_id": f["filing_id"], "status": f["status"]} if f else None
         else:

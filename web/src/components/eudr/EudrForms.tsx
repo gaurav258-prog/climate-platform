@@ -9,7 +9,7 @@ import { ASPECT_LABEL, EVENT_LABEL, inp, lbl, type Records, type RecordsPlot, ty
 // The operator's EUDR records, each a governed request (services/eudr/records.py): the server says what is missing, the
 // form never fills a choice in for the operator. Status and risk assessment go to a second person for approval.
 
-function Form({ title, onClose, busy, ready = true, onSubmit, submit, children }: {
+export function Form({ title, onClose, busy, ready = true, onSubmit, submit, children }: {
   title: string; onClose: () => void; busy: boolean; ready?: boolean; onSubmit: () => void; submit: string; children: ReactNode
 }) {
   return (
@@ -23,7 +23,7 @@ function Form({ title, onClose, busy, ready = true, onSubmit, submit, children }
   )
 }
 
-function useSend<T>(fn: () => Promise<T>, done: string, onDone: () => void) {
+export function useSend<T>(fn: () => Promise<T>, done: string, onDone: () => void) {
   return useMutation({
     mutationFn: fn,
     onSuccess: () => { toast.success(done); onDone() },
@@ -32,14 +32,19 @@ function useSend<T>(fn: () => Promise<T>, done: string, onDone: () => void) {
 }
 
 export function StatusForm({ rec, onClose, onDone }: { rec: Records; onClose: () => void; onDone: () => void }) {
+  const who = rec.entity_id ? rec.entities.find(e => e.entity_id === rec.entity_id)?.name ?? 'this entity' : 'the organisation'
   const s = rec.status
   const [f, setF] = useState({ effective_from: '', size_class: s?.size_class ?? '', country: s?.country ?? '', address: s?.address ?? '',
-    eori: s?.eori ?? '', established_on: s?.established_on ?? '', basis: '' })
+    eori: s?.eori ?? '', established_on: s?.established_on ?? '', basis: '',
+    own: s?.primary_own_produce == null ? '' : s.primary_own_produce ? 'yes' : 'no', other_system: s?.other_system ?? '' })
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
-  const m = useSend(() => api.post('/v1/eudr/status', { ...f, eori: f.eori || null, established_on: f.established_on || null, basis: f.basis || null }),
+  const small = f.size_class === 'micro' || f.size_class === 'small'
+  const m = useSend(() => api.post('/v1/eudr/status', { entity_id: rec.entity_id, effective_from: f.effective_from, size_class: f.size_class, country: f.country,
+    address: f.address, eori: f.eori || null, established_on: f.established_on || null, basis: f.basis || null,
+    primary_own_produce: small && f.own ? f.own === 'yes' : null, other_system: small ? f.other_system || null : null }),
     'Sent for approval.', onDone)
   return (
-    <Form title="The undertaking's EUDR status" onClose={onClose} busy={m.isPending} onSubmit={() => m.mutate()} submit="Send for approval">
+    <Form title={`EUDR status — ${who}`} onClose={onClose} busy={m.isPending} onSubmit={() => m.mutate()} submit="Send for approval">
       <p className="text-[12px] text-[var(--color-mute)]">Annex II point 1: name, address and — for goods entering or leaving the market — the EORI number. The size class decides the application date (Art. 38(3)).</p>
       <div className="grid grid-cols-2 gap-3">
         <div><label className={lbl}>In force from *</label><input type="date" className={inp} value={f.effective_from} onChange={set('effective_from')} /></div>
@@ -51,8 +56,13 @@ export function StatusForm({ rec, onClose, onDone }: { rec: Records; onClose: ()
         <div><label className={lbl}>EORI</label><input className={inp} maxLength={17} value={f.eori} onChange={set('eori')} /></div>
       </div>
       <div><label className={lbl}>Address *</label><input className={inp} value={f.address} onChange={set('address')} /></div>
-      {(f.size_class === 'micro' || f.size_class === 'small') &&
-        <div><label className={lbl}>Established as micro / small on</label><input type="date" className={inp} value={f.established_on} onChange={set('established_on')} /></div>}
+      {small && <>
+        <div><label className={lbl}>Established as micro / small on</label><input type="date" className={inp} value={f.established_on} onChange={set('established_on')} /></div>
+        <div><label className={lbl}>Places products it itself grew, harvested or raised on its plots (Art. 2(15a))</label>
+          <select className={inp} value={f.own} onChange={set('own')}><option value="">— not stated —</option><option value="yes">yes</option><option value="no">no</option></select></div>
+        <div><label className={lbl}>System holding all Annex III information, if any (Art. 4a(4))</label>
+          <input className={inp} value={f.other_system} onChange={set('other_system')} placeholder="none" /></div>
+      </>}
       <div><label className={lbl}>Basis</label><textarea className={inp} rows={2} value={f.basis} onChange={set('basis')} /></div>
     </Form>
   )
@@ -207,12 +217,16 @@ export function EventForm({ filingId, status, onClose, onDone }: { filingId: str
   )
 }
 
-export function WithdrawForm({ filingId, onClose, onDone }: { filingId: string; onClose: () => void; onDone: () => void }) {
+export function WithdrawForm({ filingId, onClose, onDone, path, what = 'statement' }: {
+  filingId: string; onClose: () => void; onDone: () => void; path?: string; what?: string
+}) {
   const [reason, setReason] = useState('')
-  const m = useSend(() => api.post(`/v1/eudr/filings/${filingId}/withdraw`, { reason }), 'Statement withdrawn.', onDone)
+  const m = useSend(() => api.post(path ?? `/v1/eudr/filings/${filingId}/withdraw`, { reason }), `${what[0].toUpperCase()}${what.slice(1)} withdrawn.`, onDone)
   return (
-    <Form title="Withdraw the statement" onClose={onClose} busy={m.isPending} ready={reason.trim().length >= 10} onSubmit={() => m.mutate()} submit="Withdraw">
-      <p className="text-[12px] text-[var(--color-mute)]">Within 72 hours after the reference was made available, unless the window has closed (IR 2024/3084 Art. 5). Withdraw it in the information system too.</p>
+    <Form title={`Withdraw the ${what}`} onClose={onClose} busy={m.isPending} ready={reason.trim().length >= 10} onSubmit={() => m.mutate()} submit="Withdraw">
+      <p className="text-[12px] text-[var(--color-mute)]">{what === 'statement'
+        ? 'Within 72 hours after the reference was made available, unless the window has closed (IR 2024/3084 Art. 5).'
+        : 'Possible until it is used as a reference in a grouping (IR 2024/3084 Art. 4a(6)–(7)).'} Withdraw it in the information system too.</p>
       <div><label className={lbl}>Why * (at least 10 characters)</label><textarea className={inp} rows={3} value={reason} onChange={e => setReason(e.target.value)} /></div>
     </Form>
   )

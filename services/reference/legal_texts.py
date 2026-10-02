@@ -31,6 +31,11 @@ def text(celex: str) -> str:
     return b.decode("utf-8")
 
 
+def title(celex: str) -> str:
+    """The act's title as recorded with the stored text (its manifest entry)."""
+    return manifest()[celex]["title"]
+
+
 def normalise(s: str) -> str:
     """Compare as the texts are stored: whitespace collapsed, typographic apostrophes read as straight ones."""
     return re.sub(r"\s+", " ", s.replace("’", "'")).strip()

@@ -8,6 +8,7 @@ import { Button, Card, PageHeader, SectionHead, StatusPill } from '../components
 import ReportTabs from '../components/ReportTabs'
 import ValidatedUpload from '../components/ValidatedUpload'
 import Shipment from '../components/eudr/Shipment'
+import DeclarationCard from '../components/eudr/Declaration'
 import { ReadForm, StatusForm } from '../components/eudr/EudrForms'
 import { KIND_LABEL, type Movement, type Records } from '../components/eudr/types'
 
@@ -21,8 +22,10 @@ const BOOKS = [
 ]
 
 export default function Eudr() {
-  const rec = useQuery({ queryKey: ['eudr-records'], queryFn: () => api.get<Records>('/v1/eudr/records') })
-  const mv = useQuery({ queryKey: ['eudr-movements'], queryFn: () => api.get<{ movements: Movement[] }>('/v1/eudr/movements') })
+  const [entity, setEntity] = useState<string>('')                 // '' = the organisation itself
+  const qs = entity ? `?entity_id=${entity}` : ''
+  const rec = useQuery({ queryKey: ['eudr-records', entity], queryFn: () => api.get<Records>(`/v1/eudr/records${qs}`) })
+  const mv = useQuery({ queryKey: ['eudr-movements', entity], queryFn: () => api.get<{ movements: Movement[] }>(`/v1/eudr/movements${qs}`) })
   const [sel, setSel] = useState<string | null>(null)
   const [form, setForm] = useState<null | 'status' | 'read'>(null)
   const [book, setBook] = useState(BOOKS[2].key)
@@ -39,6 +42,17 @@ export default function Eudr() {
       <ReportTabs />
       <PageHeader eyebrow="Agriculture · EUDR" title="EUDR due diligence statements"
         lead="One statement per shipment, prepared from your records once every check passes, signed off with four eyes, then the reference number and what happens to it in the information system." />
+
+      {r.entities.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={'mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]'}>Undertaking</span>
+          <select aria-label="Undertaking" value={entity} onChange={e => { setEntity(e.target.value); setSel(null) }}
+            className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[var(--color-sky)]">
+            <option value="">The organisation</option>
+            {r.entities.map(e => <option key={e.entity_id} value={e.entity_id}>{e.name}{e.country ? ` · ${e.country}` : ''}</option>)}
+          </select>
+          <span className="text-[11.5px] text-[var(--color-faint)]">Status, shipments and the declaration belong to one undertaking.</span>
+        </div>)}
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card className="p-5">
@@ -101,6 +115,8 @@ export default function Eudr() {
       </Card>
 
       {current && <Shipment key={current.movement_id} m={current} rec={r} onChanged={reload} />}
+
+      {r.status && (r.status.size_class === 'micro' || r.status.size_class === 'small') && <DeclarationCard key={entity} entityId={entity || null} />}
 
       <Card className="p-5">
         <SectionHead className="mb-3">Upload your EUDR books</SectionHead>

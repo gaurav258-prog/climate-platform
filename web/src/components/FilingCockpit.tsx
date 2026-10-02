@@ -451,7 +451,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
                   {Object.entries(f.snapshot.reporting_basis).map(([k, v]) => (
                     <div key={k} className="flex justify-between border-b border-[var(--color-line)] pb-1">
-                      <span className="text-[var(--color-mute)]">{k === 'regulation_status' ? 'regulation version' : k === 'reporting_period_end' && 'shipment' in f.snapshot!.reporting_basis ? 'shipment date' : k.replace(/_/g, ' ')}</span>
+                      <span className="text-[var(--color-mute)]">{k === 'regulation_status' ? 'regulation version' : k === 'reporting_period_end' && 'shipment' in f.snapshot!.reporting_basis ? 'shipment date' : k === 'reporting_period_end' && 'declaration' in f.snapshot!.reporting_basis ? 'declaration date' : k.replace(/_/g, ' ')}</span>
                       <span className="text-[var(--color-ink)] mono" style={k === 'regulation_status' && v !== 'current' ? { color: 'var(--color-warn)' } : undefined}>{BASIS_VALUE[`${k}:${String(v)}`] ?? String(v)}</span>
                     </div>
                   ))}

@@ -953,6 +953,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     elif framework == "eudr_dds":
         from services.eudr.statement import sections as eudr_sections
         sections = eudr_sections(payload or {})
+    elif framework == "eudr_simplified":
+        from services.eudr.declaration import sections as declaration_sections
+        sections = declaration_sections(payload or {})
     elif framework == "esrs_pack" and (payload or {}).get("document_report") is not None:
         from services.governance import esrs_document
         sections = esrs_document.sections(payload or {})

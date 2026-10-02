@@ -13,7 +13,7 @@ FAMILY_OF = {
     "esrs_pack": "esrs", "bank_tcfd": "bank_taxonomy", "bank_p3esg": "pillar3", "sfdr_pai": "sfdr_pai",
     "sfdr_precontractual": "sfdr_product", "sfdr_periodic": "sfdr_product", "reit_taxonomy": "nonfin_taxonomy",
     "insurer_solvency": "solvency_natcat", "insurer_orsa_climate": "orsa_climate",
-    "insurer_recovery_stress": "recovery_stress", "eudr_dds": "eudr",
+    "insurer_recovery_stress": "recovery_stress", "eudr_dds": "eudr", "eudr_simplified": "eudr_declaration",
 }
 
 # the families whose builder reads the hazard scores under the recorded scenario and horizon
@@ -187,6 +187,8 @@ _PRINCIPLE = {
     "recovery_stress": "The stress runs on the attested own funds, reinsurance and trigger levels; everything else is the "
                        "undertaking's answer.",
     "eudr": "Plot readings show what the satellite data shows, a risk the operator's assessment weighs, never a verdict.",
+    "eudr_declaration": "Who may declare is checked against the definition and the stated facts; a plot without a usable "
+                        "geolocation or postal address blocks the declaration.",
 }
 
 _CONTROLS = """## Controls over the figures
@@ -214,6 +216,22 @@ _EUDR = """## What the statement rests on
 - The statement is frozen as an immutable, versioned snapshot; an amendment is a new statement that supersedes it."""
 
 
+_EUDR_DECLARATION = """## What the declaration rests on
+1. The undertaking's status on the declaration date — size class, country, address and EORI, and its statement that it
+   places products it itself grew, harvested, obtained from or raised on its plots (Art. 2(15a)) — stated, and approved by
+   a second person. The country's risk class is read from Implementing Regulation (EU) 2025/1093.
+2. Each relevant product it declares, with the one-off estimated annual quantity it states (Annex III point 2), and its
+   scope under Annex I on the declaration date.
+3. Every plot of land of a relevant commodity it holds on that date, with its geolocation (Art. 2(28)) or its postal
+   address (Art. 4a(5)).
+4. The checks the declaration passes before it can be prepared, each with its article, frozen with it.
+
+## Controls
+- Four eyes on the status and on the declaration; attestation before submission.
+- The declaration is frozen as an immutable, versioned snapshot; an update is a new declaration that supersedes it and
+  keeps its declaration identifier (Implementing Regulation (EU) 2024/3084 Art. 4a(3))."""
+
+
 def _framework(report_type: str) -> dict:
     from services.governance.filings import FRAMEWORKS
     if report_type not in FRAMEWORKS:
@@ -236,7 +254,8 @@ def methodology(report_type: str, *, version, entity: str, basis_text: str, peri
     its period alone."""
     fw = _framework(report_type)
     family = FAMILY_OF.get(report_type)
-    if family is not None and family != "eudr" and family not in _READS_SCENARIO and not fw.get("retired"):
+    if family is not None and family not in ("eudr", "eudr_declaration") and family not in _READS_SCENARIO \
+            and not fw.get("retired"):
         basis_text = f"period ending {period_end}"
     head = (f"# Basis of preparation\n\n## What this pack is\nThe evidence behind **{fw['label']}** ({fw['basis']}), frozen in "
             f"snapshot **{report_type} v{version}** of **{entity}**: {basis_text}. Generated {generated} (UTC).\n\n")
@@ -250,6 +269,8 @@ def methodology(report_type: str, *, version, entity: str, basis_text: str, peri
                        "and the control evidence.\n\n") + _CONTROLS + tail
     if family == "eudr":
         return head + _EUDR + tail
+    if family == "eudr_declaration":
+        return head + _EUDR_DECLARATION + tail
     scen = ("The hazard scores are read under the scenario and horizon recorded on the reporting basis."
             if family in _READS_SCENARIO else
             "The scenario and horizon recorded on the reporting basis are the organisation's settings at freeze; this "

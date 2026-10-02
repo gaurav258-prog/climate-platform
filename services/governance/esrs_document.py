@@ -170,7 +170,7 @@ def _previous(session, org_id: str, entity_id: str | None, period_end: date) -> 
         FROM regulatory_filing rf JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         WHERE rf.org_id = CAST(:o AS uuid) AND rf.framework = 'esrs_pack' AND rf.period_end = :pe
           AND rf.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND rf.status NOT IN ('withdrawn', 'superseded')
-        ORDER BY rf.created_at DESC LIMIT 1
+        ORDER BY rf.seq DESC LIMIT 1
     """), {"o": org_id, "pe": prev_end, "e": entity_id}).mappings().first()
     for k, c in ((row or {}).get("c") or {}).items():
         v = (c or {}).get("by_horizon") or (c or {}).get("value")        # a figure stated per time horizon, as stated

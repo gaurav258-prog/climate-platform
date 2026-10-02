@@ -162,7 +162,7 @@ def register(session: Session, org_id: str) -> list[dict]:
     """Every live or superseded filing with its retention — the archive view."""
     ids = [r[0] for r in session.execute(text("""
         SELECT filing_id::text FROM regulatory_filing WHERE org_id = CAST(:o AS uuid) AND snapshot_id IS NOT NULL
-        ORDER BY period_end DESC, created_at DESC
+        ORDER BY period_end DESC, seq DESC
     """), {"o": org_id}).all()]
     return [retention_for(session, org_id, i) for i in ids]
 

@@ -62,7 +62,8 @@ def test_validation_refuses_unverified_text_in_an_adopted_spec():
 
 
 def _doc_spec(items):
-    return {"framework": "x", "version": "v", "act": {"celex": "3"}, "status": "adopted", "legal_basis": {"a": 1},
+    return {"framework": "x", "version": "v", "act": {"celex": "3"}, "status": "adopted", "legal_basis": {"article": "Art. 1", "templates_in": "Annex II",
+                                                                                                 "instructions_in": "Annex II", "quote": "q"},
             "applies": {"from": "2023-01-01", "until": None, "basis": "disclosure_date"},
             "templates": [{"id": "AII", "title": "t", "ref": "r", "structure": "document", "items": items}]}
 

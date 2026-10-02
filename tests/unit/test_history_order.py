@@ -1,4 +1,4 @@
-"""A history is read in the order it was written — by its insert sequence, never by a timestamp (E51, E52, E86, E109): now() is
+"""A history is read in the order it was written — by its insert sequence, never by a timestamp (E51, E52, E86, E109, E116): now() is
 the same for every row one transaction writes. Every query of a history table that orders it must order by `seq`."""
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HISTORY = ("regulatory_task_event", "regulatory_filing_event", "supervision_request_message", "reg_case_message",
-           "model_status_event", "regspec_signoff")
+           "model_status_event", "regspec_signoff", "regulatory_filing")
 _STRING = re.compile(r'"""(.*?)"""|"((?:[^"\\\n]|\\.)*)"', re.S)
 
 

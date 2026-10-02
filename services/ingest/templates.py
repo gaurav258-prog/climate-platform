@@ -89,6 +89,7 @@ PLOT_TEMPLATE_FIELDS = _template(
     ("longitude", True, {"description": "Decimal degrees, 6 d.p. Leave blank if you give plot_geojson.", "example": "-1.605500"}),
     ("commodity", True), ("annual_spend_eur", True), ("plot_geojson", False), ("plot_area_ha", False),
     ("region", False, {"example": "Ashanti"}), ("country", False, {"example": "GH"}), ("irrigation_status", False),
+    ("postal_address", False),
     ("external_ref", False, _ref("plot or farm")), ("held_from", False), ("held_until", False), ("reporting_entity", False),
     ("supplier_ref", False),
     ("currency", False), ("book_date", False),

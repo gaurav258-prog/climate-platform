@@ -99,7 +99,7 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
     # 3 filings — every obligation, what was filed in the period, what is due next
     reqs = reporting_requirements(session, org_id, org_type) if org_type else []
     filed = session.execute(text("""SELECT framework, period_label, status, submission_ref, updated_at FROM regulatory_filing
-                                    WHERE org_id = CAST(:o AS uuid) AND updated_at::date BETWEEN :f AND :t ORDER BY updated_at DESC"""),
+                                    WHERE org_id = CAST(:o AS uuid) AND updated_at::date BETWEEN :f AND :t ORDER BY updated_at DESC, seq DESC"""),
                             {"o": org_id, "f": period_from, "t": period_to}).mappings().all()
     from services.governance.filings import retired_frameworks
     due = session.execute(text("""SELECT framework, period_label, due_date, source FROM regulatory_obligation

@@ -33,7 +33,7 @@ def test_form_view_insurer_solvency_does_not_crash():
         fid = s.execute(text("""
             SELECT filing_id::text FROM regulatory_filing
             WHERE org_id = :o AND framework = 'insurer_solvency' AND snapshot_id IS NOT NULL
-            ORDER BY created_at DESC LIMIT 1
+            ORDER BY seq DESC LIMIT 1
         """), {"o": INSURER_ORG}).scalar()
         assert fid, "fixture: a real frozen insurer_solvency filing must exist for this org"
         out = F.form_view(s, INSURER_ORG, fid)   # must not raise KeyError
@@ -48,7 +48,7 @@ def test_form_view_reit_taxonomy_does_not_crash():
         fid = s.execute(text("""
             SELECT filing_id::text FROM regulatory_filing
             WHERE org_id = :o AND framework = 'reit_taxonomy' AND snapshot_id IS NOT NULL
-            ORDER BY created_at DESC LIMIT 1
+            ORDER BY seq DESC LIMIT 1
         """), {"o": REIT_ORG}).scalar()
         assert fid, "fixture: a real frozen reit_taxonomy filing must exist for this org"
         out = F.form_view(s, REIT_ORG, fid)   # must not raise KeyError
@@ -90,11 +90,11 @@ def test_full_http_flow_no_500_for_all_three_frameworks():
     with get_session() as s:
         ins_fid = s.execute(text("""
             SELECT filing_id::text FROM regulatory_filing WHERE org_id=:o AND framework='insurer_solvency'
-            AND snapshot_id IS NOT NULL ORDER BY created_at DESC LIMIT 1
+            AND snapshot_id IS NOT NULL ORDER BY seq DESC LIMIT 1
         """), {"o": INSURER_ORG}).scalar()
         reit_fid = s.execute(text("""
             SELECT filing_id::text FROM regulatory_filing WHERE org_id=:o AND framework='reit_taxonomy'
-            AND snapshot_id IS NOT NULL ORDER BY created_at DESC LIMIT 1
+            AND snapshot_id IS NOT NULL ORDER BY seq DESC LIMIT 1
         """), {"o": REIT_ORG}).scalar()
 
     r1 = client.get(f"/v1/filings/{ins_fid}/form", headers={"Authorization": f"Bearer {insurer_tok}"})

@@ -160,7 +160,10 @@ def test_a_shipment_is_stated_filed_referenced_amended_and_withdrawn(api, monkey
     form = api.get(f"/v1/filings/{fid3}/form", headers=maker).json()
     annex = next(x for x in form["annex"]["sections"] if x.get("key") == "eudr_annex_ii")
     labels = [r["cells"][0]["text"] for r in annex["rows"]]
-    assert labels[0].startswith("1.") and any(t.startswith("5.") for t in labels) and any("Geolocation" in t for t in labels)
+    printed = [t for t in labels if t]                       # each point's printed words, once, from the captured spec
+    assert [t.split(".")[0] for t in printed] == ["1", "2", "3", "5", "6"]               # point 4 deleted by 2025/2650
+    assert printed[2].startswith("3. Country of production and the geolocation of all plots of land")
+    assert "deleted" in (annex.get("note") or "")
 
 
 def _submitted(s) -> str:

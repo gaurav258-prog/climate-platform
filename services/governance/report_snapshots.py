@@ -100,6 +100,8 @@ _BUILDERS = {
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
     # frozen from its shipment (movement_id): services.eudr.statement + services.eudr.checks
     "eudr_dds": ("EUDR due diligence statement", "eudr_movement", ("manufacturer",)),
+    # frozen from the undertaking's records: services.eudr.declaration (Annex III) + its checks
+    "eudr_simplified": ("EUDR simplified declaration", "eudr_declaration", ("manufacturer",)),
     "sfdr_precontractual": ("SFDR pre-contractual disclosure (RTS 2022/1288 Annex II / III)", None, ("asset_manager",)),
     "sfdr_periodic": ("SFDR periodic disclosure (RTS 2022/1288 Annex IV / V)", None, ("asset_manager",)),
 }
@@ -242,7 +244,8 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                     note: str | None = None, entity_ids: list | None = None,
                     value_weights: dict | None = None, translation=None, view: str = "joint",
                     figure_sources: dict | None = None, previous_period: dict | None = None,
-                    fund_id: str | None = None, disclosure_date=None, *, period_end, movement_id: str | None = None) -> dict:
+                    fund_id: str | None = None, disclosure_date=None, *, period_end, movement_id: str | None = None,
+                    declaration_entity: str | None = None) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
@@ -274,6 +277,10 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                 raise ValueError("an EUDR due diligence statement is prepared from its shipment — a movement is required")
             st = statement(session, org_id, movement_id)
             return {"statement": st, "checks": checks(st)}, engine_runs.inputs(session, org_id, report_type)
+        if _BUILDERS[report_type][1] == "eudr_declaration":   # a simplified declaration: the undertaking's records, as they stand
+            from services.eudr import declaration as D
+            st = D.compute(session, org_id, declaration_entity, period_end)
+            return {"declaration": st, "checks": D.checks(st)}, engine_runs.inputs(session, org_id, report_type)
         if _BUILDERS[report_type][1] is None:            # a per-product report: the fund's own book and answers
             from services.governance import product_filings, sfdr_product
             if fund_id is None:
@@ -337,6 +344,10 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
         # The date keeps the key report_snapshots scopes its versions by (period_end is generated from it); displays name
         # it 'shipment date' where the basis is a shipment's.
         basis = {"shipment": payload["statement"]["movement"]["external_ref"], "reporting_period_end": period_end.isoformat(),
+                 "regulation_status": basis["regulation_status"]}
+    elif _BUILDERS[report_type][1] == "eudr_declaration":
+        # a simplified declaration: the undertaking's records on its date — displays name the date 'declaration date'
+        basis = {"declaration": "simplified (Annex III)", "reporting_period_end": period_end.isoformat(),
                  "regulation_status": basis["regulation_status"]}
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)

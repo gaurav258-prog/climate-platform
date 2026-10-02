@@ -436,7 +436,7 @@ def _plot_build(ctx: dict, row: dict) -> dict:
             "region": _s(row, "region"), "country": country.upper() if country else None, "annual_spend_eur": spend,
             "plot_area_ha": area, "plot_geometry": geojson, "irrigation_status": _vocab(row, "irrigation_status", "irrigation"),
             "external_ref": _s(row, "external_ref"), "held_from": held_from, "held_until": held_until,
-            "_needs_polygon": needs_polygon}
+            "postal_address": _s(row, "postal_address"), "_needs_polygon": needs_polygon}
 
 
 def _plot_existing(session: Session, org_id: str) -> list[dict]:
@@ -445,7 +445,7 @@ def _plot_existing(session: Session, org_id: str) -> list[dict]:
                region, country, CAST(annual_spend_eur AS FLOAT) AS annual_spend_eur, CAST(plot_area_ha AS FLOAT) AS plot_area_ha,
                plot_geometry::text AS plot_geometry, irrigation_status, held_from::text AS held_from, held_until::text AS held_until,
                entity_id::text AS reporting_entity_id, NULL::text AS intragroup_entity_id,
-               supplier_id::text AS supplier_id, coordinate_decimals
+               supplier_id::text AS supplier_id, coordinate_decimals, postal_address
         FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid) AND source = 'own'
     """), {"o": org_id}).mappings().all()
     out = []
@@ -465,11 +465,11 @@ def _plot_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude, h3_cell, region, country,
                                        annual_spend_eur, plot_area_ha, plot_geometry, confidence, geocode_precision,
                                        irrigation_status, external_ref, held_from, held_until, entity_id, supplier_id,
-                                       coordinate_decimals)
+                                       coordinate_decimals, postal_address)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), CAST(:commodity_id AS uuid), :plot_name, :latitude, :longitude,
                 :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb), 1.0, 'exact',
                 :irrigation_status, :external_ref, CAST(:held_from AS date), CAST(:held_until AS date),
-                CAST(:reporting_entity_id AS uuid), CAST(:supplier_id AS uuid), :coordinate_decimals)
+                CAST(:reporting_entity_id AS uuid), CAST(:supplier_id AS uuid), :coordinate_decimals, :postal_address)
     """), recs)
 
 
@@ -486,6 +486,7 @@ def _plot_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
                external_ref = :external_ref, held_from = CAST(:held_from AS date), held_until = CAST(:held_until AS date),
                entity_id = COALESCE(CAST(:reporting_entity_id AS uuid), p.entity_id),
                supplier_id = COALESCE(CAST(:supplier_id AS uuid), p.supplier_id),
+               postal_address = :postal_address,
                coordinate_decimals = CASE WHEN p.latitude IS DISTINCT FROM :latitude OR p.longitude IS DISTINCT FROM :longitude
                                           OR p.plot_geometry IS DISTINCT FROM CAST(:plot_geometry AS jsonb)
                                           THEN :coordinate_decimals ELSE COALESCE(:coordinate_decimals, p.coordinate_decimals) END
@@ -495,7 +496,8 @@ def _plot_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
 
 PLOTS = Sector("supply_plots", "plot_name", "annual_spend_eur",
                ("plot_name", "commodity_id", "latitude", "longitude", "region", "country", "annual_spend_eur", "plot_area_ha",
-                "plot_geometry", "irrigation_status", "external_ref", "held_from", "held_until", "supplier_id"),
+                "plot_geometry", "irrigation_status", "external_ref", "held_from", "held_until", "supplier_id",
+                "postal_address"),
                _plot_prepare, _plot_build, _plot_existing, _plot_insert, _plot_update,
                table="sc_sourcing_plots", id_column="plot_id", group_entities=True)
 

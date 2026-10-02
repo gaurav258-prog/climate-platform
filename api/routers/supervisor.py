@@ -106,7 +106,7 @@ def population(session: DbSession, ctx: Supervisor):
                org_id::text AS org_id, framework, status, period_label, created_at
         FROM regulatory_filing
         WHERE org_id = ANY(CAST(:ids AS uuid[]))
-        ORDER BY org_id, framework, created_at DESC
+        ORDER BY org_id, framework, seq DESC
     """), {"ids": ids}).mappings().all()
     by_org: dict[str, dict[str, dict]] = {}
     for r in latest:
@@ -153,7 +153,7 @@ def entity(org_id: str, session: DbSession, ctx: Supervisor):
         SELECT filing_id::text AS filing_id, framework, status, period_label, submission_ref, created_at
         FROM regulatory_filing
         WHERE org_id = CAST(:o AS uuid) AND status = ANY(:st)
-        ORDER BY created_at DESC
+        ORDER BY seq DESC
     """), {"o": org_id, "st": list(FILED)}).mappings().all()
 
     # transparency: the supervised entity sees that its regulator accessed its filings

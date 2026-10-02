@@ -63,9 +63,13 @@ def _maker(session: Session, request_id: str) -> str:
 
 def request_status(session: Session, org_id: str, user_id: str, *, entity_id: Optional[str], effective_from: date,
                    size_class: str, country: str, address: str, eori: Optional[str] = None,
-                   established_on: Optional[date] = None, basis: Optional[str] = None) -> dict:
+                   established_on: Optional[date] = None, basis: Optional[str] = None,
+                   primary_own_produce: Optional[bool] = None, other_system: Optional[str] = None) -> dict:
     """Size class within the meaning of Directive 2013/34/EU Art. 3 (Art. 2(30) 'SME'), the date established as such
-    (Art. 38(3)), country, EORI (Annex II point 1). A second person approves it."""
+    (Art. 38(3)), country, EORI (Annex II point 1). For the simplified regime (Art. 4a; E115): whether the undertaking
+    places products it itself grew, harvested, obtained from or raised on plots in its country (Art. 2(15a)) — None: not
+    stated — and the Union or Member State system holding all its Annex III information, where it states one (Art. 4a(4)).
+    A second person approves it."""
     if not str(address or "").strip():
         raise RecordError("the operator's address is required (Annex II point 1)")
     if size_class not in SIZE_CLASSES:
@@ -75,7 +79,8 @@ def request_status(session: Session, org_id: str, user_id: str, *, entity_id: Op
         raise RecordError("that undertaking is not one of this organisation's entities")
     payload = {"entity_id": entity_id, "effective_from": effective_from.isoformat(), "size_class": size_class,
                "country": (country or "").upper(), "address": address.strip(), "eori": (eori or "").upper() or None,
-               "established_on": established_on.isoformat() if established_on else None, "basis": basis}
+               "established_on": established_on.isoformat() if established_on else None, "basis": basis,
+               "primary_own_produce": primary_own_produce, "other_system": (other_system or "").strip() or None}
     return _request(session, org_id, user_id, "eudr.status", f"EUDR status from {effective_from}: {size_class}", payload)
 
 
@@ -84,18 +89,21 @@ def apply_status(session: Session, org_id: str, request_id: str, payload: dict, 
         return {"applied": False, "decision": decision}
     session.execute(text("""
         INSERT INTO eudr_undertaking_statement (org_id, reporting_entity_id, effective_from, size_class, established_on,
-                                                country, address, eori, basis, requested_by, approved_by, approval_request_id)
+                                                country, address, eori, basis, requested_by, approved_by, approval_request_id,
+                                                primary_own_produce, other_system)
         VALUES (CAST(:o AS uuid), CAST(:e AS uuid), CAST(:f AS date), :s, CAST(:est AS date), :c, :addr, :eori, :b,
-                CAST(:m AS uuid), CAST(:a AS uuid), CAST(:q AS uuid))"""),
+                CAST(:m AS uuid), CAST(:a AS uuid), CAST(:q AS uuid), :pop, :os)"""),
         {"o": org_id, "e": payload.get("entity_id"), "f": payload["effective_from"], "s": payload["size_class"],
          "est": payload.get("established_on"), "c": payload["country"], "addr": payload.get("address"), "eori": payload.get("eori"), "b": payload.get("basis"),
-         "m": _maker(session, request_id), "a": checker, "q": request_id})
+         "m": _maker(session, request_id), "a": checker, "q": request_id, "pop": payload.get("primary_own_produce"),
+         "os": payload.get("other_system")})
     return {"applied": True}
 
 
 def live_status(session: Session, org_id: str, entity_id: Optional[str], on: date) -> Optional[dict]:
     r = session.execute(text("""
-        SELECT size_class, established_on, country, address, eori, effective_from FROM eudr_undertaking_statement
+        SELECT size_class, established_on, country, address, eori, effective_from, primary_own_produce, other_system
+        FROM eudr_undertaking_statement
         WHERE org_id = CAST(:o AS uuid) AND reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND effective_from <= :d
         ORDER BY effective_from DESC, seq DESC LIMIT 1"""), {"o": org_id, "e": entity_id, "d": on}).mappings().first()
     return dict(r) if r else None

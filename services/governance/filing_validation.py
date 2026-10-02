@@ -443,7 +443,14 @@ def _validate_eudr_dds(payload: dict) -> list[dict]:
     return checks(st)
 
 
-_RULESETS = {"eudr_dds": _validate_eudr_dds, "bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_p3esg, "sfdr_pai": _validate_sfdr_pai,
+def _validate_eudr_simplified(payload: dict) -> list[dict]:
+    """An EUDR simplified declaration: its checks re-run on the frozen declaration (services.eudr.declaration)."""
+    from services.eudr.declaration import checks
+    st = payload.get("declaration")
+    return checks(st) if st else [_f("declaration_frozen", "integrity", "blocking", False, "no declaration is frozen in this filing")]
+
+
+_RULESETS = {"eudr_dds": _validate_eudr_dds, "eudr_simplified": _validate_eudr_simplified, "bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_p3esg, "sfdr_pai": _validate_sfdr_pai,
              "reit_taxonomy": _validate_reit_taxonomy, "insurer_solvency": _validate_insurer_solvency,
              "insurer_orsa_climate": _validate_insurer_document("insurer_orsa_climate"),
              "insurer_recovery_stress": _validate_insurer_document("insurer_recovery_stress"),

@@ -329,6 +329,16 @@
    "years": null,
    "coverage": "named",
    "note": "IRRD sets how often the plan is updated, not how long a superseded plan is kept. Set your own policy (Settings)."
+  },
+  "eudr_4a_1": {
+   "key": "eudr_4a_1",
+   "act": "Regulation (EU) 2023/1115 (EUDR) as amended by (EU) 2025/2650",
+   "article": "Art. 4a(1)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02023R1115-20260918",
+   "quote": "The obligations laid down in Article 4(2), Article 4(3), second sentence, and Article 4(4), point (c), shall not apply to micro or small primary operators.",
+   "years": null,
+   "coverage": "named",
+   "note": "The Regulation sets no period for keeping the simplified declaration itself: the five-year record of Art. 4(3), second sentence, does not apply to micro or small primary operators. The information it rests on is kept for five years from each placing on the market or export (Art. 9(1)). Set your own policy (Settings)."
   }
  },
  "documents": {
@@ -434,6 +444,13 @@
    "document": "preemptive_recovery_plan",
    "rules": [
     "irrd_none"
+   ],
+   "national": false
+  },
+  "eudr_simplified": {
+   "document": "eudr_simplified",
+   "rules": [
+    "eudr_4a_1"
    ],
    "national": false
   }

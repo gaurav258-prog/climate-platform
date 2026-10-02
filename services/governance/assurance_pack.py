@@ -36,7 +36,8 @@ def _basis_text(basis: dict, payload: dict) -> str:
     if "scenario" in basis:
         return (f"scenario {basis.get('scenario')} · horizon {basis.get('horizon')} · material: {_materiality(basis, payload)}"
                 f" · period {basis.get('reporting_period_end')}")
-    names = {"reporting_period_end": "shipment date"} if "shipment" in basis else {}
+    names = ({"reporting_period_end": "shipment date"} if "shipment" in basis
+             else {"reporting_period_end": "declaration date"} if "declaration" in basis else {})
     return " · ".join(f"{names.get(k, k.replace('_', ' '))} {v}" for k, v in basis.items())
 
 

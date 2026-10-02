@@ -23,7 +23,7 @@ def exceptions(session: Session, org_id: str) -> dict:
         SELECT filing_id::text AS filing_id, framework, period_label, status
         FROM regulatory_filing
         WHERE org_id = :o AND status NOT IN ('superseded', 'withdrawn') AND snapshot_id IS NOT NULL
-        ORDER BY created_at DESC
+        ORDER BY seq DESC
     """), {"o": org_id}).mappings().all()
 
     # which (filing, rule) already have a live task → its id, so the UI can show "tracked" AND link to it
