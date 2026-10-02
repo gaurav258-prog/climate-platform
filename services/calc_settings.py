@@ -262,3 +262,15 @@ def interpretation_catalog(org_type: str | None = None) -> list[dict]:
                     "allowed": spec.get("allowed"), "min": spec.get("min"), "max": spec.get("max"),
                     "sectors": sectors})
     return out
+
+
+def elections_for(session, org_id: str, report_type: str) -> list[dict]:
+    """The interpretations that govern a report type, as the organisation holds them when it is frozen: each switch whose
+    frameworks include the report type — its label, the value in force, and whether the organisation stated it (else the
+    switch's default, or None: not stated). Frozen into the filing's payload, so they are covered by its hash and
+    printed with it (report_snapshots.create_snapshot)."""
+    row = session.execute(text("SELECT COALESCE(interpretation, '{}'::jsonb) FROM org_calc_settings WHERE org_id = :o"),
+                          {"o": org_id}).scalar() or {}
+    resolved = get_calc_settings(session, org_id)
+    return [{"key": k, "label": spec["label"], "value": resolved.get(k), "stated": k in row}
+            for k, spec in INTERPRETATION_SCHEMA.items() if report_type in spec.get("frameworks", [])]

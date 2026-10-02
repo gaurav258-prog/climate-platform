@@ -95,11 +95,12 @@ CATALOG: dict[str, list[dict]] = {
             "tellumen", "compute", provider="Tellumen (Carbon Majors list) + your loan book",
             note="Tellumen holds the published Carbon Majors top-20 list and matches your counterparties (by legal "
                  "identity/LEI) to it; gross carrying amount comes from your book. No external feed needed."),
-        _dp("p3_qualitative", "Templates 1–3 — qualitative ESG risk narrative (governance, strategy, risk mgmt)",
+        _dp("p3_qualitative", "Tables 1–3 — qualitative ESG risk narrative (governance, strategy, risk mgmt)",
             "customer", "report", provider="You author",
             note="These are the regulator's QUALITATIVE tables — prose describing your governance of ESG risk, business "
                  "strategy and risk-management processes. There is no figure to compute; you write the narrative directly "
-                 "on the filing form (we version + attest it with the rest of the filing)."),
+                 "on the filing form, for the filing's institution and reference date; the filing freezes it with its "
+                 "figures, prints it, and is blocked while a row is unanswered."),
     ],
     # reit_tcfd, insurer_climate: retired (services.governance.filings.FRAMEWORKS) — they take no provided value
     # (provided_data.submit) and no prior-filing upload, so they list no datapoints; csrd_e1 keeps its own for the labels

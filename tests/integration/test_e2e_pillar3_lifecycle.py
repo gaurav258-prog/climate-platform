@@ -76,6 +76,21 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     t10_cells = [c for r in sec["t10"]["rows"] if r["type"] == "row" for c in r["cells"] if c.get("supply")]
     assert len(t10_cells) == 11 * 4                                        # 11 printed rows × columns c-f to enter
 
+    # qualitative Tables 1-3: the text answered for this institution and reference date is frozen and printed; an
+    # unanswered row blocks the filing until it is answered and the draft refreshed
+    tab2 = {r["cells"][0]["text"].split(" ")[0]: r["cells"][1]["text"] for r in sec["p3_tab2"]["rows"] if r["type"] == "row"}
+    assert tab2["(d)(i)"] == "Community engagement policy."
+    v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
+    q = next(f for f in v["findings"] if f["rule"] == "qualitative_tables_answered")
+    assert q["severity"] == "blocking" and not q["passed"]
+    qual = api.get(f"/v1/filings/qualitative/p3esg?period_end={form['period_end']}", headers=maker).json()
+    keys = [x["key"] for t in qual["tables"] if t["table"].startswith("TAB") for x in t["rows"]]
+    assert api.patch("/v1/filings/qualitative/p3esg", headers=maker,
+                     json={"values": {k: f"Answer {k}" for k in keys}, "period_end": form["period_end"]}).status_code == 200
+    assert api.post(f"/v1/filings/{fid}/refresh", headers=maker).status_code == 200
+    v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
+    assert next(f for f in v["findings"] if f["rule"] == "qualitative_tables_answered")["passed"]
+
     # 4 · supply a Template 10 cell for the filing's period; a second person attests it
     r = api.post("/v1/provided", headers=maker, json={"framework": "bank_p3esg", "datapoint_key": "T10.1.c",
                                                       "value_num": 12500000, "reporting_period_end": form["period_end"]})
@@ -145,6 +160,9 @@ def test_preparing_an_obligation_files_its_own_entity_and_period(api):
     row = s.execute(text("SELECT entity_id::text, period_end::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid)"),
                     {"f": r.json()["filing_id"]}).one()
     assert tuple(row) == (solo["entity_id"], "2025-12-31")
+    q = s.execute(text("""SELECT s.payload -> 'qualitative' FROM regulatory_filing f JOIN report_snapshots s
+                           ON s.snapshot_id = f.snapshot_id WHERE f.filing_id = CAST(:f AS uuid)"""), {"f": r.json()["filing_id"]}).scalar()
+    assert q["entity_id"] == solo["entity_id"] and q["reference_date"] == "2025-12-31"   # the entity's own text, not the org's
     card = next(o for o in api.get("/v1/obligations", headers=maker).json()["obligations"]
                 if o["obligation_id"] == solo["obligation_id"])
     assert card["filing_id"] == r.json()["filing_id"]                        # the card now links to its filing

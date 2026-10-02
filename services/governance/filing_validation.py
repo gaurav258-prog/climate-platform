@@ -156,6 +156,22 @@ def _validate_p3_book(payload: dict) -> list[dict]:
     ]
 
 
+def _qualitative_findings(payload: dict) -> list[dict]:
+    """Tables 1-3 (the qualitative information on environmental, social and governance risk) are part of what the
+    institution discloses: every row, as frozen for its undertaking and reference date, carries its text. A filing frozen
+    before the text was frozen with it has none to check."""
+    if payload.get("qualitative") is None:
+        return []
+    from services.governance.filing_annex import _p3_spec
+    from services.governance.pillar3_qualitative import unanswered
+    spec = _p3_spec(payload)
+    left = unanswered(spec, payload["qualitative"])
+    return [_f("qualitative_tables_answered", "completeness", "blocking", not left,
+               "Every row of qualitative Tables 1–3 is answered" if not left
+               else f"{len(left)} row(s) of qualitative Tables 1–3 not answered: {', '.join(left[:5])}"
+                    + (" …" if len(left) > 5 else ""), ref=f"{spec['act'].get('short') or spec['act']['title']}, Tables 1–3")]
+
+
 def _validate_bank_p3esg(payload: dict) -> list[dict]:
     """The bank checks plus Pillar 3's own: every template amount is a gross carrying amount — the exposure's outstanding
     balance on the loan tape, never its collateral value — so an exposure that states none blocks the filing."""
@@ -166,7 +182,7 @@ def _validate_bank_p3esg(payload: dict) -> list[dict]:
     # a filing of the earlier report shape keeps the checks it was made under; a new one checks what its templates read —
     # no severity-bucket, value-at-risk or per-hazard figure is frozen any more (E97)
     base = _validate_bank_book(payload) if is_earlier_shape(payload) else _validate_p3_book(payload)
-    return base + _t1_findings(payload) + [_f(
+    return base + _t1_findings(payload) + _qualitative_findings(payload) + [_f(
         "gross_carrying_amount_stated", "completeness", "blocking", not missing,
         f"Every exposure states its gross carrying amount ({len(assets)})" if not missing
         else f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they would sit "

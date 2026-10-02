@@ -51,7 +51,10 @@ def _file(api, maker, checker, fid):
     sr = api.post(f"/v1/filings/{fid}/submit-for-review", headers=maker)
     assert sr.status_code == 200, sr.text
     _approve(api, checker, sr.json()["approval_request_id"])
-    at = api.post(f"/v1/filings/{fid}/attest", headers=checker, json={"statement": "Signed for and on behalf of Terra Foods."})
+    unsigned = api.post(f"/v1/filings/{fid}/attest", headers=checker, json={"statement": "Signed for Terra Foods."})
+    assert unsigned.status_code == 409 and "Annex II point 6" in unsigned.text        # name and function (Annex II point 6)
+    at = api.post(f"/v1/filings/{fid}/attest", headers=checker,
+                  json={"statement": "Signed for and on behalf of Terra Foods.", "function": "Head of Sourcing Compliance"})
     assert at.status_code == 200, at.text
     assert api.post(f"/v1/filings/{fid}/submit", headers=maker, json={"submission_ref": "EUDR-IS"}).status_code == 200
 
@@ -164,6 +167,9 @@ def test_a_shipment_is_stated_filed_referenced_amended_and_withdrawn(api, monkey
     assert [t.split(".")[0] for t in printed] == ["1", "2", "3", "5", "6"]               # point 4 deleted by 2025/2650
     assert printed[2].startswith("3. Country of production and the geolocation of all plots of land")
     assert "deleted" in (annex.get("note") or "")
+    six = [r["cells"][1]["text"] for r in annex["rows"][labels.index(printed[-1]):]]            # point 6, as signed
+    assert six[0].startswith("Signed for and on behalf of: ") and six[1].startswith("Date: ")
+    assert six[2].endswith(", Head of Sourcing Compliance") and six[3].startswith("Signature: attested in the platform by ")
 
 
 def _submitted(s) -> str:

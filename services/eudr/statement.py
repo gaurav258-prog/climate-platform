@@ -185,6 +185,27 @@ def sections(payload: dict) -> list[dict]:
              "rows": rows, "note": " ".join(t.get("capture_notes") or []) or None}]
 
 
+def sign_point_6(annex: dict, payload: dict, att: dict | None) -> None:
+    """Fill point 6 of the printed statement in its own format ('Signed for and on behalf of: Date: Name and function:
+    Signature:') from the attestation as recorded; before attestation it says so. The frozen payload keeps the format;
+    the signature is the attestation event (who signed, as their sign-in, and when)."""
+    sec = next((x for x in annex.get("sections") or [] if x.get("key") == "eudr_annex_ii"), None)
+    if sec is None:
+        return
+    i = next((n for n, row in enumerate(sec["rows"]) if (row.get("cells") or [{}])[0].get("text", "").startswith("6. ")), None)
+    if i is None:
+        return
+    a1 = ((payload.get("statement") or {}).get("annex_ii") or {}).get("1") or {}
+    if att is None:
+        sec["rows"][i]["cells"][1] = {"text": "— signed when the statement is attested"}
+        return
+    lines = [f"Signed for and on behalf of: {a1.get('name') or '—'}", f"Date: {att['at'][:10]}",
+             f"Name and function: {att.get('attestor_name')}, {att.get('function') or 'function not stated'}",
+             f"Signature: attested in the platform by {att.get('email') or att.get('attestor_name')} at {att['at']}"]
+    sec["rows"][i]["cells"][1] = {"text": lines[0]}
+    sec["rows"][i + 1:i + 1] = [{"type": "row", "cells": [{"text": ""}, {"text": t}]} for t in lines[1:]]
+
+
 def binding(spec: dict) -> dict:
     """How each point of Annex II is filled (services.regspec.coverage)."""
     src = {"p1_operator": "computed:operator_status", "p2_product": "computed:movement",

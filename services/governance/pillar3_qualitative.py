@@ -1,13 +1,18 @@
 """EBA Pillar 3 ESG — the qualitative disclosure tables (Tables 1, 2 and 3), which the institution authors.
 
 The rows — their letters, headings and wording — come from the governing template specification
-(data/reference/regspec/bank_p3esg); nothing is typed here. Authored text is stored per organisation under
-'table<n>.<row letter>' — the organisation's answers to family 'bank_p3esg', document 'qualitative', in the one store of
-template answers (services.governance.template_answers) — versioned and attested with the filing.
+(data/reference/regspec/bank_p3esg); nothing is typed here. Authored text belongs to one institution and one disclosure
+reference date: the answers to family 'bank_p3esg', document 'qualitative', in the one store of template answers
+(services.governance.template_answers), keyed by the reporting entity (none: the organisation itself) and the reference
+date, under 'table<n>.<row letter>'. A filing freezes the text of its own undertaking and reference date with its
+figures (pillar3_report.freeze: payload 'qualitative'), prints it, and is blocked while a row is unanswered.
 
 The narrative accompanying Template 1 (columns i–k: data sources, methodology, which kinds of emissions, the plans) is
-answered in the same store under 't1.<item>' (items and their quoted basis: services.governance.pillar3_t1); a filing
-freezes it, and validation requires the items the institution's statements call for.
+answered in the same store and the same keys under 't1.<item>' (items and their quoted basis:
+services.governance.pillar3_t1); a filing freezes it, and validation requires the items the institution's statements
+call for.
+
+Text stored before answers were keyed (no undertaking, no date) is shown for reference only — never frozen or printed.
 """
 from __future__ import annotations
 
@@ -71,15 +76,38 @@ def qualitative_structure(saved: dict | None, spec: dict | None = None) -> dict:
     return {"tables": out, "total_rows": total, "authored": filled, "spec": s["version"]}
 
 
-def read(session: Session, org_id: str) -> dict:
-    """{row key: authored text} of the organisation's qualitative tables."""
+def read(session: Session, org_id: str, entity_id: str | None, period_end: date) -> dict:
+    """{row key: authored text} of one institution's qualitative tables for one reference date."""
+    return {k: v["text"] for k, v in T.read(session, org_id, FAMILY, DOCUMENT, entity_id=entity_id,
+                                            period_end=period_end).items() if v.get("text")}
+
+
+def earlier(session: Session, org_id: str) -> dict:
+    """Text stored before answers were keyed by undertaking and reference date — for reference only."""
     return {k: v["text"] for k, v in T.read(session, org_id, FAMILY, DOCUMENT).items() if v.get("text")}
 
 
-def save(session: Session, org_id: str, values: dict[str, str], user_id: str | None, spec: dict | None = None) -> dict:
-    """Store authored text per row of the governing tables (a blank text clears the row); {saved, refused}."""
+def save(session: Session, org_id: str, values: dict[str, str], user_id: str | None, *, entity_id: str | None,
+         period_end: date, spec: dict | None = None) -> dict:
+    """Store authored text per row of the governing tables for one institution and reference date (a blank text clears
+    the row); {saved, refused}."""
     keys = valid_keys(spec)
     template = {"items": [{"id": k, "kind": "field"} for k in keys]}
     answers = {k: {"text": v} if isinstance(v, str) and v.strip() else None for k, v in values.items()}
     return T.save(session, org_id, FAMILY, DOCUMENT, template, dict.fromkeys(keys, "input"), answers, user_id,
-                  label="the governing Pillar 3 ESG qualitative tables")
+                  entity_id=entity_id, period_end=period_end, label="the governing Pillar 3 ESG qualitative tables")
+
+
+def frozen(session: Session, org_id: str, entity_id: str | None, period_end: date, spec: dict) -> dict:
+    """What a filing freezes: the text of Tables 1-3 for its undertaking and reference date."""
+    from services.governance.pillar3_other import qualitative_rows
+    text_ = read(session, org_id, entity_id, period_end)
+    keys = [r["key"] for tid in _TABLES for r in qualitative_rows(spec, tid)]
+    return {"entity_id": entity_id, "reference_date": period_end.isoformat(), "rows": {k: text_[k] for k in keys if k in text_}}
+
+
+def unanswered(spec: dict, q: dict) -> list[str]:
+    """The rows of Tables 1-3 a frozen filing has no text for (each 'Table <n> <row>')."""
+    from services.governance.pillar3_other import qualitative_rows
+    rows = (q or {}).get("rows") or {}
+    return [f"Table {tid[-1]} {r['row']}" for tid in _TABLES for r in qualitative_rows(spec, tid) if not (rows.get(r["key"]) or "").strip()]

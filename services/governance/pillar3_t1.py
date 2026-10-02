@@ -105,16 +105,17 @@ def sector_intensities(session, org_id: str, period_end: date) -> dict:
             if v["concept"] == INTENSITY and v.get("member") and v.get("value") is not None}
 
 
-def record(session, org_id: str, period_end: date | None = None) -> dict:
+def record(session, org_id: str, period_end: date | None = None, entity_id: str | None = None) -> dict:
     """What a filing freezes: the statements as stated now, the sector-average intensities stated for the period, the
-    disclosure reference date (the period end), and the authored narrative (template answers)."""
+    disclosure reference date (the period end), and the narrative authored for this institution and reference date
+    (template answers; entity_id None: the organisation itself)."""
     from services.calc_settings import get_calc_settings
     from services.governance import pillar3_qualitative as Q
     if period_end is None:
         from services.governance.filings import reporting_period_end
         period_end = reporting_period_end(session, org_id)
     s = get_calc_settings(session, org_id)
-    answers = Q.read(session, org_id)
+    answers = Q.read(session, org_id, entity_id, period_end)
     return {"estimation": s.get(ESTIMATION), "attribution": s.get(ATTRIBUTION), "k_scope_1_2": s.get(K_READING),
             "scope3_sector_average": s.get(S3_BASIS), "reference_date": period_end.isoformat(),
             "sector_intensity": sector_intensities(session, org_id, period_end),

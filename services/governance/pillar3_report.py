@@ -49,11 +49,19 @@ def freeze(session, org_id, scenario, horizon, entity_ids=None, value_weights=No
     read.get("method.at_risk_level")
     # Template 1 columns i-k: the institution's stated estimation and attribution, and the narrative the instructions
     # require (E103) — the EVIC-based PCAF figure is not what the template prints, and is not frozen any more
+    # the institution the filing is for (a solo entity or a group's top; None: the organisation) — its own narrative and
+    # qualitative Tables 1-3 for the reference date are frozen with the figures
+    import services.regspec as R
+    from services.governance import pillar3_qualitative as Q
+    from services.governance.entities import root_of
     from services.governance.pillar3_t1 import RECORD, record
+    who = root_of(session, org_id, entity_ids)
+    spec = R.governing("bank_p3esg", period_end=method.period_end)
     return {"assets": book,
             "rollup": {"n_assets": len(book), "n_scored": sum(1 for a in book if a.get("headline_bucket")),
                        "total_value_eur": round(sum(a.get("value_eur") or 0 for a in book))},
-            RECORD: record(session, org_id, method.period_end), "method": read.record()}
+            RECORD: record(session, org_id, method.period_end, who), "method": read.record(),
+            "qualitative": Q.frozen(session, org_id, who, method.period_end, spec) if spec else None}
 
 
 def t1_total(payload: dict) -> dict | None:
@@ -153,6 +161,13 @@ def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None,
         if st.get(k):
             gaps.append(f"Template 1 columns i–k — {st[k]} exposures {what}")
     gaps += [f"Template 1 narrative not authored: {n['prompt']}" for n in T1.missing_narrative(p[T1.RECORD])]
+    if p.get("qualitative") is not None:
+        import services.regspec as R
+        from services.governance.pillar3_qualitative import unanswered
+        left = unanswered(R.governing("bank_p3esg", period_end=p[T1.RECORD]["reference_date"]), p["qualitative"])
+        if left:
+            gaps.append(f"Qualitative Tables 1–3: {len(left)} row(s) not answered for this institution and reference date "
+                        f"({', '.join(left[:6])}{' …' if len(left) > 6 else ''})")
     return {"coverage": {"label": "exposures scored", "done": n_done, "total": n_total,
                          "pct": round(100 * n_done / n_total, 1) if n_total else 0},
             "total_value_eur": r["total_value_eur"], "value_at_risk_eur": None, "noun": "exposures", "gaps": gaps}

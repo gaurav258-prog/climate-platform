@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, attachment, require_permission
@@ -53,29 +53,52 @@ class GenerateBody(BaseModel):
 
 class QualitativePatch(BaseModel):
     values: dict[str, str]    # {'table1.a': 'authored text', ...}
+    undertaking: str = "organisation"     # the institution the text is for: 'organisation' or a reporting entity id
+    period_end: Optional[date] = None     # the disclosure reference date (default: the organisation's reporting period end)
 
 
-@router.get("/filings/qualitative/p3esg", summary="Pillar 3 ESG qualitative tables (1-3) + authored text")
-def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+def _qual_subject(session, org_id: str, undertaking: str, period_end: Optional[date]) -> tuple[Optional[str], date]:
+    from services.governance.prior_filings import FilingError as PFError
+    from services.governance.prior_filings import _undertaking
+    try:
+        eid = _undertaking(session, org_id, undertaking)
+    except PFError as e:
+        raise HTTPException(422, {"error": "bad_undertaking", "message": str(e)})
+    return eid, period_end or F.reporting_period_end(session, org_id)
+
+
+def _qual_view(session, org_id: str, eid: Optional[str], pe: date) -> dict:
     from services.governance import pillar3_qualitative as Q
-    return Q.qualitative_structure(Q.read(session, ctx["org"]["org_id"]))
+    return {**Q.qualitative_structure(Q.read(session, org_id, eid, pe)), "entity_id": eid, "period_end": pe.isoformat(),
+            "earlier": Q.earlier(session, org_id) or None}
 
 
-@router.patch("/filings/qualitative/p3esg", summary="Author / save a Pillar 3 ESG qualitative disclosure row")
+@router.get("/filings/qualitative/p3esg",
+            summary="Pillar 3 ESG qualitative tables (1-3) + the text authored for one institution and reference date")
+def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permission("reports.view")),
+                          undertaking: str = Query("organisation"), period_end: Optional[date] = Query(None)):
+    eid, pe = _qual_subject(session, ctx["org"]["org_id"], undertaking, period_end)
+    return _qual_view(session, ctx["org"]["org_id"], eid, pe)
+
+
+@router.patch("/filings/qualitative/p3esg",
+              summary="Author / save Pillar 3 ESG qualitative rows for one institution and reference date")
 def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
                           ctx: dict = Depends(require_permission("approvals.create"))):
     from services.governance import pillar3_qualitative as Q
+    org_id = ctx["org"]["org_id"]
     unknown = sorted(set(body.values) - Q.valid_keys())
     if unknown:
         raise HTTPException(422, {"error": "unknown_rows", "message": f"Not a row of the governing tables: {', '.join(unknown[:5])}"})
-    refused = Q.save(session, ctx["org"]["org_id"], body.values, ctx["user"]["id"])["refused"]
+    eid, pe = _qual_subject(session, org_id, body.undertaking, body.period_end)
+    refused = Q.save(session, org_id, body.values, ctx["user"]["id"], entity_id=eid, period_end=pe)["refused"]
     if refused:
         raise HTTPException(422, {"error": "refused", "message": "; ".join(r["reason"] for r in refused)})
     session.commit()
-    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
-                action="p3esg.qualitative.author", target_type="organization", target_id=ctx["org"]["org_id"],
-                detail={"rows": list(body.values.keys())})
-    return Q.qualitative_structure(Q.read(session, ctx["org"]["org_id"]))
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                action="p3esg.qualitative.author", target_type="organization", target_id=org_id,
+                detail={"rows": list(body.values.keys()), "entity_id": eid, "period_end": pe.isoformat()})
+    return _qual_view(session, org_id, eid, pe)
 
 
 class BasisPatch(BaseModel):
@@ -88,6 +111,7 @@ class AttestBody(BaseModel):
     # No attestor_name field: the attestor is always the calling user's own authenticated identity (see
     # module docstring) — a client can never supply who is attesting, only what they certify.
     statement: str = Field(..., min_length=1, max_length=2000)
+    function: Optional[str] = Field(None, max_length=200)   # the signer's function (EUDR Annex II point 6)
 
 
 class SubmitBody(BaseModel):
@@ -529,10 +553,10 @@ def attest(filing_id: str, body: AttestBody, session: DbSession,
     attestor_name = ctx["user"].get("full_name") or ctx["user"]["email"]
     try:
         f = F.attest(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
-                     attestor_name, body.statement)
+                     attestor_name, body.statement, body.function)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
-    _audit(session, ctx, "filing.attest", filing_id, {"attestor_name": attestor_name})
+    _audit(session, ctx, "filing.attest", filing_id, {"attestor_name": attestor_name, "function": body.function})
     return f
 
 

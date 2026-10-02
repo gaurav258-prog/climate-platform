@@ -820,6 +820,29 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
 
 
 # ── EBA Pillar 3 ESG: the templates, titled and cited from the governing specification ─────
+def _p3_qualitative_sections(spec: dict, q: dict | None) -> list[dict]:
+    """Tables 1-3, row by row as the frozen spec prints them, with the text frozen for the filing's institution and
+    reference date. A filing frozen before the text was frozen with it prints none (it never froze any)."""
+    if q is None or not any(t["id"] == "TAB1" for t in spec["templates"]):
+        return []
+    import services.regspec as R
+    from services.governance.pillar3_other import qualitative_rows
+    text_, out = q.get("rows") or {}, []
+    for n, tid in enumerate(("TAB1", "TAB2", "TAB3"), 1):
+        rows, group = [], None
+        for r in qualitative_rows(spec, tid):
+            if r["group"] and r["group"] != group:
+                group = r["group"]
+                rows.append({"type": "subheader", "label": group})
+            rows.append({"type": "row", "cells": [_txt(f"{r['row']} {r['prompt']}"), _txt(text_.get(r["key"]) or "— not answered")]})
+        out.append({"title": R.template(spec, tid)["title"], "key": f"p3_tab{n}",
+                    "columns": ["Row", "Disclosure"], "rows": rows,
+                    "note": f"{R.citation(spec, tid)}. The text answered for this institution and reference date "
+                            f"({q.get('reference_date')}), frozen with the filing.",
+                    "spec": {"version": spec["version"], "template": tid, "sha256": spec["_sha256"]}})
+    return out
+
+
 def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     total = (dps.get("book.total_value_eur") or {}).get("value")
     sections: list[dict] = []
@@ -828,6 +851,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     # Templates 1 and 5 are built to the specification the filing was prepared under (frozen as _spec; a filing
     # frozen before specifications existed was prepared under ITS 2022/2453). Rows, columns and titles come from it.
     spec = _p3_spec(payload)
+    sections += _p3_qualitative_sections(spec, (payload or {}).get("qualitative"))
     if assets:
         from services.governance.pillar3_grids import build as p3_build
         from services.governance.pillar3_t1 import RECORD

@@ -76,6 +76,15 @@ def test_sfdr_periodic_from_holdings_and_answers_to_the_export(api):
     wrong = api.get(f"/v1/filings/preflight?framework=sfdr_pai&fund_id={fid}", headers=maker)   # an entity-level report
     assert wrong.status_code == 409 and "not disclosed per financial product" in wrong.text
 
+    # a periodic answer belongs to its reference period: one stored for the year before never reaches this period's filing
+    from datetime import date as _date
+
+    from services.governance import template_answers as TA
+    other_item = next(i["id"] for i in d["items"] if i["status"] == "missing" and i["id"] != "q_sio_met" and i["kind"] == "question")
+    TA.save(s, NORDKAP, "sfdr_product", "periodic", {"items": [{"id": other_item, "kind": "question"}]}, {other_item: "input"},
+            {other_item: {"text": "An answer for the previous period."}}, None, fund_id=fid,
+            period_end=_date(pe.year - 1, pe.month, pe.day))
+
     # 5 · the filing freezes the fund as its subject; one live filing per fund and period
     g = api.post("/v1/filings", headers=maker, json={"framework": "sfdr_periodic", "confirm_token": pf["confirm_token"], "fund_id": fid})
     assert g.status_code == 201, g.text
@@ -90,6 +99,7 @@ def test_sfdr_periodic_from_holdings_and_answers_to_the_export(api):
     frozen = {i["id"]: i for i in doc["items"]}
     assert frozen["q_sio_met"]["value"]["text"].startswith("The objective was met")
     assert frozen["chart_tax_incl"]["value"]["graph"]["turnover"]["aligned"] == 80.0
+    assert "previous period" not in str(frozen[other_item].get("value"))                     # keyed by the filing's period
 
     # 7 · the checks count what is still unanswered (a warning, not a block)
     v = api.get(f"/v1/filings/{filing['filing_id']}/validation", headers=maker).json()

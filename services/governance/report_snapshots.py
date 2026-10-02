@@ -364,6 +364,10 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
         # a simplified declaration: the undertaking's records on its date — displays name the date 'declaration date'
         basis = {"declaration": "simplified (Annex III)", "reporting_period_end": period_end.isoformat(),
                  "regulation_status": basis["regulation_status"]}
+    # the interpretations that govern this report, as held now: inside the payload, so covered by its hash and printed
+    # with the filing (engine_versions keeps every setting too, but outside the hash)
+    from services.calc_settings import elections_for
+    payload["_elections"] = elections_for(session, org_id, report_type)
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
     # intake phase 4: what this run read and whether its output holds — an integrity failure refuses the freeze

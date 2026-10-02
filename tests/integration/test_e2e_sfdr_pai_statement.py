@@ -143,6 +143,13 @@ def test_the_statement_for_a_reference_period(api):
     assert next(v for k, v in s5.items() if k.startswith("(a) where applicable")) == "Not applicable (stated)"
     assert any("2024-12-31 · indicator.2" == row["cells"][0]["text"] for row in secs["sfdr_s7"]["rows"] if row["type"] == "row")
 
+    # the interpretations the organisation holds are frozen inside the hashed payload and printed
+    rec = api.get(f"/v1/filings/{fid}/export?format=json", headers=maker).json()
+    frozen = {e["key"]: e for e in rec["payload"]["_elections"]}
+    assert rec["hash_verified"] and "climate_var_dependence" in frozen and "fx_flow_rate" in frozen
+    assert {e["key"]: e["value"] for e in form["elections"]} == {k: e["value"] for k, e in frozen.items()}   # on the record
+    assert "elections" not in secs                                                     # the annex holds only the templates
+
     # a later change of answer does not reach the frozen statement
     api.put("/v1/entity/pai-statement/answers", headers=maker,
             json={"period_end": "2025-12-31", "answers": {"indicator.2.expl": {"text": "Changed after freezing."}}})
@@ -157,6 +164,7 @@ def test_the_statement_for_a_reference_period(api):
     assert "Explained: indicator.2" in cells and "61.5" in cells
     assert any("the average of the impacts on 2025-03-31" in c for c in cells)                 # section notes travel
     assert any(c.startswith("(e) the data sources used") for c in cells)
+    assert frozen["fx_flow_rate"]["label"] in cells                                    # the stated interpretations travel
     assert api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker).status_code == 409    # no SFDR XBRL (E113)
     _file_and_submit(api, maker, checker, fid, "I approve the 2025 PAI statement.")
 

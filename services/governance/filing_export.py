@@ -61,7 +61,14 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
 
     if fmt == "xlsx":                                  # the form as viewed: frozen figures with their audited overrides
         from services.governance.filings import form_view
-        buf = _xlsx(filing["framework"], payload, ((form_view(session, org_id, filing_id) or {}).get("annex")))
+        annex = (form_view(session, org_id, filing_id) or {}).get("annex")
+        if annex is not None and payload.get("_elections"):        # the stated interpretations, as a block after the templates
+            annex = {**annex, "sections": [*annex.get("sections", []), {
+                "title": "Interpretations stated by the organisation (frozen with this filing)",
+                "columns": ["Interpretation", "Value", "Stated"],
+                "rows": [{"type": "row", "cells": [{"text": e["label"]}, {"text": "not stated" if e["value"] is None else str(e["value"])},
+                                                   {"text": "stated" if e["stated"] else "default"}]} for e in payload["_elections"]]}]}
+        buf = _xlsx(filing["framework"], payload, annex)
         return (f"{stem}.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.getvalue())
 

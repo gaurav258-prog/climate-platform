@@ -668,6 +668,7 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
 
   const [reason, setReason] = useState('')
   const [attStmt, setAttStmt] = useState('I certify these figures are complete and accurate to the best of my knowledge.')
+  const [attFn, setAttFn] = useState('')
   const [subRef, setSubRef] = useState('')
   const [ackRef, setAckRef] = useState('')
   const [wOpen, setWOpen] = useState(false)
@@ -716,7 +717,10 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
             <p className="text-[12px] text-[var(--color-mute)]">Attest — the accountable person certifies the frozen numbers.</p>
             <p className="text-[11.5px] text-[var(--color-faint)]">Attesting as <span className="text-[var(--color-ink)]">{profile?.user?.name ?? profile?.user?.email}</span> — bound to your own sign-in, not editable.</p>
             <textarea className={box} rows={2} value={attStmt} onChange={e => setAttStmt(e.target.value)} />
-            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/attest`, { statement: attStmt }))} disabled={busy || !attStmt}><Stamp size={14} /> Attest filing</Button>
+            {f.framework === 'eudr_dds' && (
+              <label className="block text-[12px] text-[var(--color-mute)]">Your function — printed with your name in point 6 of the statement (Annex II)
+                <input className={`${box} mt-1`} value={attFn} onChange={e => setAttFn(e.target.value)} placeholder="e.g. Head of Sourcing Compliance" /></label>)}
+            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/attest`, { statement: attStmt, function: attFn || undefined }))} disabled={busy || !attStmt || (f.framework === 'eudr_dds' && !attFn.trim())}><Stamp size={14} /> Attest filing</Button>
           </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Approved. Awaiting attestation by an accountable person.</p>)}
 

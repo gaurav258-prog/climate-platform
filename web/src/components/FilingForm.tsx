@@ -32,7 +32,8 @@ interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; ke
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string; kind?: 'document'; items?: DocItem[] }   // kind 'document': a template printed as a document (SFDR Annexes II–V)
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
-interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null }
+interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; elections?: Election[] | null }
+interface Election { key: string; label: string; value: unknown; stated: boolean }
 
 // the currency the frozen filing presents in (fmt 'eur' = a money figure, whatever its currency)
 const CurrencyCtx = createContext('EUR')
@@ -80,6 +81,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
     <CurrencyCtx.Provider value={d.currency ?? 'EUR'}>
     <div>
       {d.consolidation && <FilingConsolidation c={d.consolidation} />}
+      {d.elections && d.elections.length > 0 && <FilingElections e={d.elections} />}
       {d.fx && <FilingFx fx={d.fx} />}
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Final form · as it will be submitted
@@ -101,7 +103,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
       {view !== 'official'
         ? <DatapointList groups={d.groups} {...editProps} />
         : d.framework === 'bank_p3esg'
-          ? <P3FormTabs annex={d.annex!} supplied={supplied} periodEnd={d.period_end} onSupplied={onSupplied} {...editProps} />
+          ? <P3FormTabs annex={d.annex!} supplied={supplied} periodEnd={d.period_end} entityId={d.reporting_entity_id ?? null} onSupplied={onSupplied} {...editProps} />
           : hasAnnex
             ? <AnnexView annex={d.annex!} supplied={supplied} periodEnd={d.period_end} onSupplied={onSupplied} {...editProps} />
             : <DatapointList groups={d.groups} {...editProps} />}
@@ -200,9 +202,9 @@ const P3_TABS: { k: P3Group; label: string; sub: string }[] = [
   { k: 'tax', label: 'Taxonomy & GAR', sub: 'Templates 6–10' },
 ]
 
-function P3FormTabs({ annex, supplied, periodEnd, onSupplied, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void } & EditProps) {
+function P3FormTabs({ annex, supplied, periodEnd, entityId, onSupplied, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; entityId: string | null; onSupplied: () => void } & EditProps) {
   const [tab, setTab] = useState<P3Group>('qual')
-  const qual = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
+  const qual = useQuery({ queryKey: ['p3-qualitative', entityId, periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, periodEnd)) })
   const sectionsOf = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.title) === g) })
   const tabs = annex.sections.some(s => p3Group(s.title) === 'earlier')
     ? [...P3_TABS, { k: 'earlier' as P3Group, label: EARLIER, sub: 'not printed by the templates' }] : P3_TABS
@@ -241,7 +243,11 @@ function P3FormTabs({ annex, supplied, periodEnd, onSupplied, ...ep }: { annex: 
           )
         })}
       </div>
-      {tab === 'qual' && <P3Qualitative canEdit={ep.canEdit} />}
+      {tab === 'qual' && (ep.canEdit
+        ? <P3Qualitative entityId={entityId} periodEnd={periodEnd} />
+        : sectionsOf('qual').sections.length
+          ? <AnnexView annex={sectionsOf('qual')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />
+          : <Card className="p-4 mt-3 text-[12.5px] text-[var(--color-mute)]">This filing was prepared before the qualitative tables were frozen with it, so it holds no text of its own for Tables 1–3.</Card>)}
       {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
       {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
       {tab === 'tax' && <AnnexView annex={sectionsOf('tax')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
@@ -409,15 +415,18 @@ function OverrideEditor({ filingId, dp, onClose, onDone }: { filingId: string; d
   )
 }
 
-// ── Pillar 3 ESG qualitative Tables 1-3 (Annex XXXIX) — free-format narrative the institution AUTHORS in-app.
-// These forms have nothing to compute; the user types them here and they are versioned + attested with the filing.
+// ── Pillar 3 ESG qualitative Tables 1-3 (Annex XXXIX) — free-format text the institution authors, for one institution
+// (the filing's entity, or the organisation) and one reference date (the filing's). A draft freezes the text when it is
+// prepared or refreshed; once out of draft the form shows the frozen copy, never the live text.
+const qualUrl = (entityId: string | null, periodEnd: string | null) =>
+  `/v1/filings/qualitative/p3esg?undertaking=${entityId ?? 'organisation'}${periodEnd ? `&period_end=${periodEnd}` : ''}`
 interface QRow { key: string; row: string; group: string; prompt: string; value: string; basis?: string; required_when?: string }
 interface QTable { table: string; title: string; rows: QRow[] }
-interface QData { tables: QTable[]; total_rows: number; authored: number }
+interface QData { tables: QTable[]; total_rows: number; authored: number; period_end: string; entity_id: string | null }
 
-function P3Qualitative({ canEdit }: { canEdit: boolean }) {
+function P3Qualitative({ entityId, periodEnd }: { entityId: string | null; periodEnd: string | null }) {
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
+  const q = useQuery({ queryKey: ['p3-qualitative', entityId, periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, periodEnd)) })
   const d = q.data
   if (!d) return null
   return (
@@ -425,7 +434,7 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
       <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
         <div>
           <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3 · Template 1 narrative</div>
-          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Free-format narrative · <span style={{ color: 'var(--color-sky)' }}>you author</span> · versioned + attested with the filing</div>
+          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Free-format text · <span style={{ color: 'var(--color-sky)' }}>you author</span> · for this filing's institution and reference date {d.period_end} · frozen when the draft is refreshed</div>
         </div>
         <div className="mono text-[10px] text-[var(--color-faint)]">{d.authored}/{d.total_rows} authored</div>
       </div>
@@ -444,7 +453,7 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
                       <div className="text-[12px] text-[var(--color-mute)] mb-1"><span className="mono text-[10px] text-[var(--color-faint)] mr-1.5">{r.row}</span>{r.prompt}</div>
                       {r.required_when && <div className="mono text-[9.5px] text-[var(--color-faint)] mb-1">{r.required_when}</div>}
                       {r.basis && <div className="text-[10.5px] text-[var(--color-faint)] italic mb-1">{r.basis}</div>}
-                      <QCell row={r} canEdit={canEdit} onSaved={() => qc.invalidateQueries({ queryKey: ['p3-qualitative'] })} />
+                      <QCell row={r} entityId={entityId} periodEnd={periodEnd} onSaved={() => qc.invalidateQueries({ queryKey: ['p3-qualitative'] })} />
                     </div>
                   </div>
                 )
@@ -457,17 +466,16 @@ function P3Qualitative({ canEdit }: { canEdit: boolean }) {
   )
 }
 
-function QCell({ row, canEdit, onSaved }: { row: QRow; canEdit: boolean; onSaved: () => void }) {
+function QCell({ row, entityId, periodEnd, onSaved }: { row: QRow; entityId: string | null; periodEnd: string | null; onSaved: () => void }) {
   const [val, setVal] = useState(row.value)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const save = async () => {
     if (val === row.value) return
     setSaving(true); setSaved(false)
-    try { await api.patch('/v1/filings/qualitative/p3esg', { values: { [row.key]: val } }); setSaved(true); onSaved() }
+    try { await api.patch('/v1/filings/qualitative/p3esg', { values: { [row.key]: val }, undertaking: entityId ?? 'organisation', period_end: periodEnd ?? undefined }); setSaved(true); onSaved() }
     catch { toast.error('Could not save this disclosure.') } finally { setSaving(false) }
   }
-  if (!canEdit) return <div className="text-[12.5px] text-[var(--color-ink)] whitespace-pre-wrap">{val || <span className="text-[var(--color-faint)] italic">Not authored yet.</span>}</div>
   return (
     <div>
       <textarea value={val} onChange={e => { setVal(e.target.value); setSaved(false) }} onBlur={save} rows={2}
@@ -478,3 +486,21 @@ function QCell({ row, canEdit, onSaved }: { row: QRow; canEdit: boolean; onSaved
   )
 }
 
+
+// The choices the regulation leaves to the organisation, as frozen with this filing (inside its hash).
+function FilingElections({ e }: { e: Election[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Card className="p-4">
+      <button type="button" onClick={() => setOpen(o => !o)} className="flex w-full items-center justify-between text-left">
+        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Interpretations stated by the organisation · frozen with this filing</span>
+        <span className="mono text-[10.5px] text-[var(--color-mute)]">{e.filter(x => x.stated).length}/{e.length} stated {open ? '▾' : '▸'}</span>
+      </button>
+      {open && <div className="mt-2 divide-y divide-[var(--color-line-2)]">{e.map(x => (
+        <div key={x.key} className="flex justify-between gap-4 py-1.5 text-[12px]">
+          <span className="text-[var(--color-mute)]">{x.label}</span>
+          <span className="mono text-right">{x.value == null ? <span className="text-[var(--color-warn)]">not stated</span> : String(x.value)}<span className="text-[var(--color-faint)]"> · {x.stated ? 'stated' : 'default'}</span></span>
+        </div>))}</div>}
+    </Card>
+  )
+}

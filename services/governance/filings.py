@@ -312,6 +312,9 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "columns": ["Datapoint", "Provided value", "Reconciliation", "Provider / attester"], "rows": prow,
             "note": "Values supplied and attested by the institution or a vendor under 4-eyes (client > vendor "
                     "precedence), reconciled against Tellumen's computed baseline. Source-flagged 'provided'."})
+    if r["framework"] == "eudr_dds" and annex is not None:      # Annex II point 6, completed by the attestation
+        from services.eudr.statement import sign_point_6
+        sign_point_6(annex, r["payload"] or {}, attestation(session, filing_id))
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
             "period_end": r["period_end"].isoformat() if r["period_end"] else None,
@@ -320,7 +323,10 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "reporting_entity_id": ((r["payload"] or {}).get("_scope") or {}).get("reporting_entity_id"),
             "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx")),
             # a group filing: the rule its entities were weighted on, quoted, as frozen (and any declared reading)
-            "consolidation": _consolidation_view(session, (r["payload"] or {}).get("_consolidation"))}
+            "consolidation": _consolidation_view(session, (r["payload"] or {}).get("_consolidation")),
+            # the interpretations the filing was prepared under, as frozen in its payload (covered by its hash) — part of
+            # the filing's record, beside the templates (the annex holds only what the templates print)
+            "elections": (r["payload"] or {}).get("_elections")}
 
 
 def _consolidation_view(session: Session, cons: dict | None) -> dict | None:
@@ -1257,13 +1263,29 @@ def mark_returned(session: Session, org_id: str, filing_id: str, checker_user_id
 
 
 def attest(session: Session, org_id: str, filing_id: str, actor_user_id: str,
-           attestor_name: str, statement: str) -> dict:
+           attestor_name: str, statement: str, function: str | None = None) -> dict:
     """A named accountable person certifies the frozen numbers. Distinct from the 4-eyes approval:
-    approval is process control; attestation is personal accountability for the filing."""
+    approval is process control; attestation is personal accountability for the filing. An EUDR due diligence
+    statement is signed in the format of Annex II point 6 ('Signed for and on behalf of: Date: Name and function:
+    Signature:'), so its signer states their function."""
     if not attestor_name or not statement:
         raise FilingError("attestation needs the accountable person's name and a certification statement")
+    function = (function or "").strip() or None
+    if _load(session, org_id, filing_id)["framework"] == "eudr_dds" and not function:
+        raise FilingError("a due diligence statement is signed with the signer's name and function (Regulation (EU) "
+                          "2023/1115, Annex II point 6) — state your function")
     return _apply_transition(session, org_id, filing_id, "attest", actor_user_id,
-                             detail={"attestor_name": attestor_name, "statement": statement})
+                             detail={"attestor_name": attestor_name, "statement": statement,
+                                     **({"function": function} if function else {})})
+
+
+def attestation(session: Session, filing_id: str) -> dict | None:
+    """The filing's attestation as recorded (the latest attest event): who, their function, when, and their sign-in."""
+    r = session.execute(text("""
+        SELECT e.detail, e.created_at, u.email FROM regulatory_filing_event e LEFT JOIN users u ON u.user_id = e.actor_user_id
+        WHERE e.filing_id = CAST(:f AS uuid) AND e.action = 'attest' ORDER BY e.seq DESC LIMIT 1"""),
+        {"f": filing_id}).mappings().first()
+    return {**(r["detail"] or {}), "at": r["created_at"].isoformat(), "email": r["email"]} if r else None
 
 
 def submit(session: Session, org_id: str, filing_id: str, actor_user_id: str,

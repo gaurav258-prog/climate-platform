@@ -43,7 +43,7 @@ def test_a_new_pillar3_filing_carries_only_what_the_templates_print(api):
     fid = _new_filing(api, maker)
     p = _payload(api.s, fid)
     # Template 1 columns i-k read the institution's statements (E103) — the EVIC-based PCAF figure is not frozen any more
-    assert {k for k in p if not k.startswith("_")} == {"assets", "rollup", "t1_emissions", "method"}
+    assert {k for k in p if not k.startswith("_")} == {"assets", "rollup", "t1_emissions", "method", "qualitative"}
     assert set(p["rollup"]) == {"n_assets", "n_scored", "total_value_eur"} and not set(EARLIER_KEYS) & set(p)
     assert p["assets"] and all(a.get("hazards") is not None and not set(NOT_FROZEN) & set(a) for a in p["assets"])
     assert [u["key"] for u in p["method"]["used"]] == ["method.at_risk_level"]      # the one parameter the templates read
@@ -51,7 +51,8 @@ def test_a_new_pillar3_filing_carries_only_what_the_templates_print(api):
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
     assert [g["group"] for g in form["groups"]] == ["Template 1 · financed emissions (total row)", "Frozen banking book"]
     titles = [x["title"] for x in form["annex"]["sections"]]
-    assert all(t.startswith("Template") for t in titles), titles
+    assert all(t.startswith(("Template", "Table ")) for t in titles), titles          # qualitative Tables 1-3, the templates
+    assert [t[:7] for t in titles[:3]] == ["Table 1", "Table 2", "Table 3"]
     assert not any(w in json.dumps(form, ensure_ascii=False) for w in _NOT_PRINTED)
 
     r = api.get(f"/v1/filings/{fid}/export?format=xlsx", headers=maker)
