@@ -23,7 +23,7 @@ _FIX: dict[str, tuple[str, str]] = {
     "second_approver":      ("/admin?tab=team",       "Add an approver"),
     "sites_scored":         ("/operations",           "Add & score sites"),
     "plots_polygons":       ("/sourcing",             "Add plot polygons"),
-    "eudr_run":             ("/disclosure",           "Run EUDR"),
+    "eudr_run":             ("/eudr",                 "Open EUDR"),
     "calibrations_current": ("/models",               "Review calibrations"),
     "inputs_high_quality":  ("/data",                 "Fix inputs"),
 }
@@ -97,12 +97,13 @@ def org_readiness(session: Session, org_id: str, org_type: str | None) -> dict:
     """), {"o": org_id}).mappings().first()
     plots = session.execute(text("""
         SELECT count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon,
-               count(*) FILTER (WHERE co.eudr_covered) eudr_covered,
-               count(*) FILTER (WHERE co.eudr_covered AND p.eudr_determination IS NOT NULL) eudr_determined
+               count(*) FILTER (WHERE co.eudr_covered) eudr_covered
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         WHERE p.org_id = :o
     """), {"o": org_id}).mappings().first()
 
+    from services.eudr.reading import for_org, tally
+    t = tally(for_org(session, org_id, covered_only=True))
     identity_ok = bool(org and org["eori"] and org["filing_contact_email"])
     checks = [
         {"key": "identity", "label": "Reporting identity complete (EORI + filing contact)", "ok": identity_ok,
@@ -111,8 +112,8 @@ def org_readiness(session: Session, org_id: str, org_type: str | None) -> dict:
          "hint": f"{(sites['n'] or 0) - (sites['scored'] or 0)} site(s) not yet scored." if (sites["n"] or 0) and sites["scored"] != sites["n"] else ("Add your operational sites." if not sites["n"] else None)},
         {"key": "plots_polygons", "label": "All >4 ha plots have a polygon (EUDR)", "ok": (plots["needs_polygon"] or 0) == 0,
          "hint": f"{plots['needs_polygon']} plot(s) over 4 ha need a boundary polygon." if plots["needs_polygon"] else None},
-        {"key": "eudr_run", "label": "EUDR determination run on covered plots", "ok": (plots["eudr_covered"] or 0) == 0 or plots["eudr_determined"] == plots["eudr_covered"],
-         "hint": f"{(plots['eudr_covered'] or 0) - (plots['eudr_determined'] or 0)} covered plot(s) not yet checked." if (plots["eudr_covered"] or 0) and plots["eudr_determined"] != plots["eudr_covered"] else None},
+        {"key": "eudr_run", "label": "Covered plots read against the forest dataset (EUDR)", "ok": t["unread"] == 0,
+         "hint": f"{t['unread']} covered plot(s) have no current satellite reading." if t["unread"] else None},
         second_approver_check,
         golden_source_check,
     ]

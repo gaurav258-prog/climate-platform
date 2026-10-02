@@ -129,6 +129,25 @@ def current(session: Session, plot_ids: list[str]) -> dict[str, Optional[dict]]:
     return out
 
 
+def for_org(session: Session, org_id: str, *, covered_only: bool = False,
+            entity_id: Optional[str] = None) -> dict[str, Optional[dict]]:
+    """Every plot of the organisation (or only those of an Annex I commodity) → its current reading, or None. The one
+    place pages, counts and reports read a plot's forest information from (the retired per-plot verdict columns of
+    sc_sourcing_plots are never read: E108)."""
+    ids = session.execute(text("""SELECT p.plot_id::text FROM sc_sourcing_plots p JOIN sc_commodities co USING (commodity_id)
+                                   WHERE p.org_id = CAST(:o AS uuid) AND (NOT :c OR co.eudr_covered)
+                                     AND (CAST(:e AS uuid) IS NULL OR p.entity_id = CAST(:e AS uuid))"""),
+                          {"o": org_id, "c": covered_only, "e": entity_id}).scalars().all()
+    return current(session, list(ids)) if ids else {}
+
+
+def tally(readings: dict[str, Optional[dict]]) -> dict:
+    """How many plots have each outcome, and how many have no current reading."""
+    out = {"plots": len(readings), "unread": 0, "no_loss_detected": 0, "loss_after_cutoff": 0, "not_assessable": 0}
+    for r in readings.values():
+        out["unread" if r is None else r["outcome"]] += 1
+    return out
+
 def run_job(org_id: str, plot_ids: list[str], user_id: Optional[str], treecover_min_pct: Optional[int] = None,
             point_radius_m: Optional[float] = None) -> dict:
     """The job (services.tasks.jobs 'eudr.read_plots'): each plot read and kept in its own transaction."""

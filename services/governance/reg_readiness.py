@@ -32,7 +32,12 @@ def _commodity_hs(session: Session, org_id: str) -> tuple[int, int]:
 _CHECKERS = {
     "eudr_geoloc": lambda s, o: _plot_cov(s, o, "plot_geometry IS NOT NULL OR (latitude IS NOT NULL AND longitude IS NOT NULL)"),
     "eudr_country": lambda s, o: _plot_cov(s, o, "country IS NOT NULL AND country <> ''"),
-    "eudr_legality": lambda s, o: _plot_cov(s, o, "eudr_evidence IS NOT NULL"),
+    # legality evidence in force for the plot or its supplier (services/eudr/records.py; a withdrawn one does not count)
+    "eudr_legality": lambda s, o: _plot_cov(s, o, """EXISTS (SELECT 1 FROM eudr_legality_evidence e
+        WHERE e.org_id = sc_sourcing_plots.org_id AND e.withdraws IS NULL
+          AND NOT EXISTS (SELECT 1 FROM eudr_legality_evidence w WHERE w.withdraws = e.evidence_id)
+          AND (e.valid_until IS NULL OR e.valid_until >= current_date)
+          AND (e.plot_id = sc_sourcing_plots.plot_id OR e.supplier_id = sc_sourcing_plots.supplier_id))"""),
     "eudr_supplier": lambda s, o: _plot_cov(s, o, "supplier_id IS NOT NULL"),
     "eudr_commodity_hs": _commodity_hs,
 }

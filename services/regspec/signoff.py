@@ -30,7 +30,7 @@ def status(session: Session, framework: str, version: str) -> dict:
     rows = session.execute(text("""
         SELECT s.role, s.sha256, s.signed_at, s.note, s.sole_reviewer, u.email, u.full_name, s.user_id::text AS user_id
         FROM regspec_signoff s JOIN users u ON u.user_id = s.user_id
-        WHERE s.framework = :f AND s.version = :v ORDER BY s.signed_at"""), {"f": framework, "v": version}).mappings().all()
+        WHERE s.framework = :f AND s.version = :v ORDER BY s.seq"""), {"f": framework, "v": version}).mappings().all()
     current = [dict(r) | {"signed_at": r["signed_at"].isoformat()} for r in rows if r["sha256"] == spec["_sha256"]]
     voided = [dict(r) | {"signed_at": r["signed_at"].isoformat()} for r in rows if r["sha256"] != spec["_sha256"]]
     roles = {r["role"] for r in current}
@@ -116,7 +116,7 @@ def signed_on(session: Session, framework: str, version: str, sha256: str) -> di
     rows = session.execute(text("""
         SELECT s.role, s.sole_reviewer, s.signed_at, s.user_id::text AS user_id, u.full_name, u.email
         FROM regspec_signoff s JOIN users u ON u.user_id = s.user_id
-        WHERE s.framework = :f AND s.version = :v AND s.sha256 = :h ORDER BY s.signed_at"""),
+        WHERE s.framework = :f AND s.version = :v AND s.sha256 = :h ORDER BY s.seq"""),
         {"f": framework, "v": version, "h": sha256}).mappings().all()
     signed = [{"role": r["role"], "by": r["full_name"] or r["email"], "signed_at": r["signed_at"].isoformat(),
                "sole_reviewer": r["sole_reviewer"]} for r in rows]

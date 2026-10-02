@@ -23,7 +23,14 @@ from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession, own_or_404, require_permission, tenant_resolver
+from api.deps import (
+    CurrentUser,
+    DbSession,
+    attachment,
+    own_or_404,
+    require_permission,
+    tenant_resolver,
+)
 from api.services.rbac import write_audit
 from services.ingest.templates import PLOT_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.intelligence.company_sites import (
@@ -33,8 +40,6 @@ from services.intelligence.company_sites import (
     list_sites_with_risk,
     site_hazards,
 )
-from services.intelligence.eudr import determine_plot
-from services.intelligence.eudr_dds import assemble_dds
 from services.intelligence.supply_cogs import (
     IMPACT_VERSION,
     apply_commodity_override,
@@ -631,6 +636,8 @@ def plot_detail(plot_id: str, session: DbSession, caller_org: OrgId):
     """), {"id": plot_id}).mappings().first()
     if not p:
         return {"error": "plot not found"}
+    from services.eudr.reading import current
+    reading = current(session, [plot_id])[plot_id]
     risks = session.execute(text("""
         SELECT hazard_type, scenario, time_horizon,
                CAST(physical_risk_score AS FLOAT) AS score,
@@ -642,7 +649,7 @@ def plot_detail(plot_id: str, session: DbSession, caller_org: OrgId):
     from services.intelligence.adaptation import actions_for
     elevated = [r["hazard_type"] for r in risks
                 if r["scenario"] == "baseline" and r["time_horizon"] == "current" and (r["score"] or 0) >= 40]
-    return {"kind": "plot", "plot": dict(p), "impact_version": IMPACT_VERSION,
+    return {"kind": "plot", "plot": dict(p), "eudr_reading": reading, "impact_version": IMPACT_VERSION,
             "risks": [dict(r) for r in risks], "adaptation": actions_for(elevated),
             "irrigation_context": irrigation_context(p["irrigation_status"], elevated),
             "note": "€ impact is v0 (uncalibrated); see docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md"}
@@ -698,16 +705,14 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
 
 
 def _plots_with_hazard(session, org_id, scenario, horizon):
-    """Each plot + its worst projected hazard + EUDR status (for map / disclosure / signals).
+    """Each plot + its worst projected hazard + its declared EUDR flag and current satellite reading (never a verdict).
     Single DISTINCT ON pass (keeps the highest-scoring hazard per plot) — no per-plot subqueries."""
     rows = session.execute(text("""
         SELECT DISTINCT ON (p.plot_id)
                p.plot_id::text AS plot_id, co.name AS commodity, co.eudr_covered,
                p.plot_name, p.region, p.country, CAST(p.latitude AS FLOAT) AS lat,
                CAST(p.longitude AS FLOAT) AS lon, CAST(p.annual_spend_eur AS FLOAT) AS spend_eur,
-               p.eudr_status, p.eudr_determination, p.eudr_first_loss_year,
-               CAST(p.eudr_loss_ha AS FLOAT) AS eudr_loss_ha, p.eudr_forest_source,
-               p.eudr_determined_at, v.hazard_type AS top_hazard,
+               p.eudr_status, v.hazard_type AS top_hazard,
                CAST(v.physical_risk_score AS FLOAT) AS hazard_score
         FROM sc_sourcing_plots p
         JOIN sc_commodities co ON co.commodity_id = p.commodity_id
@@ -716,7 +721,9 @@ def _plots_with_hazard(session, org_id, scenario, horizon):
         WHERE p.org_id = :o
         ORDER BY p.plot_id, v.physical_risk_score DESC NULLS LAST
     """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
-    return sorted(rows, key=lambda r: -(r["spend_eur"] or 0))
+    from services.eudr.reading import for_org
+    readings = for_org(session, org_id)
+    return sorted(({**r, "reading": readings.get(r["plot_id"])} for r in rows), key=lambda r: -(r["spend_eur"] or 0))
 
 
 def early_warning_alerts(commodities, level: float) -> list[dict]:
@@ -762,8 +769,8 @@ def disclosure(session: DbSession, org_id: OrgId,
                scenario: str = Query("baseline"), horizon: str = Query("current")):
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
     plots = _plots_with_hazard(session, org_id, scenario, horizon)
-    # EUDR overlay: deforestation-free AND climate-viable (hazard below the company's stated at-risk level)? The EUDR
-    # sets no climate test — this is the company's own overlay, on its own level; not stated → not judged (None).
+    # EUDR overlay: each plot's satellite reading next to its climate hazard against the company's stated at-risk level.
+    # The EUDR sets no climate test — this is the company's own overlay, on its own level; not stated → not judged (None).
     from services.money.params import for_org
     level = for_org(session, org_id).get("method.at_risk_level")
     eudr = []
@@ -772,25 +779,17 @@ def disclosure(session: DbSession, org_id: OrgId,
         eudr.append({
             "plot_id": p["plot_id"], "commodity": p["commodity"], "plot": p["plot_name"], "region": p["region"],
             "country": p["country"], "eudr_covered": p["eudr_covered"],
-            # declared = the customer's self-reported flag; determination = OUR satellite computation.
-            "eudr_declared": p["eudr_status"], "eudr_determination": p["eudr_determination"],
-            "first_loss_year": p["eudr_first_loss_year"], "loss_ha": p["eudr_loss_ha"],
-            "forest_source": p["eudr_forest_source"],
-            "determined_at": p["eudr_determined_at"].isoformat() if p["eudr_determined_at"] else None,
+            # declared = the customer's self-reported flag; reading = what the dataset shows inside the plot after the
+            # cut-off — a risk the operator weighs (Art. 10), never a verdict (services/eudr/reading.py)
+            "eudr_declared": p["eudr_status"], "reading": p["reading"],
             "hazard_score": round(hs, 1) if hs is not None else None,
             "climate_viable": (None if hs is None or level is None else hs < level), "scored": hs is not None,
         })
     covered = [e for e in eudr if e["eudr_covered"]]
-    def det(status):
-        return sum(1 for e in covered if e["eudr_determination"] == status)
+    from services.eudr.reading import tally
     eudr_summary = {
         "covered_plots": len(covered),
-        # Computed by us from Hansen forest-loss (None until /eudr/determine has been run).
-        "determined": sum(1 for e in covered if e["eudr_determination"]),
-        "deforestation_free": det("deforestation_free"),
-        "non_compliant": det("non_compliant"),
-        "geolocation_incomplete": det("geolocation_incomplete"),
-        "insufficient": det("insufficient"),
+        "readings": tally({e["plot_id"]: e["reading"] for e in covered}),
         "climate_at_risk": (None if level is None else sum(1 for e in covered if e["climate_viable"] is False)),
         "at_risk_level": level,
         "unscored": sum(1 for e in covered if not e["scored"]),
@@ -839,7 +838,7 @@ def disclosure_xlsx(session: DbSession, org_id: OrgId,
             for c in r.commodities]
     buf = build_export_workbook(headers, rows, sheet_name="CSRD physical risk")
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                              headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-supply-{scenario}-{horizon}.xlsx"})
+                              headers={"Content-Disposition": attachment(f"tellumen-csrd-supply-{scenario}-{horizon}.xlsx")})
 
 
 @router.get("/taxonomy-adaptation", summary="EU Taxonomy — climate-adaptation substantial-contribution evidence (CRVA)")
@@ -866,23 +865,6 @@ def get_report_snapshot(snapshot_id: str, session: DbSession,
     return snap
 
 
-@router.get("/eudr/submission-preview", summary="EUDR → TRACES: the submission envelope we would file + readiness (no side effects)")
-def eudr_submission_preview(session: DbSession, org_id: OrgId):
-    from services.intelligence.traces_client import submission_preview
-    return submission_preview(session, org_id)
-
-
-@router.post("/eudr/submit", summary="EUDR → TRACES: prepare (default) or live-submit the DDS")
-def eudr_submit(session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.intelligence.traces_client import submit_dds
-    org_id = ctx["org"]["org_id"]
-    result = submit_dds(session, org_id)
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.dds.submit",
-                target_type="eudr_dds", target_id=result.get("internal_reference", "n/a"),
-                detail={"status": result.get("status"), "mode": result.get("mode")})
-    return result
-
-
 @router.get("/report-snapshots/{snapshot_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a frozen filing")
 def assurance_pack(snapshot_id: str, session: DbSession,
                    ctx: dict = Depends(require_permission("reports.view"))):
@@ -895,7 +877,7 @@ def assurance_pack(snapshot_id: str, session: DbSession,
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
                 target_type="report_snapshot", target_id=snapshot_id, detail={"file": fname})
     return StreamingResponse(io.BytesIO(data), media_type="application/zip",
-                              headers={"Content-Disposition": f"attachment; filename={fname}"})
+                              headers={"Content-Disposition": attachment(f"{fname}")})
 
 
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
@@ -1121,107 +1103,3 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
                   user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
                   reason=approval_reason, mapping_profile_id=mapping_profile_id,
                   currency=currency, book_date=book_date)
-
-
-@router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")
-def eudr_determine(session: DbSession, ctx: CurrentUser):
-    """Compute each plot's EUDR status from the forest layer (not the customer's declared flag) and
-    persist it. EUDR-covered plots are checked against Hansen forest-loss; non-covered plots are
-    marked not_covered without a forest read. Idempotent — re-run to refresh."""
-    import json as _json
-    from datetime import datetime, timezone
-    org_id = ctx["org"]["org_id"]
-    rows = session.execute(text("""
-        SELECT p.plot_id::text AS plot_id, p.plot_geometry, p.latitude, p.longitude,
-               p.plot_area_ha, co.eudr_covered, co.name AS commodity
-        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
-        WHERE p.org_id = :o
-    """), {"o": org_id}).mappings().all()
-
-    summary: dict = {}
-    now = datetime.now(timezone.utc)
-    for r in rows:
-        det = determine_plot(
-            eudr_covered=bool(r["eudr_covered"]), plot_geometry=r["plot_geometry"],
-            latitude=r["latitude"], longitude=r["longitude"],
-            area_ha=float(r["plot_area_ha"]) if r["plot_area_ha"] is not None else None,
-            commodity=r["commodity"])
-        summary[det.status] = summary.get(det.status, 0) + 1
-        session.execute(text("""
-            UPDATE sc_sourcing_plots
-            SET eudr_determination=:s, eudr_loss_ha=:lh, eudr_first_loss_year=:fy,
-                eudr_forest_source=:src, eudr_determined_at=:ts, eudr_evidence=CAST(:ev AS jsonb)
-            WHERE plot_id=:pid
-        """), {"s": det.status, "lh": det.loss_ha, "fy": det.first_loss_year,
-               "src": det.forest_source, "ts": now, "ev": _json.dumps(det.evidence),
-               "pid": r["plot_id"]})
-
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.determine",
-                target_type="sc_sourcing_plots", target_id=None,
-                detail={"n_plots": len(rows), "summary": summary})
-    session.commit()
-    return {"n_plots": len(rows), "summary": summary, "determined_at": now.isoformat()}
-
-
-class DdsReference(BaseModel):
-    reference_number: str = Field(min_length=1)
-    verification_number: Optional[str] = None
-
-
-@router.post("/eudr/dds", summary="Assemble a submission-ready EUDR Due Diligence Statement")
-def eudr_dds_assemble(session: DbSession, ctx: CurrentUser):
-    """Build a DDS from the deforestation-free plots + operator identity, persist it as a draft,
-    and report readiness (which plots block a filing, what the operator still completes in TRACES)."""
-    import json as _json
-    org_id = ctx["org"]["org_id"]
-    dds = assemble_dds(session, org_id)
-    status = "ready" if dds["ready"] else "draft"
-    dds_id = session.execute(text("""
-        INSERT INTO sc_eudr_dds (org_id, status, payload, blockers, plot_count, covered_count, created_by)
-        VALUES (:o, :st, CAST(:p AS jsonb), CAST(:b AS jsonb), :fc, :cc, :u)
-        RETURNING dds_id::text
-    """), {"o": org_id, "st": status, "p": _json.dumps(dds), "b": _json.dumps(dds["blockers"]),
-           "fc": dds["fileable_plots"], "cc": dds["covered_plots"], "u": ctx["user"]["id"]}).scalar()
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.dds.assemble",
-                target_type="sc_eudr_dds", target_id=dds_id,
-                detail={"ready": dds["ready"], "fileable": dds["fileable_plots"], "blocked": len(dds["blockers"])})
-    session.commit()
-    return {"dds_id": dds_id, "status": status, **dds}
-
-
-@router.get("/eudr/dds/{dds_id}", summary="Fetch an assembled DDS (the frozen payload + status)")
-def eudr_dds_get(dds_id: str, session: DbSession, ctx: CurrentUser):
-    r = session.execute(text("""
-        SELECT dds_id::text, status, reference_number, verification_number, payload, blockers,
-               plot_count, covered_count, created_at, filed_at
-        FROM sc_eudr_dds WHERE dds_id = :d AND org_id = :o
-    """), {"d": dds_id, "o": ctx["org"]["org_id"]}).mappings().first()
-    if not r:
-        raise HTTPException(status_code=404, detail="DDS not found")
-    return dict(r)
-
-
-@router.put("/eudr/dds/{dds_id}/reference", summary="Capture the TRACES reference number after filing")
-def eudr_dds_reference(dds_id: str, body: DdsReference, session: DbSession, ctx: CurrentUser):
-    """Record the reference (and optional verification) number the operator receives from TRACES on
-    submission — marks the DDS 'filed'. A DDS can only be filed once it was assembled 'ready'."""
-    from datetime import datetime, timezone
-    org_id = ctx["org"]["org_id"]
-    cur = session.execute(text("SELECT status FROM sc_eudr_dds WHERE dds_id=:d AND org_id=:o"),
-                          {"d": dds_id, "o": org_id}).mappings().first()
-    if not cur:
-        raise HTTPException(status_code=404, detail="DDS not found")
-    if cur["status"] == "draft":
-        raise HTTPException(status_code=409, detail="DDS is not ready to file — resolve blockers and re-assemble")
-    now = datetime.now(timezone.utc)
-    session.execute(text("""
-        UPDATE sc_eudr_dds SET reference_number=:r, verification_number=:v, status='filed',
-               filed_at=COALESCE(filed_at, :ts), reference_captured_at=:ts
-        WHERE dds_id=:d AND org_id=:o
-    """), {"r": body.reference_number, "v": body.verification_number, "ts": now, "d": dds_id, "o": org_id})
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.dds.filed",
-                target_type="sc_eudr_dds", target_id=dds_id,
-                detail={"reference_number": body.reference_number})
-    session.commit()
-    return {"dds_id": dds_id, "status": "filed", "reference_number": body.reference_number,
-            "reference_captured_at": now.isoformat()}

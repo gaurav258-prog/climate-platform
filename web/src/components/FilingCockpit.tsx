@@ -38,6 +38,7 @@ interface FilingDetail extends FilingSummary {
   export_formats?: string[]; superseded_by?: string | null
   presentation_currency?: string
   disclosure_date?: string | null; due_date?: string | null; due_rule?: string | null
+  own_flow?: { frozen_by: string | null; accepted_by: string | null; own_page: string } | null   // e.g. EUDR: per shipment
   fx_revisions?: { currency: string; basis: string; as_of: string; change: string }[]
   run?: EngineRun | null
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
@@ -450,7 +451,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
                   {Object.entries(f.snapshot.reporting_basis).map(([k, v]) => (
                     <div key={k} className="flex justify-between border-b border-[var(--color-line)] pb-1">
-                      <span className="text-[var(--color-mute)]">{k === 'regulation_status' ? 'regulation version' : k.replace(/_/g, ' ')}</span>
+                      <span className="text-[var(--color-mute)]">{k === 'regulation_status' ? 'regulation version' : k === 'reporting_period_end' && 'shipment' in f.snapshot!.reporting_basis ? 'shipment date' : k.replace(/_/g, ' ')}</span>
                       <span className="text-[var(--color-ink)] mono" style={k === 'regulation_status' && v !== 'current' ? { color: 'var(--color-warn)' } : undefined}>{BASIS_VALUE[`${k}:${String(v)}`] ?? String(v)}</span>
                     </div>
                   ))}
@@ -680,7 +681,10 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
       <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Next step</div>
       {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
 
-      {(f.status === 'draft' || f.status === 'returned') && canReview && (
+      {(f.status === 'draft' || f.status === 'returned') && canReview && f.own_flow && (
+        <p className="text-[12px] text-[var(--color-mute)] mb-2">Prepared {f.own_flow.frozen_by} — refresh it there after a correction. <Link to={f.own_flow.own_page} className="text-[var(--color-sky)] hover:underline">Open</Link></p>
+      )}
+      {(f.status === 'draft' || f.status === 'returned') && canReview && !f.own_flow && (
         <div className="flex items-center gap-2 mb-2">
           <Button variant="ghost" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/refresh`, {}))} disabled={busy}>
             <RefreshCw size={13} /> Refresh data
@@ -724,7 +728,10 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
           </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Attested. Awaiting submission to the regulator.</p>)}
 
-      {f.status === 'submitted' && (canPublish
+      {f.status === 'submitted' && f.own_flow && (
+        <p className="text-[12px] text-[var(--color-mute)]">Accepted {f.own_flow.accepted_by}. <Link to={f.own_flow.own_page} className="text-[var(--color-sky)] hover:underline">Open</Link></p>
+      )}
+      {f.status === 'submitted' && !f.own_flow && (canPublish
         ? <div className="space-y-2">
             <p className="text-[12px] text-[var(--color-mute)]">Record the regulator's acknowledgement.</p>
             <input className={box} placeholder="Acknowledgement reference (optional)" value={ackRef} onChange={e => setAckRef(e.target.value)} />
@@ -732,7 +739,9 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
           </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Submitted. Awaiting the regulator's acknowledgement.</p>)}
 
-      {f.status === 'accepted' && <p className="text-[12px]" style={{ color: ST.accepted.fg }}>✓ Accepted by the regulator. This filing is complete.</p>}
+      {f.status === 'accepted' && (f.own_flow
+        ? <p className="text-[12px]" style={{ color: ST.accepted.fg }}>✓ Reference number recorded. Its amend / withdraw window and events: <Link to={f.own_flow.own_page} className="underline">open</Link>.</p>
+        : <p className="text-[12px]" style={{ color: ST.accepted.fg }}>✓ Accepted by the regulator. This filing is complete.</p>)}
 
       {/* restatement — reopen a filed record as a new version (the old is preserved, superseded) */}
       {(f.status === 'submitted' || f.status === 'accepted') && canPublish && (

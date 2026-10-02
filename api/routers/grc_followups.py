@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from api.deps import CurrentUser, DbSession, require_permission
+from api.deps import CurrentUser, DbSession, attachment, require_permission
 from core.config import settings
 from services.governance import assurance_share as AS
 from services.intelligence import third_parties as TP
@@ -72,7 +72,7 @@ def download_share(token: str, request: Request, session: DbSession):
     if status != "ok":
         raise HTTPException(status_code=410, detail={"error": status, "message": _GONE[status]})
     name, blob = built
-    return Response(content=blob, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    return Response(content=blob, media_type="application/zip", headers={"Content-Disposition": attachment(f"{name}")})
 
 
 # ── third parties ───────────────────────────────────────────────────────────────────────────────────────────

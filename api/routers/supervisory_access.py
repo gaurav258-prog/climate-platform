@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession, require_permission
+from api.deps import CurrentUser, DbSession, attachment, require_permission
 from api.services.rbac import write_audit
 
 router = APIRouter(prefix="/v1/me/supervisors", tags=["Me"])
@@ -241,7 +241,7 @@ def my_request_letter(request_id: str, session: DbSession, ctx: dict = Depends(r
     L = letter(session, request_id, supervised_org_id=ctx["org"]["org_id"])
     if not L:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such letter for your organisation."})
-    return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{L["reference"]}.pdf"'})
+    return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": attachment(f"{L["reference"]}.pdf")})
 
 
 @router.post("/requests/{request_id}/receipt", summary="Formally acknowledge receipt of the letter (once; audited on both sides)")

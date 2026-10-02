@@ -66,10 +66,14 @@ def test_legality_evidence_and_the_assessment_are_kept_with_four_eyes(api):
     s = api.s
     maker, checker = _login(api, "analyst@terra.demo", "Demo!analyst1"), _login(api, "approver@terra.demo", "Demo!approve1")
     plot = _plot(s, SQUARE)
+    # a reporting entity of the test's own: the organisation's own EUDR status (demo data) never decides what it sees (E81)
+    ent = str(s.execute(text("""INSERT INTO reporting_entities (entity_id, org_id, name) VALUES (gen_random_uuid(),
+                                CAST(:o AS uuid), 'E94 importer') RETURNING entity_id"""), {"o": TERRA}).scalar())
     m = str(s.execute(text("""INSERT INTO eudr_movement (org_id, kind, actor_role, planned_on, hs_code, description, customs_flow,
-                                                         net_mass_kg) VALUES (CAST(:o AS uuid), 'placing', 'operator',
-                                                         '2027-01-15', '180100', 'Cocoa beans', true, 1000) RETURNING movement_id"""),
-                      {"o": TERRA}).scalar())
+                                                         net_mass_kg, reporting_entity_id) VALUES (CAST(:o AS uuid), 'placing',
+                                                         'operator', '2027-01-15', '180100', 'Cocoa beans', true, 1000,
+                                                         CAST(:e AS uuid)) RETURNING movement_id"""),
+                      {"o": TERRA, "e": ent}).scalar())
     s.execute(text("INSERT INTO eudr_movement_plot VALUES (CAST(:m AS uuid), CAST(:p AS uuid), '2026-01-01', '2026-06-30')"),
               {"m": m, "p": plot})
 
@@ -119,10 +123,14 @@ def test_the_statement_gathers_what_annex_ii_and_art_9_ask(api, monkeypatch):
     maker = _login(api, "analyst@terra.demo", "Demo!analyst1")
     gh, ci = _plot(s, SQUARE), _plot(s, SQUARE)
     s.execute(text("UPDATE sc_sourcing_plots SET country = 'CI' WHERE plot_id = CAST(:p AS uuid)"), {"p": ci})
+    # a reporting entity of the test's own: the organisation's own EUDR status (demo data) never decides what it sees (E81)
+    ent = str(s.execute(text("""INSERT INTO reporting_entities (entity_id, org_id, name) VALUES (gen_random_uuid(),
+                                CAST(:o AS uuid), 'E94 importer') RETURNING entity_id"""), {"o": TERRA}).scalar())
     m = str(s.execute(text("""INSERT INTO eudr_movement (org_id, kind, actor_role, planned_on, hs_code, description, customs_flow,
-                                                         net_mass_kg) VALUES (CAST(:o AS uuid), 'placing', 'operator',
-                                                         '2027-01-15', '180100', 'Cocoa beans', true, 1000) RETURNING movement_id"""),
-                      {"o": TERRA}).scalar())
+                                                         net_mass_kg, reporting_entity_id) VALUES (CAST(:o AS uuid), 'placing',
+                                                         'operator', '2027-01-15', '180100', 'Cocoa beans', true, 1000,
+                                                         CAST(:e AS uuid)) RETURNING movement_id"""),
+                      {"o": TERRA, "e": ent}).scalar())
     s.execute(text("INSERT INTO eudr_movement_plot VALUES (CAST(:m AS uuid), CAST(:p AS uuid), '2026-01-01', '2026-06-30')"),
               {"m": m, "p": gh})
     RD.record(s, TERRA, gh, None)

@@ -8,7 +8,7 @@ import { flow } from '../lib/money'
 // ── data shapes ────────────────────────────────────────────────────────────
 interface Commodity { commodity: string; volume_at_risk_eur: number | null; calibration: string | null; top_hazard: string | null; yield_shock_pct: number | null }
 interface Summary { rollup: { volume_at_risk_eur: number }; commodities: Commodity[] }
-interface Plot { plot_id: string; commodity: string; plot_name: string; country: string | null; spend_eur: number; top_hazard: string | null; hazard_score: number | null; eudr_determination: string | null }
+interface Plot { plot_id: string; commodity: string; plot_name: string; country: string | null; spend_eur: number; top_hazard: string | null; hazard_score: number | null; reading: { outcome: string } | null }
 interface Portfolio { plots: Plot[] }
 
 const KIND: Record<string, string> = {
@@ -68,7 +68,7 @@ function buildTopDown(sum: Summary, plots: Plot[]): Node {
           children: [
             { id: `s-${p.plot_id}`, kind: 'score', label: `Hazard score ${p.hazard_score?.toFixed(0) ?? '—'}`, note: p.top_hazard ?? '', value: p.top_hazard ?? '' },
             { id: `f1-${p.plot_id}`, kind: 'feed', label: 'ERA5 climatology', note: 'Copernicus — temperature / precip / soil moisture' },
-            ...(p.eudr_determination ? [{ id: `f2-${p.plot_id}`, kind: 'feed', label: 'Hansen GFC forest-loss', note: 'EUDR deforestation check' }] : []),
+            ...(p.reading ? [{ id: `f2-${p.plot_id}`, kind: 'feed', label: 'Hansen GFC forest-loss', note: 'EUDR satellite reading' }] : []),
           ],
         })),
       }

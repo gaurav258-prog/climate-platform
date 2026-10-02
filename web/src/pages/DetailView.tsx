@@ -15,6 +15,14 @@ interface Norm { title: string; sub: string; lat: number | null; lon: number | n
   facts: { k: string; v: string }[]; hazards: { hazard: string; score: number | null }[]; adaptation: Adapt[]
   irrigationContext?: { status: string; buffers: string[]; note?: string } | null }
 
+// a plot's current satellite reading (services/eudr/reading.py) — what the dataset shows, never a verdict
+function eudrReading(r: { outcome: string; first_loss_year: number | null; assessed_at: string } | null): string {
+  if (!r) return 'not read'
+  const on = ` · read ${r.assessed_at.slice(0, 10)}`
+  return (r.outcome === 'loss_after_cutoff' ? `loss after 2020, first ${r.first_loss_year ?? '—'}`
+    : r.outcome === 'not_assessable' ? 'not assessable' : 'no loss after 2020') + on
+}
+
 export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
   const { id } = useParams()
   const q = useQuery({ queryKey: [kind, id], queryFn: () => api.get<Record<string, unknown>>(`/v1/supply/${kind}/${id}`) })
@@ -151,7 +159,7 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
       { k: 'Country', v: (p.country as string) ?? '—' },
       { k: 'Annual spend', v: flow(p.spend_eur as number) },
       { k: 'EUDR status', v: pretty((p.eudr_status as string) ?? null) },
-      { k: 'EUDR determination', v: pretty((p.eudr_determination as string) ?? null) },
+      { k: 'EUDR satellite reading', v: eudrReading(d.eudr_reading as { outcome: string; first_loss_year: number | null; assessed_at: string } | null) },
       { k: 'Grid cell', v: (p.h3_cell as string) ?? '—' },
     ],
     hazards: risks.map(r => ({ hazard: r.hazard_type, score: r.score })),

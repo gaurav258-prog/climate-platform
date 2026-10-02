@@ -1,6 +1,7 @@
 """Shared FastAPI dependencies — DB session, pagination, API key auth."""
 from __future__ import annotations
 
+import re
 from typing import Annotated, Generator, Optional
 
 from fastapi import Depends, Header, HTTPException, Query, Request
@@ -213,3 +214,13 @@ def own_or_404(session: Session, table: str, id_col: str, target_id: str, org_id
         row = None
     if not row:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"{label} not found."})
+
+
+def attachment(filename: str) -> str:
+    """The Content-Disposition of a download (E111): an ASCII fallback name plus the real name in RFC 5987 `filename*` — a
+    header cannot carry a name from the data as-is (a label with '·', a supplier with an accent broke the download)."""
+    import unicodedata
+    from urllib.parse import quote
+    plain = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode()
+    plain = re.sub(r'[^A-Za-z0-9._-]+', "-", plain).strip("-") or "download"
+    return f"attachment; filename=\"{plain}\"; filename*=UTF-8''{quote(filename)}"

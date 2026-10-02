@@ -158,6 +158,9 @@ def build_form(framework: str, payload: dict) -> list[dict]:
         return _insurer_document_form(framework, payload)
     if framework == "assetmgmt_tcfd":
         return _assetmgmt_tcfd_form(payload)
+    if framework == "eudr_dds":
+        from services.eudr.statement import form
+        return form(payload)
     if framework == "esrs_pack" and payload.get("document_report") is not None:
         from services.governance.esrs_document import form
         return form(payload)

@@ -186,17 +186,17 @@ REFERENCE: dict[str, dict] = {
         "inputs": "Statement of Values with each risk's postal code; own funds, SCR and the reinsurance in force; premiums "
                   "to be earned for risks outside the Annex XIII regions — stated and attested per undertaking.",
     },
-    # EUDR is filed through the agri Disclosure page (TRACES DDS), but included for completeness of the reference.
+    # EUDR statements are prepared per shipment on the EUDR page and submitted through the EU information system.
     "eudr_dds": {
-        "official_name": "EU Deforestation Regulation — Due Diligence Statement (TRACES)",
-        "authority": "EU competent authorities (national) · European Commission (TRACES)",
-        "legal_basis": "Regulation (EU) 2023/1115 (EUDR), Art. 33 (DDS) · Annex II (DDS content)",
+        "official_name": "EU Deforestation Regulation — Due Diligence Statement",
+        "authority": "EU competent authorities (national) · via the EU information system (Art. 33)",
+        "legal_basis": "Regulation (EU) 2023/1115 (EUDR), Art. 4(2) (the statement) · Art. 33 (the information system) · Annex II (its content) · Implementing Regulation (EU) 2024/3084",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1115",
-        "summary": "Operators placing in-scope commodities on the EU market submit a Due Diligence Statement "
-                   "with geolocation of plots of land and a deforestation-free / legality assessment, via TRACES.",
-        "official_form": "TRACES Due Diligence Statement (DDS) — content per EUDR Annex II",
-        "form_url": "https://webgate.ec.europa.eu/tracesnt/",
-        "inputs": "Sourcing plots with geolocation (polygons), commodity, volume, and legality evidence.",
+        "summary": "Operators submit a due diligence statement through the information system before placing relevant "
+                   "products on the market or exporting them (Art. 4(2)), with the geolocation of all plots of land (Annex II).",
+        "official_form": "Due diligence statement — content per EUDR Annex II",
+        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R3084",
+        "inputs": "Per shipment: HS code, quantity, the plots with geolocation, supplier, legality evidence and the risk assessment.",
     },
 }
 

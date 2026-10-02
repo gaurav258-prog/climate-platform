@@ -476,14 +476,10 @@ def _plot_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
 def _plot_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r["org_id"] = org_id
-    # a moved plot or changed boundary makes the satellite EUDR determination stale: clear it, never keep a result for
-    # a location it was not computed on (re-run /eudr/determine to refresh)
+    # a moved plot or changed boundary has no current satellite reading: each reading is kept with the geometry it read
+    # (services/eudr/reading.py), so nothing is cleared here
     session.execute(text("""
         UPDATE sc_sourcing_plots p SET
-               eudr_determination = CASE WHEN p.latitude IS DISTINCT FROM :latitude OR p.longitude IS DISTINCT FROM :longitude
-                                          OR p.plot_geometry IS DISTINCT FROM CAST(:plot_geometry AS jsonb) THEN NULL ELSE p.eudr_determination END,
-               eudr_determined_at = CASE WHEN p.latitude IS DISTINCT FROM :latitude OR p.longitude IS DISTINCT FROM :longitude
-                                          OR p.plot_geometry IS DISTINCT FROM CAST(:plot_geometry AS jsonb) THEN NULL ELSE p.eudr_determined_at END,
                commodity_id = CAST(:commodity_id AS uuid), plot_name = :plot_name, latitude = :latitude, longitude = :longitude,
                h3_cell = :h3_cell, region = :region, country = :country, annual_spend_eur = :annual_spend_eur,
                plot_area_ha = :plot_area_ha, plot_geometry = CAST(:plot_geometry AS jsonb), irrigation_status = :irrigation_status,

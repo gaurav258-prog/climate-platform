@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 import services.governance.prior_filings as PF
-from api.deps import CurrentUser, DbSession, require_permission
+from api.deps import CurrentUser, DbSession, attachment, require_permission
 
 # original-file media types, by stored format
 _MEDIA = {"pdf": "application/pdf", "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -78,7 +78,7 @@ def download_original(filing_id: str, session: DbSession, ctx: CurrentUser,
         raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
     return Response(content=bytes(row["file_bytes"]),
                     media_type=_MEDIA.get(row["file_format"], "application/octet-stream"),
-                    headers={"Content-Disposition": f'attachment; filename="{row["original_filename"]}"'})
+                    headers={"Content-Disposition": attachment(f"{row["original_filename"]}")})
 
 
 @router.post("/upload", status_code=201, summary="Upload a filed report — read it into reported lines to confirm")

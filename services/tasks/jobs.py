@@ -84,6 +84,11 @@ def worker_status(session=None) -> dict:
     return {**out, "executor": executor}
 
 
+def knows(status: dict, job: str) -> bool:
+    """Whether a live worker named this job when it started (a worker that names none is taken to know none)."""
+    return any(w["alive"] and job in (w.get("jobs") or ()) for w in status["workers"])
+
+
 def worker_state(status: Optional[dict] = None) -> str:
     """'alive' | 'unavailable' — the word a queued job carries."""
     return "alive" if (status or worker_status())["alive"] else "unavailable"
@@ -95,12 +100,17 @@ def submit(job: str, *args: Any) -> dict:
     state so the caller can say "worker unavailable" at once; a child process is spawned right here, so it is alive."""
     resolve(job)   # fail fast on a typo, before anything is queued
     if broker_reachable():
-        try:
-            from services.tasks.celery_app import celery_app
-            r = celery_app.send_task(job, args=list(args))
-            return {"via": "celery", "id": r.id, "worker_state": worker_state()}
-        except Exception as e:
-            logger.warning("could not enqueue %s on the worker (%s) — running in a child process", job, e)
+        status = worker_status()
+        if not knows(status, job):
+            # a live worker on older code would refuse it unseen ('unregistered task'): run it here, on this code (E110)
+            logger.warning("no live worker names job %s — running it in a child process", job)
+        else:
+            try:
+                from services.tasks.celery_app import celery_app
+                r = celery_app.send_task(job, args=list(args))
+                return {"via": "celery", "id": r.id, "worker_state": worker_state(status)}
+            except Exception as e:
+                logger.warning("could not enqueue %s on the worker (%s) — running in a child process", job, e)
     ctx = mp.get_context("spawn")
     p = ctx.Process(target=_run_in_child, args=(job, tuple(args)), name=f"job-{job}", daemon=True)
     p.start()

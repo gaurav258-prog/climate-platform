@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, attachment, require_permission
 from services.intelligence.climate_track_record import track_record, track_record_pdf
 from services.intelligence.model_validation import model_validation_all
 from services.intelligence.realized_exposure import realized_exposure
@@ -83,4 +83,4 @@ def track_record_pdf_ep(session: DbSession,
                         ctx: dict = Depends(require_permission("modules.view"))):
     fname, blob = track_record_pdf(session, lat, lon, name)
     return Response(blob, media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+                    headers={"Content-Disposition": attachment(f"{fname}")})

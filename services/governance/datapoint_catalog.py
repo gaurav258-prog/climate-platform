@@ -183,8 +183,9 @@ CATALOG: dict[str, list[dict]] = {
          "unit": "scr_ratio_%"},
     ],
     "eudr_dds": [
-        _dp("eudr_determination", "Per-plot geolocation + deforestation-free determination (satellite vs 2020 cutoff)",
-            "tellumen", "compute", provider="Tellumen (your plot polygons + Hansen Global Forest Change)"),
+        _dp("eudr_reading", "Per-plot satellite reading of tree-cover loss after 31.12.2020 — a risk the operator weighs "
+            "(Art. 10), never a verdict", "tellumen", "compute",
+            provider="Tellumen (your plot geolocation + Hansen Global Forest Change)"),
         _dp("eudr_legality", "Legality evidence + supplier declarations",
             "customer", "provided", provider="Your supplier legality documentation"),
     ],

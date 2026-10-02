@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 import services.governance.tasks as T
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, attachment, require_permission
 
 router = APIRouter(prefix="/v1/reg-tasks", tags=["Regulatory tasks"])
 
@@ -316,9 +316,7 @@ def download_attachment(task_id: str, attachment_id: str, session: DbSession,
     a = T.get_attachment(session, ctx["org"]["org_id"], task_id, attachment_id)
     if not a:
         raise HTTPException(404, {"error": "not_found", "message": "Attachment not found."})
-    # ASCII-safe Content-Disposition (RFC 5987 filename* for the real name)
-    from urllib.parse import quote
-    disp = f"attachment; filename*=UTF-8''{quote(a['filename'])}"
+    disp = attachment(a["filename"])
     return Response(content=a["data"], media_type=a["content_type"], headers={"Content-Disposition": disp})
 
 

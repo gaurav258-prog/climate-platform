@@ -42,7 +42,7 @@ def test_render_cover_pdf_is_a_valid_openable_pdf():
 
 
 def test_lineage_html_renders_chain_and_feed_provenance():
-    html = _lineage_html("Entity X", _SNAP, _BASIS, _SNAP["engine_versions"])
+    html = _lineage_html("Entity X", _SNAP, _BASIS, _SNAP["engine_versions"], {})
     # the five-stage source→filing chain
     assert html.count("border-left:4px") == 5
     # feeds mapped to their authoritative source name + maturity/freshness
@@ -55,6 +55,6 @@ def test_lineage_html_renders_chain_and_feed_provenance():
 
 def test_lineage_html_no_feed_maturity_is_safe():
     snap = {**_SNAP, "engine_versions": {}}
-    html = _lineage_html("Entity X", snap, _BASIS, {})
+    html = _lineage_html("Entity X", snap, _BASIS, {}, {})
     assert "No feed maturity recorded" in html
     assert html.count("border-left:4px") == 5  # the chain still renders

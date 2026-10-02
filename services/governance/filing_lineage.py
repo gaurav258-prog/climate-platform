@@ -93,6 +93,9 @@ _ALT_LINEAGE = {
     "sfdr_periodic": "Item by item: every item of the frozen template carries its source; the frozen holdings (each "
                      "position date of the reference period, with the investee's own Taxonomy KPIs) are in the "
                      "filing; per holding, GET /v1/issuers/{issuer_id}.",
+    "eudr_dds": "Per shipment: the frozen statement holds its plots (geolocation, country, the satellite reading of "
+                "each), the supplier, the legality evidence and the risk assessment it was prepared from; per plot, "
+                "GET /v1/supply/plot/{plot_id}; the shipment, GET /v1/eudr/movements/{movement_id}/statement.",
 }
 
 

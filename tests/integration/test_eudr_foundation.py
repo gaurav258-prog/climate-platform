@@ -90,7 +90,7 @@ def _filing(s, org, status, **subject) -> str:
     return str(s.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, entity_id, fund_id, eudr_movement_id,
                                        filing_role)
-        VALUES (CAST(:o AS uuid), :fw, '2027-12-31', 'FY2027', :st, NULL, CAST(:f AS uuid), CAST(:m AS uuid), :role)
+        VALUES (CAST(:o AS uuid), :fw, '2027-12-31', CASE WHEN :fw = 'eudr_dds' THEN 'T · 2027-12-31' ELSE 'FY2027' END, :st, NULL, CAST(:f AS uuid), CAST(:m AS uuid), :role)
         RETURNING filing_id"""), {"o": org, "st": status, "fw": subject.get("fw", "eudr_dds"), "f": subject.get("fund"),
                                   "m": subject.get("movement"), "role": subject.get("role")}).scalar())
 

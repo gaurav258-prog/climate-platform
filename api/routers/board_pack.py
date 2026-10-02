@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from api.deps import DbSession, require_permission, require_step_up
+from api.deps import DbSession, attachment, require_permission, require_step_up
 from services.governance import board_pack as BP
 
 router = APIRouter(prefix="/v1/board-pack", tags=["Governance"])
@@ -52,9 +52,9 @@ def download_pack(pack_id: str, fmt: str, session: DbSession, ctx: dict = Depend
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such board pack."})
     stem = f"board-pack-v{p['version']}-{p['period_to']}"
     if fmt == "pdf":
-        return Response(content=BP.render_pdf(p["content"], p["attestations"]), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'})
+        return Response(content=BP.render_pdf(p["content"], p["attestations"]), media_type="application/pdf", headers={"Content-Disposition": attachment(f"{stem}.pdf")})
     if fmt == "json":
-        return Response(content=BP.canonical_json({**p["content"], "attestations": p["attestations"]}), media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{stem}.json"'})
+        return Response(content=BP.canonical_json({**p["content"], "attestations": p["attestations"]}), media_type="application/json", headers={"Content-Disposition": attachment(f"{stem}.json")})
     raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Format must be pdf or json."})
 
 

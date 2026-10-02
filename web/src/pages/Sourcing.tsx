@@ -16,7 +16,7 @@ import { pressable } from '../lib/pressable'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; region: string | null
-  country: string | null; lat: number; lon: number; spend_eur: number; eudr_determination: string | null
+  country: string | null; lat: number; lon: number; spend_eur: number; reading: { outcome: string; loss_ha: number | null; first_loss_year: number | null } | null
   top_hazard: string | null; hazard_score: number | null
 }
 interface Portfolio { plots: Plot[] }
@@ -92,11 +92,11 @@ export default function Sourcing() {
           [{ key: 'name', label: 'Plot' }, { key: 'commodity', label: 'Commodity' }, { key: 'region', label: 'Region' },
            { key: 'country', label: 'Country' }, { key: 'lat', label: 'Lat' }, { key: 'lon', label: 'Lon' },
            { key: 'spend', label: 'Annual spend (EUR)' }, { key: 'hazard', label: 'Worst hazard' }, { key: 'score', label: 'Score' },
-           { key: 'eudr', label: 'EUDR covered' }, { key: 'determination', label: 'EUDR determination' }],
+           { key: 'eudr', label: 'EUDR covered' }, { key: 'reading', label: 'EUDR satellite reading' }],
           plots.map(p => ({
             name: p.plot_name, commodity: p.commodity, region: p.region ?? '', country: p.country ?? '', lat: p.lat, lon: p.lon,
             spend: p.spend_eur ?? '', hazard: p.top_hazard ? hazardLabel(p.top_hazard) : '', score: p.hazard_score ?? '',
-            eudr: p.eudr_covered ? 'yes' : 'no', determination: p.eudr_determination ?? '',
+            eudr: p.eudr_covered ? 'yes' : 'no', reading: p.reading?.outcome ?? (p.eudr_covered ? 'not read' : ''),
           })),
           { title: 'Sourcing book', org: profile?.org?.name })} /> : undefined} />
 
@@ -202,7 +202,7 @@ export default function Sourcing() {
                       ? <span className="mono text-[12px]" style={{ color: hz(p.hazard_score) }}>{hazardLabel(p.top_hazard)} {p.hazard_score.toFixed(0)}</span>
                       : <span className="mono text-[11px] text-[var(--color-faint)]">unscored</span>}
                   </td>
-                  <td>{p.eudr_covered ? <StatusPill status={p.eudr_determination} /> : <span className="mono text-[11px] text-[var(--color-faint)]">n/a</span>}</td>
+                  <td>{p.eudr_covered ? <StatusPill status={p.reading?.outcome ?? 'unread'} /> : <span className="mono text-[11px] text-[var(--color-faint)]">n/a</span>}</td>
                 </tr>
               ))}
             </tbody>

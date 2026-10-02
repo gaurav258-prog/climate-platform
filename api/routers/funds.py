@@ -20,7 +20,7 @@ from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
-from api.deps import DbSession, own_or_404, require_permission, tenant_resolver
+from api.deps import DbSession, attachment, own_or_404, require_permission, tenant_resolver
 from ml.regulatory.sfdr_pai import (
     entity_narratives,
     entity_pai_statement,
@@ -732,7 +732,7 @@ def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
     fname = f"SFDR_PAI_Statement_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xlsx"
     return StreamingResponse(
         buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+        headers={"Content-Disposition": attachment(fname)})
 
 
 @router.get("/funds/{fund_id}/sfdr-statement.xbrl", summary="Download the SFDR PAI statement as a machine-readable XBRL instance")
@@ -749,7 +749,7 @@ def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
     fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xbrl"
     return StreamingResponse(
         iter([xml]), media_type="application/xml",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+        headers={"Content-Disposition": attachment(fname)})
 
 
 @router.get("/funds/{fund_id}/sfdr-statement.ixbrl", summary="SFDR PAI statement as an Inline XBRL (iXBRL) report — human + machine readable")
@@ -767,7 +767,7 @@ def sfdr_statement_ixbrl(fund_id: str, session: DbSession, org_id: OrgId):
     fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xhtml"
     return StreamingResponse(
         iter([doc]), media_type="application/xhtml+xml",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+        headers={"Content-Disposition": attachment(fname)})
 
 
 @router.get("/entity/sfdr-statement.xbrl", summary="Entity-level SFDR PAI statement as a machine-readable XBRL instance")
@@ -782,7 +782,7 @@ def entity_statement_xbrl(session: DbSession, org_id: OrgId):
     fname = f"SFDR_PAI_Entity_{statement['entity']['manager'].replace(' ', '_')}.xbrl"
     return StreamingResponse(
         iter([xml]), media_type="application/xml",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+        headers={"Content-Disposition": attachment(fname)})
 
 
 class FilingProfile(BaseModel):

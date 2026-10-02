@@ -112,18 +112,19 @@ SUPERVISORS: dict[str, dict] = {
         ],
     },
     "ec_traces": {
-        "name": "EU competent authorities · EC (TRACES)",
+        "name": "EU competent authorities · EC (EUDR information system)",
         "jurisdiction": "EU · deforestation-free supply chains",
         "mission": "Ensure operators placing in-scope commodities on the EU market submit a valid Due Diligence "
-                   "Statement with geolocation and a deforestation-free / legality assessment.",
+                   "Statement (Art. 4(2)) resting on geolocation, legality evidence and a risk assessment (Art. 9, 10).",
         "guidance": "",
         "focus_areas": [
             {"title": "Geolocation completeness",
              "scrutiny": "Whether every covered plot carries the required geolocation (polygons for plots > 4 ha).",
              "transparency": "Plot polygons on file for all covered plots."},
-            {"title": "Deforestation-free assurance",
-             "scrutiny": "Whether a deforestation-free determination against the 31-Dec-2020 cut-off exists for each covered plot.",
-             "transparency": "Share of covered plots with a deforestation-free determination; any non-compliant / post-cutoff loss."},
+            {"title": "Deforestation risk assessment",
+             "scrutiny": "Whether each statement rests on an Art. 10 risk assessment concluding no or only a negligible risk, "
+                         "weighing each plot's evidence of land-use change after the 31-Dec-2020 cut-off.",
+             "transparency": "Plots whose satellite reading shows tree-cover loss after the cut-off, and how each assessment weighed them."},
         ],
     },
 }
@@ -196,10 +197,10 @@ SUPERVISORY_QUESTIONS: dict[str, list[dict]] = {
          "focus": "Anticipated financial effects", "kri_key": "resilience_capex"},
     ],
     "eudr_dds": [
-        {"q": "What share of covered plots have a deforestation-free determination?",
-         "focus": "Deforestation-free assurance", "kri_key": "deforestation_free_pct"},
-        {"q": "Are any plots non-compliant or in post-cutoff forest-loss areas?",
-         "focus": "Deforestation-free assurance", "kri_key": "non_compliant"},
+        {"q": "Does every covered plot have a satellite reading of its current geometry?",
+         "focus": "Deforestation risk assessment", "metric": "EUDR plots with a current reading (EUDR → plot readings)"},
+        {"q": "Which plots show tree-cover loss after the cut-off, and how did the risk assessment weigh it?",
+         "focus": "Deforestation risk assessment", "metric": "Plot readings with loss after 2020; Art. 10 assessment per shipment"},
         {"q": "Do all covered plots over 4 ha carry a geolocation polygon?",
          "focus": "Geolocation completeness", "metric": "Plot polygons (EUDR Annex II geolocation)"},
     ],

@@ -26,7 +26,7 @@ interface Check { key: string; label: string; ok: boolean; hint: string | null }
 interface CC {
   organization: { name: string | null; legal_name: string | null; type: string | null; country: string | null; lei: string | null; eori: string | null; filing_contact_email: string | null; operator_address: string | null }
   readiness: { passed: number; total: number; checks: Check[] }
-  data: { sites: { total: number; scored: number; elevated: number; value_eur: number }; plots: { total: number; eudr_covered: number; eudr_determined: number; needs_polygon: number } }
+  data: { sites: { total: number; scored: number; elevated: number; value_eur: number }; plots: { total: number; eudr_covered: number; eudr_read: number; needs_polygon: number } }
   governance: { pending_approvals: number; audit_events_30d: number; second_approver: boolean }
   access: { users: number; active: number; ever_logged_in: number }
   entitlements: string[]
@@ -498,7 +498,7 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
       <div className="grid sm:grid-cols-4 gap-4">
         <Stat big={`${d.data.sites.scored}/${d.data.sites.total}`} label="sites scored" tone={d.data.sites.scored === d.data.sites.total ? 'good' : 'warn'} />
         <Stat big={balance(d.data.sites.value_eur)} label="asset value on the book" />
-        <Stat big={`${d.data.plots.eudr_determined}/${d.data.plots.eudr_covered}`} label="EUDR plots determined" tone={d.data.plots.eudr_determined === d.data.plots.eudr_covered ? 'good' : 'warn'} />
+        <Stat big={`${d.data.plots.eudr_read}/${d.data.plots.eudr_covered}`} label="EUDR plots read" tone={d.data.plots.eudr_read === d.data.plots.eudr_covered ? 'good' : 'warn'} />
         <Stat big={d.data.plots.needs_polygon} label="plots need a polygon" tone={d.data.plots.needs_polygon ? 'warn' : 'good'} />
       </div>
 

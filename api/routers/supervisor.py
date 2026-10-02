@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession, require_permission
+from api.deps import CurrentUser, DbSession, attachment, require_permission
 from api.services.rbac import write_audit
 from services.governance import filings as F
 from services.supervision.levels import authority_level, clean_basis, entity_level
@@ -940,9 +940,9 @@ def download_evidence_pack(org_id: str, pack_id: str, fmt: str, session: DbSessi
     session.commit()
     stem = f"evidence-pack-{org_id[:8]}-v{p['version']}"
     if fmt == "pdf":
-        return Response(content=bytes(p["pdf"]), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'})
+        return Response(content=bytes(p["pdf"]), media_type="application/pdf", headers={"Content-Disposition": attachment(f"{stem}.pdf")})
     if fmt == "json":
-        return Response(content=canonical_json(p["content"]), media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{stem}.json"'})
+        return Response(content=canonical_json(p["content"]), media_type="application/json", headers={"Content-Disposition": attachment(f"{stem}.json")})
     raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Format must be pdf or json."})
 
 
@@ -1249,7 +1249,7 @@ def request_letter(request_id: str, session: DbSession, ctx: Supervisor):
     L = letter(session, request_id, regulator_org_id=ctx["org"]["org_id"])
     if not L:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No letter on this request."})
-    return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{L["reference"]}.pdf"'})
+    return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": attachment(f"{L["reference"]}.pdf")})
 
 
 @router.get("/entity/{org_id}/transmissions", summary="Filings this entity transmitted to us through the Tellumen channel, with the receipts we issued")

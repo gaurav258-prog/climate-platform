@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, attachment, require_permission
 from api.services.rbac import write_audit
 from services.governance import contracts as C
 
@@ -52,7 +52,7 @@ def download_contract(contract_id: str, session: DbSession, ctx: dict = Depends(
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="contract.downloaded",
                 target_type="customer_contract", target_id=contract_id, detail=f"Downloaded '{filename}'")
     return Response(content=data, media_type=content_type or "application/octet-stream",
-                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+                    headers={"Content-Disposition": attachment(filename)})
 
 
 @router.delete("/{contract_id}", summary="Remove a contract (contracts.manage · audited)")

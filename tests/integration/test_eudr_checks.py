@@ -33,11 +33,19 @@ def _blocking(st) -> set[str]:
     return {c["rule"].split(":")[0] for c in st["checks"] if not c["passed"] and c["severity"] == "blocking"}
 
 
-def _movement(s, hs="180100", role="operator", supplier=None) -> str:
+def _entity(s) -> str:
+    """A reporting entity of the test's own: the organisation's own EUDR status (demo data, a walkthrough) never decides
+    what this test sees (E81)."""
+    return str(s.execute(text("""INSERT INTO reporting_entities (entity_id, org_id, name) VALUES (gen_random_uuid(), CAST(:o AS uuid), 'E107 importer')
+                                 RETURNING entity_id"""), {"o": TERRA}).scalar())
+
+
+def _movement(s, hs="180100", role="operator", supplier=None, entity=None) -> str:
     return str(s.execute(text("""
-        INSERT INTO eudr_movement (org_id, kind, actor_role, planned_on, hs_code, description, customs_flow, net_mass_kg, supplier_id)
-        VALUES (CAST(:o AS uuid), 'placing', :r, '2027-01-15', :hs, 'Cocoa beans', true, 1000, CAST(:s AS uuid))
-        RETURNING movement_id"""), {"o": TERRA, "r": role, "hs": hs, "s": supplier}).scalar())
+        INSERT INTO eudr_movement (org_id, kind, actor_role, planned_on, hs_code, description, customs_flow, net_mass_kg, supplier_id,
+                                   reporting_entity_id)
+        VALUES (CAST(:o AS uuid), 'placing', :r, '2027-01-15', :hs, 'Cocoa beans', true, 1000, CAST(:s AS uuid), CAST(:e AS uuid))
+        RETURNING movement_id"""), {"o": TERRA, "r": role, "hs": hs, "s": supplier, "e": entity}).scalar())
 
 
 def _plot(s, decimals=6, area=2.0, polygon=True) -> str:
@@ -65,7 +73,8 @@ def test_a_statement_is_blocked_until_each_record_is_in_place(api, monkeypatch):
     monkeypatch.setattr(forest, "forest_loss_since", _no_loss)
     s = api.s
     maker, checker = _login(api, "analyst@terra.demo", "Demo!analyst1"), _login(api, "approver@terra.demo", "Demo!approve1")
-    m = _movement(s)
+    ent = _entity(s)
+    m = _movement(s, entity=ent)
     get = lambda: api.get(f"/v1/eudr/movements/{m}/statement", headers=maker).json()      # noqa: E731
     assert {"annex_ii_1", "annex_ii_3", "supplier", "legality", "risk_assessment"} <= _blocking(get())
 
@@ -85,7 +94,7 @@ def test_a_statement_is_blocked_until_each_record_is_in_place(api, monkeypatch):
     s.execute(text("UPDATE eudr_movement SET supplier_id = CAST(:s AS uuid) WHERE movement_id = CAST(:m AS uuid)"), {"s": sup, "m": m})
     _approve(api, checker, api.post("/v1/eudr/status", headers=maker, json={
         "effective_from": "2026-12-30", "size_class": "large", "country": "ES", "address": "Calle Mayor 1, Madrid",
-        "eori": "ESB12345678"}))
+        "eori": "ESB12345678", "entity_id": ent}))
     assert api.post("/v1/eudr/evidence", headers=maker, json={"aspect": "land_use_rights", "document_kind": "Land title",
                                                              "plot_id": good}).status_code == 201
     assert _blocking(get()) == {"risk_assessment"}

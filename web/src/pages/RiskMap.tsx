@@ -11,7 +11,7 @@ import { flow } from '../lib/money'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; country: string | null
-  lat: number; lon: number; spend_eur: number; eudr_determination: string | null
+  lat: number; lon: number; spend_eur: number; reading: { outcome: string; loss_ha: number | null; first_loss_year: number | null } | null
   top_hazard: string | null; hazard_score: number | null
 }
 interface Portfolio { plots: Plot[] }
@@ -88,6 +88,11 @@ function plotEl(color: string) {
     border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(30,58,95,.25);cursor:pointer;`
   return d
 }
+
+// a plot's satellite reading (services/eudr/reading.py) — what was read, never a verdict
+const readingLabel = (r: { outcome: string; first_loss_year: number | null } | null) =>
+  !r ? 'not read' : r.outcome === 'loss_after_cutoff' ? `loss after 2020 (first ${r.first_loss_year ?? '—'})`
+    : r.outcome === 'not_assessable' ? 'not assessable' : 'no loss read'
 
 export default function RiskMap() {
   const q = useQuery({ queryKey: ['portfolio'], queryFn: () => api.get<Portfolio>('/v1/supply/portfolio') })
@@ -246,7 +251,7 @@ export default function RiskMap() {
                 <span className="inline-block w-2 h-2 rounded-full" style={{ background: hazardColor(hover.plot.hazard_score) }} />
                 {prettyHazard(hover.plot.top_hazard)} hazard {hover.plot.hazard_score != null ? Math.round(hover.plot.hazard_score) : ''}
               </div>
-              {hover.plot.eudr_covered && <div className="text-[11px] mt-0.5" style={{ color: '#9db4d4' }}>EUDR: {hover.plot.eudr_determination ?? 'not checked'}</div>}
+              {hover.plot.eudr_covered && <div className="text-[11px] mt-0.5" style={{ color: '#9db4d4' }}>EUDR reading: {readingLabel(hover.plot.reading)}</div>}
             </div>
           )}
 

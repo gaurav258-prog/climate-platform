@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Play, Pause, Camera, ArrowRight, Grid3x3, Maximize2, Minimize2, Crosshair, Satellite } from 'lucide-react'
 import LiveEarthHero from '../components/LiveEarthHero'
 import { api } from '../lib/api'
@@ -13,7 +13,7 @@ import { Dialog, CloseButton } from '../components/Dialog'
 
 interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
-  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean; facets?: { k: string; v: string }[]
+  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_unread?: boolean; facets?: { k: string; v: string }[]
 }
 interface Check { key: string; label: string; ok: boolean; hint: string | null; fix_href: string | null; fix_label: string | null }
 interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
@@ -81,8 +81,6 @@ function Tile({ label, value, sub, tint, onClick }: { label: string; value: stri
 export default function Horizon() {
   const nav = useNavigate()
   const { profile } = useAuth()
-  const qc = useQueryClient()
-  const [resolving, setResolving] = useState(false)
   // drill-down overlay: a KPI ('book'|'elevated'|'readiness'|'scope') or a task
   const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
   const [showAllAtRisk, setShowAllAtRisk] = useState(false)   // At-risk drill-down: top 8 vs the full list
@@ -346,16 +344,6 @@ export default function Horizon() {
 
   const closeSel = () => { S.current.focus = null; if (S.current.belt) { const [la, lo] = beltMean(S.current.belt); S.current.tLon = lo * D2R; S.current.tLat = Math.max(-1.1, Math.min(1.1, la * D2R)) } setSel(null) }
   const cur = sel ? scoreAt(sel, viewYear) : 0
-  // globe-native closure: run the real satellite EUDR determination, then the flag + task clear
-  const resolveEudr = async () => {
-    setResolving(true)
-    try {
-      await api.post('/v1/supply/eudr/determine', {})
-      await qc.invalidateQueries({ queryKey: ['globe'] })
-      await qc.invalidateQueries({ queryKey: ['my-tasks'] })
-      closeSel()
-    } finally { setResolving(false) }
-  }
   // Escape mirrors the "← back" button: close the topmost open overlay, one press at a time. Order matches
   // visual stacking — the granular grid sits over a drill-down, which sits over a selection / region focus.
   useEffect(() => {
@@ -662,13 +650,13 @@ export default function Horizon() {
             </div>
           )}
           {/* globe-native closure — an open compliance action resolved right here */}
-          {sel.eudr_undetermined && (
+          {sel.eudr_unread && (
             <div className="mt-5 pt-4 border-t border-[var(--color-line)]">
               <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-warn)] mb-2">Needs action · EUDR</div>
-              <div className="text-[13.5px] text-[var(--color-mute)] leading-relaxed mb-3">This plot is EUDR-covered but has no deforestation-free determination yet — required before you can file.</div>
-              <button onClick={resolveEudr} disabled={resolving}
-                className="w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#0b1206] bg-[var(--color-good)] border border-[var(--color-good)] rounded-full px-5 py-3 hover:opacity-90 disabled:opacity-60">
-                {resolving ? 'running satellite determination…' : 'Run EUDR determination'} {!resolving && <ArrowRight size={14} />}
+              <div className="text-[13.5px] text-[var(--color-mute)] leading-relaxed mb-3">This EUDR plot has no satellite reading of its current geometry — a shipment's risk assessment weighs it (Art. 10).</div>
+              <button onClick={() => nav('/eudr')}
+                className="w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#0b1206] bg-[var(--color-good)] border border-[var(--color-good)] rounded-full px-5 py-3 hover:opacity-90">
+                Read it on the EUDR page <ArrowRight size={14} />
               </button>
             </div>
           )}

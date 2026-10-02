@@ -51,3 +51,29 @@ def test_worker_state_word_follows_alive():
     from services.tasks.jobs import worker_state
     assert worker_state({"alive": True}) == "alive"
     assert worker_state({"alive": False}) == "unavailable"
+
+
+def test_a_job_goes_to_the_worker_only_when_a_live_worker_names_it(monkeypatch):
+    """E110: a worker started on older code beat 'alive' and refused a job added since, unseen. A job is sent to the
+    worker only when a live worker named it at start; otherwise it runs in a child process on this code."""
+    from services.tasks import jobs as J
+    sent, spawned = [], []
+    monkeypatch.setattr(J, "broker_reachable", lambda timeout=1.0: True)
+
+    class _P:
+        pid = 4242
+        def __init__(self, target, args, name, daemon): spawned.append(args[0])
+        def start(self): pass
+    monkeypatch.setattr(J.mp, "get_context", lambda kind: type("C", (), {"Process": _P}))
+    from services.tasks.celery_app import celery_app
+    monkeypatch.setattr(celery_app, "send_task", lambda job, args: sent.append(job) or type("R", (), {"id": "t1"}))
+    fresh = NOW.replace(tzinfo=None)
+
+    def fleet(jobs):
+        return {"alive": True, "workers": [{"worker": "w", "alive": True, "jobs": jobs, "last_seen": fresh}]}
+    monkeypatch.setattr(J, "worker_status", lambda session=None: fleet(["eudr.read_plots"]))
+    assert J.submit("eudr.read_plots", "org", [], None)["via"] == "celery" and sent == ["eudr.read_plots"]
+    monkeypatch.setattr(J, "worker_status", lambda session=None: fleet(["intake.process"]))      # older code
+    assert J.submit("eudr.read_plots", "org", [], None)["via"] == "process" and spawned == ["eudr.read_plots"]
+    monkeypatch.setattr(J, "worker_status", lambda session=None: fleet(None))                    # names none
+    assert J.submit("eudr.read_plots", "org", [], None)["via"] == "process" and sent == ["eudr.read_plots"]

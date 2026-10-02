@@ -103,7 +103,7 @@ def test_eudr_records_arrive_through_the_governed_intake(session_rolled_back):
 
     # once in a statement under review, a file does not change it
     s.execute(text("""INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, eudr_movement_id)
-                      VALUES (CAST(:o AS uuid), 'eudr_dds', '2027-12-31', 'FY2027', 'in_review', CAST(:m AS uuid))"""),
+                      VALUES (CAST(:o AS uuid), 'eudr_dds', '2027-12-31', 'T · 2027-12-31', 'in_review', CAST(:m AS uuid))"""),
               {"o": TERRA, "m": m[0]})
     bad = _refused(s, user, "eudr_movements", [{**mv, "net_mass_kg": "1"}], f"{tag}-3")
     assert "under review or filed" in bad[2]

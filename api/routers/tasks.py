@@ -119,8 +119,8 @@ def _site_facets(r):
 def _plot_facets(r):
     out = [{"k": "Annual spend", "v": _flow(float(r.get("value_eur") or 0))}]
     if r.get("f_commodity"): out.append({"k": "Commodity", "v": r["f_commodity"]})
-    out.append({"k": "EUDR", "v": "covered · undetermined" if r.get("eudr_undetermined")
-                else ("covered · determined" if r.get("f_eudr_covered") else "not covered")})
+    out.append({"k": "EUDR", "v": "covered · not read" if r.get("eudr_unread")
+                else ("covered · read" if r.get("f_eudr_covered") else "not covered")})
     if r.get("f_area"): out.append({"k": "Plot area", "v": f"{r['f_area']} ha"})
     return out
 
@@ -154,7 +154,7 @@ def globe(session: DbSession, ctx: CurrentUser,
                 by_asset[r["id"]] = {
                     "id": str(r["id"]), "name": r["name"], "kind": r["kind"], "lat": float(r["lat"]),
                     "lon": float(r["lon"]), "region": r["region"], "value_eur": float(r["value_eur"] or 0),
-                    "eudr_undetermined": bool(r.get("eudr_undetermined")),
+                    "eudr_unread": bool(r.get("eudr_unread")),
                     "facets": (facet_fn(r) if facet_fn else []), "_haz": {}}
             by_asset[r["id"]]["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
 
@@ -193,7 +193,6 @@ def globe(session: DbSession, ctx: CurrentUser,
             SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
                    p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
                    p.annual_spend_eur AS value_eur,
-                   (co.eudr_covered AND p.eudr_determination IS NULL) AS eudr_undetermined,
                    co.name AS f_commodity, co.eudr_covered AS f_eudr_covered, p.plot_area_ha AS f_area,
                    v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
             FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
@@ -201,6 +200,9 @@ def globe(session: DbSession, ctx: CurrentUser,
             WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
               AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
         """), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
+        from services.eudr.reading import for_org
+        unread = {pid for pid, r in for_org(session, org_id, covered_only=True, entity_id=entity_id).items() if r is None}
+        plots = [{**r, "eudr_unread": str(r["id"]) in unread} for r in plots]
         assets = _pivot(sites, _site_facets) + _pivot(plots, _plot_facets)
         # portfolio euro-at-risk TODAY is the real supply-engine figure (org-wide only — the engine isn't
         # entity-scoped yet, so we don't show an org number against a single entity's book)
@@ -490,8 +492,7 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
     """), {"o": org_id, "ent": entity_id}).mappings().first()
     plots = session.execute(text("""
         SELECT count(*) n,
-               count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon,
-               count(*) FILTER (WHERE co.eudr_covered AND p.eudr_determination IS NULL) needs_eudr
+               count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id=p.commodity_id
         WHERE p.org_id=:o
           AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
@@ -508,11 +509,13 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
                 "plots_polygon", f"{plots['needs_polygon']} plot(s) over 4 ha need a boundary polygon",
                 "EUDR needs a geometry, not just a point, for plots over 4 hectares.",
                 "warning", "Fix in Sourcing", "/sourcing", "modules.view"))
-        if plots["needs_eudr"]:
+        from services.eudr.reading import for_org, tally
+        unread = tally(for_org(session, org_id, covered_only=True, entity_id=entity_id))["unread"]
+        if unread:
             tasks.append(_task(
-                "eudr_run", f"Run EUDR determination on {plots['needs_eudr']} plot(s)",
-                "Covered plots need a deforestation determination before the filing.",
-                "action", "Open Disclosure", "/disclosure", "modules.view"))
+                "eudr_run", f"Read {unread} plot(s) against the forest dataset",
+                "A shipment's risk assessment weighs each plot's current satellite reading (Art. 10).",
+                "action", "Open EUDR", "/eudr", "modules.view"))
         if sites["unscored"]:
             tasks.append(_task(
                 "sites_unscored", f"{sites['unscored']} site(s) not yet scored",

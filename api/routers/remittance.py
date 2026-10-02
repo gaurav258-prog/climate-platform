@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, attachment
 from api.routers.supervisor import Supervisor, _in_scope, _need
 from core.config import settings
 from services.supervision import remittance as R
@@ -30,8 +30,8 @@ def _who(request: Request, ctx: Optional[dict] = None) -> dict:
 def _file(fmt: str, data: bytes, d: dict) -> Response:
     stem = f"remittance-{d['reference']}"
     if fmt == "pdf":
-        return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'})
-    return Response(content=data, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{stem}.json"'})
+        return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": attachment(f"{stem}.pdf")})
+    return Response(content=data, media_type="application/json", headers={"Content-Disposition": attachment(f"{stem}.json")})
 
 
 # ── supervisor ──────────────────────────────────────────────────────────────────────────────────────────────

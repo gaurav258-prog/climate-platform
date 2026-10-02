@@ -16,7 +16,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, attachment, require_permission
 from api.services.rbac import write_audit
 from services.eet import fields as F
 from services.eet import publication as P
@@ -203,4 +203,4 @@ def export(publication_id: str, session: DbSession, format: str = Query("xlsx"),
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.version.export",
                 target_type="eet_publication", target_id=publication_id, detail={"format": format})
     session.commit()
-    return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    return Response(data, media_type=media, headers={"Content-Disposition": attachment(name)})

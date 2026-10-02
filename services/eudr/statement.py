@@ -112,3 +112,63 @@ def compute(session: Session, org_id: str, movement_id: str) -> dict:
         "legality_evidence": evidence,
         "risk_assessment": REC.live_assessment(session, movement_id),
     }
+
+
+# ───────────────────────────── the filed statement: what a reader sees ─────────────────────────────
+
+def _qty(q: dict) -> str:
+    parts = []
+    if q.get("net_mass_kg") is not None:
+        parts.append(f"{q['net_mass_kg']:,.3f} kg net mass" + (f" (± {q['mass_deviation_pct']} %)" if q.get("mass_deviation_pct") is not None else ""))
+    if q.get("supplementary_unit"):
+        parts.append(f"{q['supplementary_qty']:,} {q['supplementary_unit']}")
+    if q.get("volume_m3") is not None:
+        parts.append(f"{q['volume_m3']:,} m³")
+    if q.get("items_count") is not None:
+        parts.append(f"{q['items_count']:,} items")
+    return "; ".join(parts) or "—"
+
+
+def form(payload: dict) -> list[dict]:
+    st = payload.get("statement") or {}
+    if not st:
+        return []
+    a = st["annex_ii"]
+    mv = st["movement"]
+    return [{"section": "Due diligence statement (Annex II)", "rows": [
+        {"label": "1 · Operator", "value": f"{a['1'].get('name')} · {a['1'].get('address') or '—'}"
+                                           + (f" · EORI {a['1']['eori']}" if a['1'].get('eori') else "")},
+        {"label": "2 · Product", "value": f"HS {a['2']['hs_code']} · {a['2']['description']}"
+                                          + (f" · {a['2']['trade_name']}" if a['2'].get('trade_name') else "")
+                                          + (f" · {', '.join(a['2']['scientific_names'])}" if a['2']['scientific_names'] else "")},
+        {"label": "2 · Quantity", "value": _qty(a["2"]["quantity"])},
+        {"label": "3 · Countries of production", "value": ", ".join(a["3"]["countries"]) or "—"},
+        {"label": "3 · Plots", "value": str(len(a["3"]["plots"]))},
+        {"label": "Shipment", "value": f"{mv['kind'].replace('_', ' ')} on {mv['planned_on']} · {mv.get('external_ref') or ''}"},
+    ]}]
+
+
+def sections(payload: dict) -> list[dict]:
+    """The official-form tab: Annex II item by item, the plots with their geolocation, then the declaration."""
+    st = payload.get("statement") or {}
+    if not st:
+        return []
+    a = st["annex_ii"]
+    rows = [
+        {"label": "1. Operator's name, address and EORI number", "value": "; ".join(x for x in (
+            a["1"].get("name"), a["1"].get("address"), a["1"].get("eori") and f"EORI {a['1']['eori']}") if x)},
+        {"label": "2. Harmonised System code", "value": a["2"]["hs_code"]},
+        {"label": "2. Description and trade name", "value": " · ".join(x for x in (a["2"]["description"], a["2"].get("trade_name")) if x)},
+        {"label": "2. Full scientific name (where applicable)", "value": ", ".join(a["2"]["scientific_names"]) or "—"},
+        {"label": "2. Quantity", "value": _qty(a["2"]["quantity"])},
+        {"label": "3. Country of production", "value": ", ".join(a["3"]["countries"]) or "—"},
+        *({"label": f"3. Geolocation — {p['plot_name'] or p['plot_id']}",
+           "value": ("polygon" if p["has_polygon"] else f"{p['latitude']}, {p['longitude']}")
+                    + (f" · {p['area_ha']} ha" if p["area_ha"] is not None else "")} for p in a["3"]["plots"]),
+        {"label": "5.", "value": a["5"]},
+        {"label": "6.", "value": a["6"]},
+    ]
+    return [{"title": "Due diligence statement — Annex II to Regulation (EU) 2023/1115", "key": "eudr_annex_ii",
+             "columns": ["Annex II", "Statement"],
+             "rows": [{"type": "row", "cells": [{"text": r["label"]}, {"text": r["value"]}]} for r in rows],
+             "note": "Point 4 (a referenced statement) was deleted by Regulation (EU) 2025/2650."}]

@@ -15,7 +15,7 @@ interface Summary {
 interface Site { site_id: string; name: string; site_type: string; hazard_score: number | null; top_hazard: string | null; value_eur: number | null }
 interface SitesResp { sites: Site[] }
 interface Plot { plot_id: string; plot_name: string; commodity: string; top_hazard: string | null; hazard_score: number | null; spend_eur: number
-  eudr_covered?: boolean; eudr_determination?: string | null }
+  eudr_covered?: boolean; reading?: { outcome: string; loss_ha: number | null; first_loss_year: number | null } | null }
 interface Portfolio { plots: Plot[] }
 
 const pretty = hazardLabel
@@ -37,7 +37,7 @@ export default function Home() {
   const sitesElevated = siteList.filter(x => (x.hazard_score ?? 0) >= 40).length
   const plots = pf.data?.plots ?? []
   const coveredPlots = plots.filter(p => p.eudr_covered).length
-  const defFree = plots.filter(p => p.eudr_determination === 'deforestation_free').length
+  const covRead = plots.filter(p => p.eudr_covered && p.reading).length
 
   // biggest exposures across the whole book (sites + suppliers), for the granular strip — each opens its detail
   const exposures = [
@@ -62,7 +62,7 @@ export default function Home() {
           { label: 'Volume at risk (physical)', value: flow(s?.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C', onClick: () => nav('/cogs') },
           { label: 'Operational sites', value: siteList.length, icon: Building2, tone: sitesElevated ? '#E8853C' : undefined, onClick: () => nav('/operations') },
           { label: 'Sourcing plots', value: plots.length, icon: MapPin, tone: 'var(--color-sky)', onClick: () => nav('/sourcing') },
-          { label: 'EUDR deforestation-free', value: coveredPlots ? `${defFree}/${coveredPlots}` : '—', icon: TreePine, tone: '#4FA46E', onClick: () => nav('/sourcing') },
+          { label: 'EUDR plots read', value: coveredPlots ? `${covRead}/${coveredPlots}` : '—', icon: TreePine, tone: '#4FA46E', onClick: () => nav('/eudr') },
           { label: 'of COGS at risk', value: `${(s?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent, onClick: () => nav('/cogs') },
         ]} />
 

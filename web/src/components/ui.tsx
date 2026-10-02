@@ -281,17 +281,18 @@ export function Stat({ big, label, tone = 'ink' }: { big: ReactNode; label: stri
   )
 }
 
+// A plot's satellite reading for EUDR (services/eudr/reading.py): what the dataset shows after the 31.12.2020 cut-off —
+// a risk the operator weighs (Art. 10), never a verdict, so no label here says 'deforestation-free' or 'non-compliant'.
 const STATUS: Record<string, { label: string; cls: string }> = {
-  deforestation_free: { label: 'Deforestation-free', cls: 'text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]' },
-  non_compliant: { label: 'Non-compliant', cls: 'text-[var(--color-bad)] bg-[color-mix(in_oklab,var(--color-bad)_14%,transparent)]' },
-  geolocation_incomplete: { label: 'Needs polygon', cls: 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]' },
-  insufficient: { label: 'Insufficient', cls: 'text-[var(--color-slate)] bg-[color-mix(in_oklab,var(--color-slate)_16%,transparent)]' },
+  no_loss_detected: { label: 'No loss read', cls: 'text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]' },
+  loss_after_cutoff: { label: 'Loss after 2020', cls: 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]' },
+  not_assessable: { label: 'Not assessable', cls: 'text-[var(--color-slate)] bg-[color-mix(in_oklab,var(--color-slate)_16%,transparent)]' },
   not_covered: { label: 'Not EUDR', cls: 'text-[var(--color-faint)] bg-[color-mix(in_oklab,var(--color-faint)_16%,transparent)]' },
-  not_determined: { label: 'Not checked', cls: 'text-[var(--color-faint)] bg-[color-mix(in_oklab,var(--color-faint)_14%,transparent)]' },
+  unread: { label: 'Not read', cls: 'text-[var(--color-faint)] bg-[color-mix(in_oklab,var(--color-faint)_14%,transparent)]' },
 }
 
 export function StatusPill({ status }: { status: string | null | undefined }) {
-  const s = STATUS[status || 'not_determined'] ?? STATUS.not_determined
+  const s = STATUS[status || 'unread'] ?? STATUS.unread
   return <span className={clsx('mono text-[10.5px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap', s.cls)}>{s.label}</span>
 }
 

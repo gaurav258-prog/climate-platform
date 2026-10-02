@@ -18,7 +18,7 @@ _Last reviewed: 2026-09-25._
 | 10 | NACE Rev. 2.1 transition (Template 3 only — Templates 1/5 already handled) | Bank Pillar 3, all templates using NACE | Templates 1/5 read NACE at section level (stable across the revision per JBRC's own advice); Template 3's crosswalk is fine-grained class/group level | EBA/JBRC guidance for Template 3 specifically not yet published as of the June-2025 JBRC advice | EBA/JBRC publish a Rev-2.1 equivalent of the Annex XL crosswalk → rebuild `_ANNEX_XL_NACE_CROSSWALK` against it |
 | 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | the ESRS statement per undertaking and year, each figure keyed by concept (`data/reference/esrs/concepts.json`); **JSON export only — no ESRS XBRL** (the provisional engine was removed, E60/E66) | the finalised taxonomy for the ESRS as amended (Aug-2024 set being superseded, draft at SRB 29-Jul-2026); mandatory tagging suspended until the ESEF RTS is updated | the finalised element list, verified against the XSD package → we build the binding concept → element and the iXBRL export on it |
 | 2 | EBA Pillar 3 ESG element map | Bank Pillar 3 XBRL | well-formed XBRL + drop-in binding seam, verified ITS refs | EBA taxonomy publication (P3DH) | the DPM element IDs → drop `config/eba_p3esg_binding.json` |
-| 3 | EUDR operator registration + TRACES creds | Agri / EUDR submit | `prepared` mode + live config-flip | customer registration | sandbox creds + published DDS schema → we align + certify |
+| 3 | EUDR information-system registration + interface spec | Agri / EUDR statements | filing lifecycle built; reference recorded by hand | customer registration (EU Login) | published interface spec + test access → we map + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
 | 6 | WDPA global protected-area layer | ESRS E4 (support for the undertaking's site count) | the ESRS statement lists own sites inside a listed layer (`esrs_statement._sensitive`, `data/reference/esrs/biodiversity_sensitive.json`) + ingest script | commercial data licence (IBAT) | an IBAT-licensed WDPA export → we load it and list it with the ESRS kind it is (quoted); non-EU sites are then assessed (no code change) |
@@ -90,13 +90,19 @@ _Last reviewed: 2026-09-25._
 - **When it lands:** set `namespace` + each `element` in the JSON, re-verify the instance. ~1h, no code
   change (a simulated real map already flips all 13 facts to bound). **Do not invent element IDs.**
 
-## 3 · EUDR operator registration + TRACES credentials  *(customer, then us)*
-- **Hook:** `services/intelligence/traces_client.py` — `submission_preview()` + `submit_dds()` run in
-  **`prepared`** mode (build + completeness-check the envelope, file nothing). Live flips on
-  `TRACES_MODE=live` + `TRACES_BASE_URL` + `TRACES_API_TOKEN` (missing creds → explicit `not_configured`, never a fake success).
-- **Needed — customer:** register as an **EUDR operator** in the EU Information System; obtain sandbox + prod API credentials.
-- **Needed — us (data-not-code):** align the envelope field names to the published EUDR-IS / TRACES DDS schema; certify against sandbox before prod.
-- **When it lands:** map fields against the published schema now if available; certify on sandbox creds; then flip live. Human sign-off before submit stays (operator carries EUDR liability).
+## 3 · EUDR information system: registration + machine interface  *(customer, then us)*
+- **Built (E108):** each shipment's due diligence statement is a filing (`services/eudr/filing.py`): prepared from the
+  shipment once every blocking check passes, four eyes, attested, submitted; the reference and verification numbers
+  the information system returns are recorded (`information_system` / `manual_entry` / `contingency`), then the
+  72-hour amend / withdraw window and its closing events (IR 2024/3084 Art. 5) and an authority's rejection (Art. 8).
+- **Not built — the live send.** The texts in the store (Regulation 2023/1115, IR 2024/3084 as amended) set what the
+  system does, not its machine interface; no official interface specification is held. The earlier client
+  (`traces_client.py`) used an invented request shape and was removed (E108). Until the specification is held, the
+  operator submits the frozen statement in the information system and records the reference here.
+- **Needed — customer:** register in the information system through EU Login (IR 2024/3084 Art. 3(c)).
+- **Needed — us:** the Commission's published interface specification and test access; map the frozen statement
+  (Annex II) to it field by field from the specification, then certify on the test system. Human sign-off before
+  submission stays (the operator carries the liability).
 
 ## 4 · Production geocoder provider + key  *(customer picks, us adapts)*
 - **Hook:** `services/geocoding/geocoder.py` — cache + confidence/QA + `GEOCODER_PROVIDER` seam. Only `nominatim` adapter implemented today.

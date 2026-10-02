@@ -12,6 +12,7 @@ import Shell from './components/Shell'
 const Horizon = lazy(() => import('./pages/Horizon'))
 const Home = lazy(() => import('./pages/Home'))
 const Disclosure = lazy(() => import('./pages/Disclosure'))
+const Eudr = lazy(() => import('./pages/Eudr'))
 const EsrsStatement = lazy(() => import('./pages/EsrsStatement'))
 const Approvals = lazy(() => import('./pages/Approvals'))
 const Supervised = lazy(() => import('./pages/Supervised'))
@@ -121,6 +122,7 @@ function Workspace() {
         <Route path="/horizon" element={<Horizon />} />
         <Route path="/home" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
+        <Route path="/eudr" element={<Eudr />} />
         <Route path="/csrd" element={<Navigate to="/esrs" replace />} />
         <Route path="/esrs" element={<EsrsStatement />} />
         <Route path="/tasks" element={<Tasks />} />

@@ -33,8 +33,8 @@ risk: **{materiality}**. Generated {generated} (UTC).
 ## How the figures are produced
 1. Each own site and each sourcing plot is geolocated and mapped to an H3 cell.
 2. Per-cell physical-hazard scores are derived from satellite & agency data — Copernicus/ECMWF (EU) and
-   NASA/USGS (US). Deforestation determinations use global forest-change satellite data vs the EUDR
-   31-Dec-2020 cutoff.
+   NASA/USGS (US). EUDR plot readings show tree-cover loss after the 31-Dec-2020 cut-off in global forest-change
+   satellite data — a risk the operator's assessment weighs, never a verdict.
 3. Hazard is translated into euros at risk **only** through impact functions that have been back-tested
    against real historic shocks and clear the **r² >= 0.40** skill floor (a fixed honesty constant, not a
    configurable setting). Where that chain is not validated, exposure is mapped and the euro is **withheld**.
@@ -53,6 +53,40 @@ entity's other tools and combined into the wider CSRD statement. See the disclos
 """
 
 
+# an EUDR due diligence statement (E108): the shipment and what its statement rests on — no hazard, scenario or money
+_EUDR_METHODOLOGY = """# Basis of preparation
+
+## What this pack is
+The evidence behind the due diligence statement frozen in snapshot **{report_type} v{version}** of **{entity}**:
+{basis}. Prepared under Regulation (EU) 2023/1115, Annex II. Generated {generated} (UTC).
+
+## What the statement rests on
+1. The undertaking's status (size class, address, EORI) on the shipment's date — stated, and approved by a second person.
+2. The plots of land the product was produced on, with their geolocation (Art. 2(28)), and for each the satellite reading
+   of tree-cover loss after 31 December 2020 — what the dataset shows, a risk the assessment weighs (Art. 10), never a verdict.
+3. The supplier (Art. 9(1)(e)), the legality evidence (Art. 9(1)(h)) and the risk assessment (Art. 10-13), approved by a
+   second person.
+4. The checks every statement passes before it can be prepared, each with its article, frozen with it.
+
+## Controls
+- Four eyes on the status, the risk assessment and the statement; attestation before submission.
+- The statement is frozen as an immutable, versioned snapshot; an amendment is a new statement that supersedes it.
+
+## Contents of this pack
+{contents}
+"""
+
+
+def _basis_text(basis: dict, payload: dict) -> str:
+    """The reporting basis as the snapshot recorded it: a climate report's scenario, horizon, materiality and period;
+    any other report (an EUDR statement: its shipment and date) by its own keys."""
+    if "scenario" in basis:
+        return (f"scenario {basis.get('scenario')} · horizon {basis.get('horizon')} · material: {_materiality(basis, payload)}"
+                f" · period {basis.get('reporting_period_end')}")
+    names = {"reporting_period_end": "shipment date"} if "shipment" in basis else {}
+    return " · ".join(f"{names.get(k, k.replace('_', ' '))} {v}" for k, v in basis.items())
+
+
 # ── Data-lineage graph (self-contained HTML) ────────────────────────────────────────────────────────────────
 _MATURITY_TONE = {"live": "#137a4b", "on_demand": "#1f6fb0", "proxy": "#b5731a", "partial": "#b5731a",
                   "estimated": "#b5731a", "planned": "#8896a8", "release": "#137a4b", "untracked": "#8896a8", "overdue": "#c2410c",
@@ -64,7 +98,7 @@ def _pill(text: str, tone: str) -> str:
             f"background:{tone}1a;color:{tone};font-weight:600'>{text}</span>")
 
 
-def _lineage_html(entity: str, snap: dict, basis: dict, ev: dict) -> str:
+def _lineage_html(entity: str, snap: dict, basis: dict, ev: dict, payload: dict) -> str:
     """A self-contained data-lineage graph: authoritative feeds → golden source → engine → frozen snapshot →
     filing. Built entirely from the snapshot's own engine_versions/basis — no external assets, no dependency."""
     from services.data.feeds import FEEDS
@@ -86,7 +120,7 @@ def _lineage_html(entity: str, snap: dict, basis: dict, ev: dict) -> str:
         ("Engine", f"impact {ev.get('impact_version','—')} · fits {', '.join(ev.get('fit_versions') or []) or '—'} · "
                    f"code {ev.get('code_version','—')} · r² floor {ev.get('ranged_floor','—')}"),
         ("Frozen snapshot", f"{snap['report_type']} v{snap['version']} · sha256 {(snap.get('payload_sha256') or '')[:16]}… · {verified}"),
-        ("Filing", f"{snap['report_type']} · basis {basis.get('scenario')}/{basis.get('horizon')} · period {basis.get('reporting_period_end')}"),
+        ("Filing", f"{snap['report_type']} · {_basis_text(basis, payload)}"),
     ]
     chain = ""
     for i, (name, desc) in enumerate(stages):
@@ -238,11 +272,13 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
         manifest_files.append({"file": name, "sha256": h, "bytes": len(blob)})
         contents_lines.append(f"- `{name}` — sha256 `{h[:16]}…`")
 
-    methodology = _METHODOLOGY.format(
+    methodology = (_METHODOLOGY.format(
         report_type=snap["report_type"], version=snap["version"], entity=entity,
         period_end=basis.get("reporting_period_end"), scenario=basis.get("scenario"),
         horizon=basis.get("horizon"), materiality=_materiality(basis, payload),
-        generated=generated, contents="\n".join(contents_lines))
+        generated=generated, contents="\n".join(contents_lines)) if "scenario" in basis else _EUDR_METHODOLOGY.format(
+        report_type=snap["report_type"], version=snap["version"], entity=entity, basis=_basis_text(basis, payload),
+        generated=generated, contents="\n".join(contents_lines)))
     method_blob = methodology.encode("utf-8")
     manifest_files.insert(0, {"file": "methodology.md", "sha256": hashlib.sha256(method_blob).hexdigest(), "bytes": len(method_blob)})
 
@@ -268,7 +304,7 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
 <div class="meta">
   <b>Reporting entity</b><span>{entity}</span>
   <b>Filing</b><span>{snap['report_type']} · version {snap['version']}</span>
-  <b>Reporting basis</b><span>scenario {basis.get('scenario')} · horizon {basis.get('horizon')} · material: {_materiality(basis, payload)} · period {basis.get('reporting_period_end')}</span>
+  <b>Reporting basis</b><span>{_basis_text(basis, payload)}</span>
   <b>Frozen payload hash</b><span><code>{snap.get('payload_sha256')}</code> · {verified}</span>
   <b>Pack generated</b><span>{generated}</span>
 </div>
@@ -281,15 +317,14 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
     manifest_files.insert(0, {"file": "cover.html", "sha256": hashlib.sha256(cover_blob).hexdigest(), "bytes": len(cover_blob)})
 
     # data-lineage graph — the source→filing chain + feed provenance, self-contained HTML
-    lineage_blob = _lineage_html(entity, snap, basis, snap.get("engine_versions") or {}).encode("utf-8")
+    lineage_blob = _lineage_html(entity, snap, basis, snap.get("engine_versions") or {}, payload).encode("utf-8")
     manifest_files.insert(1, {"file": "lineage.html", "sha256": hashlib.sha256(lineage_blob).hexdigest(), "bytes": len(lineage_blob)})
 
     # rendered PDF cover — a real one-page .pdf (no print-to-PDF step), dependency-free writer
     _pdf_lines: list[tuple[str, str]] = [
         (f"{entity}  ·  {snap['report_type']} v{snap['version']}", "head"),
         ("", "normal"),
-        (f"Reporting basis: scenario {basis.get('scenario')} · horizon {basis.get('horizon')}", "normal"),
-        (f"Material: {_materiality(basis, payload)} · period {basis.get('reporting_period_end')}", "normal"),
+        (f"Reporting basis: {_basis_text(basis, payload)}", "normal"),
         (f"Pack generated {generated} (UTC)", "normal"),
         ("", "normal"),
         ("Frozen payload hash (SHA-256):", "head"),

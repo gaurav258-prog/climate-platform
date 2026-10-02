@@ -47,19 +47,21 @@ def summarize(rows: list[dict], now: Optional[datetime] = None, stale_after_s: i
     """Pure: from heartbeat rows → {alive, last_seen, stale_after_s, workers}. Alive if ANY executor is fresh."""
     now = now or datetime.now(timezone.utc)
     workers = [{"worker": r["worker"], "queue": r["queue"], "hostname": r["hostname"], "version": r.get("version"),
-                "last_seen": r["last_seen"], "alive": is_alive(r["last_seen"], now, stale_after_s)} for r in rows]
+                "jobs": r.get("jobs"), "last_seen": r["last_seen"], "alive": is_alive(r["last_seen"], now, stale_after_s)}
+               for r in rows]
     last = max((r["last_seen"] for r in rows if r["last_seen"] is not None), default=None)
     return {"alive": any(w["alive"] for w in workers), "last_seen": last, "stale_after_s": stale_after_s, "workers": workers}
 
 
-def write_heartbeat(worker: str, queue: str, hostname: Optional[str] = None) -> None:
+def write_heartbeat(worker: str, queue: str, hostname: Optional[str] = None, jobs: Optional[list[str]] = None) -> None:
+    """`jobs`: the job names this executor can run (E110) — None when it does not say."""
     from core.db.session import get_session
     with get_session() as s:
-        s.execute(text("""INSERT INTO worker_heartbeat (worker, queue, hostname, last_seen, version)
-                          VALUES (:w, :q, :h, now(), :v)
+        s.execute(text("""INSERT INTO worker_heartbeat (worker, queue, hostname, last_seen, version, jobs)
+                          VALUES (:w, :q, :h, now(), :v, :j)
                           ON CONFLICT (worker) DO UPDATE SET queue = EXCLUDED.queue, hostname = EXCLUDED.hostname,
-                                                             last_seen = now(), version = EXCLUDED.version"""),
-                  {"w": worker, "q": queue, "h": hostname or socket.gethostname(), "v": executor_version()})
+                                                             last_seen = now(), version = EXCLUDED.version, jobs = EXCLUDED.jobs"""),
+                  {"w": worker, "q": queue, "h": hostname or socket.gethostname(), "v": executor_version(), "j": jobs})
 
 
 def clear_heartbeat(worker: str) -> None:
@@ -72,7 +74,7 @@ def clear_heartbeat(worker: str) -> None:
 def read_heartbeats(session) -> list[dict]:
     """Job EXECUTORS only. The scheduler beats into the same table under queue 'beat' and is read separately
     (services/tasks/schedule_health.py) — it runs no jobs, so it must never make a stopped worker look alive."""
-    rows = session.execute(text("SELECT worker, queue, hostname, last_seen, version FROM worker_heartbeat "
+    rows = session.execute(text("SELECT worker, queue, hostname, last_seen, version, jobs FROM worker_heartbeat "
                                 "WHERE queue <> 'beat'")).mappings().all()
     return [dict(r) for r in rows]
 
@@ -80,8 +82,8 @@ def read_heartbeats(session) -> list[dict]:
 class Heartbeater:
     """Daemon thread that beats every `interval_s` until stopped; `stop()` clears the row."""
 
-    def __init__(self, worker: str, queue: str, interval_s: int = HEARTBEAT_INTERVAL_S):
-        self.worker, self.queue, self.interval_s = worker, queue, interval_s
+    def __init__(self, worker: str, queue: str, interval_s: int = HEARTBEAT_INTERVAL_S, jobs: Optional[list[str]] = None):
+        self.worker, self.queue, self.interval_s, self.jobs = worker, queue, interval_s, jobs
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name=f"heartbeat-{worker}", daemon=True)
 
@@ -92,7 +94,7 @@ class Heartbeater:
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                write_heartbeat(self.worker, self.queue)
+                write_heartbeat(self.worker, self.queue, jobs=self.jobs)
             except Exception as e:      # the DB being away must never kill the executor
                 logger.warning("heartbeat for %s not written: %s", self.worker, e)
             self._stop.wait(self.interval_s)
@@ -119,7 +121,11 @@ def _queues_of(sender) -> str:
 def on_worker_ready(sender=None, **_) -> None:
     global _worker_beat
     name = getattr(sender, "hostname", None) or f"celery@{socket.gethostname()}"
-    _worker_beat = Heartbeater(name, _queues_of(sender)).start()
+    try:      # the jobs this worker's code registered — a worker on older code does not name a job added since (E110)
+        jobs = sorted(n for n in sender.app.tasks if not n.startswith("celery."))
+    except Exception:
+        jobs = None
+    _worker_beat = Heartbeater(name, _queues_of(sender), jobs=jobs).start()
     logger.info("worker heartbeat started for %s every %ss", name, HEARTBEAT_INTERVAL_S)
 
 

@@ -98,6 +98,8 @@ _BUILDERS = {
     "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01)",
                          lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_solvency(s, o, sc, hz, ei, vw, tr, pe), ("insurer",)),
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
+    # frozen from its shipment (movement_id): services.eudr.statement + services.eudr.checks
+    "eudr_dds": ("EUDR due diligence statement", "eudr_movement", ("manufacturer",)),
     "sfdr_precontractual": ("SFDR pre-contractual disclosure (RTS 2022/1288 Annex II / III)", None, ("asset_manager",)),
     "sfdr_periodic": ("SFDR periodic disclosure (RTS 2022/1288 Annex IV / V)", None, ("asset_manager",)),
 }
@@ -240,7 +242,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                     note: str | None = None, entity_ids: list | None = None,
                     value_weights: dict | None = None, translation=None, view: str = "joint",
                     figure_sources: dict | None = None, previous_period: dict | None = None,
-                    fund_id: str | None = None, disclosure_date=None, *, period_end) -> dict:
+                    fund_id: str | None = None, disclosure_date=None, *, period_end, movement_id: str | None = None) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
@@ -265,6 +267,13 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     from services.intake.views import in_view
 
     def compute():
+        if _BUILDERS[report_type][1] == "eudr_movement":  # an EUDR statement: its shipment, as it stands, and its checks
+            from services.eudr.checks import checks
+            from services.eudr.statement import compute as statement
+            if movement_id is None:
+                raise ValueError("an EUDR due diligence statement is prepared from its shipment — a movement is required")
+            st = statement(session, org_id, movement_id)
+            return {"statement": st, "checks": checks(st)}, engine_runs.inputs(session, org_id, report_type)
         if _BUILDERS[report_type][1] is None:            # a per-product report: the fund's own book and answers
             from services.governance import product_filings, sfdr_product
             if fund_id is None:
@@ -323,6 +332,12 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     on = (disclosure_date or _date.today()) if (payload["_spec"] or {}).get("basis") == "disclosure_date" else None
     payload["_regulation"] = version_for(session, report_type, period_end, on=on)
     basis["regulation_status"] = (payload["_regulation"] or {}).get("status")
+    if _BUILDERS[report_type][1] == "eudr_movement":
+        # a shipment's statement: no scenario, horizon, view or money — it is the shipment on its date, under the version.
+        # The date keeps the key report_snapshots scopes its versions by (period_end is generated from it); displays name
+        # it 'shipment date' where the basis is a shipment's.
+        basis = {"shipment": payload["statement"]["movement"]["external_ref"], "reporting_period_end": period_end.isoformat(),
+                 "regulation_status": basis["regulation_status"]}
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
     # intake phase 4: what this run read and whether its output holds — an integrity failure refuses the freeze
@@ -335,7 +350,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
         SELECT COALESCE(MAX(version), 0) + 1 FROM report_snapshots
         WHERE org_id = :o AND report_type = :t AND period_end IS NOT DISTINCT FROM iso_date_or_null(:pe)
           AND reporting_entity_id IS NOT DISTINCT FROM uuid_or_null(:e)"""),
-        {"o": org_id, "t": report_type, "pe": str(basis["reporting_period_end"])[:10] if basis["reporting_period_end"] else None,
+        {"o": org_id, "t": report_type, "pe": period_end.isoformat(),
          "e": payload["_scope"]["reporting_entity_id"]}).scalar())
     row = session.execute(text("""
         INSERT INTO report_snapshots (org_id, report_type, version, reporting_basis, payload, note, created_by,

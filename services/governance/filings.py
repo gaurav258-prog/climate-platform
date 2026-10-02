@@ -93,6 +93,15 @@ FRAMEWORKS = {
                         "regulator": "National competent authority / EIOPA", "basis": "Solvency II · IFRS S2"},
     # ── per financial product (services.governance.product_filings): the fund is the filing's subject ──
     # the pre-contractual document is annexed to the prospectus and kept current — no calendar deadline
+    # EUDR (Regulation (EU) 2023/1115): one due diligence statement per placing on the market or export, submitted BEFORE
+    # it (Art. 4(2): 'prior submission'); prepared from its movement (services/eudr/filing.py), not from the calendar
+    "eudr_dds": {"label": "EUDR due diligence statement", "sectors": ("manufacturer",),
+                 "frequency": "before each placing on the market or export", "due": None,
+                 "frozen_by": "from its shipment (EUDR → the shipment → prepare the statement)",
+                 "accepted_by": "when the reference number the information system made available is recorded (EUDR → the shipment)",
+                 "own_page": "/eudr",
+                 "regulator": "Competent authority (EUDR) via the EU information system",
+                 "basis": "Regulation (EU) 2023/1115 Art. 4(2), Annex II · Implementing Regulation (EU) 2024/3084"},
     "sfdr_precontractual": {"label": "SFDR pre-contractual disclosure", "sectors": ("asset_manager",),
                             "frequency": "on change", "due": None,
                             "regulator": "National competent authority (SFDR)", "basis": "SFDR Art. 8 / 9 · RTS 2022/1288 Annex II / III"},
@@ -188,7 +197,7 @@ def available_frameworks(org_type: str) -> list[dict]:
     """Frameworks that apply to this org-type sector, each with its cadence and statutory deadline shape."""
     out = []
     for key, f in FRAMEWORKS.items():
-        if org_type in f["sectors"] and key in _BUILDERS and not retirement(key):
+        if org_type in f["sectors"] and key in _BUILDERS and not retirement(key) and not f.get("frozen_by"):
             out.append({"framework": key, "label": f["label"], "frequency": f["frequency"],
                         "regulator": f["regulator"], "basis": f["basis"],
                         "entity_scoped": key in _ENTITY_SCOPED, "product_scoped": key in _PRODUCT_SCOPED})
@@ -669,6 +678,9 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     out["approval_request_id"] = str(r["approval_request_id"]) if r["approval_request_id"] else None
     out["regulator"] = FRAMEWORKS.get(r["framework"], {}).get("regulator")
     out["basis"] = FRAMEWORKS.get(r["framework"], {}).get("basis")
+    # a framework that freezes and accepts its filings through its own page (EUDR: per shipment, by the reference number)
+    fw_def = FRAMEWORKS.get(r["framework"], {})
+    out["own_flow"] = ({k: fw_def.get(k) for k in ("frozen_by", "accepted_by", "own_page")} if fw_def.get("own_page") else None)
     out["disclosure_date"] = r["disclosure_date"].isoformat() if r["disclosure_date"] else None   # None: made when frozen
     _due, _why = (due_for_undertaking(session, org_id, r["framework"], out["entity_id"], r["period_end"])
                   if ((_mandate_of(r["framework"]) or {}).get("deliverable", {}).get("due") or {}).get("fact")
@@ -955,10 +967,14 @@ def _open_for_new(framework: str, org_type: str) -> None:
 
 def _not_retired(framework: str) -> None:
     """A retired framework freezes nothing new — not a new filing, a refreshed draft or a restatement: its filings
-    stay readable as frozen; a correction, where it has a successor, is prepared under that."""
+    stay readable as frozen; a correction, where it has a successor, is prepared under that. A report frozen from its
+    own subject (an EUDR statement from its shipment) is not frozen by these generic paths either."""
     why = retirement_refusal(framework)
     if why:
         raise FilingError(why)
+    own = (FRAMEWORKS.get(framework) or {}).get("frozen_by")
+    if own:
+        raise FilingError(f"{FRAMEWORKS[framework]['label']} is prepared {own}")
 
 
 def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):
@@ -1244,7 +1260,13 @@ def submit(session: Session, org_id: str, filing_id: str, actor_user_id: str,
 
 def accept(session: Session, org_id: str, filing_id: str, actor_user_id: str,
            ack_ref: str | None = None) -> dict:
-    """Record the regulator's acknowledgement — the filing is accepted."""
+    """Record the regulator's acknowledgement — the filing is accepted. A framework accepted another way (an EUDR
+    statement: the information system makes its reference number available) is not accepted here."""
+    fw = session.execute(text("SELECT framework FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
+                         {"f": filing_id, "o": org_id}).scalar()
+    how = (FRAMEWORKS.get(fw) or {}).get("accepted_by")
+    if how:
+        raise FilingError(f"{FRAMEWORKS[fw]['label']} is accepted {how}")
     return _apply_transition(session, org_id, filing_id, "accept", actor_user_id,
                              detail={"ack_ref": ack_ref})
 

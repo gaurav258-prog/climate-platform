@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, attachment, require_permission
 from services.governance import model_risk as MR
 
 router = APIRouter(prefix="/v1/model-risk", tags=["Governance"])
@@ -33,7 +33,7 @@ def card_pdf(ref: str, session: DbSession, ctx: dict = Depends(require_permissio
     if not c:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such model in the register."})
     pdf = MR.render_card_pdf(c, ctx["org"].get("name") or "", MR.history(session, ctx["org"]["org_id"], ref))
-    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="model-card-{c["hazard"]}-{c["name"][:40]}.pdf"'})
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": attachment(f"model-card-{c["hazard"]}-{c["name"][:40]}.pdf")})
 
 
 @router.get("/history", summary="Every review of one model by this organisation (pass ?ref=)")

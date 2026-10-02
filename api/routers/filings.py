@@ -28,7 +28,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, attachment, require_permission
 from api.services.rbac import write_audit
 from services.governance import filings as F
 
@@ -322,7 +322,7 @@ def export_filing(filing_id: str, format: str, session: DbSession,
     except ExportError as e:
         raise HTTPException(404 if "not found" in str(e) else 409, {"error": "export_error", "message": str(e)})
     return StreamingResponse(iter([content]), media_type=media_type,
-                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+                             headers={"Content-Disposition": attachment(filename)})
 
 
 @router.get("/filings/{filing_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a filing")
@@ -346,7 +346,7 @@ def filing_assurance_pack(filing_id: str, session: DbSession, ctx: dict = Depend
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
                 target_type="regulatory_filing", target_id=filing_id, detail={"file": fname})
     return StreamingResponse(io.BytesIO(data), media_type="application/zip",
-                             headers={"Content-Disposition": f"attachment; filename={fname}"})
+                             headers={"Content-Disposition": attachment(fname)})
 
 
 @router.get("/filings/{filing_id}/validation", summary="Run the pre-submission validation checklist")

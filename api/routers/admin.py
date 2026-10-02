@@ -440,12 +440,14 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
     plots = session.execute(text("""
         SELECT count(*) n,
                count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon,
-               count(*) FILTER (WHERE co.eudr_covered) eudr_covered,
-               count(*) FILTER (WHERE co.eudr_covered AND p.eudr_determination IS NOT NULL) eudr_determined
+               count(*) FILTER (WHERE co.eudr_covered) eudr_covered
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         WHERE p.org_id = :o
     """), {"o": org_id}).mappings().first()
 
+    from services.eudr.reading import for_org, tally
+    t = tally(for_org(session, org_id, covered_only=True))
+    eudr_read = t["plots"] - t["unread"]
     users = session.execute(text("""
         SELECT count(*) n, count(*) FILTER (WHERE status='active') active,
                count(*) FILTER (WHERE last_login_at IS NOT NULL) ever_logged_in
@@ -477,7 +479,7 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
         "readiness": readiness,
         "data": {
             "sites": {"total": sites["n"], "scored": sites["scored"], "elevated": sites["elevated"], "value_eur": float(sites["value_eur"] or 0)},
-            "plots": {"total": plots["n"], "eudr_covered": plots["eudr_covered"], "eudr_determined": plots["eudr_determined"], "needs_polygon": plots["needs_polygon"]},
+            "plots": {"total": plots["n"], "eudr_covered": plots["eudr_covered"], "eudr_read": eudr_read, "needs_polygon": plots["needs_polygon"]},
         },
         "governance": {"pending_approvals": pending, "audit_events_30d": audit_30d, "second_approver": (n_approvers or 0) >= 2},
         "access": {"users": users["n"], "active": users["active"], "ever_logged_in": users["ever_logged_in"]},

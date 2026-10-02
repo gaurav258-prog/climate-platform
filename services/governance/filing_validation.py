@@ -392,7 +392,16 @@ def _validate_esrs_pack(payload: dict) -> list[dict]:
     return out
 
 
-_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_p3esg, "sfdr_pai": _validate_sfdr_pai,
+def _validate_eudr_dds(payload: dict) -> list[dict]:
+    """An EUDR statement: its checks re-run on the frozen statement (services.eudr.checks)."""
+    from services.eudr.checks import checks
+    st = payload.get("statement")
+    if not st:
+        return [_f("statement_frozen", "completeness", "blocking", False, "no statement was frozen")]
+    return checks(st)
+
+
+_RULESETS = {"eudr_dds": _validate_eudr_dds, "bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_p3esg, "sfdr_pai": _validate_sfdr_pai,
              "reit_taxonomy": _validate_reit_taxonomy, "insurer_solvency": _validate_insurer_solvency,
              "insurer_orsa_climate": _validate_insurer_document("insurer_orsa_climate"),
              "insurer_recovery_stress": _validate_insurer_document("insurer_recovery_stress"),
