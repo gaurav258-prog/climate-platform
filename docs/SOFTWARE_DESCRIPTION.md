@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.185 |
+| Version | 2.186 |
 | Last updated | 2026-10-02 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-02 | 2.186 | **Source texts and the reference year (E131).** Regulation (EEC, Euratom) No 1182/71 on periods and time limits is held, and the Pillar 3 scope 3 phase-in dates now rest on its quoted Article 3. The English original of Annex XL of the EBA IT solutions for 2024/3172 is held; every Pillar 3 quote taken from it is checked word for word. An SFDR PAI statement reads each investee's figures for its reference year or earlier, never a later year's (the live view keeps the latest). |
 | 2026-10-02 | 2.185 | **Regulatory lineage of every filing.** In the filing cockpit, beside the data lineage: the act and its quoted legal basis — whether the official text is held and the quote found in it word for word → the specification version frozen with the filing, whether its file has changed since, and the four-eyes sign-off of that exact file → each template the filing prints, with how every row, column or item is filled (computed, input, not applicable; open a template for each one) → the frozen record (its hash, the interpretations the organisation stated, the readings the specification declares). A filing frozen before specifications were stamped shows the version in use then, marked as such (`services/governance/regulatory_lineage.py`; `GET /v1/filings/{id}/regulatory-lineage`). |
 | 2026-10-02 | 2.184 | **ESRS comparative information to ESRS 1 chapter 7.1 of the governing version (E130).** Every figure of the statement carries its previous-period comparative — the undertaking's attested figure, else the one its filed or uploaded previous statement reported — and what the text requires: a revision's difference and reasons (2023), or a statement of significance and its reasons (2026); the disclosure that a comparative is impracticable; the first-year reliefs (2023 §136 including phased-in requirements; 2026 §124 by wave) and the first-time-topic relief (2026 §87(b)). Frozen with the statement, printed beside each figure, and blocking until complete; a new Comparative information panel on the ESRS page. |
 | 2026-10-02 | 2.183 | **Every authored text and stated choice is frozen with its filing (E127–E129).** The interpretations the organisation has stated are frozen inside each filing's hashed payload and printed with it. An EUDR due diligence statement's point 6 prints the signature in the Annex II format — on behalf of the operator, date, name and function, signature — from the attestation, whose signer now states their function. Pillar 3 qualitative Tables 1–3 are answered per institution and reference date, frozen with the filing, printed row by row, and block filing while a row is unanswered; a filed filing shows its frozen copy. |

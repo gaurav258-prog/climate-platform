@@ -74,18 +74,20 @@ def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
                    CAST(v.value_num AS FLOAT) AS num, v.value_bool AS flag,
                    (SELECT CAST(e.evic_eur AS FLOAT) FROM issuer_emissions e
                     WHERE e.issuer_id = s.issuer_id AND (e.org_id = :org OR e.org_id IS NULL) AND e.evic_eur IS NOT NULL
-                    ORDER BY (e.org_id IS NULL) LIMIT 1) AS evic
+                      AND (CAST(:ry AS int) IS NULL OR e.reporting_year <= CAST(:ry AS int))
+                    ORDER BY (e.org_id IS NULL), e.reporting_year DESC LIMIT 1) AS evic
             FROM   fund_positions p
             JOIN   securities s ON s.security_id = p.security_id
             LEFT   JOIN LATERAL (
                 SELECT value_num, value_bool FROM issuer_voluntary_pai
                 WHERE issuer_id = s.issuer_id AND indicator_key = :k
-                  AND (org_id = :org OR org_id IS NULL)
+                  AND (org_id = :org OR org_id IS NULL) AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
                 ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
             ) v ON TRUE
             WHERE  p.fund_id = ANY(:fids)
               AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
-        """), {"fids": fids, "org": org_id, "k": key, "as_of": as_of}).mappings().all()
+        """), {"fids": fids, "org": org_id, "k": key, "as_of": as_of,
+                 "ry": None if as_of is None else int(str(as_of)[:4])}).mappings().all()
 
         if entry["agg"] == "per_meur":
             # Σ (value / EVIC × issuer amount) ÷ € million invested — attributed like Table 1 no. 8-9 (definition (3));

@@ -65,6 +65,14 @@
    "sha256": "d4b85eab305d674fe0b5c91332d250d7a0398dc1b227f4cd1b3995a23fb3cf5b",
    "chars": 33023
   },
+  "31971R1182": {
+   "title": "Regulation (EEC, Euratom) No 1182/71 of the Council of 3 June 1971 determining the rules applicable to periods, dates and time limits",
+   "celex": "31971R1182",
+   "source": "http://publications.europa.eu/resource/celex/31971R1182",
+   "retrieved": "2026-10-02",
+   "sha256": "eab886553c240de456a3c4d3ce5fd94567c90b733cef8ed17134a0bfd7e8b70f",
+   "chars": 6675
+  },
   "32004L0109": {
    "title": "Directive 2004/109/EC (Transparency Directive), as published",
    "celex": "32004L0109",
@@ -216,6 +224,14 @@
    "retrieved": "2026-10-01",
    "sha256": "8684e8da92383d2196a20d89633f98a50070251ce570157dff72c9541da4edf5",
    "chars": 51681
+  },
+  "EBA-ITS-2024-3172-AXL-EN": {
+   "title": "Annex XL 'Instructions for disclosure of ESG risks' of the EBA IT solutions to which Article 24 of Implementing Regulation (EU) 2024/3172 refers — English original (FISMA-2024-01049 (01)-21); not Official Journal text",
+   "celex": null,
+   "source": "https://www.eba.europa.eu/sites/default/files/2025-02/5026c718-0651-4339-af89-826ac447ac4f/IT%20solutions%20%28instructions%29%20in%20all%20EU%20languages.zip — 'FISMA-2024-01049 (01)-21-TRA/Original Document.DOCX'",
+   "retrieved": "2026-10-02",
+   "sha256": "bbab83f8664d58f93f70f3d4f925904f4a403fc0658a80b6feae451ef87740d9",
+   "chars": 124802
   }
  }
 }

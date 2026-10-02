@@ -182,7 +182,8 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None, as_of
     from services.issuer_taxonomy import gate_failures
     from services.issuer_taxonomy import kpis as investee_kpis
     ids = sorted({r["issuer_id"] for r in rows})
-    k, failing = investee_kpis(session, org_id, ids), gate_failures(session, org_id, ids)
+    year = None if as_of is None else int(str(as_of)[:4])      # a statement's date: figures for that year or earlier
+    k, failing = investee_kpis(session, org_id, ids, year), gate_failures(session, org_id, ids, year)
     for r in rows:
         t, c = (k.get(r["issuer_id"]) or {}).get("turnover") or {}, (k.get(r["issuer_id"]) or {}).get("capex") or {}
         r.update(elig=t.get("eligible"), aligned=t.get("aligned"), aligned_capex=c.get("aligned"),

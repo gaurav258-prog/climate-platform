@@ -101,22 +101,22 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=Non
         JOIN   issuers    i ON i.issuer_id = s.issuer_id
         LEFT   JOIN LATERAL (
             SELECT * FROM issuer_esg_metrics
-            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
             ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
         LEFT   JOIN LATERAL (
             SELECT evic_eur FROM issuer_emissions
-            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND evic_eur IS NOT NULL
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND evic_eur IS NOT NULL AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
             ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) em ON TRUE
         LEFT   JOIN LATERAL (
             SELECT revenue_eur FROM issuer_emissions
-            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND revenue_eur IS NOT NULL
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND revenue_eur IS NOT NULL AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
             ORDER BY (org_id IS NULL), (source = 'estimated'), reporting_year DESC LIMIT 1
         ) rv ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
-    """), {"fids": fund_ids, "org": org_id, "as_of": as_of}).mappings().all()
+    """), {"fids": fund_ids, "org": org_id, "as_of": as_of, "ry": _up_to_year(as_of)}).mappings().all()
 
     total_mv = sum(r["mv"] for r in rows) or 0.0
     if total_mv == 0:
@@ -188,14 +188,23 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str],
         LEFT   JOIN LATERAL (
             SELECT scope1_tco2e, scope2_tco2e, scope3_tco2e, revenue_eur, evic_eur, source
             FROM issuer_emissions
-            WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL)
+            WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL) AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
             -- prefer a row that actually carries scope figures (real or estimated)
             -- over a revenue-only row, then this org's own over the global fallback,
             -- then most recent year.
             ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids) {date_filter}
-    """), {"fids": fund_ids, "org": org_id, **({"d": as_of_date} if as_of_date else {})}).mappings().all()
+    """), {"fids": fund_ids, "org": org_id, "ry": _up_to_year(as_of_date),
+           **({"d": as_of_date} if as_of_date else {})}).mappings().all()
+
+
+def _up_to_year(as_of) -> int | None:
+    """An investee's figures for a holdings date: only those reported for that date's year or earlier (a statement for a
+    reference period never reads figures for a later year); no date (the live view): each investee's latest."""
+    if as_of in (None, ""):
+        return None
+    return int(str(as_of)[:4])
 
 
 def _r(v):

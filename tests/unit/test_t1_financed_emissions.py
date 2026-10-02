@@ -220,6 +220,10 @@ def test_phase_in_is_quoted_from_the_stored_texts_and_its_dates_follow_the_words
         assert ("two years" in p["words"]) == (p["years"] == 2) and ("four years" in p["words"]) == (p["years"] == 4)
     pts = {p["point"]: p for p in T1.phase_in_points()}
     assert [pts[x]["from"] for x in "abc"] == [date(2020, 12, 23), date(2022, 12, 23), date(2024, 12, 23)]
+    # the period's last day by Regulation (EEC, Euratom) No 1182/71 Art. 3(1), 3(2)(c), quoted from the stored text (E131)
+    assert {r["ref"].split(", ")[-1] for r in ref["period_rules"]} == {"Article 1", "Article 3(1)", "Article 3(2)(c)", "Article 3(4)"}
+    assert all(contains(r["quote"]) == "31971R1182" for r in ref["period_rules"])
+    assert all(pts[x]["from"].weekday() < 5 for x in "bc")      # not a Saturday or Sunday: Art. 3(4) moves neither
     assert set(pts["a"]["divisions"]) == {"B05", "B06", "B07", "B08", "B09", "C19", "C20"}
     assert {"C10", "C33", "F41", "F43", "H49", "H53", "N81"} <= set(pts["b"]["divisions"]) and "C19" not in pts["b"]["divisions"]
     assert {"A01", "K64", "N82"} <= set(pts["c"]["divisions"])

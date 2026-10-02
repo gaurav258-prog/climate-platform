@@ -248,8 +248,9 @@ def _day(words: str) -> date:
 
 @lru_cache(maxsize=1)
 def phase_in_points() -> tuple[dict, ...]:
-    """Each point of Article 5(1): its id, the date it applies from (the anchor date plus the years it names — the
-    declared reading of 'within N years from'), and the NACE divisions it covers (codes of data/reference/nace_rev2.csv)."""
+    """Each point of Article 5(1): its id, the last day of its period (the anchor date plus the years it names — the
+    period ends with the day falling on the same date, Regulation (EEC, Euratom) No 1182/71 Article 3(1) and 3(2)(c),
+    quoted in the reference file), and the NACE divisions it covers (codes of data/reference/nace_rev2.csv)."""
     import csv
     ref = phase_in_reference()
     anchor = _day(ref["anchor"])

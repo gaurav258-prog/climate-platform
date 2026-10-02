@@ -201,3 +201,30 @@ def test_the_old_narratives_are_retired_and_shown_only_for_reference(api):
     a = api.get("/v1/entity/pai-statement/answers?period_end=2025-12-31", headers=maker).json()
     assert a["legacy_narratives"]["policies"] == "An earlier text."
     assert "policies" not in a["answers"] and any(m.startswith("Article 7(1)") for m in a["missing"])
+
+
+def test_a_statement_reads_investee_figures_for_its_year_or_earlier(api):
+    """A statement for a reference period never reads an investee's figures for a later year (the reading the user
+    confirmed 2026-10-02, E131): one investee reports 2025 and 2026; the 2025 statement uses 2025's, the live view 2026's."""
+    from ml.regulatory.sfdr_pai import entity_pai_statement
+    s = api.s
+    org = s.execute(text("""INSERT INTO organizations (org_id, name, type, country) VALUES (gen_random_uuid(), 'E131 Mgr',
+                            'asset_manager', 'LU') RETURNING org_id::text""")).scalar()
+    fid = s.execute(text("""INSERT INTO funds (org_id, name, fund_type, sfdr_classification) VALUES (CAST(:o AS uuid), 'E131 Fund',
+                            'fund', 'article_8') RETURNING fund_id::text"""), {"o": org}).scalar()
+    iid = s.execute(text("""INSERT INTO issuers (name, issuer_type, country, source) VALUES ('E131 Issuer', 'corporate', 'DE',
+                            'manual') RETURNING issuer_id::text""")).scalar()
+    sid = s.execute(text("""INSERT INTO securities (isin, name, issuer_id, asset_class, source) VALUES ('DE000E131001', 'Sec',
+                            CAST(:i AS uuid), 'equity', 'manual') RETURNING security_id::text"""), {"i": iid}).scalar()
+    for year, s1 in ((2025, 1000.0), (2026, 5000.0)):
+        s.execute(text("""INSERT INTO issuer_emissions (issuer_id, org_id, reporting_year, scope1_tco2e, scope2_tco2e, scope3_tco2e,
+                                                        revenue_eur, source)
+                          VALUES (CAST(:i AS uuid), CAST(:o AS uuid), :y, :s1, 0, 0, 1e9, 'disclosed')"""),
+                  {"i": iid, "o": org, "y": year, "s1": s1})
+    for d in (*DATES, "2026-07-01"):
+        s.execute(text("""INSERT INTO fund_positions (fund_id, security_id, market_value_eur, weight_pct, as_of_date)
+                          VALUES (CAST(:f AS uuid), CAST(:s AS uuid), 1e6, 100, :d)"""), {"f": fid, "s": sid, "d": d})
+    filed = entity_pai_statement(s, org, date(2025, 12, 31))
+    live = entity_pai_statement(s, org)
+    assert next(i for i in filed["indicators"] if i["number"] == 1)["value"]["scope_1"] == 1000.0
+    assert next(i for i in live["indicators"] if i["number"] == 1)["value"]["scope_1"] == 5000.0

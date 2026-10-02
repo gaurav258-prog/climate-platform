@@ -83,7 +83,7 @@ def write_stated(session: Session, issuer_id: str, org_id: str | None, year: int
     return differs
 
 
-def gate_failures(session: Session, org_id: str | None, issuer_ids: list[str]) -> set[str]:
+def gate_failures(session: Session, org_id: str | None, issuer_ids: list[str], up_to_year: int | None = None) -> set[str]:
     """Issuers whose stated aligned share cannot count: a do-no-significant-harm or minimum-safeguards attestation on
     file that is explicitly false (a known controversy overrides the reported %). A flag not stated leaves the reported
     figure standing — the platform never infers DNSH or safeguards itself."""
@@ -92,5 +92,6 @@ def gate_failures(session: Session, org_id: str | None, issuer_ids: list[str]) -
     return {r[0] for r in session.execute(text("""
         SELECT DISTINCT ON (issuer_id) issuer_id::text, dnsh_ok, min_safeguards_ok FROM issuer_esg_metrics
         WHERE issuer_id = ANY(CAST(:ids AS uuid[])) AND (org_id = CAST(:o AS uuid) OR org_id IS NULL)
+          AND (CAST(:y AS int) IS NULL OR reporting_year <= CAST(:y AS int))
         ORDER BY issuer_id, (org_id IS NULL), (source = 'vendor'), reporting_year DESC"""),
-        {"ids": list(issuer_ids), "o": org_id}) if r[1] is False or r[2] is False}
+        {"ids": list(issuer_ids), "o": org_id, "y": up_to_year}) if r[1] is False or r[2] is False}
