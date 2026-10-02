@@ -247,7 +247,7 @@ def holding_detail(holding_id: str, session: DbSession, caller_org: OrgId):
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
         FROM access_audit_log WHERE target_type = 'assetmgmt_holding' AND target_id = :h
-        ORDER BY created_at DESC LIMIT 5
+        ORDER BY seq DESC LIMIT 5
     """), {"h": holding_id}).mappings().all()
     return {
         "holding": holding, "risks": row["risks"], "climate_var": row["valuation"],

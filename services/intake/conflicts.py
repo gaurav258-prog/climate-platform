@@ -88,7 +88,7 @@ def list_conflicts(session: Session, org_id: str, status: str = "open", limit: i
                c.tellumen_value, c.rule, c.status, c.resolution, c.note, c.created_at, c.resolved_at,
                c.approval_request_id::text AS approval_request_id
         FROM asset_conflicts c WHERE c.org_id = CAST(:o AS uuid) AND {where}
-        ORDER BY c.created_at DESC LIMIT :n
+        ORDER BY c.seq DESC LIMIT :n
     """), {"o": org_id, "n": limit}).mappings().all()
     counts = dict(session.execute(text("""
         SELECT status, count(*) FROM asset_conflicts WHERE org_id = CAST(:o AS uuid) GROUP BY status

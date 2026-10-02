@@ -118,7 +118,7 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
 
     trail = session.execute(text("""SELECT a.action, a.created_at, u.full_name FROM access_audit_log a LEFT JOIN users u ON u.user_id = a.actor_user_id
                                     WHERE a.org_id = CAST(:o AS uuid) AND a.action LIKE 'supervisor.%' AND (a.detail->>'regulator_org_id') = :r
-                                    ORDER BY a.created_at DESC LIMIT 100"""), {"o": org_id, "r": reg_id}).mappings().all()
+                                    ORDER BY a.seq DESC LIMIT 100"""), {"o": org_id, "r": reg_id}).mappings().all()
     c["access_trail"] = [{"action": t["action"], "at": t["created_at"].isoformat(), "by": t["full_name"]} for t in trail]
     c["method"] = {"engine": "Tellumen physical-risk engine — the same engine the entity's own workspace uses; headline hazard = max score across hazards (heat_acute excluded); "
                              "sensitive = headline at or above the stated at-risk level — the entity's for its own template (Tier 1), the authority's for the rebuilt figure and the peer benchmark.",

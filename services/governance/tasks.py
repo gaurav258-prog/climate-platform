@@ -439,7 +439,7 @@ def my_mentions(session: Session, org_id: str, user_id: str) -> list[dict]:
         JOIN regulatory_task t ON t.task_id = m.task_id
         LEFT JOIN users u ON u.user_id = m.by_user
         WHERE m.org_id = :o AND m.mentioned_user = CAST(:u AS uuid) AND m.read_at IS NULL
-        ORDER BY m.created_at DESC
+        ORDER BY m.seq DESC
     """), {"o": org_id, "u": user_id}).mappings().all()
     return [{"mention_id": str(r["mention_id"]), "task_id": str(r["task_id"]), "task_title": r["title"],
              "snippet": r["snippet"], "by": r["by"], "at": r["created_at"].isoformat()} for r in rows]

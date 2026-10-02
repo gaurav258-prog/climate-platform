@@ -95,6 +95,6 @@ def history(session: Session, org_id: str, framework: str, kri_key: str | None =
         SELECT v.framework, v.kri_key, v.version, v.amber, v.red, v.direction, v.previous, v.reason, v.created_at, v.approval_request_id::text AS approval_request_id,
                cu.full_name AS changed_by, au.full_name AS approved_by
         FROM kri_threshold_version v LEFT JOIN users cu ON cu.user_id = v.changed_by LEFT JOIN users au ON au.user_id = v.approved_by
-        WHERE v.org_id = CAST(:o AS uuid) AND v.framework = :fw {"AND v.kri_key = :k" if kri_key else ""} ORDER BY v.created_at DESC LIMIT :l
+        WHERE v.org_id = CAST(:o AS uuid) AND v.framework = :fw {"AND v.kri_key = :k" if kri_key else ""} ORDER BY v.seq DESC LIMIT :l
     """), {"o": org_id, "fw": framework, "k": kri_key, "l": limit}).mappings().all()
     return [dict(r) | {"amber": float(r["amber"]) if r["amber"] is not None else None, "red": float(r["red"]) if r["red"] is not None else None, "created_at": r["created_at"].isoformat()} for r in rows]

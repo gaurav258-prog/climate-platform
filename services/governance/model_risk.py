@@ -45,7 +45,7 @@ def _score_cards(session) -> list[dict]:
     rows = session.execute(text("""SELECT model_id::text AS model_id, model_version, hazard_type, algorithm, lifecycle_status, is_active, r2_oos, validation_auc, validation_avg_precision,
                                           training_data_vintage, training_cell_count, calibration_note, validation_note, approved_by, approved_at, activated_by, activated_at, retired_at, superseded_by::text AS superseded_by, created_at
                                    FROM model_registry WHERE lifecycle_status IN ('active', 'approved', 'challenger', 'candidate') AND hazard_type <> 'loop_test'
-                                   ORDER BY hazard_type, is_active DESC, created_at DESC""")).mappings().all()
+                                   ORDER BY hazard_type, is_active DESC, seq DESC""")).mappings().all()
     events = {}
     for e in session.execute(text("SELECT model_id::text AS model_id, from_status, to_status, actor, reason, r2_oos, created_at FROM model_status_event ORDER BY seq")).mappings().all():
         events.setdefault(e["model_id"], []).append({"from": e["from_status"], "to": e["to_status"], "actor": e["actor"], "reason": e["reason"], "r2_oos": float(e["r2_oos"]) if e["r2_oos"] is not None else None, "at": _iso(e["created_at"])})

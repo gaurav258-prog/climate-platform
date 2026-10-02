@@ -88,7 +88,7 @@ def list_sessions(session: Session, user_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT token_id, user_agent, ip, created_at, last_used_at FROM refresh_token
         WHERE user_id = CAST(:u AS uuid) AND status = 'active' AND expires_at > now()
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, token_id
     """), {"u": user_id}).mappings().all()
     return [dict(r) for r in rows]
 

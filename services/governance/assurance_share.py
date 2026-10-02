@@ -85,7 +85,7 @@ def _shape(r) -> dict:
 
 
 def list_for_filing(session, org_id: str, filing_id: str) -> list[dict]:
-    rows = session.execute(text(f"SELECT {_COLS} {_FROM} WHERE s.org_id = CAST(:o AS uuid) AND s.filing_id = CAST(:f AS uuid) ORDER BY s.created_at DESC"), {"o": org_id, "f": filing_id}).mappings().all()
+    rows = session.execute(text(f"SELECT {_COLS} {_FROM} WHERE s.org_id = CAST(:o AS uuid) AND s.filing_id = CAST(:f AS uuid) ORDER BY s.created_at DESC, s.share_id"), {"o": org_id, "f": filing_id}).mappings().all()
     out = []
     for r in rows:
         d = _shape(r)

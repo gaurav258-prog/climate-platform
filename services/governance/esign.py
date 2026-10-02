@@ -60,7 +60,7 @@ def _create_docusign_envelope(*, title: str, signer_email: str) -> str:
 def list_requests(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT request_id, title, signer_email, provider, status, contract_id, created_at, completed_at
-        FROM esign_request WHERE org_id = CAST(:o AS uuid) ORDER BY created_at DESC LIMIT 200
+        FROM esign_request WHERE org_id = CAST(:o AS uuid) ORDER BY created_at DESC, request_id LIMIT 200
     """), {"o": org_id}).mappings().all()
     return [dict(r) for r in rows]
 

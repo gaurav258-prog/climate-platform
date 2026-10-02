@@ -102,7 +102,7 @@ def list_keys(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT k.key_id::text, k.label, k.key_type, k.fingerprint, k.bits, k.created_at, u.email AS created_by, k.revoked_at
         FROM intake_sftp_keys k LEFT JOIN users u ON u.user_id = k.created_by
-        WHERE k.org_id = CAST(:o AS uuid) ORDER BY k.revoked_at NULLS FIRST, k.created_at DESC
+        WHERE k.org_id = CAST(:o AS uuid) ORDER BY k.revoked_at NULLS FIRST, k.created_at DESC, k.key_id
     """), {"o": org_id}).mappings().all()
     return [{**dict(r), "created_at": str(r["created_at"])[:19], "revoked_at": str(r["revoked_at"])[:19] if r["revoked_at"] else None}
             for r in rows]
@@ -111,6 +111,6 @@ def list_keys(session: Session, org_id: str) -> list[dict]:
 def authorized_keys(session: Session, org_id: str) -> str:
     """The organisation's active keys as an OpenSSH authorized_keys file for the SFTP server (no shell, no forwarding)."""
     rows = session.execute(text("""SELECT key_id::text, public_key FROM intake_sftp_keys
-                                   WHERE org_id = CAST(:o AS uuid) AND revoked_at IS NULL ORDER BY created_at"""),
+                                   WHERE org_id = CAST(:o AS uuid) AND revoked_at IS NULL ORDER BY created_at, key_id"""),
                            {"o": org_id}).all()
     return "".join(f"restrict {pk} tellumen-key:{kid}\n" for kid, pk in rows)

@@ -101,7 +101,7 @@ def records(session: DbSession, on: Optional[date] = None, entity_id: Optional[s
     pending = [dict(x) for x in session.execute(text("""
         SELECT request_id::text AS request_id, request_type, title, payload->>'movement_id' AS movement_id
         FROM approval_requests WHERE org_id = CAST(:o AS uuid) AND status = 'pending' AND request_type IN ('eudr.status', 'eudr.risk')
-        ORDER BY created_at"""), {"o": org}).mappings().all()]
+        ORDER BY seq"""), {"o": org}).mappings().all()]
     return {"status": {k: (v.isoformat() if isinstance(v, date) else v) for k, v in st.items()} if st else None,
             "on": (on or date.today()).isoformat(),
             "criteria": REC.CRITERIA, "mitigation": REC.MITIGATION, "aspects": list(REC.ASPECTS),

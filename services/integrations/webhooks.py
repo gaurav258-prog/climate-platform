@@ -78,7 +78,7 @@ def list_endpoints(session: Session, org_id: str) -> list[dict]:
         SELECT we.endpoint_id, we.name, we.url, we.events, we.is_active, we.created_at, we.last_delivery_at,
                u.email AS created_by_email
         FROM   webhook_endpoints we LEFT JOIN users u ON u.user_id = we.created_by_user_id
-        WHERE  we.org_id = :o ORDER BY we.created_at DESC
+        WHERE  we.org_id = :o ORDER BY we.created_at DESC, we.endpoint_id
     """), {"o": org_id}).mappings().all()
     return [{
         "endpoint_id": str(r["endpoint_id"]), "name": r["name"], "url": r["url"], "events": list(r["events"] or []),
@@ -183,7 +183,7 @@ def list_deliveries(session: Session, org_id: str, limit: int = 50) -> list[dict
         SELECT d.delivery_id, d.event_type, d.status, d.http_status, d.error, d.attempts, d.created_at,
                we.name AS endpoint_name, we.url AS endpoint_url
         FROM   webhook_deliveries d LEFT JOIN webhook_endpoints we ON we.endpoint_id = d.endpoint_id
-        WHERE  d.org_id = :o ORDER BY d.created_at DESC LIMIT :lim
+        WHERE  d.org_id = :o ORDER BY d.seq DESC LIMIT :lim
     """), {"o": org_id, "lim": limit}).mappings().all()
     return [{
         "delivery_id": str(r["delivery_id"]), "event_type": r["event_type"], "status": r["status"],

@@ -130,7 +130,7 @@ def promote_challenger(s: Session, hazard_type: str, *, actor: str) -> dict:
     """Promote the hazard's challenger to active (retires the incumbent). The champion/challenger swap."""
     ch = s.execute(text("""
         SELECT model_id::text FROM model_registry WHERE hazard_type=:h AND lifecycle_status='challenger'
-        ORDER BY created_at DESC LIMIT 1
+        ORDER BY seq DESC LIMIT 1
     """), {"h": hazard_type}).scalar()
     if not ch:
         raise GovernanceError(f"no challenger registered for hazard '{hazard_type}'")
@@ -173,7 +173,7 @@ def registry(s: Session, hazard_type: Optional[str] = None) -> list[dict]:
         SELECT model_version, hazard_type, algorithm, lifecycle_status, r2_oos, is_active,
                approved_by, approved_at, activated_by, activated_at, calibration_note, model_id::text
         FROM model_registry {"WHERE hazard_type = :h" if hazard_type else ""}
-        ORDER BY hazard_type, created_at DESC
+        ORDER BY hazard_type, seq DESC
     """), ({"h": hazard_type} if hazard_type else {})).mappings().all()
     return [dict(r) for r in rows]
 
@@ -183,6 +183,6 @@ def drift(s: Session, hazard_type: Optional[str] = None, limit: int = 50) -> lis
     rows = s.execute(text(f"""
         SELECT model_id::text, hazard_type, kind, metric, value, threshold, breached, drift_window, note, created_at
         FROM model_drift_observation {"WHERE hazard_type = :h" if hazard_type else ""}
-        ORDER BY created_at DESC LIMIT :lim
+        ORDER BY seq DESC LIMIT :lim
     """), ({"h": hazard_type, "lim": limit} if hazard_type else {"lim": limit})).mappings().all()
     return [dict(r) for r in rows]

@@ -28,7 +28,7 @@ def main() -> None:
             print("No insurer org found — nothing to seed.")
             return
         updater = s.execute(text(
-            "SELECT user_id FROM users WHERE org_id = :o ORDER BY created_at LIMIT 1"
+            "SELECT user_id FROM users WHERE org_id = :o ORDER BY created_at, user_id LIMIT 1"
         ), {"o": org}).scalar()
 
         from services.money.params import for_org

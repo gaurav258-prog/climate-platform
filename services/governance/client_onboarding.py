@@ -135,7 +135,7 @@ def _intake_row(session: Session, intake_id: str) -> dict | None:
 def _roster(session: Session, intake_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT roster_id, email, full_name, role, created_user_id
-        FROM client_intake_user WHERE intake_id = CAST(:i AS uuid) ORDER BY created_at
+        FROM client_intake_user WHERE intake_id = CAST(:i AS uuid) ORDER BY seq
     """), {"i": intake_id}).mappings().all()
     return [dict(r) for r in rows]
 
@@ -143,7 +143,7 @@ def _roster(session: Session, intake_id: str) -> list[dict]:
 def _documents(session: Session, intake_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT document_id, kind, title, filename, content_type, size_bytes, to_vault, contract_type, uploaded_at
-        FROM client_intake_document WHERE intake_id = CAST(:i AS uuid) ORDER BY uploaded_at
+        FROM client_intake_document WHERE intake_id = CAST(:i AS uuid) ORDER BY uploaded_at, document_id
     """), {"i": intake_id}).mappings().all()
     return [dict(r) for r in rows]
 
@@ -164,7 +164,7 @@ def list_intakes(session: Session) -> list[dict]:
                i.contact_email, i.provisioned_org_id, i.created_at, i.submitted_at, i.provisioned_at,
                (SELECT count(*) FROM client_intake_user u WHERE u.intake_id = i.intake_id) AS roster_count,
                (SELECT count(*) FROM client_intake_document d WHERE d.intake_id = i.intake_id) AS document_count
-        FROM client_intake i ORDER BY i.created_at DESC
+        FROM client_intake i ORDER BY i.created_at DESC, i.intake_id
     """)).mappings().all()
     return [dict(r) for r in rows]
 

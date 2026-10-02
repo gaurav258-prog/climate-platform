@@ -387,7 +387,7 @@ def list_snapshots(session: Session, org_id: str, report_type: str | None = None
         FROM report_snapshots rs
         LEFT JOIN users u ON u.user_id = rs.created_by
         WHERE rs.org_id = :o {filt}
-        ORDER BY rs.created_at DESC
+        ORDER BY rs.seq DESC
     """.format(filt="AND rs.report_type = :t" if report_type else "")
     params = {"o": org_id}
     if report_type:

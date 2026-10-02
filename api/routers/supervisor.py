@@ -336,7 +336,7 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
     bench = benchmark(session, cfg, ents, sc, hz, authority_level(session, reg))
     accesses = session.execute(text("""
         SELECT action, created_at, detail FROM access_audit_log
-        WHERE org_id = CAST(:o AS uuid) AND action LIKE 'supervisor.%' ORDER BY created_at DESC LIMIT 10
+        WHERE org_id = CAST(:o AS uuid) AND action LIKE 'supervisor.%' ORDER BY seq DESC LIMIT 10
     """), {"o": org_id}).mappings().all()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.file.access",
                 target_type="organization", target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz})

@@ -556,7 +556,7 @@ def policy_detail(policy_id: str, session: DbSession, caller_org: OrgId):
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
         FROM access_audit_log WHERE target_type = 'insurance_policy' AND target_id = :p
-        ORDER BY created_at DESC LIMIT 5
+        ORDER BY seq DESC LIMIT 5
     """), {"p": policy_id}).mappings().all()
     return {"policy": policy, "risks": row["risks"], "audit": [dict(x) for x in audit]}
 

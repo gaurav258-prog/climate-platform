@@ -59,7 +59,7 @@ def audit_export(session: DbSession, ctx: dict = Depends(require_permission("adm
     rows = session.execute(text("""
         SELECT created_at, actor_user_id, action, target_type, target_id, ip, user_agent
         FROM access_audit_log WHERE org_id = CAST(:o AS uuid)
-        ORDER BY created_at DESC LIMIT :lim
+        ORDER BY seq DESC LIMIT :lim
     """), {"o": ctx["org"]["org_id"], "lim": limit}).mappings().all()
     buf = io.StringIO()
     w = csv.writer(buf)

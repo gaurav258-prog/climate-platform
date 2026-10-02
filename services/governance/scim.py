@@ -120,7 +120,7 @@ def list_users(session: Session, org_id: str, *, filter_: str | None = None,
             where += " AND external_id = :x"; params["x"] = val
     rows = session.execute(text(f"""
         SELECT user_id, org_id, email, full_name, status, external_id, auth_provider
-        FROM users WHERE {where} ORDER BY created_at
+        FROM users WHERE {where} ORDER BY created_at, user_id
         LIMIT :lim OFFSET :off
     """), {**params, "lim": count, "off": max(0, start_index - 1)}).mappings().all()
     total = session.execute(text(f"SELECT count(*) FROM users WHERE {where}"), params).scalar()
@@ -253,7 +253,7 @@ def get_group(session: Session, org_id: str, gid: str) -> dict:
 
 
 def list_groups(session: Session, org_id: str) -> dict:
-    ids = session.execute(text("SELECT group_id FROM scim_group WHERE org_id = CAST(:o AS uuid) ORDER BY created_at"),
+    ids = session.execute(text("SELECT group_id FROM scim_group WHERE org_id = CAST(:o AS uuid) ORDER BY created_at, group_id"),
                          {"o": org_id}).scalars().all()
     res = [_group_repr(session, org_id, str(g)) for g in ids]
     return {"schemas": [LIST_SCHEMA], "totalResults": len(res), "startIndex": 1, "itemsPerPage": len(res), "Resources": res}

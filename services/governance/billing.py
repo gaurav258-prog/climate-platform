@@ -69,7 +69,7 @@ def get_billing(session: Session, org_id: str) -> dict:
                           {"o": org_id}).mappings().first()
     invoices = session.execute(text("""
         SELECT number, amount_cents, currency, status, created_at FROM invoice
-        WHERE org_id = CAST(:o AS uuid) ORDER BY created_at DESC LIMIT 24
+        WHERE org_id = CAST(:o AS uuid) ORDER BY created_at DESC, invoice_id LIMIT 24
     """), {"o": org_id}).mappings().all()
     return {
         "subscription": dict(sub) if sub else None,

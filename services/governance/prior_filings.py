@@ -164,7 +164,7 @@ def list_filings(session, org_id: str, framework: Optional[str] = None) -> list[
                status, n_lines, uploaded_at, confirmed_at
         FROM reported_filing
         WHERE org_id = :org AND (CAST(:fw AS text) IS NULL OR framework = :fw)
-        ORDER BY period_label DESC, uploaded_at DESC
+        ORDER BY period_label DESC, uploaded_at DESC, filing_id
     """), {"org": org_id, "fw": framework}).mappings().all()
     return [{
         "filing_id": str(r["filing_id"]), "framework": r["framework"],
@@ -188,7 +188,7 @@ def get_filing(session, filing_id: str, org_id: str) -> dict:
     figs = session.execute(text("""
         SELECT figure_id, template_ref, datapoint_key, label, value_num, value_text, unit,
                read_method, confirmed
-        FROM reported_figure WHERE filing_id = :fid ORDER BY created_at
+        FROM reported_figure WHERE filing_id = :fid ORDER BY seq
     """), {"fid": filing_id}).mappings().all()
     return {
         "filing_id": str(f["filing_id"]), "framework": f["framework"],

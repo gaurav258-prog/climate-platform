@@ -70,7 +70,7 @@ def invite_contact(session, *, regulator_org_id: str, supervised_org_id: str, em
 
 
 def contacts(session, supervised_org_id: str) -> list[dict]:
-    rows = session.execute(text("SELECT user_id::text AS user_id, email, full_name, status, last_login_at FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at"),
+    rows = session.execute(text("SELECT user_id::text AS user_id, email, full_name, status, last_login_at FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at, user_id"),
                            {"o": supervised_org_id}).mappings().all()
     return [dict(r) | {"last_login_at": r["last_login_at"].isoformat() if r["last_login_at"] else None} for r in rows]
 

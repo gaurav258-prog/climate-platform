@@ -30,7 +30,7 @@ def list_contracts(session: Session, org_id: str) -> list[dict]:
         FROM customer_contract c
         LEFT JOIN users u ON u.user_id = c.uploaded_by
         WHERE c.org_id = CAST(:o AS uuid)
-        ORDER BY c.created_at DESC
+        ORDER BY c.created_at DESC, c.contract_id
     """), {"o": org_id}).mappings().all()
     out = []
     for r in rows:

@@ -98,7 +98,7 @@ def registration_verify(session: Session, *, user_id: str, credential: dict, nam
 def list_credentials(session: Session, user_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT credential_id, name, created_at, last_used_at FROM webauthn_credential
-        WHERE user_id = CAST(:u AS uuid) ORDER BY created_at
+        WHERE user_id = CAST(:u AS uuid) ORDER BY created_at, credential_id
     """), {"u": user_id}).mappings().all()
     return [dict(r) for r in rows]
 

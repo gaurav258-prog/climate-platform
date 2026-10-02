@@ -185,7 +185,7 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
     audit = [dict(r) for r in session.execute(text("""
         SELECT a.created_at, a.action, a.target_type, a.target_id, u.full_name actor, a.detail
         FROM access_audit_log a LEFT JOIN users u ON u.user_id = a.actor_user_id
-        WHERE a.org_id = :o ORDER BY a.created_at DESC LIMIT 1000
+        WHERE a.org_id = :o ORDER BY a.seq DESC LIMIT 1000
     """), {"o": org_id}).mappings().all()]
     for r in audit:
         r["created_at"] = r["created_at"].isoformat() if r.get("created_at") else None
@@ -197,7 +197,7 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
         FROM approval_requests ar
         LEFT JOIN users mk ON mk.user_id = ar.maker_user_id
         LEFT JOIN users ck ON ck.user_id = ar.checker_user_id
-        WHERE ar.org_id = :o ORDER BY ar.created_at DESC LIMIT 500
+        WHERE ar.org_id = :o ORDER BY ar.seq DESC LIMIT 500
     """), {"o": org_id}).mappings().all()]
     for r in appr:
         r["created_at"] = r["created_at"].isoformat() if r.get("created_at") else None

@@ -129,7 +129,7 @@ def test_filing_freezes_its_currency_flags_rate_revisions_and_restates_in_scope(
     _, _, leasing, _ = _tree(s)
     s.execute(text("UPDATE reporting_entities SET functional_currency = 'USD' WHERE entity_id = CAST(:e AS uuid)"),
               {"e": leasing["entity_id"]})
-    user = s.execute(text("SELECT user_id::text FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at LIMIT 1"),
+    user = s.execute(text("SELECT user_id::text FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at, user_id LIMIT 1"),
                      {"o": BANK_ORG}).scalar()
     tok = F.preflight(s, BANK_ORG, "bank", "bank_p3esg", leasing["entity_id"])["confirm_token"]   # the scope filed (XBRL: E95)
     f = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", user, confirm_token=tok, entity_id=leasing["entity_id"])

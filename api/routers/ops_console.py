@@ -42,7 +42,7 @@ def impersonate(body: ImpersonateBody, session: DbSession,
         FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.user_id LEFT JOIN roles r ON r.role_id=ur.role_id
         WHERE u.org_id=:o AND u.status='active'
         GROUP BY u.user_id, u.email, u.full_name
-        ORDER BY is_admin DESC, u.created_at ASC LIMIT 1
+        ORDER BY is_admin DESC, u.created_at ASC, u.user_id LIMIT 1
     """), {"o": body.org_id}).mappings().first()
     if not target:
         raise HTTPException(409, {"error": "no_user", "message": "This tenant has no active user to view as."})
@@ -108,7 +108,7 @@ def tenant(org_id: str, session: DbSession, ctx: dict = Depends(require_permissi
     recent = session.execute(text("""
         SELECT al.action, al.created_at, u.email FROM access_audit_log al
         LEFT JOIN users u ON u.user_id=al.actor_user_id
-        WHERE al.org_id=:o ORDER BY al.created_at DESC LIMIT 15
+        WHERE al.org_id=:o ORDER BY al.seq DESC LIMIT 15
     """), {"o": org_id}).mappings().all()
     return {
         "organization": {**{k: org[k] for k in ("org_id", "name", "legal_name", "type", "country", "lei", "eori", "filing_contact_email")},

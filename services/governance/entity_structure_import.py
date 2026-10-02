@@ -98,7 +98,7 @@ def get_import(session: Session, org_id: str, import_id: str) -> dict:
     rows = session.execute(text("""
         SELECT row_id::text, row_ref, parent_ref, parent_entity_id::text, name, kind, country,
                ownership_pct, consolidation_method, source_note, confidence, status, created_entity_id::text
-        FROM entity_structure_import_rows WHERE import_id = CAST(:i AS uuid) ORDER BY created_at
+        FROM entity_structure_import_rows WHERE import_id = CAST(:i AS uuid) ORDER BY seq
     """), {"i": import_id}).mappings().all()
     return {**dict(imp), "rows": [_row_dict(r) for r in rows]}
 
@@ -107,7 +107,7 @@ def list_imports(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT i.import_id::text, i.source, i.source_document_name, i.status, i.created_at, i.confirmed_at,
                (SELECT count(*) FROM entity_structure_import_rows r WHERE r.import_id = i.import_id) AS n_rows
-        FROM entity_structure_imports i WHERE i.org_id = CAST(:o AS uuid) ORDER BY i.created_at DESC
+        FROM entity_structure_imports i WHERE i.org_id = CAST(:o AS uuid) ORDER BY i.created_at DESC, i.import_id
     """), {"o": org_id}).mappings().all()
     return [dict(r) for r in rows]
 
