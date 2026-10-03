@@ -74,12 +74,8 @@ def test_an_output_that_does_not_hold_is_refused(session_rolled_back, tamper, ke
 
 def test_an_undecided_difference_is_a_warning_on_the_run(session_rolled_back):
     s = session_rolled_back
-    aid = s.execute(text("""SELECT entity_id::text FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND vertical = 'banking'
-                            AND source = 'own' AND latitude BETWEEN 52.3 AND 52.7 AND longitude BETWEEN 13.2 AND 13.6 LIMIT 1"""),
-                    {"o": BANK_ORG}).scalar()
-    if not aid:
-        pytest.skip("no seeded Berlin asset")
-    s.execute(text("UPDATE portfolio_entities SET country = 'FR' WHERE entity_id = CAST(:i AS uuid)"), {"i": aid})
+    from tests.integration.berlin_asset import berlin_asset
+    aid = berlin_asset(s, "FR")                                   # a Berlin asset booked in France
     O.sync(s, BANK_ORG, asset_ids=[aid])
     snap = _freeze(s)
     diff = next(c for c in snap["run_checks"] if c["key"] == "differences")

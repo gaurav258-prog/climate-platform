@@ -17,19 +17,14 @@ from services.governance.report_snapshots import create_snapshot
 from services.intake import conflicts as C
 from services.intake import observations as O
 from services.intake import views as V
+from tests.integration.berlin_asset import berlin_asset
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
 
 
 def _berlin_asset_booked_in(s, country: str) -> str:
-    aid = s.execute(text("""SELECT entity_id::text FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND vertical = 'banking'
-                            AND source = 'own' AND latitude BETWEEN 52.3 AND 52.7 AND longitude BETWEEN 13.2 AND 13.6 LIMIT 1"""),
-                    {"o": BANK_ORG}).scalar()
-    if not aid:
-        pytest.skip("no seeded Berlin asset")
-    s.execute(text("UPDATE portfolio_entities SET country = :c WHERE entity_id = CAST(:i AS uuid)"), {"c": country, "i": aid})
-    return aid
+    return berlin_asset(s, country)
 
 
 def _country(s, aid):

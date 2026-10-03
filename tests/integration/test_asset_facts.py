@@ -15,31 +15,15 @@ from sqlalchemy import text
 
 from services.intake import conflicts as C
 from services.intake import observations as O
+from tests.integration.berlin_asset import berlin_asset
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
 
 
 def _asset(s, country: str):
-    """A new Meridian bank asset in Germany (by its coordinates) — a copy of a seeded Berlin asset made inside this
-    rolled-back transaction — with its book country set to `country`. New, so the facts ledger (append-only) has never
-    seen it: the test does not depend on what the live database has recorded before."""
-    src = s.execute(text("""SELECT entity_id::text FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND vertical = 'banking'
-                            AND source = 'own' AND latitude BETWEEN 52.3 AND 52.7 AND longitude BETWEEN 13.2 AND 13.6 LIMIT 1"""),
-                    {"o": BANK_ORG}).scalar()
-    if not src:
-        pytest.skip("no seeded Berlin asset")
-    new = s.execute(text("""
-        INSERT INTO portfolio_entities
-        SELECT (jsonb_populate_record(NULL::portfolio_entities, to_jsonb(p) || jsonb_build_object(
-                'entity_id', gen_random_uuid(), 'entity_name', 'asset-facts test ' || gen_random_uuid(), 'country', CAST(:c AS text)))).*
-        FROM portfolio_entities p WHERE p.entity_id = CAST(:src AS uuid)
-        RETURNING entity_id::text"""), {"src": src, "c": country}).scalar()
-    s.execute(text("""
-        INSERT INTO ext_banking
-        SELECT (jsonb_populate_record(NULL::ext_banking, to_jsonb(x) || jsonb_build_object('entity_id', CAST(:new AS text)))).*
-        FROM ext_banking x WHERE x.entity_id = CAST(:src AS uuid)"""), {"src": src, "new": new})
-    return new
+    """A new Meridian bank asset in Germany (by its coordinates), booked in `country` (tests/integration/berlin_asset)."""
+    return berlin_asset(s, country)
 
 
 def _open(s, aid):

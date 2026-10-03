@@ -53,7 +53,11 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
                                WHERE e.entity_name = :n AND e.org_id = CAST(:o AS uuid)"""), {"n": names[0], "o": BANK_ORG}).one()
     assert tuple(stored) == ("credit_institution", "debt_securities", "ccm", True)
 
-    # 2 · qualitative authoring: a row the governing tables do not have is refused; a printed sub-row is accepted
+    # 2 · qualitative authoring: a row the governing tables do not have is refused; a printed sub-row is accepted. The test
+    #     starts from no answers (the demo bank may hold demo text: cleared inside this rolled-back transaction)
+    held = api.get("/v1/filings/qualitative/p3esg", headers=maker).json()
+    api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {
+        r["key"]: "" for t in held["tables"] if t["table"].startswith("TAB") for r in t["rows"]}})
     assert api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {"table9.z": "x"}}).status_code == 422
     r = api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {"table2.d_i": "Community engagement policy."}})
     assert r.status_code == 200
