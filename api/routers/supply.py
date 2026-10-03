@@ -704,6 +704,17 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
             "impact_version": IMPACT_VERSION}
 
 
+@router.get("/commodity/{commodity_id}/world-crop",
+            summary="What happened to the world crop, year by year — context, not a forecast, not volume at risk")
+def commodity_world_crop(commodity_id: str, session: DbSession, org_id: OrgId):
+    commodity_id = _valid_id(commodity_id)
+    name = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :id"), {"id": commodity_id}).scalar()
+    if not name:
+        raise HTTPException(status_code=404, detail="commodity not found")
+    from services.intelligence.world_crop import world_crop
+    return world_crop(session, name)
+
+
 def _plots_with_hazard(session, org_id, scenario, horizon):
     """Each plot + its worst projected hazard + its declared EUDR flag and current satellite reading (never a verdict).
     Single DISTINCT ON pass (keeps the highest-scoring hazard per plot) — no per-plot subqueries."""

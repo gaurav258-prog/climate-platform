@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.196 |
+| Version | 2.197 |
 | Last updated | 2026-10-03 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-03 | 2.197 | **World crop — what happened (context).** Each commodity page shows, for the last 15 years, the world crop's change as FAOSTAT reports it, the net deviation from trend across all decomposable origins (bearing cycle removed, gains offset losses) and the losses-only figure the damage model is validated against, with each year's coverage of the world crop and the origins that moved the latest year most (services/intelligence/world_crop.py, GET /v1/supply/commodity/{id}/world-crop). Context only — not a forecast and never part of volume at risk; the latest years are named as not yet decomposable, and a crop without a world series says so; the data's latest year and load date are shown. Reached from COGS (list and chart), Early warning and Disclosure; checked for all 9 agri companies × 15 commodities; registered as a shared-reference route (route-security guard); a guard keeps volume at risk from reading it. The interim step of the parked upside model (2026-07-18). |
 | 2026-10-03 | 2.196 | **Demo holds fictional companies only (E147); retired drafts closed.** Nordkap's funds now hold the fictional demo issuers on every date and its made-up figures about 17 real companies are withdrawn (audited); its stale PAI filing returned and withdrawn; the 11 demo filings of retired report types still in review returned (four eyes) and withdrawn. Every demo fund's SFDR periodic document is complete except the fund LEI, a named gap (fictional funds have none). |
 | 2026-10-03 | 2.195 | **Funds, books and identities (E143–E146).** One LEI check (check digits + GLEIF) on every LEI the platform stores; POST /v1/funds and a 'New fund' form; a holdings file can state the complete book on its date, removing what was sold (audited); an organisation withdraws the data it stated about an issuer (audited, with the reason) from the issuer drawer. |
 | 2026-10-03 | 2.194 | **Fossil gas / nuclear facts, the supervisory undertaking choice (E141, E142).** The holdings upload states the fossil gas and nuclear parts of an investee's aligned share (turnover and CapEx, 2022/1214 Annex XII); the SFDR periodic fossil gas / nuclear question is answered only from stated parts, never 'no' by default. The Supervisory view chooses which undertaking's ESRS statement answers the national authority's questions when more than one prepares one; entity ids on the supervisory and KRI routes are validated. |

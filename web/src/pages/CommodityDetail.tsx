@@ -7,6 +7,7 @@ import { hazardLabel } from '../lib/hazards'
 import MiniMap from '../components/MiniMap'
 import { flow } from '../lib/money'
 import { pressable } from '../lib/pressable'
+import WorldCrop from '../components/WorldCrop'
 
 const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
@@ -163,6 +164,8 @@ export default function CommodityDetail() {
           )}
         </div>
       </div>
+
+      {id && <WorldCrop commodityId={id} />}
     </div>
   )
 }
