@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.189 |
+| Version | 2.190 |
 | Last updated | 2026-10-02 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-03 | 2.190 | **Demo banks: Template 1 complete.** Every demo bank's loans name their counterparties (including ten Meridian loans that shared a name, now given demo asset ids); six loans per bank rest on the revenue-based sector average; the Template 1 narrative is written as demo text. Template 1 has no gaps at any demo bank (demo data, fictional banks). |
 | 2026-10-03 | 2.189 | **Counterparty ids on loans already in the book, and demo counterparties (E134).** The per-loan attributes file can set a loan's counterparty id, so a bank names its counterparties without re-sending the loan tape. The eight demo banks now carry demo counterparties — each with total liabilities, revenue and year end — the Template 1 statements and demo sector intensities, so Template 1 columns i–k compute for them (demo figures, fictional banks). |
 | 2026-10-02 | 2.188 | **Revenue-based sector-average scope 3 (E133).** A counterparty's revenue is stated once for the counterparty, with its financial year end, through the counterparties file (converted at the year's average rate). An institution can state that a counterparty's scope 3, where not gathered from it, is its division's sector-average intensity per EUR million of revenue × that revenue — with the intensity stated in Methodology with its source and year and attested by a second person. A revenue for a year ending after the reference date is not used. |
 | 2026-10-02 | 2.187 | **Fund PAI analytics, and ISO 639 (E132).** A fund's indicator view is labelled what it is — analytics over the fund's holdings, not a filing — with 'Freeze year as record' for next year's comparison; the PAI statement is the manager's entity-level one on the Funds page. The languages of an SFDR summary are checked against the ISO 639-1 codes of the Registration Authority's list. |
