@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.validation.engine import ValidationResult, register
@@ -54,14 +53,11 @@ def _detrended_yield_anomaly(session: Session, commodity: str, countries: list[s
     yield_tonnes_ha over the full record) and take the fractional residual as the climate-attributable
     anomaly per year. Standard crop-climate practice, applied uniformly to every crop (not per-crop tuning)."""
     import numpy as np
-    rows = session.execute(text("""
-        SELECT season_year, AVG(CAST(yield_tonnes_ha AS FLOAT)) AS y
-        FROM crop_yield_observations
-        WHERE commodity = :c AND country = ANY(:cc) AND yield_tonnes_ha IS NOT NULL
-        GROUP BY season_year ORDER BY season_year
-    """), {"c": commodity, "cc": countries}).mappings().all()
-    yrs = np.array([int(r["season_year"]) for r in rows], float)
-    yld = np.array([float(r["y"]) for r in rows], float)
+
+    from ml.features.yield_series import mean_yield
+    my = mean_yield(session, commodity, countries)      # each country from ONE source by precedence (E156)
+    yrs = np.array(list(my), float)
+    yld = np.array(list(my.values()), float)
     if len(yrs) < 8 or np.ptp(yld) == 0:
         return {}
     trend = np.polyval(np.polyfit(yrs, yld, 1), yrs)     # linear tech trend

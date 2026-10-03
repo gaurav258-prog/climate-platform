@@ -205,11 +205,8 @@ def agri_realized_exposure(session: Session, org_id: str) -> dict:
         return {"available": False, "reason": "no_sourcing_book"}
     spend_by = {(r["commodity"].lower(), (r["country"] or "").upper()): float(r["spend"] or 0) for r in sourced}
 
-    shocks = session.execute(text("""
-        SELECT commodity, country, season_year, CAST(yoy_change_pct AS FLOAT) AS yoy
-        FROM crop_yield_observations
-        WHERE yoy_change_pct < -5 ORDER BY season_year DESC
-    """)).mappings().all()
+    from ml.features.yield_series import shocks as observed_shocks
+    shocks = observed_shocks(session, -5)            # one source per crop and country — never counted per source (E156)
     events = []
     for sh in shocks:
         key = (str(sh["commodity"]).lower(), str(sh["country"]).upper())

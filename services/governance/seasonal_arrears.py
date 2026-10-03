@@ -112,11 +112,8 @@ def _yield_shock_map(session: Session, keys: set[tuple[str, str]]) -> dict[tuple
     if not keys:
         return {}
     countries = {c for _, c in keys}
-    rows = session.execute(text("""
-        SELECT commodity, country, season_year, CAST(yoy_change_pct AS FLOAT) AS yoy
-        FROM crop_yield_observations
-        WHERE country = ANY(:countries) AND yoy_change_pct < :thr
-    """), {"countries": list(countries), "thr": YIELD_SHOCK_THRESHOLD_PCT}).mappings().all()
+    from ml.features.yield_series import shocks
+    rows = shocks(session, YIELD_SHOCK_THRESHOLD_PCT, list(countries))   # one source per crop and country (E156)
     out: dict[tuple[str, str, int], float] = {}
     for r in rows:
         key = YIELD_COMMODITY_ALIAS.get(str(r["commodity"]).strip().lower())

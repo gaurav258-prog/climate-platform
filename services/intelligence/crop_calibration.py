@@ -25,12 +25,10 @@ FIT_VERSION = "ranged-fit-v0.1"
 
 
 def _production(session: Session, commodity: str, origin: str, source: str) -> dict[int, float]:
-    rows = session.execute(text("""
-        SELECT season_year, production_tonnes FROM crop_yield_observations
-        WHERE commodity = :c AND country = :o AND source = :src AND production_tonnes IS NOT NULL
-        ORDER BY season_year
-    """), {"c": commodity, "o": origin, "src": source}).fetchall()
-    return {int(y): float(p) for y, p in rows}
+    """The source's ONE production series for the crop and origin (ml.features.yield_series — a source holding several
+    regional series is refused rather than one chosen silently)."""
+    from ml.features.yield_series import series
+    return series(session, commodity, origin, source, region_code=None)
 
 
 def fit_calibration(session: Session, *, commodity: str, origin: str, region: str, driver: str,

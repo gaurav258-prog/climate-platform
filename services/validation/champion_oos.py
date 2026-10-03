@@ -61,17 +61,10 @@ def _fits(session: Session):
 
 
 def _production_by_source(session: Session, commodity: str, origin: str) -> dict:
-    """{source: {year: production_tonnes}}. The fit used one source; we pick the source that reproduces the
-    stored fit rather than guessing, because some origins carry two agencies' series (e.g. FAOSTAT + EUROSTAT)."""
-    rows = session.execute(text("""
-        SELECT source, season_year, production_tonnes FROM crop_yield_observations
-        WHERE commodity = :c AND country = :o AND production_tonnes IS NOT NULL
-        ORDER BY season_year
-    """), {"c": commodity, "o": origin}).all()
-    out: dict = {}
-    for src, yr, p in rows:
-        out.setdefault(src, {})[int(yr)] = float(p)
-    return out
+    """{series: {year: production_tonnes}} — every series held for the crop and origin, each kept apart ('<source>' or
+    '<source> · <region>'; ml.features.yield_series, E156). The fit used one; we pick the one that reproduces it."""
+    from ml.features.yield_series import every_series
+    return every_series(session, commodity, origin)
 
 
 @dataclass

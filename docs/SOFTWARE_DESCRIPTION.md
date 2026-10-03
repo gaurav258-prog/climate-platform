@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.203 |
+| Version | 2.204 |
 | Last updated | 2026-10-03 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-04 | 2.204 | **One reader of crop yields; regions in the store (E156).** Every product consumer reads yields through ml.features.yield_series: one source per crop and country (FAOSTAT, then Eurostat — stated in data/reference/yield_series.json), never spliced, USDA FAS never in a history; observed shocks are no longer counted once per source. The store keys a region (national '' or ISO 3166-2 / NUTS), ready for USDA NASS and Eurostat regional series. |
 | 2026-10-04 | 2.203 | **USDA FAS as a reviewed yield source (E155).** Official current-season estimates worldwide for 12 crops (definitions that differ from FAO's stated per crop), units converted only by a typed table, raw publisher data kept before reading. Staged and awaiting the product owner: 29 387 rows. USDA NASS and api.data.gov keys held in the environment only. |
 | 2026-10-04 | 2.202 | **Supply outlook data: every source reviewed, more crops, the datasets in (E153, E154).** Eurostat joins FAOSTAT as a reviewed yield source (14 crops incl. durum wheat, ~40 countries, the latest EU season); Citrus reads FAO's own total; the country reference marks 'EU' as a grouping. Staged and awaiting the product owner: FAOSTAT 89 208 rows (66 214 added) and Eurostat 12 853 rows (11 909 added, 78 revised by Eurostat). Downloaded and pinned (checksums verified): MapSPAM 2020 harvested area, CROPGRIDS v1.08 (olive, grapes, almonds…), GGCMI and MIRCA-OS crop calendars; global ERA5-Land monthly downloading. |
 | 2026-10-04 | 2.201 | **Supply outlook foundation, phase 1: registry, every country, one approver (E150–E152).** The crop registry states each crop's FAO item (or a named gap) and life cycle; FAOSTAT is read for every country (UN M49 = ISO numeric) instead of 35 areas; the operator page states how many people approve (one today: the platform proposes, the product owner approves). The every-country FAOSTAT release is staged and proposed — 57 765 origin-years added, nothing revised — awaiting the product owner's approval. Each FAOSTAT check is recorded so an unchanged file is never downloaded again. |

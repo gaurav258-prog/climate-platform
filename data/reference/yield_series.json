@@ -1,0 +1,15 @@
+{
+ "about": "How a consumer that needs 'the' yield series of a crop in a country picks one (E156). A series is never spliced from two sources: for each crop and country the consumer uses ONE source — the first in national_precedence that holds a national series for it. A consumer may also name a source explicitly. This order is the platform's stated choice, changed only here (a reviewed commit).",
+ "national_precedence": [
+  "FAOSTAT QCL bulk",
+  "EUROSTAT apro_cpsh1"
+ ],
+ "why": {
+  "FAOSTAT QCL bulk": "the longest series (1961→), one definition for every country, calendar years",
+  "EUROSTAT apro_cpsh1": "used where FAOSTAT holds no series for the crop (durum wheat), EU-27 / EFTA / UK / candidates"
+ },
+ "never_in_history": {
+  "USDA FAS PSD": "market years and some definitions differ from FAO's (milled rice, oils, shelled almonds) — read only as the latest-season estimate, never spliced into a history"
+ },
+ "regional": "a regional series (region_code ≠ '') is read only when a consumer names its source and region"
+}

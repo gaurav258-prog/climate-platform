@@ -64,9 +64,14 @@ def keep_raw(ys: YieldSource, data: bytes) -> str:
 
 def _held(session: Session, src: str) -> dict:
     rows = session.execute(text(f"""
-        SELECT commodity, country, season_year, {", ".join(f"CAST({c} AS FLOAT) AS {c}" for c in _FIELDS)}
+        SELECT commodity, country, region_code, season_year, {", ".join(f"CAST({c} AS FLOAT) AS {c}" for c in _FIELDS)}
         FROM crop_yield_observations WHERE source = :s"""), {"s": src}).mappings()
-    return {(r["commodity"], r["country"], r["season_year"]): {c: r[c] for c in _FIELDS} for r in rows}
+    return {(r["commodity"], r["country"], r["region_code"], r["season_year"]): {c: r[c] for c in _FIELDS} for r in rows}
+
+
+def _key(r: dict) -> tuple:
+    """A row's identity: crop, country, region ('' national — E156), year."""
+    return (r["commodity"], r["country"], r.get("region_code") or "", r["season_year"])
 
 
 def _differs(a, b) -> bool:
@@ -105,12 +110,11 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
                             {"s": src}).scalar()
     if open_:
         raise ReleaseError(f"release {open_} is still open for review — land or reject it before staging another")
-    rows = ys.parse(data, countries)
+    rows = [{**r, "region_code": r.get("region_code") or ""} for r in ys.parse(data, countries)]
     held = _held(session, src)
     added, revised, recomputed, by_commodity, changed = [], [], [], {}, {}
     for r in rows:
-        key = (r["commodity"], r["country"], r["season_year"])
-        before = held.get(key)
+        before = held.get(_key(r))
         if before is None:
             added.append(r)
             kind = "added"
@@ -127,12 +131,12 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
         if kind != "recomputed":                     # a calibration's inputs change only with the publisher's figures
             changed.setdefault((r["commodity"], r["country"]), set()).add(r["season_year"])
     latest_held = {}
-    for (c, _geo, y) in held:
+    for (c, _geo, _region, y) in held:
         latest_held[c] = max(latest_held.get(c, 0), y)
     for r in added:
         if r["season_year"] > latest_held.get(r["commodity"], 0):
             by_commodity[r["commodity"]]["years_new"].add(r["season_year"])
-    in_file = {(r["commodity"], r["country"], r["season_year"]) for r in rows}
+    in_file = {_key(r) for r in rows}
     biggest = sorted((r for r in revised if r["production_tonnes"] is not None and r["held_before"]["production_tonnes"]),
                      key=lambda r: -abs(r["production_tonnes"] / r["held_before"]["production_tonnes"] - 1))[:_TOP]
     last_landed = session.execute(text("""SELECT reader FROM crop_yield_releases WHERE source = :s AND status = 'landed'
@@ -161,10 +165,10 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
     for kind, rs in (("added", added), ("revised", revised), ("recomputed", recomputed)):
         for r in rs:
             session.execute(text("""
-                INSERT INTO crop_yield_release_rows (release_id, commodity, country, season_year, change, production_tonnes,
-                       area_harvested_ha, yield_tonnes_ha, yoy_change_pct, note, held_before)
-                VALUES (CAST(:rid AS uuid), :commodity, :country, :season_year, :k, :production_tonnes, :area_harvested_ha,
-                        :yield_tonnes_ha, :yoy_change_pct, :note, CAST(:hb AS jsonb))"""),
+                INSERT INTO crop_yield_release_rows (release_id, commodity, country, region_code, season_year, change,
+                       production_tonnes, area_harvested_ha, yield_tonnes_ha, yoy_change_pct, note, held_before)
+                VALUES (CAST(:rid AS uuid), :commodity, :country, :region_code, :season_year, :k, :production_tonnes,
+                        :area_harvested_ha, :yield_tonnes_ha, :yoy_change_pct, :note, CAST(:hb AS jsonb))"""),
                 {**r, "rid": rid, "k": kind, "hb": json.dumps(r["held_before"]) if kind != "added" else None})
     out = {"staged": True, "release_id": rid, "status": "staged", "summary": summary}
     from services.governance.platform_policy import PLATFORM_ORG, SYSTEM_USER, human_approvers
@@ -205,9 +209,10 @@ def release_rows(session: Session, release_id: str, change: str | None = None, l
     if change is not None and change not in CHANGES:
         raise ReleaseError(f"change must be one of {', '.join(CHANGES)}")
     return [dict(r) for r in session.execute(text(f"""
-        SELECT commodity, country, season_year, change, {", ".join(f"CAST({c} AS FLOAT) AS {c}" for c in _FIELDS)}, held_before
+        SELECT commodity, country, region_code, season_year, change,
+               {", ".join(f"CAST({c} AS FLOAT) AS {c}" for c in _FIELDS)}, held_before
         FROM crop_yield_release_rows WHERE release_id = CAST(:r AS uuid) AND (CAST(:k AS varchar) IS NULL OR change = :k)
-        ORDER BY CASE change WHEN 'revised' THEN 0 WHEN 'added' THEN 1 ELSE 2 END, commodity, country, season_year
+        ORDER BY CASE change WHEN 'revised' THEN 0 WHEN 'added' THEN 1 ELSE 2 END, commodity, country, region_code, season_year
         LIMIT :n"""), {"r": release_id, "k": change, "n": limit}).mappings()]
 
 
@@ -271,12 +276,12 @@ def apply_decision(session: Session, payload: dict, decision: str, checker_user_
         _close(session, release_id, "rejected", checker_user_id, reason or f"{decision} by the second reviewer")
         return {"release_id": release_id, "status": "rejected", "landed_rows": 0}
     n = session.execute(text("""
-        INSERT INTO crop_yield_observations (commodity, country, season_year, production_tonnes, area_harvested_ha,
-               yield_tonnes_ha, yoy_change_pct, source, note)
-        SELECT commodity, country, season_year, production_tonnes, area_harvested_ha, yield_tonnes_ha, yoy_change_pct,
-               :src, note
+        INSERT INTO crop_yield_observations (commodity, country, region_code, season_year, production_tonnes,
+               area_harvested_ha, yield_tonnes_ha, yoy_change_pct, source, note)
+        SELECT commodity, country, region_code, season_year, production_tonnes, area_harvested_ha, yield_tonnes_ha,
+               yoy_change_pct, :src, note
         FROM crop_yield_release_rows WHERE release_id = CAST(:r AS uuid)
-        ON CONFLICT (commodity, country, season_year, source) DO UPDATE SET
+        ON CONFLICT (commodity, country, region_code, season_year, source) DO UPDATE SET
             production_tonnes = EXCLUDED.production_tonnes, area_harvested_ha = EXCLUDED.area_harvested_ha,
             yield_tonnes_ha = EXCLUDED.yield_tonnes_ha, yoy_change_pct = EXCLUDED.yoy_change_pct,
             note = EXCLUDED.note, ingested_at = now()"""), {"src": rel["source"], "r": release_id}).rowcount

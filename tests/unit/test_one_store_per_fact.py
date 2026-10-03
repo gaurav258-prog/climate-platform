@@ -53,3 +53,13 @@ def test_faostat_crop_production_lands_only_through_its_review():
     labelled = re.compile(rf"""["']({labels})["']""")
     faostat = {w for w in writers if labelled.search((ROOT / w).read_text(errors="ignore")) or "faostat" in w}
     assert faostat <= {"services/reference/crop_releases.py"}, faostat
+
+
+def test_the_yield_store_has_one_reader_in_product_code():
+    """E156: product code reads crop_yield_observations only through ml.features.yield_series (one source per crop
+    and country, regions apart) — and crop_releases, which stages and lands it. A direct reader would count an event
+    once per source again."""
+    product = [p for d in ("api", "services", "ml") for p in (ROOT / d).rglob("*.py")]
+    rx = re.compile(r"(FROM|JOIN)\s+crop_yield_observations\b")
+    readers = {str(p.relative_to(ROOT)) for p in product if rx.search(p.read_text(errors="ignore"))}
+    assert readers <= {"ml/features/yield_series.py", "services/reference/crop_releases.py"}, readers

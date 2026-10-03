@@ -49,7 +49,7 @@ def main():
             s.execute(text("""
                 INSERT INTO crop_yield_observations (commodity, country, season_year, production_tonnes, source, note)
                 VALUES (:c,:i,:y,:p,:s,:n)
-                ON CONFLICT (commodity, country, season_year, source)
+                ON CONFLICT (commodity, country, region_code, season_year, source)   -- national rows (region '')
                 DO UPDATE SET production_tonnes=EXCLUDED.production_tonnes, note=EXCLUDED.note, ingested_at=now()
             """), {"c": com, "i": iso, "y": yr, "p": prod, "s": src, "n": note})
 
@@ -57,7 +57,7 @@ def main():
         s.execute(text("""
             WITH ordered AS (
                 SELECT obs_id, production_tonnes,
-                       LAG(production_tonnes) OVER (PARTITION BY commodity, country, source ORDER BY season_year) AS prev
+                       LAG(production_tonnes) OVER (PARTITION BY commodity, country, region_code, source ORDER BY season_year) AS prev
                 FROM crop_yield_observations WHERE source = ANY(:src)
             )
             UPDATE crop_yield_observations t

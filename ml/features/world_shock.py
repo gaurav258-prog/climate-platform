@@ -91,19 +91,12 @@ class WorldShock:
 
 
 def _series(session, commodity: str, source: str) -> dict[str, dict[int, float]]:
-    """{origin: {year: production_tonnes}} for one commodity, aggregates excluded."""
-    from sqlalchemy import text
-
-    rows = session.execute(text("""
-        SELECT country, season_year, production_tonnes
-        FROM   crop_yield_observations
-        WHERE  commodity = :c AND source = :s AND production_tonnes IS NOT NULL
-    """), {"c": commodity, "s": source}).fetchall()
-    out: dict[str, dict[int, float]] = {}
-    for country, year, prod in rows:
-        if country in _AGGREGATE_ORIGINS:
-            out.setdefault("WLD" if country == "WLD" else country, {})
-        out.setdefault(country, {})[int(year)] = float(prod)
+    """{origin: {year: production_tonnes}} — the NATIONAL series of one source (ml.features.yield_series, E156):
+    a regional series is never summed in with its country's national one. 'WLD' is kept; other aggregates excluded."""
+    from ml.features.yield_series import by_country
+    out = by_country(session, commodity, source)
+    for agg in _AGGREGATE_ORIGINS - {"WLD"}:
+        out.pop(agg, None)
     return out
 
 

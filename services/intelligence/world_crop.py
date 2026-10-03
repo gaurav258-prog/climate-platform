@@ -20,7 +20,6 @@ Stated limits, shown with the figures (idea_climate_platform_upside_model, the u
 """
 from __future__ import annotations
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 SOURCE = "FAOSTAT QCL bulk"
@@ -31,10 +30,8 @@ TOP_ORIGINS = 6                  # the origins that moved the latest decomposabl
 def world_crop(session: Session, commodity: str, years: int = YEARS) -> dict:
     from ml.features.crop_cycle import TREND_K
     from ml.features.world_shock import world_shock
-    held = session.execute(text("""
-        SELECT max(season_year) AS last, max(ingested_at) AS loaded FROM crop_yield_observations
-        WHERE commodity = :c AND source = :s AND country = 'WLD' AND production_tonnes IS NOT NULL"""),
-        {"c": commodity, "s": SOURCE}).mappings().first()
+    from ml.features.yield_series import latest
+    held = latest(session, commodity, SOURCE, "WLD")
     last = held["last"]
     base = {"commodity": commodity, "source": SOURCE, "trend_years_after": TREND_K,
             "basis": "context — what happened to world supply; not a forecast, not part of volume at risk",
