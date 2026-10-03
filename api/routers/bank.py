@@ -443,6 +443,10 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
 ATTR_TEMPLATE_FIELDS = [
     {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text", "description": "Your own loan id, as sent with the loan tape — matched first.", "example": "REF-000123"},
     {"name": "asset_name", "required": False, "label": "Asset name", "kind": "text", "description": "Used when there is no asset ID; must match exactly ONE asset in your book (an ambiguous name is refused).", "example": "Frankfurt Tower 1"},
+    {"name": "borrower_entity_id", "required": False, "label": "Counterparty ID (LEI)", "kind": "text",
+     "description": "The id of the loan's counterparty — its LEI or your own stable id (at most 20 characters), the id its "
+     "figures are stated under in the counterparties file. Sets it on a loan already in your book without re-sending the "
+     "whole tape.", "example": "5493001KJTIIGC8Y1R12"},
     {"name": "residual_maturity_years", "required": False, "label": "Residual maturity (years)", "kind": "number", "range": [0, 100], "description": "Remaining life of the loan, in years.", "example": "7"},
     {"name": "epc_label", "required": False, "label": "EPC label", "kind": "enum", "allowed": ["A", "B", "C", "D", "E", "F", "G"], "description": "Energy Performance Certificate grade of the collateral.", "example": "C"},
     {"name": "ifrs9_stage", "required": False, "label": "IFRS-9 stage", "kind": "enum", "allowed": ["1", "2", "3"], "description": "IFRS-9 credit-risk stage.", "example": "1"},
@@ -566,8 +570,15 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
             unmatched.append(ref or name)
             continue
         eid = cands[0]
+        cp = str(row.get("borrower_entity_id") or "").strip()
+        if cp and len(cp) > 20:
+            refused.append({"asset": ref or name, "reason": f"counterparty id '{cp}' is longer than 20 characters"})
+            continue
         matched += 1
         sets, params = [], {"e": eid}
+        if cp:                       # the loan's counterparty (portfolio_entities: the one link to bank_counterparties)
+            session.execute(text("UPDATE portfolio_entities SET borrower_entity_id = :cp, updated_at = now() "
+                                 "WHERE entity_id = :e"), {"cp": cp, "e": eid})
         mat = row.get("residual_maturity_years")
         if mat not in (None, ""):
             sets.append("residual_maturity_years = :mat"); params["mat"] = float(str(mat).replace(",", ""))
@@ -624,6 +635,7 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
             sets.append("ep_score_kwh_m2 = :ep"); params["ep"] = float(str(ep).replace(",", ""))
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
+        if sets or cp:
             updated += 1
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.attributes.upload",

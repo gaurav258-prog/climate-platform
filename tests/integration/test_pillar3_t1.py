@@ -377,3 +377,22 @@ def test_template5_cells_trace_to_the_exposures_they_sum(api):
                    params={"row": "1", "column": "a"}).status_code == 404          # column a is the geography itself
     old = api.get(f"/v1/filings/{fid}/lineage", headers=h, params={"hazard": "flood"}).json()
     assert not old["supported"] and "lineage/t5" in old["message"]
+
+
+def test_a_loan_already_in_the_book_names_its_counterparty_through_the_attributes_file(api):
+    """A bank sets the counterparty id on loans it already holds without re-sending the tape — matched by asset ID or a
+    unique name; an id longer than the loan tape can hold is refused, nothing written for that row."""
+    h = _login(api, *ADMIN)
+    s = api.s
+    names = s.execute(text("""SELECT e.entity_name FROM portfolio_entities e WHERE e.org_id = CAST(:o AS uuid)
+                              AND e.vertical = 'banking' AND e.source = 'own' GROUP BY e.entity_name HAVING count(*) = 1
+                              ORDER BY e.entity_name LIMIT 2"""), {"o": BANK_ORG}).scalars().all()
+    body = _csv(["asset_name", "borrower_entity_id"], [[names[0], "ATTR-CP-0001"], [names[1], "X" * 21]])
+    r = api.post("/v1/bank/assets/attributes/upload", headers=h, files={"file": ("attrs.csv", body, "text/csv")})
+    assert r.status_code == 200, r.text
+    assert r.json()["n_updated"] == 1 and r.json()["n_refused"] == 1 and "longer than 20" in r.json()["refused"][0]["reason"]
+    got = dict(s.execute(text("""SELECT entity_name, borrower_entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid)
+                                 AND entity_name = ANY(:n)"""), {"o": BANK_ORG, "n": list(names)}).all())
+    assert got[names[0]] == "ATTR-CP-0001" and got[names[1]] != "X" * 21
+    cps = {c["counterparty_ref"]: c for c in api.get("/v1/bank/counterparties", headers=h).json()["counterparties"]}
+    assert cps["ATTR-CP-0001"]["n_exposures"] == 1                     # the counterparties panel sees the link

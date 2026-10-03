@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.188 |
+| Version | 2.189 |
 | Last updated | 2026-10-02 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-03 | 2.189 | **Counterparty ids on loans already in the book, and demo counterparties (E134).** The per-loan attributes file can set a loan's counterparty id, so a bank names its counterparties without re-sending the loan tape. The eight demo banks now carry demo counterparties — each with total liabilities, revenue and year end — the Template 1 statements and demo sector intensities, so Template 1 columns i–k compute for them (demo figures, fictional banks). |
 | 2026-10-02 | 2.188 | **Revenue-based sector-average scope 3 (E133).** A counterparty's revenue is stated once for the counterparty, with its financial year end, through the counterparties file (converted at the year's average rate). An institution can state that a counterparty's scope 3, where not gathered from it, is its division's sector-average intensity per EUR million of revenue × that revenue — with the intensity stated in Methodology with its source and year and attested by a second person. A revenue for a year ending after the reference date is not used. |
 | 2026-10-02 | 2.187 | **Fund PAI analytics, and ISO 639 (E132).** A fund's indicator view is labelled what it is — analytics over the fund's holdings, not a filing — with 'Freeze year as record' for next year's comparison; the PAI statement is the manager's entity-level one on the Funds page. The languages of an SFDR summary are checked against the ISO 639-1 codes of the Registration Authority's list. |
 | 2026-10-02 | 2.186 | **Source texts and the reference year (E131).** Regulation (EEC, Euratom) No 1182/71 on periods and time limits is held, and the Pillar 3 scope 3 phase-in dates now rest on its quoted Article 3. The English original of Annex XL of the EBA IT solutions for 2024/3172 is held; every Pillar 3 quote taken from it is checked word for word. An SFDR PAI statement reads each investee's figures for its reference year or earlier, never a later year's (the live view keeps the latest). |
