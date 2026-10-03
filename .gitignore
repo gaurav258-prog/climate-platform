@@ -117,3 +117,6 @@ data/live/
 
 # login tokens a script or agent may write while seeding the local demo — never commit
 tok_*.txt
+
+# gridded inputs of the Supply outlook (fetched, checksummed; pinned in data/reference/supply_datasets.json)
+data/datasets/

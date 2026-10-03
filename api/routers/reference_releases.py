@@ -38,6 +38,27 @@ def list_releases(session: DbSession, ctx: dict = Depends(_REVIEW)):
             "releases": R.releases(session)}
 
 
+class Approvers(BaseModel):
+    action_key: str = Field(..., max_length=60)
+    human_approvers: int
+    reason: str = Field(..., max_length=2000)
+
+
+@router.get("/policy", summary="How many people must approve a platform change (E150)")
+def get_policy(session: DbSession, ctx: dict = Depends(_REVIEW)):
+    from services.governance.platform_policy import policies
+    return {"policies": policies(session)}
+
+
+@router.put("/policy", summary="State how many people approve (1: the system proposes, one person approves; 2: four eyes)")
+def put_policy(body: Approvers, session: DbSession, ctx: dict = Depends(_REVIEW)):
+    from services.governance.platform_policy import PolicyError, set_human_approvers
+    try:
+        return set_human_approvers(session, body.action_key, body.human_approvers, ctx["user"]["id"], body.reason)
+    except PolicyError as e:
+        raise HTTPException(422, {"error": "policy", "message": str(e)}) from e
+
+
 @router.get("/{release_id}", summary="One release — its difference against the store, row by row (by change)")
 def release_detail(release_id: UUID, session: DbSession, change: Optional[str] = Query(None),
                    ctx: dict = Depends(_REVIEW)):

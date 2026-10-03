@@ -15,7 +15,7 @@ interface Revision { commodity: string; country: string; year: number; productio
 interface Fit { commodity: string; origin: string; hazard_driver: string; baseline_from: number | null; baseline_to: number | null; changed_years: number[] }
 interface Summary { rows_in_file: number; added: number; revised: number; recomputed: number; unchanged: number; held_not_in_file: number; by_commodity: Record<string, ByCommodity>; largest_revisions: Revision[]; calibrations_may_be_affected: Fit[] }
 interface Release {
-  release_id: string; source: string; file_sha256: string; file_bytes: number; origin_url: string; last_modified: string | null
+  release_id: string; source: string; file_sha256: string; reader: string; file_bytes: number; origin_url: string; last_modified: string | null
   fetched_at: string; summary: Summary; status: 'staged' | 'proposed' | 'landed' | 'rejected'; approval_request_id: string | null
   decided_at: string | null; decision_reason: string | null; landed_at: string | null
   proposed_by_id: string | null; proposed_by: string | null; review: string | null; proposed_at: string | null; decided_by: string | null
@@ -46,7 +46,7 @@ export default function ReferenceReleases() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Platform · reference data" title="Reference data releases"
-        lead="A publisher's new file is staged with its difference against what the platform holds. One operator reviews and proposes it; a second approves. Nothing reaches customers' figures before that." />
+        lead="A publisher's new file is staged with its difference against what the platform holds, and lands only when approved as the Approvers policy below states — two people, or the platform's proposal and one person. Nothing reaches customers' figures before that." />
       {q.isLoading ? <Card className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</Card>
         : !d ? <Card className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Could not load the releases.')}</Card>
         : <>
@@ -63,6 +63,8 @@ export default function ReferenceReleases() {
             </div>
           </Card>
 
+          <ApproverPolicy />
+
           <Card className="p-0 overflow-hidden">
             <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Releases</SectionHead>
             {d.releases.length === 0 ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">No release fetched yet.</div>
@@ -74,7 +76,7 @@ export default function ReferenceReleases() {
                         <span className="mono text-[10px] uppercase tracking-wide border rounded px-1.5 py-0.5" style={{ color: STATUS[r.status], borderColor: STATUS[r.status] }}>{r.status}</span>
                         <span className="text-[var(--color-ink)]">received {day(r.fetched_at)}</span>
                         <span className="text-[var(--color-mute)] tabular-nums">+{num(r.summary.added, 0)} added · {num(r.summary.revised, 0)} revised · {num(r.summary.recomputed, 0)} recomputed</span>
-                        <span className="mono text-[10.5px] text-[var(--color-faint)]">{(r.file_bytes / 1e6).toFixed(1)} MB · sha-256 {r.file_sha256.slice(0, 12)}…</span>
+                        <span className="mono text-[10.5px] text-[var(--color-faint)]">{(r.file_bytes / 1e6).toFixed(1)} MB · sha-256 {r.file_sha256.slice(0, 12)}… · read as {r.reader}</span>
                       </div>
                       {open === r.release_id && <ReleaseReview r={r} myId={myId} onDone={() => qc.invalidateQueries({ queryKey: ['reference-releases'] })} />}
                     </div>
@@ -197,6 +199,51 @@ function Cell({ now, before, d }: { now: number | null; before: number | null | 
       {changed && <span className="line-through text-[var(--color-faint)] mr-1.5">{num(before ?? null, d)}</span>}
       <span style={{ color: changed ? 'var(--color-warn)' : undefined }}>{num(now, d)}</span>
     </td>
+  )
+}
+
+// How many people approve a platform change (E150): 2 = one proposes, another approves; 1 = the platform's system account
+// proposes (it can never sign in) and one person approves — stated when the organisation has a single approver.
+interface Policy { action_key: string; label: string; human_approvers: number; updated_at?: string | null; updated_by?: string | null }
+function ApproverPolicy() {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['platform-policy'], queryFn: () => api.get<{ policies: Policy[] }>('/v1/ops/reference-releases/policy') })
+  const [edit, setEdit] = useState<string | null>(null)
+  const [n, setN] = useState(2)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const save = async (key: string) => {
+    setBusy(true)
+    try {
+      await api.put('/v1/ops/reference-releases/policy', { action_key: key, human_approvers: n, reason: reason.trim() })
+      toast.success('Approval policy saved.'); setEdit(null); setReason('')
+      qc.invalidateQueries({ queryKey: ['platform-policy'] })
+    } catch (e) { toast.error(apiMessage(e, 'Could not save the policy.')) }
+    finally { setBusy(false) }
+  }
+  return (
+    <Card className="p-5">
+      <SectionHead hint="who must approve before a change reaches customers" className="mb-3">Approvers</SectionHead>
+      <div className="space-y-2 text-[12.5px]">
+        {(q.data?.policies ?? []).map(p => (
+          <div key={p.action_key} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="text-[var(--color-ink)] min-w-[18rem]">{p.label}</span>
+            <span className="text-[var(--color-mute)]">{p.human_approvers === 1 ? 'one person approves — the platform proposes' : 'two people — one proposes, another approves'}</span>
+            {p.updated_by && <span className="mono text-[10.5px] text-[var(--color-faint)]">set by {p.updated_by} · {String(p.updated_at).slice(0, 10)}</span>}
+            {edit !== p.action_key
+              ? <Button variant="ghost" onClick={() => { setEdit(p.action_key); setN(p.human_approvers) }}>Change</Button>
+              : <div className="flex flex-wrap items-center gap-2 w-full">
+                  <select value={n} onChange={e => setN(Number(e.target.value))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5">
+                    <option value={2}>Two people</option><option value={1}>One person (single approver)</option></select>
+                  <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Why (kept in the audit record)"
+                    className="flex-1 min-w-[16rem] bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 outline-none focus:border-[var(--color-sky)]" />
+                  <Button variant="primary" disabled={busy || reason.trim().length < 10} onClick={() => save(p.action_key)}>Save</Button>
+                  <Button variant="ghost" onClick={() => setEdit(null)}>Cancel</Button>
+                </div>}
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
 

@@ -1,0 +1,309 @@
+{
+ "ggcmi_phase3_crop_calendar": {
+  "source": "Jägermeyr, J. et al. (2021), GGCMI Phase 3 crop calendar, Zenodo, doi:10.5281/zenodo.5062513 (Nature Food 2, 873–885)",
+  "licence": "CC BY 4.0",
+  "attribution": "GGCMI Phase 3 crop calendar (Jägermeyr et al. 2021), CC BY 4.0",
+  "version": "2021-07-02",
+  "fetched_at": "2026-10-03T22:36:55+00:00",
+  "path": "data/datasets/ggcmi_phase3_crop_calendar",
+  "files": [
+   {
+    "file": "cot_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 70424,
+    "md5": "53f62dd882ad7a9f9ee2983dc545cbdf",
+    "sha256": "d2cc6c35036a9365c560392709d22c40e260b32df8f91a149041b8cb7956ae7d",
+    "url": "https://zenodo.org/api/records/5062513/files/cot_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sun_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 59972,
+    "md5": "69402a740c82b9506b55a5537edd9a3a",
+    "sha256": "e3b14203f16f6bb330509faed54441b54fe7c4fe84caca24a3f0fe3b5f666fa6",
+    "url": "https://zenodo.org/api/records/5062513/files/sun_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "mai_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 128888,
+    "md5": "b51586de1f1017ab06439300386b1abb",
+    "sha256": "2bfd26c22f4bd1cdcd46d8706fc09909c909dbfa83c31bb806dc871cb0638f6f",
+    "url": "https://zenodo.org/api/records/5062513/files/mai_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sgb_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 57168,
+    "md5": "c17f85ed7440a3006ba2e70edca1c4fe",
+    "sha256": "88654773bd218eca2cd762b18f47cd9c688cbf9fade23b445968393b254386fa",
+    "url": "https://zenodo.org/api/records/5062513/files/sgb_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "mai_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 130885,
+    "md5": "30886422bdfb9d3655e8396c4f7cff41",
+    "sha256": "54a2f8eb3867cefb9686531cbb55bc3ae5356a9d9f5e8b942f549b1d535faeca",
+    "url": "https://zenodo.org/api/records/5062513/files/mai_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "soy_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 118976,
+    "md5": "ff26e022c463fccbf96ceb72ce05b7a3",
+    "sha256": "3c532ecc611fffcfaef1aeec37a7b92846ec30a6c65a5788c870174a2ab26c40",
+    "url": "https://zenodo.org/api/records/5062513/files/soy_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "ri2_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 74318,
+    "md5": "ffdb642ddee073e253f65b4185430baa",
+    "sha256": "872c57ee9e2b4e74809b058213488a6b31004cfade2f2f2e6e26cb4f84382dbb",
+    "url": "https://zenodo.org/api/records/5062513/files/ri2_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "pea_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 67479,
+    "md5": "153bda5fac15fad9d138cf389c982549",
+    "sha256": "7b120890c1971063dfb7a1aad2835bee7c81f47a8160031d74bc258fc48a9a41",
+    "url": "https://zenodo.org/api/records/5062513/files/pea_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "pot_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 67265,
+    "md5": "c42b2bc346cb2f0992aa58eaede6f406",
+    "sha256": "c5c8a110ffa118166f0847c01b6189c20c3eb0186b4940a5331cfaad6665f06c",
+    "url": "https://zenodo.org/api/records/5062513/files/pot_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "pot_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 74294,
+    "md5": "679ce8117778adffa3a173aea08075cc",
+    "sha256": "19c9aec572602b07286bcb349cd6193c26b6ee2f556d2e89192aab1c0746a485",
+    "url": "https://zenodo.org/api/records/5062513/files/pot_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "cas_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 54108,
+    "md5": "e211eba62af4ad70fbfe2bd1c3d0924d",
+    "sha256": "366f7ee6ae2bfb89b88edc2546878001507ac7c7d532a20074420cae26ec779c",
+    "url": "https://zenodo.org/api/records/5062513/files/cas_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "wwh_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 107837,
+    "md5": "b561771b343efd3978326611fa058442",
+    "sha256": "c5637bb704b9ee884fb0e158b9f1bc3cd2782e2f84700652a3c2026a469641c6",
+    "url": "https://zenodo.org/api/records/5062513/files/wwh_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "wwh_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 116072,
+    "md5": "7f2fa18beb3bacca7e03c437476a0d4e",
+    "sha256": "33c88190d2befaa2d71827a94dd9c6d0572919b8f97cd952e6253d64565e8230",
+    "url": "https://zenodo.org/api/records/5062513/files/wwh_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "bar_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 70083,
+    "md5": "82012a2a2596bbe91a1eb02473df33cb",
+    "sha256": "20f7aa5d5fe31208b04d02564e5b28bee5eef6a77127fb141282008dc0b85cc9",
+    "url": "https://zenodo.org/api/records/5062513/files/bar_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "swh_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 139563,
+    "md5": "68a597731d26b1ea5f3348131413c22c",
+    "sha256": "c1df66207b606e9671169ab420b84c46909ab7422eb9bef1a016573e55aa3473",
+    "url": "https://zenodo.org/api/records/5062513/files/swh_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "bar_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 78411,
+    "md5": "30ba42271958437fae7da0166ca287f9",
+    "sha256": "b22d681fce390cbe94054bdbaac1b1cc5b0bd7e8add144d4ea3b85c9fc25aa94",
+    "url": "https://zenodo.org/api/records/5062513/files/bar_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "rap_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 58207,
+    "md5": "4bf98b6535fc645496c455cb5dc6e1ff",
+    "sha256": "069e907c0244189e0a12f929c07fec317360d03cb0512d4b0f055a608bcd474e",
+    "url": "https://zenodo.org/api/records/5062513/files/rap_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "bea_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 61674,
+    "md5": "52e6a681b6654aabf3b793e86c088eac",
+    "sha256": "c33f88ae022d440110d1d7213713ce382e899716b88cb4741b3f9e96bd551c24",
+    "url": "https://zenodo.org/api/records/5062513/files/bea_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "swh_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 143031,
+    "md5": "bfba2387651c337a42879431036bc964",
+    "sha256": "41af9fe2e18e27420d8c729fcc9ba81354e53730d02e733cb35b392de6f3c896",
+    "url": "https://zenodo.org/api/records/5062513/files/swh_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sun_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 66728,
+    "md5": "a01664ca5088d62b38b9d5cd012bc15b",
+    "sha256": "41a75bfdaa555e0f3fdcbdad0fc5b2538dcb7d4f872894357ae8d963071010e3",
+    "url": "https://zenodo.org/api/records/5062513/files/sun_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "bea_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 69050,
+    "md5": "89eb3eb98732e0274e73af0007af36f7",
+    "sha256": "77177189eb393ed3f9a4f797fd0f21341dfc49799bffec43a10c6a911647bcef",
+    "url": "https://zenodo.org/api/records/5062513/files/bea_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "cas_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 59822,
+    "md5": "b36d502fa3f90f76b0b6b090d31d5dca",
+    "sha256": "f620fa20770d803e628a2f0b2dba6b586ad1a86ddefa658658328c25c515c744",
+    "url": "https://zenodo.org/api/records/5062513/files/cas_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "cot_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 63967,
+    "md5": "b5588dd9f4cb84dceb119c0e208bd052",
+    "sha256": "e90b9623e8ef1cfe58b63a946480faca3af6636e322536633624e80a2ece8fd4",
+    "url": "https://zenodo.org/api/records/5062513/files/cot_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "rap_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 65919,
+    "md5": "78a37709b76c68b4031266a157aceb71",
+    "sha256": "c09dddd5fb9175b3ba37659beaabf8f2514098062fded1ab982cb0bebc9024dc",
+    "url": "https://zenodo.org/api/records/5062513/files/rap_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "mil_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 65708,
+    "md5": "5e474f6f65a9647704daf1fa1664d109",
+    "sha256": "ad74b7b8b8a001401f4292ee47a098b0ea534789e117b2a6688b2287e7795c5a",
+    "url": "https://zenodo.org/api/records/5062513/files/mil_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "soy_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 106621,
+    "md5": "e5a62341a09c684e9af6cf64a2d36bc5",
+    "sha256": "e98e4a6ea24ba85b5f0f94e7e5d65a63381865e6224c43a722a174a89b1ab396",
+    "url": "https://zenodo.org/api/records/5062513/files/soy_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "mil_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 72163,
+    "md5": "41a2da9269c70ead1db0a8be014f59a1",
+    "sha256": "9bbffae8d568ae3a104d602a306a3181c650b075cb96f7e1b2f22fb89c74feac",
+    "url": "https://zenodo.org/api/records/5062513/files/mil_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "ri1_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 95915,
+    "md5": "ece9aede389db223ff2919470c61bc4c",
+    "sha256": "22e7229047b0d0e02cf991dd447e452b03ae1a4c0bbef91ceac491ab966e71a9",
+    "url": "https://zenodo.org/api/records/5062513/files/ri1_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "ri1_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 95909,
+    "md5": "087961d0c2b5cb16971804318908337d",
+    "sha256": "93028d56faa356b319f0904c837eb337a4c840875ba902e708f60cee7fb21918",
+    "url": "https://zenodo.org/api/records/5062513/files/ri1_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sor_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 79155,
+    "md5": "aaeaa0b1586d1234544734cdf328086e",
+    "sha256": "1f7f686cea9ecb3892a678d731b30d2d6c19cc25795afe55b2b3a8b980c5f240",
+    "url": "https://zenodo.org/api/records/5062513/files/sor_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "ri2_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 74324,
+    "md5": "491aa2312f06494962bad863d881e8b6",
+    "sha256": "3adf9684f0f48a37d671214315e88352c67929d40f9e0a18f0964f8e6a93cf6f",
+    "url": "https://zenodo.org/api/records/5062513/files/ri2_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "nut_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 60742,
+    "md5": "8e75903de3cdfe0ec31b052d30179e47",
+    "sha256": "5cb9760a2e85fa186aa9203aa12f3ea52221ef68412abe5bae6a657d55fbdd51",
+    "url": "https://zenodo.org/api/records/5062513/files/nut_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "nut_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 67465,
+    "md5": "cb6a07a885f919a9f494d713fdc626b3",
+    "sha256": "b12a7c00f1eba3b60b57ccc01513dd17e38c4722890f30a3900e21e9ea5d7376",
+    "url": "https://zenodo.org/api/records/5062513/files/nut_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "pea_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 59950,
+    "md5": "77940f59c71d06562b1922e5ba99e7b5",
+    "sha256": "b7e14d774432db859f4ff63b013d82ebfbcf0a3a7557f59862f2720dd195608d",
+    "url": "https://zenodo.org/api/records/5062513/files/pea_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sor_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 73417,
+    "md5": "c973a29c398b0912cfc169b0361f9d17",
+    "sha256": "ed5809a4f3aeac55dfb8b8c8e18983a517c3ebb3671014b6e92ed66db0da3689",
+    "url": "https://zenodo.org/api/records/5062513/files/sor_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "rye_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 58468,
+    "md5": "2fc3d2be42c685d33c763380385f5ef2",
+    "sha256": "7ad624e56653956f0d71f58c55cd00531d1873b67663656eb9d1fbdde41be565",
+    "url": "https://zenodo.org/api/records/5062513/files/rye_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sgc_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 57217,
+    "md5": "a64b4a31a2ac2a0c6c2f7e75de2a33de",
+    "sha256": "e5720e13339167c763cdd20e44b67b86c3c94d3429ca98748e50dab7df804e77",
+    "url": "https://zenodo.org/api/records/5062513/files/sgc_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sgc_ir_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 51835,
+    "md5": "f2ae9ace621d9f3ca59cbdf34426e768",
+    "sha256": "2d83c6b57e504d989df51a7e92b1f6e24f8fa17cc73e10bf9a60c86ddaeaf2e7",
+    "url": "https://zenodo.org/api/records/5062513/files/sgc_ir_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "rye_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 65608,
+    "md5": "68a5cd151b46f73b338b3cebb2d16b55",
+    "sha256": "5511dc5b43b14095cf3ed79e9de18dd602050c4f5d024e4e64e2467e3b752c2b",
+    "url": "https://zenodo.org/api/records/5062513/files/rye_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   },
+   {
+    "file": "sgb_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+    "bytes": 64544,
+    "md5": "a1f23a9a96c6174643b995e89802d166",
+    "sha256": "6ea23d542d84543c15543ad8928e36330c4e348041d694df9f60f3ef0180cd79",
+    "url": "https://zenodo.org/api/records/5062513/files/sgb_rf_ggcmi_crop_calendar_phase3_v1.01.nc4/content"
+   }
+  ]
+ },
+ "mapspam_2020_harvested_area": {
+  "source": "IFPRI, Global Spatially-Disaggregated Crop Production Statistics Data for 2020 (SPAM 2020), Harvard Dataverse, doi:10.7910/DVN/SWPENT",
+  "licence": "CC BY 4.0",
+  "attribution": "This data was provided by the International Food Policy Research Institute (IFPRI). IFPRI bears no responsibility for the analyses or interpretations of the data presented here.",
+  "version": "6.0 (2026-05-05)",
+  "fetched_at": "2026-10-03T22:40:18+00:00",
+  "path": "data/datasets/mapspam_2020_harvested_area",
+  "files": [
+   {
+    "file": "spam2020V2r2_global_harvested_area.geotiff.zip",
+    "bytes": 68007241,
+    "md5": "dd9ac5def086fcae26d28423b2b31f8b",
+    "sha256": "34895a332ba7ff9d9732a81fe9da7063458d197f3c72ce3a405329c41f94ade2",
+    "url": "https://dataverse.harvard.edu/api/access/datafile/13827040"
+   }
+  ]
+ }
+}

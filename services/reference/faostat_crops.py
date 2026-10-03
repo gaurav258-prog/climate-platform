@@ -2,7 +2,8 @@
 becomes a release that is reviewed before it reaches the store (services.reference.crop_releases).
 
   file     Production_Crops_Livestock_E_All_Data_(Normalized).zip (~34 MB), FAO, CC BY 4.0
-  mapping  data/reference/faostat_crops.json — our commodity per FAO item, ISO-2 per FAO numeric area code
+  mapping  crops: data/reference/crop_registry.json (fao_item); areas: every area whose UN M49 code is a current ISO
+           3166 numeric code (ref_countries) is that country, FAO 5000 is the World — data/reference/faostat_crops.json
 
 Two traps, both silent (kept from scripts/ingest_crop_yield_faostat.py, where they were found):
   * encoding — the CSV is UTF-8; read as latin-1 "Côte d'Ivoire" stops matching and ~45 % of world cocoa vanishes;
@@ -66,14 +67,48 @@ def download(timeout: int = 900) -> bytes:
     return r.content
 
 
-def parse(zip_bytes: bytes) -> list[dict]:
+PARSER_VERSION = "faostat-m49-registry-v1"
+
+
+def reader(countries: dict[str, str]) -> str:
+    """The fingerprint of how a file is read (E151): the parser version, the mapping files and the country set. The
+    same file under another reader is another release."""
+    import hashlib
+
+    from ml.features.crop_registry import REF as REGISTRY
+    h = hashlib.sha256(PARSER_VERSION.encode())
+    for path in (REF, REGISTRY):
+        h.update(path.read_bytes())
+    h.update(",".join(f"{k}:{v}" for k, v in sorted(countries.items())).encode())
+    return f"{PARSER_VERSION}:{h.hexdigest()[:16]}"
+
+
+def iso_by_m49(session) -> dict[str, str]:
+    """{ISO 3166 numeric code: alpha-2} from the country reference — the countries FAOSTAT areas are matched to."""
+    from sqlalchemy import text
+    return {r[0].strip(): r[1].strip() for r in session.execute(text(
+        "SELECT numeric_code, iso2 FROM ref_countries WHERE numeric_code IS NOT NULL")).all()}
+
+
+def parse(zip_bytes: bytes, countries: dict[str, str]) -> list[dict]:
     """The publisher's file → our rows: {commodity, country, season_year, production_tonnes, area_harvested_ha,
-    yield_tonnes_ha, yoy_change_pct, note}, for the mapped commodities and origins (aggregates other than WLD
-    excluded by the mapping)."""
+    yield_tonnes_ha, yoy_change_pct, note}, for the registry's crops in every country (countries = {ISO numeric:
+    alpha-2}, iso_by_m49) and the World; regional aggregates and former states are not countries and are not read."""
+    from ml.features.crop_registry import fao_items
     ref = reference()
-    item_to_commodity = {i["fao_item"]: i["commodity"] for i in ref["items"]}
-    area_to_iso = {a["fao_area_code"]: a["iso2"] for a in ref["areas"]}
+    if not countries:
+        raise FetchError("the country reference is empty — load it (feed reference_countries) before reading FAOSTAT")
+    item_to_commodity = fao_items()
+    world = int(ref["world_area_code"])
     elements = ref["elements"]
+
+    def country_of(rec) -> str | None:
+        try:
+            if int(rec["Area Code"]) == world:
+                return "WLD"
+        except ValueError:
+            return None
+        return countries.get((rec.get("Area Code (M49)") or "").lstrip("'").strip().zfill(3))
     try:
         z = zipfile.ZipFile(io.BytesIO(zip_bytes))
     except zipfile.BadZipFile as e:
@@ -88,10 +123,7 @@ def parse(zip_bytes: bytes) -> list[dict]:
             field = elements.get(rec["Element"])
             if not commodity or not field or not rec["Value"]:
                 continue
-            try:
-                iso = area_to_iso.get(int(rec["Area Code"]))
-            except ValueError:
-                continue
+            iso = country_of(rec)
             if iso:
                 raw.setdefault((commodity, iso, int(rec["Year"])), {})[field] = float(rec["Value"])
     def db(x: float | None, places: int) -> float | None:

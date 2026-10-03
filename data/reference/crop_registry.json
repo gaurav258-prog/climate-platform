@@ -1,0 +1,103 @@
+{
+ "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed.",
+ "life_cycles": {
+  "perennial_alternate_bearing": "perennial, alternate-bearing — cycle removed",
+  "perennial": "perennial, no alternate bearing — detrended",
+  "annual": "annual — detrended"
+ },
+ "provenance": "life cycles carried from ml/features/crop_cycle.ALTERNATE_BEARING_CROPS (2026-08-16, the finding that removing a spurious cycle from annual crops strips real climate variance)",
+ "crops": [
+  {
+   "commodity": "Almonds",
+   "fao_item": "Almonds, in shell",
+   "life_cycle": "perennial_alternate_bearing"
+  },
+  {
+   "commodity": "Barley",
+   "fao_item": "Barley",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Cane sugar",
+   "fao_item": "Sugar cane",
+   "life_cycle": "perennial"
+  },
+  {
+   "commodity": "Citrus",
+   "fao_item": "Citrus Fruit, Total",
+   "life_cycle": "perennial_alternate_bearing",
+   "note": "FAO's own aggregate (item 1804, 'Citrus Fruit, Total') — FAO's figure, not a sum of ours; its components (oranges, tangerines, lemons and limes, grapefruit, other citrus) are FAO items 490, 495, 497, 507, 512"
+  },
+  {
+   "commodity": "Cocoa",
+   "fao_item": "Cocoa beans",
+   "life_cycle": "perennial_alternate_bearing"
+  },
+  {
+   "commodity": "Coffee",
+   "fao_item": "Coffee, green",
+   "life_cycle": "perennial_alternate_bearing"
+  },
+  {
+   "commodity": "Durum wheat",
+   "fao_item": null,
+   "life_cycle": "annual",
+   "gap": "FAOSTAT does not report durum separately from wheat — held as a named gap"
+  },
+  {
+   "commodity": "Maize",
+   "fao_item": "Maize (corn)",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Olive oil",
+   "fao_item": "Olives",
+   "life_cycle": "perennial_alternate_bearing"
+  },
+  {
+   "commodity": "Palm oil",
+   "fao_item": "Oil palm fruit",
+   "life_cycle": "perennial"
+  },
+  {
+   "commodity": "Rapeseed",
+   "fao_item": "Rape or colza seed",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Rice",
+   "fao_item": "Rice",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Sorghum",
+   "fao_item": "Sorghum",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Soybean",
+   "fao_item": "Soya beans",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Sugar beet",
+   "fao_item": "Sugar beet",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Sunflower",
+   "fao_item": "Sunflower seed",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Wheat",
+   "fao_item": "Wheat",
+   "life_cycle": "annual"
+  },
+  {
+   "commodity": "Wine grapes",
+   "fao_item": "Grapes",
+   "life_cycle": "perennial_alternate_bearing"
+  }
+ ]
+}

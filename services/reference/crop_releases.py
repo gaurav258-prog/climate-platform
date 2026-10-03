@@ -68,16 +68,19 @@ def _affected_fits(session: Session, changed: dict[tuple[str, str], set[int]]) -
 def stage(session: Session, data: bytes, *, last_modified: str | None = None, etag: str | None = None) -> dict:
     src = F.source()
     sha = hashlib.sha256(data).hexdigest()
-    seen = session.execute(text("SELECT release_id::text, status FROM crop_yield_releases WHERE source = :s AND file_sha256 = :h"),
-                           {"s": src, "h": sha}).mappings().first()
+    countries = F.iso_by_m49(session)
+    rdr = F.reader(countries)
+    seen = session.execute(text("""SELECT release_id::text, status FROM crop_yield_releases
+                                   WHERE source = :s AND file_sha256 = :h AND reader = :r"""),
+                           {"s": src, "h": sha, "r": rdr}).mappings().first()
     if seen:
         return {"staged": False, "release_id": seen["release_id"], "status": seen["status"],
-                "reason": "this publisher file is already recorded"}
+                "reason": "this publisher file is already recorded under the current reading rules"}
     open_ = session.execute(text("SELECT release_id::text FROM crop_yield_releases WHERE source = :s AND status IN ('staged', 'proposed')"),
                             {"s": src}).scalar()
     if open_:
         raise ReleaseError(f"release {open_} is still open for review — land or reject it before staging another")
-    rows = F.parse(data)
+    rows = F.parse(data, countries)
     held = _held(session, src)
     added, revised, recomputed, by_commodity, changed = [], [], [], {}, {}
     for r in rows:
@@ -120,10 +123,10 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
         "calibrations_may_be_affected": _affected_fits(session, changed),
     }
     rid = session.execute(text("""
-        INSERT INTO crop_yield_releases (source, file_sha256, file_bytes, origin_url, last_modified, etag, summary)
-        VALUES (:s, :h, :n, :u, :lm, :et, CAST(:sum AS jsonb)) RETURNING release_id::text"""),
+        INSERT INTO crop_yield_releases (source, file_sha256, file_bytes, origin_url, last_modified, etag, summary, reader)
+        VALUES (:s, :h, :n, :u, :lm, :et, CAST(:sum AS jsonb), :rdr) RETURNING release_id::text"""),
         {"s": src, "h": sha, "n": len(data), "u": F.url(), "lm": last_modified, "et": etag,
-         "sum": json.dumps(summary)}).scalar()
+         "sum": json.dumps(summary), "rdr": rdr}).scalar()
     for kind, rs in (("added", added), ("revised", revised), ("recomputed", recomputed)):
         for r in rs:
             session.execute(text("""
@@ -132,7 +135,15 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
                 VALUES (CAST(:rid AS uuid), :commodity, :country, :season_year, :k, :production_tonnes, :area_harvested_ha,
                         :yield_tonnes_ha, :yoy_change_pct, :note, CAST(:hb AS jsonb))"""),
                 {**r, "rid": rid, "k": kind, "hb": json.dumps(r["held_before"]) if kind != "added" else None})
-    return {"staged": True, "release_id": rid, "status": "staged", "summary": summary}
+    out = {"staged": True, "release_id": rid, "status": "staged", "summary": summary}
+    from services.governance.platform_policy import PLATFORM_ORG, SYSTEM_USER, human_approvers
+    if human_approvers(session, REQUEST_TYPE) == 1:           # one approver stated: the platform proposes (E150)
+        p = propose(session, PLATFORM_ORG, rid, SYSTEM_USER,
+                    f"Staged by the platform: {summary['added']} added, {summary['revised']} revised by the publisher, "
+                    f"{summary['recomputed']} recomputed, {summary['held_not_in_file']} held but not in the file; "
+                    f"{len(summary['calibrations_may_be_affected'])} calibrations may be affected.")
+        out.update(status="proposed", approval_request_id=p["approval_request_id"])
+    return out
 
 
 def pending(session: Session) -> dict | None:
@@ -144,7 +155,7 @@ def pending(session: Session) -> dict | None:
 
 def releases(session: Session, limit: int = 20) -> list[dict]:
     return [dict(r) for r in session.execute(text("""
-        SELECT c.release_id::text, c.source, c.file_sha256, c.file_bytes, c.origin_url, c.last_modified, c.etag,
+        SELECT c.release_id::text, c.source, c.file_sha256, c.reader, c.file_bytes, c.origin_url, c.last_modified, c.etag,
                c.fetched_at, c.summary, c.status, c.approval_request_id::text, c.decided_at, c.decision_reason, c.landed_at,
                a.maker_user_id::text AS proposed_by_id, m.email AS proposed_by, a.payload->>'review' AS review,
                a.created_at AS proposed_at, d.email AS decided_by
@@ -177,7 +188,12 @@ def _release(session: Session, release_id: str) -> dict:
 
 
 def propose(session: Session, platform_org_id: str, release_id: str, maker_user_id: str, reason: str) -> dict:
-    """The reviewer asks for the release to land: an approval request a second operator decides."""
+    """The reviewer asks for the release to land: an approval request a second operator decides. Where the platform
+    states ONE human approver (E150), the platform's system account is the maker — the operator's note is kept as the
+    review — and one operator decides."""
+    from services.governance.platform_policy import SYSTEM_USER, human_approvers
+    if human_approvers(session, REQUEST_TYPE) == 1:
+        maker_user_id = SYSTEM_USER
     rel = _release(session, release_id)
     if rel["status"] != "staged":
         raise ReleaseError(f"only a staged release can be proposed (this one is {rel['status']})")
@@ -236,18 +252,41 @@ def apply_decision(session: Session, payload: dict, decision: str, checker_user_
     return {"release_id": release_id, "status": "landed", "landed_rows": n}
 
 
+def _last_check(session: Session) -> dict:
+    """The publisher's validators as last observed — the latest recorded check, else the latest release's."""
+    r = session.execute(text("""SELECT last_modified, etag FROM crop_release_checks WHERE source = :s
+                                ORDER BY check_id DESC LIMIT 1"""), {"s": F.source()}).mappings().first()
+    if r is None:
+        r = session.execute(text("""SELECT last_modified, etag FROM crop_yield_releases WHERE source = :s
+                                    ORDER BY seq DESC LIMIT 1"""), {"s": F.source()}).mappings().first()
+    return dict(r) if r else {}
+
+
+def _record_check(session: Session, probe: dict, downloaded: bool, sha: str | None, outcome: str) -> None:
+    session.execute(text("""
+        INSERT INTO crop_release_checks (source, last_modified, etag, changed, downloaded, file_sha256, outcome)
+        VALUES (:s, :lm, :et, :ch, :dl, :h, :o)"""),
+        {"s": F.source(), "lm": probe.get("last_modified"), "et": probe.get("etag"), "ch": bool(probe.get("changed")),
+         "dl": downloaded, "h": sha, "o": outcome[:500]})
+
+
 def refresh(session: Session) -> dict:
-    """The scheduled refresh (feed 'crop_production_faostat'): ask FAOSTAT whether its file changed; if so, download
-    and stage it for review. Nothing lands without the review."""
+    """The scheduled refresh (feed 'crop_production_faostat'): ask FAOSTAT whether its file changed since the last
+    recorded check (HEAD — E152); only then download and stage it for review. Every check is recorded with what the
+    publisher answered. Nothing lands without the review."""
     waiting = pending(session)
     if waiting:
         return {"staged": False, "release_id": waiting["release_id"],
                 "reason": f"a release is awaiting review ({waiting['status']}) — fetched again after it is decided"}
-    last = session.execute(text("""SELECT last_modified, etag FROM crop_yield_releases WHERE source = :s
-                                   ORDER BY seq DESC LIMIT 1"""), {"s": F.source()}).mappings().first() or {}
+    last = _last_check(session)
     probe = F.published(last.get("last_modified"), last.get("etag"))
     if not probe["changed"]:
+        _record_check(session, probe, False, None, "unchanged since the last check")
+        session.commit()
         return {"staged": False, "reason": "FAOSTAT has not published a new file"}
-    out = stage(session, F.download(), last_modified=probe["last_modified"], etag=probe["etag"])
+    data = F.download()
+    out = stage(session, data, last_modified=probe["last_modified"], etag=probe["etag"])
+    _record_check(session, probe, True, hashlib.sha256(data).hexdigest(),
+                  f"staged release {out['release_id']}" if out["staged"] else out["reason"])
     session.commit()
     return out

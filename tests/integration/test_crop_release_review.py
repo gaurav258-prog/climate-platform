@@ -27,11 +27,12 @@ SRC = "FAOSTAT QCL test (E148)"
 
 def _zip(rows: list[tuple[int, str, str, int, float]]) -> bytes:
     """(area code, item, element, year, value) rows → the publisher's zip layout."""
+    m49 = {107: "'384", 99999: "'159", 5000: "'001"}         # Côte d'Ivoire; an aggregate ('China', not a country); World
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["Area Code", "Area", "Item", "Element", "Year", "Unit", "Value"])
+    w.writerow(["Area Code", "Area Code (M49)", "Area", "Item", "Element", "Year", "Unit", "Value"])
     for code, item, element, year, value in rows:
-        w.writerow([code, "x", item, element, year, "t" if element == "Production" else "ha", value])
+        w.writerow([code, m49.get(code, "'000"), "x", item, element, year, "t" if element == "Production" else "ha", value])
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as z:
         z.writestr("Production_Crops_Livestock_E_All_Data_(Normalized).csv", buf.getvalue().encode("utf-8-sig"))
@@ -39,8 +40,13 @@ def _zip(rows: list[tuple[int, str, str, int, float]]) -> bytes:
 
 
 @pytest.fixture
-def source(monkeypatch):
+def source(api, monkeypatch):
+    """A test source name, and the platform policy at two people — whatever the live database states (the demo
+    states one approver, E150) — inside the test's rolled-back transaction."""
+    from services.governance.platform_policy import PLATFORM_ORG
     monkeypatch.setattr(F, "source", lambda: SRC)
+    api.s.execute(text("""UPDATE approval_policy SET human_approvers = 2
+                          WHERE org_id = CAST(:o AS uuid) AND action_key = 'reference.release_land'"""), {"o": PLATFORM_ORG})
     return SRC
 
 
@@ -53,7 +59,7 @@ def test_a_release_lands_only_after_two_operators_review_it(api, source, monkeyp
     data = _zip([(107, "Cocoa beans", "Production", 2020, 1000.0), (107, "Cocoa beans", "Area harvested", 2020, 400.0),
                  (107, "Cocoa beans", "Production", 2021, 1100.0), (107, "Cocoa beans", "Area harvested", 2021, 500.0),
                  (107, "Cocoa beans", "Production", 2022, 900.0), (107, "Cocoa beans", "Area harvested", 2022, 450.0),
-                 (99999, "Cocoa beans", "Production", 2022, 5.0),            # an area we do not map: ignored
+                 (99999, "Cocoa beans", "Production", 2022, 5.0),            # an aggregate, not a country: not read
                  (107, "Not a crop we map", "Production", 2022, 5.0)])
     out = R.stage(s, data, last_modified="Wed, 01 Oct 2026 00:00:00 GMT")
     assert out["staged"] and out["status"] == "staged"
@@ -121,5 +127,59 @@ def test_while_a_release_is_open_the_schedule_does_not_fetch(api, source, monkey
 
 
 def test_the_publisher_figures_are_rounded_as_the_store_rounds_them():
-    rows = F.parse(_zip([(107, "Cocoa beans", "Production", 2020, 1563.35), (107, "Cocoa beans", "Area harvested", 2020, 1000.0)]))
+    rows = F.parse(_zip([(107, "Cocoa beans", "Production", 2020, 1563.35), (107, "Cocoa beans", "Area harvested", 2020, 1000.0)]),
+                   {"384": "CI"})
     assert rows[0]["production_tonnes"] == 1563.4                          # Postgres numeric(16,1): half away from zero
+
+
+def test_with_one_approver_stated_the_platform_proposes_and_one_person_approves(api, source):
+    """E150: an organisation with a single approver says so; staging then proposes as the platform's system account
+    (which can never sign in) and one operator approves — the approvals path still refuses a maker deciding."""
+    from services.governance.platform_policy import SYSTEM_USER
+    ops = _login(api, "ops@tellumen.io", "Demo!ops1")
+    bad = api.put("/v1/ops/reference-releases/policy", headers=ops,
+                  json={"action_key": "reference.release_land", "human_approvers": 1, "reason": "x"})
+    assert bad.status_code == 422                                          # a reason, in words
+    r = api.put("/v1/ops/reference-releases/policy", headers=ops, json={
+        "action_key": "reference.release_land", "human_approvers": 1, "reason": "one approver in the organisation today"})
+    assert r.status_code == 200 and r.json() == {"action_key": "reference.release_land", "human_approvers": 1, "was": 2}
+    pol = {p["action_key"]: p for p in api.get("/v1/ops/reference-releases/policy", headers=ops).json()["policies"]}
+    assert pol["reference.release_land"]["human_approvers"] == 1 and set(pol) == {"reference.release_land", "calibration.publish"}
+    assert api.post("/v1/auth/login", json={"email": "pipeline@system.tellumen.io", "password": ""}).status_code in (401, 422)
+
+    out = R.stage(api.s, _zip([(107, "Cocoa beans", "Production", 2040, 10.0), (107, "Cocoa beans", "Area harvested", 2040, 5.0)]))
+    assert out["status"] == "proposed"
+    maker = api.s.execute(text("SELECT maker_user_id::text FROM approval_requests WHERE request_id = CAST(:r AS uuid)"),
+                          {"r": out["approval_request_id"]}).scalar()
+    assert maker == SYSTEM_USER
+    d = api.post(f"/v1/approvals/{out['approval_request_id']}/decide", headers=ops, json={"decision": "approved", "reason": "reviewed"})
+    assert d.status_code == 200 and d.json()["applied"]["status"] == "landed"
+    assert api.s.execute(text("SELECT count(*) FROM crop_yield_observations WHERE source = :s"), {"s": SRC}).scalar() == 1
+
+
+def test_an_unchanged_file_is_never_downloaded_twice(api, source, monkeypatch):
+    """E152: each check is recorded with the publisher's validators; the next check compares with them — the file is
+    downloaded only when the publisher says it changed (a release from disk carries none, which used to mean a 34 MB
+    download on every check)."""
+    calls = {"head": [], "get": 0}
+    data = _zip([(107, "Cocoa beans", "Production", 2050, 10.0), (107, "Cocoa beans", "Area harvested", 2050, 5.0)])
+
+    def head(last_modified, etag):
+        calls["head"].append((last_modified, etag))
+        same = etag == '"v1"'
+        return {"changed": not same, "last_modified": "Wed, 01 Oct 2026 00:00:00 GMT", "etag": '"v1"'}
+
+    def get():
+        calls["get"] += 1
+        return data
+    monkeypatch.setattr(F, "published", head)
+    monkeypatch.setattr(F, "download", get)
+    first = R.refresh(api.s)
+    assert first["staged"] and calls["get"] == 1 and calls["head"][0] == (None, None)
+    ops = _login(api, "ops@tellumen.io", "Demo!ops1")
+    api.post(f"/v1/ops/reference-releases/{first['release_id']}/reject", headers=ops, json={"reason": "test file, closing it"})
+    second = R.refresh(api.s)
+    assert not second["staged"] and calls["get"] == 1 and calls["head"][1] == ("Wed, 01 Oct 2026 00:00:00 GMT", '"v1"')
+    rows = api.s.execute(text("SELECT changed, downloaded, outcome FROM crop_release_checks WHERE source = :s ORDER BY check_id"),
+                         {"s": SRC}).all()
+    assert [(r[0], r[1]) for r in rows] == [(True, True), (False, False)]

@@ -43,19 +43,13 @@ PHI_ALTERNATE_BEARING = 0.20
 # tree, the next is light). ANNUAL crops (cereals, oilseeds, pulses, cane) cannot alternate-bear:
 # any measured phi on them is spurious autocorrelation, and removing it as a "cycle" strips real
 # climate variance (found 2026-08-16: it suppressed Brazil soy's drought signal, r²_oos 0.12→0.37).
-# So de-cycling is applied ONLY to crops on this list; everything else is simple-detrended (phi=0).
-ALTERNATE_BEARING_CROPS = (
-    "olive", "almond", "pistachio", "apple", "pear", "avocado", "mango", "cherry", "apricot",
-    "plum", "walnut", "pecan", "citrus", "orange", "mandarin", "lemon", "lime", "grape", "wine",
-    "coffee", "arabica", "cocoa",   # perennial tree crops; cocoa phi≈0 so this is neutral for it
-)
-
-
+# So de-cycling is applied ONLY to crops the registry states as alternate-bearing (E151 — it used to be
+# a substring match on the crop's name); everything else is simple-detrended (phi=0).
 def is_alternate_bearing(commodity: str) -> bool:
-    """Whether a crop can biologically alternate-bear (→ its cycle should be decomposed out).
-    Annual crops (wheat, maize, soy, barley, sunflower, sorghum, cane…) return False → detrend only."""
-    c = (commodity or "").lower()
-    return any(k in c for k in ALTERNATE_BEARING_CROPS)
+    """Whether a crop alternate-bears (→ its cycle is decomposed out), as the crop registry states it
+    (data/reference/crop_registry.json). A crop not in the registry is refused (UnknownCrop)."""
+    from ml.features.crop_registry import is_alternate_bearing as stated
+    return stated(commodity)
 # Half-width of the centered trend window. The FULL window is 2*K+1 points with half weights
 # at the ends — the classical "2xk" moving average, which cancels a period-2 cycle EXACTLY.
 # K=3 (a 7-year span) keeps recent target years like 2022 inside a full symmetric window while

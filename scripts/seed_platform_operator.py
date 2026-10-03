@@ -52,6 +52,17 @@ def main() -> None:
                 VALUES (:i, :o, :e, 'platform-operator', :n, :h, 'active', now())
             """), {"i": uid, "o": PLATFORM_ORG, "e": email, "n": name, "h": hash_password(pw)})
         s.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:u,:r) ON CONFLICT DO NOTHING"), {"u": str(uid), "r": str(rid)})
+    # 4) the system account (never signs in) and the platform approval policy — the same rows the migration
+    #    approvers_required_20261004 writes where the platform already existed (E150)
+    from services.governance.platform_policy import ACTIONS, SYSTEM_USER
+    s.execute(text("""
+        INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status, created_at)
+        VALUES (:i, :o, 'pipeline@system.tellumen.io', 'system', 'Tellumen pipeline (system account — cannot sign in)',
+                NULL, 'disabled', now())
+        ON CONFLICT DO NOTHING"""), {"i": SYSTEM_USER, "o": PLATFORM_ORG})
+    for k in ACTIONS:
+        s.execute(text("""INSERT INTO approval_policy (org_id, action_key, requires_approval, human_approvers)
+                          VALUES (:o, :k, true, 2) ON CONFLICT DO NOTHING"""), {"o": PLATFORM_ORG, "k": k})
     s.commit()
     perms = s.execute(text("""
         SELECT array_agg(DISTINCT p.code) FROM users u JOIN user_roles ur ON ur.user_id=u.user_id
