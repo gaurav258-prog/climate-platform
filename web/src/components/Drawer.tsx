@@ -7,12 +7,13 @@ import { useOverlay } from './overlay'
 // on open and returns on close. The page keeps its own header and places a (labelled) CloseButton in it.
 //
 // `className` / `style` style the panel (width, padding, scrolling); `resize` adds the drag handle on the left edge
-// (from useResizableWidth). `placement="full"` is the full-screen takeover variant (the filing view): it covers the
-// page, so there is no scrim to click — Escape or the close button dismiss it.
+// (from useResizableWidth). `placement="left"` slides in from the left edge (the app menu on small screens).
+// `placement="full"` is the full-screen takeover variant (the filing view): it covers the page, so there is no scrim
+// to click — Escape or the close button dismiss it.
 export function Drawer({ label, onClose, children, className, style, resize, placement = 'right', overlayClassName, backdropClassName }: {
   label: string; onClose: () => void; children: ReactNode; className?: string; style?: CSSProperties
   resize?: { start: (e: React.MouseEvent | React.TouchEvent) => void; reset: () => void }
-  placement?: 'right' | 'full'; overlayClassName?: string; backdropClassName?: string
+  placement?: 'right' | 'left' | 'full'; overlayClassName?: string; backdropClassName?: string
 }) {
   const box = useOverlay<HTMLDivElement>(onClose)
   const panel = (
@@ -25,7 +26,7 @@ export function Drawer({ label, onClose, children, className, style, resize, pla
   )
   if (placement === 'full') return <div className={clsx('fixed inset-0 overflow-y-auto bg-[var(--color-bg)]', overlayClassName ?? 'z-50')}>{panel}</div>
   return (
-    <div className={clsx('fixed inset-0 flex justify-end', overlayClassName ?? 'z-50')} onClick={onClose}>
+    <div className={clsx('fixed inset-0 flex', placement === 'left' ? 'justify-start' : 'justify-end', overlayClassName ?? 'z-50')} onClick={onClose}>
       <div className={clsx('absolute inset-0', backdropClassName ?? 'bg-black/40')} aria-hidden="true" />
       {panel}
     </div>
