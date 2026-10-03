@@ -119,10 +119,11 @@ SITE_YEAR_END_TEMPLATE_FIELDS = _template(
 # balance sheet the total liabilities are taken from is the row's book date (the amount converts at that day's rate)
 BANK_COUNTERPARTY_TEMPLATE_FIELDS = _template(
     ("counterparty_ref", True), ("counterparty_name", False), ("total_liabilities_eur", False),
-    ("currency", False),
-    ("book_date", False, {"label": "Balance-sheet date", "description": "The date of the counterparty's balance sheet the "
-                          "total liabilities are taken from (YYYY-MM-DD) — required with them; the amount converts at "
-                          "that day's closing rate."}),
+    ("counterparty_revenue_eur", False), ("currency", False),
+    ("book_date", False, {"label": "Financial year end", "description": "The end of the counterparty's financial year the "
+                          "figures are taken from (YYYY-MM-DD) — required with them: the total liabilities are its balance "
+                          "sheet on that day (closing rate), the revenue is for the year ending on it (average rate of the "
+                          "year)."}),
 )
 
 EUDR_SUPPLIER_TEMPLATE_FIELDS = _template(

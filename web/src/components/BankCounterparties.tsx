@@ -17,6 +17,7 @@ interface Statement { entity_id: string; eur: number; date: string; source?: { a
 interface Cp {
   counterparty_ref: string; counterparty_name: string | null; total_liabilities_eur: number | null
   total_liabilities_date: string | null; liabilities_conflict: Statement[] | null; issuer_name: string | null
+  revenue_eur: number | null; revenue_period_end: string | null
   n_exposures: number; gross_eur: number | null
 }
 
@@ -35,8 +36,9 @@ export default function BankCounterparties() {
         <div className="text-[13px] text-[var(--color-ink)] font-medium mb-0.5 flex items-center gap-1.5"><Building2 size={14} /> Counterparties — one figure each</div>
         <p className="text-[12px] text-[var(--color-mute)] max-w-3xl">
           Pillar 3 Template 1 column i compares your exposures towards a counterparty with the counterparty&rsquo;s total liabilities
-          (accounting liabilities and shareholders&rsquo; equity). State that figure once per counterparty, with the date of its balance sheet,
-          using the counterparty id your loan tape gives it (its LEI or your own id).
+          (accounting liabilities and shareholders&rsquo; equity); where you use a sector-average scope 3 intensity per EUR million of revenue,
+          it multiplies the counterparty&rsquo;s revenue. State each figure once per counterparty, with the end of the financial year it is
+          taken from, using the counterparty id your loan tape gives it (its LEI or your own id).
         </p>
       </div>
       {(noId > 0 || unstated > 0 || conflicts > 0) && (
@@ -49,13 +51,14 @@ export default function BankCounterparties() {
       )}
       {rows.length > 0 && (
         <div className="max-h-72 overflow-auto rounded-lg border border-[var(--color-line)]">
-          <table className="w-full text-[12px]">
+          <table className="w-full min-w-[860px] text-[12px] [&_th]:px-2 [&_th]:py-1.5 [&_th]:whitespace-nowrap [&_td]:px-2 [&_td]:py-1.5 [&_td]:whitespace-nowrap">
             <thead className="sticky top-0 bg-[var(--color-panel)]"><tr className="mono text-[9.5px] uppercase text-[var(--color-faint)] text-left">
-              <th className="px-2 py-1.5">Counterparty id</th><th>Name</th><th className="text-right">Exposures</th>
-              <th className="text-right">Total liabilities and equity</th><th>Balance sheet</th><th>Issuer (by LEI)</th></tr></thead>
+              <th>Counterparty id</th><th>Name</th><th className="text-right">Exposures</th>
+              <th className="text-right">Total liabilities and equity</th><th>Balance sheet</th>
+              <th className="text-right">Revenue</th><th>Year ending</th><th>Issuer (by LEI)</th></tr></thead>
             <tbody>{rows.map(r => (
               <tr key={r.counterparty_ref} className="border-t border-[var(--color-line)]">
-                <td className="px-2 py-1.5 mono">{r.counterparty_ref}</td>
+                <td className="mono">{r.counterparty_ref}</td>
                 <td className="text-[var(--color-mute)]">{r.counterparty_name ?? '—'}</td>
                 <td className="text-right tabular-nums">{r.n_exposures}</td>
                 <td className="text-right tabular-nums">
@@ -65,13 +68,15 @@ export default function BankCounterparties() {
                     : r.total_liabilities_eur != null ? balance(r.total_liabilities_eur) : <span className="text-[var(--color-faint)]">not stated</span>}
                 </td>
                 <td className="mono text-[var(--color-mute)]">{r.total_liabilities_date ?? '—'}</td>
+                <td className="text-right tabular-nums">{r.revenue_eur != null ? balance(r.revenue_eur) : <span className="text-[var(--color-faint)]">not stated</span>}</td>
+                <td className="mono text-[var(--color-mute)]">{r.revenue_period_end ?? '—'}</td>
                 <td className="text-[var(--color-mute)]">{r.issuer_name ?? '—'}</td>
               </tr>))}</tbody>
           </table>
         </div>
       )}
       <ValidatedUpload
-        intro={<>One row per counterparty: its id as on the loan tape, its total liabilities and equity, and the <b className="text-[var(--color-ink)]">balance-sheet date</b> (book_date) they are taken from. Amounts convert to EUR at that date&rsquo;s closing rate. Checked like the loan tape; a failed check goes to a second person.</>}
+        intro={<>One row per counterparty: its id as on the loan tape, its total liabilities and equity, its revenue, and the <b className="text-[var(--color-ink)]">financial year end</b> (book_date) they are taken from. Total liabilities convert at that date&rsquo;s closing rate, revenue at the average rate of the year to it. Checked like the loan tape; a failed check goes to a second person.</>}
         dropLabel="counterparties file" template="bank_counterparties"
         endpoints={{ validate: '/v1/bank/counterparties/validate', upload: '/v1/bank/counterparties/upload', template: '/v1/bank/counterparties/template.xlsx', templateFile: 'tellumen_counterparties_template.xlsx' }}
         onDone={() => qc.invalidateQueries({ queryKey: ['bank-counterparties'] })}

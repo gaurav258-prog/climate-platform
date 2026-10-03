@@ -47,6 +47,8 @@ _DIR = Path(__file__).resolve().parents[2] / "data" / "reference" / "pillar3"
 ESTIMATION, ATTRIBUTION = "p3esg_t1_emissions_estimation", "p3esg_t1_attribution"
 K_READING, S3_BASIS = "p3esg_t1_k_scope_1_2", "p3esg_t1_scope3_sector_average"
 INTENSITY = "method.t1_sector_scope3_intensity"
+INTENSITY_REVENUE = "method.t1_sector_scope3_intensity_revenue"         # per EUR million of revenue (E133)
+_INTENSITY_OF = {"intensity_x_total_liabilities": INTENSITY, "intensity_x_revenue": INTENSITY_REVENUE}
 EUR_MILLION = 1_000_000             # the intensity is per EUR million of total liabilities and equity (its unit)
 ESTIMATING = ("scope_1_2_3", "scope_1_2")
 SCOPES = {"scope_1_2_3": ("ghg1", "ghg2", "ghg3"), "scope_1_2": ("ghg1", "ghg2")}
@@ -95,14 +97,15 @@ def required_narrative(estimation: str | None) -> list[dict]:
     return [n for n in narrative_items() if estimation in n["required_when"]]
 
 
-def sector_intensities(session, org_id: str, period_end: date) -> dict:
-    """The institution's attested sector-average scope 3 intensities for the period, per NACE division, with their
-    source (provider and year) and who attested them."""
+def sector_intensities(session, org_id: str, period_end: date, concept: str = INTENSITY) -> dict:
+    """The institution's attested sector-average scope 3 intensities for the period (per EUR million of total
+    liabilities, or — concept INTENSITY_REVENUE — of revenue), per NACE division, with their source (provider and year)
+    and who attested them."""
     from services.governance.provided_data import attested_values
     return {v["member"]: {"value": v["value"], "provider": v.get("provider"), "data_vintage": v.get("data_vintage"),
                           "attested_by": v.get("attested_by"), "attested_at": v.get("attested_at")}
             for v in attested_values(session, org_id, "method", period_end)
-            if v["concept"] == INTENSITY and v.get("member") and v.get("value") is not None}
+            if v["concept"] == concept and v.get("member") and v.get("value") is not None}
 
 
 def record(session, org_id: str, period_end: date | None = None, entity_id: str | None = None) -> dict:
@@ -119,6 +122,7 @@ def record(session, org_id: str, period_end: date | None = None, entity_id: str 
     return {"estimation": s.get(ESTIMATION), "attribution": s.get(ATTRIBUTION), "k_scope_1_2": s.get(K_READING),
             "scope3_sector_average": s.get(S3_BASIS), "reference_date": period_end.isoformat(),
             "sector_intensity": sector_intensities(session, org_id, period_end),
+            "sector_intensity_revenue": sector_intensities(session, org_id, period_end, INTENSITY_REVENUE),
             "narrative": {n["key"]: answers[n["key"]] for n in narrative_items() if answers.get(n["key"])}}
 
 
@@ -168,17 +172,23 @@ def exposure(a: dict, rec: dict) -> dict | None:
         if g3 is not None:
             s3, out["basis"] = g3, "gathered"
         else:
-            d = _division(a)
-            stated = (rec.get("sector_intensity") or {}).get(d) if d else None
-            if rec.get("scope3_sector_average") != "intensity_x_total_liabilities":
+            d, how = _division(a), rec.get("scope3_sector_average")
+            by_revenue = how == "intensity_x_revenue"
+            stated = (rec.get("sector_intensity_revenue" if by_revenue else "sector_intensity") or {}).get(d) if d else None
+            if how not in _INTENSITY_OF:
                 out["scope3_gap"] = f"not stated: how sector-average intensity is used ({S3_BASIS})"
             elif d is None:
                 out["scope3_gap"] = "no NACE division to read a sector-average intensity for"
             elif stated is None:
-                out["scope3_gap"] = f"no sector-average scope 3 intensity stated for division {d} ({INTENSITY})"
+                out["scope3_gap"] = f"no sector-average scope 3 intensity stated for division {d} ({_INTENSITY_OF[how]})"
+            elif by_revenue and _num(a.get("revenue_eur")) is None:
+                out["scope3_gap"] = "no revenue stated for the counterparty (template bank_counterparties)"
+            elif by_revenue and str(a.get("counterparty_revenue_period_end") or "")[:10] > str(rec.get("reference_date") or ""):
+                out["scope3_gap"] = ("the counterparty's revenue is for a financial year ending after the reference date — "
+                                     "state the year ending on or before it")
             else:
-                s3, out["basis"] = float(stated["value"]) * float(a["counterparty_total_liabilities_eur"]) / EUR_MILLION, \
-                    "sector_average"
+                base = float(a["revenue_eur"]) if by_revenue else float(a["counterparty_total_liabilities_eur"])
+                s3, out["basis"] = float(stated["value"]) * base / EUR_MILLION, "sector_average"
         if s3 is not None:
             out["j"] = f * s3
         if out["scope3_gap"] and (g1 is None or g2 is None):
@@ -342,9 +352,11 @@ def describe(rec: dict | None) -> str:
             f"Where a counterparty's scope 3 is not gathered: {st[S3_BASIS]['options'][basis]}" if basis else
             f"Not stated how sector-average intensity is used ({S3_BASIS}): an exposure without gathered scope 3 is "
             "a gap, never zero."))
-        src = rec.get("sector_intensity") or {}
+        by_revenue = basis == "intensity_x_revenue"
+        src = rec.get("sector_intensity_revenue" if by_revenue else "sector_intensity") or {}
         if src:
-            parts.append("Sector-average intensities stated for divisions " + ", ".join(
+            per = "of revenue" if by_revenue else "of total liabilities and equity"
+            parts.append(f"Sector-average intensities stated (per EUR million {per}) for divisions " + ", ".join(
                 f"{d} ({v['value']:g} tCO2e/EUR m, {v.get('provider')} {str(v.get('data_vintage') or '')[:4]})"
                 for d, v in sorted(src.items())) + ".")
     if est == "scope_1_2":

@@ -251,6 +251,10 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        "accounting liabilities and shareholders' equity, from its balance sheet (Pillar 3 Template 1 column i: your "
        "exposure compared to the counterparty's total liabilities).", "420000000",
        aliases=("total_liabilities", "total_liabilities_and_equity", "liabilities_and_equity")),
+    _f("counterparty_revenue_eur", "Revenue", "money", "The counterparty's revenue for the financial year ending on the "
+       "row's book date, from its accounts (Pillar 3 Template 1 column i: a sector-average scope 3 intensity per EUR "
+       "million of revenue).", "310000000", aliases=("revenue", "revenue_eur", "annual_revenue", "turnover",
+                                                     "net_turnover"), flow=True),
     # ── EUDR (Regulation (EU) 2023/1115): parties, placings / exports and the plots they came from ──
     _f("party_name", "Name", "name", "The business or person's name (Art. 9(1)(e)-(f)).", "Ashanti Cocoa Cooperative",
        aliases=("name", "supplier", "supplier_name", "customer", "customer_name", "company", "company_name")),

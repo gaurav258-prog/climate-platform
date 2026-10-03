@@ -191,6 +191,34 @@ def test_scope_3_from_the_stated_sector_average_intensity():
     assert v["k"] == round(100_000 / 1_200_000 * 100, 1)        # only loan 1 rests on company-specific reporting
 
 
+def test_scope_3_from_the_stated_revenue_intensity():
+    """The revenue basis (E133): loan 7's counterparty states revenue 80 000 000 for its year ending 2025-06-30; its scope
+    3 is 120 tCO2e/EUR m of revenue × 80 = 9 600 tCO2e, attributed by x / L = 0.1 → 960 tCO2e."""
+    rv = {"C24": {"value": 120.0, "provider": "Source R", "data_vintage": "2024-12-31"}}
+    loan = _x(7, 200_000, L=2_000_000, s=(20.0, 10.0, None), revenue_eur=80_000_000.0,
+              counterparty_revenue_period_end="2025-06-30")
+    rec = _rec(scope3_sector_average="intensity_x_revenue", sector_intensity=_SA, sector_intensity_revenue=rv)
+    r = T1.exposure(loan, rec)
+    assert r["basis"] == "sector_average" and r["company_specific"] is False
+    assert r["j"] == pytest.approx(120.0 * 80 * 0.1) == pytest.approx(960.0)          # never the liabilities intensity
+    assert "per EUR million of revenue" in T1.describe(rec)
+    # the revenue basis reads only the revenue intensity, the counterparty's revenue, and a year ending by the reference date
+    for changed, why in (({"sector_intensity_revenue": {}}, "method.t1_sector_scope3_intensity_revenue"),
+                         ({"_loan": {"revenue_eur": None}}, "no revenue stated for the counterparty"),
+                         ({"_loan": {"counterparty_revenue_period_end": "2026-06-30"}}, "ending after the reference date")):
+        lo = {**loan, **changed.get("_loan", {})}
+        rc = {**rec, **{k: v for k, v in changed.items() if k != "_loan"}}
+        out = T1.exposure(lo, rc)
+        assert out["j"] is None and why in out["scope3_gap"], why
+
+
+def test_the_revenue_basis_is_an_offered_statement_with_its_own_parameter():
+    st = T1.reference()["statements"][T1.S3_BASIS]
+    assert set(st["options"]) == {"intensity_x_total_liabilities", "intensity_x_revenue"} and "not_offered" not in st
+    from services.money.params import parameters
+    assert {T1.INTENSITY, T1.INTENSITY_REVENUE} <= set(parameters())
+
+
 @pytest.mark.parametrize("rec, why", [
     (_rec(), "not stated: how sector-average intensity is used"),
     (_rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity={}), "no sector-average scope 3 intensity stated for division C24"),

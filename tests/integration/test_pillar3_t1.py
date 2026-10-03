@@ -161,7 +161,7 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     bad = api.post("/v1/bank/counterparties/validate", headers=h, data={"currency": "EUR", "book_date": "2025-12-31"},
                    files={"file": ("cp.csv", _csv(["counterparty_ref", "total_liabilities_eur", "currency"],
                                                   [[CP_A, 2_000_000_000, "EUR"]]), "text/csv")})
-    assert "balance sheet" in bad.text, bad.text[:600]                        # the figure needs its balance-sheet date
+    assert "end of the financial year" in bad.text, bad.text[:600]            # the figure needs its financial year end
     _counterparties(api, h, checker, [[CP_A, "Alpha AG", L[CP_A], "EUR", "2025-12-31"], [CP_C, "Cobalt SA", L[CP_C], "EUR", "2025-09-30"]])
     cps = {c["counterparty_ref"]: c for c in api.get("/v1/bank/counterparties", headers=h).json()["counterparties"]}
     assert cps[CP_A]["n_exposures"] == 2 and cps[CP_A]["total_liabilities_eur"] == L[CP_A]
@@ -239,6 +239,33 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     wb = openpyxl.load_workbook(io.BytesIO(xl.content), read_only=True)
     cells = {str(c) for ws in wb.worksheets for row in ws.iter_rows(values_only=True) for c in row if c is not None}
     assert "counterparty_ref" in cells and CP_A in cells
+
+    # ── 4b the revenue basis (E133): the counterparty's revenue, stated once with its year, × a per-revenue intensity ──
+    rev_c, intensity_rev = 80_000_000.0, 120.0
+    body = _csv(["counterparty_ref", "counterparty_name", "total_liabilities_eur", "counterparty_revenue_eur", "currency",
+                 "book_date"], [[CP_C, "Cobalt SA", L[CP_C], rev_c, "EUR", "2025-09-30"]])
+    _land(api, h, checker, "/v1/bank/counterparties/upload", body, "counterparties.csv")
+    cps = {c["counterparty_ref"]: c for c in api.get("/v1/bank/counterparties", headers=h).json()["counterparties"]}
+    assert cps[CP_C]["revenue_eur"] == rev_c and cps[CP_C]["revenue_period_end"] == "2025-09-30"
+    _switch(api, h, checker, **{T1.S3_BASIS: "intensity_x_revenue"})
+    f = _findings(api, h, _file(api, h))
+    assert not f["t1_scope3_basis"]["passed"] and T1.INTENSITY_REVENUE in f["t1_scope3_basis"]["message"]   # never the other one
+    r = api.post("/v1/provided", headers=h, json={**post, "datapoint_key": T1.INTENSITY_REVENUE, "value_num": intensity_rev,
+                                                    "provider_name": "Source R revenue intensities", "data_vintage": "2024-12-31"})
+    assert r.status_code == 201, r.text
+    _approve(api, checker, r.json()["approval_request_id"])
+    fid_r = _file(api, h)
+    p_r = _payload(s, fid_r)
+    fr_r = frozen_of(p_r)
+    assert fr_r[ids["e3"]]["revenue_eur"] == rev_c and fr_r[ids["e3"]]["counterparty_revenue_period_end"] == "2025-09-30"
+    assert p_r[T1.RECORD]["sector_intensity_revenue"]["C24"]["value"] == intensity_rev
+    assert _findings(api, h, fid_r)["t1_scope3_basis"]["passed"]
+    s3_rev = intensity_rev * rev_c / 1_000_000
+    want_j_rev = sum(x(k) / L[CP_A] * BOOK[k][1][2] for k in ("e1", "e2", "e4")) + x("e3") / L[CP_C] * s3_rev
+    dps_r, form_r = _form(api, h, fid_r)
+    assert dps_r["emissions.scope3"]["value"] == pytest.approx(want_j_rev, rel=1e-9)
+    t1_r = next(sec for sec in form_r["annex"]["sections"] if sec.get("key") == "t1")
+    assert "per EUR million of revenue" in t1_r["note"] and "Source R" in t1_r["note"]
 
     # ── 5 scopes 1 and 2: j blank; k needs the institution's reading of 'scope 1, 2 and 3' ──
     _switch(api, h, checker, **{T1.ESTIMATION: "scope_1_2"})

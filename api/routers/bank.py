@@ -44,7 +44,12 @@ _CP = "c.org_id = e.org_id AND c.counterparty_ref = e.borrower_entity_id"
 _CP_ISSUER = f"(SELECT c.issuer_id FROM bank_counterparties c WHERE {_CP})"
 
 EXT_BANKING_COLUMNS = [
-    "CAST(x.annual_revenue_eur AS FLOAT) AS annual_revenue_eur",
+    # the counterparty's revenue: stated once for the counterparty where the exposure names one (bank_counterparties;
+    # E133); the exposure's own figure only where it names none (one figure per counterparty, never two)
+    f"""CASE WHEN NULLIF(btrim(e.borrower_entity_id), '') IS NOT NULL
+             THEN (SELECT CAST(c.revenue_eur AS FLOAT) FROM bank_counterparties c WHERE {_CP})
+             ELSE CAST(x.annual_revenue_eur AS FLOAT) END AS annual_revenue_eur""",
+    f"(SELECT c.revenue_period_end FROM bank_counterparties c WHERE {_CP}) AS counterparty_revenue_period_end",
     "x.taxonomy_status", "x.taxonomy_activity", "x.dnsh_assessment",
     "x.expected_lifespan_years", "x.gics_code",
     "CAST(x.ghg_emissions_scope1_tco2e AS FLOAT) AS ghg_emissions_scope1_tco2e",
@@ -61,9 +66,11 @@ EXT_BANKING_COLUMNS = [
     f"(SELECT c.total_liabilities_date FROM bank_counterparties c WHERE {_CP}) AS counterparty_total_liabilities_date",
     f"(SELECT c.liabilities_conflict IS NOT NULL FROM bank_counterparties c WHERE {_CP}) AS counterparty_liabilities_conflict",
     # where the counterparty's amount came from, under the key the filing translation reads (translation.MONEY_COLUMNS)
-    f"""(SELECT jsonb_build_object('fields', jsonb_build_object('counterparty_total_liabilities_eur',
-            c.money_source->'fields'->'total_liabilities_eur')) FROM bank_counterparties c
-         WHERE {_CP} AND c.money_source->'fields' ? 'total_liabilities_eur') AS counterparty_money_source""",
+    f"""(SELECT jsonb_build_object('fields', jsonb_strip_nulls(jsonb_build_object(
+                'counterparty_total_liabilities_eur', c.money_source->'fields'->'total_liabilities_eur',
+                'annual_revenue_eur', c.money_source->'fields'->'counterparty_revenue_eur'))) FROM bank_counterparties c
+         WHERE {_CP} AND (c.money_source->'fields' ?| ARRAY['total_liabilities_eur', 'counterparty_revenue_eur']))
+         AS counterparty_money_source""",
     # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
@@ -99,7 +106,7 @@ EXT_BANKING_COLUMNS = [
 
 _P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable",
              "emissions_company_reported", "counterparty_total_liabilities_eur", "counterparty_total_liabilities_date",
-             "counterparty_liabilities_conflict",
+             "counterparty_liabilities_conflict", "counterparty_revenue_period_end",
              "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose",
              "trading_book", "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2",
              "ep_score_estimated",
