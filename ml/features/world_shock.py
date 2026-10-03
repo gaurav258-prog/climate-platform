@@ -24,10 +24,11 @@ Base-year share, not target-year share: an origin's weight in the world crop is 
 BEFORE the shock (year t-1). Using the post-shock share would let the origin that just
 collapsed shrink its own contribution.
 
-THREE WORLD NUMBERS, AND WHICH ONE IS THE TARGET. Olive 2012 makes the distinction concrete:
+THREE WORLD NUMBERS, AND WHICH ONE IS THE TARGET. Olive 2012 makes the distinction concrete (21 origins since the
+reviewed FAOSTAT release of 2026-10-03; net was -4.06% with 20):
 
     raw       -16.08%   what FAO reports: cycle + climate + everything, all origins netted
-    net        -4.06%   cycle removed: Spain's climate loss NETTED against other origins'
+    net        -4.05%   cycle removed: Spain's climate loss NETTED against other origins'
                         good years (Italy/Greece/Turkey/Syria all had ABOVE-trend 2012s)
     damage    -12.98%   cycle removed, LOSSES ONLY: the climate-attributable crop that was
                         destroyed, summed over the origins that actually lost

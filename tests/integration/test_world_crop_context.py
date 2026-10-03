@@ -1,5 +1,6 @@
 """The world crop, year by year, as context (services.intelligence.world_crop): for olive oil 2012 the three figures
-the decomposition gives (FAOSTAT reported −16.08 %, net −4.06 %, losses only −12.98 %); losses never above net; the
+the decomposition gives (FAOSTAT reported −16.08 %, net −4.05 %, losses only −12.98 % — net was −4.06 % before the
+reviewed FAOSTAT release of 2026-10-03 added a 21st olive origin, coverage 97.2 % → 97.3 %); losses never above net; the
 latest years named as not decomposable (the centred trend needs later years); a commodity without a FAOSTAT world
 series says so instead of borrowing another crop's; never part of volume at risk (the route only reads)."""
 from __future__ import annotations
@@ -23,7 +24,7 @@ def test_the_world_crop_is_shown_as_it_happened(api):
     d = r.json()
     assert d["available"] and "not a forecast" in d["basis"]
     y = {x["year"]: x for x in d["years"]}
-    assert (y[2012]["reported_pct"], y[2012]["net_pct"], y[2012]["losses_pct"]) == (-16.08, -4.06, -12.98)
+    assert (y[2012]["reported_pct"], y[2012]["net_pct"], y[2012]["losses_pct"]) == (-16.08, -4.05, -12.98)
     assert y[2012]["coverage_pct"] > 90
     done = [x for x in d["years"] if not x["why_not"]]
     assert done and all(x["losses_pct"] <= x["net_pct"] + 1e-9 and x["losses_pct"] <= 0 for x in done)

@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.199 |
+| Version | 2.200 |
 | Last updated | 2026-10-03 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-04 | 2.200 | **FAOSTAT July 2026 release landed after review.** Proposed by one platform operator and approved by a second (on the product owner's instruction): 3 242 origin-years added, 59 derived values recomputed, nothing revised by FAO, no calibration affected; the store holds 22 994 FAOSTAT rows. Olive 2012 world crop: a 21st origin decomposable, coverage 97.2 % → 97.3 %, net −4.06 % → −4.05 % (reported and losses-only unchanged). |
 | 2026-10-03 | 2.199 | **Small screens (E149).** Below 768px the sidebar is an off-canvas menu in the shared Drawer (new `placement="left"`), opened from a header menu button and closed by Escape, a scrim tap, choosing a page or widening the window; the content uses the full width with a 16px gutter, so no page scrolls sideways on a phone (every main page checked at 375px). The desktop sidebar is unchanged — still resizable and collapsible, with its saved width and rail preference — and both are the same `NavPanel`, so they cannot drift. Every Dialog and Drawer now keeps Tab / Shift+Tab inside the open panel (`overlay.ts`). Guard: `tests/unit/test_small_screen_shell.py`. |
 | 2026-10-03 | 2.198 | **FAOSTAT on the refresh schedule, with review (E148).** Checked every 30 days; a new file is staged with its difference (added · revised by FAO · recomputed by us · held but not in the file · largest revisions · calibrations that may be affected) and lands only after two platform operators — one proposes, the other approves — on the new operator page 'Reference data'. Replaced values are kept. The July 2026 file is staged now, awaiting that review: it adds 3 242 origin-years never loaded and recomputes 59 derived values; FAO revised nothing. |
 | 2026-10-03 | 2.197 | **World crop — what happened (context).** Each commodity page shows, for the last 15 years, the world crop's change as FAOSTAT reports it, the net deviation from trend across all decomposable origins (bearing cycle removed, gains offset losses) and the losses-only figure the damage model is validated against, with each year's coverage of the world crop and the origins that moved the latest year most (services/intelligence/world_crop.py, GET /v1/supply/commodity/{id}/world-crop). Context only — not a forecast and never part of volume at risk; the latest years are named as not yet decomposable, and a crop without a world series says so; the data's latest year and load date are shown. Reached from COGS (list and chart), Early warning and Disclosure; checked for all 9 agri companies × 15 commodities; registered as a shared-reference route (route-security guard); a guard keeps volume at risk from reading it. The interim step of the parked upside model (2026-07-18). |
