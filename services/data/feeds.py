@@ -204,7 +204,21 @@ FEEDS: list[dict] = [
      "note": "Production, area and yield per country and year for the mapped crops and origins (1961→), the input of the "
              "crop calibrations, realised-exposure and world-crop views. Checked monthly for a new file (FAO publishes "
              "about once a year and revises earlier years); a new file is staged with its difference and lands only "
-             "after two platform operators review it (E148)."},
+             "after review, as the platform's Approvers policy states (E148, E150)."},
+    {"key": "crop_production_eurostat", "name": "Eurostat crop production (apro_cpsh1)", "category": "reference",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Eurostat, apro_cpsh1 — Crop production in EU standard humidity",
+     "note": "Area, production and yield per country and year for the registry's crops with a Eurostat code, in the EU-27, "
+             "EFTA, the UK and candidate countries — including durum wheat (FAOSTAT does not separate it) and the latest "
+             "season ahead of FAOSTAT. Checked monthly against the dataset's update stamp; a new publication is staged with "
+             "its difference and lands only after review (E153)."},
+    {"key": "crop_production_usda_fas", "name": "USDA FAS — Production, Supply and Distribution (PSD)", "category": "reference",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: USDA Foreign Agricultural Service, PSD database",
+     "note": "Official production, area and yield estimates per country and MARKET year for the registry's crops with a FAS "
+             "code — the current and recent seasons, ahead of FAOSTAT's 1–2 year lag. Definitions that differ from FAO's "
+             "(milled rice, palm and olive oil, shelled almonds) are stated in the crop registry. Checked monthly against "
+             "FAS's release dates; a new release is staged with its difference and lands only after review (E155)."},
     {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
@@ -315,9 +329,14 @@ def feed_freshness(session: Session) -> list[dict]:
 
 
 def _awaiting_review(session: Session) -> dict:
+    """{feed key: its open release} for every reviewed yield source (services.reference.yield_sources)."""
     from services.reference.crop_releases import pending
-    p = pending(session)
-    return {"crop_production_faostat": ({**p, "fetched_at": p["fetched_at"].isoformat()} if p else None)}
+    from services.reference.yield_sources import all_sources
+    out = {}
+    for ys in all_sources():
+        p = pending(session, ys)
+        out[ys.feed_key] = {**p, "fetched_at": p["fetched_at"].isoformat()} if p else None
+    return out
 
 
 def overdue_basis_feeds(session: Session) -> list[dict]:
@@ -410,6 +429,24 @@ def _hook_crop_production_faostat(session: Session) -> None:
 
 
 register_refresh_hook("crop_production_faostat", _hook_crop_production_faostat)
+
+
+def _hook_crop_production_eurostat(session: Session) -> None:
+    from services.reference.crop_releases import refresh
+    from services.reference.yield_sources import get
+    refresh(session, get("eurostat"))     # stages a new publication for review; never lands it
+
+
+register_refresh_hook("crop_production_eurostat", _hook_crop_production_eurostat)
+
+
+def _hook_crop_production_usda_fas(session: Session) -> None:
+    from services.reference.crop_releases import refresh
+    from services.reference.yield_sources import get
+    refresh(session, get("usda_fas"))     # stages a new release for review; never lands it
+
+
+register_refresh_hook("crop_production_usda_fas", _hook_crop_production_usda_fas)
 register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)

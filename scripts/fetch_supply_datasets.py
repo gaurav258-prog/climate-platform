@@ -9,6 +9,8 @@ size, md5, sha-256), so the exact files the calibrations rest on are pinned. Fil
                                 presented here.")
   cropgrids_v1_08               Tang et al. 2024 — harvested and crop area of 173 crops (FAOSTAT's list: olives,
                                 grapes, almonds …), 2020, 0.05° NetCDF (CC BY 4.0)
+  mirca_os_2015_crop_calendars  Kebede et al. 2025 — monthly crop calendars per sub-national unit, rainfed and irrigated,
+                                incl. cocoa, coffee, oil palm (CC BY 4.0); 2015 tables
   ggcmi_phase3_crop_calendar    Jägermeyr et al. 2021 — planting and maturity day per 0.5° cell, rainfed and
                                 irrigated, 18 annual crops (CC BY 4.0)
 
@@ -56,6 +58,14 @@ def _figshare_files(article: str, match: str) -> list[dict]:
             for f in d["files"] if match in f["name"]]
 
 
+def _hydroshare_files(resource: str, names: tuple[str, ...]) -> list[dict]:
+    d = requests.get(f"https://www.hydroshare.org/hsapi/resource/{resource}/files/", headers=UA, timeout=60).json()
+    meta = requests.get(f"https://www.hydroshare.org/hsapi/resource/{resource}/sysmeta/", headers=UA, timeout=60).json()
+    return [{"name": f["file_name"], "size": f["size"], "md5": f["checksum"], "url": f["url"],
+             "version": f"updated {meta.get('date_last_updated', '')[:10]}"}
+            for f in d["results"] if f["file_name"] in names]
+
+
 DATASETS = {
     "mapspam_2020_harvested_area": {
         "files": lambda: _dataverse_files("doi:10.7910/DVN/SWPENT", "global_harvested_area.geotiff"),
@@ -75,6 +85,13 @@ DATASETS = {
                   "Data 11, 413; figshare doi:10.6084/m9.figshare.22491997 (v1.08)",
         "licence": "CC BY 4.0",
         "attribution": "CROPGRIDS (Tang et al. 2024), CC BY 4.0"},
+    "mirca_os_2015_crop_calendars": {
+        "files": lambda: _hydroshare_files("60a890eb841c460192c03bb590687145",
+                                           ("MIRCA-OS_2015_rf.csv", "MIRCA-OS_2015_ir.csv", "README_crop_calendars.txt")),
+        "source": "Kebede, E.A. et al. (2025), A global open-source dataset of monthly irrigated and rainfed cropped "
+                  "areas (MIRCA-OS) for the 21st century, Scientific Data; HydroShare doi:10.4211/hs.60a890eb841c460192c03bb590687145",
+        "licence": "CC BY 4.0",
+        "attribution": "MIRCA-OS (Kebede et al. 2025), CC BY 4.0"},
     "ggcmi_phase3_crop_calendar": {
         "files": lambda: _zenodo_files("5062513"),
         "source": "Jägermeyr, J. et al. (2021), GGCMI Phase 3 crop calendar, Zenodo, doi:10.5281/zenodo.5062513 "
@@ -128,16 +145,26 @@ def fetch(key: str) -> dict:
             "path": str(out_dir.relative_to(ROOT)), "files": rows}
 
 
+def record(key: str, entry: dict) -> None:
+    """Write one dataset's entry into the manifest — re-read under an exclusive lock, so two fetchers running at once
+    never overwrite each other's entries."""
+    import fcntl
+    with open(MANIFEST.with_suffix(".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+        manifest[key] = entry
+        MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", choices=list(DATASETS))
     a = ap.parse_args()
-    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     for key in ([a.only] if a.only else list(DATASETS)):
-        manifest[key] = fetch(key)
-        n = sum(r["bytes"] for r in manifest[key]["files"])
-        print(f"{key}: {len(manifest[key]['files'])} file(s), {n / 1e6:.1f} MB, checksums verified")
-    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n")
+        entry = fetch(key)
+        record(key, entry)
+        n = sum(r["bytes"] for r in entry["files"])
+        print(f"{key}: {len(entry['files'])} file(s), {n / 1e6:.1f} MB, checksums verified")
     return 0
 
 

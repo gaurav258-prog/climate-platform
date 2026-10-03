@@ -120,3 +120,4 @@ tok_*.txt
 
 # gridded inputs of the Supply outlook (fetched, checksummed; pinned in data/reference/supply_datasets.json)
 data/datasets/
+data/reference/supply_datasets.lock

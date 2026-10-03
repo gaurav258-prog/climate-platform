@@ -1,13 +1,11 @@
-"""Stage Eurostat crop production (apro_cpsh1) for review — it never lands from here (E153).
+"""Stage a reviewed yield source's latest data for review — nothing lands from here (E153).
 
-Read by services.reference.eurostat_crops for every crop of the registry with a Eurostat code (data/reference/
-crop_registry.json) and every country Eurostat reports, then staged by services.reference.crop_releases with its
-difference against the store; it lands only when approved on the operator console (Reference data), as the Approvers
-policy states. The scheduled feed 'crop_production_eurostat' does the same monthly. (Until 2026-10-04 this script read
-6 crops for 6 countries and wrote them straight into the store.)
+Any source of services.reference.yield_sources (faostat, eurostat, usda_fas …): download, read, compare with the store,
+stage as a release; it lands only when approved on the operator console (Reference data) as the Approvers policy states.
 
-    python -m scripts.ingest_crop_yield_eurostat             # fetch and stage
-    python -m scripts.ingest_crop_yield_eurostat --dry-run   # show the difference, stage nothing
+    python -m scripts.stage_yield_release --source usda_fas            # fetch and stage
+    python -m scripts.stage_yield_release --source usda_fas --dry-run  # show the difference, stage nothing
+    python -m scripts.stage_yield_release --source faostat --file <zip>   # a file already on disk
 """
 from __future__ import annotations
 
@@ -17,15 +15,19 @@ import sys
 
 from core.db.session import get_session
 from services.reference import crop_releases as R
-from services.reference.yield_sources import get
+from services.reference.yield_sources import _BUILDERS, get
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--source", required=True, choices=sorted(_BUILDERS))
+    ap.add_argument("--file", help="the publisher's data already on disk (else downloaded)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    ys = get("eurostat")
-    data = ys.download()
+    ys = get(a.source)
+    data = open(a.file, "rb").read() if a.file else ys.download()
+    if not a.file:
+        print(f"raw data kept at {R.keep_raw(ys, data)} (re-read with --file if needed)")
     with get_session() as s:
         out = R.stage(s, data, source=ys)
         print(json.dumps({k: v for k, v in out.items() if k != "summary"}, indent=1))

@@ -25,6 +25,12 @@ ISO_ALPHA2: frozenset[str] = frozenset({
 })
 
 
+# Codes accepted on uploads that are NOT countries: groupings of countries (ISO 3166-1 exceptional reservation 'EU').
+# The country reference marks them is_country = false, so nothing that reads 'the countries' takes a group total for a
+# country (E154).
+GROUPINGS: frozenset[str] = frozenset({"EU"})
+
+
 def is_valid_country(code: str | None) -> bool:
     """True if `code` is a recognised ISO 3166-1 alpha-2 code (case-insensitive). Blank/None is treated as
     valid (country is optional metadata — only a NON-EMPTY bogus code is flagged)."""

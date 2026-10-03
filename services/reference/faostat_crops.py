@@ -16,9 +16,10 @@ import csv
 import io
 import json
 import zipfile
-from decimal import ROUND_HALF_UP, Decimal
 from functools import lru_cache
 from pathlib import Path
+
+from services.reference.yield_sources import store_round
 
 REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "faostat_crops.json"
 NOTE = "FAOSTAT QCL, FAO CALENDAR year (not a split crop season); yield derived = production/area"
@@ -87,7 +88,7 @@ def iso_by_m49(session) -> dict[str, str]:
     """{ISO 3166 numeric code: alpha-2} from the country reference — the countries FAOSTAT areas are matched to."""
     from sqlalchemy import text
     return {r[0].strip(): r[1].strip() for r in session.execute(text(
-        "SELECT numeric_code, iso2 FROM ref_countries WHERE numeric_code IS NOT NULL")).all()}
+        "SELECT numeric_code, iso2 FROM ref_countries WHERE numeric_code IS NOT NULL AND is_country")).all()}
 
 
 def parse(zip_bytes: bytes, countries: dict[str, str]) -> list[dict]:
@@ -126,13 +127,7 @@ def parse(zip_bytes: bytes, countries: dict[str, str]) -> list[dict]:
             iso = country_of(rec)
             if iso:
                 raw.setdefault((commodity, iso, int(rec["Year"])), {})[field] = float(rec["Value"])
-    def db(x: float | None, places: int) -> float | None:
-        """Rounded exactly as Postgres stores a float sent to numeric(…, places): the float as written (its shortest
-        decimal form, which is what the driver sends), then half away from zero. Python's round() works on the binary
-        value (1563.35 → 1563.3; Postgres 1563.4); one rule for every field, so the same file is the same rows."""
-        if x is None:
-            return None
-        return float(Decimal(repr(float(x))).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+    db = store_round                                  # one rounding rule for every source (yield_sources)
 
     series: dict = {}
     for (c, geo, yr), v in raw.items():

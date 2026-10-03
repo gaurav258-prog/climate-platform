@@ -1,5 +1,5 @@
 {
- "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed.",
+ "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds) — series from different sources are never mixed.",
  "life_cycles": {
   "perennial_alternate_bearing": "perennial, alternate-bearing — cycle removed",
   "perennial": "perennial, no alternate bearing — detrended",
@@ -10,12 +10,20 @@
   {
    "commodity": "Almonds",
    "fao_item": "Almonds, in shell",
-   "life_cycle": "perennial_alternate_bearing"
+   "life_cycle": "perennial_alternate_bearing",
+   "eurostat_crop": "F4300",
+   "eurostat_label": "Almonds",
+   "fas_commodity": "0577400",
+   "fas_label": "Almonds, SHELLED basis — FAO reports in shell"
   },
   {
    "commodity": "Barley",
    "fao_item": "Barley",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "C1300",
+   "eurostat_label": "Barley",
+   "fas_commodity": "0430000",
+   "fas_label": "Barley — as FAO"
   },
   {
    "commodity": "Cane sugar",
@@ -26,7 +34,9 @@
    "commodity": "Citrus",
    "fao_item": "Citrus Fruit, Total",
    "life_cycle": "perennial_alternate_bearing",
-   "note": "FAO's own aggregate (item 1804, 'Citrus Fruit, Total') — FAO's figure, not a sum of ours; its components (oranges, tangerines, lemons and limes, grapefruit, other citrus) are FAO items 490, 495, 497, 507, 512"
+   "note": "FAO's own aggregate (item 1804, 'Citrus Fruit, Total') — FAO's figure, not a sum of ours; its components (oranges, tangerines, lemons and limes, grapefruit, other citrus) are FAO items 490, 495, 497, 507, 512",
+   "eurostat_crop": "T0000",
+   "eurostat_label": "Citrus fruits"
   },
   {
    "commodity": "Cocoa",
@@ -36,68 +46,110 @@
   {
    "commodity": "Coffee",
    "fao_item": "Coffee, green",
-   "life_cycle": "perennial_alternate_bearing"
+   "life_cycle": "perennial_alternate_bearing",
+   "fas_commodity": "0711100",
+   "fas_label": "Coffee, Green (60 kg bags → tonnes) — as FAO"
   },
   {
    "commodity": "Durum wheat",
    "fao_item": null,
    "life_cycle": "annual",
-   "gap": "FAOSTAT does not report durum separately from wheat — held as a named gap"
+   "gap": "FAOSTAT does not report durum separately from wheat — held as a named gap",
+   "eurostat_crop": "C1120",
+   "eurostat_label": "Durum wheat"
   },
   {
    "commodity": "Maize",
    "fao_item": "Maize (corn)",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "C1500",
+   "eurostat_label": "Grain maize and corn-cob-mix",
+   "fas_commodity": "0440000",
+   "fas_label": "Corn — as FAO maize"
   },
   {
    "commodity": "Olive oil",
    "fao_item": "Olives",
-   "life_cycle": "perennial_alternate_bearing"
+   "life_cycle": "perennial_alternate_bearing",
+   "eurostat_crop": "O1910",
+   "eurostat_label": "Olives for oil — narrower than FAO's 'Olives' (which includes table olives)",
+   "fas_commodity": "4235000",
+   "fas_label": "Oil, Olive — the OIL; FAO reports olives"
   },
   {
    "commodity": "Palm oil",
    "fao_item": "Oil palm fruit",
-   "life_cycle": "perennial"
+   "life_cycle": "perennial",
+   "fas_commodity": "4243000",
+   "fas_label": "Oil, Palm — the OIL; FAO reports oil palm fruit"
   },
   {
    "commodity": "Rapeseed",
    "fao_item": "Rape or colza seed",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "I1110",
+   "eurostat_label": "Rape and turnip rape seeds",
+   "fas_commodity": "2226000",
+   "fas_label": "Oilseed, Rapeseed — as FAO"
   },
   {
    "commodity": "Rice",
    "fao_item": "Rice",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "C2000",
+   "eurostat_label": "Rice",
+   "fas_commodity": "0422110",
+   "fas_label": "Rice, MILLED basis — FAO reports paddy"
   },
   {
    "commodity": "Sorghum",
    "fao_item": "Sorghum",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "C1700",
+   "eurostat_label": "Sorghum",
+   "fas_commodity": "0459200",
+   "fas_label": "Sorghum — as FAO"
   },
   {
    "commodity": "Soybean",
    "fao_item": "Soya beans",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "I1130",
+   "eurostat_label": "Soya",
+   "fas_commodity": "2222000",
+   "fas_label": "Oilseed, Soybean — as FAO"
   },
   {
    "commodity": "Sugar beet",
    "fao_item": "Sugar beet",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "R2000",
+   "eurostat_label": "Sugar beet (excluding seed)"
   },
   {
    "commodity": "Sunflower",
    "fao_item": "Sunflower seed",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "I1120",
+   "eurostat_label": "Sunflower seed",
+   "fas_commodity": "2224000",
+   "fas_label": "Oilseed, Sunflowerseed — as FAO"
   },
   {
    "commodity": "Wheat",
    "fao_item": "Wheat",
-   "life_cycle": "annual"
+   "life_cycle": "annual",
+   "eurostat_crop": "C1100",
+   "eurostat_label": "Wheat and spelt (incl. durum) — as FAO 'Wheat'",
+   "fas_commodity": "0410000",
+   "fas_label": "Wheat — as FAO"
   },
   {
    "commodity": "Wine grapes",
    "fao_item": "Grapes",
-   "life_cycle": "perennial_alternate_bearing"
+   "life_cycle": "perennial_alternate_bearing",
+   "eurostat_crop": "W1100",
+   "eurostat_label": "Grapes for wines"
   }
  ]
 }

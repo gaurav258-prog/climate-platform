@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.201 |
+| Version | 2.203 |
 | Last updated | 2026-10-03 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,8 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-04 | 2.203 | **USDA FAS as a reviewed yield source (E155).** Official current-season estimates worldwide for 12 crops (definitions that differ from FAO's stated per crop), units converted only by a typed table, raw publisher data kept before reading. Staged and awaiting the product owner: 29 387 rows. USDA NASS and api.data.gov keys held in the environment only. |
+| 2026-10-04 | 2.202 | **Supply outlook data: every source reviewed, more crops, the datasets in (E153, E154).** Eurostat joins FAOSTAT as a reviewed yield source (14 crops incl. durum wheat, ~40 countries, the latest EU season); Citrus reads FAO's own total; the country reference marks 'EU' as a grouping. Staged and awaiting the product owner: FAOSTAT 89 208 rows (66 214 added) and Eurostat 12 853 rows (11 909 added, 78 revised by Eurostat). Downloaded and pinned (checksums verified): MapSPAM 2020 harvested area, CROPGRIDS v1.08 (olive, grapes, almonds…), GGCMI and MIRCA-OS crop calendars; global ERA5-Land monthly downloading. |
 | 2026-10-04 | 2.201 | **Supply outlook foundation, phase 1: registry, every country, one approver (E150–E152).** The crop registry states each crop's FAO item (or a named gap) and life cycle; FAOSTAT is read for every country (UN M49 = ISO numeric) instead of 35 areas; the operator page states how many people approve (one today: the platform proposes, the product owner approves). The every-country FAOSTAT release is staged and proposed — 57 765 origin-years added, nothing revised — awaiting the product owner's approval. Each FAOSTAT check is recorded so an unchanged file is never downloaded again. |
 | 2026-10-04 | 2.200 | **FAOSTAT July 2026 release landed after review.** Proposed by one platform operator and approved by a second (on the product owner's instruction): 3 242 origin-years added, 59 derived values recomputed, nothing revised by FAO, no calibration affected; the store holds 22 994 FAOSTAT rows. Olive 2012 world crop: a 21st origin decomposable, coverage 97.2 % → 97.3 %, net −4.06 % → −4.05 % (reported and losses-only unchanged). |
 | 2026-10-03 | 2.199 | **Small screens (E149).** Below 768px the sidebar is an off-canvas menu in the shared Drawer (new `placement="left"`), opened from a header menu button and closed by Escape, a scrim tap, choosing a page or widening the window; the content uses the full width with a 16px gutter, so no page scrolls sideways on a phone (every main page checked at 375px). The desktop sidebar is unchanged — still resizable and collapsible, with its saved width and rail preference — and both are the same `NavPanel`, so they cannot drift. Every Dialog and Drawer now keeps Tab / Shift+Tab inside the open panel (`overlay.ts`). Guard: `tests/unit/test_small_screen_shell.py`. |

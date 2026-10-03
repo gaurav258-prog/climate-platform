@@ -29,13 +29,16 @@ def _fail(e: R.ReleaseError) -> HTTPException:
     return HTTPException(404 if isinstance(e, R.ReleaseNotFound) else 409, {"error": "release", "message": str(e)})
 
 
-@router.get("", summary="FAOSTAT releases — staged, proposed, landed, rejected — and the feed's state")
+@router.get("", summary="Reviewed yield-source releases — staged, proposed, landed, rejected — and each source's feed")
 def list_releases(session: DbSession, ctx: dict = Depends(_REVIEW)):
     from services.data.feeds import feed_freshness
-    feed = next(f for f in feed_freshness(session) if f["key"] == "crop_production_faostat")
-    return {"feed": {k: feed.get(k) for k in ("name", "cadence_days", "last_refresh", "last_status", "status",
-                                              "awaiting_review", "attribution", "note")},
-            "releases": R.releases(session)}
+    from services.reference.yield_sources import all_sources
+    fresh = {f["key"]: f for f in feed_freshness(session)}
+    feeds = [{"source": ys.key, "label": ys.label(),
+              **{k: fresh[ys.feed_key].get(k) for k in ("name", "cadence_days", "last_refresh", "last_status", "status",
+                                                        "awaiting_review", "attribution", "note")}}
+             for ys in all_sources()]
+    return {"feeds": feeds, "releases": R.releases(session)}
 
 
 class Approvers(BaseModel):
@@ -71,11 +74,16 @@ def release_detail(release_id: UUID, session: DbSession, change: Optional[str] =
         raise HTTPException(422, {"error": "release", "message": str(e)}) from e
 
 
-@router.post("/check", summary="Check FAOSTAT for a new file now (stages it for review; nothing lands)")
-def check_now(session: DbSession, ctx: dict = Depends(_REVIEW)):
+@router.post("/check", summary="Check a yield source for new data now (stages it for review; nothing lands)")
+def check_now(session: DbSession, source: str = Query("faostat"), ctx: dict = Depends(_REVIEW)):
     from services.data.feeds import refresh_one
-    out = refresh_one(session, "crop_production_faostat", actor_user_id=ctx["user"]["id"])
-    return {**out, "awaiting_review": R.pending(session)}
+    from services.reference.yield_sources import get
+    try:
+        ys = get(source)
+    except KeyError as e:
+        raise HTTPException(422, {"error": "release", "message": str(e)}) from e
+    out = refresh_one(session, ys.feed_key, actor_user_id=ctx["user"]["id"])
+    return {**out, "awaiting_review": R.pending(session, ys)}
 
 
 @router.post("/{release_id}/propose", summary="Propose landing a reviewed release (a second operator decides)")

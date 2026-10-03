@@ -45,9 +45,11 @@ def test_the_retired_narrative_columns_stay_retired():
 
 
 def test_faostat_crop_production_lands_only_through_its_review():
-    """E148: FAOSTAT rows reach crop_yield_observations only through services.reference.crop_releases (staged, reviewed
-    by two operators) — no script or service writes them straight in."""
+    """E148/E153: the reviewed yield sources' rows (FAOSTAT, Eurostat) reach crop_yield_observations only through
+    services.reference.crop_releases (staged, reviewed) — no script or service writes them straight in."""
     writers = _users(r"(INSERT INTO|UPDATE|DELETE FROM) crop_yield_observations")
-    labelled = re.compile(r"""["']FAOSTAT""")         # a FAOSTAT source label in code (comments may name FAOSTAT)
+    from services.reference.yield_sources import all_sources
+    labels = "|".join(re.escape(ys.label()) for ys in all_sources())   # every reviewed source's exact store label
+    labelled = re.compile(rf"""["']({labels})["']""")
     faostat = {w for w in writers if labelled.search((ROOT / w).read_text(errors="ignore")) or "faostat" in w}
     assert faostat <= {"services/reference/crop_releases.py"}, faostat

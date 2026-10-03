@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
 import shutil
 import sys
@@ -70,9 +69,9 @@ def _sha256(p: Path) -> str:
 
 
 def record() -> None:
+    from scripts.fetch_supply_datasets import record as record_entry
     files = [p for p in (_path(y) for y in YEARS) if p.exists()]
-    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
-    manifest["era5_land_monthly_global"] = {
+    record_entry("era5_land_monthly_global", {
         "source": "Copernicus C3S Climate Data Store — ERA5-Land monthly averaged data from 1950 to present "
                   "(Muñoz Sabater 2019), doi:10.24381/cds.68d2bb30; variables: " + ", ".join(VARIABLES),
         "licence": "Copernicus licence",
@@ -81,8 +80,7 @@ def record() -> None:
         "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "path": str(OUT.relative_to(ROOT)), "years": [YEARS.start, YEARS.stop - 1],
         "complete": len(files) == len(YEARS),
-        "files": [{"file": p.name, "bytes": p.stat().st_size, "sha256": _sha256(p)} for p in files]}
-    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n")
+        "files": [{"file": p.name, "bytes": p.stat().st_size, "sha256": _sha256(p)} for p in files]})
     print(f"recorded {len(files)}/{len(YEARS)} years, {sum(p.stat().st_size for p in files) / 1e9:.2f} GB")
 
 

@@ -39,6 +39,12 @@ def _zip(rows: list[tuple[int, str, str, int, float]]) -> bytes:
     return out.getvalue()
 
 
+@pytest.fixture(autouse=True)
+def _raw_in_tmp(tmp_path, monkeypatch):
+    """Raw publisher data a test 'downloads' is kept in a temporary folder, never in the checkout."""
+    monkeypatch.setattr(R, "RAW_ROOT", tmp_path / "raw_releases")
+
+
 @pytest.fixture
 def source(api, monkeypatch):
     """A test source name, and the platform policy at two people — whatever the live database states (the demo
@@ -76,7 +82,9 @@ def test_a_release_lands_only_after_two_operators_review_it(api, source, monkeyp
 
     ops, ops2 = _login(api, "ops@tellumen.io", "Demo!ops1"), _login(api, "ops2@tellumen.io", "Demo!ops2")
     lst = api.get("/v1/ops/reference-releases", headers=ops).json()
-    assert lst["feed"]["awaiting_review"]["release_id"] == rid and lst["releases"][0]["release_id"] == rid
+    feed = next(f for f in lst["feeds"] if f["source"] == "faostat")
+    assert feed["awaiting_review"]["release_id"] == rid and lst["releases"][0]["release_id"] == rid
+    assert {f["source"] for f in lst["feeds"]} >= {"faostat", "eurostat"}
     detail = api.get(f"/v1/ops/reference-releases/{rid}", headers=ops).json()
     rows = {(r["season_year"], r["change"]): r for r in detail["rows"]}
     assert rows[(2020, "revised")]["held_before"]["area_harvested_ha"] == 500.0 and rows[(2020, "revised")]["area_harvested_ha"] == 400.0
@@ -98,7 +106,7 @@ def test_a_release_lands_only_after_two_operators_review_it(api, source, monkeyp
     assert landed == {2020: 400.0, 2021: 500.0, 2022: 450.0}
     rel = api.get("/v1/ops/reference-releases", headers=ops2).json()
     assert rel["releases"][0]["status"] == "landed" and rel["releases"][0]["decided_by"] == "ops2@tellumen.io"
-    assert rel["feed"]["awaiting_review"] is None
+    assert next(f for f in rel["feeds"] if f["source"] == "faostat")["awaiting_review"] is None
     with pytest.raises(Exception, match="append-only"):
         with s.begin_nested():
             s.execute(text("UPDATE crop_yield_release_rows SET production_tonnes = 1 WHERE release_id = CAST(:r AS uuid)"), {"r": rid})
@@ -183,3 +191,48 @@ def test_an_unchanged_file_is_never_downloaded_twice(api, source, monkeypatch):
     rows = api.s.execute(text("SELECT changed, downloaded, outcome FROM crop_release_checks WHERE source = :s ORDER BY check_id"),
                          {"s": SRC}).all()
     assert [(r[0], r[1]) for r in rows] == [(True, True), (False, False)]
+
+
+def test_eurostat_is_read_for_countries_only_with_its_own_definitions():
+    """E153: a second reviewed source — Eurostat's JSON-stat read into the same rows: thousands → absolutes, Greece
+    'EL' → GR, aggregates (EU27_2020) not read, the published yield kept, year-on-year from production."""
+    import json as _json
+
+    from services.reference import eurostat_crops as E
+
+    def doc(values):
+        geos, times = ["EL", "EU27_2020"], ["2023", "2024"]
+        return {"id": ["geo", "time"], "size": [2, 2],
+                "dimension": {"geo": {"category": {"index": {g: i for i, g in enumerate(geos)}}},
+                              "time": {"category": {"index": {t: i for i, t in enumerate(times)}}}},
+                "value": {str(k): v for k, v in values.items()}}
+    data = _json.dumps({"C1120|prod": doc({0: 1000.0, 1: 800.0, 2: 9000.0, 3: 8500.0}),
+                        "C1120|area": doc({0: 300.0, 1: 290.0}),
+                        "C1120|yield": doc({0: 3.3333, 1: 2.7586})}).encode()
+    rows = {(r["country"], r["season_year"]): r for r in E.parse(data, {"EL": "GR", "GR": "GR"})}
+    assert set(rows) == {("GR", 2023), ("GR", 2024)}                      # the EU27 aggregate is not a country
+    r = rows[("GR", 2024)]
+    assert (r["commodity"], r["production_tonnes"], r["area_harvested_ha"], r["yield_tonnes_ha"], r["yoy_change_pct"]) == \
+           ("Durum wheat", 800000.0, 290000.0, 2.7586, -20.0)
+
+
+def test_usda_fas_is_read_by_its_units_table_and_genc_codes():
+    """E155: FAS rows — FIPS country codes matched through GENC (ISO alpha-3), units converted only by the reference
+    table (1000 MT, 1000 60 kg bags), the European Union entity not a country, an unknown unit refused."""
+    import json as _json
+
+    from services.reference import fas_psd as U
+
+    def doc(unit_prod=8, extra=()):
+        return _json.dumps({"countries": [{"countryCode": "BR", "gencCode": "BRA"}, {"countryCode": "E4", "gencCode": None}],
+                            "data": {"0711100|2024": [
+                                {"countryCode": "BR", "marketYear": "2024", "attributeId": 28, "unitId": 2, "value": 1000.0},
+                                {"countryCode": "BR", "marketYear": "2024", "attributeId": 4, "unitId": 4, "value": 2.0},
+                                {"countryCode": "E4", "marketYear": "2024", "attributeId": 28, "unitId": 2, "value": 5.0},
+                                *extra]}}).encode()
+    rows = U.parse(doc(), {"BRA": "BR"})
+    assert [(r["commodity"], r["country"], r["season_year"], r["production_tonnes"], r["area_harvested_ha"], r["yield_tonnes_ha"])
+            for r in rows] == [("Coffee", "BR", 2024, 60000.0, 2000.0, 30.0)]
+    with pytest.raises(U.FetchError, match="refused"):
+        U.parse(doc(extra=({"countryCode": "BR", "marketYear": "2023", "attributeId": 28, "unitId": 999, "value": 1.0},)),
+                {"BRA": "BR"})

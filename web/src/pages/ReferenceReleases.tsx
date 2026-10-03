@@ -13,14 +13,14 @@ import { pressable } from '../lib/pressable'
 interface ByCommodity { added: number; revised: number; recomputed: number; years_new: number[] }
 interface Revision { commodity: string; country: string; year: number; production_before: number; production_now: number; change_pct: number }
 interface Fit { commodity: string; origin: string; hazard_driver: string; baseline_from: number | null; baseline_to: number | null; changed_years: number[] }
-interface Summary { rows_in_file: number; added: number; revised: number; recomputed: number; unchanged: number; held_not_in_file: number; by_commodity: Record<string, ByCommodity>; largest_revisions: Revision[]; calibrations_may_be_affected: Fit[] }
+interface Summary { reader_changed_since_last_landed?: boolean; last_landed_reader?: string | null; rows_in_file: number; added: number; revised: number; recomputed: number; unchanged: number; held_not_in_file: number; by_commodity: Record<string, ByCommodity>; largest_revisions: Revision[]; calibrations_may_be_affected: Fit[] }
 interface Release {
   release_id: string; source: string; file_sha256: string; reader: string; file_bytes: number; origin_url: string; last_modified: string | null
   fetched_at: string; summary: Summary; status: 'staged' | 'proposed' | 'landed' | 'rejected'; approval_request_id: string | null
   decided_at: string | null; decision_reason: string | null; landed_at: string | null
   proposed_by_id: string | null; proposed_by: string | null; review: string | null; proposed_at: string | null; decided_by: string | null
 }
-interface Feed { name: string; cadence_days: number; last_refresh: string | null; last_status: string | null; status: string; awaiting_review: { release_id: string; status: string } | null; attribution: string; note: string }
+interface Feed { source: string; label: string; name: string; cadence_days: number; last_refresh: string | null; last_status: string | null; status: string; awaiting_review: { release_id: string; status: string } | null; attribution: string; note: string }
 interface Row { commodity: string; country: string; season_year: number; change: string; production_tonnes: number | null; area_harvested_ha: number | null; yield_tonnes_ha: number | null; yoy_change_pct: number | null; held_before: Record<string, number | null> | null }
 
 const STATUS: Record<string, string> = { staged: 'var(--color-warn)', proposed: 'var(--color-sky)', landed: 'var(--color-good)', rejected: 'var(--color-faint)' }
@@ -29,18 +29,18 @@ const day = (s: string | null) => s ? s.slice(0, 10) : '—'
 
 export default function ReferenceReleases() {
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['reference-releases'], queryFn: () => api.get<{ feed: Feed; releases: Release[] }>('/v1/ops/reference-releases') })
+  const q = useQuery({ queryKey: ['reference-releases'], queryFn: () => api.get<{ feeds: Feed[]; releases: Release[] }>('/v1/ops/reference-releases') })
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.get<{ user?: { id?: string; user_id?: string } }>('/v1/auth/me') })
   const myId = me.data?.user?.id ?? me.data?.user?.user_id ?? null
   const [open, setOpen] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const check = async () => {
-    setBusy(true)
+  const [busy, setBusy] = useState<string | null>(null)
+  const check = async (f: Feed) => {
+    setBusy(f.source)
     try {
-      const r = await api.post<{ status: string; awaiting_review: unknown }>('/v1/ops/reference-releases/check', {})
-      toast.success(r.status === 'failed' ? 'The check failed — see the feed status.' : r.awaiting_review ? 'A release is awaiting review.' : 'No new FAOSTAT file.')
-    } catch (e) { toast.error(apiMessage(e, 'Could not check FAOSTAT.')) }
-    finally { setBusy(false); qc.invalidateQueries({ queryKey: ['reference-releases'] }) }
+      const r = await api.post<{ status: string; awaiting_review: unknown }>(`/v1/ops/reference-releases/check?source=${f.source}`, {})
+      toast.success(r.status === 'failed' ? 'The check failed — see the feed status.' : r.awaiting_review ? 'A release is awaiting review.' : `Nothing new from ${f.name}.`)
+    } catch (e) { toast.error(apiMessage(e, `Could not check ${f.name}.`)) }
+    finally { setBusy(null); qc.invalidateQueries({ queryKey: ['reference-releases'] }) }
   }
   const d = q.data
   return (
@@ -50,18 +50,20 @@ export default function ReferenceReleases() {
       {q.isLoading ? <Card className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</Card>
         : !d ? <Card className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Could not load the releases.')}</Card>
         : <>
-          <Card className="p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="max-w-[80ch]">
-                <SectionHead icon={DatabaseZap} className="mb-1">{d.feed.name}</SectionHead>
-                <div className="text-[12.5px] text-[var(--color-mute)]">{d.feed.note}</div>
-                <div className="mono text-[11px] text-[var(--color-faint)] mt-2">
-                  checked every {d.feed.cadence_days} days · last check {day(d.feed.last_refresh)} ({d.feed.last_status ?? 'never'}) · {d.feed.awaiting_review ? `release ${d.feed.awaiting_review.status} — awaiting review` : 'nothing awaiting review'} · {d.feed.attribution}
+          {d.feeds.map(f => (
+            <Card key={f.source} className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="max-w-[80ch]">
+                  <SectionHead icon={DatabaseZap} className="mb-1">{f.name}</SectionHead>
+                  <div className="text-[12.5px] text-[var(--color-mute)]">{f.note}</div>
+                  <div className="mono text-[11px] text-[var(--color-faint)] mt-2">
+                    checked every {f.cadence_days} days · last check {day(f.last_refresh)} ({f.last_status ?? 'never'}) · {f.awaiting_review ? `release ${f.awaiting_review.status} — awaiting review` : 'nothing awaiting review'} · {f.attribution}
+                  </div>
                 </div>
+                <Button variant="ghost" onClick={() => check(f)} disabled={busy !== null || !!f.awaiting_review}><RefreshCw size={13} /> Check now</Button>
               </div>
-              <Button variant="ghost" onClick={check} disabled={busy || !!d.feed.awaiting_review}><RefreshCw size={13} /> Check FAOSTAT now</Button>
-            </div>
-          </Card>
+            </Card>
+          ))}
 
           <ApproverPolicy />
 
@@ -74,7 +76,7 @@ export default function ReferenceReleases() {
                       <div {...pressable(() => setOpen(open === r.release_id ? null : r.release_id))}
                         className="px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] hover:bg-[var(--color-bg-2)] cursor-pointer">
                         <span className="mono text-[10px] uppercase tracking-wide border rounded px-1.5 py-0.5" style={{ color: STATUS[r.status], borderColor: STATUS[r.status] }}>{r.status}</span>
-                        <span className="text-[var(--color-ink)]">received {day(r.fetched_at)}</span>
+                        <span className="text-[var(--color-ink)]">{r.source} · received {day(r.fetched_at)}</span>
                         <span className="text-[var(--color-mute)] tabular-nums">+{num(r.summary.added, 0)} added · {num(r.summary.revised, 0)} revised · {num(r.summary.recomputed, 0)} recomputed</span>
                         <span className="mono text-[10.5px] text-[var(--color-faint)]">{(r.file_bytes / 1e6).toFixed(1)} MB · sha-256 {r.file_sha256.slice(0, 12)}… · read as {r.reader}</span>
                       </div>
@@ -110,11 +112,12 @@ function ReleaseReview({ r, myId, onDone }: { r: Release; myId: string | null; o
   return (
     <div className="px-5 pb-5 pt-2 bg-[var(--color-bg-2)] space-y-5 text-[12.5px]">
       <div className="grid sm:grid-cols-3 lg:grid-cols-6 gap-3 tabular-nums">
-        {([['rows in file', s.rows_in_file], ['added', s.added], ['revised by FAO', s.revised], ['recomputed (ours)', s.recomputed], ['unchanged', s.unchanged], ['held, not in file', s.held_not_in_file]] as const).map(([k, v]) => (
+        {([['rows in file', s.rows_in_file], ['added', s.added], ['revised by publisher', s.revised], ['recomputed (ours)', s.recomputed], ['unchanged', s.unchanged], ['held, not in file', s.held_not_in_file]] as const).map(([k, v]) => (
           <div key={k}><div className={lbl}>{k}</div><div className="mono text-[15px] text-[var(--color-ink)]">{num(v, 0)}</div></div>
         ))}
       </div>
-      <div className="text-[11.5px] text-[var(--color-faint)] max-w-[90ch]">Revised: FAO changed its production or area for a year already held. Recomputed: only our derived yield or year-on-year changed (one stated rounding rule). Held but not in the file: kept, never deleted.</div>
+      {s.reader_changed_since_last_landed && <div className="text-[12px] text-[var(--color-warn)]">The reading rules changed since the last landed release ({s.last_landed_reader} → {r.reader}): rows added or recomputed here can come from our reading (more countries, a new crop mapping), not from the publisher.</div>}
+      <div className="text-[11.5px] text-[var(--color-faint)] max-w-[90ch]">Revised: the publisher changed its production or area for a year already held. Recomputed: only our derived yield or year-on-year changed (one stated rounding rule). Held but not in the file: kept, never deleted.</div>
 
       <div className="grid lg:grid-cols-2 gap-5">
         <div className="overflow-x-auto">
@@ -126,7 +129,7 @@ function ReleaseReview({ r, myId, onDone }: { r: Release; myId: string | null; o
         </div>
         <div className="space-y-4">
           <div>
-            <div className={lbl}>Largest revisions by FAO</div>
+            <div className={lbl}>Largest revisions by the publisher</div>
             {s.largest_revisions.length === 0 ? <div className="text-[var(--color-faint)]">None — no year already held was revised.</div>
               : s.largest_revisions.map((v, i) => <div key={i} className="mono text-[11.5px] text-[var(--color-mute)]">{v.commodity} {v.country} {v.year}: {num(v.production_before)} → {num(v.production_now)} t ({v.change_pct > 0 ? '+' : ''}{v.change_pct}%)</div>)}
           </div>

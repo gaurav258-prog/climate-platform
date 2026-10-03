@@ -1,4 +1,5 @@
-"""A FAOSTAT crop-production file is landed only after review (E148).
+"""A crop-production file from any reviewed yield source (FAOSTAT, Eurostat … — services.reference.yield_sources) is
+landed only after review (E148, E153).
 
   stage     the scheduled fetch (or an operator) hands in the publisher's file: it is read, compared with what the
             store holds for the same source, and kept as a release — the rows that would be added, revised (the
@@ -19,11 +20,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.reference import faostat_crops as F
+from services.reference.yield_sources import YieldSource
+from services.reference.yield_sources import get as source_get
 
 REQUEST_TYPE = "reference.release_land"
 _FIELDS = ("production_tonnes", "area_harvested_ha", "yield_tonnes_ha", "yoy_change_pct")
@@ -37,6 +40,26 @@ class ReleaseError(ValueError):
 
 class ReleaseNotFound(ReleaseError):
     pass
+
+
+def _src(src: YieldSource | None) -> YieldSource:
+    return src or source_get("faostat")
+
+
+RAW_ROOT = Path(__file__).resolve().parents[2] / "data" / "datasets" / "raw_releases"
+
+
+def keep_raw(ys: YieldSource, data: bytes) -> str:
+    """Keep the publisher's data as received, before it is read (git-ignored data/datasets/raw_releases/<source>/
+    <sha-256>) — a reading problem never costs a new download, and the exact bytes behind a release stay on disk."""
+    sha = hashlib.sha256(data).hexdigest()
+    out = RAW_ROOT / ys.key / sha
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".part")
+        tmp.write_bytes(data)
+        tmp.replace(out)
+    return str(out)
 
 
 def _held(session: Session, src: str) -> dict:
@@ -65,11 +88,13 @@ def _affected_fits(session: Session, changed: dict[tuple[str, str], set[int]]) -
     return out
 
 
-def stage(session: Session, data: bytes, *, last_modified: str | None = None, etag: str | None = None) -> dict:
-    src = F.source()
+def stage(session: Session, data: bytes, *, last_modified: str | None = None, etag: str | None = None,
+          source: YieldSource | None = None) -> dict:
+    ys = _src(source)
+    src = ys.label()
     sha = hashlib.sha256(data).hexdigest()
-    countries = F.iso_by_m49(session)
-    rdr = F.reader(countries)
+    countries = ys.countries(session)
+    rdr = ys.reader(countries)
     seen = session.execute(text("""SELECT release_id::text, status FROM crop_yield_releases
                                    WHERE source = :s AND file_sha256 = :h AND reader = :r"""),
                            {"s": src, "h": sha, "r": rdr}).mappings().first()
@@ -80,7 +105,7 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
                             {"s": src}).scalar()
     if open_:
         raise ReleaseError(f"release {open_} is still open for review — land or reject it before staging another")
-    rows = F.parse(data, countries)
+    rows = ys.parse(data, countries)
     held = _held(session, src)
     added, revised, recomputed, by_commodity, changed = [], [], [], {}, {}
     for r in rows:
@@ -110,7 +135,13 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
     in_file = {(r["commodity"], r["country"], r["season_year"]) for r in rows}
     biggest = sorted((r for r in revised if r["production_tonnes"] is not None and r["held_before"]["production_tonnes"]),
                      key=lambda r: -abs(r["production_tonnes"] / r["held_before"]["production_tonnes"] - 1))[:_TOP]
+    last_landed = session.execute(text("""SELECT reader FROM crop_yield_releases WHERE source = :s AND status = 'landed'
+                                          ORDER BY seq DESC LIMIT 1"""), {"s": src}).scalar()
     summary = {
+        # a different reading of the file (mapping, definitions, countries) — so a reviewer never takes a change of OUR
+        # reading for the publisher revising its figures
+        "reader": rdr, "reader_changed_since_last_landed": last_landed is not None and last_landed != rdr,
+        "last_landed_reader": last_landed,
         "rows_in_file": len(rows), "added": len(added), "revised": len(revised), "recomputed": len(recomputed),
         "unchanged": len(rows) - len(added) - len(revised) - len(recomputed),
         "held_not_in_file": len(set(held) - in_file),
@@ -125,7 +156,7 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
     rid = session.execute(text("""
         INSERT INTO crop_yield_releases (source, file_sha256, file_bytes, origin_url, last_modified, etag, summary, reader)
         VALUES (:s, :h, :n, :u, :lm, :et, CAST(:sum AS jsonb), :rdr) RETURNING release_id::text"""),
-        {"s": src, "h": sha, "n": len(data), "u": F.url(), "lm": last_modified, "et": etag,
+        {"s": src, "h": sha, "n": len(data), "u": ys.url(), "lm": last_modified, "et": etag,
          "sum": json.dumps(summary), "rdr": rdr}).scalar()
     for kind, rs in (("added", added), ("revised", revised), ("recomputed", recomputed)):
         for r in rs:
@@ -146,10 +177,11 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
     return out
 
 
-def pending(session: Session) -> dict | None:
+def pending(session: Session, source: YieldSource | None = None) -> dict | None:
     """The open release of the source (staged or proposed), if any — what the feed monitor shows as awaiting review."""
     r = session.execute(text("""SELECT release_id::text, status, fetched_at FROM crop_yield_releases
-                                WHERE source = :s AND status IN ('staged', 'proposed')"""), {"s": F.source()}).mappings().first()
+                                WHERE source = :s AND status IN ('staged', 'proposed')"""),
+                        {"s": _src(source).label()}).mappings().first()
     return dict(r) if r else None
 
 
@@ -252,41 +284,43 @@ def apply_decision(session: Session, payload: dict, decision: str, checker_user_
     return {"release_id": release_id, "status": "landed", "landed_rows": n}
 
 
-def _last_check(session: Session) -> dict:
+def _last_check(session: Session, ys: YieldSource) -> dict:
     """The publisher's validators as last observed — the latest recorded check, else the latest release's."""
     r = session.execute(text("""SELECT last_modified, etag FROM crop_release_checks WHERE source = :s
-                                ORDER BY check_id DESC LIMIT 1"""), {"s": F.source()}).mappings().first()
+                                ORDER BY check_id DESC LIMIT 1"""), {"s": ys.label()}).mappings().first()
     if r is None:
         r = session.execute(text("""SELECT last_modified, etag FROM crop_yield_releases WHERE source = :s
-                                    ORDER BY seq DESC LIMIT 1"""), {"s": F.source()}).mappings().first()
+                                    ORDER BY seq DESC LIMIT 1"""), {"s": ys.label()}).mappings().first()
     return dict(r) if r else {}
 
 
-def _record_check(session: Session, probe: dict, downloaded: bool, sha: str | None, outcome: str) -> None:
+def _record_check(session: Session, ys: YieldSource, probe: dict, downloaded: bool, sha: str | None, outcome: str) -> None:
     session.execute(text("""
         INSERT INTO crop_release_checks (source, last_modified, etag, changed, downloaded, file_sha256, outcome)
         VALUES (:s, :lm, :et, :ch, :dl, :h, :o)"""),
-        {"s": F.source(), "lm": probe.get("last_modified"), "et": probe.get("etag"), "ch": bool(probe.get("changed")),
+        {"s": ys.label(), "lm": probe.get("last_modified"), "et": probe.get("etag"), "ch": bool(probe.get("changed")),
          "dl": downloaded, "h": sha, "o": outcome[:500]})
 
 
-def refresh(session: Session) -> dict:
-    """The scheduled refresh (feed 'crop_production_faostat'): ask FAOSTAT whether its file changed since the last
-    recorded check (HEAD — E152); only then download and stage it for review. Every check is recorded with what the
-    publisher answered. Nothing lands without the review."""
-    waiting = pending(session)
+def refresh(session: Session, source: YieldSource | None = None) -> dict:
+    """The scheduled refresh of a reviewed yield source: ask the publisher whether its data changed since the last
+    recorded check (a cheap check — E152); only then download and stage it for review. Every check is recorded with
+    what the publisher answered. Nothing lands without the review."""
+    ys = _src(source)
+    waiting = pending(session, ys)
     if waiting:
         return {"staged": False, "release_id": waiting["release_id"],
                 "reason": f"a release is awaiting review ({waiting['status']}) — fetched again after it is decided"}
-    last = _last_check(session)
-    probe = F.published(last.get("last_modified"), last.get("etag"))
+    last = _last_check(session, ys)
+    probe = ys.published(last.get("last_modified"), last.get("etag"))
     if not probe["changed"]:
-        _record_check(session, probe, False, None, "unchanged since the last check")
+        _record_check(session, ys, probe, False, None, "unchanged since the last check")
         session.commit()
-        return {"staged": False, "reason": "FAOSTAT has not published a new file"}
-    data = F.download()
-    out = stage(session, data, last_modified=probe["last_modified"], etag=probe["etag"])
-    _record_check(session, probe, True, hashlib.sha256(data).hexdigest(),
+        return {"staged": False, "reason": f"{ys.label()}: nothing new published"}
+    data = ys.download()
+    keep_raw(ys, data)
+    out = stage(session, data, last_modified=probe["last_modified"], etag=probe["etag"], source=ys)
+    _record_check(session, ys, probe, True, hashlib.sha256(data).hexdigest(),
                   f"staged release {out['release_id']}" if out["staged"] else out["reason"])
     session.commit()
     return out

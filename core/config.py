@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     # Copernicus Climate Data Store (ERA5, GloFAS)
     CDSAPI_URL: str = "https://cds.climate.copernicus.eu/api"
     CDSAPI_KEY: str = ""
+    NASS_API_KEY: str = ""            # USDA NASS Quick Stats (sub-national US yields) — .env only, never committed
+    USDA_FAS_API_KEY: str = ""        # api.data.gov key for USDA FAS PSD — .env only, never committed
 
     # Copernicus Atmosphere Data Store (CAMS) — a SEPARATE service from CDS
     # (different host), confirmed to share the same personal access token as

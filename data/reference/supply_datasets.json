@@ -305,5 +305,60 @@
     "url": "https://dataverse.harvard.edu/api/access/datafile/13827040"
    }
   ]
+ },
+ "cropgrids_v1_08": {
+  "source": "Tang, F.H.M. et al. (2024), CROPGRIDS: a global geo-referenced dataset of 173 crops, Scientific Data 11, 413; figshare doi:10.6084/m9.figshare.22491997 (v1.08)",
+  "licence": "CC BY 4.0",
+  "attribution": "CROPGRIDS (Tang et al. 2024), CC BY 4.0",
+  "version": "v9 (2024-04-24)",
+  "fetched_at": "2026-10-03T22:50:55+00:00",
+  "path": "data/datasets/cropgrids_v1_08",
+  "files": [
+   {
+    "file": "CROPGRIDSv1.08_NC_maps.zip",
+    "bytes": 806855203,
+    "md5": "2773d0b1f83518cf7a4e271a73e62a57",
+    "sha256": "63161d27224ad242bad93585e138f62905d31d11fbfc1745ab95c39c2fb3e130",
+    "url": "https://ndownloader.figshare.com/files/44950942"
+   },
+   {
+    "file": "CODES.zip",
+    "bytes": 553488,
+    "md5": "bd757a604255994a2c65f996e80ca521",
+    "sha256": "6f81b70d89b8ef57fc095b8f9c40f2de36573dbabd119b70de7c411fe3003533",
+    "url": "https://ndownloader.figshare.com/files/44950360"
+   }
+  ]
+ },
+ "mirca_os_2015_crop_calendars": {
+  "source": "Kebede, E.A. et al. (2025), A global open-source dataset of monthly irrigated and rainfed cropped areas (MIRCA-OS) for the 21st century, Scientific Data; HydroShare doi:10.4211/hs.60a890eb841c460192c03bb590687145",
+  "licence": "CC BY 4.0",
+  "attribution": "MIRCA-OS (Kebede et al. 2025), CC BY 4.0",
+  "version": "updated 2026-07-07",
+  "fetched_at": "2026-10-03T22:51:26+00:00",
+  "path": "data/datasets/mirca_os_2015_crop_calendars",
+  "files": [
+   {
+    "file": "MIRCA-OS_2015_ir.csv",
+    "bytes": 8614950,
+    "md5": "03aa8133ee85854a5224aca834600407",
+    "sha256": "f1471d98bd6c696404f914eefd89ce1a32073aebd569bd5088519f75f2e92c0d",
+    "url": "http://www.hydroshare.org/resource/60a890eb841c460192c03bb590687145/data/contents/Crop%20Calendar/MIRCA-OS_2015_ir.csv"
+   },
+   {
+    "file": "MIRCA-OS_2015_rf.csv",
+    "bytes": 8653830,
+    "md5": "406ee91a4f5b82a23aa968d7e0c40e1c",
+    "sha256": "0422f7a688a33bedf3274568ed38071cfc97862882c501136c8425cb4ff4f81d",
+    "url": "http://www.hydroshare.org/resource/60a890eb841c460192c03bb590687145/data/contents/Crop%20Calendar/MIRCA-OS_2015_rf.csv"
+   },
+   {
+    "file": "README_crop_calendars.txt",
+    "bytes": 1443,
+    "md5": "7cef6da34c77bdc0053d6648a5843f76",
+    "sha256": "0d1d57bab9ba6cda61720cb40e7ca9af73f56fcb5e1448fbb194b78a17da1d38",
+    "url": "http://www.hydroshare.org/resource/60a890eb841c460192c03bb590687145/data/contents/Crop%20Calendar/README_crop_calendars.txt"
+   }
+  ]
  }
 }

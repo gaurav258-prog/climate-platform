@@ -1,0 +1,84 @@
+{
+ "source": "USDA Foreign Agricultural Service — Production, Supply and Distribution (PSD) database, api.fas.usda.gov",
+ "url": "https://api.fas.usda.gov/api/psd",
+ "store_source": "USDA FAS PSD",
+ "attributes": {
+  "area": 4,
+  "prod": 28,
+  "yield": 184
+ },
+ "units": {
+  "8": {
+   "label": "(1000 MT)",
+   "dim": "mass",
+   "factor": 1000
+  },
+  "21": {
+   "label": "(MT)",
+   "dim": "mass",
+   "factor": 1
+  },
+  "22": {
+   "label": "(MT, Net Weight)",
+   "dim": "mass",
+   "factor": 1
+  },
+  "14": {
+   "label": "(KG)",
+   "dim": "mass",
+   "factor": 0.001
+  },
+  "2": {
+   "label": "(1000 60 KG BAGS)",
+   "dim": "mass",
+   "factor": 60
+  },
+  "4": {
+   "label": "(1000 HA)",
+   "dim": "area",
+   "factor": 1000
+  },
+  "12": {
+   "label": "(HA)",
+   "dim": "area",
+   "factor": 1
+  },
+  "13": {
+   "label": "(HECTARES)",
+   "dim": "area",
+   "factor": 1
+  },
+  "26": {
+   "label": "(MT/HA)",
+   "dim": "yield",
+   "factor": 1
+  },
+  "29": {
+   "label": "(KG/HA)",
+   "dim": "yield",
+   "factor": 0.001
+  },
+  "10": {
+   "label": "(1000 TREES)",
+   "dim": "count",
+   "factor": null
+  },
+  "17": {
+   "label": "(MILLION TREES)",
+   "dim": "count",
+   "factor": null
+  }
+ },
+ "first_market_year": 1991,
+ "rules": [
+  "countries: FAS country codes are FIPS; each is matched through its GENC code (ISO 3166 alpha-3) to the country reference — entries without one (regions, 'European Union' E4, 'Others') are not countries",
+  "season_year is FAS's MARKET year (the year the marketing year begins), not a calendar year",
+  "yield is FAS's published yield where it is in MT/HA, else derived as production / area",
+  "every unit is converted only by this table (dim + factor to tonnes, hectares or t/ha); a known unit of another dimension for a field (e.g. trees for area) leaves that field unread; a unit not listed is refused, never guessed"
+ ],
+ "field_dims": {
+  "prod": "mass",
+  "area": "area",
+  "yield": "yield"
+ }
+}

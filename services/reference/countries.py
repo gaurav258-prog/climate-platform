@@ -22,7 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest.fields import norm_token
-from services.reference.iso_country import ISO_ALPHA2
+from services.reference.iso_country import GROUPINGS, ISO_ALPHA2
 
 CLDR_VERSION = "48.0.0"   # latest stable; bump on each CLDR release (e.g. 48 carries Bulgaria's euro from 2026-01-01)
 _BASE = f"https://raw.githubusercontent.com/unicode-org/cldr-json/{CLDR_VERSION}/cldr-json"
@@ -72,7 +72,8 @@ def build(names_by_locale: dict[str, dict], code_mappings: dict, currency_data: 
         m = code_mappings.get(iso2, {})
         ccy, since = _current_currency(currency_data.get(iso2, []), iso2)
         countries.append({"iso2": iso2, "iso3": m.get("_alpha3"), "numeric_code": m.get("_numeric"), "name_en": en[iso2],
-                          "currency": ccy, "currency_from": since, "source_version": f"CLDR {CLDR_VERSION}"})
+                          "currency": ccy, "currency_from": since, "source_version": f"CLDR {CLDR_VERSION}",
+                          "is_country": iso2 not in GROUPINGS})
     known = {c["iso2"] for c in countries}
 
     cands: dict[str, set] = {}
@@ -106,11 +107,13 @@ def refresh(session: Session) -> dict:
     currencies = _get("cldr-core/supplemental/currencyData.json")["supplemental"]["currencyData"]["region"]
     countries, rows = build(names, codes, currencies)
     session.execute(text("""
-        INSERT INTO ref_countries (iso2, iso3, numeric_code, name_en, currency, currency_from, source_version, loaded_at)
-        VALUES (:iso2, :iso3, :numeric_code, :name_en, :currency, CAST(:currency_from AS date), :source_version, now())
+        INSERT INTO ref_countries (iso2, iso3, numeric_code, name_en, currency, currency_from, source_version, is_country,
+                                   loaded_at)
+        VALUES (:iso2, :iso3, :numeric_code, :name_en, :currency, CAST(:currency_from AS date), :source_version,
+                :is_country, now())
         ON CONFLICT (iso2) DO UPDATE SET iso3 = EXCLUDED.iso3, numeric_code = EXCLUDED.numeric_code,
                name_en = EXCLUDED.name_en, currency = EXCLUDED.currency, currency_from = EXCLUDED.currency_from,
-               source_version = EXCLUDED.source_version, loaded_at = now()
+               source_version = EXCLUDED.source_version, is_country = EXCLUDED.is_country, loaded_at = now()
     """), countries)
     session.execute(text("DELETE FROM ref_country_names"))
     session.execute(text("""INSERT INTO ref_country_names (name_norm, iso2, name, locale, kind)
