@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { displayNote } from '../lib/money'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope, Building2 } from 'lucide-react'
+import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope, Building2, DatabaseZap } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -107,6 +107,7 @@ const GROUPS: Group[] = [
     { to: '/platform', label: 'Tenants', icon: Network, perm: 'platform.admin' },
     { to: '/intake', label: 'Client intake', icon: UserPlus, perm: 'onboarding.manage' },
     { to: '/reg-pipeline', label: 'Change pipeline', icon: GitBranch, perm: 'platform.admin' },
+    { to: '/reference-data', label: 'Reference data', icon: DatabaseZap, perm: 'reference.release_review' },
   ] },
 ]
 

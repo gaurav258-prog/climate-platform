@@ -175,6 +175,8 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     if row["request_type"] in RETIRED_TYPES and body.decision == "approved":
         raise HTTPException(410, {"error": "retired", "message": RETIRED_TYPES[row["request_type"]]
                                   + " Reject this request to close it; its draft is closed with it."})
+    if row["request_type"] == "reference.release_land" and "reference.release_review" not in ctx["permissions"]:
+        raise HTTPException(403, {"error": "forbidden", "message": "Missing permission: reference.release_review"})
     if row["request_type"] == "submission.release" and "submissions.release" not in ctx["permissions"]:
         raise HTTPException(403, {"error": "forbidden",
                                   "message": "Missing permission: submissions.release"})
@@ -255,6 +257,15 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     elif row["request_type"] == "filing.legal_hold_lift":
         from services.governance.record_retention import apply_lift
         applied = apply_lift(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
+    # A reference data release (FAOSTAT crop production, E148): approved → its rows land in the store; otherwise it
+    # closes unlanded. The maker reviewed the difference; the checker is the second operator.
+    elif row["request_type"] == "reference.release_land":
+        from services.reference.crop_releases import ReleaseError
+        from services.reference.crop_releases import apply_decision as apply_release
+        try:
+            applied = apply_release(session, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
+        except ReleaseError as e:
+            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
     elif row["request_type"] == "intake.conflict":
         from services.intake.conflicts import apply_decision as apply_conflict
         applied = apply_conflict(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])

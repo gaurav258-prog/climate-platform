@@ -198,6 +198,13 @@ FEEDS: list[dict] = [
      "attribution": "© World Bank — Commodity Markets 'Pink Sheet' (CC BY 4.0)",
      "note": "Monthly commodity + fertiliser prices (1960→), keyless. Used for input-cost pressure and cost-of-goods "
              "validation — 33 commodities. Updates monthly; refreshed automatically."},
+    {"key": "crop_production_faostat", "name": "FAOSTAT crop production (QCL)", "category": "reference",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: FAO, FAOSTAT — Crops and livestock products (CC BY 4.0)",
+     "note": "Production, area and yield per country and year for the mapped crops and origins (1961→), the input of the "
+             "crop calibrations, realised-exposure and world-crop views. Checked monthly for a new file (FAO publishes "
+             "about once a year and revises earlier years); a new file is staged with its difference and lands only "
+             "after two platform operators review it (E148)."},
     {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
@@ -288,6 +295,7 @@ def feed_freshness(session: Session) -> list[dict]:
     last = {r["feed_key"]: r for r in rows}
     now = datetime.now(timezone.utc)
     out = []
+    waiting = _awaiting_review(session)
     for f in FEEDS:
         r = last.get(f["key"])
         lr = r["last_refresh"] if r else None
@@ -299,8 +307,17 @@ def feed_freshness(session: Session) -> list[dict]:
                     "next_due_days": (round(max(0.0, f["cadence_days"] - days), 1) if days is not None else None),
                     "last_status": r["last_status"] if r else None,
                     "last_by": ("auto" if (r and r["actor_user_id"] is None) else "manual") if r else None,
-                    "status": status})
+                    "status": status,
+                    # a reviewed feed (E148): a fetched release that has not landed yet — the store still holds the
+                    # previous data until two operators approve it
+                    "awaiting_review": waiting.get(f["key"]) if f.get("review") else None})
     return out
+
+
+def _awaiting_review(session: Session) -> dict:
+    from services.reference.crop_releases import pending
+    p = pending(session)
+    return {"crop_production_faostat": ({**p, "fetched_at": p["fetched_at"].isoformat()} if p else None)}
 
 
 def overdue_basis_feeds(session: Session) -> list[dict]:
@@ -385,6 +402,14 @@ def _hook_reference_countries(session: Session) -> None:
 
 
 register_refresh_hook("reference_countries", _hook_reference_countries)
+
+
+def _hook_crop_production_faostat(session: Session) -> None:
+    from services.reference.crop_releases import refresh
+    refresh(session)                     # stages a new file for review; never lands it
+
+
+register_refresh_hook("crop_production_faostat", _hook_crop_production_faostat)
 register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)

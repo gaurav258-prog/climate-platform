@@ -42,3 +42,12 @@ def test_the_retired_narrative_columns_stay_retired():
         up = src[src.find("def upgrade"):src.find("def downgrade")]
         if p.name not in created_by:
             assert not re.search(r"ADD COLUMN[^;\"]{0,40}\b(p3esg|sfdr)_narratives\b", up), p.name
+
+
+def test_faostat_crop_production_lands_only_through_its_review():
+    """E148: FAOSTAT rows reach crop_yield_observations only through services.reference.crop_releases (staged, reviewed
+    by two operators) — no script or service writes them straight in."""
+    writers = _users(r"(INSERT INTO|UPDATE|DELETE FROM) crop_yield_observations")
+    labelled = re.compile(r"""["']FAOSTAT""")         # a FAOSTAT source label in code (comments may name FAOSTAT)
+    faostat = {w for w in writers if labelled.search((ROOT / w).read_text(errors="ignore")) or "faostat" in w}
+    assert faostat <= {"services/reference/crop_releases.py"}, faostat

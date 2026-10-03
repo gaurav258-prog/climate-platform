@@ -2,8 +2,10 @@
 
 Idempotent. Creates:
   - a 'Tellumen (platform)' organization (type='platform') — the home org for staff accounts,
-  - a 'platform-operator' role holding platform.admin + portal.use,
-  - ops@tellumen.io / Demo!ops1 with that role.
+  - a 'platform-operator' role holding platform.admin + portal.use + onboarding.manage, and the reference-release
+    review (reference.release_review with approvals.view / create / decide in its own organisation, E148),
+  - ops@tellumen.io / Demo!ops1 and ops2@tellumen.io / Demo!ops2 with that role — two operators, so a reference
+    release can be proposed by one and approved by the other (four eyes, E148).
 
 The operator is the ONLY account that can read the cross-tenant /v1/ops console.
 Run: .venv/bin/python -m scripts.seed_platform_operator
@@ -36,17 +38,20 @@ def main() -> None:
     s.execute(text("""
         INSERT INTO role_permissions (role_id, permission_id)
         SELECT :r, permission_id FROM permissions WHERE code = ANY(:c) ON CONFLICT DO NOTHING
-    """), {"r": str(rid), "c": ["platform.admin", "portal.use"]})
+    """), {"r": str(rid), "c": ["platform.admin", "portal.use", "onboarding.manage", "approvals.view",
+                                "approvals.create", "approvals.decide", "reference.release_review"]})
 
-    # 3) operator user
-    uid = s.execute(text("SELECT user_id FROM users WHERE email='ops@tellumen.io'")).scalar()
-    if not uid:
-        uid = str(uuid.uuid4())
-        s.execute(text("""
-            INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status, created_at)
-            VALUES (:i,:o,'ops@tellumen.io','platform-operator','Otto Operator (Tellumen)',:h,'active',now())
-        """), {"i": uid, "o": PLATFORM_ORG, "h": hash_password("Demo!ops1")})
-    s.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:u,:r) ON CONFLICT DO NOTHING"), {"u": str(uid), "r": str(rid)})
+    # 3) operator users (demo credentials — local development only)
+    for email, name, pw in (("ops@tellumen.io", "Otto Operator (Tellumen)", "Demo!ops1"),
+                            ("ops2@tellumen.io", "Olga Operator (Tellumen)", "Demo!ops2")):
+        uid = s.execute(text("SELECT user_id FROM users WHERE email = :e"), {"e": email}).scalar()
+        if not uid:
+            uid = str(uuid.uuid4())
+            s.execute(text("""
+                INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status, created_at)
+                VALUES (:i, :o, :e, 'platform-operator', :n, :h, 'active', now())
+            """), {"i": uid, "o": PLATFORM_ORG, "e": email, "n": name, "h": hash_password(pw)})
+        s.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:u,:r) ON CONFLICT DO NOTHING"), {"u": str(uid), "r": str(rid)})
     s.commit()
     perms = s.execute(text("""
         SELECT array_agg(DISTINCT p.code) FROM users u JOIN user_roles ur ON ur.user_id=u.user_id

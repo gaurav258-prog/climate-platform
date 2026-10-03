@@ -1,49 +1,20 @@
 """
 Ingest crop-yield ground truth (the agriculture AI layer's labels).
 
-Two sources, in priority order per (commodity, country, season):
-  1. FAOSTAT QCL API (live, authoritative) — production/area/yield. Best-effort: the
-     endpoint is sometimes unreachable from restricted networks; failures are caught.
-  2. A CURATED, SOURCED seed of the key cocoa/coffee anchors (ICCO / ICO figures),
-     including the cocoa 2023/24 shock, so the backtest has real labels even offline.
+A CURATED, SOURCED seed of the key cocoa/coffee anchors (ICCO / ICO figures), including the cocoa 2023/24 shock, so
+the backtest has real labels even offline.
 
-Writes crop_yield_observations and derives yoy_change_pct within each (commodity,country)
-series. Idempotent (UNIQUE key upsert). Run: .venv/bin/python scripts/ingest_crop_yield.py
+FAOSTAT is not loaded here: it arrives only as a reviewed release (services.reference.crop_releases, E148) — the
+FAOSTAT API branch this script had (endpoint answering 401) is removed.
+
+Writes crop_yield_observations for its own curated sources and derives yoy_change_pct within each (commodity, country,
+source) series of THOSE rows only — never across sources, never touching another source's rows (it used to recompute
+every row of the table, FAOSTAT's included, across mixed series; E148). Idempotent (UNIQUE key upsert).
+Run: .venv/bin/python scripts/ingest_crop_yield.py
 """
-import json
-import urllib.request
-
 from sqlalchemy import text
 
 from core.db.session import get_session
-
-# ── FAOSTAT QCL (live, best-effort) ──────────────────────────────────────────
-# area codes (FAO): Ghana 81, Côte d'Ivoire 107, Nigeria 159, Cameroon 32, Brazil 21.
-# item codes: cocoa beans 661, coffee green 656.  element: production 5510 (t).
-FAOSTAT = "https://fenixservices.fao.org/faostat/api/v1/en/data/QCL"
-FAO_AREAS = {"81": "GH", "107": "CI", "159": "NG", "32": "CM", "21": "BR"}
-FAO_ITEMS = {"661": "cocoa", "656": "coffee_green"}
-
-
-def fetch_faostat(years="2015:2024", timeout=25):
-    """Return list of (commodity, iso2, season_year, production_tonnes, source) or []."""
-    out = []
-    ua = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-    q = (f"{FAOSTAT}?area={','.join(FAO_AREAS)}&item={','.join(FAO_ITEMS)}"
-         f"&element=5510&year={years}&output_type=objects")
-    try:
-        d = json.load(urllib.request.urlopen(urllib.request.Request(q, headers=ua), timeout=timeout))
-        for r in d.get("data", []):
-            iso = FAO_AREAS.get(str(r.get("Area Code")))
-            com = FAO_ITEMS.get(str(r.get("Item Code")))
-            if not iso or not com or r.get("Value") in (None, ""):
-                continue
-            out.append((com, iso, int(r["Year"]), float(r["Value"]), "FAOSTAT QCL"))
-        print(f"  FAOSTAT: {len(out)} rows")
-    except Exception as e:
-        print(f"  FAOSTAT unavailable ({type(e).__name__}) — using curated seed only")
-    return out
-
 
 # ── Curated seed (published anchors; verify vs FAOSTAT when reachable) ────────
 # production in TONNES, season_year = crop-year end. Sources in the `source` string.
@@ -70,9 +41,8 @@ CURATED = [
 
 
 def main():
-    live = fetch_faostat()
-    rows = [(c, iso, yr, prod, src, None) for (c, iso, yr, prod, src) in live] + \
-           [(c, iso, yr, prod, src, note) for (c, iso, yr, prod, src, note) in CURATED]
+    rows = list(CURATED)
+    sources = sorted({r[4] for r in CURATED})
 
     with get_session() as s:
         for com, iso, yr, prod, src, note in rows:
@@ -83,20 +53,20 @@ def main():
                 DO UPDATE SET production_tonnes=EXCLUDED.production_tonnes, note=EXCLUDED.note, ingested_at=now()
             """), {"c": com, "i": iso, "y": yr, "p": prod, "s": src, "n": note})
 
-        # derive YoY change within each (commodity, country) series (prefer FAOSTAT, else any)
+        # derive YoY within each (commodity, country, source) series of this script's own sources only
         s.execute(text("""
             WITH ordered AS (
-                SELECT obs_id, commodity, country, season_year, production_tonnes,
-                       LAG(production_tonnes) OVER (PARTITION BY commodity, country ORDER BY season_year) AS prev
-                FROM crop_yield_observations
+                SELECT obs_id, production_tonnes,
+                       LAG(production_tonnes) OVER (PARTITION BY commodity, country, source ORDER BY season_year) AS prev
+                FROM crop_yield_observations WHERE source = ANY(:src)
             )
             UPDATE crop_yield_observations t
             SET yoy_change_pct = round((100.0 * (o.production_tonnes - o.prev) / NULLIF(o.prev,0))::numeric, 1)
             FROM ordered o WHERE o.obs_id = t.obs_id AND o.prev IS NOT NULL
-        """))
+        """), {"src": sources})
 
         n = s.execute(text("SELECT count(*) FROM crop_yield_observations")).scalar()
-        print(f"seeded crop_yield_observations: {n} rows ({len(CURATED)} curated + {len(live)} FAOSTAT)")
+        print(f"seeded crop_yield_observations: {n} rows ({len(CURATED)} curated)")
         print("  flagship label — world cocoa YoY:")
         for r in s.execute(text("""
             SELECT season_year, production_tonnes, yoy_change_pct
