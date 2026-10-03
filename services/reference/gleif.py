@@ -186,6 +186,33 @@ def fetch_lei(lei: str) -> Optional[GleifRecord]:
     return _parse_record(data)
 
 
+class LeiError(ValueError):
+    """An LEI that cannot be stored: malformed, failing its check digits, not in GLEIF, or GLEIF unreachable."""
+
+
+def lei_check_digits_ok(lei: str) -> bool:
+    """ISO 17442: 20 characters, the last two check digits per ISO 7064 MOD 97-10 (letters A=10 … Z=35; the whole
+    code read as a number ≡ 1 mod 97)."""
+    if len(lei) != 20 or not lei.isalnum() or not lei[-2:].isdigit():
+        return False
+    return int("".join(str(int(c, 36)) for c in lei)) % 97 == 1
+
+
+def verified_lei(lei: str) -> GleifRecord:
+    """The one check every stored LEI passes (organisation, tenant, filing profile, fund): well-formed with valid check
+    digits, and a record in GLEIF. GLEIF unreachable is refused, never stored unverified (E143)."""
+    code = (lei or "").strip().upper()
+    if not lei_check_digits_ok(code):
+        raise LeiError(f"'{code}' is not a valid LEI — 20 characters with ISO 17442 check digits")
+    try:
+        rec = fetch_lei(code)
+    except GleifError as e:
+        raise LeiError("GLEIF could not be reached to verify the LEI — nothing was changed; try again") from e
+    if rec is None:
+        raise LeiError(f"LEI {code} is not in GLEIF")
+    return rec
+
+
 def registered_address(rec: GleifRecord) -> Optional[str]:
     """A one-line registered/HQ address from a GLEIF record — for pre-filling an operator address.
     GLEIF gives structured address parts (no free-form line); we join what's present, honestly partial."""

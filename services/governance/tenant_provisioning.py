@@ -117,6 +117,15 @@ def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org
     if session.execute(text("SELECT 1 FROM organizations WHERE lower(name) = lower(:n)"), {"n": name}).first():
         raise TenantError(f"a tenant named '{name}' already exists")
 
+    if (lei or "").strip():                  # the one LEI check (E143)
+        from services.reference import gleif
+        try:
+            lei = gleif.verified_lei(lei).lei
+        except gleif.LeiError as e:
+            raise TenantError(str(e)) from e
+    else:
+        lei = None
+
     offerings = entitlements if entitlements is not None else DEFAULT_ENTITLEMENTS.get(org_type, ["trust"])
 
     # 1) the org (identity stamped where supplied — the rest fills in via the GLEIF identity step)

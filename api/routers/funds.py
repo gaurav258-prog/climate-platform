@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from typing import Annotated, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -90,6 +91,55 @@ def list_funds(session: DbSession, org_id: OrgId,
             "waci": summ.get("pai", {}).get("pai", {}).get("pai_3_waci_tco2e_per_meur"),
         })
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon, "funds": out}
+
+
+class FundCreate(BaseModel):
+    """A fund as the manager states it (E144): its name, what it is, the SFDR article it discloses under (Regulation
+    (EU) 2019/2088 Art. 6, 8 or 9 — the manager's classification, never defaulted), its base currency (ISO 4217); a
+    sub-portfolio names the fund it belongs to; a fund LEI is optional and verified against GLEIF like every LEI."""
+    name: str = Field(..., min_length=2, max_length=200)
+    fund_type: str = Field(..., pattern="^(fund|sub_portfolio|mandate|fund_of_funds)$")
+    sfdr_classification: str = Field(..., pattern="^article_(6|8|9)$")
+    base_currency: str = Field(..., min_length=3, max_length=3)
+    parent_fund_id: Optional[UUID] = None
+    lei: Optional[str] = Field(None, max_length=20)
+
+
+@router.post("/funds", status_code=201, summary="Create a fund (name, type, SFDR article, base currency)")
+def create_fund(body: FundCreate, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from api.services.rbac import write_audit
+    from services.reference import iso4217
+    org_id = ctx["org"]["org_id"]
+    name = body.name.strip()
+    ccy = body.base_currency.strip().upper()
+    if ccy not in iso4217.codes():
+        raise _fail(422, f"'{body.base_currency}' is not an ISO 4217 currency in circulation", code="bad_currency")
+    if session.execute(text("SELECT 1 FROM funds WHERE org_id = :o AND lower(name) = lower(:n)"),
+                       {"o": org_id, "n": name}).first():
+        raise _fail(409, f"a fund named '{name}' already exists", code="duplicate_fund")
+    parent = str(body.parent_fund_id) if body.parent_fund_id else None
+    if (body.fund_type == "sub_portfolio") != (parent is not None):
+        raise _fail(422, "a sub-portfolio names the fund it belongs to (parent_fund_id); another fund type has none",
+                    code="bad_parent")
+    if parent:
+        own_or_404(session, "funds", "fund_id", parent, org_id, "Parent fund")
+    lei = None
+    if (body.lei or "").strip():
+        try:
+            lei = gleif.verified_lei(body.lei).lei
+        except gleif.LeiError as e:
+            raise _fail(422, str(e), code="invalid_lei") from e
+    fid = session.execute(text("""
+        INSERT INTO funds (org_id, name, fund_type, sfdr_classification, base_currency, parent_fund_id, lei)
+        VALUES (:o, :n, :t, :a, :c, CAST(:p AS uuid), :lei) RETURNING fund_id::text"""),
+        {"o": org_id, "n": name, "t": body.fund_type, "a": body.sfdr_classification, "c": ccy, "p": parent,
+         "lei": lei}).scalar()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="fund.created", target_type="fund",
+                target_id=fid, detail={"name": name, "fund_type": body.fund_type,
+                                       "sfdr_classification": body.sfdr_classification, "base_currency": ccy,
+                                       "parent_fund_id": parent, "lei": lei})
+    return {"fund_id": fid, "name": name, "fund_type": body.fund_type, "sfdr_classification": body.sfdr_classification,
+            "base_currency": ccy, "parent_fund_id": parent, "lei": lei}
 
 
 @router.get("/funds/{fund_id}", summary="Fund climate report — physical + transition + SFDR PAI")
@@ -191,6 +241,9 @@ class Holding(BaseModel):
 class HoldingsUpload(BaseModel):
     as_of_date: Optional[date] = None
     holdings: list[Holding]
+    # the file states the fund's COMPLETE book on as_of_date: a position held on that date and not in it (sold) is
+    # removed — refused unless every line was positioned (E145). Without it a file adds to / updates the date's book.
+    complete_book: bool = False
 
 
 def _issuer_financials_eur(session, h: "Holding", org_id: str | None = None) -> dict:
@@ -376,8 +429,14 @@ def holdings_template():
         headers={"Content-Disposition": 'attachment; filename="tellumen_holdings_template.csv"'})
 
 
+def _actor_id(ctx: dict = Depends(require_permission("approvals.create"))) -> str:
+    """The signed-in preparer, for the audit of what an upload removes."""
+    return ctx["user"]["id"]
+
+
 @router.post("/funds/{fund_id}/holdings", summary="Onboard holdings by ISIN — resolve, locate, and value-weight into the fund")
-def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org_id: WriterOrgId):
+def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org_id: WriterOrgId,
+                     actor_id: Annotated[Optional[str], Depends(_actor_id)] = None):
     """The 'upload ISINs alone' action.
 
     For each holding we (1) resolve the ISIN to an issuer+security from open data
@@ -447,6 +506,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     total_value = sum(h.market_value_eur for h in by_isin.values()) or 1.0
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
+    positioned: set[str] = set()
     enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0, "voluntary": 0}
     voluntary_rejected: list[dict] = []
     for isin, h in by_isin.items():
@@ -506,6 +566,26 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         """), {"f": fund_id, "s": res.security_id, "mv": h.market_value_eur,
                "mvb": pos_base, "ccy": pos_ccy, "w": weight, "d": as_of})
         positions_created += 1
+        positioned.add(str(res.security_id))
+
+    removed: list[dict] = []
+    if body.complete_book:
+        failed = [r["isin"] for r in resolutions if r["status"] not in ("resolved", "cached")] + fx_errors
+        if failed or len(positioned) != len(by_isin):
+            raise _fail(422, "A complete book must position every line — nothing was changed. Not positioned: "
+                             + ", ".join(map(str, failed or ["a line without a security"])), code="incomplete_book")
+        removed = [dict(r) for r in session.execute(text("""
+            DELETE FROM fund_positions p USING securities s
+            WHERE p.fund_id = :f AND p.as_of_date = :d AND s.security_id = p.security_id
+              AND NOT (p.security_id::text = ANY(:keep))
+            RETURNING s.isin, s.name, CAST(p.market_value_eur AS FLOAT) AS market_value_eur"""),
+            {"f": fund_id, "d": as_of, "keep": sorted(positioned)}).mappings()]
+        if removed:
+            from api.services.rbac import write_audit
+            write_audit(session, org_id=org_id, actor_user_id=actor_id, action="fund.positions_removed",
+                        target_type="fund", target_id=fund_id,
+                        detail={"as_of_date": as_of.isoformat(), "reason": "not in the complete book uploaded",
+                                "positions": removed})
 
     matched = sum(1 for r in resolutions if r["status"] in ("resolved", "cached"))
     # a held ISIN that is one of this manager's OWN share classes is a fund held by a fund: say which, so it can be
@@ -517,6 +597,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         "fund_id": fund_id, "as_of_date": as_of.isoformat(),
         "holdings_submitted": len(body.holdings), "distinct_isins": len(by_isin),
         "positions_created": positions_created,
+        "positions_removed": removed,                 # complete_book: positions on the date not in the file (sold)
         "voluntary_rejected": voluntary_rejected,   # indicator values refused (unknown indicator / wrong kind of value)
         "coverage": {
             "matched": matched,
@@ -879,9 +960,10 @@ def set_filing_profile(body: FilingProfile, session: DbSession,
                        ctx: dict = Depends(require_permission("approvals.create"))):
     org_id = ctx["org"]["org_id"]
     lei = (body.lei or "").strip().upper()
-    rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
-    if not rec:
-        raise _fail(422, "LEI not found in GLEIF — supply a valid 20-character LEI.", code="invalid_lei")
+    try:
+        rec = gleif.verified_lei(lei)
+    except gleif.LeiError as e:
+        raise _fail(422, str(e), code="invalid_lei") from e
     if body.narratives is not None:     # one set for every period answered nothing the Regulation asks, item by item
         raise _fail(422, "The PAI statement is answered per reference period, item by item as Articles 5 to 9 of "
                          "Delegated Regulation (EU) 2022/1288 require — use the statement's answers.", code="retired")
@@ -903,12 +985,28 @@ def set_filing_profile(body: FilingProfile, session: DbSession,
 def set_fund_lei(fund_id: str, body: FilingProfile, session: DbSession, org_id: WriterOrgId):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     lei = (body.lei or "").strip().upper()
-    rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
-    if not rec:
-        raise _fail(422, "LEI not found in GLEIF.", code="invalid_lei")
+    try:
+        rec = gleif.verified_lei(lei)
+    except gleif.LeiError as e:
+        raise _fail(422, str(e), code="invalid_lei") from e
     session.execute(text("UPDATE funds SET lei = :lei, updated_at = now() WHERE fund_id = :f"),
                     {"lei": lei, "f": fund_id})
     return {"ok": True, "lei": lei, "validated_name": rec.name}
+
+
+class WithdrawBody(BaseModel):
+    reason: str = Field(..., max_length=1000)
+
+
+@router.post("/issuers/{issuer_id}/client-data/withdraw",
+             summary="Withdraw the data your organisation stated about an issuer (audited, with the reason)")
+def withdraw_issuer_data(issuer_id: UUID, body: WithdrawBody, session: DbSession,
+                         ctx: dict = Depends(require_permission("approvals.create"))):
+    from services import issuer_client_data as W
+    try:
+        return W.withdraw(session, ctx["org"]["org_id"], str(issuer_id), body.reason, ctx["user"]["id"])
+    except W.WithdrawError as e:
+        raise _fail(404 if isinstance(e, W.NothingToWithdraw) else 422, str(e), code="withdraw") from e
 
 
 @router.get("/issuers/{issuer_id}", summary="One issuer — full facility footprint + physical + transition detail")
@@ -966,4 +1064,10 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
         "transition": trans,
         "emissions": dict(emissions) if emissions else None,
         "facilities": [{**dict(f), "scores": by_fac.get(f["facility_id"], [])} for f in facilities],
+        "own_data": _own_issuer_data(session, org_id, issuer_id),   # what this organisation stated (withdrawable, E146)
     }
+
+
+def _own_issuer_data(session, org_id: str, issuer_id: str) -> dict[str, int]:
+    from services.issuer_client_data import held
+    return {t: n for t, n in held(session, org_id, issuer_id).items() if n}

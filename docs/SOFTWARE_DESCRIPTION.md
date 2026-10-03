@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.194 |
+| Version | 2.196 |
 | Last updated | 2026-10-03 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,8 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-03 | 2.196 | **Demo holds fictional companies only (E147); retired drafts closed.** Nordkap's funds now hold the fictional demo issuers on every date and its made-up figures about 17 real companies are withdrawn (audited); its stale PAI filing returned and withdrawn; the 11 demo filings of retired report types still in review returned (four eyes) and withdrawn. Every demo fund's SFDR periodic document is complete except the fund LEI, a named gap (fictional funds have none). |
+| 2026-10-03 | 2.195 | **Funds, books and identities (E143–E146).** One LEI check (check digits + GLEIF) on every LEI the platform stores; POST /v1/funds and a 'New fund' form; a holdings file can state the complete book on its date, removing what was sold (audited); an organisation withdraws the data it stated about an issuer (audited, with the reason) from the issuer drawer. |
 | 2026-10-03 | 2.194 | **Fossil gas / nuclear facts, the supervisory undertaking choice (E141, E142).** The holdings upload states the fossil gas and nuclear parts of an investee's aligned share (turnover and CapEx, 2022/1214 Annex XII); the SFDR periodic fossil gas / nuclear question is answered only from stated parts, never 'no' by default. The Supervisory view chooses which undertaking's ESRS statement answers the national authority's questions when more than one prepares one; entity ids on the supervisory and KRI routes are validated. |
 | 2026-10-03 | 2.193 | **Foundation fixes found by the demo seeding (E136–E140).** PAI 6 completeness measured against the high-impact holdings it applies to; ESRS ratio comparatives derived from the previous period's attested inputs; every route commits before its response is sent (an id returned is an id saved); an exempt subsidiary gets one finding and no ESRS filing; five integration tests set up their own state instead of reading the demo's. |
 | 2026-10-03 | 2.192 | **Demo data for every demo company.** Agri: ESRS E1/E3/E4 statements for FY2025 for all nine agri companies (Terra per undertaking; its two exempt subsidiaries point to the group report) and EUDR data; asset managers: two demo funds each with four quarter-ends of holdings, demo issuer PAI and Taxonomy facts, PAI statement answers and periodic documents; insurers: attested FY2025 capital and treaties; bank entities' text; retired-report drafts withdrawn where the app's lifecycle allows (scripts/seed_demo_agri_esrs.py, seed_demo_agri_eudr.py, seed_demo_asset_managers.py, seed_demo_insurers_entities.py, withdraw_retired_demo_drafts.py — demo data, fictional companies, through the app's routes). |

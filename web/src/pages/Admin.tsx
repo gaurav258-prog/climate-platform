@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge, ExternalLink } from 'lucide-react'
-import { api, download } from '../lib/api'
+import { api, apiMessage, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
@@ -457,7 +457,9 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
   const startEdit = () => { setForm({ legal_name: org.legal_name ?? '', lei: org.lei ?? '', eori: org.eori ?? '', filing_contact_email: org.filing_contact_email ?? '', operator_address: org.operator_address ?? '' }); setEditOrg(true) }
   const saveOrg = async () => {
     setBusy(true)
-    try { await api.patch('/v1/admin/organization', form); setEditOrg(false); await q.refetch() } finally { setBusy(false) }
+    try { await api.patch('/v1/admin/organization', form); setEditOrg(false); await q.refetch(); toast.success('Organisation identity saved.') }
+    catch (e) { toast.error(apiMessage(e, 'Could not save the organisation identity.')) }   // e.g. an LEI GLEIF does not hold
+    finally { setBusy(false) }
   }
   const F = ({ k, label }: { k: string; label: string }) => (
     <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">{label}</div>

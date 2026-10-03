@@ -99,3 +99,19 @@ def gate_failures(session: Session, org_id: str | None, issuer_ids: list[str], u
           AND (CAST(:y AS int) IS NULL OR reporting_year <= CAST(:y AS int))
         ORDER BY issuer_id, (org_id IS NULL), (source = 'vendor'), reporting_year DESC"""),
         {"ids": list(issuer_ids), "o": org_id, "y": up_to_year}) if r[1] is False or r[2] is False}
+
+
+def org_rows(session: Session, org_id: str, issuer_id: str | None = None) -> list[dict]:
+    """The organisation's own KPI rows (one issuer, or all) — for the withdrawal of its issuer data (E146)."""
+    return [dict(r) for r in session.execute(text("""
+        SELECT issuer_id::text AS issuer_id, to_jsonb(k.*) AS row FROM issuer_taxonomy_kpi k
+        WHERE org_id = CAST(:o AS uuid) AND (CAST(:i AS uuid) IS NULL OR issuer_id = CAST(:i AS uuid))"""),
+        {"o": org_id, "i": issuer_id}).mappings()]
+
+
+def withdraw_org(session: Session, org_id: str, issuer_id: str) -> list:
+    """Delete the organisation's own KPI rows about the issuer (never the shared reference); returns them."""
+    return session.execute(text("""
+        DELETE FROM issuer_taxonomy_kpi k WHERE org_id = CAST(:o AS uuid) AND issuer_id = CAST(:i AS uuid)
+        RETURNING to_jsonb(k.*)"""), {"o": org_id, "i": issuer_id}).scalars().all()
+

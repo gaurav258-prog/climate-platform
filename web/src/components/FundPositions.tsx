@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Factory } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
+import { toast } from '../lib/toast'
 import { money } from '../lib/money'
-import { Card, SectionHead } from './ui'
+import { Button, Card, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { CloseButton } from './Dialog'
 import { Drawer } from './Drawer'
@@ -26,6 +27,7 @@ interface Issuer {
   transition?: { transition_risk_score: number | null; carbon_intensity_tco2e_per_meur: number | null } | null
   emissions?: { reporting_year: number; scope1: number | null; scope2: number | null; scope3: number | null; source: string } | null
   facilities?: Facility[]
+  own_data?: Record<string, number>     // rows of the organisation's own data about the issuer, per store
 }
 
 const eur = (n?: number | null) => money(n, 'EUR')   // fund positions are held in EUR, as the SFDR statement reports them
@@ -110,6 +112,8 @@ function IssuerDrawer({ issuerId, onClose }: { issuerId: string; onClose: () => 
               </div>
             )}
 
+            {d.own_data && Object.keys(d.own_data).length > 0 && <OwnData issuerId={issuerId} name={iss.name} own={d.own_data} />}
+
             {(d.facilities?.length ?? 0) > 0 && (
               <div>
                 <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Facilities · the assets on the ground</div>
@@ -133,5 +137,48 @@ function IssuerDrawer({ issuerId, onClose }: { issuerId: string; onClose: () => 
           </div>
         )}
     </Drawer>
+  )
+}
+
+const STORE: Record<string, string> = {
+  issuer_emissions: 'emissions', issuer_esg_metrics: 'ESG metrics', issuer_taxonomy_kpi: 'Taxonomy KPIs',
+  issuer_voluntary_pai: 'additional PAI values', issuer_data_confirmations: 'plausibility confirmations',
+}
+
+// the data the organisation stated about this issuer — withdrawable (uploaded in error), audited with the reason (E146)
+function OwnData({ issuerId, name, own }: { issuerId: string; name: string; own: Record<string, number> }) {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const withdraw = async () => {
+    setBusy(true)
+    try {
+      await api.post(`/v1/issuers/${issuerId}/client-data/withdraw`, { reason: reason.trim() })
+      toast.success(`Your data on ${name} was withdrawn.`)
+      setOpen(false); setReason('')
+      qc.invalidateQueries({ queryKey: ['issuer', issuerId] }); qc.invalidateQueries({ queryKey: ['fund'] })
+    } catch (e) { toast.error(apiMessage(e, 'Could not withdraw the data.')) }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-lg border border-[var(--color-line)] p-3 space-y-2">
+      <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Your organisation's data on this issuer</div>
+      <div className="text-[12px] text-[var(--color-mute)]">
+        {Object.entries(own).map(([t, n]) => `${n} ${STORE[t] ?? t}`).join(' · ')}
+      </div>
+      {!open ? <Button variant="ghost" onClick={() => setOpen(true)}>Withdraw this data</Button> : (
+        <div className="space-y-2">
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
+            placeholder="Why it is withdrawn (kept in the audit record) — e.g. uploaded for the wrong company"
+            className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)]" />
+          <div className="text-[11px] text-[var(--color-faint)]">Only your own figures go; published and shared reference data stay, and a filing already frozen keeps what it printed.</div>
+          <div className="flex gap-2">
+            <Button variant="primary" onClick={withdraw} disabled={busy || reason.trim().length < 10}>Withdraw</Button>
+            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

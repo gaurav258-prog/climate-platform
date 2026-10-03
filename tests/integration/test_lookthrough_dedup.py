@@ -19,7 +19,7 @@ from core.db.session import get_session
 
 AM_ORG = "44444444-4444-4444-8444-444444444444"   # Nordkap Asset Management (demo)
 FUND_ID = "b5bf373d-b70b-4f65-87fb-11107bf93fa3"  # Nordkap Global Equity Fund — article_8, EUR
-HELD_ISIN = "US0378331005"                        # Apple Inc., a real current position in that fund
+HELD_ISIN = "SE00SOFT0001"                        # Nordic Software AB (fictional demo issuer), a current position
 
 
 @pytest.mark.integration

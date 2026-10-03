@@ -579,6 +579,21 @@ def patch_organization(body: OrgPatch, session: DbSession,
             changes["presentation_currency"], _ = validate_declaration(session, changes["presentation_currency"], None)
         except MoneyError as e:
             raise HTTPException(400, {"error": "bad_currency", "message": str(e)}) from e
+    if "lei" in changes:                     # the one LEI check (E143): as the filing profile and a fund's LEI
+        from services.reference import gleif
+        held = session.execute(text("SELECT lei FROM organizations WHERE org_id = :o"), {"o": org_id}).scalar()
+        new = (changes["lei"] or "").strip().upper()
+        if new == (held or "").strip().upper():
+            changes.pop("lei")               # unchanged (the form sends every field): nothing to verify or write
+        elif not new:
+            changes["lei"] = None            # cleared
+        else:
+            try:
+                changes["lei"] = gleif.verified_lei(new).lei
+            except gleif.LeiError as e:
+                raise HTTPException(422, {"error": "invalid_lei", "message": str(e)}) from e
+        if not changes:
+            return {"ok": True, "changes": {}}
     cols = {"legal_name", "lei", "eori", "filing_contact_email", "operator_address"}
     sets, params = [], {"o": org_id}
     for k, v in changes.items():

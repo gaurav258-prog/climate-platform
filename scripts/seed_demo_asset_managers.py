@@ -1,8 +1,7 @@
 """The demo asset managers' SFDR PAI statements for 2025 — DEMO data, made up for fictional demo companies (not
 regulatory, not validated, no real company's figures), through the app's own paths wherever one exists:
 
-  funds          Amstel, Fjord, Øresund, Seine, Tiber (demo) each get two demo funds (the app has no route that creates
-                 a fund: the fund row alone is written directly, as scripts/seed_demo_asset_manager.py does)
+  funds          Amstel, Fjord, Øresund, Seine, Tiber (demo) each get two demo funds (POST /v1/funds)
   holdings       POST /v1/funds/{id}/holdings on each quarter end of 2025 (the statement averages the four: Delegated
                  Regulation (EU) 2022/1288 Art. 6(3)), holding only the four fictional demo issuers that already carry
                  emissions, revenue and EVIC in the reference (DE00ENERGY01, ES00FOODS001, NL00LOGIS001, SE00SOFT0001),
@@ -29,7 +28,6 @@ import sys
 import time
 
 import httpx
-from sqlalchemy import text
 
 PERIOD_END = "2025-12-31"
 DATES = ("2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31")
@@ -85,35 +83,21 @@ def _ok(r: httpx.Response, what: str) -> dict:
     return r.json()
 
 
-def _org_id(name: str) -> str:
-    from core.db.config import SessionLocal
-    with SessionLocal() as s:
-        oid = s.execute(text("SELECT org_id::text FROM organizations WHERE name = :n"), {"n": name}).scalar()
-    if not oid:
-        raise SystemExit(f"{name}: not found — run scripts/seed_demo_population.py first")
-    return oid
-
-
-def _fund(org_id: str, name: str, article: str) -> str:
-    """The demo fund, found by name or created (no API creates a fund — the row alone, as seed_demo_asset_manager.py)."""
-    from core.db.config import SessionLocal
-    with SessionLocal() as s:
-        fid = s.execute(text("SELECT fund_id::text FROM funds WHERE org_id = CAST(:o AS uuid) AND name = :n"),
-                        {"o": org_id, "n": name}).scalar()
-        if fid is None:
-            fid = s.execute(text("""INSERT INTO funds (org_id, name, fund_type, sfdr_classification, base_currency)
-                                    VALUES (CAST(:o AS uuid), :n, 'fund', :a, 'EUR') RETURNING fund_id::text"""),
-                            {"o": org_id, "n": name, "a": article}).scalar()
-            s.commit()
-        return fid
+def _fund(c: httpx.Client, h: dict, name: str, article: str) -> str:
+    """The demo fund, found by name or created through the app (POST /v1/funds, E144)."""
+    for f in _ok(c.get("/v1/funds", headers=h), "funds")["funds"]:
+        if f["name"] == name:
+            return f["fund_id"]
+    return _ok(c.post("/v1/funds", headers=h, json={"name": name, "fund_type": "fund", "sfdr_classification": article,
+                                                    "base_currency": "EUR"}), f"create {name}")["fund_id"]
 
 
 def seed_funds(c: httpx.Client, h: dict, slug: str, org: str) -> list[str]:
-    org_id, rng, out = _org_id(org), random.Random(slug), []
+    rng, out = random.Random(slug), []
     short = org.removesuffix(" (demo)").split()[0]
     for suffix, article, book in FUNDS:
         name = f"{short} {suffix} (demo)"
-        fid = _fund(org_id, name, article)
+        fid = _fund(c, h, name, article)
         scale = rng.uniform(0.6, 1.8)
         n_pos = 0
         for q, d in enumerate(DATES):

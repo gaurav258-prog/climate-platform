@@ -4,7 +4,7 @@ import PaiStatement from '../components/sfdr/PaiStatement'
 import { money } from '../lib/money'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Pencil, BadgeCheck, AlertTriangle } from 'lucide-react'
+import { ChevronRight, Pencil, BadgeCheck, AlertTriangle, Plus } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 
@@ -37,6 +37,7 @@ export default function Funds() {
   const nav = useNavigate()
   const q = useQuery({ queryKey: ['funds'], queryFn: () => api.get<{ funds: Fund[] }>('/v1/funds') })
   const funds = q.data?.funds ?? []
+  const [adding, setAdding] = useState(false)
 
   return (
     <div className="fadeup space-y-6">
@@ -47,7 +48,11 @@ export default function Funds() {
       <PaiStatement />
 
       <Card className="p-0 overflow-hidden">
-        <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Your funds</SectionHead>
+        <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
+          <SectionHead className="mb-0">Your funds</SectionHead>
+          {!adding && <Button variant="ghost" onClick={() => setAdding(true)}><Plus size={13} /> New fund</Button>}
+        </div>
+        {adding && <NewFund funds={funds} onDone={id => { setAdding(false); if (id) nav(`/funds/${id}`) }} />}
         {q.isLoading ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</div>
           : funds.length === 0 ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">No funds yet.</div>
           : <div className="divide-y divide-[var(--color-line)]">
@@ -136,3 +141,50 @@ function FilingIdentity() {
   )
 }
 
+// a fund as the manager states it — the SFDR article and the base currency are the manager's statements, never defaulted
+const FUND_TYPES: [string, string][] = [['fund', 'Fund'], ['sub_portfolio', 'Sub-portfolio'], ['mandate', 'Mandate'], ['fund_of_funds', 'Fund of funds']]
+const ARTICLES: [string, string][] = [['article_6', 'Article 6'], ['article_8', 'Article 8 — promotes E/S characteristics'], ['article_9', 'Article 9 — sustainable investment objective']]
+
+function NewFund({ funds, onDone }: { funds: Fund[]; onDone: (fundId: string | null) => void }) {
+  const qc = useQueryClient()
+  const [f, setF] = useState({ name: '', fund_type: 'fund', sfdr_classification: '', base_currency: '', parent_fund_id: '', lei: '' })
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null)
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
+  const sub = f.fund_type === 'sub_portfolio'
+  const ready = f.name.trim().length >= 2 && !!f.sfdr_classification && f.base_currency.trim().length === 3 && (!sub || !!f.parent_fund_id)
+  const save = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const r = await api.post<{ fund_id: string }>('/v1/funds', {
+        name: f.name.trim(), fund_type: f.fund_type, sfdr_classification: f.sfdr_classification,
+        base_currency: f.base_currency.trim().toUpperCase(), parent_fund_id: sub ? f.parent_fund_id : undefined,
+        lei: f.lei.trim() || undefined })
+      qc.invalidateQueries({ queryKey: ['funds'] }); onDone(r.fund_id)
+    } catch (e) { setErr(apiMessage(e, 'Could not create the fund.')) }
+    finally { setBusy(false) }
+  }
+  const field = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[13px] outline-none focus:border-[var(--color-sky)]'
+  const label = 'block text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono'
+  return (
+    <div className="px-5 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)] space-y-3">
+      {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
+      <div className="flex flex-wrap gap-3 items-end">
+        <label><span className={label}>Name</span><input value={f.name} onChange={set('name')} className={`${field} w-72`} /></label>
+        <label><span className={label}>Type</span>
+          <select value={f.fund_type} onChange={set('fund_type')} className={field}>{FUND_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label><span className={label}>SFDR article</span>
+          <select value={f.sfdr_classification} onChange={set('sfdr_classification')} className={field}>
+            <option value="">Choose…</option>{ARTICLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label><span className={label}>Base currency</span><input value={f.base_currency} onChange={set('base_currency')} placeholder="ISO 4217, e.g. EUR" maxLength={3} className={`${field} w-36 mono uppercase`} /></label>
+        {sub && <label><span className={label}>Part of fund</span>
+          <select value={f.parent_fund_id} onChange={set('parent_fund_id')} className={field}>
+            <option value="">Choose…</option>{funds.map(x => <option key={x.fund_id} value={x.fund_id}>{x.name}</option>)}</select></label>}
+        <label><span className={label}>Fund LEI (optional)</span><input value={f.lei} onChange={set('lei')} placeholder="validated vs GLEIF" maxLength={20} className={`${field} w-56 mono`} /></label>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="primary" onClick={save} disabled={busy || !ready}>Create fund</Button>
+        <Button variant="ghost" onClick={() => onDone(null)}>Cancel</Button>
+      </div>
+    </div>
+  )
+}

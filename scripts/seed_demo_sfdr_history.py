@@ -19,7 +19,8 @@ from sqlalchemy import text
 from core.db.session import get_session
 
 _DRIFT = {3: 0.91, 6: 0.94, 9: 0.97, 12: 1.00}
-# NACE division of a fictional demo issuer -> its stated KPIs per basis (%): aligned, fossil gas part, eligible
+# NACE division of a fictional demo issuer -> its stated KPIs per basis (%): aligned, fossil gas part, eligible; the
+# nuclear part of the aligned share is 0 for every one (none runs a nuclear activity) — a stated 0, never left blank
 _DEMO_KPI = {
     "35": {"turnover": (22.0, 3.0, 64.0), "capex": (41.0, 2.0, 70.0), "opex": (18.0, 1.0, 52.0)},
     "62": {"turnover": (4.0, 0.0, 9.0), "capex": (6.0, 0.0, 11.0), "opex": (3.0, 0.0, 8.0)},
@@ -60,11 +61,12 @@ def main() -> None:
                 WHERE i.lei LIKE 'DEMO%' AND o.name LIKE '%(demo)'""")).all():
             on_file = investee_kpis(s, org_id, [issuer_id], year).get(issuer_id) or {}
             for basis, (aligned, gas, eligible) in (_DEMO_KPI.get((nace or "")[:2]) or {}).items():
-                if basis in on_file and on_file[basis]["year"] == year:
-                    continue                                   # a stated value is never overwritten
-                write_total(s, issuer_id, org_id, year, basis,
-                            {"eligible": eligible, "aligned": aligned, "fossil_gas": gas or None}, source="client")
-                n_kpi += 1
+                demo = {"eligible": eligible, "aligned": aligned, "fossil_gas": gas, "nuclear": 0.0}
+                have = on_file.get(basis) if (on_file.get(basis) or {}).get("year") == year else {}
+                todo = {m: v for m, v in demo.items() if have.get(m) is None}   # a stated value is never overwritten
+                if todo:
+                    write_total(s, issuer_id, org_id, year, basis, todo, source="client")
+                    n_kpi += 1
         s.commit()
         print(f"SFDR demo history: {n_pos} quarter-end positions for {year}; {n_kpi} demo investee KPIs")
 

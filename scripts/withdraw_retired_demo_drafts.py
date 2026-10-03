@@ -44,7 +44,9 @@ def _unfiled() -> list[dict]:
             ORDER BY o.name, f.framework"""), {"fw": retired}).mappings().all()]
 
 
-def withdraw_one(c: httpx.Client, f: dict, users: dict, raise_missing: bool) -> str:
+def withdraw_one(c: httpx.Client, f: dict, users: dict, raise_missing: bool, reason: str = REASON) -> str:
+    """Return an in-review filing through its four-eyes request (raised first when the seed left none and
+    raise_missing), then withdraw it — f: {id, framework, status, org, rid, slug}."""
     slug = f["slug"]
     if slug not in users:
         users[slug] = (login(c, f"analyst@{slug}.demo", "Demo!analyst1"),
@@ -58,15 +60,15 @@ def withdraw_one(c: httpx.Client, f: dict, users: dict, raise_missing: bool) -> 
             if not raise_missing:
                 return f"{head}: LEFT — in review with no four-eyes request to return (the seed set the status directly)"
             r = c.post("/v1/approvals", headers=maker, json={
-                "request_type": "filing.approve", "title": f"Approve {f['framework']} (retired — to be returned)",
+                "request_type": "filing.approve", "title": f"Approve {f['framework']} (to be returned)",
                 "payload": {"filing_id": f["id"], "framework": f["framework"]}})
             if r.status_code != 201:
                 return f"{head}: LEFT — raising its review request refused: {r.status_code} {r.text[:300]}"
             rid = r.json()["id"]
-        d = c.post(f"/v1/approvals/{rid}/decide", headers=checker, json={"decision": "returned", "reason": REASON})
+        d = c.post(f"/v1/approvals/{rid}/decide", headers=checker, json={"decision": "returned", "reason": reason})
         if d.status_code != 200:
             return f"{head}: LEFT — return refused: {d.status_code} {d.text[:300]}"
-    w = c.post(f"/v1/filings/{f['id']}/withdraw", headers=maker, json={"reason": REASON})
+    w = c.post(f"/v1/filings/{f['id']}/withdraw", headers=maker, json={"reason": reason})
     if w.status_code != 200:
         return f"{head}: LEFT — withdraw refused: {w.status_code} {w.text[:300]}"
     return f"{head}: {f['status']} -> {w.json().get('status')}"
