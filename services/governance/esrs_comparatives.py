@@ -81,9 +81,14 @@ def _reported(session, org_id: str, entity_id: str | None, prev_end: date) -> di
 
 
 def _attested(session, org_id: str, entity_id: str | None, prev_end: date) -> dict:
+    """The undertaking's attested figures for the previous period, and the ratios the application requirements define
+    derived from them exactly as the current period's are (E137) — an attested figure wins over a derived one."""
     from services.governance.esrs_document import _provided
-    out: dict = {}
-    for k, v in _provided(session, org_id, entity_id, prev_end).items():
+    from services.governance.esrs_statement import _derived
+    prov = _provided(session, org_id, entity_id, prev_end)
+    out: dict = {k: d["value"] for k, d in _derived({k: v for k, v in prov.items() if "@" not in k}).items()
+                 if d["status"] == "derived"}
+    for k, v in prov.items():
         concept, _, member = k.partition("@")
         if member:
             out.setdefault(concept, {})[member] = v["value"]

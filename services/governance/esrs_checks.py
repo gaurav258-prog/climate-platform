@@ -115,6 +115,7 @@ def checks(payload: dict) -> list[dict]:
     elif role["role"] == "exempt_subsidiary":
         out.append(_f("csrd_role", "scope", "blocking", False, f"an exempt subsidiary files no statement — included in "
                       f"{role['parent_name']}'s consolidated report ({role['parent_report_ref']})", "Directive 2013/34/EU Art. 19a(9) / 29a(8)"))
+        return out                                   # no statement: nothing else in it to check (E139)
     req = scope.get("required")
     if role and role["role"] in ("individual", "consolidated"):
         if req is False:

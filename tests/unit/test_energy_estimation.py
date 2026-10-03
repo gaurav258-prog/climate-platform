@@ -78,3 +78,18 @@ def test_a_basis_change_is_explained_in_plain_words_in_the_rts_explanation_colum
     ind["change_note"] = _basis_change_note({"method": "partial", "coverage_pct": 7.7}, ind)
     text = _explanation(ind, 2025)
     assert "Not directly comparable with last year" in text and "7.7% → 100.0%" in text and "estimates" in text
+
+
+def test_pai6_is_complete_when_every_high_impact_holding_reports():
+    """E136: PAI 6 applies only to holdings in a high impact climate sector — a software holding (NACE J) must not keep
+    it 'partial' forever; coverage stays a share of fund value for the EET."""
+    from ml.regulatory.sfdr_pai import esg_short_pct
+    from services.fund_energy import energy_pais
+    rows = [_row(nace_code="24.10", energy_int=1.5), _row(nace_code="62.01", issuer_id="y")]
+    pai6 = energy_pais(rows, 2.0, energy_facts(rows))["pai_6"]
+    assert (pai6["coverage_pct"], pai6["eligible_pct"], pai6["estimated_pct"]) == (50.0, 50.0, 0.0)
+    assert esg_short_pct(pai6) == 0.0
+    rows.append(_row(nace_code="24.10", issuer_id="z"))                                       # no figure → estimated
+    pai6 = energy_pais(rows, 3.0, energy_facts(rows))["pai_6"]
+    assert esg_short_pct(pai6) == pytest.approx(33.3, abs=0.1)
+    assert esg_short_pct({"coverage_pct": 80.0}) == 20.0                                      # whole-fund indicators

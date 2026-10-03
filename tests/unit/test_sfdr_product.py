@@ -110,3 +110,18 @@ def test_the_annex_marks_what_is_unanswered():
     assert "☒" in html                                                         # the Art. 8 'No' box is ticked
     gaps = missing(built)
     assert "q_actions" in {g["id"] for g in gaps}
+
+
+def test_fossil_gas_and_nuclear_are_answered_only_from_stated_parts():
+    """E142: an aligned share whose fossil gas / nuclear parts the investee does not state leaves the question open —
+    never read as 'no'; a stated part answers it; nothing aligned is a stated 'no'."""
+    def ask(*kpis):
+        book = {**BOOK, "holdings": [_h("2025-12-31", str(n), 10, kpi=k) for n, k in enumerate(kpis)]}
+        return S._computed("q_taxonomy.fossil_nuclear.no", book, None), S._computed("q_taxonomy.fossil_nuclear.yes.nuclear", book, None)
+    open_ = {"turnover": {"aligned": 40.0, "fossil_gas": None, "nuclear": None}}
+    assert ask(open_) == (None, None)
+    assert ask({"turnover": {"aligned": 40.0, "fossil_gas": 0.0, "nuclear": 5.0}}) == ({"ticked": False}, {"ticked": True})
+    assert ask({"turnover": {"aligned": 40.0, "fossil_gas": 0.0, "nuclear": 0.0}},
+               {"turnover": {"aligned": 0.0, "fossil_gas": None, "nuclear": None}}) == ({"ticked": True}, {"ticked": False})
+    assert ask({"turnover": {"aligned": 40.0, "fossil_gas": 0.0, "nuclear": 0.0}}, open_) == (None, None)
+    assert "taxonomy_fossil_gas_aligned_pct" in S._needs("q_taxonomy.fossil_nuclear")

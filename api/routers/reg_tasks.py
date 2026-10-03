@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -65,9 +66,11 @@ def oversight(session: DbSession, ctx: dict = Depends(require_permission("report
 
 
 @router.get("/supervisory", summary="How your regulators will read you — supervisor mission, focus & the questions to expect, answered by your live figures")
-def supervisory(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+def supervisory(session: DbSession, entity_id: Optional[UUID] = None,
+                ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.reg_supervisors import supervisory_anticipation
-    return supervisory_anticipation(session, ctx["org"]["org_id"], ctx["org"].get("type"))
+    return supervisory_anticipation(session, ctx["org"]["org_id"], ctx["org"].get("type"),
+                                    str(entity_id) if entity_id else None)
 
 
 @router.get("/kri/frameworks", summary="The KRI frameworks this org can report on (for the picker)")
@@ -77,10 +80,10 @@ def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("r
 
 
 @router.get("/kri", summary="Key Regulatory Indicator dashboard for a framework")
-def kri(framework: str, session: DbSession, entity_id: Optional[str] = None,
+def kri(framework: str, session: DbSession, entity_id: Optional[UUID] = None,
         ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri as _kri
-    data = _kri(session, ctx["org"]["org_id"], framework, entity_id)
+    data = _kri(session, ctx["org"]["org_id"], framework, str(entity_id) if entity_id else None)
     if entity_id:                  # another undertaking than the default one: shown, not monitored (episodes are per set)
         return data
     # detection lag: record what we observe now so breach onset is a real, persisted timestamp (best-effort)
@@ -100,17 +103,17 @@ def kri_detection_lag(session: DbSession, framework: Optional[str] = None,
 
 
 @router.get("/kri/detail", summary="Drill behind one KRI — methodology, trend & composition")
-def kri_detail(framework: str, kri: str, session: DbSession, entity_id: Optional[str] = None,
+def kri_detail(framework: str, kri: str, session: DbSession, entity_id: Optional[UUID] = None,
                ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_detail as _kd
-    return _kd(session, ctx["org"]["org_id"], framework, kri, entity_id)
+    return _kd(session, ctx["org"]["org_id"], framework, kri, str(entity_id) if entity_id else None)
 
 
 @router.get("/kri/hazard", summary="The entities contributing a hazard's exposure (drill-down)")
-def kri_hazard(framework: str, hazard: str, session: DbSession, entity_id: Optional[str] = None,
+def kri_hazard(framework: str, hazard: str, session: DbSession, entity_id: Optional[UUID] = None,
                ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_hazard as _kh
-    return _kh(session, ctx["org"]["org_id"], framework, hazard, entity_id)
+    return _kh(session, ctx["org"]["org_id"], framework, hazard, str(entity_id) if entity_id else None)
 
 
 @router.get("/kri/drivers", summary="Individual exposures behind a KRI, optionally scoped to one segment")

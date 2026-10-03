@@ -405,6 +405,14 @@ def _look_through(session, fund_id: str, comp: dict) -> dict:
     return {"applicable": False, "note": "No held funds/ETFs — direct securities only, no look-through required."}
 
 
+def esg_short_pct(cell: dict) -> float:
+    """% of fund value an issuer-data PAI is short of being complete: holdings the indicator applies to with no reported
+    figure (none, or an estimate). PAI 6 applies only to holdings in a high impact climate sector (Annex I Table 1,
+    indicator 6), so it is measured against that eligible value, not the whole fund (E136); coverage_pct stays a share
+    of fund value, as the EET's Coverage field defines it."""
+    return round(cell.get("eligible_pct", 100.0) - cell["coverage_pct"] + (cell.get("estimated_pct") or 0.0), 1)
+
+
 def _mandatory_indicator_rows(pai: dict, esg: dict):
     """Build the 14 mandatory PAI indicator rows (filled or gap-flagged) from a
     computed pai + esg block. Shared by the fund and entity-level assemblers.
@@ -484,13 +492,14 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
         if cell and cell.get("value") is not None:
             est = cell.get("estimated_pct") or 0.0          # PAI 5/6: the part of the fund resting on sector/country estimates
             src = _ESG_SRC + (f" · {est}% of fund value estimated (EU sector / country averages — see provenance)" if est else "")
+            short = esg_short_pct(cell)
             filled[num] = _row(num, next(a for n, a, _, __ in MANDATORY_PAI_INDICATORS if n == num),
                                next(m for n, _, m, __ in MANDATORY_PAI_INDICATORS if n == num),
                                next(u for n, _, __, u in MANDATORY_PAI_INDICATORS if n == num),
                                value=cell["value"], coverage=cell["coverage_pct"], source=src,
-                               method="estimated" if est else ("computed" if cell["coverage_pct"] >= 99.9 else "partial"),
-                               input_required=None if cell["coverage_pct"] >= 99.9 and not est
-                               else f"{remaining_inputs[num]} on the {round(100 - cell['coverage_pct'] + est, 1)}% by value not reported")
+                               method="estimated" if est else ("computed" if short <= 0.1 else "partial"),
+                               input_required=None if short <= 0.1 and not est
+                               else f"{remaining_inputs[num]} on the {short}% by value not reported")
     if esg and 5 in filled:           # the European ESG Template asks PAI 5 split, and PAI 6 per high-impact section
         filled[5]["consumption"], filled[5]["production"] = esg.get("pai_5_consumption"), esg.get("pai_5_production")
     if esg and 6 in filled:

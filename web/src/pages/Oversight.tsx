@@ -34,7 +34,10 @@ interface Focus { title: string; scrutiny: string; transparency: string }
 interface RegChange { title: string; when: string; date: string | null; citation: string; url: string | null }
 interface Review { needs_review: boolean; changes: RegChange[] }
 interface Supervisor { id: string; name: string; jurisdiction: string; mission: string; reference: string; focus_areas: Focus[]; frameworks: string[]; questions: SQ[]; answered: number; total: number; review: Review }
-interface SupResp { supervisors: Supervisor[]; library_reviewed: string; summary: { n_supervisors: number; n_questions: number; n_answered: number; n_review: number } }
+// the ESRS questions are answered by one undertaking's statement — the choice, as on the KRI page
+interface Undertaking { entity_id: string | null; name: string; role?: string }
+interface EsrsChoice { undertaking: Undertaking | null; undertakings: Undertaking[]; message?: string | null }
+interface SupResp { supervisors: Supervisor[]; library_reviewed: string; esrs?: EsrsChoice; summary: { n_supervisors: number; n_questions: number; n_answered: number; n_review: number } }
 
 const fmtVal = (v: number | string | null, fmt: string, isFlow?: boolean) => {
   if (v == null) return '—'
@@ -46,7 +49,9 @@ const fmtVal = (v: number | string | null, fmt: string, isFlow?: boolean) => {
 export default function Oversight() {
   const nav = useNavigate()
   const [tab, setTab] = useState<'regulator' | 'posture' | 'board'>('regulator')
-  const sq = useQuery({ queryKey: ['supervisory'], queryFn: () => api.get<SupResp>('/v1/reg-tasks/supervisory') })
+  const [entity, setEntity] = useState<string | null>(null)       // the undertaking whose ESRS statement answers
+  const sq = useQuery({ queryKey: ['supervisory', entity],
+    queryFn: () => api.get<SupResp>('/v1/reg-tasks/supervisory' + (entity ? `?entity_id=${entity}` : '')) })
   const pq = useQuery({ queryKey: ['oversight'], queryFn: () => api.get<Posture>('/v1/reg-tasks/oversight'), enabled: tab === 'posture' })
 
   return (
@@ -64,12 +69,12 @@ export default function Oversight() {
         ))}
       </div>
 
-      {tab === 'regulator' ? <RegulatorView q={sq} /> : tab === 'posture' ? <PostureView q={pq} nav={nav} /> : <BoardPack />}
+      {tab === 'regulator' ? <RegulatorView q={sq} onEntity={setEntity} /> : tab === 'posture' ? <PostureView q={pq} nav={nav} /> : <BoardPack />}
     </div>
   )
 }
 
-function RegulatorView({ q }: { q: ReturnType<typeof useQuery<SupResp>> }) {
+function RegulatorView({ q, onEntity }: { q: ReturnType<typeof useQuery<SupResp>>; onEntity: (id: string | null) => void }) {
   const d = q.data
   if (q.isLoading) return <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
   if (!d) return <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the regulator view.</div>
@@ -91,6 +96,19 @@ function RegulatorView({ q }: { q: ReturnType<typeof useQuery<SupResp>> }) {
         <span>Question library reviewed <b className="text-[var(--color-mute)]">{d.library_reviewed}</b> · answers are computed live from your book.</span>
         {su.n_review > 0 && <span className="inline-flex items-center gap-1" style={{ color: 'var(--color-warn)' }}><AlertTriangle size={11} /> {su.n_review} supervisor{su.n_review === 1 ? '' : 's'} flagged — a regulatory change may affect the questions.</span>}
       </div>
+
+      {/* ESRS: the statement is per undertaking — choose which answers the questions when more than one prepares one */}
+      {d.esrs && d.esrs.undertakings.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mr-1">ESRS answers from</span>
+          {d.esrs.undertakings.map(u => (
+            <button key={u.entity_id ?? 'org'} onClick={() => onEntity(u.entity_id)}
+              className={`px-3 py-1.5 rounded-lg text-[12px] border transition ${(d.esrs?.undertaking?.entity_id ?? null) === u.entity_id && d.esrs?.undertaking ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+              {u.name}{u.role === 'consolidated' ? ' (group)' : ''}</button>
+          ))}
+          {!d.esrs.undertaking && <span className="text-[11.5px] text-[var(--color-mute)] ml-1">choose an undertaking to answer the ESRS questions</span>}
+        </div>
+      )}
 
       <div className="space-y-5">
         {d.supervisors.map(s => <SupervisorCard key={s.id} s={s} />)}

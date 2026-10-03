@@ -207,9 +207,13 @@ SUPERVISORY_QUESTIONS: dict[str, list[dict]] = {
 }
 
 
-def supervisory_anticipation(session: Session, org_id: str, org_type: str | None) -> dict:
+def supervisory_anticipation(session: Session, org_id: str, org_type: str | None, entity_id: str | None = None) -> dict:
     """For the org's applicable frameworks, group the supervisors that read them and answer each expected
-    supervisory question with the org's own live figure (or a filing pointer). Honest by construction."""
+    supervisory question with the org's own live figure (or a filing pointer). Honest by construction.
+
+    entity_id: the undertaking whose ESRS statement answers the ESRS questions — as on the KRI page, the statement is
+    per undertaking; with several preparing one and none chosen, those questions stay unanswered and `undertakings`
+    lists the choice (E141)."""
     from services.governance.filings import reporting_requirements
     from services.governance.kri import kri, kri_frameworks
     from services.governance.reg_outlook import changes_affecting
@@ -219,6 +223,7 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
     kfw = {f["framework"] for f in kri_frameworks(org_type)}
 
     grouped: dict[str, dict] = {}
+    esrs_choice: dict = {"undertaking": None, "undertakings": []}
     for fw in applicable:
         sid = FRAMEWORK_SUPERVISOR.get(fw)
         if not sid or sid not in SUPERVISORS:
@@ -227,7 +232,11 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
         kmap: dict[str, dict] = {}
         if fw in kfw:
             try:
-                for k in (kri(session, org_id, fw).get("kpis") or []):
+                kd = kri(session, org_id, fw, entity_id if fw == "esrs_pack" else None)
+                if fw == "esrs_pack":
+                    esrs_choice = {"undertaking": kd.get("undertaking"), "undertakings": kd.get("undertakings") or [],
+                                   "message": None if kd.get("supported") else kd.get("message")}
+                for k in (kd.get("kpis") or []):
                     kmap[k["key"]] = k
             except Exception:
                 pass
@@ -265,7 +274,7 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
             "review": {"needs_review": bool(changes), "changes": changes},
         })
     supervisors.sort(key=lambda x: x["name"])
-    return {"supervisors": supervisors, "library_reviewed": LIBRARY_REVIEWED,
+    return {"supervisors": supervisors, "library_reviewed": LIBRARY_REVIEWED, "esrs": esrs_choice,
             "summary": {"n_supervisors": len(supervisors),
                         "n_questions": sum(s["total"] for s in supervisors),
                         "n_answered": sum(s["answered"] for s in supervisors),

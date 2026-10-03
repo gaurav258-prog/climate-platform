@@ -111,3 +111,19 @@ def test_2023_a_phased_in_requirement_in_its_first_mandatory_year(world):
     assert out["rows"][0]["status"] == "relief" and "e1_6_scope3_total" in out["rows"][0]["relief"]
     out = C.compute(None, "org", None, date(2026, 12, 31), R.load("esrs", V2023), secs, {**facts, "employees": 900.0})
     assert out["rows"][0]["status"] == "missing"                       # the phase-in never applied: no relief
+
+
+def test_a_ratio_comparative_is_derived_from_the_previous_periods_inputs(monkeypatch):
+    """E137: the previous period's ratios come from its attested inputs, as the current period's do — never 'missing'
+    while every input is attested; a ratio the undertaking attests itself wins."""
+    prov = {"e1.ghg.total.location": {"value": 200.0}, "e1.ghg.total.market": {"value": 150.0},
+            "fs.net_revenue": {"value": 1e8, "value_eur": 1e8, "currency": "EUR"},
+            "e3.water.consumption": {"value": 5000.0}, "e1.energy.mix@fossil": {"value": 3.0}}
+    monkeypatch.setattr(D, "_provided", lambda s, o, e, pe: prov)
+    att = C._attested(None, "org", None, date(2024, 12, 31))
+    assert att["e1.ghg.intensity_net_revenue"] == {"location": 2e-6, "market": 1.5e-6}
+    assert att["e3.water.intensity"] == pytest.approx(50.0)
+    assert "e1.energy.intensity_high_impact" not in att                   # inputs not attested: no figure, no guess
+    assert att["e1.energy.mix"] == {"fossil": 3.0}
+    prov["e3.water.intensity"] = {"value": 49.0}
+    assert C._attested(None, "org", None, date(2024, 12, 31))["e3.water.intensity"] == 49.0

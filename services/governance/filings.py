@@ -1049,6 +1049,14 @@ def _check_scope(session: Session, org_id: str, framework: str, entity_id: str |
         from services.governance import entities as _E
         if not _E.get_entity(session, org_id, entity_id):
             raise FilingError("reporting entity not found")
+    if framework == "esrs_pack":
+        # an exempt subsidiary files no sustainability statement: it is included in its parent's consolidated report
+        # (Directive 2013/34/EU Art. 19a(9) / 29a(8)) — nothing to confirm or freeze for it (E139)
+        from services.governance.csrd_roles import live_role
+        role = live_role(session, org_id, entity_id, reporting_period_end(session, org_id))
+        if role and role["role"] == "exempt_subsidiary":
+            raise FilingError(f"an exempt subsidiary files no ESRS statement — it is included in {role['parent_name']}'s "
+                              f"consolidated report ({role['parent_report_ref']}); Directive 2013/34/EU Art. 19a(9) / 29a(8)")
 
 
 def _previous_period_book(session: Session, org_id: str, framework: str, entity_id: str | None,

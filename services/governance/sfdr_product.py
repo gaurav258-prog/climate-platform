@@ -184,14 +184,26 @@ def _computed(item_id: str, book: dict, tax: dict | None) -> dict | None:
         g = tax["incl" if item_id.endswith("incl") else "excl"]
         return {"graph": g, **({"share_of_total": tax["excl_share_of_total"]} if item_id.endswith("excl") else {})}
     if item_id.startswith("q_taxonomy.fossil_nuclear"):
-        known = any(((h["kpi"] or {}).get(b) or {}).get("aligned") is not None for h in book["holdings"] for b in BASES)
-        if not known:
+        # facts only (E142): an investee's aligned share counts toward the product's Taxonomy-aligned investments; a part
+        # of it stated as fossil gas or nuclear (2022/1214 Annex XII) above 0 answers 'yes' for that part; 'no' for a part
+        # needs it stated for every aligned share above 0 (nothing aligned is nothing of it). An aligned share without its
+        # parts is never read as 'no' — that box stays open.
+        cells = [((h["kpi"] or {}).get(b) or {}) for h in book["holdings"] if not h.get("gate_failed") for b in BASES]
+        cells = [c for c in cells if c.get("aligned") is not None]
+
+        def part(m):
+            if any((c.get(m) or 0) > 0 for c in cells):
+                return True
+            return False if cells and all(c["aligned"] == 0 or c.get(m) is not None for c in cells) else None
+        gas, nuc = part("fossil_gas"), part("nuclear")
+        either = True if gas or nuc else (False if gas is False and nuc is False else None)
+        box = {"q_taxonomy.fossil_nuclear": either,
+               "q_taxonomy.fossil_nuclear.yes": either, "q_taxonomy.fossil_nuclear.yes.fossil_gas": gas,
+               "q_taxonomy.fossil_nuclear.yes.nuclear": nuc, "q_taxonomy.fossil_nuclear.no": None if either is None else not either}
+        v = box.get(item_id)
+        if v is None:
             return None
-        gas = any(((h["kpi"] or {}).get(b) or {}).get("fossil_gas") for h in book["holdings"] for b in BASES)
-        nuc = any(((h["kpi"] or {}).get(b) or {}).get("nuclear") for h in book["holdings"] for b in BASES)
-        return {"q_taxonomy.fossil_nuclear.yes": {"ticked": gas or nuc}, "q_taxonomy.fossil_nuclear.no": {"ticked": not (gas or nuc)},
-                "q_taxonomy.fossil_nuclear.yes.fossil_gas": {"ticked": gas},
-                "q_taxonomy.fossil_nuclear.yes.nuclear": {"ticked": nuc}}.get(item_id, {"answered": True})
+        return {"answered": True} if item_id == "q_taxonomy.fossil_nuclear" else {"ticked": v}
     if item_id in ("q_sust_obj", "q_top_inv"):
         return {"answered": True}                   # a question answered by its computed children
     return None
@@ -227,5 +239,6 @@ def _needs(item_id: str) -> str:
     if item_id == "lei":
         return "the product's legal entity identifier (fund LEI)"
     if item_id.startswith("q_taxonomy.fossil_nuclear"):
-        return "investees' Taxonomy KPIs (none on file)"
+        return ("the fossil gas and nuclear parts of every investee's aligned share (Delegated Regulation (EU) 2022/1214 "
+                "Annex XII; holdings upload: taxonomy_fossil_gas_aligned_pct, taxonomy_nuclear_aligned_pct)")
     return "data on file"

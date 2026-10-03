@@ -17,7 +17,10 @@ def db_session() -> Generator[Session, None, None]:
         yield session
 
 
-DbSession = Annotated[Session, Depends(db_session)]
+# scope="function": the session commits when the route returns, BEFORE the response is sent — a client acting on a
+# returned id (an approval request, a filing) at once must find it saved (E138; the default "request" scope committed
+# after the response went out)
+DbSession = Annotated[Session, Depends(db_session, scope="function")]
 
 
 # ── Pagination ─────────────────────────────────────────────────────────

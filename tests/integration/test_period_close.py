@@ -31,8 +31,11 @@ def _approve(api, checker, rid, reason="reviewed against the ledger"):
 def test_the_year_end_close_and_the_restatement_of_a_closed_period(api):
     maker, checker = _users(api)
     s = api.s
-    site, ent = s.execute(text("""SELECT site_id::text, entity_id::text FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)
-                                  AND entity_id IS NOT NULL ORDER BY name LIMIT 1"""), {"o": TERRA}).one()
+    # a new undertaking (a copy of Terra Foods SA and its sites, E140): the demo has closed Terra Foods SA's FY2025
+    from tests.integration.test_e2e_esrs_statement import undertaking
+    ent = undertaking(api)
+    site = s.execute(text("SELECT site_id::text FROM sc_company_sites WHERE entity_id = CAST(:e AS uuid) ORDER BY name LIMIT 1"),
+                     {"e": ent}).scalar()
     s.execute(text("""INSERT INTO site_period_values (org_id, site_id, reporting_entity_id, period_end, measure, amount,
                                                       currency, amount_eur, source)
                       VALUES (CAST(:o AS uuid), CAST(:s AS uuid), CAST(:e AS uuid), '2025-12-31', 'carrying_amount',
@@ -55,7 +58,7 @@ def test_the_year_end_close_and_the_restatement_of_a_closed_period(api):
         assert own.status_code in (403, 422)                          # the maker never approves their own close
         _approve(api, checker, rid)
     closes = api.get("/v1/periods", headers=maker).json()["closes"]
-    mine = [c for c in closes if c["period_end"] == "2025-12-31"]
+    mine = [c for c in closes if c["period_end"] == "2025-12-31" and c["entity_id"] in (None, ent)]
     assert len(mine) == 2 and all(c["requested_by"] and c["approved_by"] and c["requested_by"] != c["approved_by"] for c in mine)
     again = api.post("/v1/periods/close", headers=maker, json={"period_end": "2025-12-31"})
     assert again.status_code == 409 and "already closed" in again.text

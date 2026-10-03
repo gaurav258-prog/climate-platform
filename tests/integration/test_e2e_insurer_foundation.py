@@ -38,7 +38,13 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     other = _login(api, "admin@stellar.demo", "Demo!admin1")
     s = api.s
     from services.governance.filings import reporting_period_end
+    # a financial year the demo has stated nothing for (the demo attests Iberia's FY2025 capital and treaty): this test
+    # states its own, in its own rolled-back transaction (E140)
+    s.execute(text("""INSERT INTO org_reporting_settings (org_id, reporting_period_end) VALUES (CAST(:o AS uuid), '2024-12-31')
+                      ON CONFLICT (org_id) DO UPDATE SET reporting_period_end = EXCLUDED.reporting_period_end"""), {"o": IBERIA})
     pe = reporting_period_end(s, IBERIA)
+    assert not s.execute(text("""SELECT 1 FROM provided_datapoint WHERE org_id = CAST(:o AS uuid) AND framework = 'insurer_solvency'
+                                 AND reporting_period_end = :pe"""), {"o": IBERIA, "pe": pe}).first()
     state_method(s, IBERIA, pe)          # the insurer's stated method (E69)
 
     # 1 · three properties on locations the engine has scored (the coordinates of existing Iberia policies)

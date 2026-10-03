@@ -29,7 +29,28 @@ from tests.integration.conftest import login as _login
 
 pytestmark = pytest.mark.integration
 TERRA = "55555555-5555-4555-8555-555555555555"
-FOODS = "e304ce79-c45c-45a5-9f93-8f6bb9f76dc7"          # Terra Foods SA — holds the Lisbon, Madrid and Seville sites
+TERRA_FOODS = "e304ce79-c45c-45a5-9f93-8f6bb9f76dc7"    # Terra Foods SA — holds the Lisbon, Madrid and Seville sites
+
+
+def undertaking(api) -> str:
+    """A copy of Terra Foods SA and its three sites, made inside the test's rolled-back transaction — new, so nothing the
+    live database holds for Terra Foods SA (the demo statement, a closed period) is in its way (E140). Kept as `api.foods`
+    for the helpers below."""
+    s = api.s
+    new = s.execute(text("""
+        INSERT INTO reporting_entities
+        SELECT (jsonb_populate_record(NULL::reporting_entities, to_jsonb(r) || jsonb_build_object(
+                'entity_id', gen_random_uuid(), 'name', 'Terra Foods SA (test ' || gen_random_uuid() || ')', 'lei', NULL))).*
+        FROM reporting_entities r WHERE r.entity_id = CAST(:e AS uuid)
+        RETURNING entity_id::text"""), {"e": TERRA_FOODS}).scalar()
+    n = s.execute(text("""
+        INSERT INTO sc_company_sites
+        SELECT (jsonb_populate_record(NULL::sc_company_sites, to_jsonb(c) || jsonb_build_object(
+                'site_id', gen_random_uuid(), 'entity_id', CAST(:new AS text), 'external_ref', NULL))).*
+        FROM sc_company_sites c WHERE c.entity_id = CAST(:e AS uuid)"""), {"e": TERRA_FOODS, "new": new}).rowcount
+    assert n == 3, "Terra Foods SA holds the Lisbon, Madrid and Seville sites"
+    api.foods = new
+    return new
 
 
 def _users(api):
@@ -43,7 +64,7 @@ def _approve(api, checker, rid):
 
 def _state(api, maker, checker, pe, key, value, **extra):
     r = api.post("/v1/provided", headers=maker, json={"framework": "esrs", "datapoint_key": key, "value_num": value,
-                                                      "reporting_period_end": pe, "reporting_entity_id": FOODS, **extra})
+                                                      "reporting_period_end": pe, "reporting_entity_id": api.foods, **extra})
     assert r.status_code == 201, r.text
     _approve(api, checker, r.json()["approval_request_id"])
 
@@ -55,7 +76,7 @@ def _period(api, pe):
 
 
 def _statement(api, who):
-    r = api.get(f"/v1/esrs/statement?entity_id={FOODS}", headers=who)
+    r = api.get(f"/v1/esrs/statement?entity_id={api.foods}", headers=who)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -65,7 +86,7 @@ def _failing(d, severity="blocking"):
 
 
 def _answer(api, who, standard, answers):
-    r = api.put("/v1/esrs/answers", headers=who, json={"standard": standard, "answers": answers, "entity_id": FOODS})
+    r = api.put("/v1/esrs/answers", headers=who, json={"standard": standard, "answers": answers, "entity_id": api.foods})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -73,22 +94,23 @@ def _answer(api, who, standard, answers):
 def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api):
     maker, checker = _users(api)
     s = api.s
+    foods = undertaking(api)
     _period(api, "2025-12-31")
     sites = s.execute(text("SELECT site_id::text FROM sc_company_sites WHERE entity_id = CAST(:e AS uuid) ORDER BY name"),
-                      {"e": FOODS}).scalars().all()
+                      {"e": foods}).scalars().all()
     assert len(sites) == 3
     for sid in sites:
         for m, v in (("carrying_amount", 5e6), ("net_revenue", 20e6)):
             s.execute(text("""INSERT INTO site_period_values (org_id, site_id, reporting_entity_id, period_end, measure, amount,
                                                               currency, amount_eur, source)
                               VALUES (CAST(:o AS uuid), CAST(:s AS uuid), CAST(:e AS uuid), '2025-12-31', :m, :a, 'EUR', :a, 'client')"""),
-                      {"o": TERRA, "s": sid, "e": FOODS, "m": m, "a": v})
+                      {"o": TERRA, "s": sid, "e": foods, "m": m, "a": v})
 
     # ── FY2025 · who reports, and must it ──
     d = _statement(api, maker)
     assert d["spec"]["version"] == "dr_2023_2772_as_2025_1416"
     assert "csrd_role" in _failing(d) and {"materiality_E1", "materiality_E3", "materiality_E4"} <= set(_failing(d))
-    r = api.post("/v1/periods/role", headers=maker, json={"period_end": "2025-12-31", "entity_id": FOODS, "role": "individual"})
+    r = api.post("/v1/periods/role", headers=maker, json={"period_end": "2025-12-31", "entity_id": foods, "role": "individual"})
     assert r.status_code == 202, r.text
     _approve(api, checker, r.json()["approval_request_id"])
     assert _statement(api, maker)["document_report"]["scope_check"]["missing"]         # the facts are not stated yet
@@ -113,7 +135,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     assert assets["status"] == "gap" and "heat_chronic at Seville processing plant" in assets["gap"]
 
     # ── materiality, then every item of E1 ──
-    refused = api.put("/v1/esrs/answers", headers=maker, json={"standard": "materiality", "entity_id": FOODS,
+    refused = api.put("/v1/esrs/answers", headers=maker, json={"standard": "materiality", "entity_id": foods,
                                                                  "answers": {"E1": {"material": False}}})
     assert refused.status_code == 422 and "detailed explanation" in refused.text              # climate change: explain
     _answer(api, maker, "materiality", {"E1": {"material": True},
@@ -123,7 +145,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     e1 = next(x for x in d["document_report"]["sections"] if x["standard"] == "E1")
     assert all(i["status"] == "omitted" for x in d["document_report"]["sections"] if x["standard"] != "E1"
                for i in x["items"] if i["status"] != "printed")
-    bad = api.put("/v1/esrs/answers", headers=maker, json={"standard": "E1", "entity_id": FOODS, "answers": {
+    bad = api.put("/v1/esrs/answers", headers=maker, json={"standard": "E1", "entity_id": foods, "answers": {
         "E1-6.44c": {"omitted": {"reason": "condition_not_applicable", "statement": "x"}}}})
     assert bad.status_code == 422 and "no printed condition" in bad.text
     _answer(api, maker, "E1", {"E1-6.44c": {"omitted": {"reason": "phase_in", "phase_in": "e1_6_scope3_total_wave1"}}})
@@ -154,7 +176,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     # ESRS 1 §83: the second year of a wave-one undertaking (first 2024) — a comparative for FY2024 is required; none is
     # stated or reported, so it blocks until the undertaking discloses that it is impracticable (§85)
     assert "e1.energy.total" in _failing(d)["comparatives"]
-    bad = api.put("/v1/esrs/answers", headers=maker, json={"standard": "comparatives", "entity_id": FOODS,
+    bad = api.put("/v1/esrs/answers", headers=maker, json={"standard": "comparatives", "entity_id": foods,
                                                            "answers": {"cmp.e1.energy.total": {}}})
     assert bad.status_code == 422
     _answer(api, maker, "comparatives", {"cmp.e1.energy.total": {
@@ -164,14 +186,14 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     assert set(_failing(d, "warning")) == {"period_closed"}
 
     # ── close the year, then file ──
-    r = api.post("/v1/periods/close", headers=maker, json={"period_end": "2025-12-31", "entity_id": FOODS})
+    r = api.post("/v1/periods/close", headers=maker, json={"period_end": "2025-12-31", "entity_id": foods})
     assert r.status_code == 202, r.text
     _approve(api, checker, r.json()["approval_request_id"])
     assert _statement(api, maker)["document_report"]["period_closed"] is True
-    pf = api.get(f"/v1/filings/preflight?framework=esrs_pack&entity_id={FOODS}", headers=maker)
+    pf = api.get(f"/v1/filings/preflight?framework=esrs_pack&entity_id={foods}", headers=maker)
     assert pf.status_code == 200, pf.text
     g = api.post("/v1/filings", headers=maker, json={"framework": "esrs_pack", "confirm_token": pf.json()["confirm_token"],
-                                                     "entity_id": FOODS})
+                                                     "entity_id": foods})
     assert g.status_code == 201, g.text
     fid = g.json()["filing_id"]
     v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
@@ -179,7 +201,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     filed = json.loads(api.get(f"/v1/filings/{fid}/export?format=json", headers=maker).content)
     doc = filed["payload"]["document_report"]
     assert filed["payload"]["_specs"]["esrs"]["version"] == "dr_2023_2772_as_2025_1416"
-    assert doc["reporting_entity_id"] == FOODS and doc["period_closed"] and doc["role"]["role"] == "individual"
+    assert doc["reporting_entity_id"] == foods and doc["period_closed"] and doc["role"]["role"] == "individual"
     assert doc["statement"]["concepts"]["e1.physrisk.assets.amount"]["by_horizon"] == assets["by_horizon"]
     assert api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker).status_code == 409        # no ESRS XBRL
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
@@ -227,7 +249,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     _period(api, "2027-12-31")
     d = _statement(api, maker)
     assert d["spec"]["version"] == "dr_2026_1563"
-    r = api.post("/v1/periods/role", headers=maker, json={"period_end": "2027-12-31", "entity_id": FOODS, "role": "individual"})
+    r = api.post("/v1/periods/role", headers=maker, json={"period_end": "2027-12-31", "entity_id": foods, "role": "individual"})
     _approve(api, checker, r.json()["approval_request_id"])
     sc = _statement(api, maker)["document_report"]["scope_check"]
     assert sc["point"] == "b_i" and sc["required"] is None and set(sc["missing"]) == {"csrd.net_turnover", "csrd.employees_average"}
@@ -236,5 +258,23 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     assert sc["required"] is None and sc["missing"] == ["csrd.net_turnover"]
     early = api.post("/v1/provided", headers=maker, json={"framework": "esrs", "datapoint_key": "csrd.net_turnover",
                                                           "value_num": 500e6, "currency": "EUR", "reporting_period_end": "2027-12-31",
-                                                          "reporting_entity_id": FOODS})
+                                                          "reporting_entity_id": foods})
     assert early.status_code == 400 and "in the future" in early.text           # an amount is stated once its date has passed
+
+
+def test_an_exempt_subsidiary_files_no_statement(api):
+    """E139: an exempt subsidiary (Art. 19a(9) / 29a(8)) has no statement — one blocking finding naming the parent's
+    report, no item checks after it, and no filing can be confirmed or frozen for it."""
+    maker, checker = _users(api)
+    foods = undertaking(api)
+    _period(api, "2025-12-31")
+    r = api.post("/v1/periods/role", headers=maker, json={
+        "period_end": "2025-12-31", "entity_id": foods, "role": "exempt_subsidiary", "parent_name": "Terra Group",
+        "parent_registered_office": "Lisbon", "parent_report_ref": "Terra Group consolidated management report FY2025"})
+    assert r.status_code == 202, r.text
+    _approve(api, checker, r.json()["approval_request_id"])
+    d = _statement(api, maker)
+    assert set(_failing(d)) == {"csrd_role"} and "Terra Group" in _failing(d)["csrd_role"]
+    assert {c["rule"] for c in d["checks"]} == {"specification", "csrd_role"}
+    pf = api.get(f"/v1/filings/preflight?framework=esrs_pack&entity_id={foods}", headers=maker)
+    assert pf.status_code == 409 and "exempt subsidiary files no ESRS statement" in pf.text, pf.text

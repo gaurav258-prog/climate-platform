@@ -19,20 +19,22 @@ import pytest
 from sqlalchemy import text
 
 from tests.integration.test_e2e_esrs_statement import (
-    FOODS,
     TERRA,
     _approve,
     _period,
     _state,
     _users,
+    undertaking,
 )
 
 pytestmark = pytest.mark.integration
 PE = "2025-12-31"
 
 
-def _statement_ready(api, maker, checker):
+def _statement_ready(api, maker, checker) -> str:
+    """A new undertaking (a copy of Terra Foods SA, E140) with the FY2025 facts its statement needs."""
     s = api.s
+    FOODS = undertaking(api)  # noqa: N806
     _period(api, PE)
     for sid in s.execute(text("SELECT site_id::text FROM sc_company_sites WHERE entity_id = CAST(:e AS uuid)"), {"e": FOODS}).scalars():
         for m, v in (("carrying_amount", 5e6), ("net_revenue", 20e6)):
@@ -48,15 +50,18 @@ def _statement_ready(api, maker, checker):
                           ("esrs.method.physical_risk_level", 30, {}), ("fs.total_assets", 200e6, {"currency": "EUR"}),
                           ("fs.net_revenue", 400e6, {"currency": "EUR"}), ("e1.ghg.scope1.gross", 1234, {})):
         _state(api, maker, checker, PE, key, v, **extra)
+    return FOODS
 
 
-def _esrs(obligations):
-    return [o for o in obligations if o["framework"] == "esrs_pack"]
+def _esrs(obligations, entity_id):
+    """The undertaking's own ESRS obligations — the organisation's other undertakings hold whatever the live database
+    gives them (E140)."""
+    return [o for o in obligations if o["framework"] == "esrs_pack" and o["entity_id"] == entity_id]
 
 
 def test_the_mandate_calendar_kris_and_supervisors_read_the_statement(api):
     maker, checker = _users(api)
-    _statement_ready(api, maker, checker)
+    FOODS = _statement_ready(api, maker, checker)  # noqa: N806
 
     # ── the mandate: Art. 5(2) per undertaking; no deadline until the issuer status is stated ──
     mm = {m["id"]: m for m in api.get("/v1/me/supervisors/mandates", headers=maker).json()["mandates"]}["csrd_esrs_e1"]
@@ -64,22 +69,23 @@ def test_the_mandate_calendar_kris_and_supervisors_read_the_statement(api):
     foods = next(u for u in mm["undertakings"] if u["entity_id"] == FOODS)
     assert foods["required"] is True and foods["point"] == "a_i" and foods["issuer"] is None
     others = [u for u in mm["undertakings"] if u["entity_id"] != FOODS]
-    assert others and all(u["required"] is None for u in others)             # their roles are not stated: not guessed
+    assert others and all(u["required"] is None for u in others if u["role"] is None)   # role not stated: not guessed
+    assert all(u["required"] is False for u in others if u["role"] == "exempt_subsidiary")
     assert not {"public_interest_entity", "employees"} & {c["attribute"] for c in mm["checks"]}
-    assert _esrs(api.get("/v1/obligations", headers=maker).json()["obligations"]) == []
+    assert _esrs(api.get("/v1/obligations", headers=maker).json()["obligations"], FOODS) == []
 
     _state(api, maker, checker, PE, "csrd.transparency_issuer", 1)
-    ob = _esrs(api.get("/v1/obligations", headers=maker).json()["obligations"])
+    ob = _esrs(api.get("/v1/obligations", headers=maker).json()["obligations"], FOODS)
     assert [(o["entity_id"], o["due_date"], o["filing_role"]) for o in ob] == [(FOODS, "2026-04-30", "solo")]
     mm = {m["id"]: m for m in api.get("/v1/me/supervisors/mandates", headers=maker).json()["mandates"]}["csrd_esrs_e1"]
     assert mm["deliverable"]["due"] == "2026-04-30"
     _state(api, maker, checker, PE, "csrd.transparency_issuer", 0)        # restated: not an issuer → Art. 30(1)
-    ob = _esrs(api.get("/v1/obligations", headers=maker).json()["obligations"])
+    ob = _esrs(api.get("/v1/obligations", headers=maker).json()["obligations"], FOODS)
     assert [(o["entity_id"], o["due_date"]) for o in ob] == [(FOODS, "2026-12-31")]
 
     # ── the KRIs: the statement's own figures for the undertaking ──
     st = api.get(f"/v1/esrs/statement?entity_id={FOODS}", headers=maker).json()["document_report"]["statement"]["concepts"]
-    d = api.get("/v1/reg-tasks/kri?framework=esrs_pack", headers=maker).json()           # the one undertaking with a role
+    d = api.get(f"/v1/reg-tasks/kri?framework=esrs_pack&entity_id={FOODS}", headers=maker).json()
     assert d["supported"] and d["undertaking"]["entity_id"] == FOODS and d["undertaking"]["esrs_version"] == "dr_2023_2772_as_2025_1416"
     k = {x["key"]: x for x in d["kpis"]}
     assert k["e1.physrisk.assets.amount"]["value"] == st["e1.physrisk.assets.amount"]["value"]
@@ -88,9 +94,9 @@ def test_the_mandate_calendar_kris_and_supervisors_read_the_statement(api):
     assert k["e1.ghg.scope1.gross"]["value"] == 1234 and k["e3.water.consumption"]["value"] is None   # not stated: a gap
     assert not {"asset_at_risk", "cogs_at_risk", "water_plots_stressed", "protected_area", "frost_severity"} & set(k)
     assert d["by_hazard"] and all(0 < h["value"] <= 15e6 for h in d["by_hazard"])
-    det = api.get("/v1/reg-tasks/kri/detail?framework=esrs_pack&kri=e1.physrisk.assets.amount", headers=maker).json()
+    det = api.get(f"/v1/reg-tasks/kri/detail?framework=esrs_pack&kri=e1.physrisk.assets.amount&entity_id={FOODS}", headers=maker).json()
     assert "physical_risk_level" in det["methodology"] and det["composition"]["type"] == "hazard"
-    hz = api.get(f"/v1/reg-tasks/kri/hazard?framework=esrs_pack&hazard={d['by_hazard'][0]['hazard']}", headers=maker).json()
+    hz = api.get(f"/v1/reg-tasks/kri/hazard?framework=esrs_pack&entity_id={FOODS}&hazard={d['by_hazard'][0]['hazard']}", headers=maker).json()
     assert hz["entities"] and hz["entities"][0]["value"] <= 5e6
     assert api.get("/v1/reg-tasks/kri?framework=csrd_e1", headers=maker).json()["supported"] is False     # retired
     from services.governance.reg_impact_links import links_for
@@ -98,7 +104,14 @@ def test_the_mandate_calendar_kris_and_supervisors_read_the_statement(api):
     assert {"e1.physrisk.assets.amount", "e4.sites.sensitive.count"} <= {x["key"] for x in links_for("esrs_pack")["kris"]}
 
     # ── the national authority's questions, answered by the statement's figures ──
-    sup = api.get("/v1/reg-tasks/supervisory", headers=maker).json()
+    # several undertakings prepare a statement (the demo's own and this one): none is chosen for the ESRS questions, the
+    # choice is listed (E141); a malformed undertaking id is refused at the boundary
+    whole = api.get("/v1/reg-tasks/supervisory", headers=maker).json()
+    if len(whole["esrs"]["undertakings"]) > 1:
+        assert whole["esrs"]["undertaking"] is None and FOODS in {u["entity_id"] for u in whole["esrs"]["undertakings"]}
+    assert api.get("/v1/reg-tasks/supervisory?entity_id=nope", headers=maker).status_code == 422
+    sup = api.get(f"/v1/reg-tasks/supervisory?entity_id={FOODS}", headers=maker).json()
+    assert sup["esrs"]["undertaking"]["entity_id"] == FOODS
     nca = next(x for x in sup["supervisors"] if x["id"] == "nca_sustainability")
     q = {x["question"]: x for x in nca["questions"]}
     assets_q = next(v for kq, v in q.items() if "material physical risk, before adaptation" in kq)

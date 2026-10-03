@@ -6,8 +6,8 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.191 |
-| Last updated | 2026-10-02 |
+| Version | 2.194 |
+| Last updated | 2026-10-03 |
 | Package version (pyproject.toml) | 0.1.0 |
 
 **Maintenance rule:** whenever a hazard type, service, data source, schema table, or auth
@@ -176,6 +176,9 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-03 | 2.194 | **Fossil gas / nuclear facts, the supervisory undertaking choice (E141, E142).** The holdings upload states the fossil gas and nuclear parts of an investee's aligned share (turnover and CapEx, 2022/1214 Annex XII); the SFDR periodic fossil gas / nuclear question is answered only from stated parts, never 'no' by default. The Supervisory view chooses which undertaking's ESRS statement answers the national authority's questions when more than one prepares one; entity ids on the supervisory and KRI routes are validated. |
+| 2026-10-03 | 2.193 | **Foundation fixes found by the demo seeding (E136–E140).** PAI 6 completeness measured against the high-impact holdings it applies to; ESRS ratio comparatives derived from the previous period's attested inputs; every route commits before its response is sent (an id returned is an id saved); an exempt subsidiary gets one finding and no ESRS filing; five integration tests set up their own state instead of reading the demo's. |
+| 2026-10-03 | 2.192 | **Demo data for every demo company.** Agri: ESRS E1/E3/E4 statements for FY2025 for all nine agri companies (Terra per undertaking; its two exempt subsidiaries point to the group report) and EUDR data; asset managers: two demo funds each with four quarter-ends of holdings, demo issuer PAI and Taxonomy facts, PAI statement answers and periodic documents; insurers: attested FY2025 capital and treaties; bank entities' text; retired-report drafts withdrawn where the app's lifecycle allows (scripts/seed_demo_agri_esrs.py, seed_demo_agri_eudr.py, seed_demo_asset_managers.py, seed_demo_insurers_entities.py, withdraw_retired_demo_drafts.py — demo data, fictional companies, through the app's routes). |
 | 2026-10-03 | 2.191 | **Demo banks: Pillar 3 ready to prepare.** Qualitative Tables 1–3 answered with demo text for all eight demo banks (scripts/seed_demo_p3_qualitative.py, through the qualitative route), and two test loans left in Meridian's demo book by upload tests (2026-08-02) removed; every demo bank's Pillar 3 pre-filing check shows no gaps (demo data, fictional banks). |
 | 2026-10-03 | 2.190 | **Demo banks: Template 1 complete.** Every demo bank's loans name their counterparties (including ten Meridian loans that shared a name, now given demo asset ids); six loans per bank rest on the revenue-based sector average; the Template 1 narrative is written as demo text. Template 1 has no gaps at any demo bank (demo data, fictional banks). |
 | 2026-10-03 | 2.189 | **Counterparty ids on loans already in the book, and demo counterparties (E134).** The per-loan attributes file can set a loan's counterparty id, so a bank names its counterparties without re-sending the loan tape. The eight demo banks now carry demo counterparties — each with total liabilities, revenue and year end — the Template 1 statements and demo sector intensities, so Template 1 columns i–k compute for them (demo figures, fictional banks). |

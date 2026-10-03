@@ -24,8 +24,13 @@ pytestmark = pytest.mark.integration
 
 
 def _manufacturer(s):
+    """A manufacturer whose FY2024 is still open — the test lands values for it and closes it itself (FY2024, not
+    FY2025: the demo closes the manufacturers' FY2025, E140)."""
     return s.execute(text("""SELECT o.org_id::text, u.user_id::text FROM organizations o JOIN users u ON u.org_id = o.org_id
-                             WHERE o.type = 'manufacturer' AND u.role = 'admin' ORDER BY o.name LIMIT 1""")).one()
+                             WHERE o.type = 'manufacturer' AND u.role = 'admin'
+                               AND NOT EXISTS (SELECT 1 FROM reporting_period_close c WHERE c.org_id = o.org_id
+                                               AND c.period_end = '2024-12-31')
+                             ORDER BY o.name LIMIT 1""")).one()
 
 
 def _csv(rows: list[dict]) -> bytes:
@@ -37,7 +42,7 @@ def test_year_end_values_land_as_statements_converted_by_the_rules_of_the_period
     org_id, user_id = _manufacturer(s)
     a, b, gone = f"YE-{tag}-A", f"YE-{tag}-B", f"YE-{tag}-C"
     sites = [{"site_name": f"TEST-YE-{tag}-{r}", "latitude": 39.47 + i / 100, "longitude": -0.37, "external_ref": r,
-              "held_from": "2019-01-01", "site_area_ha": 12.5, "held_until": "2025-06-30" if r == gone else None}
+              "held_from": "2019-01-01", "site_area_ha": 12.5, "held_until": "2024-06-30" if r == gone else None}
              for i, r in enumerate((a, b, gone))]
     out = pipeline.submit(s, org_id, "company_sites", _csv(sites), f"{tag}-sites.csv", user_id=user_id)
     assert out["state"] == "imported", out.get("controls", {}).get("gate")
@@ -45,9 +50,9 @@ def test_year_end_values_land_as_statements_converted_by_the_rules_of_the_period
                             WHERE org_id = CAST(:o AS uuid) AND external_ref LIKE :t ORDER BY external_ref"""),
                     {"o": org_id, "t": f"YE-{tag}-%"}).all()
     assert [tuple(r) for r in got] == [(a, 12.5, "2019-01-01", None), (b, 12.5, "2019-01-01", None),
-                                       (gone, 12.5, "2019-01-01", "2025-06-30")]
+                                       (gone, 12.5, "2019-01-01", "2024-06-30")]
 
-    pe = "2025-12-31"
+    pe = "2024-12-31"
     # a file with rows that cannot land: held for a second person, nothing written, every refused row with its reason
     bad = [{"site_ref": f"NOPE-{tag}", "book_date": pe, "carrying_amount_eur": 1, "currency": "EUR"},
            {"site_ref": gone, "book_date": pe, "carrying_amount_eur": 1, "currency": "EUR"},
@@ -56,7 +61,7 @@ def test_year_end_values_land_as_statements_converted_by_the_rules_of_the_period
                           reason="checking what is refused and why")
     assert out["state"] == "awaiting_approval", out
     rejected = {e["row"]: " ".join(e["problems"]) for e in out["errors"]}
-    assert "is not one of your sites" in rejected[2] and "was not held on 2025-12-31" in rejected[3] and 4 not in rejected
+    assert "is not one of your sites" in rejected[2] and "was not held on 2024-12-31" in rejected[3] and 4 not in rejected
     assert not s.execute(text("SELECT 1 FROM site_period_values WHERE org_id = CAST(:o AS uuid) AND batch_id = CAST(:b AS uuid)"),
                          {"o": org_id, "b": out["batch_id"]}).first()
 
@@ -70,8 +75,8 @@ def test_year_end_values_land_as_statements_converted_by_the_rules_of_the_period
         JOIN sc_company_sites c ON c.site_id = v.site_id WHERE v.org_id = CAST(:o AS uuid) AND c.external_ref LIKE :t"""),
         {"o": org_id, "t": f"YE-{tag}-%"}).all()}
     assert live[(a, "carrying_amount")] == (1_000_000, 1_000_000, "EUR")
-    usd_bs = convert_amount(s, 2_000_000, "USD", date(2025, 12, 31), flow=False, org_id=org_id)    # IAS 21: closing rate
-    usd_fl = convert_amount(s, 5_000_000, "USD", date(2025, 12, 31), flow=True, org_id=org_id)     # the year's average
+    usd_bs = convert_amount(s, 2_000_000, "USD", date(2024, 12, 31), flow=False, org_id=org_id)    # IAS 21: closing rate
+    usd_fl = convert_amount(s, 5_000_000, "USD", date(2024, 12, 31), flow=True, org_id=org_id)     # the year's average
     assert live[(b, "carrying_amount")] == (2_000_000, usd_bs["eur"], "USD")
     assert live[(b, "net_revenue")] == (5_000_000, usd_fl["eur"], "USD")
 
@@ -92,7 +97,7 @@ def test_year_end_values_land_as_statements_converted_by_the_rules_of_the_period
                       VALUES (CAST(:o AS uuid), CAST(:e AS uuid), :pe, CAST(:m AS uuid), CAST(:c AS uuid))"""),
               {"o": org_id, "e": ent, "pe": pe, "m": user_id, "c": other})
     late = [{"site_ref": a, "book_date": pe, "carrying_amount_eur": 1_200_000, "currency": "EUR"},
-            {"site_ref": b, "book_date": "2026-06-30", "carrying_amount_eur": -5, "currency": "EUR"}]
+            {"site_ref": b, "book_date": "2025-06-30", "carrying_amount_eur": -5, "currency": "EUR"}]
     with pytest.raises(pipeline.IntakeError) as e:
         pipeline.submit(s, org_id, "site_year_end_values", _csv(late), f"{tag}-ye3.csv", user_id=user_id)
     problems = " ".join(p for err in e.value.body.get("errors", []) for p in err["problems"])

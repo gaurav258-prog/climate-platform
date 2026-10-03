@@ -128,6 +128,16 @@ class Holding(BaseModel):
             raise ValueError("revenue/evic in the issuer's own currency need financials_currency (e.g. USD)")
         if (self.revenue is not None or self.evic is not None) and self.financials_date is None and self.reporting_year is None:
             raise ValueError("revenue/evic in the issuer's own currency need financials_date or reporting_year")
+        for basis, aligned, gas, nuc in (
+                ("turnover", self.taxonomy_aligned_pct, self.taxonomy_fossil_gas_aligned_pct, self.taxonomy_nuclear_aligned_pct),
+                ("CapEx", self.taxonomy_aligned_capex_pct, self.taxonomy_fossil_gas_aligned_capex_pct,
+                 self.taxonomy_nuclear_aligned_capex_pct)):
+            if (gas is not None or nuc is not None) and aligned is None:
+                raise ValueError(f"the fossil gas / nuclear parts are parts of the aligned share: state the {basis}-based "
+                                 "aligned share with them")
+            if aligned is not None and (gas or 0) + (nuc or 0) > aligned + 1e-9:
+                raise ValueError(f"the fossil gas and nuclear parts ({(gas or 0) + (nuc or 0)}%) exceed the {basis}-based "
+                                 f"aligned share ({aligned}%)")
         return self
     # ── Optional issuer data the client already holds (fills SFDR gaps) ──
     nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI
@@ -164,6 +174,12 @@ class Holding(BaseModel):
     taxonomy_eligible_pct: Optional[float] = Field(None, ge=0, le=100)
     taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)          # turnover-based
     taxonomy_aligned_capex_pct: Optional[float] = Field(None, ge=0, le=100)    # CapEx-based
+    # the fossil gas and nuclear parts of the aligned shares (Delegated Regulation (EU) 2022/1214, Annex XII Template
+    # 1-2): what the SFDR product templates ask whether the product invested in (2022/1288 Annex IV / V)
+    taxonomy_fossil_gas_aligned_pct: Optional[float] = Field(None, ge=0, le=100)        # turnover-based
+    taxonomy_nuclear_aligned_pct: Optional[float] = Field(None, ge=0, le=100)           # turnover-based
+    taxonomy_fossil_gas_aligned_capex_pct: Optional[float] = Field(None, ge=0, le=100)  # CapEx-based
+    taxonomy_nuclear_aligned_capex_pct: Optional[float] = Field(None, ge=0, le=100)     # CapEx-based
     # DNSH / minimum-safeguards attestation. NULL = not separately assessed (take
     # reported aligned as-is); False = known to fail → that issuer's aligned excluded.
     taxonomy_dnsh_ok: Optional[bool] = None
@@ -295,7 +311,11 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
     # the issuer's own Taxonomy KPIs — to the one store of them (services.issuer_taxonomy)
     from services.issuer_taxonomy import write_stated
     stated = {"taxonomy_eligible_pct": h.taxonomy_eligible_pct, "taxonomy_aligned_pct": h.taxonomy_aligned_pct,
-              "taxonomy_aligned_capex_pct": h.taxonomy_aligned_capex_pct}
+              "taxonomy_aligned_capex_pct": h.taxonomy_aligned_capex_pct,
+              "taxonomy_fossil_gas_aligned_pct": h.taxonomy_fossil_gas_aligned_pct,
+              "taxonomy_nuclear_aligned_pct": h.taxonomy_nuclear_aligned_pct,
+              "taxonomy_fossil_gas_aligned_capex_pct": h.taxonomy_fossil_gas_aligned_capex_pct,
+              "taxonomy_nuclear_aligned_capex_pct": h.taxonomy_nuclear_aligned_capex_pct}
     if any(v is not None for v in stated.values()):
         write_stated(session, issuer_id, org_id, h.reporting_year or date.today().year, stated)
         wrote["taxonomy"] = True

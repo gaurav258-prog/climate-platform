@@ -63,6 +63,16 @@ def _answers(rows: list[dict]) -> dict:
     return a
 
 
+def _clear(api, who, period_end):
+    """Start from no answers for the period — the demo manager may hold demo text (E140): cleared through the app's own
+    route (an item set to null), inside this rolled-back transaction."""
+    held = T.read(api.s, NORDKAP, "sfdr_pai", "pai_statement", period_end=date.fromisoformat(period_end))
+    if held:
+        r = api.put("/v1/entity/pai-statement/answers", headers=who,
+                    json={"period_end": period_end, "answers": dict.fromkeys(held)})
+        assert r.status_code == 200, r.text
+
+
 def test_the_statement_for_a_reference_period(api):
     maker, checker = _users(api)
     s = api.s
@@ -86,6 +96,7 @@ def test_the_statement_for_a_reference_period(api):
     live = api.get("/v1/entity/sfdr-statement", headers=maker).json()
     assert live["reference_period"] is None and not live["filing_readiness"]["ready_to_file"]   # a live view is never filed
 
+    _clear(api, maker, "2025-12-31")
     a = api.get("/v1/entity/pai-statement/answers?period_end=2025-12-31", headers=maker).json()
     assert a["prior_period"] is None and not a["historical_comparison"]["applies"]
     assert {"Article 5(d)", "Article 7(1)(a)", "Article 9(2)(c)"} <= {m.split(":")[0] for m in a["missing"]}
@@ -200,6 +211,7 @@ def test_the_old_narratives_are_retired_and_shown_only_for_reference(api):
     assert "sfdr_narratives" not in api.get("/v1/manager/filing-profile", headers=maker).json()
     T.save(api.s, NORDKAP, "sfdr_pai", "pai_statement", {"items": [{"id": "policies", "kind": "field"}]},
            {"policies": "input"}, {"policies": {"text": "An earlier text."}}, None)
+    _clear(api, maker, "2025-12-31")
     a = api.get("/v1/entity/pai-statement/answers?period_end=2025-12-31", headers=maker).json()
     assert a["legacy_narratives"]["policies"] == "An earlier text."
     assert "policies" not in a["answers"] and any(m.startswith("Article 7(1)") for m in a["missing"])

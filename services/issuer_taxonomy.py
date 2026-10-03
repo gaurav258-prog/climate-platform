@@ -77,8 +77,12 @@ def write_stated(session: Session, issuer_id: str, org_id: str | None, year: int
                  source: str = "client") -> bool:
     """The upload columns an issuer's KPIs arrive in (holdings upload, vendor feed) → the one store."""
     differs = False
-    for basis, values in (("turnover", {"eligible": stated.get("taxonomy_eligible_pct"), "aligned": stated.get("taxonomy_aligned_pct")}),
-                          ("capex", {"aligned": stated.get("taxonomy_aligned_capex_pct")})):
+    for basis, values in (("turnover", {"eligible": stated.get("taxonomy_eligible_pct"), "aligned": stated.get("taxonomy_aligned_pct"),
+                                        "fossil_gas": stated.get("taxonomy_fossil_gas_aligned_pct"),
+                                        "nuclear": stated.get("taxonomy_nuclear_aligned_pct")}),
+                          ("capex", {"aligned": stated.get("taxonomy_aligned_capex_pct"),
+                                     "fossil_gas": stated.get("taxonomy_fossil_gas_aligned_capex_pct"),
+                                     "nuclear": stated.get("taxonomy_nuclear_aligned_capex_pct")})):
         differs |= write_total(session, issuer_id, org_id, year, basis, values, source)
     return differs
 

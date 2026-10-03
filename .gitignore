@@ -114,3 +114,6 @@ data/storm_synthetic/
 # live copies landed by scheduled feed refreshes (core/live_data.py); the committed reference snapshots stay in
 # data/reference/ and change only deliberately (E114)
 data/live/
+
+# login tokens a script or agent may write while seeding the local demo — never commit
+tok_*.txt
