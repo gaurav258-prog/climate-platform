@@ -14,7 +14,8 @@ Source: Copernicus Climate Change Service (C3S) Climate Data Store, ERA5-Land mo
 2019), doi:10.24381/cds.68d2bb30 — licence: Copernicus licence (attribution: "Contains modified Copernicus Climate
 Change Service information <year>").
 
-    python -m scripts.fetch_era5_land_global                 # 1991-2024, resumes, six years per request
+    python -m scripts.fetch_era5_land_global                 # 1991 to last year (six years per request), then
+                                                             # this year's months the CDS holds; resumes
     python -m scripts.fetch_era5_land_global --record        # pin the landed files in the manifest
 """
 from __future__ import annotations
@@ -33,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "datasets" / "era5_land_monthly"
 MANIFEST = ROOT / "data" / "reference" / "supply_datasets.json"
 VARIABLES = ["total_precipitation", "2m_temperature", "potential_evaporation"]
-YEARS = range(1991, 2025)
+YEARS = range(1991, datetime.now(timezone.utc).year)     # every full year; the current year's months: fetch_current
 
 
 def _path(first: int, last: int) -> Path:
@@ -104,30 +105,121 @@ def record() -> None:
         "path": str(OUT.relative_to(ROOT)), "years": [YEARS.start, YEARS.stop - 1],
         "complete": {y for years in held.values() for y in years} >= set(YEARS),
         "files": [{"file": p.name, "bytes": p.stat().st_size, "sha256": _sha256(p)} for p in files]})
-    print(f"recorded {len(files)} files, {sum(len(v) for v in held.values())}/{len(YEARS)} years, "
-          f"{sum(p.stat().st_size for p in files) / 1e9:.2f} GB")
+    full = {y for years in held.values() for y in years} & set(YEARS)
+    current = YEARS.stop
+    months = held_months(current)
+    print(f"recorded {len(files)} files: {len(full)}/{len(YEARS)} full years"
+          + (f" + {months} months of {current}" if months else "")
+          + f", {sum(p.stat().st_size for p in files) / 1e9:.2f} GB")
+
+
+def _cds() -> tuple[str, str]:
+    """(API url, key) — from the settings, else ~/.cdsapirc (as cdsapi reads them)."""
+    from core.config import settings
+    url, key = settings.CDSAPI_URL or "https://cds.climate.copernicus.eu/api", settings.CDSAPI_KEY or ""
+    rc = Path.home() / ".cdsapirc"
+    if not key and rc.exists():
+        for line in rc.read_text().splitlines():
+            if line.startswith("key:"):
+                key = line.split(":", 1)[1].strip()
+            elif line.startswith("url:") and not settings.CDSAPI_URL:
+                url = line.split(":", 1)[1].strip()
+    return url, key
+
+
+def available_months(year: int) -> list[int]:
+    """The months of `year` the CDS holds for these variables — its constraints answer, no download."""
+    import requests
+    url, key = _cds()
+    r = requests.post(f"{url}/retrieve/v1/processes/reanalysis-era5-land-monthly-means/constraints",
+                      headers={"PRIVATE-TOKEN": key}, timeout=60,
+                      json={"inputs": {"product_type": ["monthly_averaged_reanalysis"], "variable": VARIABLES,
+                                       "year": [str(year)]}})
+    r.raise_for_status()
+    return sorted(int(m) for m in r.json().get("month", []))
+
+
+def held_months(year: int) -> int:
+    """How many months the year's landed file holds (0 when none)."""
+    p = _path(year, year)
+    if not p.exists():
+        return 0
+    import xarray as xr
+    with xr.open_dataset(p) as ds:
+        return int(ds.sizes.get("valid_time", ds.sizes.get("time", 0)))
+
+
+def fetch_current(client, year: int | None = None) -> Path | None:
+    """The current year's months the CDS holds, in one file replaced as months arrive. None when nothing is newer."""
+    year = year or datetime.now(timezone.utc).year
+    months = available_months(year)
+    if not months or len(months) <= held_months(year):
+        return None
+    out = _path(year, year)
+    tmp = out.with_suffix(".part")
+    client.retrieve("reanalysis-era5-land-monthly-means", {
+        "product_type": ["monthly_averaged_reanalysis"], "variable": VARIABLES, "year": [str(year)],
+        "month": [f"{m:02d}" for m in months], "time": ["00:00"],
+        "data_format": "netcdf", "download_format": "unarchived"}, str(tmp))
+    tmp.replace(out)
+    return out
+
+
+class FetchRunning(RuntimeError):
+    pass
+
+
+def locked():
+    """One fetch at a time (the CDS refuses more queued requests per dataset): an exclusive lock on the folder."""
+    import contextlib
+    import fcntl
+
+    @contextlib.contextmanager
+    def _lock():
+        OUT.mkdir(parents=True, exist_ok=True)
+        with open(OUT / ".fetch.lock", "w") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise FetchRunning("another ERA5-Land fetch is running") from None
+            yield
+    return _lock()
+
+
+def fetch_all(years_per_request: int = 6, current: bool = True, log=print) -> list[Path]:
+    """The missing full years, then the current year's months — under the lock. Returns the files written."""
+    import cdsapi
+    url, key = _cds()
+    written = []
+    with locked():
+        client = cdsapi.Client(url=url, key=key or None, quiet=True)
+        for years in _requests(years_per_request):
+            t0 = time.time()
+            p = fetch_years(client, years)
+            written.append(p)
+            log(f"{years[0]}-{years[-1]}: {p.stat().st_size / 1e6:.0f} MB in {time.time() - t0:.0f}s")
+        if current:
+            p = fetch_current(client)
+            if p is not None:
+                written.append(p)
+                log(f"{p.name}: {held_months(datetime.now(timezone.utc).year)} months")
+    return written
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--record", action="store_true")
     ap.add_argument("--years-per-request", type=int, default=6)
+    ap.add_argument("--no-current", action="store_true", help="full years only, not the current year's months")
     a = ap.parse_args()
     if a.record:
         record()
         return 0
-    import cdsapi
-
-    from core.config import settings
-    OUT.mkdir(parents=True, exist_ok=True)
-    client = cdsapi.Client(url=settings.CDSAPI_URL, key=settings.CDSAPI_KEY or None, quiet=True)   # else ~/.cdsapirc
-    total = 0
-    for years in _requests(a.years_per_request):
-        t0 = time.time()
-        p = fetch_years(client, years)
-        total += p.stat().st_size
-        print(f"{years[0]}-{years[-1]}: {p.stat().st_size / 1e6:.0f} MB in {time.time() - t0:.0f}s · "
-              f"total {total / 1e9:.2f} GB", flush=True)
+    try:
+        fetch_all(a.years_per_request, current=not a.no_current, log=lambda m: print(m, flush=True))
+    except FetchRunning as e:
+        print(e)
+        return 1
     print("done — run with --record to pin the files")
     return 0
 

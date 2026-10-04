@@ -83,5 +83,7 @@ REFERENCE_ID_ROUTES: dict[str, str] = {
     "GET /v1/supply/commodity/{commodity_id}": "commodity is shared reference data; plots and exposure are filtered to the caller's org",
     "GET /v1/supply/commodity/{commodity_id}/world-crop": "commodity is shared reference data; the figures are FAOSTAT "
                                                          "world and origin production only — no organisation's data",
+    "GET /v1/supply/commodity/{commodity_id}/outlook": "commodity is shared reference data; the outlook reads published "
+                                                      "calibrations, and 'own origins' are the caller's org plots only",
     "GET /v1/issuers/{issuer_id}": "issuer is shared reference data; served only when one of the caller's funds holds it (404 otherwise)",
 }

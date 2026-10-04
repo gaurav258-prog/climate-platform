@@ -1,5 +1,5 @@
 {
- "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds). nass_production and nass_area are the crop's exact USDA NASS Quick Stats series (short_desc) for the US and its states; nass_label states where NASS's definition differs from FAO's (canola only, wine grapes only, bearing acres), nass_gap why a crop is not read from NASS. eurostat_regional lists the Eurostat crop codes read by NUTS-2 region (apro_cpshr), summed where Eurostat publishes the crop's total only nationally — wheat by region is common wheat and spelt (C1110) + durum wheat (C1120), the two parts of C1100 in Eurostat's crop classification; eurostat_regional_gap why a crop has no regional series. statcan_crop is the crop's exact 'Type of crop' in Statistics Canada table 32-10-0359-01 (Canada and its provinces); statcan_label states its definition — series from different sources are never mixed.",
+ "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds). nass_production and nass_area are the crop's exact USDA NASS Quick Stats series (short_desc) for the US and its states; nass_label states where NASS's definition differs from FAO's (canola only, wine grapes only, bearing acres), nass_gap why a crop is not read from NASS. eurostat_regional lists the Eurostat crop codes read by NUTS-2 region (apro_cpshr), summed where Eurostat publishes the crop's total only nationally — wheat by region is common wheat and spelt (C1110) + durum wheat (C1120), the two parts of C1100 in Eurostat's crop classification; eurostat_regional_gap why a crop has no regional series. statcan_crop is the crop's exact 'Type of crop' in Statistics Canada table 32-10-0359-01 (Canada and its provinces); statcan_label states its definition — series from different sources are never mixed. crop_map names the crop map and its layers that say where the crop grows (data/reference/crop_maps.json — the weights of its weather, E163); season_source names where its season comes from (data/reference/crop_seasons.json: MIRCA-OS crop names, or FAO-56 Table 11).",
  "life_cycles": {
   "perennial_alternate_bearing": "perennial, alternate-bearing — cycle removed",
   "perennial": "perennial, no alternate bearing — detrended",
@@ -16,7 +16,16 @@
    "fas_commodity": "0577400",
    "fas_label": "Almonds, SHELLED basis — FAO reports in shell",
    "nass_gap": "not read from NASS: its in-shell series mixes scales (2018–2022 published as 1,897.5 'TONS', 2023 as 2,015,000) and its shelled series is another definition than FAO's in-shell",
-   "eurostat_regional_gap": "not published by NUTS-2 region in apro_cpshr (the crop code is not in the dataset)"
+   "eurostat_regional_gap": "not published by NUTS-2 region in apro_cpshr (the crop code is not in the dataset)",
+   "crop_map": {
+    "map": "cropgrids108",
+    "layers": [
+     "almond"
+    ]
+   },
+   "season_source": {
+    "fao56": true
+   }
   },
   {
    "commodity": "Barley",
@@ -33,7 +42,18 @@
     "C1300"
    ],
    "statcan_crop": "Barley",
-   "statcan_label": "barley"
+   "statcan_label": "barley",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "BARL"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Barley"
+    ]
+   }
   },
   {
    "commodity": "Cane sugar",
@@ -41,7 +61,18 @@
    "life_cycle": "perennial",
    "nass_production": "SUGARCANE, SUGAR & SEED - PRODUCTION, MEASURED IN TONS",
    "nass_area": "SUGARCANE, SUGAR & SEED - ACRES HARVESTED",
-   "nass_label": "sugarcane for sugar and seed — cane for other uses not included"
+   "nass_label": "sugarcane for sugar and seed — cane for other uses not included",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "SUGC"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Sugar cane"
+    ]
+   }
   },
   {
    "commodity": "Citrus",
@@ -52,19 +83,52 @@
    "eurostat_label": "Citrus fruits",
    "eurostat_regional": [
     "T0000"
-   ]
+   ],
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "CITR"
+    ]
+   },
+   "season_source": {
+    "fao56": true
+   }
   },
   {
    "commodity": "Cocoa",
    "fao_item": "Cocoa beans",
-   "life_cycle": "perennial_alternate_bearing"
+   "life_cycle": "perennial_alternate_bearing",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "COCO"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Cocoa"
+    ]
+   }
   },
   {
    "commodity": "Coffee",
    "fao_item": "Coffee, green",
    "life_cycle": "perennial_alternate_bearing",
    "fas_commodity": "0711100",
-   "fas_label": "Coffee, Green (60 kg bags → tonnes) — as FAO"
+   "fas_label": "Coffee, Green (60 kg bags → tonnes) — as FAO",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "COFF",
+     "RCOF"
+    ],
+    "note": "arabica (COFF) + robusta (RCOF)"
+   },
+   "season_source": {
+    "mirca_os": [
+     "Coffee"
+    ]
+   }
   },
   {
    "commodity": "Durum wheat",
@@ -80,7 +144,20 @@
     "C1120"
    ],
    "statcan_crop": "Wheat, durum",
-   "statcan_label": "durum wheat"
+   "statcan_label": "durum wheat",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "WHEA"
+    ],
+    "note": "MapSPAM and MIRCA-OS do not separate durum: the map and season are all wheat's"
+   },
+   "season_source": {
+    "mirca_os": [
+     "Wheat1",
+     "Wheat2"
+    ]
+   }
   },
   {
    "commodity": "Maize",
@@ -97,7 +174,18 @@
     "C1500"
    ],
    "statcan_crop": "Corn for grain",
-   "statcan_label": "corn for grain at the standard 15.5% moisture (table note 48)"
+   "statcan_label": "corn for grain at the standard 15.5% moisture (table note 48)",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "MAIZ"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Maize"
+    ]
+   }
   },
   {
    "commodity": "Olive oil",
@@ -110,14 +198,35 @@
    "nass_production": "OLIVES - PRODUCTION, MEASURED IN TONS",
    "nass_area": "OLIVES - ACRES BEARING",
    "nass_label": "all olives (fruit, as FAO's 'Olives'); area = bearing acres",
-   "eurostat_regional_gap": "not published by NUTS-2 region in apro_cpshr (the crop code is not in the dataset)"
+   "eurostat_regional_gap": "not published by NUTS-2 region in apro_cpshr (the crop code is not in the dataset)",
+   "crop_map": {
+    "map": "cropgrids108",
+    "layers": [
+     "olive"
+    ]
+   },
+   "season_source": {
+    "fao56": true
+   }
   },
   {
    "commodity": "Palm oil",
    "fao_item": "Oil palm fruit",
    "life_cycle": "perennial",
    "fas_commodity": "4243000",
-   "fas_label": "Oil, Palm — the OIL; FAO reports oil palm fruit"
+   "fas_label": "Oil, Palm — the OIL; FAO reports oil palm fruit",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "OILP"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Oil palm",
+     "Oil Palm"
+    ]
+   }
   },
   {
    "commodity": "Rapeseed",
@@ -134,7 +243,18 @@
     "I1110"
    ],
    "statcan_crop": "Canola (rapeseed)",
-   "statcan_label": "canola (rapeseed)"
+   "statcan_label": "canola (rapeseed)",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "RAPE"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Rapeseed"
+    ]
+   }
   },
   {
    "commodity": "Rice",
@@ -149,7 +269,20 @@
    "nass_label": "rough rice — FAO's paddy basis",
    "eurostat_regional": [
     "C2000"
-   ]
+   ],
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "RICE"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Rice1",
+     "Rice2",
+     "Rice3"
+    ]
+   }
   },
   {
    "commodity": "Sorghum",
@@ -164,7 +297,18 @@
    "nass_label": "sorghum for grain (silage is a separate series, not read)",
    "eurostat_regional": [
     "C1700"
-   ]
+   ],
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "SORG"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Sorghum"
+    ]
+   }
   },
   {
    "commodity": "Soybean",
@@ -181,7 +325,19 @@
     "I1130"
    ],
    "statcan_crop": "Soybeans",
-   "statcan_label": "soybeans"
+   "statcan_label": "soybeans",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "SOYB"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Soybeans",
+     "Soyabeans"
+    ]
+   }
   },
   {
    "commodity": "Sugar beet",
@@ -196,7 +352,18 @@
     "R2000"
    ],
    "statcan_crop": "Sugar beets",
-   "statcan_label": "sugar beets"
+   "statcan_label": "sugar beets",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "SUGB"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Sugar beet"
+    ]
+   }
   },
   {
    "commodity": "Sunflower",
@@ -213,7 +380,18 @@
     "I1120"
    ],
    "statcan_crop": "Sunflower seed",
-   "statcan_label": "sunflower seed"
+   "statcan_label": "sunflower seed",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "SUNF"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Sunflower"
+    ]
+   }
   },
   {
    "commodity": "Wheat",
@@ -231,7 +409,19 @@
     "C1120"
    ],
    "statcan_crop": "Wheat, all",
-   "statcan_label": "all wheat — spring, durum and winter wheat seeded in the fall (table note 33)"
+   "statcan_label": "all wheat — spring, durum and winter wheat seeded in the fall (table note 33)",
+   "crop_map": {
+    "map": "mapspam2020",
+    "layers": [
+     "WHEA"
+    ]
+   },
+   "season_source": {
+    "mirca_os": [
+     "Wheat1",
+     "Wheat2"
+    ]
+   }
   },
   {
    "commodity": "Wine grapes",
@@ -242,7 +432,16 @@
    "nass_production": "GRAPES, WINE TYPE - PRODUCTION, MEASURED IN TONS",
    "nass_area": "GRAPES, WINE TYPE - ACRES BEARING",
    "nass_label": "wine-type grapes only — FAO's 'Grapes' also include table and raisin types; area = bearing acres",
-   "eurostat_regional_gap": "not published by NUTS-2 region in apro_cpshr (the crop code is not in the dataset)"
+   "eurostat_regional_gap": "not published by NUTS-2 region in apro_cpshr (the crop code is not in the dataset)",
+   "crop_map": {
+    "map": "cropgrids108",
+    "layers": [
+     "grape"
+    ]
+   },
+   "season_source": {
+    "fao56": true
+   }
   }
  ]
 }

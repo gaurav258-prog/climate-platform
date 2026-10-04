@@ -11,8 +11,9 @@ CDS/ADS and NASA FIRMS queue times themselves — those are the other side's
 latency, not something any internal task-queue choice changes.
 
 Run the worker AND the scheduler separately from the API process (Procfile: worker, scheduler):
-    .venv/bin/celery -A services.tasks.celery_app worker --loglevel=info
+    .venv/bin/celery -A services.tasks.celery_app worker --pool=threads --loglevel=info
     .venv/bin/celery -A services.tasks.celery_app beat --loglevel=info
+The worker's pool is 'threads' by configuration and a forking pool is refused at start (worker_guard.py, E166).
 """
 from __future__ import annotations
 
@@ -31,7 +32,16 @@ celery_app = Celery(
     include=["services.tasks.intake_tasks", "services.tasks.eudr_tasks", "services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
              "services.tasks.decision_tasks", "services.tasks.kri_tasks", "services.tasks.reg_scan_tasks",
              "services.tasks.supervision_tasks"],
+    # Every task counts its deliveries: a job that kills its worker is failed after a few, not re-run forever (E166).
+    task_cls="services.tasks.worker_guard:GuardedTask",
 )
+
+# A forking pool segfaults on netCDF/HDF5 reads on macOS: the worker does not start on one (E166).
+from celery.signals import worker_init  # noqa: E402
+
+from services.tasks.worker_guard import refuse_forking_pool  # noqa: E402
+
+worker_init.connect(refuse_forking_pool)
 
 # Liveness: the worker process runs ONE heartbeat thread (services/tasks/heartbeat.py) from ready to shutdown, so a
 # queued job can be reported "worker unavailable" honestly instead of "queued" forever. Not a beat task: beat is a
@@ -77,10 +87,12 @@ celery_app.conf.update(
     # Jobs are CDS/FIRMS-fetch-bound (network I/O), not CPU-bound — a modest
     # per-worker concurrency lets several hazards progress in parallel without
     # pretending we can make the external service itself respond faster.
+    # Threads, never forked children: a forked child segfaults on netCDF/HDF5 reads (E166).
+    worker_pool="threads",
     worker_concurrency=4,
     task_acks_late=True,        # only ack after the task actually finishes — a
                                  # worker crash mid-job re-queues it, not silently drops it
-    task_reject_on_worker_lost=True,
+    task_reject_on_worker_lost=True,   # … up to worker_guard.MAX_DELIVERIES times, then the job fails (E166)
     # Publishing must FAIL FAST, never block a web request: if the broker is unreachable (e.g. Redis down),
     # a .delay() call should raise in ~2s and be swallowed by request_async_drain, not retry for 15s+. The
     # durable outbox + beat sweep already guarantee eventual delivery, so a dropped enqueue is harmless here.

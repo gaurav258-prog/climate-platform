@@ -25,7 +25,8 @@ def pct_rank(value, series):
 
 def main():
     idx = compute_indices(load_monthly(NC), scale=3)
-    years = seasonal_by_year(idx, SEASON)
+    years = [y for y in seasonal_by_year(idx, SEASON)       # full seasons only (E167)
+             if y["spei"] is not None and y["temp_anom_c"] is not None]
     by_year = {y["year"]: y for y in years}
     spei_series = [y["spei"] for y in years]
     temp_series = [y["temp_anom_c"] for y in years]

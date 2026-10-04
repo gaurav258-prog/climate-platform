@@ -70,9 +70,12 @@ def test_edge_year_origins_are_refused_not_zeroed():
 
 @pytest.mark.integration
 def test_low_coverage_is_not_publishable():
-    """A crop we can barely cover must fail the publish gate. Citrus has no FAOSTAT world
-    series ingested (EU-only via Eurostat), so its decomposed target is unpublishable."""
+    """A crop we can barely cover must fail the publish gate — whatever data has landed: a world crop whose decomposable
+    origins cover less than the bar is unpublishable, and so is a crop with no FAOSTAT world series (durum wheat; Citrus
+    had none until the reviewed FAOSTAT release of 2026-10-04 brought one, now covered 99.6 % in 2012)."""
+    from dataclasses import replace
     with get_session() as s:
         w = world_shock(s, "Citrus", 2012)
-    # either no world series at all, or coverage far below the bar
-    assert not w.is_publishable(min_coverage=0.85)
+        none = world_shock(s, "Durum wheat", 2012)
+    assert not replace(w, coverage=0.5).is_publishable(min_coverage=0.85)
+    assert not none.is_publishable(min_coverage=0.85)

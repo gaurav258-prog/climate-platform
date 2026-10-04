@@ -13,6 +13,7 @@ const TABS: { to: string; label: string; sectors?: string[] }[] = [
   { to: '/model-validation', label: 'Model validation' },
   { to: '/model-risk', label: 'Model-risk register' },
   { to: '/coverage', label: 'Hazard coverage' },
+  { to: '/crop-coverage', label: 'Crop coverage', sectors: ['manufacturer'] },
   { to: '/models', label: 'How we score', sectors: ['manufacturer'] },
 ]
 

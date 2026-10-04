@@ -715,6 +715,27 @@ def commodity_world_crop(commodity_id: str, session: DbSession, org_id: OrgId):
     return world_crop(session, name)
 
 
+@router.get("/commodity/{commodity_id}/outlook",
+            summary="Supply outlook — seasons the yield record does not hold yet, read through published calibrations "
+                    "(context, never volume at risk)")
+def commodity_outlook(commodity_id: str, session: DbSession, org_id: OrgId):
+    commodity_id = _valid_id(commodity_id)
+    name = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :id"), {"id": commodity_id}).scalar()
+    if not name:
+        raise HTTPException(status_code=404, detail="commodity not found")
+    own = [r[0] for r in session.execute(text("""
+        SELECT DISTINCT country FROM sc_sourcing_plots WHERE org_id = :o AND commodity_id = :c AND country IS NOT NULL"""),
+        {"o": org_id, "c": commodity_id}).all()]
+    from services.outlook.engine import outlook
+    return outlook(session, name, own)
+
+
+@router.get("/coverage", summary="Where each crop is calibrated — every country its crop map holds, and what is published there")
+def crop_coverage(session: DbSession, org_id: OrgId, commodity: Optional[str] = Query(None, max_length=80)):
+    from services.calibration.coverage import coverage
+    return coverage(session, commodity)
+
+
 def _plots_with_hazard(session, org_id, scenario, horizon):
     """Each plot + its worst projected hazard + its declared EUDR flag and current satellite reading (never a verdict).
     Single DISTINCT ON pass (keeps the highest-scoring hazard per plot) — no per-plot subqueries."""

@@ -3,6 +3,8 @@ policy: one approver stated → the platform's system account proposes and one p
 
   pending_changes   the recorded runs whose figures or upside verdict differ from what their recipe has published
   propose           one approval request for a batch of runs (the difference summarised); the runs → proposed
+  replacement       a newer run whose figures equal the one awaiting a decision adds nothing; one with other figures
+                    (new data landed) replaces it, and the batch publishes only its runs still awaiting the decision
   apply_decision    approved → each run publishes: sc_commodity_fit takes its figures and names its recipe, yield series
                     and cycle rule; the origin's calibration row follows the published fit of ITS driver (season, box,
                     baseline years — never a value kept from an older fit); the recipe's previous run → superseded.
@@ -38,24 +40,39 @@ def _run(session: Session, run_id: str) -> dict:
     return dict(r)
 
 
-def _published(session: Session, spec_id: str) -> dict | None:
+def _with_status(session: Session, spec_id: str, status: str) -> dict | None:
     rid = session.execute(text("""SELECT run_id::text FROM crop_calibration_runs
-                                  WHERE spec_id = CAST(:s AS uuid) AND status = 'published'"""), {"s": spec_id}).scalar()
+                                  WHERE spec_id = CAST(:s AS uuid) AND status = :st ORDER BY seq DESC LIMIT 1"""),
+                          {"s": spec_id, "st": status}).scalar()
     return _run(session, rid) if rid else None
 
 
+def _published(session: Session, spec_id: str) -> dict | None:
+    return _with_status(session, spec_id, "published")
+
+
+def _diff(a: dict, b: dict) -> dict:
+    d = {c: [a[c], b[c]] for c in _FIGURES if a[c] != b[c]}
+    if (a["upside"] or {}).get("capped") != (b["upside"] or {}).get("capped"):
+        d["upside_capped"] = [(a["upside"] or {}).get("capped"), (b["upside"] or {}).get("capped")]
+    return d
+
+
 def changes(session: Session, run_id: str) -> dict | None:
-    """What publishing this run would change against its recipe's published run (None: nothing — or not fitted)."""
+    """What publishing this run would change against its recipe's published run (None: nothing — not fitted, or the same
+    figures already published or already awaiting a decision)."""
     run = _run(session, run_id)
     if run["outcome"] != "fitted" or run["status"] != "recorded":
         return None
+    pending = _with_status(session, run["spec_id"], "proposed")
+    if pending is not None and not _diff(pending, run):
+        return None                                          # the same figures already await a decision
     pub = _published(session, run["spec_id"])
     if pub is None:
-        return {"run_id": run_id, "first": True}
-    diff = {c: [pub[c], run[c]] for c in _FIGURES if pub[c] != run[c]}
-    if (pub["upside"] or {}).get("capped") != (run["upside"] or {}).get("capped"):
-        diff["upside_capped"] = [(pub["upside"] or {}).get("capped"), (run["upside"] or {}).get("capped")]
-    return {"run_id": run_id, "first": False, "diff": diff} if diff else None
+        return {"run_id": run_id, "first": True, "replaces": pending["run_id"] if pending else None}
+    diff = _diff(pub, run)
+    return {"run_id": run_id, "first": False, "diff": diff, "replaces": pending["run_id"] if pending else None} \
+        if diff else None
 
 
 def propose(session: Session, run_ids: list[str], reason: str, maker_user_id: str | None = None) -> dict | None:
@@ -70,6 +87,12 @@ def propose(session: Session, run_ids: list[str], reason: str, maker_user_id: st
         raise PublishError("a person proposes when the policy states two approvers")
     ids = [c["run_id"] for c in pending]
     summary = summarise(session, ids)
+    replaced = [c["replaces"] for c in pending if c.get("replaces")]
+    if replaced:                     # a newer run with other figures replaces the one awaiting a decision (new data landed)
+        session.execute(text("""UPDATE crop_calibration_runs SET status = 'superseded', decided_at = now(),
+                                decision_reason = 'replaced before a decision by a newer run of the recipe'
+                                WHERE run_id = ANY(CAST(:ids AS uuid[])) AND status = 'proposed'"""), {"ids": replaced})
+        close_emptied_batches(session)
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (CAST(:o AS uuid), :t, :title, CAST(:p AS jsonb), CAST(:m AS uuid)) RETURNING request_id::text"""),
@@ -80,6 +103,17 @@ def propose(session: Session, run_ids: list[str], reason: str, maker_user_id: st
     session.execute(text("""UPDATE crop_calibration_runs SET status = 'proposed', approval_request_id = CAST(:a AS uuid)
                             WHERE run_id = ANY(CAST(:ids AS uuid[]))"""), {"a": rid, "ids": ids})
     return {"approval_request_id": rid, "runs": len(ids), "summary": summary}
+
+
+def close_emptied_batches(session: Session) -> int:
+    """A batch none of whose runs still awaits a decision (each replaced by a newer run or its recipe retired) is
+    withdrawn — never left pending with nothing to decide (E168). Returns how many were closed."""
+    return session.execute(text("""
+        UPDATE approval_requests a SET status = 'withdrawn', withdrawn_cause = 'calibration_runs_replaced', decided_at = now(),
+               reason = 'every run of the batch was replaced by a newer run or its recipe retired before a decision'
+        WHERE a.request_type = :t AND a.status = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM crop_calibration_runs r WHERE r.approval_request_id = a.request_id
+                          AND r.status = 'proposed')"""), {"t": REQUEST_TYPE}).rowcount
 
 
 def summarise(session: Session, run_ids: list[str]) -> dict:
@@ -157,10 +191,10 @@ def _publish(session: Session, run_id: str, checker: str, reason: str | None) ->
 
 def apply_decision(session: Session, payload: dict, decision: str, checker_user_id: str, reason: str | None) -> dict:
     """The approvals path's handler for 'calibration.publish'."""
-    ids = list((payload or {}).get("run_ids") or [])
-    for rid in ids:
-        if _run(session, rid)["status"] != "proposed":
-            raise PublishError(f"run {rid} is not awaiting a decision")
+    ids = [rid for rid in (payload or {}).get("run_ids") or []
+           if _run(session, rid)["status"] == "proposed"]           # a run replaced before the decision is not published
+    if not ids:
+        raise PublishError("no run of this batch still awaits a decision — newer runs replaced them")
     if decision != "approved":
         session.execute(text("""UPDATE crop_calibration_runs SET status = 'rejected', decided_by = CAST(:u AS uuid),
                                 decided_at = now(), decision_reason = :w WHERE run_id = ANY(CAST(:ids AS uuid[]))"""),

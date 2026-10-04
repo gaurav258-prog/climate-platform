@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.209 |
+| Version | 2.215 |
 | Last updated | 2026-10-04 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,12 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-04 | 2.215 | **Crop calendars must describe the crop; calibrations go live for review (E168).** A crop's season comes from a calendar only when it covers at least half of the crop's mapped area in the country (else held, with the figures). Generated recipes are re-checked on each generation and retired with the reason when they no longer stand. The Calibrations page shows each batch as it stands, with withdrawn runs and why; an emptied batch closes itself. Live state: the 7 approved yield releases landed (~801k rows: FAOSTAT, Eurostat national + regional, USDA FAS, NASS state + county, StatCan); 1,116 crop × country recipes over each crop's own growing area; three batches await review (31 + 1 re-runs of published fits — Barley/TN falls below the 0.40 bar once 1991's partial season is dropped — and 1,057 first runs, 2 passing). |
+| 2026-10-04 | 2.214 | **Seasons only in full (E167).** A drought, soil-water or frost figure for a growing season is reported only when every month of the season has one — never from part of a season (the record's first season, or one still in progress). The global weather build now matches the regional files on every full season 1992–2024; global ERA5-Land 1991 – Aug 2026 is on disk and pinned (8 files, 5.72 GB). |
+| 2026-10-04 | 2.213 | **Worker can no longer crash-loop (E166).** The background worker runs threads, never forked children, and refuses to start otherwise; a job that kills its worker three times is failed and recorded, not re-run forever — an abandoned address lookup ends 'failed' so nothing waits on it. |
+| 2026-10-04 | 2.212 | **Crop coverage view (E165).** Review → Crop coverage maps, for each crop, every country its crop map holds and what is published there, with the reason where nothing is. |
+| 2026-10-04 | 2.211 | **Supply outlook (E164).** The commodity page shows what the seasons not yet in the yield record say about production in each origin — your origins first, then the alternatives — read only through published calibrations: a loss or gain range only where its gate passed, otherwise held with the reason. Never part of volume at risk, COGS-at-risk, KRIs or filings. |
+| 2026-10-04 | 2.210 | **Weather where each crop grows (E163).** One weather source for every calibration: global ERA5-Land, averaged over each crop's own harvested area (MapSPAM / CROPGRIDS 2020) in each country, over the season MIRCA-OS or FAO-56 states; recipes generated for every crop and country with enough yield history, every other one recorded with its reason. The weather refreshes monthly and re-runs the calibrations. |
 | 2026-10-04 | 2.209 | **One calibration pipeline (E162).** Every crop calibration is a recipe fixed before it is fitted and every evaluation a recorded run with its audit-ledger entry, judged by the downside gate and the four upside rules. The 40 published calibrations were adopted and re-run: the same 8 pass, the upside passes for Wheat MA and Olive oil ES, 14 older annual-crop figures are corrected under today's rule (no tier changes). Results publish only after review on Platform → Calibrations; a landed yield release re-runs the calibrations that read it. |
 | 2026-10-04 | 2.208 | **US county yields (E161).** USDA NASS county estimates are a reviewed source (once a year), counties named from the Census Bureau's 2020 list. |
 | 2026-10-04 | 2.207 | **Statistics Canada as a reviewed yield source (E160).** Canada and its provinces for 8 crops (including durum wheat), final November-survey production only; the season in progress, aggregates of provinces and unpublished values are set aside and shown. Canadian provinces join the region reference from Statistics Canada's own ISO code table. |

@@ -251,6 +251,13 @@ FEEDS: list[dict] = [
              "before the November survey (July and September figures are model-based estimates) and unpublished values "
              "are set aside and shown with the release. Checked monthly against the file's validators; a new file is "
              "staged with its difference and lands only after review (E160)."},
+    {"key": "weather_era5_land_global", "name": "ERA5-Land monthly (global) — crop weather and the supply outlook",
+     "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
+     "attribution": "Contains modified Copernicus Climate Change Service information (ERA5-Land monthly averaged data)",
+     "note": "Precipitation, temperature and potential evaporation worldwide at 0.1° from 1991, the current year's months "
+             "as Copernicus publishes them. Checked monthly against the months Copernicus holds (no download to check); "
+             "new months are fetched, the crop weather rebuilt over each crop's growing area, and every calibration "
+             "re-run — results that would change a publication are proposed for review (E163)."},
     {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
@@ -476,6 +483,21 @@ def _register_reviewed_yield_sources() -> None:
 
 
 _register_reviewed_yield_sources()
+
+
+def _hook_weather_era5_land_global(session: Session) -> None:
+    """The cheap check: does Copernicus hold a full year or a current-year month the landed files lack? Only then is the
+    refresh job queued (fetch → weather build → calibration re-run) — off this thread, one fetch at a time."""
+    from datetime import datetime, timezone
+
+    from scripts.fetch_era5_land_global import _requests, available_months, held_months
+    year = datetime.now(timezone.utc).year
+    if _requests(6) or len(available_months(year)) > held_months(year):
+        from services.tasks.jobs import submit
+        submit("calibration.refresh_weather")
+
+
+register_refresh_hook("weather_era5_land_global", _hook_weather_era5_land_global)
 register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)

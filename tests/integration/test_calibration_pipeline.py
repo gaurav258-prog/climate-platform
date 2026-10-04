@@ -23,10 +23,24 @@ from services.calibration import gates, pipeline, publish, runner, specs
 
 pytestmark = pytest.mark.integration
 ROOT = Path(__file__).resolve().parents[2]
-_HAS_WEATHER = os.path.exists(ERA5_BASELINE_DIR / "spain_olive_1991_2024_monthly.nc")
 
 
-@pytest.mark.skipif(not _HAS_WEATHER, reason="the regional ERA5-Land files are not on this machine")
+def _built(*boxes: str) -> bool:
+    """The weather build (E163) holds these boxes — the recipes read nothing else."""
+    from core.db.config import SessionLocal
+    from services.calibration import crop_weather
+    try:
+        with SessionLocal() as s:
+            return all(crop_weather.latest(s, crop_weather.box_target(b)) for b in boxes)
+    except Exception:
+        return False
+
+
+_HAS_WEATHER = _built("spain_olive", "morocco_wheat", "tunisia_wheat") and \
+    os.path.exists(ERA5_BASELINE_DIR / "spain_olive_1991_2024_soilmoisture.nc")
+
+
+@pytest.mark.skipif(not _HAS_WEATHER, reason="no weather build holds the recipes' boxes on this machine")
 def test_the_published_fits_reproduce_through_the_pipeline(session_rolled_back):
     s = session_rolled_back
     stored = {(r["name"], r["origin"], r["hazard_driver"]): r for r in s.execute(text("""
@@ -43,7 +57,8 @@ def test_the_published_fits_reproduce_through_the_pipeline(session_rolled_back):
     assert passes == {k for k, v in stored.items() if gates.downside_pass(v["r2_oos"])}      # no tier changes
     assert {k[:2] for k in stored if got[k]["upside_pass"]} == {("Wheat", "MA"), ("Olive oil", "ES")}
     # every stored fit is explained exactly: by today's rule, or — an annual crop fitted before the 2026-08-16 rule —
-    # by removing the bearing cycle as was done then (a correction the pipeline proposes for review)
+    # by removing the bearing cycle as was done then (a correction the pipeline proposes for review); heat fits (2) are
+    # restandardised by E163 and only keep their tier
     old_rule = []
     for k, v in stored.items():
         want = (v["n_years"], v["r2_oos"], round(v["slope"], 5), v["band_cov68"])
@@ -53,6 +68,8 @@ def test_the_published_fits_reproduce_through_the_pipeline(session_rolled_back):
         if tuple(row) == want:
             continue
         sp = runner.spec(s, got[k]["spec_id"])
+        if sp["driver"] == "heat":          # E163: heat is standardised by the 1991–2020 seasons, not every year on file
+            continue
         assert sp["allow_cycle"] is False, k
         fit = runner.evaluate(s, {**sp, "allow_cycle": True})["fit"]
         assert (fit.n_years, fit.r2_oos, round(fit.slope, 5), fit.band_cov68) == want, k
@@ -85,7 +102,7 @@ def test_a_run_and_a_recipe_never_change(session_rolled_back):
             s.execute(text("DELETE FROM crop_calibration_runs WHERE spec_id = CAST(:s AS uuid)"), {"s": sp["spec_id"]})
 
 
-@pytest.mark.skipif(not _HAS_WEATHER, reason="the regional ERA5-Land files are not on this machine")
+@pytest.mark.skipif(not _HAS_WEATHER, reason="no weather build holds the recipes' boxes on this machine")
 def test_a_reviewed_run_publishes_with_its_recipe(session_rolled_back, monkeypatch):
     s = session_rolled_back
     from ml.features import yield_series
@@ -108,7 +125,8 @@ def test_a_reviewed_run_publishes_with_its_recipe(session_rolled_back, monkeypat
                             WHERE co.name = 'Olive oil' AND f.origin = 'ES' AND f.hazard_driver = 'drought'""")).mappings().one()
     assert (fit["spec_id"], fit["run_id"], fit["yield_source"], fit["allow_cycle"]) == \
            (sp["spec_id"], r1["run_id"], "FAOSTAT QCL bulk", True)
-    assert list(fit["cal_season"]) == list(fit["season_months"]) == [4, 5, 6, 7, 8] and fit["baseline_from"] == 1991
+    # 1992: SPEI-6 for April 1991 needs Nov 1990, which the record does not hold — 1991 has no full season (E167)
+    assert list(fit["cal_season"]) == list(fit["season_months"]) == [4, 5, 6, 7, 8] and fit["baseline_from"] == 1992
     r2 = runner.run(s, sp)                              # the same data: nothing to propose
     assert publish.changes(s, r2["run_id"]) is None
 
@@ -148,7 +166,7 @@ def test_a_landed_release_reruns_its_recipes_after_the_commit(monkeypatch):
     assert sent == [("calibration.run", (["FAOSTAT QCL bulk"],))]
 
 
-@pytest.mark.skipif(not _HAS_WEATHER, reason="the regional ERA5-Land files are not on this machine")
+@pytest.mark.skipif(not _HAS_WEATHER, reason="no weather build holds the recipes' boxes on this machine")
 def test_the_operator_decides_a_publication_through_the_approvals_path(api):
     """End to end: the platform's system account proposes (one approver stated); a customer cannot decide it; the
     platform operator approves → the run is published and named on the fit."""
@@ -171,3 +189,51 @@ def test_the_operator_decides_a_publication_through_the_approvals_path(api):
     assert d.status_code == 200 and d.json()["applied"] == {"status": "published", "runs": 1}
     assert s.execute(text("""SELECT f.run_id::text FROM sc_commodity_fit f JOIN sc_commodities c USING (commodity_id)
                              WHERE c.name = 'Wheat' AND f.origin = 'MA' AND f.hazard_driver = 'drought'""")).scalar() == r["run_id"]
+
+
+@pytest.mark.skipif(not _HAS_WEATHER, reason="no weather build holds the recipes' boxes on this machine")
+def test_a_rerun_never_doubles_a_pending_proposal(session_rolled_back):
+    """A run with the same figures as the one awaiting a decision adds nothing; the batch still publishes."""
+    s = session_rolled_back
+    s.execute(text("UPDATE crop_calibration_specs SET retired_at = now(), retired_reason = 'test' "
+                   "WHERE commodity = 'Wheat' AND origin = 'TN' AND driver = 'drought' AND retired_at IS NULL"))
+    sid = specs.create(s, commodity="Wheat", origin="TN", yield_source="FAOSTAT QCL bulk", driver="drought",
+                       weather_kind="box", weather_key="tunisia_wheat", season_months=[1, 2, 3, 4, 5, 6],
+                       allow_cycle=False, basis="test recipe (E162)", protocol="crop-calib-v1")
+    sp = runner.spec(s, sid)
+    first = runner.run(s, sp)
+    assert publish.propose(s, [first["run_id"]], "test (E162)", maker_user_id=None) is not None
+    again = runner.run(s, sp)
+    assert publish.changes(s, again["run_id"]) is None
+
+
+@pytest.mark.skipif(not _HAS_WEATHER, reason="no weather build holds the recipes' boxes on this machine")
+def test_a_batch_shows_as_it_stands_and_closes_when_emptied(session_rolled_back):
+    """E168: the reviewer sees the runs a decision would publish now, the withdrawn ones with their reason; a batch with
+    nothing left to decide is withdrawn, never left pending."""
+    from services.calibration import review
+    from services.calibration.registry_specs import retire
+    s = session_rolled_back
+    made = {}
+    for origin, box in (("TN", "tunisia_wheat"), ("MA", "morocco_wheat")):
+        s.execute(text("UPDATE crop_calibration_specs SET retired_at = now(), retired_reason = 'test' WHERE commodity = "
+                       "'Wheat' AND origin = :o AND driver = 'drought' AND retired_at IS NULL"), {"o": origin})
+        sid = specs.create(s, commodity="Wheat", origin=origin, yield_source="FAOSTAT QCL bulk", driver="drought",
+                           weather_kind="box", weather_key=box, season_months=[1, 2, 3, 4, 5, 6], allow_cycle=False,
+                           basis="test recipe (E168)", protocol="crop-calib-v1")
+        made[origin] = (sid, runner.run(s, runner.spec(s, sid))["run_id"])
+    rid = publish.propose(s, [r for _s, r in made.values()], "test (E168)", maker_user_id=None)["approval_request_id"]
+
+    def batch():
+        return next((b for b in review.pending(s) if b["approval_request_id"] == rid), None)
+    assert batch()["title"] == "Publish 2 crop calibration runs" and batch()["withdrawn"] == []
+    retire(s, made["TN"][0], "test: its season no longer stands")
+    b = batch()
+    assert b["title"] == "Publish 1 crop calibration run" and b["proposed_runs"] == 2
+    assert [r["run_id"] for r in b["summary"]["runs"]] == [made["MA"][1]]
+    assert b["withdrawn"][0]["origin"] == "TN" and "its season no longer stands" in b["withdrawn"][0]["reason"]
+    retire(s, made["MA"][0], "test: retired")
+    assert batch() is None
+    st = s.execute(text("SELECT status, withdrawn_cause FROM approval_requests WHERE request_id = CAST(:r AS uuid)"),
+                   {"r": rid}).one()
+    assert tuple(st) == ("withdrawn", "calibration_runs_replaced")

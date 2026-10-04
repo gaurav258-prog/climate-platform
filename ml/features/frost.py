@@ -65,7 +65,9 @@ def daily_min(ds: xr.Dataset) -> xr.DataArray:
 
 def seasonal_by_year(ds: xr.Dataset, months: list[int], region_reduce=("latitude", "longitude")) -> "list[dict]":
     """Region-mean season-minimum Tmin per crop-year (the backtest input) --
-    mirrors ml/features/drought.py's seasonal_by_year."""
+    mirrors ml/features/drought.py's seasonal_by_year, including its full-season rule (E167): a year whose data does
+    not reach every season month (a fetch still filling in, a season in progress) gets None, never the minimum of the
+    days it happens to hold."""
     tmin = daily_min(ds)
     sub = tmin.sel(time=tmin["time.month"].isin(months))
     reg = sub.min(dim=list(region_reduce), skipna=True)  # coldest cell in the region, per day
@@ -73,7 +75,8 @@ def seasonal_by_year(ds: xr.Dataset, months: list[int], region_reduce=("latitude
     out = []
     for yr in np.unique(yrs.values):
         y = reg.sel(time=yrs == yr)
-        out.append({"year": int(yr), "season_min_tmin_c": round(float(y.min()), 2)})
+        full = {int(m) for m in y["time.month"].values} == set(months) and np.isfinite(y.values).all()
+        out.append({"year": int(yr), "season_min_tmin_c": round(float(y.min()), 2) if full else None})
     return out
 
 
@@ -83,8 +86,8 @@ def to_h3_frame(ds: xr.Dataset, year: int, months: list[int], resolution: int = 
     import pandas as pd
     tmin = daily_min(ds)
     sub = tmin.sel(time=(tmin["time.year"] == year) & tmin["time.month"].isin(months))
-    if sub.time.size == 0:
-        return pd.DataFrame()
+    if sub.time.size == 0 or {int(m) for m in sub["time.month"].values} != set(months):
+        return pd.DataFrame()       # no season, or only part of one: never a season minimum over part of it (E167)
     smin = sub.min(dim="time", skipna=True)
     rows = []
     lats, lons = smin["latitude"].values, smin["longitude"].values

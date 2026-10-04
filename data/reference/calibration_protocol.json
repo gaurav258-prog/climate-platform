@@ -23,5 +23,14 @@
   "verdict": "all four pass: the upside publishes as a range (capped when rule 4 needed the cap); else held with the rules that failed",
   "judged_on": "a fit that passes the downside gate only — the four rules were agreed and first run on those fits; a fit below the floor has no upside verdict"
  },
- "legacy": "a fit published before the pipeline keeps its recipe — weather box, season, SPEI scale, driver — and the production series the audit ledger records for it (validation_run notes, 'Production source'); it is re-run under the current rules, so a figure that differs from the stored one is a correction proposed for review, never applied silently"
+ "legacy": "a fit published before the pipeline keeps its recipe — weather box, season, SPEI scale, driver — and the production series the audit ledger records for it (validation_run notes, 'Production source'); it is re-run under the current rules, so a figure that differs from the stored one is a correction proposed for review, never applied silently",
+ "generated": {
+  "driver": "drought",
+  "spei_scale": 6,
+  "why": "one pre-registered driver for every generated recipe: the season's water balance (SPEI-6) over the crop's own growing area — the driver of 37 of the 40 calibrations made by hand; a second driver is added only as a new protocol version, never chosen per crop by fit",
+  "yield_series": "the origin's national series by the stated precedence (data/reference/yield_series.json)",
+  "weather": "the crop's harvested area in the origin (crop map), monthly SPEI-6 from the global ERA5-Land files, the origin's season (crop_seasons.json)",
+  "min_years": "18 years of the national series since 1991 — 12 with a full trend window"
+ },
+ "weather": "every recipe but soil-water reads the global ERA5-Land weather build (services.calibration.crop_weather): a named box with equal weights, or the crop's growing area; heat scores are standardised by the 1991-2020 seasons (the WMO normal SPEI uses). Soil water reads its regional file (the global files hold no soil moisture)."
 }

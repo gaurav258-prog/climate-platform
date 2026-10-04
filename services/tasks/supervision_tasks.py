@@ -45,3 +45,9 @@ def scoring_process_cells(cell_coords: dict) -> dict:
 def calibration_run(sources: list | None = None) -> dict:
     """Re-run the calibration recipes reading the given yield sources (after a reviewed release lands, E162)."""
     return resolve("calibration.run")(sources)
+
+
+@celery_app.task(name="calibration.refresh_weather")
+def calibration_refresh_weather() -> dict:
+    """Fetch new ERA5-Land months, rebuild the crop weather, re-run the calibrations (E163)."""
+    return resolve("calibration.refresh_weather")()

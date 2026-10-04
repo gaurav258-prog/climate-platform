@@ -57,10 +57,11 @@ def main() -> int:
     months = [int(m) for m in args.season.split(",")]
 
     ds = load_monthly(f"data/era5_baseline/{args.region}_1991_2024_monthly.nc")
-    spei = {r["year"]: r["spei"] for r in spei_seasonal(compute_indices(ds, scale=args.spei_scale), months)}
+    spei = {r["year"]: r["spei"] for r in spei_seasonal(compute_indices(ds, scale=args.spei_scale), months)
+            if r["spei"] is not None}                                                    # full seasons (E167)
     smz = {r["year"]: r["sm_z"] for r in
            sm.seasonal_by_year(sm.anomaly(sm.load_root_zone(
-               f"data/era5_baseline/{args.region}_1991_2024_soilmoisture.nc")), months)}
+               f"data/era5_baseline/{args.region}_1991_2024_soilmoisture.nc")), months) if r["sm_z"] is not None}
 
     with get_session() as s:
         rows = s.execute(text("""

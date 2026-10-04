@@ -76,7 +76,8 @@ def main() -> int:
     # 2. candidate hazard indices per year for this region+season
     ds = load_monthly(baseline_nc(args.region))
     idx = compute_indices(ds)
-    seasonal = {r["year"]: r for r in seasonal_by_year(idx, months)}
+    seasonal = {r["year"]: r for r in seasonal_by_year(idx, months)     # years every candidate has in full (E167)
+                if all(r[k] is not None for k in ("spei", "spi", "temp_anom_c"))}
 
     # 3. correlate on the years both sides have, using only calibratable (non-edge) years
     common = sorted(set(series) & set(seasonal))

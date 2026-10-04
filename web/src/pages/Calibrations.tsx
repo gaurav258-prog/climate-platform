@@ -10,7 +10,9 @@ import { Card, Button, PageHeader, SectionHead } from '../components/ui'
 // proposed as one batch and publish only when approved through the one approvals path.
 
 interface BatchRun { run_id: string; commodity: string; origin: string; driver: string; recipe: string; r2_oos: number | null; published_r2_oos: number | null; downside_pass: boolean; upside_pass: boolean; upside_failed: string[] | null; first_run: boolean }
-interface Batch { approval_request_id: string; title: string; created_at: string; maker_id: string | null; maker: string | null; review: string | null; summary: { runs: BatchRun[]; downside_passes: number; upside_passes: number; gate_flips: string[] } | null }
+interface Withdrawn { commodity: string; origin: string; driver: string; reason: string | null }
+// A batch as it stands (E168): the runs still awaiting the decision, and those withdrawn since it was proposed.
+interface Batch { approval_request_id: string; title: string; proposed_runs: number; created_at: string; maker_id: string | null; maker: string | null; review: string | null; summary: { runs: BatchRun[]; downside_passes: number; upside_passes: number; gate_flips: string[] } | null; withdrawn: Withdrawn[] }
 interface Recipe {
   spec_id: string; commodity: string; origin: string; yield_region: string; driver: string; weather_kind: string; weather_key: string
   season_months: number[]; season_prev_months: number[]; spei_scale: number; yield_source: string; allow_cycle: boolean; basis: string; protocol: string
@@ -119,6 +121,18 @@ function BatchReview({ b, mine, onDone }: { b: Batch; mine: boolean; onDone: () 
         {s && <span className="text-[var(--color-mute)]">{s.downside_passes} pass the downside gate · {s.upside_passes} pass the upside rules{s.gate_flips.length ? ` · gate changes: ${s.gate_flips.join(', ')}` : ' · no gate changes'}</span>}
       </div>
       {b.review && <div className="px-5 pt-3 text-[12px] text-[var(--color-mute)]">{b.review}</div>}
+      {b.withdrawn.length > 0 && <details className="px-5 pt-2 text-[12px] text-[var(--color-mute)]">
+        <summary className="cursor-pointer">
+          {b.proposed_runs - b.withdrawn.length} of the {b.proposed_runs} runs proposed await this decision · {b.withdrawn.length} withdrawn since, never published — show why
+        </summary>
+        <div className="mt-2 max-h-48 overflow-y-auto">
+          <table className="w-full text-[11.5px]"><tbody>{b.withdrawn.map(w => (
+            <tr key={`${w.commodity}-${w.origin}-${w.driver}`} className="border-t border-[var(--color-line)] align-top">
+              <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{w.commodity}</td><td className="pr-3 mono">{w.origin}</td>
+              <td className="pr-3">{w.driver.replace('_', ' ')}</td><td>{w.reason}</td>
+            </tr>))}</tbody></table>
+        </div>
+      </details>}
       {s && <div className="overflow-x-auto max-h-96 overflow-y-auto">
         <table className="w-full tabular-nums text-[12px]">
           <thead className="sticky top-0 bg-[var(--color-bg-1,var(--color-bg))]"><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left">

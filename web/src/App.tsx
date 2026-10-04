@@ -45,6 +45,7 @@ const SingleSignOn = lazy(() => import('./pages/SingleSignOn'))
 const Platform = lazy(() => import('./pages/Platform'))
 const ReferenceReleases = lazy(() => import('./pages/ReferenceReleases'))
 const Calibrations = lazy(() => import('./pages/Calibrations'))
+const CropCoverage = lazy(() => import('./pages/CropCoverage'))
 const Cogs = lazy(() => import('./pages/Cogs'))
 const Portfolio = lazy(() => import('./pages/Portfolio'))
 const Solvency = lazy(() => import('./pages/Solvency'))
@@ -170,6 +171,7 @@ function Workspace() {
         <Route path="/model-risk" element={<ModelRisk />} />
         <Route path="/third-parties" element={<ThirdParties />} />
         <Route path="/coverage" element={<Coverage />} />
+        <Route path="/crop-coverage" element={<CropCoverage />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/funds/:id" element={<FundDetail />} />
         <Route path="/compliance" element={<Compliance />} />

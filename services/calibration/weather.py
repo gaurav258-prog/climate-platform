@@ -1,15 +1,19 @@
-"""The weather panel of a calibration recipe: {year: 0-100 driver score} and what was read (E162).
+"""The weather panel of a calibration recipe: {year: 0-100 driver score} and what was read (E162, E163).
 
-  box         a named region box (services.ingestion.regions) read from its regional ERA5-Land file — exactly the
-              builder the published fits used (ml.features.crop_panel), so a legacy recipe re-runs on the same panel
-  crop_area   the crop's own growing area in the origin (services.calibration.crop_area — weights from the crop map,
-              seasons from the crop calendar), read from the global ERA5-Land files
+One weather source — the global ERA5-Land weather build (services.calibration.crop_weather):
+  box         a named region box (services.ingestion.regions), every 0.1° cell inside it, equal weights — the cells its
+              regional file held (tests/integration/test_crop_area_weather holds the two to the same figures)
+  crop_area   the crop's own growing area in the origin (crop map weights, the origin's season)
+Soil water is the one exception: the global files hold no soil moisture, so a soil-water recipe reads its regional
+soil-moisture file (ml.features.crop_panel), as before.
 """
 from __future__ import annotations
 
 import hashlib
 import os
 from functools import lru_cache
+
+from sqlalchemy.orm import Session
 
 from ml.features.crop_panel import scores_for
 from ml.features.drought import baseline_nc
@@ -31,19 +35,17 @@ def _describe(path: str) -> dict:
     return {"file": os.path.basename(path), "sha": _file_sha(path, st.st_mtime, st.st_size)}
 
 
-def scores(sp: dict) -> tuple[dict[int, float], dict]:
-    """({year: score}, inputs read) for a recipe; ({}, …) when its weather is not on disk."""
-    months = list(sp["season_months"])
-    if sp["weather_kind"] == "box":
-        if sp["season_prev_months"]:
-            raise ValueError("a box recipe reads its season within the calendar year (the legacy builder)")
-        kind = "soilmoisture" if sp["driver"] == "soil_water" else "monthly"
-        path = baseline_nc(sp["weather_key"], kind)
+def scores(session: Session, sp: dict) -> tuple[dict[int, float], dict]:
+    """({year: score}, inputs read) for a recipe; ({}, …) when its weather is not available."""
+    if sp["weather_kind"] not in ("box", "crop_area"):
+        raise ValueError(f"unknown weather kind '{sp['weather_kind']}'")
+    if sp["driver"] == "soil_water":
+        if sp["weather_kind"] != "box" or sp["season_prev_months"]:
+            raise ValueError("a soil-water recipe reads a regional box file, its season within the calendar year")
+        path = baseline_nc(sp["weather_key"], "soilmoisture")
         inputs = {"kind": "box", "key": sp["weather_key"], **_describe(path)}
         if not os.path.exists(path):
             return {}, inputs
-        return scores_for(sp["weather_key"], sp["driver"], months, sp["spei_scale"]), inputs
-    if sp["weather_kind"] == "crop_area":
-        from services.calibration import crop_area
-        return crop_area.scores(sp)
-    raise ValueError(f"unknown weather kind '{sp['weather_kind']}'")
+        return scores_for(sp["weather_key"], "soil_water", list(sp["season_months"])), inputs
+    from services.calibration import crop_area
+    return crop_area.scores(session, sp)

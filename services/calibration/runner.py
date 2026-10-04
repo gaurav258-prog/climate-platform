@@ -46,7 +46,7 @@ def _last_landed(session: Session, source: str) -> Optional[str]:
 def evaluate(session: Session, sp: dict) -> dict:
     """The run's figures for a recipe — nothing written. {outcome, reason, fit, scores, upside, inputs}."""
     production = yield_series.series(session, sp["commodity"], sp["origin"], sp["yield_source"], sp["yield_region"])
-    scores, weather_inputs = weather.scores(sp)
+    scores, weather_inputs = weather.scores(session, sp)
     inputs = {"yield": {"source": sp["yield_source"], "region": sp["yield_region"],
                         "years": [min(production), max(production)] if production else None,
                         "series_sha": _fingerprint(production), "last_landed_release": _last_landed(session, sp["yield_source"])},

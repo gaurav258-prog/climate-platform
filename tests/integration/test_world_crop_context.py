@@ -1,8 +1,10 @@
 """The world crop, year by year, as context (services.intelligence.world_crop): for olive oil 2012 the three figures
-the decomposition gives (FAOSTAT reported −16.08 %, net −4.05 %, losses only −12.98 % — net was −4.06 % before the
-reviewed FAOSTAT release of 2026-10-03 added a 21st olive origin, coverage 97.2 % → 97.3 %); losses never above net; the
+the decomposition gives (FAOSTAT reported −16.08 %, net −3.90 %, losses only −13.18 % — the reviewed FAOSTAT release of
+2026-10-04 brought every producing country: 60 olive origins, 40 decomposable in 2012, coverage 97.3 % → 100 %; before it
+net was −4.05 % with 21 origins, and −4.06 % with 20 before the release of 2026-10-03); losses never above net; the
 latest years named as not decomposable (the centred trend needs later years); a commodity without a FAOSTAT world
-series says so instead of borrowing another crop's; never part of volume at risk (the route only reads)."""
+series (durum wheat — FAOSTAT has no durum item) says so instead of borrowing another crop's; never part of volume at
+risk (the route only reads)."""
 from __future__ import annotations
 
 import pytest
@@ -24,7 +26,7 @@ def test_the_world_crop_is_shown_as_it_happened(api):
     d = r.json()
     assert d["available"] and "not a forecast" in d["basis"]
     y = {x["year"]: x for x in d["years"]}
-    assert (y[2012]["reported_pct"], y[2012]["net_pct"], y[2012]["losses_pct"]) == (-16.08, -4.05, -12.98)
+    assert (y[2012]["reported_pct"], y[2012]["net_pct"], y[2012]["losses_pct"]) == (-16.08, -3.9, -13.18)
     assert y[2012]["coverage_pct"] > 90
     done = [x for x in d["years"] if not x["why_not"]]
     assert done and all(x["losses_pct"] <= x["net_pct"] + 1e-9 and x["losses_pct"] <= 0 for x in done)
@@ -45,7 +47,7 @@ def test_volume_at_risk_never_reads_the_world_crop_context():
 
 def test_a_commodity_without_a_world_series_says_so(api):
     who = _login(api, "analyst@terra.demo", "Demo!analyst1")
-    for name in ("Citrus", "Durum wheat"):
+    for name in ("Durum wheat",):          # Citrus has a FAOSTAT world series since the release of 2026-10-04
         d = api.get(f"/v1/supply/commodity/{_id(api.s, name)}/world-crop", headers=who).json()
         assert not d["available"] and name in d["reason"] and d["years"] == []
     assert api.get("/v1/supply/commodity/not-an-id/world-crop", headers=who).status_code in (404, 422)

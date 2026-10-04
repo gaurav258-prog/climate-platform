@@ -35,3 +35,39 @@ def run_job(sources: list[str] | None = None) -> dict:
                   reason=f"Re-run after a landed release of {', '.join(sources)}" if sources else "Calibration pipeline run")
         session.commit()
     return {"runs": len(out["runs"]), "proposed": (out["proposal"] or {}).get("runs", 0)}
+
+
+def build_weather(session: Session) -> str:
+    """A weather build for every registry crop with a crop map and every box a box recipe reads (soil water aside)."""
+    from ml.features.crop_registry import crops as registry
+    from services.calibration import crop_weather
+    crops = [c["commodity"] for c in registry() if c.get("crop_map")]
+    boxes = sorted({sp["weather_key"] for sp in runner.active_specs(session)
+                    if sp["weather_kind"] == "box" and sp["driver"] != "soil_water"})
+    return crop_weather.build(session, crops, boxes)
+
+
+def refresh_weather(fetch: bool = True) -> dict:
+    """The monthly weather refresh (job 'calibration.refresh_weather', E163): fetch the missing ERA5-Land years and the
+    current year's months, rebuild the weather, generate the recipes new data allows, re-run every recipe and propose the
+    runs that would change a publication. Each step commits on its own; nothing publishes here."""
+    import logging
+
+    from core.db.session import get_session
+    from scripts.fetch_era5_land_global import FetchRunning, fetch_all
+    from services.calibration import registry_specs
+    log = logging.getLogger(__name__)
+    if fetch:
+        try:
+            fetch_all(log=log.info)
+        except FetchRunning as e:
+            return {"skipped": str(e)}
+    with get_session() as session:
+        build_id = build_weather(session)
+        session.commit()
+        generated = registry_specs.generate(session)
+        session.commit()
+        out = run(session, reason=f"Re-run after weather build {build_id}")
+        session.commit()
+    return {"build_id": build_id, "generated": generated, "runs": len(out["runs"]),
+            "proposed": (out["proposal"] or {}).get("runs", 0)}

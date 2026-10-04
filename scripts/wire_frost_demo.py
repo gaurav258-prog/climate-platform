@@ -53,7 +53,7 @@ def main():
     # signal this pipeline exists to catch (2021 is a top-tier event, not necessarily the single
     # coldest). The validation note below is scoped to the years actually loaded, not the full
     # target range, so it never overclaims.
-    by_year = seasonal_by_year(ds, FROST_MONTHS)
+    by_year = [r for r in seasonal_by_year(ds, FROST_MONTHS) if r["season_min_tmin_c"] is not None]   # full seasons (E167)
     years_covered = sorted(r["year"] for r in by_year)
     year_span = f"{years_covered[0]}-{years_covered[-1]}" if len(years_covered) > 1 else str(years_covered[0])
     by_year_sorted = sorted(by_year, key=lambda r: r["season_min_tmin_c"])

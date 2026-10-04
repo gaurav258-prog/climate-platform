@@ -24,6 +24,7 @@ JOBS: dict[str, str] = {
     "intake.sweep_drop_folders": "services.intake.dropfolder:sweep_all",
     "eudr.read_plots": "services.eudr.reading:run_job",
     "calibration.run": "services.calibration.pipeline:run_job",
+    "calibration.refresh_weather": "services.calibration.pipeline:refresh_weather",
 }
 
 

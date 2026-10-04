@@ -360,5 +360,60 @@
     "url": "http://www.hydroshare.org/resource/60a890eb841c460192c03bb590687145/data/contents/Crop%20Calendar/README_crop_calendars.txt"
    }
   ]
+ },
+ "era5_land_monthly_global": {
+  "source": "Copernicus C3S Climate Data Store — ERA5-Land monthly averaged data from 1950 to present (Muñoz Sabater 2019), doi:10.24381/cds.68d2bb30; variables: total_precipitation, 2m_temperature, potential_evaporation",
+  "licence": "Copernicus licence",
+  "attribution": "Contains modified Copernicus Climate Change Service information 2026",
+  "version": "CDS reanalysis-era5-land-monthly-means, monthly_averaged_reanalysis, global 0.1°",
+  "fetched_at": "2026-10-04T16:57:20+00:00",
+  "path": "data/datasets/era5_land_monthly",
+  "years": [
+   1991,
+   2025
+  ],
+  "complete": true,
+  "files": [
+   {
+    "file": "era5land_monthly_1991.nc",
+    "bytes": 160081436,
+    "sha256": "5b324b3de910a6fa351c03854987509f5d6b9c12d0131adabd90e04d1b5f7baf"
+   },
+   {
+    "file": "era5land_monthly_1992-1997.nc",
+    "bytes": 958520858,
+    "sha256": "abb8cc2d075048b6024e9d36e33dc4459c533fe38c548a9cd09b09a662610f41"
+   },
+   {
+    "file": "era5land_monthly_1998-2003.nc",
+    "bytes": 955011370,
+    "sha256": "c7c3473f5ff675925f22e5fe20154cec6a8878c86947d3e252addb2efd8a03e2"
+   },
+   {
+    "file": "era5land_monthly_2004-2009.nc",
+    "bytes": 959344379,
+    "sha256": "ed0bc671b8a06286d570718b1d11497c2b2c7e856dc7cd1aec3629d93a8defb1"
+   },
+   {
+    "file": "era5land_monthly_2010-2015.nc",
+    "bytes": 961447084,
+    "sha256": "58592968043a7e167cc0fbd113809bdbc5ff1be6e4d3fa7f20f97fffa60772ea"
+   },
+   {
+    "file": "era5land_monthly_2016-2021.nc",
+    "bytes": 963084653,
+    "sha256": "58ed8f1d1d20156358eb7de540df3e35dd88f8e61bd532407eb2e2b6abfc5860"
+   },
+   {
+    "file": "era5land_monthly_2022-2025.nc",
+    "bytes": 650563815,
+    "sha256": "731af77c02d68877b5bc95160cd8ece949430f69a0e88aa20340f2c71f42c7c7"
+   },
+   {
+    "file": "era5land_monthly_2026.nc",
+    "bytes": 107595769,
+    "sha256": "aa2533fa1c5e416254503747f43631972139f6924e12d3acc2139f41ddf5a4c1"
+   }
+  ]
  }
 }

@@ -45,12 +45,14 @@ def anomaly(sm: xr.DataArray, baseline=WMO_BASELINE) -> xr.DataArray:
 def seasonal_by_year(sm_z: xr.DataArray, months: list[int],
                      region_reduce=("latitude", "longitude")) -> "list[dict]":
     """Region-mean root-zone soil-moisture anomaly per year over the season window — same shape
-    as ml.features.drought.seasonal_by_year, so the driver search and fit are unchanged."""
+    as ml.features.drought.seasonal_by_year, so the driver search and fit are unchanged — and, as there, a season's
+    figure only when every season month has one, else None (E167)."""
+    from ml.features.drought import season_mean
     sub = sm_z.sel(time=sm_z["time.month"].isin(months))
     reg = sub.mean(dim=[d for d in region_reduce if d in sub.dims], skipna=True)
     yrs = reg["time"].dt.year
     out = []
     for yr in np.unique(yrs.values):
         y = reg.sel(time=yrs == yr)
-        out.append({"year": int(yr), "sm_z": round(float(y.mean()), 3)})
+        out.append({"year": int(yr), "sm_z": season_mean(y.values, len(months), 3)})
     return out

@@ -88,7 +88,9 @@ def compute_indices(ds: xr.Dataset, scale: int = 3, baseline=WMO_BASELINE) -> xr
 def seasonal_by_year(idx: xr.Dataset, months: list[int], region_reduce=("latitude", "longitude")) -> "list[dict]":
     """
     Region-mean drought/heat per crop-year, for the given season months (the backtest input).
-    Returns one dict per year with spei/spi/temp anomaly averaged over the season & region.
+    Returns one dict per year with spei/spi/temp anomaly averaged over the season & region — each figure only when
+    every season month has it, else None (E167): SPEI-6 for April 1991 needs Nov 1990, which the record does not
+    hold, so 1991's Apr–Aug season has no SPEI; a mean of its Jun–Aug months would be a different quantity.
     """
     sub = idx.sel(time=idx["time.month"].isin(months))
     reg = sub.mean(dim=list(region_reduce), skipna=True)
@@ -98,12 +100,21 @@ def seasonal_by_year(idx: xr.Dataset, months: list[int], region_reduce=("latitud
         y = reg.sel(time=yrs == yr)
         out.append({
             "year": int(yr),
-            "spei": round(float(y["spei"].mean()), 2),
-            "spi": round(float(y["spi"].mean()), 2),
-            "temp_anom_c": round(float(y["temp_anom_c"].mean()), 2),
-            "precip_deficit_mm": round(float(y["precip_deficit_mm"].mean()), 1),
+            "spei": season_mean(y["spei"].values, len(months), 2),
+            "spi": season_mean(y["spi"].values, len(months), 2),
+            "temp_anom_c": season_mean(y["temp_anom_c"].values, len(months), 2),
+            "precip_deficit_mm": season_mean(y["precip_deficit_mm"].values, len(months), 1),
         })
     return out
+
+
+def season_mean(values, n_months: int, digits: int):
+    """The season's mean when all `n_months` months have a value, else None — never a mean over part of a season
+    (a record's first months without their accumulation window, a season still in progress at its end). E167."""
+    v = np.asarray(values, dtype=float)
+    if v.size != n_months or not np.isfinite(v).all():
+        return None
+    return round(float(v.mean()), digits)
 
 
 def to_h3_frame(idx: xr.Dataset, year: int, month: int, resolution: int = 8):

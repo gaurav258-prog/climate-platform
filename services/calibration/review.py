@@ -7,14 +7,31 @@ from sqlalchemy.orm import Session
 
 
 def pending(session: Session) -> list[dict]:
+    """Each batch awaiting a decision AS IT STANDS (E168): the runs still awaiting it — the ones a decision publishes —
+    summarised now, and the runs withdrawn since the proposal (replaced by a newer run, or their recipe retired) with
+    the reason. The proposal as made stays in the request's payload."""
+    from services.calibration.publish import summarise
     rows = session.execute(text("""
-        SELECT a.request_id::text AS approval_request_id, a.title, a.created_at, a.payload, a.maker_user_id::text AS maker_id,
+        SELECT a.request_id::text AS approval_request_id, a.created_at, a.payload, a.maker_user_id::text AS maker_id,
                u.email AS maker
         FROM approval_requests a LEFT JOIN users u ON u.user_id = a.maker_user_id
-        WHERE a.request_type = 'calibration.publish' AND a.status = 'pending' ORDER BY a.seq""")).mappings()
-    return [{"approval_request_id": r["approval_request_id"], "title": r["title"], "created_at": r["created_at"],
-             "maker_id": r["maker_id"], "maker": r["maker"], "review": (r["payload"] or {}).get("review"),
-             "summary": (r["payload"] or {}).get("summary")} for r in rows]
+        WHERE a.request_type = 'calibration.publish' AND a.status = 'pending' ORDER BY a.seq""")).mappings().all()
+    out = []
+    for r in rows:
+        runs = session.execute(text("""
+            SELECT r.run_id::text, r.status, r.decision_reason, s.commodity, s.origin, s.driver
+            FROM crop_calibration_runs r JOIN crop_calibration_specs s USING (spec_id)
+            WHERE r.run_id = ANY(CAST(:ids AS uuid[])) ORDER BY s.commodity, s.origin, s.driver"""),
+            {"ids": (r["payload"] or {}).get("run_ids") or []}).mappings().all()
+        live = [x["run_id"] for x in runs if x["status"] == "proposed"]
+        withdrawn = [{"commodity": x["commodity"], "origin": x["origin"], "driver": x["driver"],
+                      "reason": x["decision_reason"]} for x in runs if x["status"] != "proposed"]
+        out.append({"approval_request_id": r["approval_request_id"],
+                    "title": f"Publish {len(live)} crop calibration run{'s' if len(live) != 1 else ''}",
+                    "proposed_runs": len(runs), "created_at": r["created_at"], "maker_id": r["maker_id"],
+                    "maker": r["maker"], "review": (r["payload"] or {}).get("review"),
+                    "summary": summarise(session, live), "withdrawn": withdrawn})
+    return out
 
 
 def recipes(session: Session) -> list[dict]:

@@ -34,8 +34,8 @@ def pct_rank(v, series):
 
 def main():
     idx = compute_indices(load_monthly(NC), scale=3)
-    annual = {y["year"]: y for y in seasonal_by_year(idx, ALL)}
-    winter = {y["year"]: y for y in seasonal_by_year(idx, WINTER)}
+    annual = {y["year"]: y for y in seasonal_by_year(idx, ALL) if y["spei"] is not None}           # full seasons (E167)
+    winter = {y["year"]: y for y in seasonal_by_year(idx, WINTER) if y["temp_anom_c"] is not None}
 
     with get_session() as s:
         prod = {r["season_year"]: r for r in s.execute(text("""
@@ -66,7 +66,8 @@ def main():
     print("\n--- REAL daily-minimum frost (raw hourly ERA5, not the monthly-mean proxy) ---")
     try:
         frost_ds = load_hourly_years(FROST_YEAR_DIR, "brazil_coffee")
-        frost_by_year = sorted(frost_seasonal_by_year(frost_ds, FROST_MONTHS), key=lambda r: r["season_min_tmin_c"])
+        frost_by_year = sorted((r for r in frost_seasonal_by_year(frost_ds, FROST_MONTHS)
+                                if r["season_min_tmin_c"] is not None), key=lambda r: r["season_min_tmin_c"])
         years_on_disk = sorted(r["year"] for r in frost_by_year)
         print(f"  years fetched so far: {years_on_disk} (full 1991-2024 backfill in progress)")
         for r in frost_by_year:

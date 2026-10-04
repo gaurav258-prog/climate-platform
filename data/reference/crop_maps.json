@@ -1,0 +1,25 @@
+{
+ "about": "The crop maps that say where a crop grows (E163): the weights by which an origin's weather is averaged over the crop's own harvested area. Each crop of the registry names its map and layers (crop_registry.json: crop_map); a cell's area is given to the ERA5-Land 0.1° cell that contains its centre, and to the country (GISCO 2020 countries, 1:3 million) whose polygon contains its centre.",
+ "maps": {
+  "mapspam2020": {
+   "source": "IFPRI MapSPAM 2020 V2r2 — global harvested area per crop, all technologies (Harvard Dataverse, doi:10.7910/DVN/SWPENT), CC BY 4.0",
+   "file": "data/datasets/mapspam_2020_harvested_area/spam2020V2r2_global_harvested_area.geotiff.zip",
+   "member": "spam2020V2r2_global_harvested_area/spam2020_V2r2_global_H_{layer}_A.tif",
+   "format": "geotiff",
+   "unit": "hectares"
+  },
+  "cropgrids108": {
+   "source": "CROPGRIDS v1.08 (Tang et al. 2024, figshare doi:10.6084/m9.figshare.22491997) — harvested area per crop, 2020, CC BY 4.0",
+   "file": "data/datasets/cropgrids_v1_08/CROPGRIDSv1.08_NC_maps.zip",
+   "member": "CROPGRIDSv1.08_NC_maps/CROPGRIDSv1.08_{layer}.nc",
+   "format": "netcdf",
+   "variable": "harvarea",
+   "unit": "hectares"
+  }
+ },
+ "countries": {
+  "source": "Eurostat GISCO — countries 2020, 1:3 million (data/reference/geo/countries_world_03m_2020.geojson.gz); CNTR_ID, with Eurostat's EL and UK read as GR and GB",
+  "file": "data/reference/geo/countries_world_03m_2020.geojson.gz"
+ },
+ "era5_grid": "ERA5-Land 0.1°: latitude 90 → -90 (1801 rows), longitude 0 → 359.9 (3600 columns); a crop-map cell goes to the ERA5 cell whose centre is nearest its own centre"
+}

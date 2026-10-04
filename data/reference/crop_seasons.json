@@ -1,0 +1,91 @@
+{
+  "about": "When a crop grows in an origin — the season a calibration's weather is read over (E163). Annual crops and the perennials MIRCA-OS covers take their season from MIRCA-OS 2015 by one rule; olive, citrus and wine grapes from FAO-56 Table 11 rows applied to the origins listed. A crop × origin with no season here is held, never given a guessed one.",
+  "mirca_os": {
+    "source": "Kebede, E.A. et al. (2025), A global open-source dataset of monthly irrigated and rainfed cropped areas (MIRCA-OS) for the 21st century, Scientific Data; HydroShare doi:10.4211/hs.60a890eb841c460192c03bb590687145 — the 2015 crop calendars v0.1 (rainfed and irrigated): planting and maturity month and growing area per crop, sub-crop and spatial unit",
+    "files": [
+      "data/datasets/mirca_os_2015_crop_calendars/MIRCA-OS_2015_rf.csv",
+      "data/datasets/mirca_os_2015_crop_calendars/MIRCA-OS_2015_ir.csv"
+    ],
+    "encoding": "latin-1",
+    "country": "unit_code // 10000 is the unit's UN M49 country code",
+    "rule": "a month is in the season when at least half of the crop's growing area in the origin (all units, sub-crops, rainfed and irrigated) is between its planting and maturity month (both included); a season crossing the new year belongs to the year it matures in — its months after the maturity month are months of the previous year; the months picked must be one unbroken run (in harvest-year order), else the origin is held — several calendars in one origin are not merged into one season",
+    "coverage_min": 0.5,
+    "coverage_rule": "the calendars must describe at least half of the crop's harvested area in the origin as the crop map holds it (MapSPAM / CROPGRIDS 2020), else the origin is held: a calendar covering a minority of the crop (MIRCA-OS 2015 v0.1 lists 0.28 million ha of Canadian wheat, all on the winter calendar, against 9.6 million ha mapped) does not state its season (E168)",
+    "share_min": 0.5
+  },
+  "fao56": {
+    "source": "Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Table 11: Lengths of crop development stages for various planting periods and climatic regions (days)",
+    "url": "https://www.fao.org/4/x0490e/x0490e0b.htm",
+    "file": "data/reference/seasons/fao56_x0490e0b.htm",
+    "rule": "the season is the calendar months overlapping the stated start month's first day plus the row's total days (the sum of its four stages); the row's region is applied only to the origins listed with it",
+    "mediterranean_coast": [
+      "AL",
+      "BA",
+      "CY",
+      "DZ",
+      "EG",
+      "ES",
+      "FR",
+      "GR",
+      "HR",
+      "IL",
+      "IT",
+      "LB",
+      "LY",
+      "MA",
+      "MC",
+      "ME",
+      "MT",
+      "PS",
+      "SI",
+      "SY",
+      "TN",
+      "TR"
+    ],
+    "mediterranean_coast_rule": "FAO-56's 'Mediterranean' and the wine row's 'Mid Latitudes' are applied to the countries with a Mediterranean Sea coast (all lie between 30°N and 46°N) — no other country is given a FAO-56 season",
+    "crops": {
+      "Olive oil": {
+        "row": "Olives",
+        "region": "Mediterranean",
+        "start_month": 3,
+        "stages_days": [
+          30,
+          90,
+          60,
+          90
+        ],
+        "origins": "mediterranean_coast"
+      },
+      "Citrus": {
+        "row": "Citrus",
+        "region": "Mediterranean",
+        "start_month": 1,
+        "stages_days": [
+          60,
+          90,
+          120,
+          95
+        ],
+        "origins": "mediterranean_coast"
+      },
+      "Wine grapes": {
+        "row": "Grapes",
+        "region": "Mid Latitudes (wine)",
+        "start_month": 4,
+        "stages_days": [
+          30,
+          60,
+          40,
+          80
+        ],
+        "origins": "mediterranean_coast"
+      }
+    },
+    "gaps": {
+      "Almonds": "FAO-56 Table 11 has no almond row ('Deciduous Orchard' names no crop) — almonds are held"
+    },
+    "fetched": "2026-10-04",
+    "bytes": 235891,
+    "sha256": "cad0afe7873296b2a91c1a70b0d1fdf4cb37b5ee94a892521a478b2b1a4a2e3c"
+  }
+}

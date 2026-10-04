@@ -72,7 +72,7 @@ task to them).
 redis-cli ping           # -> PONG
 
 # 1) worker (executes emails.drain_outbox + the existing hazard/feed tasks)
-celery -A services.tasks.celery_app worker --loglevel=info
+celery -A services.tasks.celery_app worker --pool=threads --loglevel=info
 
 # 2) beat (periodic scheduler: drains the outbox every 120s, refreshes feeds hourly)
 celery -A services.tasks.celery_app beat --loglevel=info
@@ -89,7 +89,7 @@ After=network.target redis.service
 User=tellumen
 WorkingDirectory=/opt/tellumen
 EnvironmentFile=/opt/tellumen/.env
-ExecStart=/opt/tellumen/.venv/bin/celery -A services.tasks.celery_app worker --loglevel=info
+ExecStart=/opt/tellumen/.venv/bin/celery -A services.tasks.celery_app worker --pool=threads --loglevel=info
 Restart=always
 [Install]
 WantedBy=multi-user.target
