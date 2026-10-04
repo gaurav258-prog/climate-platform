@@ -219,6 +219,14 @@ FEEDS: list[dict] = [
              "code — the current and recent seasons, ahead of FAOSTAT's 1–2 year lag. Definitions that differ from FAO's "
              "(milled rice, palm and olive oil, shelled almonds) are stated in the crop registry. Checked monthly against "
              "FAS's release dates; a new release is staged with its difference and lands only after review (E155)."},
+    {"key": "crop_production_usda_nass", "name": "USDA NASS Quick Stats — US and state crop production", "category": "reference",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats",
+     "note": "Production, area and yield for the US and each state (ISO 3166-2, from the Census Bureau's state list) for "
+             "the registry's crops with a NASS series — the sub-national history behind US origins. Annual survey "
+             "estimates only: a season still in progress (NASS repeats its forecast under 'YEAR') and withheld values "
+             "are set aside and shown with the release. Checked monthly for records NASS loaded since the last release; "
+             "a new release is staged with its difference and lands only after review (E157)."},
     {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
@@ -423,30 +431,27 @@ def _hook_reference_countries(session: Session) -> None:
 register_refresh_hook("reference_countries", _hook_reference_countries)
 
 
-def _hook_crop_production_faostat(session: Session) -> None:
-    from services.reference.crop_releases import refresh
-    refresh(session)                     # stages a new file for review; never lands it
+def _reviewed_yield_hook(source_key: str):
+    def hook(session: Session) -> None:
+        from services.reference.crop_releases import refresh
+        from services.reference.yield_sources import get
+        refresh(session, get(source_key))     # stages a new release for review; never lands it
+    return hook
 
 
-register_refresh_hook("crop_production_faostat", _hook_crop_production_faostat)
+def _register_reviewed_yield_sources() -> None:
+    """Every reviewed yield source refreshes under its feed (E157) — a new source is a YieldSource and a FEEDS entry,
+    never another hand-written hook; a source without its feed entry (or the reverse) is refused at import."""
+    from services.reference.yield_sources import all_sources
+    sources = {ys.feed_key: ys.key for ys in all_sources()}
+    reviewed = {f["key"] for f in FEEDS if f.get("review")}
+    if set(sources) != reviewed:
+        raise RuntimeError(f"reviewed feeds and yield sources differ: {sorted(set(sources) ^ reviewed)}")
+    for feed_key, source_key in sources.items():
+        register_refresh_hook(feed_key, _reviewed_yield_hook(source_key))
 
 
-def _hook_crop_production_eurostat(session: Session) -> None:
-    from services.reference.crop_releases import refresh
-    from services.reference.yield_sources import get
-    refresh(session, get("eurostat"))     # stages a new publication for review; never lands it
-
-
-register_refresh_hook("crop_production_eurostat", _hook_crop_production_eurostat)
-
-
-def _hook_crop_production_usda_fas(session: Session) -> None:
-    from services.reference.crop_releases import refresh
-    from services.reference.yield_sources import get
-    refresh(session, get("usda_fas"))     # stages a new release for review; never lands it
-
-
-register_refresh_hook("crop_production_usda_fas", _hook_crop_production_usda_fas)
+_register_reviewed_yield_sources()
 register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)

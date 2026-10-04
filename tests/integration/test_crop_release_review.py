@@ -236,3 +236,82 @@ def test_usda_fas_is_read_by_its_units_table_and_genc_codes():
     with pytest.raises(U.FetchError, match="refused"):
         U.parse(doc(extra=({"countryCode": "BR", "marketYear": "2023", "attributeId": 28, "unitId": 999, "value": 1.0},)),
                 {"BRA": "BR"})
+
+
+def _nass(desc, level, state, year, value, load, period="YEAR", unit=None, where=None):
+    return {"short_desc": desc, "agg_level_desc": level, "state_alpha": state, "year": year, "Value": value,
+            "load_time": load, "reference_period_desc": period, "location_desc": where or state,
+            "unit_desc": unit or desc.rsplit(" ", 1)[-1] if "MEASURED IN" in desc else unit or "ACRES"}
+
+
+def test_usda_nass_reads_states_and_sets_aside_forecasts_withheld_and_other_states():
+    """E157: NASS rows — the national figure (region '') and each state (ISO 3166-2 'US-IA'); bushels converted by the
+    crop's stated weight, acres to hectares; a 'YEAR' figure loaded with an identical forecast is the season in
+    progress, a withheld '(D)' is not a number, 'OTHER STATES' is not a state, an area with no production estimate is
+    not a year read — each set aside and counted, never read."""
+    import json as _json
+
+    from services.reference import nass_quickstats as N
+    P, A = "CORN, GRAIN - PRODUCTION, MEASURED IN BU", "CORN, GRAIN - ACRES HARVESTED"
+    data = _json.dumps({"data": {
+        f"{P}|year": [_nass(P, "NATIONAL", "US", "2024", "1,000,000", "2025-01-12 12:00:00.000", where="US TOTAL"),
+                      _nass(P, "STATE", "IA", "2024", "100,000", "2025-01-12 12:00:00.000"),
+                      _nass(P, "STATE", "IA", "2025", "120,000", "2026-01-12 12:00:00.000"),
+                      _nass(P, "STATE", "IA", "2026", "130,000", "2026-09-11 12:00:00.000"),
+                      _nass(P, "STATE", "NV", "2025", "(D)", "2026-01-12 12:00:00.000"),
+                      _nass(P, "STATE", "OT", "2025", "5,000", "2026-01-12 12:00:00.000", where="OTHER STATES")],
+        f"{P}|forecast": [_nass(P, "STATE", "IA", "2026", "130,000", "2026-09-11 12:00:00.000", "YEAR - SEP FORECAST")],
+        f"{A}|year": [_nass(A, "STATE", "IA", "2025", "1,000", "2026-01-12 12:00:00.000"),
+                      _nass(A, "STATE", "IA", "2026", "1,100", "2026-06-30 12:00:00.000")],   # June Acreage, no estimate
+        f"{A}|forecast": []}}).encode()
+    locs = {"US": "US", "IA": "US-IA", "NV": "US-NV"}
+    rows = {(r["region_code"], r["season_year"]): r for r in N.parse(data, locs)}
+    assert set(rows) == {("", 2024), ("US-IA", 2024), ("US-IA", 2025)}
+    bu = 56 * 0.45359237 / 1000                                            # a bushel of corn: 56 lb
+    r = rows[("US-IA", 2025)]
+    assert (r["country"], r["production_tonnes"], r["area_harvested_ha"]) == \
+           ("US", round(120000 * bu, 1), round(1000 * 0.40468564224, 1))
+    assert r["yield_tonnes_ha"] == round(120000 * bu / (1000 * 0.40468564224), 4) and r["yoy_change_pct"] == 20.0
+    assert N.set_aside(data, locs) == {"area without a production estimate for the year": 1,
+                                       "not a state of the region reference (OTHER STATES)": 1,
+                                       "not given as a number ((D))": 1,
+                                       "season in progress — 'YEAR' repeats NASS's forecast": 1}
+    assert N.stamp(data) == "2026-09-11 12:00:00.000"
+
+
+def test_usda_nass_refuses_an_unknown_unit_and_never_shows_its_key(monkeypatch):
+    """E157: a unit outside data/reference/nass_quickstats.json is refused; the Quick Stats key travels in the query
+    string, so an error never carries the request — its text is rebuilt and the original is not chained."""
+    import json as _json
+
+    import requests
+
+    from core.config import settings
+    from services.reference import nass_quickstats as N
+    P = "CORN, GRAIN - PRODUCTION, MEASURED IN BU"
+    data = _json.dumps({"data": {f"{P}|year": [_nass(P, "STATE", "IA", "2025", "1", "t", unit="BOXES")],
+                                 f"{P}|forecast": []}}).encode()
+    with pytest.raises(N.FetchError, match="refused"):
+        N.parse(data, {"IA": "US-IA"})
+    monkeypatch.setattr(settings, "NASS_API_KEY", "SECRET-KEY-123")
+
+    def boom(url, params=None, **kw):
+        raise requests.ConnectionError(f"Max retries exceeded with url: {url}?key={dict(params)['key']}")
+    monkeypatch.setattr(N.requests, "get", boom)
+    with pytest.raises(N.FetchError) as e:
+        N._count([("short_desc", P)])
+    assert "SECRET-KEY-123" not in str(e.value) and e.value.__suppress_context__ and e.value.__cause__ is None
+
+
+def test_a_region_outside_the_region_reference_is_refused(api, monkeypatch):
+    """E157: a release whose reading names a region the reference does not hold is refused before anything is kept."""
+    from services.reference.yield_sources import YieldSource
+    ys = YieldSource(key="test", feed_key="test", label=lambda: "Region test (E157)", url=lambda: "x",
+                     countries=lambda s: {}, reader=lambda c: "test-reader", published=lambda lm, et: {},
+                     download=lambda: b"", parse=lambda d, c: [
+                         {"commodity": "Maize", "country": "US", "region_code": "US-ZZ", "season_year": 2025,
+                          "production_tonnes": 1.0, "area_harvested_ha": 1.0, "yield_tonnes_ha": 1.0,
+                          "yoy_change_pct": None, "note": ""}])
+    with pytest.raises(R.ReleaseError, match="US-ZZ"):
+        R.stage(api.s, b"region test", source=ys)
+    assert api.s.execute(text("SELECT count(*) FROM crop_yield_releases WHERE source = 'Region test (E157)'")).scalar() == 0

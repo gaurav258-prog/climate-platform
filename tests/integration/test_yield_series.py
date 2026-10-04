@@ -34,3 +34,22 @@ def test_one_source_per_crop_and_country(session_rolled_back):
         Y.series(s, CROP, "ES", "EUROSTAT apro_cpsh1", region_code=None)
     assert set(Y.every_series(s, CROP, "ES")) == {"FAOSTAT QCL bulk", "EUROSTAT apro_cpsh1", "USDA FAS PSD",
                                                   "EUROSTAT apro_cpsh1 · ES61"}
+
+
+def test_every_reviewed_source_states_its_role():
+    """E157: each reviewed yield source is in exactly one role of data/reference/yield_series.json — chosen by
+    precedence, never in a history, or read only when named — so a new source never joins histories by accident."""
+    from services.reference.yield_sources import all_sources
+    rules = Y.rules()
+    roles = [set(rules["national_precedence"]), set(rules["never_in_history"]), set(rules["named_only"])]
+    for ys in all_sources():
+        assert sum(ys.label() in r for r in roles) == 1, f"{ys.label()} must state exactly one role"
+
+
+def test_every_region_held_is_in_the_region_reference(session_rolled_back):
+    """E157: every region code in the yield store is a region of the reference (ISO 3166-2 from the national
+    authority's list, or NUTS)."""
+    from services.reference import regions
+    held = session_rolled_back.execute(text(
+        "SELECT DISTINCT region_code FROM crop_yield_observations WHERE region_code <> ''")).scalars().all()
+    assert held and not [c for c in held if not regions.known(c)]

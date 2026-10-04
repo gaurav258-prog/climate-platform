@@ -12,7 +12,8 @@ landed only after review (E148, E153).
             crop_yield_observations; or rejects / returns it → nothing is written, the release is closed
 
 Facts the review shows (summary): rows added and revised per commodity, years newly reported, the largest revisions,
-rows the store holds that the file no longer reports (kept, never deleted), and the crop calibrations whose window
+rows the store holds that the file no longer reports (kept, never deleted), the rows the reading set aside and why
+(E157), and the crop calibrations whose window
 holds a changed year — 'may be affected': a calibration records its years, not its source series, so it is listed for
 a refit check, never changed here.
 """
@@ -25,6 +26,7 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.reference import regions
 from services.reference.yield_sources import YieldSource
 from services.reference.yield_sources import get as source_get
 
@@ -111,6 +113,9 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
     if open_:
         raise ReleaseError(f"release {open_} is still open for review — land or reject it before staging another")
     rows = [{**r, "region_code": r.get("region_code") or ""} for r in ys.parse(data, countries)]
+    unknown = sorted({r["region_code"] for r in rows if r["region_code"] and not regions.known(r["region_code"])})
+    if unknown:                                   # a region the reference does not hold is refused, never stored (E157)
+        raise ReleaseError(f"{src}: region codes not in the region reference — {', '.join(unknown[:10])}")
     held = _held(session, src)
     added, revised, recomputed, by_commodity, changed = [], [], [], {}, {}
     for r in rows:
@@ -149,8 +154,10 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
         "rows_in_file": len(rows), "added": len(added), "revised": len(revised), "recomputed": len(recomputed),
         "unchanged": len(rows) - len(added) - len(revised) - len(recomputed),
         "held_not_in_file": len(set(held) - in_file),
+        "set_aside": ys.set_aside(data, countries),         # {reason: rows} the reading left out — never silently
         "by_commodity": {c: {**v, "years_new": sorted(v["years_new"])} for c, v in sorted(by_commodity.items())},
-        "largest_revisions": [{"commodity": r["commodity"], "country": r["country"], "year": r["season_year"],
+        "largest_revisions": [{"commodity": r["commodity"], "country": r["country"], "region_code": r["region_code"],
+                               "year": r["season_year"],
                                "production_before": r["held_before"]["production_tonnes"],
                                "production_now": r["production_tonnes"],
                                "change_pct": round(100 * (r["production_tonnes"] / r["held_before"]["production_tonnes"] - 1), 2)}
@@ -322,10 +329,18 @@ def refresh(session: Session, source: YieldSource | None = None) -> dict:
         _record_check(session, ys, probe, False, None, "unchanged since the last check")
         session.commit()
         return {"staged": False, "reason": f"{ys.label()}: nothing new published"}
-    data = ys.download()
+    out = take(session, ys, ys.download(), probe)
+    session.commit()
+    return out
+
+
+def take(session: Session, ys: YieldSource, data: bytes, probe: dict) -> dict:
+    """Downloaded publisher data → kept raw, staged with the publisher's stamp, the check recorded — the one path of the
+    schedule and the operator script, so a staged release always carries the stamp the next cheap check compares with
+    (E157). A publisher that stamps each record (NASS load_time) gives the stamp in the data. Not committed here."""
     keep_raw(ys, data)
-    out = stage(session, data, last_modified=probe["last_modified"], etag=probe["etag"], source=ys)
+    probe = {**probe, "last_modified": ys.stamp(data) or probe.get("last_modified")}
+    out = stage(session, data, last_modified=probe["last_modified"], etag=probe.get("etag"), source=ys)
     _record_check(session, ys, probe, True, hashlib.sha256(data).hexdigest(),
                   f"staged release {out['release_id']}" if out["staged"] else out["reason"])
-    session.commit()
     return out

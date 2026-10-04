@@ -1,0 +1,23 @@
+{
+ "about": "Official lists of sub-national units that a regional fact may name (services.reference.regions). Each file is kept exactly as the national authority published it; the ISO 3166-2 code is formed by the rule stated per country.",
+ "files": {
+  "US": {
+   "file": "us_census_state.txt",
+   "publisher": "U.S. Census Bureau — State FIPS/ANSI codes",
+   "url": "https://www2.census.gov/geo/docs/reference/state.txt",
+   "fetched": "2026-10-04",
+   "bytes": 1485,
+   "sha256": "bea4e03f71a1fa0045ae732aabad11fa541e5932b071c2369bb0d325e8cba5a0",
+   "code_rule": "ISO 3166-2:US subdivision code = 'US-' + the USPS code (STUSAB): the 50 states, the District of Columbia and the six outlying areas"
+  },
+  "BR": {
+   "file": "br_ibge_estados.json",
+   "publisher": "IBGE — API de localidades, estados",
+   "url": "https://servicodados.ibge.gov.br/api/v1/localidades/estados",
+   "fetched": "2026-10-04",
+   "bytes": 2446,
+   "sha256": "7ca1368dea3af83cba1af84ae8a7e88f1173c97586831d086cc8b3c1ba9c6596",
+   "code_rule": "ISO 3166-2:BR subdivision code = 'BR-' + the federative unit's sigla: 26 states and the Federal District"
+  }
+ }
+}

@@ -11,9 +11,9 @@ import { pressable } from '../lib/pressable'
 // (the one approvals path; the proposer can never approve). Only then are the rows written; replaced values are kept.
 
 interface ByCommodity { added: number; revised: number; recomputed: number; years_new: number[] }
-interface Revision { commodity: string; country: string; year: number; production_before: number; production_now: number; change_pct: number }
+interface Revision { commodity: string; country: string; region_code?: string; year: number; production_before: number; production_now: number; change_pct: number }
 interface Fit { commodity: string; origin: string; hazard_driver: string; baseline_from: number | null; baseline_to: number | null; changed_years: number[] }
-interface Summary { reader_changed_since_last_landed?: boolean; last_landed_reader?: string | null; rows_in_file: number; added: number; revised: number; recomputed: number; unchanged: number; held_not_in_file: number; by_commodity: Record<string, ByCommodity>; largest_revisions: Revision[]; calibrations_may_be_affected: Fit[] }
+interface Summary { reader_changed_since_last_landed?: boolean; last_landed_reader?: string | null; rows_in_file: number; added: number; revised: number; recomputed: number; unchanged: number; held_not_in_file: number; set_aside?: Record<string, number>; by_commodity: Record<string, ByCommodity>; largest_revisions: Revision[]; calibrations_may_be_affected: Fit[] }
 interface Release {
   release_id: string; source: string; file_sha256: string; reader: string; file_bytes: number; origin_url: string; last_modified: string | null
   fetched_at: string; summary: Summary; status: 'staged' | 'proposed' | 'landed' | 'rejected'; approval_request_id: string | null
@@ -21,11 +21,22 @@ interface Release {
   proposed_by_id: string | null; proposed_by: string | null; review: string | null; proposed_at: string | null; decided_by: string | null
 }
 interface Feed { source: string; label: string; name: string; cadence_days: number; last_refresh: string | null; last_status: string | null; status: string; awaiting_review: { release_id: string; status: string } | null; attribution: string; note: string }
-interface Row { commodity: string; country: string; season_year: number; change: string; production_tonnes: number | null; area_harvested_ha: number | null; yield_tonnes_ha: number | null; yoy_change_pct: number | null; held_before: Record<string, number | null> | null }
+interface Row { commodity: string; country: string; region_code: string; season_year: number; change: string; production_tonnes: number | null; area_harvested_ha: number | null; yield_tonnes_ha: number | null; yoy_change_pct: number | null; held_before: Record<string, number | null> | null }
 
 const STATUS: Record<string, string> = { staged: 'var(--color-warn)', proposed: 'var(--color-sky)', landed: 'var(--color-good)', rejected: 'var(--color-faint)' }
 const num = (v: number | null | undefined, d = 1) => v == null ? '—' : v.toLocaleString('en-GB', { maximumFractionDigits: d })
 const day = (s: string | null) => s ? s.slice(0, 10) : '—'
+// consecutive years as one range: 1866–1950, 1962–2026 — a source landing its whole history lists ranges, not 160 years
+const yearRanges = (ys: number[]) => {
+  const out: string[] = []
+  ys.forEach((y, i) => {
+    if (i > 0 && y === ys[i - 1] + 1) return
+    let end = y
+    while (ys.includes(end + 1)) end++
+    out.push(end === y ? String(y) : `${y}–${end}`)
+  })
+  return out.join(', ')
+}
 
 export default function ReferenceReleases() {
   const qc = useQueryClient()
@@ -118,20 +129,24 @@ function ReleaseReview({ r, myId, onDone }: { r: Release; myId: string | null; o
       </div>
       {s.reader_changed_since_last_landed && <div className="text-[12px] text-[var(--color-warn)]">The reading rules changed since the last landed release ({s.last_landed_reader} → {r.reader}): rows added or recomputed here can come from our reading (more countries, a new crop mapping), not from the publisher.</div>}
       <div className="text-[11.5px] text-[var(--color-faint)] max-w-[90ch]">Revised: the publisher changed its production or area for a year already held. Recomputed: only our derived yield or year-on-year changed (one stated rounding rule). Held but not in the file: kept, never deleted.</div>
+      {s.set_aside && Object.keys(s.set_aside).length > 0 && <div>
+        <div className={lbl}>Set aside by the reading — not stored</div>
+        {Object.entries(s.set_aside).map(([why, n]) => <div key={why} className="text-[12px] text-[var(--color-mute)]"><span className="mono tabular-nums text-[var(--color-ink)]">{num(n, 0)}</span> · {why}</div>)}
+      </div>}
 
       <div className="grid lg:grid-cols-2 gap-5">
         <div className="overflow-x-auto">
           <div className={lbl}>By commodity</div>
-          <table className="w-full tabular-nums"><thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left"><th className="font-normal py-1">Commodity</th><th className="font-normal text-right">Added</th><th className="font-normal text-right">Revised</th><th className="font-normal text-right">Recomputed</th><th className="font-normal text-right">New years</th></tr></thead>
+          <table className="w-full tabular-nums"><thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left"><th className="font-normal py-1">Commodity</th><th className="font-normal text-right pl-3">Added</th><th className="font-normal text-right pl-3">Revised</th><th className="font-normal text-right pl-3">Recomputed</th><th className="font-normal text-right pl-3">New years</th></tr></thead>
             <tbody>{Object.entries(s.by_commodity).map(([c, b]) => (
-              <tr key={c} className="border-t border-[var(--color-line)]"><td className="py-1 text-[var(--color-ink)]">{c}</td><td className="text-right mono">{b.added}</td><td className="text-right mono">{b.revised}</td><td className="text-right mono">{b.recomputed}</td><td className="text-right mono">{b.years_new.join(', ') || '—'}</td></tr>
+              <tr key={c} className="border-t border-[var(--color-line)]"><td className="py-1 text-[var(--color-ink)]">{c}</td><td className="text-right mono pl-3">{b.added}</td><td className="text-right mono pl-3">{b.revised}</td><td className="text-right mono pl-3">{b.recomputed}</td><td className="text-right mono pl-3">{yearRanges(b.years_new) || '—'}</td></tr>
             ))}</tbody></table>
         </div>
         <div className="space-y-4">
           <div>
             <div className={lbl}>Largest revisions by the publisher</div>
             {s.largest_revisions.length === 0 ? <div className="text-[var(--color-faint)]">None — no year already held was revised.</div>
-              : s.largest_revisions.map((v, i) => <div key={i} className="mono text-[11.5px] text-[var(--color-mute)]">{v.commodity} {v.country} {v.year}: {num(v.production_before)} → {num(v.production_now)} t ({v.change_pct > 0 ? '+' : ''}{v.change_pct}%)</div>)}
+              : s.largest_revisions.map((v, i) => <div key={i} className="mono text-[11.5px] text-[var(--color-mute)]">{v.commodity} {v.region_code || v.country} {v.year}: {num(v.production_before)} → {num(v.production_now)} t ({v.change_pct > 0 ? '+' : ''}{v.change_pct}%)</div>)}
           </div>
           <div>
             <div className={lbl}>Calibrations that may be affected</div>
@@ -154,7 +169,7 @@ function ReleaseReview({ r, myId, onDone }: { r: Release; myId: string | null; o
           <th className="font-normal px-2 text-right">Production t</th><th className="font-normal px-2 text-right">Area ha</th><th className="font-normal px-2 text-right">Yield t/ha</th><th className="font-normal px-2 text-right">YoY %</th></tr></thead>
           <tbody>{(rows.data?.rows ?? []).map((x, i) => (
             <tr key={i} className="border-t border-[var(--color-line)]">
-              <td className="px-2 py-0.5 mono">{x.change}</td><td className="px-2">{x.commodity}</td><td className="px-2 mono">{x.country}</td><td className="px-2 mono">{x.season_year}</td>
+              <td className="px-2 py-0.5 mono">{x.change}</td><td className="px-2">{x.commodity}</td><td className="px-2 mono">{x.region_code ? `${x.country} · ${x.region_code}` : x.country}</td><td className="px-2 mono">{x.season_year}</td>
               <Cell now={x.production_tonnes} before={x.held_before?.production_tonnes} d={1} />
               <Cell now={x.area_harvested_ha} before={x.held_before?.area_harvested_ha} d={1} />
               <Cell now={x.yield_tonnes_ha} before={x.held_before?.yield_tonnes_ha} d={4} />

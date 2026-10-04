@@ -1,7 +1,9 @@
 """Stage a reviewed yield source's latest data for review — nothing lands from here (E153).
 
-Any source of services.reference.yield_sources (faostat, eurostat, usda_fas …): download, read, compare with the store,
-stage as a release; it lands only when approved on the operator console (Reference data) as the Approvers policy states.
+Any source of services.reference.yield_sources (faostat, eurostat, usda_fas, usda_nass …): download, read, compare with
+the store, stage as a release through the schedule's own path (services.reference.crop_releases.take — the publisher's
+stamp and the check recorded); it lands only when approved on the operator console (Reference data) as the Approvers
+policy states.
 
     python -m scripts.stage_yield_release --source usda_fas            # fetch and stage
     python -m scripts.stage_yield_release --source usda_fas --dry-run  # show the difference, stage nothing
@@ -25,11 +27,13 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     ys = get(a.source)
+    # the publisher's current stamp, asked before the download — the release carries it, so the scheduled check that
+    # follows compares with it and does not fetch the same data again (a file from disk has only its own stamp, if any)
+    probe = {"changed": True, "last_modified": None, "etag": None} if a.file else ys.published(None, None)
     data = open(a.file, "rb").read() if a.file else ys.download()
-    if not a.file:
-        print(f"raw data kept at {R.keep_raw(ys, data)} (re-read with --file if needed)")
+    print(f"raw data kept at {R.keep_raw(ys, data)} (re-read with --file if needed)")
     with get_session() as s:
-        out = R.stage(s, data, source=ys)
+        out = R.take(s, ys, data, probe)
         print(json.dumps({k: v for k, v in out.items() if k != "summary"}, indent=1))
         sm = out.get("summary") or {}
         if sm:
@@ -37,6 +41,8 @@ def main() -> int:
                   f"unchanged {sm['unchanged']}; held but not in the data {sm['held_not_in_file']}; reading changed since "
                   f"the last landed release: {sm['reader_changed_since_last_landed']}; calibrations that may be affected: "
                   f"{len(sm['calibrations_may_be_affected'])}")
+            for why, n in sm.get("set_aside", {}).items():
+                print(f"  set aside — {why}: {n}")
         if a.dry_run:
             s.rollback()
             print("dry run — nothing staged")

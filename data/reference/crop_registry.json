@@ -1,5 +1,5 @@
 {
- "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds) — series from different sources are never mixed.",
+ "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds). nass_production and nass_area are the crop's exact USDA NASS Quick Stats series (short_desc) for the US and its states; nass_label states where NASS's definition differs from FAO's (canola only, wine grapes only, bearing acres), nass_gap why a crop is not read from NASS — series from different sources are never mixed.",
  "life_cycles": {
   "perennial_alternate_bearing": "perennial, alternate-bearing — cycle removed",
   "perennial": "perennial, no alternate bearing — detrended",
@@ -14,7 +14,8 @@
    "eurostat_crop": "F4300",
    "eurostat_label": "Almonds",
    "fas_commodity": "0577400",
-   "fas_label": "Almonds, SHELLED basis — FAO reports in shell"
+   "fas_label": "Almonds, SHELLED basis — FAO reports in shell",
+   "nass_gap": "not read from NASS: its in-shell series mixes scales (2018–2022 published as 1,897.5 'TONS', 2023 as 2,015,000) and its shelled series is another definition than FAO's in-shell"
   },
   {
    "commodity": "Barley",
@@ -23,12 +24,18 @@
    "eurostat_crop": "C1300",
    "eurostat_label": "Barley",
    "fas_commodity": "0430000",
-   "fas_label": "Barley — as FAO"
+   "fas_label": "Barley — as FAO",
+   "nass_production": "BARLEY - PRODUCTION, MEASURED IN BU",
+   "nass_area": "BARLEY - ACRES HARVESTED",
+   "nass_label": "all barley"
   },
   {
    "commodity": "Cane sugar",
    "fao_item": "Sugar cane",
-   "life_cycle": "perennial"
+   "life_cycle": "perennial",
+   "nass_production": "SUGARCANE, SUGAR & SEED - PRODUCTION, MEASURED IN TONS",
+   "nass_area": "SUGARCANE, SUGAR & SEED - ACRES HARVESTED",
+   "nass_label": "sugarcane for sugar and seed — cane for other uses not included"
   },
   {
    "commodity": "Citrus",
@@ -56,7 +63,10 @@
    "life_cycle": "annual",
    "gap": "FAOSTAT does not report durum separately from wheat — held as a named gap",
    "eurostat_crop": "C1120",
-   "eurostat_label": "Durum wheat"
+   "eurostat_label": "Durum wheat",
+   "nass_production": "WHEAT, SPRING, DURUM - PRODUCTION, MEASURED IN BU",
+   "nass_area": "WHEAT, SPRING, DURUM - ACRES HARVESTED",
+   "nass_label": "NASS's durum class of spring wheat"
   },
   {
    "commodity": "Maize",
@@ -65,7 +75,10 @@
    "eurostat_crop": "C1500",
    "eurostat_label": "Grain maize and corn-cob-mix",
    "fas_commodity": "0440000",
-   "fas_label": "Corn — as FAO maize"
+   "fas_label": "Corn — as FAO maize",
+   "nass_production": "CORN, GRAIN - PRODUCTION, MEASURED IN BU",
+   "nass_area": "CORN, GRAIN - ACRES HARVESTED",
+   "nass_label": "corn for grain (silage is a separate series, not read)"
   },
   {
    "commodity": "Olive oil",
@@ -74,7 +87,10 @@
    "eurostat_crop": "O1910",
    "eurostat_label": "Olives for oil — narrower than FAO's 'Olives' (which includes table olives)",
    "fas_commodity": "4235000",
-   "fas_label": "Oil, Olive — the OIL; FAO reports olives"
+   "fas_label": "Oil, Olive — the OIL; FAO reports olives",
+   "nass_production": "OLIVES - PRODUCTION, MEASURED IN TONS",
+   "nass_area": "OLIVES - ACRES BEARING",
+   "nass_label": "all olives (fruit, as FAO's 'Olives'); area = bearing acres"
   },
   {
    "commodity": "Palm oil",
@@ -90,7 +106,10 @@
    "eurostat_crop": "I1110",
    "eurostat_label": "Rape and turnip rape seeds",
    "fas_commodity": "2226000",
-   "fas_label": "Oilseed, Rapeseed — as FAO"
+   "fas_label": "Oilseed, Rapeseed — as FAO",
+   "nass_production": "CANOLA - PRODUCTION, MEASURED IN LB",
+   "nass_area": "CANOLA - ACRES HARVESTED",
+   "nass_label": "canola only — NASS reports rapeseed as a separate series, not read (FAO's item includes both)"
   },
   {
    "commodity": "Rice",
@@ -99,7 +118,10 @@
    "eurostat_crop": "C2000",
    "eurostat_label": "Rice",
    "fas_commodity": "0422110",
-   "fas_label": "Rice, MILLED basis — FAO reports paddy"
+   "fas_label": "Rice, MILLED basis — FAO reports paddy",
+   "nass_production": "RICE - PRODUCTION, MEASURED IN CWT",
+   "nass_area": "RICE - ACRES HARVESTED",
+   "nass_label": "rough rice — FAO's paddy basis"
   },
   {
    "commodity": "Sorghum",
@@ -108,7 +130,10 @@
    "eurostat_crop": "C1700",
    "eurostat_label": "Sorghum",
    "fas_commodity": "0459200",
-   "fas_label": "Sorghum — as FAO"
+   "fas_label": "Sorghum — as FAO",
+   "nass_production": "SORGHUM, GRAIN - PRODUCTION, MEASURED IN BU",
+   "nass_area": "SORGHUM, GRAIN - ACRES HARVESTED",
+   "nass_label": "sorghum for grain (silage is a separate series, not read)"
   },
   {
    "commodity": "Soybean",
@@ -117,14 +142,20 @@
    "eurostat_crop": "I1130",
    "eurostat_label": "Soya",
    "fas_commodity": "2222000",
-   "fas_label": "Oilseed, Soybean — as FAO"
+   "fas_label": "Oilseed, Soybean — as FAO",
+   "nass_production": "SOYBEANS - PRODUCTION, MEASURED IN BU",
+   "nass_area": "SOYBEANS - ACRES HARVESTED",
+   "nass_label": "soybeans for beans"
   },
   {
    "commodity": "Sugar beet",
    "fao_item": "Sugar beet",
    "life_cycle": "annual",
    "eurostat_crop": "R2000",
-   "eurostat_label": "Sugar beet (excluding seed)"
+   "eurostat_label": "Sugar beet (excluding seed)",
+   "nass_production": "SUGARBEETS - PRODUCTION, MEASURED IN TONS",
+   "nass_area": "SUGARBEETS - ACRES HARVESTED",
+   "nass_label": "sugar beets"
   },
   {
    "commodity": "Sunflower",
@@ -133,7 +164,10 @@
    "eurostat_crop": "I1120",
    "eurostat_label": "Sunflower seed",
    "fas_commodity": "2224000",
-   "fas_label": "Oilseed, Sunflowerseed — as FAO"
+   "fas_label": "Oilseed, Sunflowerseed — as FAO",
+   "nass_production": "SUNFLOWER - PRODUCTION, MEASURED IN LB",
+   "nass_area": "SUNFLOWER - ACRES HARVESTED",
+   "nass_label": "all sunflower, oil and non-oil types"
   },
   {
    "commodity": "Wheat",
@@ -142,14 +176,20 @@
    "eurostat_crop": "C1100",
    "eurostat_label": "Wheat and spelt (incl. durum) — as FAO 'Wheat'",
    "fas_commodity": "0410000",
-   "fas_label": "Wheat — as FAO"
+   "fas_label": "Wheat — as FAO",
+   "nass_production": "WHEAT - PRODUCTION, MEASURED IN BU",
+   "nass_area": "WHEAT - ACRES HARVESTED",
+   "nass_label": "all classes of wheat (winter, other spring, durum)"
   },
   {
    "commodity": "Wine grapes",
    "fao_item": "Grapes",
    "life_cycle": "perennial_alternate_bearing",
    "eurostat_crop": "W1100",
-   "eurostat_label": "Grapes for wines"
+   "eurostat_label": "Grapes for wines",
+   "nass_production": "GRAPES, WINE TYPE - PRODUCTION, MEASURED IN TONS",
+   "nass_area": "GRAPES, WINE TYPE - ACRES BEARING",
+   "nass_label": "wine-type grapes only — FAO's 'Grapes' also include table and raisin types; area = bearing acres"
   }
  ]
 }

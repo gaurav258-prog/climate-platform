@@ -6,8 +6,8 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.204 |
-| Last updated | 2026-10-03 |
+| Version | 2.205 |
+| Last updated | 2026-10-04 |
 | Package version (pyproject.toml) | 0.1.0 |
 
 **Maintenance rule:** whenever a hazard type, service, data source, schema table, or auth
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-04 | 2.205 | **USDA NASS state series; region reference (E157).** USDA NASS Quick Stats is a reviewed yield source: the US and each state for 14 registry crops, read by exact series and USDA's stated units, refreshed monthly and landed only after review. Region codes come from official lists only (Census Bureau, IBGE, GISCO NUTS); a release naming any other region is refused. Each release now shows what its reading set aside (withheld values, the season still in progress, non-state buckets). The operator script and the schedule stage through one path, so a staged release always carries the publisher's stamp. |
 | 2026-10-04 | 2.204 | **One reader of crop yields; regions in the store (E156).** Every product consumer reads yields through ml.features.yield_series: one source per crop and country (FAOSTAT, then Eurostat — stated in data/reference/yield_series.json), never spliced, USDA FAS never in a history; observed shocks are no longer counted once per source. The store keys a region (national '' or ISO 3166-2 / NUTS), ready for USDA NASS and Eurostat regional series. |
 | 2026-10-04 | 2.203 | **USDA FAS as a reviewed yield source (E155).** Official current-season estimates worldwide for 12 crops (definitions that differ from FAO's stated per crop), units converted only by a typed table, raw publisher data kept before reading. Staged and awaiting the product owner: 29 387 rows. USDA NASS and api.data.gov keys held in the environment only. |
 | 2026-10-04 | 2.202 | **Supply outlook data: every source reviewed, more crops, the datasets in (E153, E154).** Eurostat joins FAOSTAT as a reviewed yield source (14 crops incl. durum wheat, ~40 countries, the latest EU season); Citrus reads FAO's own total; the country reference marks 'EU' as a grouping. Staged and awaiting the product owner: FAOSTAT 89 208 rows (66 214 added) and Eurostat 12 853 rows (11 909 added, 78 revised by Eurostat). Downloaded and pinned (checksums verified): MapSPAM 2020 harvested area, CROPGRIDS v1.08 (olive, grapes, almonds…), GGCMI and MIRCA-OS crop calendars; global ERA5-Land monthly downloading. |

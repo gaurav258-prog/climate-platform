@@ -11,5 +11,9 @@
  "never_in_history": {
   "USDA FAS PSD": "market years and some definitions differ from FAO's (milled rice, oils, shelled almonds) — read only as the latest-season estimate, never spliced into a history"
  },
- "regional": "a regional series (region_code ≠ '') is read only when a consumer names its source and region"
+ "named_only": {
+  "USDA NASS Quick Stats": "the US national series and one per state from the primary US publisher (FAOSTAT's US figures come from NASS) — read when a consumer names it (a state's series, or NASS's own US figure); not in the precedence, so a US national history keeps the one definition every other country has"
+ },
+ "regional": "a regional series (region_code ≠ '') is read only when a consumer names its source and region",
+ "every_reviewed_source": "each reviewed yield source (services.reference.yield_sources) is in exactly one of national_precedence, never_in_history or named_only — a new source states its role here before it lands (tests/integration/test_yield_series.py)"
 }

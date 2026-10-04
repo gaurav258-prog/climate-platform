@@ -2,8 +2,9 @@
 national statistics offices …) is a new entry here, not a new path into the store.
 
 Each source says: its store label, where it is published, how to ask whether the publisher changed it (a cheap check
-before any download), how to download it, which countries its areas are, how it is read into our rows, and the reader
-fingerprint (how it is read — another reading of the same file is another release). Staging, review, landing and the
+before any download), how to download it, which countries (and regions — E157) its areas are, how it is read into our
+rows, what the reading set aside and why, and the reader fingerprint (how it is read — another reading of the same file
+is another release). Staging, review, landing and the
 check log are the same for all of them (services.reference.crop_releases).
 """
 from __future__ import annotations
@@ -33,6 +34,10 @@ class YieldSource:
     parse: Callable              # (data, countries) -> rows
     published: Callable          # (last_modified, etag) -> {changed, last_modified, etag}
     download: Callable           # () -> bytes
+    # the release's stamp read from the data, for a publisher that stamps each record (NASS load_time) — else None
+    stamp: Callable = lambda data: None
+    # (data, countries) -> {reason: rows} the reader set aside — shown with the release, never silently dropped
+    set_aside: Callable = lambda data, c: {}
 
 
 def _faostat() -> YieldSource:
@@ -60,7 +65,16 @@ def _usda_fas() -> YieldSource:
                        download=lambda: U.download())
 
 
-_BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "usda_fas": _usda_fas}
+def _usda_nass() -> YieldSource:
+    from services.reference import nass_quickstats as N
+    return YieldSource(key="usda_nass", feed_key="crop_production_usda_nass", label=lambda: N.SOURCE, url=lambda: N.BASE,
+                       countries=lambda s: N.countries(s), reader=lambda c: N.reader(c),
+                       parse=lambda data, c: N.parse(data, c), published=lambda lm, et: N.published(lm, et),
+                       download=lambda: N.download(), stamp=lambda data: N.stamp(data),
+                       set_aside=lambda data, c: N.set_aside(data, c))
+
+
+_BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "usda_fas": _usda_fas, "usda_nass": _usda_nass}
 
 
 def get(key: str) -> YieldSource:
