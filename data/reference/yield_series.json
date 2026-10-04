@@ -13,7 +13,8 @@
  },
  "named_only": {
   "USDA NASS Quick Stats": "the US national series and one per state from the primary US publisher (FAOSTAT's US figures come from NASS) — read when a consumer names it (a state's series, or NASS's own US figure); not in the precedence, so a US national history keeps the one definition every other country has",
-  "EUROSTAT apro_cpshr": "one series per NUTS-2 region (regional only — the national series is apro_cpsh1's), read when a consumer names the source and region"
+  "EUROSTAT apro_cpshr": "one series per NUTS-2 region (regional only — the national series is apro_cpsh1's), read when a consumer names the source and region",
+  "STATCAN 32-10-0359-01": "Canada and one series per province from the national statistics office — read when a consumer names it (a province's series, or StatCan's own Canada figure, e.g. durum wheat, which FAOSTAT does not separate)"
  },
  "regional": "a regional series (region_code ≠ '') is read only when a consumer names its source and region",
  "every_reviewed_source": "each reviewed yield source (services.reference.yield_sources) is in exactly one of national_precedence, never_in_history or named_only — a new source states its role here before it lands (tests/integration/test_yield_series.py)"

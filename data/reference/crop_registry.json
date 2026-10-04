@@ -1,5 +1,5 @@
 {
- "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds). nass_production and nass_area are the crop's exact USDA NASS Quick Stats series (short_desc) for the US and its states; nass_label states where NASS's definition differs from FAO's (canola only, wine grapes only, bearing acres), nass_gap why a crop is not read from NASS. eurostat_regional lists the Eurostat crop codes read by NUTS-2 region (apro_cpshr), summed where Eurostat publishes the crop's total only nationally — wheat by region is common wheat and spelt (C1110) + durum wheat (C1120), the two parts of C1100 in Eurostat's crop classification; eurostat_regional_gap why a crop has no regional series — series from different sources are never mixed.",
+ "about": "The crop–origin registry (Supply outlook foundation, E151): one entry per crop the platform models. life_cycle is the crop's biology — alternate bearing (perennial fruit and nut trees and vines: a heavy crop drains the tree, the next is light) decides whether the bearing cycle is removed before a calibration; annual crops are only detrended. A crop's origins are not listed here: they are every country FAOSTAT reports production for (data/reference/faostat_crops.json). A crop not in this registry is refused, never guessed. eurostat_crop is the crop's code in Eurostat apro_cpsh1 (EU-27, EFTA, UK, candidate countries); where a source's definition differs from FAO's it is stated in eurostat_label, never silently mixed. fas_commodity is the crop's USDA FAS PSD commodity code; fas_label states where FAS's definition differs from FAO's (milled rice, oils, shelled almonds). nass_production and nass_area are the crop's exact USDA NASS Quick Stats series (short_desc) for the US and its states; nass_label states where NASS's definition differs from FAO's (canola only, wine grapes only, bearing acres), nass_gap why a crop is not read from NASS. eurostat_regional lists the Eurostat crop codes read by NUTS-2 region (apro_cpshr), summed where Eurostat publishes the crop's total only nationally — wheat by region is common wheat and spelt (C1110) + durum wheat (C1120), the two parts of C1100 in Eurostat's crop classification; eurostat_regional_gap why a crop has no regional series. statcan_crop is the crop's exact 'Type of crop' in Statistics Canada table 32-10-0359-01 (Canada and its provinces); statcan_label states its definition — series from different sources are never mixed.",
  "life_cycles": {
   "perennial_alternate_bearing": "perennial, alternate-bearing — cycle removed",
   "perennial": "perennial, no alternate bearing — detrended",
@@ -31,7 +31,9 @@
    "nass_label": "all barley",
    "eurostat_regional": [
     "C1300"
-   ]
+   ],
+   "statcan_crop": "Barley",
+   "statcan_label": "barley"
   },
   {
    "commodity": "Cane sugar",
@@ -76,7 +78,9 @@
    "nass_label": "NASS's durum class of spring wheat",
    "eurostat_regional": [
     "C1120"
-   ]
+   ],
+   "statcan_crop": "Wheat, durum",
+   "statcan_label": "durum wheat"
   },
   {
    "commodity": "Maize",
@@ -91,7 +95,9 @@
    "nass_label": "corn for grain (silage is a separate series, not read)",
    "eurostat_regional": [
     "C1500"
-   ]
+   ],
+   "statcan_crop": "Corn for grain",
+   "statcan_label": "corn for grain at the standard 15.5% moisture (table note 48)"
   },
   {
    "commodity": "Olive oil",
@@ -126,7 +132,9 @@
    "nass_label": "canola only — NASS reports rapeseed as a separate series, not read (FAO's item includes both)",
    "eurostat_regional": [
     "I1110"
-   ]
+   ],
+   "statcan_crop": "Canola (rapeseed)",
+   "statcan_label": "canola (rapeseed)"
   },
   {
    "commodity": "Rice",
@@ -171,7 +179,9 @@
    "nass_label": "soybeans for beans",
    "eurostat_regional": [
     "I1130"
-   ]
+   ],
+   "statcan_crop": "Soybeans",
+   "statcan_label": "soybeans"
   },
   {
    "commodity": "Sugar beet",
@@ -184,7 +194,9 @@
    "nass_label": "sugar beets",
    "eurostat_regional": [
     "R2000"
-   ]
+   ],
+   "statcan_crop": "Sugar beets",
+   "statcan_label": "sugar beets"
   },
   {
    "commodity": "Sunflower",
@@ -199,7 +211,9 @@
    "nass_label": "all sunflower, oil and non-oil types",
    "eurostat_regional": [
     "I1120"
-   ]
+   ],
+   "statcan_crop": "Sunflower seed",
+   "statcan_label": "sunflower seed"
   },
   {
    "commodity": "Wheat",
@@ -215,7 +229,9 @@
    "eurostat_regional": [
     "C1110",
     "C1120"
-   ]
+   ],
+   "statcan_crop": "Wheat, all",
+   "statcan_label": "all wheat — spring, durum and winter wheat seeded in the fall (table note 33)"
   },
   {
    "commodity": "Wine grapes",

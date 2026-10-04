@@ -83,8 +83,16 @@ def _eurostat_regional() -> YieldSource:
                        set_aside=lambda data, c: E.set_aside(data, c))
 
 
+def _statcan() -> YieldSource:
+    from services.reference import statcan_crops as C
+    return YieldSource(key="statcan", feed_key="crop_production_statcan", label=lambda: C.SOURCE, url=lambda: C.BASE,
+                       countries=lambda s: C.countries(s), reader=lambda c: C.reader(c),
+                       parse=lambda data, c: C.parse(data, c), published=lambda lm, et: C.published(lm, et),
+                       download=lambda: C.download(), set_aside=lambda data, c: C.set_aside(data, c))
+
+
 _BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "eurostat_regional": _eurostat_regional,
-             "usda_fas": _usda_fas, "usda_nass": _usda_nass}
+             "usda_fas": _usda_fas, "usda_nass": _usda_nass, "statcan": _statcan}
 
 
 def get(key: str) -> YieldSource:

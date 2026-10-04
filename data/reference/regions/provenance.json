@@ -18,6 +18,15 @@
    "bytes": 2446,
    "sha256": "7ca1368dea3af83cba1af84ae8a7e88f1173c97586831d086cc8b3c1ba9c6596",
    "code_rule": "ISO 3166-2:BR subdivision code = 'BR-' + the federative unit's sigla: 26 states and the Federal District"
+  },
+  "CA": {
+   "file": "ca_statcan_sgc2021_introduction.html",
+   "publisher": "Statistics Canada — Standard Geographical Classification (SGC) 2021, Introduction, Table B: List of provinces and territories with codes and abbreviations, 2021",
+   "url": "https://www.statcan.gc.ca/en/subjects/standard/sgc/2021/introduction",
+   "fetched": "2026-10-04",
+   "bytes": 49595,
+   "sha256": "b12bc7a65ccd921fce20d738c73741dca9138013301f3288207d6c0bd787a65e",
+   "code_rule": "Table B states each province's and territory's ISO 3166-2 code ('Internationally approved alpha code', footnote: ISO 3166 code lists) next to its SGC code — read as published"
   }
  }
 }

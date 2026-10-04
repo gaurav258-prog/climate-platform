@@ -2,7 +2,8 @@
 
   ISO 3166-2 subdivisions — data/reference/regions/: each national authority's own list, kept exactly as published,
   with the rule that forms the ISO code from it (provenance.json): US — Census Bureau state FIPS/ANSI codes,
-  'US-' + USPS code; BR — IBGE federative units, 'BR-' + sigla. A country without a list here has no named regions.
+  'US-' + USPS code; BR — IBGE federative units, 'BR-' + sigla; CA — Statistics Canada SGC 2021 Table B, which states
+  each province's ISO 3166-2 code. A country without a list here has no named regions.
   NUTS (EU regions) — Eurostat/GISCO NUTS 2021 (data/reference/geo/nuts3_eu_20m_2021.geojson); a NUTS code's parents
   are its prefixes (NUTS-1 three characters, NUTS-2 four), so every level is read from the level-3 file.
 
@@ -14,6 +15,7 @@ import csv
 import io
 import json
 from functools import lru_cache
+from html.parser import HTMLParser
 from pathlib import Path
 
 DIR = Path(__file__).resolve().parents[2] / "data" / "reference" / "regions"
@@ -33,7 +35,55 @@ def _br(raw: bytes) -> dict[str, str]:
     return {f"BR-{r['sigla']}": r["nome"] for r in json.loads(raw)}
 
 
-_READERS = {"US": _us, "BR": _br}
+class _TableB(HTMLParser):
+    """The rows of the table that follows the 'Table B' caption of Statistics Canada's SGC 2021 introduction."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.seen_caption = self.in_table = self.in_cell = False
+        self.rows: list[list[str]] = []
+        self.text = ""
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "table" and self.seen_caption and not self.rows:
+            self.in_table = True
+        elif self.in_table and tag == "tr":
+            self.rows.append([])
+        elif self.in_table and tag in ("td", "th"):
+            self.in_cell, self.text = True, ""
+
+    def handle_endtag(self, tag):
+        if self.in_table and tag in ("td", "th") and self.rows:
+            self.rows[-1].append(" ".join(self.text.split()))
+            self.in_cell = False
+        elif tag == "table" and self.in_table:
+            self.in_table = False
+
+    def handle_data(self, data):
+        if "Table B" in data and not self.rows:
+            self.seen_caption = True
+        if self.in_cell:
+            self.text += data
+
+
+def _ca(raw: bytes) -> dict[str, str]:
+    """Table B: [SGC code, name, abbreviation, Canada Post code, ISO 3166-2 code, map] per province and territory."""
+    t = _TableB()
+    t.feed(raw.decode("utf-8"))
+    out = {r[4]: r[1] for r in t.rows if len(r) >= 5 and r[0].isdigit() and r[4].startswith("CA-")}
+    if len(out) != 13:
+        raise ValueError(f"SGC 2021 Table B read {len(out)} provinces and territories — 13 expected")
+    return out
+
+
+def ca_sgc_codes() -> dict[str, str]:
+    """{SGC province/territory code ('47'): ISO 3166-2 code ('CA-SK')} as Table B states them."""
+    t = _TableB()
+    t.feed((DIR / provenance()["files"]["CA"]["file"]).read_text(encoding="utf-8"))
+    return {r[0]: r[4] for r in t.rows if len(r) >= 5 and r[0].isdigit() and r[4].startswith("CA-")}
+
+
+_READERS = {"US": _us, "BR": _br, "CA": _ca}
 
 
 @lru_cache(maxsize=None)

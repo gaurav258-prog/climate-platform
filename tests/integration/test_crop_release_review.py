@@ -375,3 +375,54 @@ def test_eurostat_is_asked_again_while_it_prepares_a_large_answer(monkeypatch):
     monkeypatch.setattr(E.requests, "get", lambda *a, **k: Resp(413, "ASYNCHRONOUS_RESPONSE"))
     with pytest.raises(E.FetchError, match="still preparing"):
         E.fetch("https://x", {}, attempts=3)
+
+
+def _statcan_zip(rows: list[tuple], released=(2026, 9, 16, 0, 13, 4)) -> bytes:
+    """(year, geo, dguid, measure, crop, uom, value, status) → the table's zip, dated as released."""
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["REF_DATE", "GEO", "DGUID", "Harvest disposition", "Type of crop", "UOM", "UOM_ID", "SCALAR_FACTOR",
+                "SCALAR_ID", "VECTOR", "COORDINATE", "VALUE", "STATUS", "SYMBOL", "TERMINATED", "DECIMALS"])
+    for y, geo, dguid, measure, crop, uom, value, status in rows:
+        w.writerow([y, geo, dguid, measure, crop, uom, "", "units", "0", "", "", value, status, "", "", "0"])
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("32100359.csv", date_time=released), buf.getvalue().encode("utf-8-sig"))
+    return out.getvalue()
+
+
+def test_statcan_reads_canada_and_provinces_and_sets_aside_the_season_in_progress():
+    """E160: StatCan 32-10-0359-01 — Canada (DGUID …11124) national, a province by the ISO code Statistics Canada states
+    for its SGC code (Saskatchewan 47 → CA-SK), metric units as published (yield kg/ha ÷ 1,000); aggregates of provinces,
+    unpublished values ('..', 'F', 'x') and the year of a release before December (model-based, before the November
+    survey) set aside."""
+    from services.reference import regions
+    from services.reference import statcan_crops as C
+    P, A, Y = "Production (metric tonnes)", "Harvested area (hectares)", "Average yield (kilograms per hectare)"
+    rows = [(2025, "Canada", "2021A000011124", P, "Wheat, durum", "Metric tonnes", "7304979", ""),
+            (2025, "Canada", "2021A000011124", A, "Wheat, durum", "Hectares", "2593000", ""),
+            (2025, "Canada", "2021A000011124", Y, "Wheat, durum", "Kilograms per hectare", "2817", ""),
+            (2025, "Saskatchewan", "2021A000247", P, "Wheat, durum", "Metric tonnes", "5000000", ""),
+            (2024, "Saskatchewan", "2021A000247", P, "Wheat, durum", "Metric tonnes", "4000000", "r"),
+            (2025, "Manitoba", "2021A000246", P, "Wheat, durum", "Metric tonnes", "", "x"),
+            (2025, "Prairie provinces", "2021A00014", P, "Wheat, durum", "Metric tonnes", "7000000", ""),
+            (2026, "Canada", "2021A000011124", P, "Wheat, durum", "Metric tonnes", "6417049", "")]
+    data = _statcan_zip(rows)
+    got = {(r["region_code"], r["season_year"]): r for r in C.parse(data, regions.ca_sgc_codes())}
+    assert set(got) == {("", 2025), ("CA-SK", 2025), ("CA-SK", 2024)}
+    r = got[("", 2025)]
+    assert (r["commodity"], r["country"], r["production_tonnes"], r["area_harvested_ha"], r["yield_tonnes_ha"]) == \
+           ("Durum wheat", "CA", 7304979.0, 2593000.0, 2.817)
+    assert got[("CA-SK", 2025)]["yoy_change_pct"] == 25.0
+    assert C.set_aside(data, regions.ca_sgc_codes()) == {
+        "an aggregate of provinces (Prairie provinces)": 1, "not published (suppressed (confidentiality))": 1,
+        "season in progress — released before the November survey's final production": 1}
+    december = _statcan_zip(rows, released=(2026, 12, 4, 0, 0, 0))     # after the November survey: the year is read
+    assert ("", 2026) in {(r["region_code"], r["season_year"]) for r in C.parse(december, regions.ca_sgc_codes())}
+
+
+def test_canada_provinces_come_from_statistics_canadas_table_b():
+    """E160: the 13 provinces and territories with the ISO 3166-2 codes Statistics Canada's SGC 2021 Table B states."""
+    from services.reference import regions
+    assert len(regions.of_country("CA")) == 13 and regions.ca_sgc_codes()["47"] == "CA-SK"
+    assert regions.known("CA-QC") and not regions.known("CA-XX")

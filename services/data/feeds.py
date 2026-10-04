@@ -235,6 +235,14 @@ FEEDS: list[dict] = [
              "estimates only: a season still in progress (NASS repeats its forecast under 'YEAR') and withheld values "
              "are set aside and shown with the release. Checked monthly for records NASS loaded since the last release; "
              "a new release is staged with its difference and lands only after review (E157)."},
+    {"key": "crop_production_statcan", "name": "Statistics Canada — field crops (32-10-0359-01)", "category": "reference",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Statistics Canada, Table 32-10-0359-01 (Statistics Canada Open Licence)",
+     "note": "Area, production and yield for Canada and each province (ISO 3166-2 as Statistics Canada states them) "
+             "for the registry's crops grown in Canada — including durum wheat. Final production only: a season still "
+             "before the November survey (July and September figures are model-based estimates) and unpublished values "
+             "are set aside and shown with the release. Checked monthly against the file's validators; a new file is "
+             "staged with its difference and lands only after review (E160)."},
     {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
