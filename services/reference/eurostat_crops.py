@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from functools import lru_cache
 
 import requests
@@ -51,14 +52,27 @@ def reader(country_map: dict[str, str]) -> str:
     return f"{PARSER_VERSION}:{h.hexdigest()[:16]}"
 
 
+def fetch(url: str, params: dict, attempts: int = 6, wait_s: float = 20.0) -> dict:
+    """One Eurostat dissemination query (any dataset). A large query is answered 413 'ASYNCHRONOUS_RESPONSE … Please
+    try again later' while Eurostat prepares it: asked again after a pause, a bounded number of times — never read as
+    data, never an endless wait (E158)."""
+    for attempt in range(attempts):
+        try:
+            r = requests.get(url, params={"format": "JSON", **params}, headers=_UA, timeout=180)
+        except requests.RequestException as e:
+            raise FetchError(f"Eurostat could not be reached: {e}") from e
+        if r.status_code == 413 and "ASYNCHRONOUS_RESPONSE" in r.text and attempt < attempts - 1:
+            time.sleep(wait_s)
+            continue
+        if r.status_code != 200:
+            raise FetchError(f"Eurostat answered {r.status_code}" + (" (still preparing the data after "
+                                                                     f"{attempts} attempts)" if r.status_code == 413 else ""))
+        return r.json()
+    raise FetchError("Eurostat: no answer")          # not reached: the last attempt returns or raises
+
+
 def _get(params: dict) -> dict:
-    try:
-        r = requests.get(BASE, params={"format": "JSON", **params}, headers=_UA, timeout=120)
-    except requests.RequestException as e:
-        raise FetchError(f"Eurostat could not be reached: {e}") from e
-    if r.status_code != 200:
-        raise FetchError(f"Eurostat answered {r.status_code}")
-    return r.json()
+    return fetch(BASE, params)
 
 
 def published(last_modified: str | None, etag: str | None) -> dict:
@@ -74,6 +88,13 @@ def download() -> bytes:
         for field, measure in MEASURES.items():
             out[f"{code}|{field}"] = _get({"crops": code, "strucpro": measure})
     return json.dumps(out, sort_keys=True, separators=(",", ":")).encode()
+
+
+def stamp(data: bytes) -> str | None:
+    """A release's stamp is Eurostat's own: the dataset's 'updated' stamp carried in every response downloaded (the
+    latest, should two responses differ) — so a release staged from a file on disk carries it too (E158)."""
+    stamps = [doc.get("updated") for doc in _decode(data).values() if doc.get("updated")]
+    return max(stamps) if stamps else None
 
 
 def _series(doc: dict) -> dict:

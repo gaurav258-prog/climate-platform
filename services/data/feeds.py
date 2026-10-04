@@ -212,6 +212,14 @@ FEEDS: list[dict] = [
              "EFTA, the UK and candidate countries — including durum wheat (FAOSTAT does not separate it) and the latest "
              "season ahead of FAOSTAT. Checked monthly against the dataset's update stamp; a new publication is staged with "
              "its difference and lands only after review (E153)."},
+    {"key": "crop_production_eurostat_regional", "name": "Eurostat crop production by NUTS-2 region (apro_cpshr)",
+     "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Eurostat, apro_cpshr — Crop production in EU standard humidity by NUTS 2 region",
+     "note": "Area, production and yield per NUTS-2 region (NUTS 2021) and year for the registry's crops published by "
+             "region — wheat as common wheat + durum, the two parts of Eurostat's wheat total. National figures stay "
+             "apro_cpsh1's; NUTS-1, extra-regio and other-NUTS-version codes are set aside and shown with the release. "
+             "Checked monthly against the dataset's update stamp; a new publication is staged with its difference and "
+             "lands only after review (E158)."},
     {"key": "crop_production_usda_fas", "name": "USDA FAS — Production, Supply and Distribution (PSD)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: USDA Foreign Agricultural Service, PSD database",

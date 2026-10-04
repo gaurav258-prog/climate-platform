@@ -315,3 +315,63 @@ def test_a_region_outside_the_region_reference_is_refused(api, monkeypatch):
     with pytest.raises(R.ReleaseError, match="US-ZZ"):
         R.stage(api.s, b"region test", source=ys)
     assert api.s.execute(text("SELECT count(*) FROM crop_yield_releases WHERE source = 'Region test (E157)'")).scalar() == 0
+
+
+def test_eurostat_regional_reads_nuts2_and_sums_wheat_from_its_two_parts():
+    """E158: apro_cpshr — a NUTS-2 region of NUTS 2021 is read (country from the code: EL → GR); wheat is common wheat
+    + durum (both parts published, else set aside); a single-code crop keeps Eurostat's published yield; national,
+    NUTS-1, extra-regio and other-NUTS-version codes are set aside and counted."""
+    import json as _json
+
+    from services.reference import eurostat_regional as E
+
+    def doc(values: dict[tuple[str, str], float]):
+        geos = ["EL", "EL5", "EL52", "ELZZ", "FR21", "ES61"]
+        times = ["2023", "2024"]
+        gi, ti = {g: i for i, g in enumerate(geos)}, {t: i for i, t in enumerate(times)}
+        return {"id": ["geo", "time"], "size": [len(geos), len(times)],
+                "dimension": {"geo": {"category": {"index": gi}}, "time": {"category": {"index": ti}}},
+                "value": {str(gi[g] * len(times) + ti[t]): v for (g, t), v in values.items()}}
+    everywhere = {(g, "2024"): 10.0 for g in ("EL", "EL5", "EL52", "ELZZ", "FR21")}
+    data = _json.dumps({
+        "C1110|prod": doc({**everywhere, ("EL52", "2023"): 8.0, ("ES61", "2024"): 50.0}),
+        "C1110|area": doc({("EL52", "2024"): 2.0, ("EL52", "2023"): 2.0, ("ES61", "2024"): 10.0}),
+        "C1120|prod": doc({("EL52", "2024"): 30.0}),                     # durum 2023 and in ES61 not published
+        "C1120|area": doc({("EL52", "2024"): 6.0}),
+        "C1120|yield": doc({("EL52", "2024"): 5.0}),
+    }).encode()
+    regions_ = {"EL52": "GR", "ES61": "ES"}
+    assert E.stamp(data) is None and E.stamp(_json.dumps({"C1110|prod": {**doc({}), "updated": "2026-09-08"},
+                                                          "C1120|prod": {**doc({}), "updated": "2026-03-01"}}).encode()) \
+        == "2026-09-08"                                         # Eurostat's own stamp, read from the data
+    rows = {(r["commodity"], r["region_code"], r["season_year"]): r for r in E.parse(data, regions_)}
+    assert set(rows) == {("Wheat", "EL52", 2024), ("Durum wheat", "EL52", 2024)}
+    w = rows[("Wheat", "EL52", 2024)]
+    assert (w["country"], w["production_tonnes"], w["area_harvested_ha"], w["yield_tonnes_ha"]) == ("GR", 40000.0, 8000.0, 5.0)
+    assert rows[("Durum wheat", "EL52", 2024)]["yield_tonnes_ha"] == 5.0          # published, one code
+    aside = E.set_aside(data, regions_)
+    assert aside["a summed crop with a part not published for the region and year"] == 2     # EL52 2023, ES61 2024
+    assert aside["a NUTS-1 figure (regional series are read at NUTS-2)"] >= 1
+    assert aside["extra-regio (not a territory)"] >= 1
+    assert aside["not a NUTS 2021 region (a region of an earlier or later NUTS version)"] >= 1
+    assert aside["a national or aggregate figure (national series are read from apro_cpsh1)"] >= 1
+
+
+def test_eurostat_is_asked_again_while_it_prepares_a_large_answer(monkeypatch):
+    """E158: a 413 'ASYNCHRONOUS_RESPONSE' is Eurostat preparing the data — asked again after a pause, a bounded number
+    of times; never read as data."""
+    from services.reference import eurostat_crops as E
+
+    class Resp:
+        def __init__(self, code, body):
+            self.status_code, self.text, self._body = code, body, body
+
+        def json(self):
+            return {"updated": self._body}
+    answers = [Resp(413, '{"error":[{"label":"ASYNCHRONOUS_RESPONSE. Please try again later."}]}'), Resp(200, "2026-09-08")]
+    monkeypatch.setattr(E.requests, "get", lambda *a, **k: answers.pop(0))
+    monkeypatch.setattr(E.time, "sleep", lambda s: None)
+    assert E.fetch("https://x", {})["updated"] == "2026-09-08"
+    monkeypatch.setattr(E.requests, "get", lambda *a, **k: Resp(413, "ASYNCHRONOUS_RESPONSE"))
+    with pytest.raises(E.FetchError, match="still preparing"):
+        E.fetch("https://x", {}, attempts=3)

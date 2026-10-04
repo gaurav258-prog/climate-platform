@@ -54,7 +54,7 @@ def _eurostat() -> YieldSource:
     return YieldSource(key="eurostat", feed_key="crop_production_eurostat", label=lambda: E.SOURCE, url=lambda: E.BASE,
                        countries=lambda s: E.countries(s), reader=lambda c: E.reader(c),
                        parse=lambda data, c: E.parse(data, c), published=lambda lm, et: E.published(lm, et),
-                       download=lambda: E.download())
+                       download=lambda: E.download(), stamp=lambda data: E.stamp(data))
 
 
 def _usda_fas() -> YieldSource:
@@ -74,7 +74,17 @@ def _usda_nass() -> YieldSource:
                        set_aside=lambda data, c: N.set_aside(data, c))
 
 
-_BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "usda_fas": _usda_fas, "usda_nass": _usda_nass}
+def _eurostat_regional() -> YieldSource:
+    from services.reference import eurostat_regional as E
+    return YieldSource(key="eurostat_regional", feed_key="crop_production_eurostat_regional", label=lambda: E.SOURCE,
+                       url=lambda: E.BASE, countries=lambda s: E.countries(s), reader=lambda c: E.reader(c),
+                       parse=lambda data, c: E.parse(data, c), published=lambda lm, et: E.published(lm, et),
+                       download=lambda: E.download(), stamp=lambda data: E.stamp(data),
+                       set_aside=lambda data, c: E.set_aside(data, c))
+
+
+_BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "eurostat_regional": _eurostat_regional,
+             "usda_fas": _usda_fas, "usda_nass": _usda_nass}
 
 
 def get(key: str) -> YieldSource:
