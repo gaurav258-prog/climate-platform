@@ -44,6 +44,7 @@ const AccountSecurity = lazy(() => import('./pages/AccountSecurity'))
 const SingleSignOn = lazy(() => import('./pages/SingleSignOn'))
 const Platform = lazy(() => import('./pages/Platform'))
 const ReferenceReleases = lazy(() => import('./pages/ReferenceReleases'))
+const Calibrations = lazy(() => import('./pages/Calibrations'))
 const Cogs = lazy(() => import('./pages/Cogs'))
 const Portfolio = lazy(() => import('./pages/Portfolio'))
 const Solvency = lazy(() => import('./pages/Solvency'))
@@ -159,6 +160,7 @@ function Workspace() {
         <Route path="/intake" element={<IntakeReview />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/reference-data" element={<ReferenceReleases />} />
+        <Route path="/calibrations" element={<Calibrations />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/solvency" element={<Solvency />} />

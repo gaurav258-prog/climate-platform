@@ -7,6 +7,9 @@
   NUTS (EU regions) — Eurostat/GISCO NUTS 2021 (data/reference/geo/nuts3_eu_20m_2021.geojson); a NUTS code's parents
   are its prefixes (NUTS-1 three characters, NUTS-2 four), so every level is read from the level-3 file.
 
+  Counties (US): the Census Bureau's 2020 county file — 'US-IA-19001' (ISO 3166-2 does not code counties: the state's
+  ISO code + the 5-digit FIPS code).
+
 A region code is valid only if it is here; a store or reader that names a region checks it with known().
 """
 from __future__ import annotations
@@ -93,6 +96,17 @@ def of_country(cc: str) -> dict[str, str]:
     return _READERS[cc]((DIR / f["file"]).read_bytes()) if f else {}
 
 
+@lru_cache(maxsize=None)
+def counties(cc: str) -> dict[str, str]:
+    """{county code: name} — 'US-IA-19001' (state ISO 3166-2 + 5-digit FIPS) from the Census Bureau's 2020 county
+    file; {} for a country without a county list here."""
+    f = provenance().get("counties", {}).get(cc)
+    if not f:
+        return {}
+    rows = csv.DictReader(io.StringIO((DIR / f["file"]).read_text(encoding="utf-8")), delimiter="|")
+    return {f"{cc}-{r['STATE']}-{r['STATEFP']}{r['COUNTYFP']}": r["COUNTYNAME"] for r in rows}
+
+
 @lru_cache(maxsize=1)
 def nuts() -> dict[str, str]:
     """{NUTS code: name} — level 3 as published, levels 1 and 2 as the prefixes of the level-3 codes (name '' when the
@@ -111,5 +125,6 @@ def known(code: str) -> bool:
     if not code:
         return False
     if "-" in code[:3]:
-        return code in of_country(code.split("-", 1)[0])
+        cc = code.split("-", 1)[0]
+        return code in of_country(cc) or code in counties(cc)
     return code in nuts()

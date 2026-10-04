@@ -28,5 +28,16 @@
    "sha256": "b12bc7a65ccd921fce20d738c73741dca9138013301f3288207d6c0bd787a65e",
    "code_rule": "Table B states each province's and territory's ISO 3166-2 code ('Internationally approved alpha code', footnote: ISO 3166 code lists) next to its SGC code — read as published"
   }
+ },
+ "counties": {
+  "US": {
+   "file": "us_census_county2020.txt",
+   "publisher": "U.S. Census Bureau — 2020 National County file (county FIPS/ANSI codes)",
+   "url": "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt",
+   "fetched": "2026-10-04",
+   "bytes": 126639,
+   "sha256": "9f6e5f6eb6ac2f5e9a36d5fd01dec77991bddc75118f748a069441a4782970d6",
+   "code_rule": "a county is named by its state's ISO 3166-2 code and its 5-digit FIPS code (STATEFP + COUNTYFP): 'US-IA-19001' — ISO 3166-2 does not code counties, so the code is the publisher's own, prefixed"
+  }
  }
 }

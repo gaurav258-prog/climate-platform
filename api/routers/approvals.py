@@ -177,6 +177,8 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
                                   + " Reject this request to close it; its draft is closed with it."})
     if row["request_type"] == "reference.release_land" and "reference.release_review" not in ctx["permissions"]:
         raise HTTPException(403, {"error": "forbidden", "message": "Missing permission: reference.release_review"})
+    if row["request_type"] == "calibration.publish" and "calibration.review" not in ctx["permissions"]:
+        raise HTTPException(403, {"error": "forbidden", "message": "Missing permission: calibration.review"})
     if row["request_type"] == "submission.release" and "submissions.release" not in ctx["permissions"]:
         raise HTTPException(403, {"error": "forbidden",
                                   "message": "Missing permission: submissions.release"})
@@ -265,6 +267,15 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         try:
             applied = apply_release(session, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
         except ReleaseError as e:
+            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
+    # A batch of crop calibration runs (E162): approved → each publishes (fit, calibration row, recipe named); otherwise
+    # the runs close unpublished. The platform's system account proposed it; the operator here is the reviewer.
+    elif row["request_type"] == "calibration.publish":
+        from services.calibration.publish import PublishError
+        from services.calibration.publish import apply_decision as apply_calibration
+        try:
+            applied = apply_calibration(session, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
+        except PublishError as e:
             raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
     elif row["request_type"] == "intake.conflict":
         from services.intake.conflicts import apply_decision as apply_conflict

@@ -17,11 +17,15 @@ from __future__ import annotations
 import glob
 import os
 import re
+from pathlib import Path
 
 import numpy as np
 import xarray as xr
 
 WMO_BASELINE = ("1991", "2020")  # WMO standard normal
+
+
+ERA5_BASELINE_DIR = Path(__file__).resolve().parents[2] / "data" / "era5_baseline"   # the repository's, whatever the cwd
 
 
 def baseline_nc(region: str, kind: str = "monthly") -> str:
@@ -32,9 +36,9 @@ def baseline_nc(region: str, kind: str = "monthly") -> str:
     needs — so when both exist we pick the longer one automatically, no caller change. Falls back to
     the legacy 1991–2024 name when nothing matches (keeps existing behaviour if a region has one file).
     """
-    cands = glob.glob(f"data/era5_baseline/{region}_*_{kind}.nc")
+    cands = glob.glob(str(ERA5_BASELINE_DIR / f"{region}_*_{kind}.nc"))
     if not cands:
-        return f"data/era5_baseline/{region}_1991_2024_{kind}.nc"
+        return str(ERA5_BASELINE_DIR / f"{region}_1991_2024_{kind}.nc")
 
     def _span(p: str) -> int:
         m = re.search(r"_(\d{4})_(\d{4})_", os.path.basename(p))

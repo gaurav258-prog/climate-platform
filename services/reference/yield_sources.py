@@ -91,8 +91,18 @@ def _statcan() -> YieldSource:
                        download=lambda: C.download(), set_aside=lambda data, c: C.set_aside(data, c))
 
 
+def _usda_nass_county() -> YieldSource:
+    from services.reference import nass_county as N
+    return YieldSource(key="usda_nass_county", feed_key="crop_production_usda_nass_county", label=lambda: N.SOURCE,
+                       url=lambda: N.BASE, countries=lambda s: N.countries(s), reader=lambda c: N.reader(c),
+                       parse=lambda data, c: N.parse(data, c), published=lambda lm, et: N.published(lm, et),
+                       download=lambda: N.download(), stamp=lambda data: N.stamp(data),
+                       set_aside=lambda data, c: N.set_aside(data, c))
+
+
 _BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "eurostat_regional": _eurostat_regional,
-             "usda_fas": _usda_fas, "usda_nass": _usda_nass, "statcan": _statcan}
+             "usda_fas": _usda_fas, "usda_nass": _usda_nass, "usda_nass_county": _usda_nass_county,
+             "statcan": _statcan}
 
 
 def get(key: str) -> YieldSource:

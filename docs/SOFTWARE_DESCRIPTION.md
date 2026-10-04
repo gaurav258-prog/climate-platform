@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.207 |
+| Version | 2.209 |
 | Last updated | 2026-10-04 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,8 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-04 | 2.209 | **One calibration pipeline (E162).** Every crop calibration is a recipe fixed before it is fitted and every evaluation a recorded run with its audit-ledger entry, judged by the downside gate and the four upside rules. The 40 published calibrations were adopted and re-run: the same 8 pass, the upside passes for Wheat MA and Olive oil ES, 14 older annual-crop figures are corrected under today's rule (no tier changes). Results publish only after review on Platform → Calibrations; a landed yield release re-runs the calibrations that read it. |
+| 2026-10-04 | 2.208 | **US county yields (E161).** USDA NASS county estimates are a reviewed source (once a year), counties named from the Census Bureau's 2020 list. |
 | 2026-10-04 | 2.207 | **Statistics Canada as a reviewed yield source (E160).** Canada and its provinces for 8 crops (including durum wheat), final November-survey production only; the season in progress, aggregates of provinces and unpublished values are set aside and shown. Canadian provinces join the region reference from Statistics Canada's own ISO code table. |
 | 2026-10-04 | 2.206 | **Eurostat regional crop series (E158); global ERA5 download plan (E159).** Eurostat apro_cpshr is a reviewed yield source: one series per NUTS-2 region for 11 registry crops (wheat as common + durum), 2000→, landed only after review; other NUTS versions and non-regional figures are set aside and shown. Eurostat's 'still preparing' answer is asked again, bounded. The global ERA5-Land download asks six years per request, one at a time, as the Copernicus queue allows. |
 | 2026-10-04 | 2.205 | **USDA NASS state series; region reference (E157).** USDA NASS Quick Stats is a reviewed yield source: the US and each state for 14 registry crops, read by exact series and USDA's stated units, refreshed monthly and landed only after review. Region codes come from official lists only (Census Bureau, IBGE, GISCO NUTS); a release naming any other region is refused. Each release now shows what its reading set aside (withheld values, the season still in progress, non-state buckets). The operator script and the schedule stage through one path, so a staged release always carries the publisher's stamp. |

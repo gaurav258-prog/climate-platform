@@ -235,6 +235,14 @@ FEEDS: list[dict] = [
              "estimates only: a season still in progress (NASS repeats its forecast under 'YEAR') and withheld values "
              "are set aside and shown with the release. Checked monthly for records NASS loaded since the last release; "
              "a new release is staged with its difference and lands only after review (E157)."},
+    {"key": "crop_production_usda_nass_county", "name": "USDA NASS Quick Stats — US county crop production",
+     "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats (county estimates)",
+     "note": "Production, area and yield per US county (Census Bureau 2020 county list) for the registry's crops with a "
+             "NASS series — published once a year after NASS's annual summary. Combined counties, counties no longer "
+             "in the 2020 list and withheld values are set aside and shown with the release. Checked monthly for records "
+             "NASS loaded since the last release; a new release is staged with its difference and lands only after "
+             "review (E161)."},
     {"key": "crop_production_statcan", "name": "Statistics Canada — field crops (32-10-0359-01)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: Statistics Canada, Table 32-10-0359-01 (Statistics Canada Open Licence)",

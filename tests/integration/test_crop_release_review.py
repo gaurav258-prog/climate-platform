@@ -426,3 +426,45 @@ def test_canada_provinces_come_from_statistics_canadas_table_b():
     from services.reference import regions
     assert len(regions.of_country("CA")) == 13 and regions.ca_sgc_codes()["47"] == "CA-SK"
     assert regions.known("CA-QC") and not regions.known("CA-XX")
+
+
+def test_usda_nass_county_reads_counties_of_the_census_list():
+    """E161: county records — a county named 'US-IA-19001' when it is in the Census Bureau's 2020 list; NASS's combined
+    counties (code 998), a county not in the list, a withheld value and an area with no production are set aside."""
+    import json as _json
+
+    from services.reference import nass_county as C
+    P, A = "CORN, GRAIN - PRODUCTION, MEASURED IN BU", "CORN, GRAIN - ACRES HARVESTED"
+
+    def rec(desc, county_ansi, code, year, value, unit):
+        return {"short_desc": desc, "state_alpha": "IA", "state_ansi": "19", "county_ansi": county_ansi,
+                "county_code": code, "county_name": "x", "year": year, "Value": value,
+                "load_time": "2026-02-20 15:00:00.000", "unit_desc": unit}
+    data = _json.dumps({"data": {
+        f"{P}|IA": [rec(P, "001", "001", 2024, "10,000", "BU"), rec(P, "001", "001", 2025, "12,000", "BU"),
+                    rec(P, "", "998", 2025, "5,000", "BU"), rec(P, "999", "999", 2025, "1", "BU"),
+                    rec(P, "003", "003", 2025, "(D)", "BU")],
+        f"{A}|IA": [rec(A, "001", "001", 2025, "100", "ACRES"), rec(A, "003", "003", 2025, "50", "ACRES")]}}).encode()
+    locs = {"IA19001": "US-IA-19001", "IA19003": "US-IA-19003"}
+    rows = {(r["region_code"], r["season_year"]): r for r in C.parse(data, locs)}
+    assert set(rows) == {("US-IA-19001", 2024), ("US-IA-19001", 2025)}
+    assert rows[("US-IA-19001", 2025)]["production_tonnes"] == round(12000 * 56 * 0.45359237 / 1000, 1)
+    assert rows[("US-IA-19001", 2025)]["yoy_change_pct"] == 20.0
+    assert C.set_aside(data, locs) == {
+        "NASS's combined counties (OTHER (COMBINED) COUNTIES), not a county": 1,
+        "area without a production estimate for the year": 1,
+        "not a county of the Census Bureau's 2020 county list (renamed or dissolved since)": 1,
+        "not given as a number ((D))": 1}
+    assert C.stamp(data) == "2026-02-20 15:00:00.000"
+    from services.reference import regions
+    assert C.countries(None)["IA19001"] == "US-IA-19001" and regions.known("US-IA-19001")
+
+
+def test_a_county_series_jump_is_held_as_computed(session_rolled_back):
+    """E161: a year-on-year change beyond ±999,999.99 % (a county going from a few tonnes to thousands) is true
+    arithmetic on the publisher's figures — the store and release rows hold it."""
+    session_rolled_back.execute(text("""
+        INSERT INTO crop_yield_observations (commodity, country, region_code, season_year, production_tonnes, yoy_change_pct,
+                                             source) VALUES ('Barley', 'US', 'US-SD-46115', 1935, 22909.0, 1052100.0, 'test (E161)')"""))
+    assert session_rolled_back.execute(text("SELECT CAST(yoy_change_pct AS FLOAT) FROM crop_yield_observations "
+                                            "WHERE source = 'test (E161)'")).scalar() == 1052100.0

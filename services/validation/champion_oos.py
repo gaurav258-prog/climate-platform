@@ -23,10 +23,11 @@ from sqlalchemy.orm import Session
 from ml.features.crop_cycle import is_alternate_bearing
 from ml.features.crop_fit import CropFit, fit_climate_on_score
 from ml.features.crop_panel import scores_for
+from ml.features.drought import ERA5_BASELINE_DIR
 from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
 from services.validation.engine import ValidationResult, record_result
 
-NC_MONTHLY = "data/era5_baseline/{region}_1991_2024_monthly.nc"
+NC_MONTHLY = str(ERA5_BASELINE_DIR / "{region}_1991_2024_monthly.nc")
 RECONCILE_TOL = 0.02   # recomputed leave-one-out r² must match the published stored number within this
 
 
@@ -53,18 +54,22 @@ class Outcome:
 def _fits(session: Session):
     return session.execute(text("""
         SELECT c.name, f.origin, f.region_key, f.hazard_driver, f.season_months, f.spei_scale,
-               f.r2, f.r2_oos, f.n_years
+               f.r2, f.r2_oos, f.n_years, f.yield_source, f.yield_region, f.allow_cycle
         FROM sc_commodity_fit f JOIN sc_commodities c ON c.commodity_id = f.commodity_id
         WHERE f.region_key IS NOT NULL AND f.hazard_driver IS NOT NULL
         ORDER BY c.name, f.origin
     """)).mappings().all()
 
 
-def _production_by_source(session: Session, commodity: str, origin: str) -> dict:
-    """{series: {year: production_tonnes}} — every series held for the crop and origin, each kept apart ('<source>' or
-    '<source> · <region>'; ml.features.yield_series, E156). The fit used one; we pick the one that reproduces it."""
-    from ml.features.yield_series import every_series
-    return every_series(session, commodity, origin)
+def _production_by_source(session: Session, fit) -> dict:
+    """{series: {year: production_tonnes}} — the series the published fit records (E162: a fit published by the
+    calibration pipeline names its yield source and region); for a fit published before the pipeline, every series held
+    for the crop and origin, each kept apart, and the one that reproduces it is picked."""
+    from ml.features.yield_series import every_series, series
+    if fit.get("yield_source"):
+        return {fit["yield_source"]: series(session, fit["name"], fit["origin"], fit["yield_source"],
+                                            fit.get("yield_region") or "")}
+    return every_series(session, fit["name"], fit["origin"])
 
 
 @dataclass
@@ -86,11 +91,11 @@ def reconstruct(session: Session, fit) -> Optional[Recon]:
     scores = scores_for(region, driver, months, fit["spei_scale"] or 6)
     if not scores:
         return None
-    allow_cycle = is_alternate_bearing(fit["name"])
+    allow_cycle = fit["allow_cycle"] if fit.get("allow_cycle") is not None else is_alternate_bearing(fit["name"])
     stored_oos = float(fit["r2_oos"]) if fit["r2_oos"] is not None else None
 
     best: Optional[Recon] = None
-    for src, prod in _production_by_source(session, fit["name"], fit["origin"]).items():
+    for src, prod in _production_by_source(session, fit).items():
         cf = fit_climate_on_score(prod, scores, driver, allow_cycle=allow_cycle)
         if cf is None or not cf.loo_samples:
             continue
@@ -112,7 +117,7 @@ def build_result(session: Session, fit) -> Optional[Outcome]:
     gap, src, cf = rec.gap, rec.source, rec.cf
     reconciled = stored_oos is not None and gap <= RECONCILE_TOL
     scope = f"{fit['name']}/{fit['origin']}"
-    allow_cycle = is_alternate_bearing(fit["name"])   # same cycle handling reconstruct() used
+    allow_cycle = fit["allow_cycle"] if fit.get("allow_cycle") is not None else is_alternate_bearing(fit["name"])
     years = [y for (y, _p, _o) in cf.loo_samples]
     preds = [p for (_y, p, _o) in cf.loo_samples]
     obs = [o for (_y, _p, o) in cf.loo_samples]

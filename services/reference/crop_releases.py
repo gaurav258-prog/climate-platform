@@ -169,14 +169,14 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
         VALUES (:s, :h, :n, :u, :lm, :et, CAST(:sum AS jsonb), :rdr) RETURNING release_id::text"""),
         {"s": src, "h": sha, "n": len(data), "u": ys.url(), "lm": last_modified, "et": etag,
          "sum": json.dumps(summary), "rdr": rdr}).scalar()
-    for kind, rs in (("added", added), ("revised", revised), ("recomputed", recomputed)):
-        for r in rs:
-            session.execute(text("""
-                INSERT INTO crop_yield_release_rows (release_id, commodity, country, region_code, season_year, change,
-                       production_tonnes, area_harvested_ha, yield_tonnes_ha, yoy_change_pct, note, held_before)
-                VALUES (CAST(:rid AS uuid), :commodity, :country, :region_code, :season_year, :k, :production_tonnes,
-                        :area_harvested_ha, :yield_tonnes_ha, :yoy_change_pct, :note, CAST(:hb AS jsonb))"""),
-                {**r, "rid": rid, "k": kind, "hb": json.dumps(r["held_before"]) if kind != "added" else None})
+    params = [{**r, "rid": rid, "k": kind, "hb": json.dumps(r["held_before"]) if kind != "added" else None}
+              for kind, rs in (("added", added), ("revised", revised), ("recomputed", recomputed)) for r in rs]
+    if params:                          # one batched statement — a county release holds hundreds of thousands of rows
+        session.execute(text("""
+            INSERT INTO crop_yield_release_rows (release_id, commodity, country, region_code, season_year, change,
+                   production_tonnes, area_harvested_ha, yield_tonnes_ha, yoy_change_pct, note, held_before)
+            VALUES (CAST(:rid AS uuid), :commodity, :country, :region_code, :season_year, :k, :production_tonnes,
+                    :area_harvested_ha, :yield_tonnes_ha, :yoy_change_pct, :note, CAST(:hb AS jsonb))"""), params)
     out = {"staged": True, "release_id": rid, "status": "staged", "summary": summary}
     from services.governance.platform_policy import PLATFORM_ORG, SYSTEM_USER, human_approvers
     if human_approvers(session, REQUEST_TYPE) == 1:           # one approver stated: the platform proposes (E150)
@@ -293,7 +293,20 @@ def apply_decision(session: Session, payload: dict, decision: str, checker_user_
             yield_tonnes_ha = EXCLUDED.yield_tonnes_ha, yoy_change_pct = EXCLUDED.yoy_change_pct,
             note = EXCLUDED.note, ingested_at = now()"""), {"src": rel["source"], "r": release_id}).rowcount
     _close(session, release_id, "landed", checker_user_id, reason)
+    _rerun_calibrations_after_commit(session, rel["source"])
     return {"release_id": release_id, "status": "landed", "landed_rows": n}
+
+
+def _rerun_calibrations_after_commit(session: Session, source: str) -> None:
+    """A landed release changes the series its calibrations read: once the landing commits (never before — the job
+    must see the landed rows), the recipes reading that source are re-run off the request path; the runs whose figures
+    change are proposed for review (services.calibration, E162)."""
+    from sqlalchemy import event
+
+    def submit(_session) -> None:
+        from services.tasks.jobs import submit as submit_job
+        submit_job("calibration.run", [source])
+    event.listen(session, "after_commit", submit, once=True)
 
 
 def _last_check(session: Session, ys: YieldSource) -> dict:

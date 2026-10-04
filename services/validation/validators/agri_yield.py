@@ -67,7 +67,8 @@ def _detrended_yield_anomaly(session: Session, commodity: str, countries: list[s
 
 def _pairs(session: Session, cfg: dict, belt: str):
     """(predicted_effect[], detrended_yield_anomaly[], years[]) for a belt, or None if ERA5 isn't on disk."""
-    nc = f"data/era5_baseline/{belt}_1991_2024_monthly.nc"
+    from ml.features.drought import ERA5_BASELINE_DIR
+    nc = str(ERA5_BASELINE_DIR / f"{belt}_1991_2024_monthly.nc")
     if not os.path.exists(nc):
         return None
     from ml.features.drought import compute_indices, load_monthly, seasonal_by_year

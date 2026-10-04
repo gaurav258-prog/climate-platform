@@ -1,0 +1,27 @@
+{
+ "about": "The pre-registered protocol every crop calibration is fitted and judged by (services.calibration, E162). Changed only by a reviewed commit; a run records the protocol it ran under. Nothing here is chosen per crop because it fits better.",
+ "protocol": "crop-calib-v1",
+ "fit": "OLS of the crop's climate anomaly (production detrended by a centred 2x3 moving average; the alternate-bearing cycle removed only for crops whose registry life_cycle is perennial_alternate_bearing) on the driver's 0-100 score, over the years with a full trend window and a score; at least 12 years (ml.features.crop_fit).",
+ "downside": {
+  "gate": "out-of-sample (leave-one-out) r2 >= the ranged publish floor (services.intelligence.supply_cogs.RANGED_PUBLISH_FLOOR — one constant, guarded by tests/integration/test_r2_floor_parity.py)",
+  "verdict": "passes: the fit's loss range publishes; else held — tested, the number withheld"
+ },
+ "upside": {
+  "agreed": "2026-10-04 with the product owner, before the rules were run (replacement for the split-half test)",
+  "favourable_years": "years whose driver score is below the panel's mean score",
+  "bias_max_rmse_fraction": 0.5,
+  "band_cover_min": 0.6,
+  "band_cover_max": 0.76,
+  "area_share_max": 0.5,
+  "wet_quartile_min_years": 3,
+  "rules": [
+   "1 bias: |mean out-of-sample prediction - mean observed| on the favourable years <= 0.5 x the RMSE of those predictions",
+   "2 band: the 68% prediction band of each held-out fit catches 60-76% of the favourable years",
+   "3 area: at most 50% of the favourable years' gain is carried by harvested area (area's own detrended deviation over production's)",
+   "4 too wet: the wettest quartile (lowest scores, at least 3 years) is not over-predicted by more than its mean band half-width; if it is, the predicted gain is capped at the wettest quartile's mean observed anomaly (computed without the held-out year) and rules 1, 2 and 4 are re-run"
+  ],
+  "verdict": "all four pass: the upside publishes as a range (capped when rule 4 needed the cap); else held with the rules that failed",
+  "judged_on": "a fit that passes the downside gate only — the four rules were agreed and first run on those fits; a fit below the floor has no upside verdict"
+ },
+ "legacy": "a fit published before the pipeline keeps its recipe — weather box, season, SPEI scale, driver — and the production series the audit ledger records for it (validation_run notes, 'Production source'); it is re-run under the current rules, so a figure that differs from the stored one is a correction proposed for review, never applied silently"
+}

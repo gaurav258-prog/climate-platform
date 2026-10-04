@@ -131,12 +131,13 @@ def run_validation(session: Session, key: str, *, actor: Optional[str] = None,
 
 
 def record_result(session: Session, res: ValidationResult, *, actor: Optional[str] = None,
-                  persist_samples: bool = False) -> dict:
+                  persist_samples: bool = False, commit: bool = True) -> dict:
     """Score a ValidationResult with the honest metric for its kind and write the immutable run record.
 
     Split out of run_validation so a result can be recorded whether it came from the registry (one hazard,
     one validator) or was assembled in a batch (e.g. the per-crop champion out-of-sample runs, one row per
-    calibrated fit). Same metric selection, same gate, same append-only ledger for both paths."""
+    calibrated fit). Same metric selection, same gate, same append-only ledger for both paths. commit=False leaves the
+    transaction to the caller — a calibration run and its ledger entry are written together or not at all (E162)."""
     metrics, grade, passed, gate = _compute(res)
     if res.extra:
         metrics.update(res.extra)   # structured extras (e.g. challenger verdict) travel in the metrics jsonb
@@ -167,7 +168,8 @@ def record_result(session: Session, res: ValidationResult, *, actor: Optional[st
                 INSERT INTO validation_sample (sample_id, run_id, label, predicted, observed)
                 VALUES (gen_random_uuid(), CAST(:r AS uuid), :l, :p, :o)
             """), rows[i:i + 2000])
-    session.commit()
+    if commit:
+        session.commit()
     return {"run_id": run_id, "hazard": res.hazard_type, "kind": res.kind, "scope": res.scope,
             "method": res.method, "target_source": res.target_source, "grade": grade.value,
             "passed_gate": passed, "gate": gate, "metrics": metrics, "n": metrics["n"]}

@@ -337,6 +337,8 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(passkeys_esign_router.router)
     from api.routers import reference_releases as reference_releases_router
     app.include_router(reference_releases_router.router)
+    from api.routers import calibrations as calibrations_router
+    app.include_router(calibrations_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────

@@ -39,3 +39,9 @@ def scoring_process_cells(cell_coords: dict) -> dict:
     intake and site-add uses through the jobs layer."""
     from services.scoring.on_demand import process_new_cells
     return process_new_cells({k: tuple(v) for k, v in cell_coords.items()})
+
+
+@celery_app.task(name="calibration.run")
+def calibration_run(sources: list | None = None) -> dict:
+    """Re-run the calibration recipes reading the given yield sources (after a reviewed release lands, E162)."""
+    return resolve("calibration.run")(sources)
