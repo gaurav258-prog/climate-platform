@@ -64,6 +64,17 @@
       "registered": "2026-10-06",
       "rule": "for any refinement tested after this entry: used only when the 5th percentile of the paired-bootstrap difference (2,000 resamples of the nodes) is above zero for BOTH the rank correlation and the AUC — a gain inside sampling noise is not a gain",
       "why": "the first test (2026-10-06) met the original rule by +0.0015 in rank correlation and +0.0009 in AUC, with 90% intervals of the difference spanning zero; the original rule stays the one that test is judged by"
+    },
+    "building_scale_test": {
+      "registered": "2026-10-06",
+      "statement": "stated before the building-scale test was built or run, at the product owner's request: the 0.1° node test cannot see a gain inside 90 m pixels, which is where the refinement claims one",
+      "unit": "each 30 m ground pixel (GLO-30 grid) on land, inside the area EMS mapped, within the flood_jrc_ems validator's judged nodes (at least half the box mapped) — the same six events and nodes",
+      "observed": "wet when the pixel's centre lies inside the EMS observed flooded extent",
+      "predicted": "wet at the 1-in-100-year period when the depth stands above 0.05 m — 90 m: the depth of the JRC pixel holding it; 30 m: the re-spread depth of terrain_refinement.method",
+      "measure": "Critical Success Index, CSI = hits / (hits + misses + false alarms), pooled over the events; hit rate and false-alarm ratio reported beside it, per event and pooled",
+      "noise": "paired block bootstrap: 2,000 resamples of the judged nodes (a node's pixels move together — neighbouring pixels are not independent), fixed seed",
+      "rule": "the refinement is better at building scale only when the 5th percentile of the resampled difference in pooled CSI (30 m minus 90 m) is above zero; when the 95th percentile is below zero it is worse; otherwise the test cannot tell them apart",
+      "caveat_stated_before": "a 1-in-100-year map is compared with single events larger or smaller than 1-in-100, which lowers both maps' CSI alike; the comparison between them is what the test reads, not either CSI on its own"
     }
   }
 }
