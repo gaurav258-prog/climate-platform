@@ -128,8 +128,8 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "share of the cell in the 1-in-100-year floodplain × the Huizinga (2017) depth–damage fraction at its mean depth, with "
              "RP10/RP500 context (v3; the ERA5-Land multi-event model it replaces scored ρ 0.17). Validated on INDEPENDENT official "
              "Copernicus EMS observed flood extents, six 2019–2024 events out of sample: the 100-year footprint ranks the observed "
-             "flooded share of 417 mapped nodes at ρ 0.47 (AUC 0.84 at share > 2 %); river events 0.77–0.86 AUC, the Ahr flash "
-             "flood 0.34. Fluvial only: pluvial/flash flooding and groundwater are disclosed gaps, coastal surge is its own channel; "
+             "flooded share of the 144 nodes EMS mapped at ρ 0.68 (AUC 0.80 at share > 2 %); river events 0.77–0.85 AUC, the Ahr "
+             "flash flood 0.28. Fluvial only: pluvial/flash flooding and groundwater are disclosed gaps, coastal surge is its own channel; "
              "the maps carry no flood defences (hazard, not residual risk).", (H.FLOOD,)),
     EUHazard("water_stress", WA, "Water stress", C, SCR, "now",
              "chronic root-zone soil-water deficit (ERA5-Land baseline). Backtested against NASA GRACE/GRACE-FO observed terrestrial "
@@ -261,9 +261,10 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                           "predictor; a wind-intensity validation, not a damage anchor",
                 "validation": "IBTrACS temporal-holdout backtest", "out_of_sample": True},
     "flood": {"target": "Copernicus EMS rapid-mapping observed flood extents (official), six events 2019–2024 held entirely out of sample "
-                        "(no EMS data enters the JRC maps): share of each mapped 0.1° node flooded, rank correlation 0.47 (417 nodes, "
-                        "monotone bands), AUC 0.84 at share > 2 %; per event Boris 0.78, Emilia-Romagna 0.77, Valencia 0.86, Spain "
-                        "DANA 1.00, Ahr 0.34. Footprint validation of the river map; no depth or damage anchor",
+                        "(no EMS data enters the JRC maps): share of each 0.1° node's mapped part flooded, judged only where EMS "
+                        "mapped (E172), rank correlation 0.68 (144 nodes, monotone bands), AUC 0.80 at share > 2 %; per event "
+                        "Boris 0.77, Emilia-Romagna 0.80, Valencia 0.85, Ahr 0.28 (Storm Alex and Spain DANA too few nodes for "
+                        "their own AUC). Footprint validation of the river map; no depth or damage anchor",
               "validation": "Copernicus EMS flood-extent backtest (flood_jrc_ems)", "out_of_sample": True},
     "subsidence": {"target": "Copernicus EGMS InSAR point time series held out in time: v2 cell score from the subsidence rate fitted on "
                              "2020–2021 epochs vs the 90th-percentile rate the same cell's points showed in 2022–2024; rank correlation 0.85, "
