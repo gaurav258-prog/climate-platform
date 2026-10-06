@@ -28,7 +28,7 @@
     },
     "storm_v4_wind": {
       "peril": "storm",
-      "metric": "max_wind_speed",
+      "metric": "max_sustained_wind_10min",
       "unit": "m/s",
       "version": "v4",
       "source": "derived from the event set storm_v4: per synthetic year, the highest wind at the point",
@@ -48,7 +48,119 @@
       "coverage": "the six STORM basins (EP, NA, NI, SI, SP, WP)",
       "licence": "CC0 1.0",
       "licence_status": "verified (4TU API, data/storm_synthetic/MANIFEST.md)",
-      "metric_note": "STORM's README gives 'Maximum wind speed, m/s' with no averaging period; the period is quoted from Bloemendaal et al. (2020) when the layer is built"
+      "metric_basis": "STORM's generator states its wind as 'Vmax10: 10-minute mean maximum sustained wind speed of the TC (m/s)' (github.com/NBloemendaal/STORM, SAMPLE_TC_PRESSURE.py, line 37)",
+      "domain_note": "STORM's basins run 'with lat boundaries set at 60 N/S' (SELECT_BASIN.py, line 92) with no extratropical transition, and its tracks reach Europe more often than observed ones (Madrid: 15% of simulated years within 400 km against 3 of 46 observed seasons, 2026-10-06): a loss is computed only where an adopted cyclone curve covers the country"
+    },
+    "jrc_flood_30m": {
+      "peril": "flood",
+      "metric": "water_depth",
+      "unit": "m",
+      "version": "glo30-v1",
+      "source": "the JRC river-flood maps (jrc_river_flood) re-spread over the Copernicus DEM GLO-30 Public surface",
+      "refines": "jrc_river_flood",
+      "terrain": "copernicus_glo30_test",
+      "resolution_m": 30,
+      "return_periods": [
+        100
+      ],
+      "method": "the JRC 1-in-100-year depth (90 m) re-spread over the Copernicus GLO-30 surface (30 m): in each wet 90 m pixel the water surface is the mean 30 m elevation of its land sub-pixels plus the mapped depth; a 30 m sub-pixel is wet where that surface stands more than 0.05 m above it. Water never spreads outside the pixels the JRC maps flood",
+      "status": "candidate",
+      "adoption": "passed the registered rule; whether it replaces the 90 m maps is the product owner's decision — the 90% interval of the difference (rank correlation [-0.002, 0.0053], AUC [-0.0014, 0.0036]) shows how much of the gain is sampling noise",
+      "licence": null,
+      "licence_status": "GLO-30: to verify before customer-facing use (data/reference/supply_datasets.json)",
+      "test": {
+        "protocol": "terrain_refinement",
+        "registered": "2026-10-06",
+        "run": "2026-10-06",
+        "rule": "the refinement is used only when, on the same nodes, BOTH its pooled Spearman rank correlation with the observed share AND its pooled AUC (observed share > 2%) are higher than the 90 m maps'; otherwise the 90 m maps stay and the result is recorded",
+        "pooled": {
+          "m90": {
+            "n": 144,
+            "rho": 0.6798,
+            "auc_share_gt_2pct": 0.8036
+          },
+          "m30": {
+            "n": 144,
+            "rho": 0.6813,
+            "auc_share_gt_2pct": 0.8045
+          }
+        },
+        "difference_90pct_interval": {
+          "rho": [
+            -0.002,
+            0.0053
+          ],
+          "auc": [
+            -0.0014,
+            0.0036
+          ],
+          "draws": 2000
+        },
+        "per_event": {
+          "2021 Rhine/Ahr": {
+            "m90": {
+              "n": 27,
+              "rho": 0.1194,
+              "auc_share_gt_2pct": 0.28
+            },
+            "m30": {
+              "n": 27,
+              "rho": 0.1194,
+              "auc_share_gt_2pct": 0.28
+            }
+          },
+          "2024 Storm Boris": {
+            "m90": {
+              "n": 49,
+              "rho": 0.7522,
+              "auc_share_gt_2pct": 0.7667
+            },
+            "m30": {
+              "n": 49,
+              "rho": 0.7522,
+              "auc_share_gt_2pct": 0.7667
+            }
+          },
+          "2020 Storm Alex": {
+            "m90": {
+              "n": 10,
+              "rho": -0.147,
+              "auc_share_gt_2pct": null
+            },
+            "m30": {
+              "n": 10,
+              "rho": -0.147,
+              "auc_share_gt_2pct": null
+            }
+          },
+          "2023 Emilia-Romagna": {
+            "m90": {
+              "n": 28,
+              "rho": 0.7007,
+              "auc_share_gt_2pct": 0.8021
+            },
+            "m30": {
+              "n": 28,
+              "rho": 0.7007,
+              "auc_share_gt_2pct": 0.8021
+            }
+          },
+          "2024 Valencia DANA": {
+            "m90": {
+              "n": 26,
+              "rho": 0.7687,
+              "auc_share_gt_2pct": 0.8542
+            },
+            "m30": {
+              "n": 26,
+              "rho": 0.7646,
+              "auc_share_gt_2pct": 0.8542
+            }
+          }
+        },
+        "nodes_without_both_rasters": 0,
+        "passed": true
+      }
     }
   }
 }

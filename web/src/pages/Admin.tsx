@@ -126,7 +126,9 @@ function Methodology() {
                   <div className="text-[13px] font-semibold text-[var(--color-ink)]">{s.label}</div>
                   <div className="text-[11.5px] text-[var(--color-mute)]">{s.description}</div>
                 </div>
-                {isEnum ? (
+                {isEnum && (s.allowed ?? []).length === 0 ? (
+                  <span className="text-[12px] text-[var(--color-faint)] max-w-xs text-right">Nothing can be chosen yet — no registered option is usable (see why on the page that uses it).</span>
+                ) : isEnum ? (
                   <select value={value == null ? '' : String(value)} disabled={busy === s.key}
                     onChange={e => save(s.key, s.kind === 'int' ? Number(e.target.value) : e.target.value)}
                     className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">

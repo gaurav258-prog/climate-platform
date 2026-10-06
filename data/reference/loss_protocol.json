@@ -1,0 +1,69 @@
+{
+  "protocol": "loss-protocol-v1",
+  "registered": "2026-10-06",
+  "basis": "How a damage curve earns a loss figure (E171). Stated before any test was run: a measured or published damage curve gives a published loss range only where it passed both tests below on losses it was not built from; otherwise the range is held (failed) or shown wide with the untested region named. The thresholds follow what the published evidence says curves can and cannot do: building-level damage is not predictable as a point (Wing et al. 2020: mean absolute error 84% of mean damage), so it is judged as a band; event totals can be (Hurricane Ike: USD 447.0m modelled against 450.0m recorded), so they are judged as totals.",
+  "measured_curves": {
+    "dataset": "nfip_curve_claims",
+    "depth_field": "exteriorWaterDepth",
+    "depth_field_basis": "FEMA: 'The depth of water, in inches, for a main building based on exterior water marks relative to the lowest adjacent grade' — the same reference as the JRC maps' water depth above ground. waterDepth is not used: FEMA notes some entries are in feet, and in the 219,532 claims holding both fields the median waterDepth/exteriorWaterDepth is 0.083 (= 1/12).",
+    "unit": "inch",
+    "bins_in": [
+      0,
+      6,
+      12,
+      24,
+      36,
+      48,
+      72,
+      96,
+      144
+    ],
+    "set_aside": {
+      "placeholder_in": 999,
+      "above_in": 144
+    },
+    "residential_codes": {
+      "codes": [
+        1,
+        2,
+        3,
+        11,
+        12,
+        13,
+        15,
+        16
+      ],
+      "basis": "FEMA occupancyType: 1 single family; 2 2–4 unit residential; 3 residential >4 units; 11 single-family residential; 12 residential non-condo 2–4 units; 13 residential non-condo 5+ units; 15 residential condo association; 16 single residential unit in a multi-unit building (mobile homes, 14, are not houses)"
+    },
+    "min_claims_per_bin": 200
+  },
+  "test": {
+    "held_out": "each flood event with at least 500 claims is predicted from the other events' claims only",
+    "min_event_claims": 500,
+    "event_total": {
+      "tolerance": 0.3,
+      "share_of_events_required": 0.67,
+      "statement": "predicted event total within ±30% of the recorded total in at least two thirds of the held-out events"
+    },
+    "band": {
+      "from_quantile": 0.1,
+      "to_quantile": 0.9,
+      "coverage_min": 0.75,
+      "coverage_max": 0.85,
+      "statement": "the 10th–90th percentile band holds between 75% and 85% of held-out claims (nominal 80%)"
+    }
+  },
+  "terrain_refinement": {
+    "registered": "2026-10-06",
+    "layer": "jrc_flood_30m",
+    "method": "the JRC 1-in-100-year depth (90 m) re-spread over the Copernicus GLO-30 surface (30 m): in each wet 90 m pixel the water surface is the mean 30 m elevation of its land sub-pixels plus the mapped depth; a 30 m sub-pixel is wet where that surface stands more than 0.05 m above it. Water never spreads outside the pixels the JRC maps flood",
+    "target": "the six Copernicus EMS observed flood extents of the flood_jrc_ems validator, on its own nodes (0.1° boxes inside each event box and the mapped area): the share of each box inside the observed extent",
+    "rule": "the refinement is used only when, on the same nodes, BOTH its pooled Spearman rank correlation with the observed share AND its pooled AUC (observed share > 2%) are higher than the 90 m maps'; otherwise the 90 m maps stay and the result is recorded",
+    "statement": "stated before the refinement was built or run",
+    "rule_from_2026_10_07": {
+      "registered": "2026-10-06",
+      "rule": "for any refinement tested after this entry: used only when the 5th percentile of the paired-bootstrap difference (2,000 resamples of the nodes) is above zero for BOTH the rank correlation and the AUC — a gain inside sampling noise is not a gain",
+      "why": "the first test (2026-10-06) met the original rule by +0.0015 in rank correlation and +0.0009 in AUC, with 90% intervals of the difference spanning zero; the original rule stays the one that test is judged by"
+    }
+  }
+}

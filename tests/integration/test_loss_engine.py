@@ -1,0 +1,128 @@
+"""E171: the loss engine walks every asset and peril through the decision tree. Rolled back throughout.
+
+  gaps        no family adopted, use not stated, no curve for the country, a grouping ('EU') for a country, no building
+              value (a market value is never read as one) — each named, never a zero
+  figure      a US home on a flooded cell: a range with low ≤ central ≤ high, the expected annual loss the area under
+              the loss–exceedance curve, the standing the curve's test gave (the measured family failed → held)
+  book curve  only published figures are added, and only on the stated dependence"""
+from __future__ import annotations
+
+import json
+
+import pytest
+from sqlalchemy import text
+
+from services.loss import curves, engine
+
+pytestmark = pytest.mark.integration
+LAT, LON = 29.7631, -95.3701
+
+
+def _org(s, elections: dict) -> str:
+    org = s.execute(text("SELECT org_id::text FROM organizations LIMIT 1")).scalar()
+    s.execute(text("""INSERT INTO org_calc_settings (org_id, interpretation, updated_at) VALUES (CAST(:o AS uuid),
+                      CAST(:i AS jsonb), now()) ON CONFLICT (org_id) DO UPDATE SET interpretation =
+                      COALESCE(org_calc_settings.interpretation, '{}'::jsonb) || CAST(:i AS jsonb)"""),
+              {"o": org, "i": json.dumps(elections)})
+    s.execute(text("UPDATE portfolio_entities SET source = 'supervisor_shadow' WHERE org_id = CAST(:o AS uuid) "
+                   "AND vertical = 'realestate' AND source = 'own'"), {"o": org})   # the book holds only the test assets
+    return org
+
+
+def _asset(s, org, **kw) -> str:
+    """A property with a market value of 600,000 and, unless `building` says otherwise, a building value of 400,000."""
+    row = {"lat": LAT, "lon": LON, "country": "US", "occ": "residential", "type": "property", "building": 400000.0, **kw}
+    eid = s.execute(text("""
+        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, country,
+                                        primary_value_eur, occupancy, source)
+        VALUES (gen_random_uuid(), CAST(:o AS uuid), 'realestate', 'test asset', :type, :lat, :lon, :country, 600000, :occ,
+                'own') RETURNING entity_id::text"""), {"o": org, **row}).scalar()
+    s.execute(text("""INSERT INTO ext_realestate (entity_id, annual_noi_eur, building_value_eur)
+                      VALUES (CAST(:e AS uuid), 1, :b)"""), {"e": eid, "b": row["building"]})
+    return eid
+
+
+def _flood_samples(s, lat=LAT, lon=LON, share=0.5, depth=1.0):
+    for rp, k in ((10, 0.6), (100, 1.0), (500, 1.3)):
+        s.execute(text("""INSERT INTO hazard_intensity_samples (layer_key, layer_version, latitude, longitude, h3_cell,
+                          rp_years, status, value, cell_fraction, cell_mean)
+                          VALUES ('jrc_river_flood', 'v2.1.2', :la, :lo, 'test', :rp, 'sampled', 0, :f, :m)
+                          ON CONFLICT DO NOTHING"""), {"la": lat, "lo": lon, "rp": rp, "f": share * k, "m": depth * k})
+
+
+def _results(s, run_id) -> dict:
+    return {r["peril"]: dict(r) for r in s.execute(text(
+        "SELECT * FROM loss_results WHERE run_id = CAST(:r AS uuid)"), {"r": run_id}).mappings()}
+
+
+def test_every_missing_input_is_a_named_gap(session_rolled_back):
+    s = session_rolled_back
+    if "nfip_measured" not in curves.families():
+        pytest.skip("the measured family is not built on this machine")
+    org = _org(s, {})
+    _asset(s, org)
+    _flood_samples(s)
+    r = _results(s, engine.run(s, org, "realestate")["run_id"])
+    assert r["flood"]["gap"] == "no flood damage-curve family adopted (stated method)" and r["flood"]["eal_eur"] is None
+    assert "has not been sampled" in r["storm"]["gap"] or "storm" in r["storm"]["gap"]
+    s.execute(text("""UPDATE org_calc_settings SET interpretation = interpretation || '{"loss_curve_family_flood": "nfip_measured"}'
+                      WHERE org_id = CAST(:o AS uuid)"""), {"o": org})
+    _asset(s, org, occ=None, type="logistics", lat=LAT + 0.001)
+    _flood_samples(s, lat=LAT + 0.001)
+    _asset(s, org, country="ES", lat=LAT + 0.002)
+    _flood_samples(s, lat=LAT + 0.002)
+    _asset(s, org, building=None, lat=LAT + 0.003)
+    _flood_samples(s, lat=LAT + 0.003)
+    _asset(s, org, country="EU", lat=LAT + 0.004)
+    _flood_samples(s, lat=LAT + 0.004)
+    gaps = {g for (g,) in s.execute(text("""SELECT gap FROM loss_results WHERE run_id = CAST(:r AS uuid) AND peril = 'flood'"""),
+                                    {"r": engine.run(s, org, "realestate")["run_id"]}).all()}
+    assert "no occupancy stated, and the asset type 'logistics' does not determine one" in gaps
+    assert "nfip_measured has no residential curve for ES" in gaps
+    assert "the building's own value is not stated (the property value includes the land)" in gaps
+    assert "the book states 'EU', which is not a country — a curve is chosen by country (its coordinates are in US)" in gaps
+
+
+def test_a_us_home_on_a_flooded_cell_gets_a_range_with_its_standing(session_rolled_back):
+    s = session_rolled_back
+    fam = curves.families().get("nfip_measured")
+    if fam is None:
+        pytest.skip("the measured family is not built on this machine")
+    org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
+    _asset(s, org)
+    _flood_samples(s, share=0.5, depth=1.0)
+    r = _results(s, engine.run(s, org, "realestate")["run_id"])["flood"]
+    assert r["gap"] is None and r["curve_key"] == "nfip_measured:residential:united_states"
+    assert r["standing"] == ("published" if fam["test"]["passed"] else "held")
+    assert r["eal_low_eur"] <= r["eal_eur"] <= r["eal_high_eur"]
+    rp = r["loss_at_rp"]
+    assert rp["100"]["central"] == pytest.approx(400000 * 0.5 * curves.ratio(fam["curves"][0]["points"], 1.0), rel=1e-6)
+    assert float(r["exposed_value_eur"]) == 400000                  # the building's value, not the 600,000 market value
+    central = {int(k): v["central"] for k, v in rp.items()}
+    assert float(r["eal_eur"]) == pytest.approx(engine.eal(central), abs=0.01)
+
+
+def test_the_book_curve_adds_only_published_figures_on_the_stated_dependence(session_rolled_back, monkeypatch):
+    s = session_rolled_back
+    fam = curves.families().get("nfip_measured")
+    if fam is None:
+        pytest.skip("the measured family is not built on this machine")
+    passed = {**fam, "family": "test_passed", "test": {**fam["test"], "passed": True}}
+    monkeypatch.setattr(curves, "families", lambda: {**curves._load()[0], "test_passed": passed})
+    org = _org(s, {"loss_curve_family_flood": "test_passed"})
+    _asset(s, org)
+    _flood_samples(s)
+    assert engine.run(s, org, "realestate")["ep_points"] == 0           # no dependence stated → no book curve
+    s.execute(text("""UPDATE org_calc_settings SET interpretation = interpretation || '{"loss_flood_dependence": "comonotonic"}'
+                      WHERE org_id = CAST(:o AS uuid)"""), {"o": org})
+    out = engine.run(s, org, "realestate")
+    assert out["ep_points"] == 3
+    ep = dict(s.execute(text("SELECT rp_years, CAST(loss_eur AS FLOAT) FROM loss_ep_points WHERE run_id = CAST(:r AS uuid)"),
+                        {"r": out["run_id"]}).all())
+    res = _results(s, out["run_id"])["flood"]
+    assert ep[100] == pytest.approx(res["loss_at_rp"]["100"]["central"], abs=0.01)
+
+
+def test_eal_is_the_area_under_the_exceedance_curve():
+    assert engine.eal({10: 100.0, 100: 1000.0, 500: 2000.0}) == pytest.approx(
+        (0.1 - 0.01) * 550 + (0.01 - 0.002) * 1500 + 0.002 * 2000)

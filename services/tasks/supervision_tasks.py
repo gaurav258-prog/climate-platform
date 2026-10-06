@@ -51,3 +51,16 @@ def calibration_run(sources: list | None = None) -> dict:
 def calibration_refresh_weather() -> dict:
     """Fetch new ERA5-Land months, rebuild the crop weather, re-run the calibrations (E163)."""
     return resolve("calibration.refresh_weather")()
+
+
+@celery_app.task(name="loss.sample_intensity")
+def loss_sample_intensity(layer_key: str = "jrc_river_flood") -> dict:
+    """Sample a hazard intensity layer at every asset location not yet held (E171)."""
+    return resolve("loss.sample_intensity")(layer_key)
+
+
+@celery_app.task(name="loss.run")
+def loss_run(org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
+             created_by: str | None = None) -> dict:
+    """One loss run over a book: every asset and peril to a range with its standing, or a named gap (E171)."""
+    return resolve("loss.run")(org_id, book, scenario, horizon, created_by)

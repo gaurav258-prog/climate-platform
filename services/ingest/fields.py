@@ -59,6 +59,9 @@ VOCABS: dict[str, Vocab] = {
                                   {"rre": "residential", "cre": "commercial", "residential_immovable_property": "residential",
                                    "commercial_immovable_property": "commercial", "no": "none", "unsecured": "none"}),
     "irrigation": Vocab(("irrigated", "rain_fed", "mixed"), {"rainfed": "rain_fed"}),
+    # the building-use classes of the damage curves (data/reference/occupancy.json, E169) — no synonyms: a warehouse or a
+    # hotel is classed differently by different curve sets, so only the class names themselves are accepted
+    "occupancy": Vocab(("residential", "commercial", "industrial", "transport", "infrastructure", "agriculture")),
     # own operational site types (services.intelligence.company_sites.SITE_TYPES)
     "site_type": Vocab(("hq", "factory", "warehouse", "distribution_centre", "office", "other"),
                        {"headquarters": "hq", "head_office": "hq", "plant": "factory", "mill": "factory",
@@ -171,7 +174,13 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        aliases=("outstanding", "balance", "outstanding_balance", "principal", "exposure", "ead")),
     _f("sum_insured_eur", "Sum insured", "money", "Total insured value, if not broken into components.", "3700000",
        aliases=("tiv", "total_insured_value", "sum_insured", "insured_value")),
-    _f("building_value_eur", "Building value", "money", "TIV component: buildings.", "3000000", aliases=("building_value", "buildings")),
+    _f("building_value_eur", "Building value", "money", "The building's own value, land excluded — what a damage curve's "
+       "share is taken of. In an insurance schedule: the buildings component of the total insured value.", "3000000",
+       aliases=("building_value", "buildings")),
+    _f("occupancy", "Building use", "vocab", "What the building is used for — residential, commercial, industrial, "
+       "transport, infrastructure or agriculture; it selects the building's damage curve. Left blank, the use is read "
+       "from the asset type only where the type settles it.", "residential", vocab="occupancy",
+       aliases=("building_use", "occupancy_class", "occupancy_type", "use_class")),
     _f("contents_value_eur", "Contents value", "money", "TIV component: contents.", "500000", aliases=("contents_value", "contents", "bpp")),
     _f("business_interruption_value_eur", "Business interruption", "money", "TIV component: business income.", "200000",
        aliases=("bi_value", "business_interruption", "bi", "business_income")),

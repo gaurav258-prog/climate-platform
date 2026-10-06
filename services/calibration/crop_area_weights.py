@@ -103,9 +103,39 @@ def weights(commodity: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
         return {}
     fp = fingerprint(commodity)
     out_file = DERIVED / f"{commodity.replace(' ', '_')}_{fp}.npz"
-    if out_file.exists():
-        z = np.load(out_file, allow_pickle=False)
-        return {k[:-4]: (z[k], z[k[:-4] + "_w"]) for k in z.files if k.endswith("_idx")}
+    if not out_file.exists():
+        _build_isolated(commodity, out_file)
+    z = np.load(out_file, allow_pickle=False)
+    return {k[:-4]: (z[k], z[k[:-4] + "_w"]) for k in z.files if k.endswith("_idx")}
+
+
+def _build_isolated(commodity: str, out_file: Path) -> None:
+    """Build a crop's weights in a process of its own (E170): the build reads the crop map and rasterises the country
+    polygons through GDAL, and a native crash there must never take the API or a worker down — it fails this call.
+    RASTER_SAMPLER_INPROCESS=1 builds in-process (tests), as the raster sampler does."""
+    import os
+    if os.environ.get("RASTER_SAMPLER_INPROCESS") == "1":
+        _build(commodity, str(out_file))
+        return
+    import multiprocessing as mp
+    try:
+        ctx = mp.get_context("forkserver")
+    except ValueError:
+        ctx = mp.get_context("spawn")
+    proc = ctx.Process(target=_build, args=(commodity, str(out_file)), name="crop-weights", daemon=True)
+    proc.start()
+    proc.join(timeout=1800)
+    if proc.is_alive():
+        proc.kill()
+        proc.join(timeout=5)
+        raise RuntimeError(f"building the {commodity} weights took over 30 minutes — stopped")
+    if proc.exitcode != 0 or not out_file.exists():
+        raise RuntimeError(f"building the {commodity} weights failed (exit code {proc.exitcode})")
+
+
+def _build(commodity: str, out_path: str) -> None:  # runs in the build process
+    cm = crop_map(commodity)
+    out_file = Path(out_path)
     total = None
     for layer in cm["layers"]:
         a, res = _map_array(cm["map"], layer)
@@ -133,4 +163,3 @@ def weights(commodity: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     tmp = out_file.with_suffix(".part.npz")
     np.savez_compressed(tmp, **{f"{c}_idx": v[0] for c, v in out.items()}, **{f"{c}_w": v[1] for c, v in out.items()})
     tmp.replace(out_file)
-    return out

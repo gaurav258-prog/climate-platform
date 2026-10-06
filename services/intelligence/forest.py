@@ -24,8 +24,6 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-import rasterio
-from rasterio.mask import mask as rio_mask
 from shapely.geometry import mapping
 from shapely.geometry.base import BaseGeometry
 
@@ -96,10 +94,15 @@ def _pixel_area_ha(transform, lat: float) -> float:
 
 
 def _read_band(src: str, footprint) -> tuple:
-    with rasterio.Env(**_GDAL_ENV):
-        with rasterio.open(src) as ds:
-            arr, transform = rio_mask(ds, [mapping(footprint)], crop=True, filled=True, nodata=0)
-    return arr[0], transform
+    """(values, inside, valid, transform) of the band cropped to the footprint, read through the isolated raster
+    sampler (services.geo.raster_sampler, E170). `inside` marks the footprint's own pixels: the rest of the bounding box
+    is not the plot and is never counted; `valid` those holding a value — a nodata pixel is never read as loss or
+    forest (E172)."""
+    from services.geo import raster_sampler
+    got = raster_sampler.masked(src, mapping(footprint), env=_GDAL_ENV)
+    if got is None:
+        raise ValueError(f"could not read {src}")
+    return got["values"], got["inside"], got["valid"], got["transform"]
 
 
 def forest_loss_since(geom: BaseGeometry, cutoff_year: int = EUDR_CUTOFF_YEAR,
@@ -126,16 +129,16 @@ def forest_loss_since(geom: BaseGeometry, cutoff_year: int = EUDR_CUTOFF_YEAR,
 
     loss_year_min = (cutoff_year - 2000) + 1     # 2020 -> 21 (i.e. 2021)
     try:
-        loss_band, transform = _read_band(src, footprint)
-        total = int(loss_band.size)
+        loss_band, inside, valid, transform = _read_band(src, footprint)
+        total = int(inside.sum())
         if total == 0:
             raise ValueError("no pixels under plot footprint")
-        loss_mask = loss_band >= loss_year_min
+        loss_mask = valid & (loss_band >= loss_year_min)
 
         forest_pixels = total
         if min_treecover_pct > 0:
-            tc_band, _ = _read_band(tile_source(tid, "treecover2000", stage_dir), footprint)
-            forest_mask = tc_band >= min_treecover_pct
+            tc_band, _tc_inside, tc_valid, _ = _read_band(tile_source(tid, "treecover2000", stage_dir), footprint)
+            forest_mask = tc_valid & (tc_band >= min_treecover_pct)
             forest_pixels = int(forest_mask.sum())
             loss_mask = loss_mask & forest_mask   # deforestation = loss ON land that was forest
 

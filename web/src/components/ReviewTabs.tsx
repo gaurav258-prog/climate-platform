@@ -8,6 +8,7 @@ const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
 const TABS: { to: string; label: string; sectors?: string[] }[] = [
   { to: '/kri', label: 'KRI dashboard' },
   { to: '/analytics', label: 'Analytics', sectors: ['bank', 'asset_manager', 'reit'] },
+  { to: '/loss', label: 'Loss', sectors: [...FIN, 'manufacturer'] },
   { to: '/track-record', label: 'Climate track record' },
   { to: '/underwriting', label: 'Underwriting review', sectors: ['insurer'] },
   { to: '/model-validation', label: 'Model validation' },

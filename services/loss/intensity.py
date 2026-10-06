@@ -1,0 +1,119 @@
+"""Hazard intensity at asset locations (E171): each registered layer sampled once per location and layer version into
+hazard_intensity_samples, through the isolated raster reader.
+
+For the JRC river-flood layer, per return period:
+  value          the depth at the point (m); a dry pixel reads 0, the depth at or below the layer's dry threshold too
+  cell_fraction  the share of the location's H3 res-8 cell flooded (permanent water excluded)
+  cell_mean      the mean depth over that flooded share
+A location off every tile, or on a tile not held at all three return periods, is recorded 'outside_coverage' with no
+value — never a zero."""
+from __future__ import annotations
+
+import logging
+from typing import Iterable, Optional
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from services.loss import registry
+
+log = logging.getLogger(__name__)
+
+
+def asset_points(session: Session) -> list[tuple[float, float]]:
+    """Every distinct location of an asset or a company site."""
+    rows = session.execute(text("""
+        SELECT DISTINCT latitude, longitude FROM portfolio_entities WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+        UNION
+        SELECT DISTINCT latitude, longitude FROM sc_company_sites WHERE latitude IS NOT NULL AND longitude IS NOT NULL""")).all()
+    return [(float(a), float(b)) for a, b in rows]
+
+
+def _held(session: Session, key: str, version: str) -> set[tuple[float, float]]:
+    return {(float(a), float(b)) for a, b in session.execute(text("""
+        SELECT DISTINCT latitude, longitude FROM hazard_intensity_samples WHERE layer_key = :k AND layer_version = :v"""),
+        {"k": key, "v": version}).all()}
+
+
+def jrc_flood_rows(lat: float, lon: float, tiles=None) -> list[dict]:
+    """The rows for one location of the JRC river-flood layer (no database)."""
+    import h3
+
+    from ml.scoring import flood_jrc as F
+    from services.geo import raster_sampler
+    L = registry.layer("jrc_river_flood")
+    cell = h3.latlng_to_cell(lat, lon, 8)
+    base = {"layer_key": "jrc_river_flood", "layer_version": L["version"], "latitude": lat, "longitude": lon, "h3_cell": cell}
+    name = F.tile_name(lat, lon)
+    reader = F.TileReader(name) if name else None
+    if reader is None or not reader.complete():
+        return [{**base, "rp_years": rp, "status": "outside_coverage", "value": None, "cell_fraction": None, "cell_mean": None}
+                for rp in L["return_periods"]]
+    tiles = tiles or F.TileSet()
+    stats = tiles.stats(F.cell_polygon(cell)) or {}
+    out = []
+    for rp in L["return_periods"]:
+        got = raster_sampler.sample(reader.paths[rp], [(lon, lat)])
+        if got is None:
+            return []                    # a failed read: nothing recorded, the location is sampled again next run
+        v = got[0][0]
+        # the maps' encoding (ml.scoring.flood_jrc): dry land is NODATA (−9999), a value is a flooded pixel's depth
+        depth = 0.0 if (v != v or v < 0 or v <= L["dry_below"]) else float(v)
+        frac, mean, _mx = stats.get(rp, (None, None, None))
+        out.append({**base, "rp_years": rp, "status": "sampled", "value": depth, "cell_fraction": frac, "cell_mean": mean})
+    return out
+
+
+def _storm_rows(lat: float, lon: float, _tiles=None) -> list[dict]:
+    from services.loss import storm_events
+    return storm_events.rows(lat, lon)
+
+
+_SAMPLERS = {"jrc_river_flood": jrc_flood_rows, "storm_v4_wind": _storm_rows}
+
+
+def sample(session: Session, layer_key: str, points: Optional[Iterable[tuple[float, float]]] = None,
+           batch: int = 200) -> dict:
+    """Sample a layer at every location not yet held for its version (all asset locations by default). Commits per
+    batch. Returns {held, sampled, outside, failed}."""
+    L = registry.layer(layer_key)
+    if layer_key not in _SAMPLERS:
+        raise registry.RegistryError(f"layer '{layer_key}' has no sampler yet")
+    held = _held(session, layer_key, L["version"])
+    todo = [p for p in (points if points is not None else asset_points(session)) if p not in held]
+    counts = {"held": len(held), "sampled": 0, "outside": 0, "failed": 0}
+    from ml.scoring import flood_jrc as F
+    tiles = F.TileSet()
+    rows: list[dict] = []
+    for i, (lat, lon) in enumerate(todo, 1):
+        got = _SAMPLERS[layer_key](lat, lon, tiles)
+        if not got:
+            counts["failed"] += 1
+        elif got[0]["status"] == "outside_coverage":
+            counts["outside"] += 1
+        else:
+            counts["sampled"] += 1
+        rows.extend(got)
+        if i % batch == 0 or i == len(todo):
+            _insert(session, rows)
+            session.commit()
+            rows = []
+            log.info("%s: %d of %d locations", layer_key, i, len(todo))
+    return counts
+
+
+def _insert(session: Session, rows: list[dict]) -> None:
+    if rows:
+        session.execute(text("""
+            INSERT INTO hazard_intensity_samples (layer_key, layer_version, latitude, longitude, h3_cell, rp_years, status,
+                                                  value, cell_fraction, cell_mean)
+            VALUES (:layer_key, :layer_version, :latitude, :longitude, :h3_cell, :rp_years, :status, :value,
+                    :cell_fraction, :cell_mean)
+            ON CONFLICT (layer_key, layer_version, latitude, longitude, rp_years) DO NOTHING"""), rows)
+
+
+def sample_job(layer_key: str = "jrc_river_flood") -> dict:
+    """The background job (services.tasks.jobs 'loss.sample_intensity'): its own session."""
+    from core.db.session import get_session
+    with get_session() as session:
+        return sample(session, layer_key)

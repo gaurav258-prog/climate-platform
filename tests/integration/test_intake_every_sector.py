@@ -139,3 +139,45 @@ def test_country_written_any_way_is_matched_and_unknown_is_reported(session_roll
     assert v["unknown"] == {"Atlantis": 8} and ctl["report"]["n_valid"] == 40     # reported, row kept, never rejected
     got = {n["asset_name"].rsplit("-", 1)[1]: n["country"] for n in ctl["normalised"][:5]}
     assert got == {"0": "DE", "1": "DE", "2": "FR", "3": "GB", "4": None}
+
+
+@pytest.mark.parametrize("key,table,building", [("realestate_properties", "ext_realestate", True),
+                                                ("bank_assets", "ext_banking", True),
+                                                ("insurance_policies", "ext_insurance", True),
+                                                ("company_sites", None, False)])
+def test_building_use_and_value_land_where_the_loss_engine_reads_them(key, table, building, session_rolled_back):
+    """E171: a book's building use (occupancy) and the building's own value (land excluded) reach the columns the loss
+    engine reads; a use outside the curve classes is reported, never stored silently."""
+    s, tpl, tag = session_rolled_back, TEMPLATES[key], uuid.uuid4().hex[:8]
+    org_id, user_id = _org_and_admin(s, tpl.org_type)
+    df = _customer_file(key, tag)
+    df["occupancy"] = ["residential", "commercial", "industrial", None]
+    if building:
+        df["building_value_eur"] = [300000.0, 400000.0, 500000.0, None]
+    cmap = {**profiling.column_map(profiling.suggest(s, df, enrich_specs(tpl.specs(df)))), "occupancy": "occupancy"}
+    if building:
+        cmap["building_value_eur"] = "building_value_eur"
+    vf, _ = _VOCAB_FIELD[key]
+    cmap[vf] = "Their " + vf
+    prof = mapping.save(s, org_id, key, f"Building {tag}", cmap, {}, user_id, enrich_specs(tpl.specs(pd.DataFrame())),
+                        source_columns=list(df.columns))
+    out = pipeline.submit(s, org_id, key, _csv(df), f"{tag}.csv", user_id=user_id, mapping_profile_id=prof["profile_id"],
+                          currency="EUR", book_date="2026-06-30")
+    assert out["state"] == "imported", out.get("controls", {}).get("gate")
+    if table:
+        got = {r[0]: (r[1], r[2]) for r in s.execute(text(f"""
+            SELECT e.external_ref, e.occupancy, CAST(x.building_value_eur AS FLOAT) FROM portfolio_entities e
+            JOIN {table} x ON x.entity_id = e.entity_id WHERE e.org_id = CAST(:o AS uuid) AND e.external_ref LIKE :t"""),
+            {"o": org_id, "t": f"{tag}-%"}).all()}
+        assert got == {f"{tag}-0": ("residential", 300000.0), f"{tag}-1": ("commercial", 400000.0),
+                       f"{tag}-2": ("industrial", 500000.0), f"{tag}-3": (None, None)}
+    else:
+        got = dict(s.execute(text("""SELECT external_ref, occupancy FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)
+                                     AND external_ref LIKE :t"""), {"o": org_id, "t": f"{tag}-%"}).all())
+        assert got == {f"{tag}-0": "residential", f"{tag}-1": "commercial", f"{tag}-2": "industrial", f"{tag}-3": None}
+    # a use outside the curve classes is reported and the batch waits for sign-off
+    df.loc[3, "occupancy"] = "hotel"
+    canon, _ = mapping.apply(s, df, {"profile_id": "p", "name": "t", "version": 1, "column_map": cmap, "transforms": {}})
+    ctl = pipeline._run_controls(s, org_id, tpl, uuid.uuid4().hex, canon, None, money_ctx=EUR_BOOK)
+    assert ctl["controls"]["values"]["occupancy"]["unknown"] == {"hotel": 1}
+    assert ctl["controls"]["gate"]["status"] == "needs_signoff"

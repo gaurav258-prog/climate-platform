@@ -25,6 +25,8 @@ JOBS: dict[str, str] = {
     "eudr.read_plots": "services.eudr.reading:run_job",
     "calibration.run": "services.calibration.pipeline:run_job",
     "calibration.refresh_weather": "services.calibration.pipeline:refresh_weather",
+    "loss.sample_intensity": "services.loss.intensity:sample_job",
+    "loss.run": "services.loss.engine:run_job",
 }
 
 

@@ -49,13 +49,20 @@ def test_a_loss_run_and_its_results_never_change(session_rolled_back):
                             VALUES (:o, 'realestate', 'baseline', 'current', '2026-10-06', 'test', '{}', 2, 1)
                             RETURNING run_id"""), {"o": org}).scalar()
     res = """INSERT INTO loss_results (run_id, asset_kind, asset_id, peril, exposed_value_eur, occupancy, curve_key,
-             eal_eur, loss_at_rp, gap) VALUES (:r, 'portfolio_entity', gen_random_uuid(), 'flood', :val, 'commercial',
-             :c, :eal, CAST(:rp AS jsonb), :gap)"""
-    s.execute(text(res), {"r": run, "val": 1e6, "c": "huizinga_2017:commercial:europe", "eal": 1234.5,
-                          "rp": json.dumps({"100": 50000}), "gap": None})
-    s.execute(text(res), {"r": run, "val": 1e6, "c": None, "eal": None, "rp": None, "gap": "no curve family adopted for flood"})
-    _fails(s, res, {"r": run, "val": 1e6, "c": "x", "eal": 10.0, "rp": json.dumps({"100": 1}), "gap": "both"})
-    _fails(s, res, {"r": run, "val": 1e6, "c": None, "eal": 10.0, "rp": json.dumps({"100": 1}), "gap": None})
+             eal_eur, eal_low_eur, eal_high_eur, standing, loss_at_rp, gap)
+             VALUES (:r, 'portfolio_entity', gen_random_uuid(), 'flood', :val, 'commercial', :c, :eal, :lo, :hi, :st,
+                     CAST(:rp AS jsonb), :gap)"""
+    fig = {"r": run, "val": 1e6, "c": "huizinga_2017:commercial:europe", "eal": 1234.5, "lo": 200.0, "hi": 4000.0,
+           "st": "untested", "rp": json.dumps({"100": {"low": 1e4, "central": 5e4, "high": 9e4}}), "gap": None}
+    gap = {"r": run, "val": 1e6, "c": None, "eal": None, "lo": None, "hi": None, "st": None, "rp": None,
+           "gap": "no curve family adopted for flood"}
+    s.execute(text(res), fig)
+    s.execute(text(res), gap)
+    _fails(s, res, {**fig, "gap": "both a figure and a gap"})
+    _fails(s, res, {**fig, "c": None})                              # a figure names its curve
+    _fails(s, res, {**fig, "st": None})                             # a figure has a standing
+    _fails(s, res, {**fig, "lo": 2000.0})                           # the central value lies within its range
+    _fails(s, res, {**gap, "st": "held"})                           # a gap has no standing
     s.execute(text("""INSERT INTO loss_ep_points (run_id, peril, kind, rp_years, loss_eur, basis)
                       VALUES (:r, 'flood', 'aep', 200, 9e5, 'stated_dependence')"""), {"r": run})
     for sql in ("UPDATE loss_runs SET n_gaps = 0 WHERE run_id = :r", "DELETE FROM loss_runs WHERE run_id = :r",

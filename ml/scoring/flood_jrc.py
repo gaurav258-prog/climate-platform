@@ -22,8 +22,6 @@ import os
 from functools import lru_cache
 from typing import Optional
 
-import numpy as np
-
 TILE_DIR = "data/jrc_flood"
 TILE_INDEX = "data/reference/jrc_flood_tiles.json"      # id → name, from the JRC tile_extents.geojson
 RETURN_PERIODS = (10, 100, 500)
@@ -70,13 +68,12 @@ def nominal_tile_name(lat: float, lon: float) -> str:
 @lru_cache(maxsize=None)
 def tile_bounds(name: str) -> Optional[tuple[float, float, float, float]]:
     """(left, bottom, right, top) of a tile as published, read from its raster header; None if not on disk."""
-    import rasterio
+    from services.geo import raster_sampler
     p = next((tile_path(name, rp) for rp in RETURN_PERIODS if tile_path(name, rp)), None)
     if p is None:
         return None
-    with rasterio.open(p) as ds:
-        b = ds.bounds
-    return (b.left, b.bottom, b.right, b.top)
+    got = raster_sampler.info(p)
+    return tuple(got["bounds"]) if got else None
 
 
 def tiles_for_bounds(minx: float, miny: float, maxx: float, maxy: float) -> list[str]:
@@ -116,53 +113,35 @@ def water_path(name: str) -> Optional[str]:
 
 
 class TileReader:
-    """Open rasters for one tile, reused across many cells (batch scoring runs in a script, not an API thread)."""
+    """One tile's rasters, read through the isolated raster sampler (services.geo.raster_sampler, E170): a native
+    crash in GDAL can never take the API or a worker down. Holds paths only; the sampler's child keeps them open."""
 
     def __init__(self, name: str):
-        import rasterio
         self.name = name
-        self.ds = {rp: rasterio.open(tile_path(name, rp)) for rp in RETURN_PERIODS if tile_path(name, rp)}
-        wp = water_path(name)
-        self.water = rasterio.open(wp) if wp else None
+        self.paths = {rp: tile_path(name, rp) for rp in RETURN_PERIODS if tile_path(name, rp)}
+        self.water = water_path(name)
 
     def complete(self) -> bool:
-        return len(self.ds) == len(RETURN_PERIODS)
+        return len(self.paths) == len(RETURN_PERIODS)
 
     def close(self):
-        for d in self.ds.values():
-            d.close()
-        if self.water:
-            self.water.close()
+        pass
 
     def polygon_counts(self, polygon) -> Optional[dict]:
         """{rp: (land_px, wet_px, depth_sum, depth_max)} for the part of the polygon (lon/lat) on THIS tile; None when the
-        polygon does not reach it. Counts, not ratios, so a cell straddling tiles is summed exactly (`TileSet.stats`).
-        Encoding of the maps: dry land and sea are NODATA (−9999), a value is a flooded pixel's depth. Permanent water
-        bodies (river channels, lakes) are excluded from both the land count and the wet count — a river channel is
-        water, not flooded land. The window is clipped to the tile BEFORE reading, so the mask and the pixels share one
-        transform (a window past a tile edge is otherwise trimmed on read and the mask shifts off the data)."""
-        from rasterio.errors import WindowError
-        from rasterio.features import geometry_mask
-        from rasterio.windows import Window, from_bounds
-        ref = self.ds[100]
-        try:
-            win = (from_bounds(*polygon.bounds, ref.transform).round_offsets().round_lengths()
-                   .intersection(Window(0, 0, ref.width, ref.height)))
-        except WindowError:
-            return None
-        if win.width < 1 or win.height < 1:
-            return None
-        inside = ~geometry_mask([polygon], out_shape=(int(win.height), int(win.width)),
-                                transform=ref.window_transform(win), invert=False)
-        if self.water is not None:                            # same pixel grid as the depth rasters (all 271 tiles)
-            inside &= ~(self.water.read(1, window=win) == 1)  # 1 = permanent water, 255 = nodata (land)
-        land = int(inside.sum())
+        polygon does not reach it (or a read failed). Counts, not ratios, so a cell straddling tiles is summed exactly
+        (`TileSet.stats`). Encoding of the maps: dry land and sea are NODATA (−9999), a value is a flooded pixel's depth.
+        Permanent water bodies (river channels, lakes) are excluded from both the land count and the wet count — a river
+        channel is water, not flooded land."""
+        from services.geo import raster_sampler
+        ring = list(polygon.exterior.coords)
+        exclude = {"path": self.water, "value": 1} if self.water else None   # 1 = permanent water, 255 = nodata (land)
         out = {}
-        for rp, ds in self.ds.items():
-            arr = ds.read(1, window=win).astype("float32")
-            nod = ds.nodata
-            wet = inside & np.isfinite(arr) & (arr > DEPTH_MIN_M) & ((arr != nod) if nod is not None else True)
-            out[rp] = (land, int(wet.sum()), float(arr[wet].sum(dtype="float64")), float(arr[wet].max()) if wet.any() else 0.0)
+        for rp, path in self.paths.items():
+            z = raster_sampler.zonal(path, ring, above=DEPTH_MIN_M, exclude=exclude)
+            if z is None:
+                return None
+            out[rp] = (z["inside"], z["present"], z["sum"], z["max"])
         return out
 
 

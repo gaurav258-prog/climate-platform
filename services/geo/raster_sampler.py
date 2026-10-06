@@ -42,10 +42,11 @@ def _child_main(requests: mp.Queue, replies: mp.Queue) -> None:  # pragma: no co
             replies.put((rid, False, f"{type(e).__name__}: {e}"))
 
 
-def _open(datasets: dict, path: str):
+def _open(datasets: dict, path: str, env: Optional[dict] = None):
     if path not in datasets:
         import rasterio
-        datasets[path] = rasterio.open(path)
+        with rasterio.Env(**(env or {})):
+            datasets[path] = rasterio.open(path)
     return datasets[path]
 
 
@@ -54,7 +55,7 @@ def _handle(datasets: dict, op: str, args: dict):
         return "pong"
     if op == "crash":            # test hook: a hard native-style death, no Python cleanup
         os._exit(134)
-    src = _open(datasets, args["path"])
+    src = _open(datasets, args["path"], args.get("env"))
     if op == "info":
         b = src.bounds
         return {"bounds": [b.left, b.bottom, b.right, b.top], "crs": str(src.crs) if src.crs else None,
@@ -67,7 +68,57 @@ def _handle(datasets: dict, op: str, args: dict):
         h = int(args.get("half", 4))
         a = src.read(int(args.get("band", 1)), window=Window(col - h, row - h, 2 * h + 1, 2 * h + 1))
         return a.tolist()
+    if op == "zonal":
+        return _zonal(datasets, src, args)
+    if op == "masked":
+        import numpy as np
+        import rasterio
+        from rasterio.features import geometry_mask
+        from rasterio.mask import mask as rio_mask
+        with rasterio.Env(**(args.get("env") or {})):
+            arr, tr = rio_mask(src, [args["geometry"]], crop=True, filled=False)
+        a = arr[0]
+        # inside: the geometry alone (pixel centres); valid: inside AND holding a value — a nodata pixel is still
+        # inside the shape (E172: a dry pixel of the flood maps is nodata, and is land, not outside)
+        inside = ~geometry_mask([args["geometry"]], out_shape=a.shape, transform=tr, invert=False)
+        return {"values": np.ma.getdata(a).tolist(), "inside": inside.tolist(),
+                "valid": (inside & ~np.ma.getmaskarray(a)).tolist(), "transform": [tr.a, tr.b, tr.c, tr.d, tr.e, tr.f]}
     raise ValueError(f"unknown op {op}")
+
+
+def _zonal(datasets: dict, src, args: dict):
+    """Counts over the pixels whose centres fall in a polygon (in the raster's CRS): how many are inside (less any
+    pixel the exclude mask flags), how many of those hold a valid value above the threshold, and the sum and maximum of
+    those values. None when the polygon does not reach the raster. The window is clipped to the raster before reading,
+    so the mask and the pixels share one transform."""
+    import numpy as np
+    from rasterio.errors import WindowError
+    from rasterio.features import geometry_mask
+    from rasterio.windows import Window, from_bounds
+    from shapely.geometry import Polygon
+    poly = Polygon(args["polygon"])
+    try:
+        win = (from_bounds(*poly.bounds, src.transform).round_offsets().round_lengths()
+               .intersection(Window(0, 0, src.width, src.height)))
+    except WindowError:
+        return None
+    if win.width < 1 or win.height < 1:
+        return None
+    inside = ~geometry_mask([poly], out_shape=(int(win.height), int(win.width)), transform=src.window_transform(win),
+                            invert=False)
+    ex = args.get("exclude")
+    if ex:
+        inside &= ~(_open(datasets, ex["path"]).read(1, window=win) == ex["value"])
+    a = src.read(int(args.get("band", 1)), window=win).astype("float32")
+    nod = src.nodata
+    present = inside & np.isfinite(a) & ((a != nod) if nod is not None else True)
+    if args.get("above") is not None:
+        present &= a > float(args["above"])
+    out = {"inside": int(inside.sum()), "present": int(present.sum()),
+           "sum": float(a[present].sum(dtype="float64")), "max": float(a[present].max()) if present.any() else 0.0}
+    if args.get("values"):
+        out["values"] = a[present].tolist()
+    return out
 
 
 # ── the parent ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -171,6 +222,31 @@ def window(path: str, x: float, y: float, band: int = 1, half: int = 4):
         return None
     import numpy as np
     return np.asarray(got)
+
+
+def zonal(path: str, polygon: list[tuple[float, float]], above: Optional[float] = None,
+          exclude: Optional[dict] = None, band: int = 1, values: bool = False) -> Optional[dict]:
+    """{inside, present, sum, max[, values]} over the pixels of `path` whose centres fall in `polygon` (raster CRS);
+    `exclude` = {path, value} masks pixels of a raster on the same grid; `above` counts only values above it;
+    `values` returns the present pixels' values too. None when the polygon misses the raster, the file is absent, or
+    the read failed."""
+    if not str(path).startswith("/vsicurl") and not os.path.exists(path):
+        return None
+    return _SAMPLER.call("zonal", {"path": str(path), "polygon": [(float(x), float(y)) for x, y in polygon],
+                                   "above": above, "exclude": exclude, "band": band, "values": values})
+
+
+def masked(path: str, geometry: dict, env: Optional[dict] = None) -> Optional[dict]:
+    """The raster cropped to a GeoJSON geometry (raster CRS): {values, inside, valid, transform} — `inside` marks the
+    pixels whose centres fall in the geometry (the rest of the bounding box is not the geometry); `valid` those of them
+    that hold a value (not the raster's nodata). None on a failed read."""
+    got = _SAMPLER.call("masked", {"path": str(path), "geometry": geometry, "env": env})
+    if got is None:
+        return None
+    import numpy as np
+    from affine import Affine
+    return {"values": np.asarray(got["values"]), "inside": np.asarray(got["inside"], dtype=bool),
+            "valid": np.asarray(got["valid"], dtype=bool), "transform": Affine(*got["transform"])}
 
 
 def crash_for_test() -> None:

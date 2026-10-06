@@ -415,5 +415,191 @@
     "sha256": "aa2533fa1c5e416254503747f43631972139f6924e12d3acc2139f41ddf5a4c1"
    }
   ]
+ },
+ "storm_v4_compact": {
+  "source": "derived from the event set storm_v4 (data/reference/event_sets.json) by services.loss.storm_events.compact",
+  "licence": "CC0 1.0",
+  "version": "v4",
+  "files": [
+   {
+    "file": "data/datasets/storm_v4/EP.npz",
+    "bytes": 111135356,
+    "sha256": "8739377ffe3fce3bb6da8a29d0d1919da1cc016fe3534542dd3590a95754a920",
+    "track_points": 5051541
+   },
+   {
+    "file": "data/datasets/storm_v4/NA.npz",
+    "bytes": 75336032,
+    "sha256": "1f3b90a8f460833059459e5d21e624de6953542a631855a4ee1f809c3d947fb1",
+    "track_points": 3424299
+   },
+   {
+    "file": "data/datasets/storm_v4/NI.npz",
+    "bytes": 8253698,
+    "sha256": "fe28006a2ae0cb5f2a8acc9e234c81c4f0dde90f5bc8cfcd6acae140418f47f3",
+    "track_points": 375102
+   },
+   {
+    "file": "data/datasets/storm_v4/SI.npz",
+    "bytes": 83017222,
+    "sha256": "517ba5ce3e17166fa899660f96dc1c84d700137600ccdd41e3a10d8433178bab",
+    "track_points": 3773444
+   },
+   {
+    "file": "data/datasets/storm_v4/SP.npz",
+    "bytes": 68704990,
+    "sha256": "043a4c4f86cab8797902e15b49ba47a72cf1a5d5311092f7c3b0f65b69766396",
+    "track_points": 3122888
+   },
+   {
+    "file": "data/datasets/storm_v4/WP.npz",
+    "bytes": 192657676,
+    "sha256": "2767b7187460020f3e81d4481a19f51b91ab58923b4820138b5f3ac00be74f96",
+    "track_points": 8757101
+   }
+  ]
+ },
+ "nfip_curve_claims": {
+  "source": "data/loss_val/nfip/NfipClaimsV3.parquet",
+  "url": "https://www.fema.gov/openfema-data-page/nfip-redacted-claims-v3",
+  "terms": "This dataset is not intended to be an official federal report (FEMA)",
+  "rows_in": 2725989,
+  "kept": 1925286,
+  "set_aside": {
+   "no recorded water depth": 237054,
+   "no building value (actual cash value missing or not above zero)": 561287,
+   "no building damage amount": 0,
+   "negative building damage amount": 0,
+   "damage above the building's value (ratio over 1)": 2362
+  },
+  "file": "data/datasets/nfip_curves/claims.parquet",
+  "bytes": 55245846,
+  "sha256": "4913f5e58b899cdd7837e312142c8ec8dcaa92cd6003f457e7d8d70221a2fd91",
+  "source_sha256": "22278834a1c402a433a5927135382f65c08dd208a292835ed7b16afcc7ecd9cf"
+ },
+ "copernicus_glo30_test": {
+  "source": "Copernicus DEM GLO-30 Public (copernicus-dem-30m, AWS Open Data)",
+  "url": "https://copernicus-dem-30m.s3.amazonaws.com",
+  "kind": "digital surface model (includes buildings and vegetation)",
+  "licence": null,
+  "licence_status": "to verify before customer-facing use",
+  "licence_pointer": "the bucket readme: 'available on a free basis for the general public under the terms and conditions of the Licence' at spacedata.copernicus.eu",
+  "absent": [],
+  "files": [
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N37_00_W002_00_DEM.tif",
+    "bytes": 27713326,
+    "sha256": "8522d92de8e4187b837336c8c8e3bc67282023a73af921d9b2f71a39c93de8af",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N37_00_W001_00_DEM.tif",
+    "bytes": 5020532,
+    "sha256": "cbb955454fd7b1c6d9f7fb775734848a8bcab78f94baeb10410d39ee7561444d",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N38_00_W002_00_DEM.tif",
+    "bytes": 41773482,
+    "sha256": "64afb397c21a253fe9a32db9df55e4453718c56ad2956875c1852b48face1b01",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N38_00_W001_00_DEM.tif",
+    "bytes": 32657975,
+    "sha256": "6c87a1d6e35e59f1ae7f8d7561b1009284bcf3b182d0f49013b4a26277a5deae",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N39_00_W001_00_DEM.tif",
+    "bytes": 36683824,
+    "sha256": "c8be9c127747b441120a081685653cedbe50f4ec08402d61dbd8d03f5ad2991b",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N43_00_E007_00_DEM.tif",
+    "bytes": 12574196,
+    "sha256": "234bb778988bde3a554a45184b8328e67accd8187d2b8745a4c456d41edd6466",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N44_00_E007_00_DEM.tif",
+    "bytes": 42478536,
+    "sha256": "46c935ca378cb9b0e78b98c7232d9552b6d37248de6ce123ba187abb3954e352",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N44_00_E011_00_DEM.tif",
+    "bytes": 48965154,
+    "sha256": "dec25503aa95a0956bb572f48fe7537a8aa767a1709f19f5d929b57f9e54281f",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N44_00_E012_00_DEM.tif",
+    "bytes": 19125532,
+    "sha256": "85e136100e1c4ef2561b96c3a7068af5c2b279d7d1e7a1aa88a2a8421d0de2e3",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N49_00_E015_00_DEM.tif",
+    "bytes": 41963684,
+    "sha256": "175cea51ed18558081e9d4c41248cff1a8948e3f142cb78d216ec2be4f8961e5",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N49_00_E016_00_DEM.tif",
+    "bytes": 43212850,
+    "sha256": "7693a854c6d8e9a4d3ca3e198c34aa6ce1aa0407bb35b5f469c2a31f016befb2",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N49_00_E017_00_DEM.tif",
+    "bytes": 43019646,
+    "sha256": "3edccab7ca60aaee375a0234b67caa565113d7a41b524ca6dc1468138cb05519",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N49_00_E018_00_DEM.tif",
+    "bytes": 43539786,
+    "sha256": "ac839342304923bd945d0f2e423b3119877f125a01ffd9c908dd713a422784f9",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N50_00_E006_00_DEM.tif",
+    "bytes": 30359565,
+    "sha256": "41f820867a2823b124dd2cc097101fa83f166652b9b95154ce9f557281ddb9d4",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N50_00_E007_00_DEM.tif",
+    "bytes": 31315614,
+    "sha256": "76375ccf299d0e2d2fe537bfe5a0da02b93e0dad15c26a07afbd563af49fb42c",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N50_00_E015_00_DEM.tif",
+    "bytes": 29417629,
+    "sha256": "4d66fd83db00566a1da0198819dd72691339633a6901f88f501e5161933f4335",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N50_00_E016_00_DEM.tif",
+    "bytes": 29424787,
+    "sha256": "a90676c99827f367a2a5789cee7cc416a506678346569360cdf5b108f44103d0",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N50_00_E017_00_DEM.tif",
+    "bytes": 29088710,
+    "sha256": "582595f5b17450b2b57aeb0e2ab3cea8725e9e748b90a8899f44239559a61dc8",
+    "set": "test"
+   },
+   {
+    "file": "data/datasets/glo30/Copernicus_DSM_COG_10_N50_00_E018_00_DEM.tif",
+    "bytes": 29618276,
+    "sha256": "c74a4fc2f69a5a865a6f636ba02cdc127c757c521255f27c64b9f22ae225cafa",
+    "set": "test"
+   }
+  ]
  }
 }

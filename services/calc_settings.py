@@ -39,6 +39,13 @@ def _orsa_qualifying(which: str) -> list[str]:
     return sorted(k for k, v in ref["scenarios"].items() if ok(v["warming_2081_2100_c"]))
 
 
+def _loss_families(peril: str) -> list[str]:
+    """The damage-curve families a loss may be computed with for this peril: the sound, registered families
+    (services.loss.curves; a refused family is never offered)."""
+    from services.loss.curves import families
+    return sorted(k for k, f in families().items() if f["peril"] == peril)
+
+
 def _p3_t1_statements() -> dict:
     from services.governance.pillar3_t1 import switches
     return switches()
@@ -122,6 +129,32 @@ INTERPRETATION_SCHEMA: dict = {
                        "wave-one undertakings not exceeding EUR 450m net turnover or 1 000 employees for the financial "
                        "years starting in 2025 and 2026. 'exempted' = the undertaking's Member State applied it.",
         "sectors": ["manufacturer"],
+    },
+    # The loss foundation (E171): which published or measured damage-curve family the institution adopts per peril —
+    # its stated method, stamped on what the loss feeds. No default: not adopted, every loss is a named gap.
+    "loss_curve_family_flood": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("flood"),
+        "label": "Flood damage curves (loss figures)",
+        "description": "The family of damage curves your flood losses are computed with: each asset's use and country "
+                       "select the curve within it, and the family's test on observed losses decides whether a figure "
+                       "is published, held or shown as untested. Not set, every flood loss is a named gap.",
+        "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
+    },
+    "loss_curve_family_storm": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("storm"),
+        "label": "Tropical-cyclone damage curves (loss figures)",
+        "description": "The family of tropical-cyclone damage curves your losses are computed with. Not set, every "
+                       "cyclone loss is a named gap.",
+        "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
+    },
+    "loss_flood_dependence": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": ["comonotonic"],
+        "label": "How flood losses across the book combine",
+        "description": "Flood maps give each asset's loss at a return period, not which assets flood together. "
+                       "'comonotonic' adds every asset's 1-in-N loss as if all flood at their own 1-in-N level at once "
+                       "— the most each return period could cost. Not set, the book's flood exceedance curve is a "
+                       "named gap; each asset's figures stand regardless.",
+        "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
     "climate_var_dependence": {
         "frameworks": ["sfdr_pai"],

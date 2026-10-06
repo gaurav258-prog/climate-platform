@@ -42,6 +42,17 @@ def ems_extent(ev: dict):
     return unary_union([shape(f["geometry"]).buffer(0) for f in fc["features"]]), fc
 
 
+def ems_mapped(ev: dict):
+    """The area EMS mapped for the event (the union of its accepted products' outlines), or None when the file predates
+    it (E172) — never a stand-in such as the observed polygons' convex hull."""
+    p = VAL / f"ems_{slug(ev['name'])}.geojson"
+    if not p.exists():
+        return None
+    from shapely.geometry import shape
+    doc = json.load(p.open())
+    return shape(doc["mapped_area"]).buffer(0) if doc.get("mapped_area") else None
+
+
 def label_nodes(cells: pd.Series, extent) -> np.ndarray:
     from shapely.geometry import box
     out = np.zeros(len(cells), dtype=int)

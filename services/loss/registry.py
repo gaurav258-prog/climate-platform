@@ -76,6 +76,12 @@ def check() -> list[str]:
             out.append(f"layer {k}: return periods must be distinct, ascending and above 1 year")
         if L.get("derived_from") and L["derived_from"] not in event_sets():
             out.append(f"layer {k}: derived from unregistered event set '{L['derived_from']}'")
+        if L.get("refines") and L["refines"] not in layers():
+            out.append(f"layer {k}: refines unregistered layer '{L['refines']}'")
+        if L.get("refines") and L.get("status") not in ("candidate", "in_use"):
+            out.append(f"layer {k}: a refinement is a 'candidate', or 'in_use' once adopted after a passed test")
+        if L.get("status") == "in_use" and not (L.get("test") or {}).get("passed"):
+            out.append(f"layer {k}: in use without a passed test")
         if not L.get("licence") and not L.get("licence_status"):
             out.append(f"layer {k}: neither a licence nor its verification status")
     for k, E in event_sets().items():

@@ -54,7 +54,7 @@ def _pe_existing(vertical: str, extra_select: str = "", extra_join: str = "") ->
             SELECT e.entity_id::text AS entity_id, e.external_ref, e.entity_name, e.entity_type, e.latitude, e.longitude, e.h3_cell,
                    e.region, e.country, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur, e.sector, e.nace_code,
                    e.construction_type, e.year_built, e.number_of_stories, e.borrower_entity_id, e.minimum_safeguards_status,
-                   e.reporting_entity_id::text AS reporting_entity_id, e.intragroup_entity_id::text AS intragroup_entity_id
+                   e.occupancy, e.reporting_entity_id::text AS reporting_entity_id, e.intragroup_entity_id::text AS intragroup_entity_id
                    {extra_select}
             FROM portfolio_entities e {extra_join}
             WHERE e.org_id = CAST(:o AS uuid) AND e.vertical = :v AND e.source = 'own'
@@ -93,7 +93,8 @@ def _bank_build(ctx: dict, row: dict) -> dict:
             "counterparty_govt_level": _vocab(row, "counterparty_govt_level", "govt_level"),
             "no_stated_maturity": _bool(row, "no_stated_maturity"),
             "counterparty_sector": _vocab(row, "counterparty_sector", "counterparty_sector"),
-            "immovable_collateral": _vocab(row, "immovable_collateral", "immovable_collateral")}
+            "immovable_collateral": _vocab(row, "immovable_collateral", "immovable_collateral"),
+            "building_value_eur": _m(row, "building_value_eur"), "occupancy": _vocab(row, "occupancy", "occupancy")}
 
 
 def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
@@ -103,29 +104,32 @@ def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
                                         region, country, primary_value_eur, sector, borrower_entity_id, minimum_safeguards_status,
-                                        reporting_entity_id, external_ref)
+                                        reporting_entity_id, external_ref, occupancy)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), 'banking', :entity_name, :entity_type, :latitude, :longitude, :h3_cell,
                 :region, :country, :primary_value_eur, :sector, :borrower_entity_id, :minimum_safeguards_status,
-                CAST(:reporting_entity_id AS uuid), :external_ref)
+                CAST(:reporting_entity_id AS uuid), :external_ref, :occupancy)
     """), recs)
     session.execute(text("""
         INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status,
                                  counterparty_evic_eur, counterparty_govt_level, no_stated_maturity, counterparty_sector,
-                                 immovable_collateral)
+                                 immovable_collateral, building_value_eur)
         VALUES (CAST(:entity_id AS uuid), :outstanding_loan_balance_eur, CAST(:loan_origination_date AS date), 'not_assessed',
-                :counterparty_evic_eur, :counterparty_govt_level, :no_stated_maturity, :counterparty_sector, :immovable_collateral)
+                :counterparty_evic_eur, :counterparty_govt_level, :no_stated_maturity, :counterparty_sector, :immovable_collateral,
+                :building_value_eur)
     """), recs)
 
 
 def _bank_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r["org_id"] = org_id
-    _pe_update(session, recs, _PE_COMMON + ("entity_type", "sector", "borrower_entity_id", "minimum_safeguards_status"))
+    _pe_update(session, recs, _PE_COMMON + ("entity_type", "sector", "borrower_entity_id", "minimum_safeguards_status",
+                                            "occupancy"))
     session.execute(text("""
         UPDATE ext_banking SET outstanding_loan_balance_eur = :outstanding_loan_balance_eur,
                loan_origination_date = CAST(:loan_origination_date AS date), counterparty_evic_eur = :counterparty_evic_eur,
                counterparty_govt_level = :counterparty_govt_level, no_stated_maturity = :no_stated_maturity,
-               counterparty_sector = :counterparty_sector, immovable_collateral = :immovable_collateral
+               counterparty_sector = :counterparty_sector, immovable_collateral = :immovable_collateral,
+               building_value_eur = :building_value_eur
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
@@ -133,11 +137,13 @@ def _bank_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
 BANK = Sector("bank_assets", "entity_name", "primary_value_eur",
               _PE_COMMON + ("entity_type", "sector", "borrower_entity_id", "minimum_safeguards_status",
                             "outstanding_loan_balance_eur", "loan_origination_date", "counterparty_evic_eur", "counterparty_govt_level",
-                            "no_stated_maturity", "counterparty_sector", "immovable_collateral"),
+                            "no_stated_maturity", "counterparty_sector", "immovable_collateral", "building_value_eur",
+                            "occupancy"),
               _default_entity, _bank_build,
               _pe_existing("banking", """, CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
                            to_char(x.loan_origination_date, 'YYYY-MM-DD') AS loan_origination_date,
                            CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur, x.counterparty_govt_level,
+                           CAST(x.building_value_eur AS FLOAT) AS building_value_eur,
                            x.no_stated_maturity, x.counterparty_sector, x.immovable_collateral""",
                            "LEFT JOIN ext_banking x ON x.entity_id = e.entity_id"),
               _bank_insert, _bank_update, group_entities=True)
@@ -179,7 +185,7 @@ def _ins_build(ctx: dict, row: dict) -> dict:
            "number_of_stories": _i(row, "number_of_stories"), "external_ref": _s(row, "external_ref"),
            "deductible_pct": ded, "building_value_eur": b, "contents_value_eur": c,
            "business_interruption_value_eur": bi, "postal_code": _postal_code(row),
-           "motor_sum_insured_eur": _m(row, "motor_sum_insured_eur")}
+           "motor_sum_insured_eur": _m(row, "motor_sum_insured_eur"), "occupancy": _vocab(row, "occupancy", "occupancy")}
     _plausible_building(rec)
     return rec
 
@@ -193,10 +199,10 @@ def _ins_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
                                         region, country, postal_code, primary_value_eur, construction_type, year_built,
-                                        number_of_stories, reporting_entity_id, external_ref)
+                                        number_of_stories, reporting_entity_id, external_ref, occupancy)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), 'insurance', :entity_name, :entity_type, :latitude, :longitude, :h3_cell,
                 :region, :country, :postal_code, :primary_value_eur, :construction_type, :year_built, :number_of_stories,
-                CAST(:reporting_entity_id AS uuid), :external_ref)
+                CAST(:reporting_entity_id AS uuid), :external_ref, :occupancy)
     """), recs)
     session.execute(text("""
         INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,
@@ -209,7 +215,8 @@ def _ins_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
 def _ins_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r["org_id"] = org_id
-    _pe_update(session, recs, _PE_COMMON + ("entity_type", "postal_code", "construction_type", "year_built", "number_of_stories"))
+    _pe_update(session, recs, _PE_COMMON + ("entity_type", "postal_code", "construction_type", "year_built", "number_of_stories",
+                                            "occupancy"))
     session.execute(text("""
         UPDATE ext_insurance SET deductible_pct = :deductible_pct, building_value_eur = :building_value_eur,
                contents_value_eur = :contents_value_eur, business_interruption_value_eur = :business_interruption_value_eur,
@@ -221,7 +228,7 @@ def _ins_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
 INSURANCE = Sector("insurance_policies", "entity_name", "primary_value_eur",
                    _PE_COMMON + ("entity_type", "construction_type", "year_built", "number_of_stories", "deductible_pct",
                                  "building_value_eur", "contents_value_eur", "business_interruption_value_eur",
-                                 "postal_code", "motor_sum_insured_eur"),
+                                 "postal_code", "motor_sum_insured_eur", "occupancy"),
                    _default_entity, _ins_build,
                    _pe_existing("insurance", """, CAST(x.deductible_pct AS FLOAT) AS deductible_pct,
                                 CAST(x.building_value_eur AS FLOAT) AS building_value_eur, CAST(x.contents_value_eur AS FLOAT) AS contents_value_eur,
@@ -250,7 +257,8 @@ def _rei_build(ctx: dict, row: dict) -> dict:
            "region": _s(row, "region"), "country": _s(row, "country"),
            "primary_value_eur": _positive(row, "property_value_eur", "property_value_eur"), "annual_noi_eur": noi,
            "annual_gross_rental_revenue_eur": _m(row, "annual_gross_rental_revenue_eur"),
-           "sum_insured_eur": _m(row, "sum_insured_eur"),
+           "sum_insured_eur": _m(row, "sum_insured_eur"), "building_value_eur": _m(row, "building_value_eur"),
+           "occupancy": _vocab(row, "occupancy", "occupancy"),
            "construction_type": _vocab(row, "construction_type", "construction_type"), "year_built": _i(row, "year_built"),
            "number_of_stories": _i(row, "number_of_stories"), "epc_rating": _vocab(row, "epc_rating", "epc_rating"),
            "borrower_entity_id": _s(row, "borrower_entity_id"),
@@ -268,18 +276,19 @@ def _rei_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
                                         region, country, primary_value_eur, construction_type, year_built, number_of_stories,
-                                        borrower_entity_id, minimum_safeguards_status, reporting_entity_id, external_ref)
+                                        borrower_entity_id, minimum_safeguards_status, reporting_entity_id, external_ref,
+                                        occupancy)
         VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), 'realestate', :entity_name, :entity_type, :latitude, :longitude, :h3_cell,
                 :region, :country, :primary_value_eur, :construction_type, :year_built, :number_of_stories,
-                :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid), :external_ref)
+                :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid), :external_ref, :occupancy)
     """), recs)
     session.execute(text("""
         INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating, annual_gross_rental_revenue_eur, sum_insured_eur,
                                     ped_top15_evidence, meets_new_building_criteria, heating_rated_output_kw,
-                                    energy_performance_monitoring, adaptation_plan_in_place)
+                                    energy_performance_monitoring, adaptation_plan_in_place, building_value_eur)
         VALUES (CAST(:entity_id AS uuid), :annual_noi_eur, :epc_rating, :annual_gross_rental_revenue_eur, :sum_insured_eur,
                 :ped_top15_evidence, :meets_new_building_criteria, :heating_rated_output_kw,
-                :energy_performance_monitoring, :adaptation_plan_in_place)
+                :energy_performance_monitoring, :adaptation_plan_in_place, :building_value_eur)
     """), recs)
 
 
@@ -287,13 +296,14 @@ def _rei_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
     for r in recs:
         r["org_id"] = org_id
     _pe_update(session, recs, _PE_COMMON + ("entity_type", "construction_type", "year_built", "number_of_stories",
-                                            "borrower_entity_id", "minimum_safeguards_status"))
+                                            "borrower_entity_id", "minimum_safeguards_status", "occupancy"))
     session.execute(text("""
         UPDATE ext_realestate SET annual_noi_eur = :annual_noi_eur, epc_rating = :epc_rating,
                annual_gross_rental_revenue_eur = :annual_gross_rental_revenue_eur, sum_insured_eur = :sum_insured_eur,
                ped_top15_evidence = :ped_top15_evidence, meets_new_building_criteria = :meets_new_building_criteria,
                heating_rated_output_kw = :heating_rated_output_kw,
-               energy_performance_monitoring = :energy_performance_monitoring, adaptation_plan_in_place = :adaptation_plan_in_place
+               energy_performance_monitoring = :energy_performance_monitoring, adaptation_plan_in_place = :adaptation_plan_in_place,
+               building_value_eur = :building_value_eur
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
@@ -301,12 +311,13 @@ def _rei_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
 REALESTATE = Sector("realestate_properties", "entity_name", "primary_value_eur",
                     _PE_COMMON + ("entity_type", "construction_type", "year_built", "number_of_stories", "borrower_entity_id",
                                   "minimum_safeguards_status", "annual_noi_eur", "epc_rating", "annual_gross_rental_revenue_eur",
-                                  "sum_insured_eur")
+                                  "sum_insured_eur", "building_value_eur", "occupancy")
                     + _TAXONOMY_7_7,
                     _default_entity, _rei_build,
                     _pe_existing("realestate", """, CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur, x.epc_rating,
                                  CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur,
                                  CAST(x.sum_insured_eur AS FLOAT) AS sum_insured_eur,
+                                 CAST(x.building_value_eur AS FLOAT) AS building_value_eur,
                                  x.ped_top15_evidence, x.meets_new_building_criteria,
                                  CAST(x.heating_rated_output_kw AS FLOAT) AS heating_rated_output_kw,
                                  x.energy_performance_monitoring, x.adaptation_plan_in_place""",
@@ -537,6 +548,7 @@ def _site_build(ctx: dict, row: dict) -> dict:
         raise RowIssue(f"country '{country}' is not a valid ISO-2 code")
     held_from, held_until = _held(row)
     return {"name": name, "site_type": _vocab(row, "site_type", "site_type") or "other", "address": address,
+            "occupancy": _vocab(row, "occupancy", "occupancy"),
             "latitude": lat, "longitude": lon, "h3_cell": cell, "region": _s(row, "region"),
             "country": country.upper() if country else None, "annual_value_eur": _m(row, "annual_value_eur"),
             "annual_throughput_eur": _m(row, "annual_throughput_eur"), "area_ha": _m(row, "site_area_ha", 4),
@@ -546,7 +558,7 @@ def _site_build(ctx: dict, row: dict) -> dict:
 
 def _site_existing(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
-        SELECT site_id::text AS entity_id, external_ref, name, site_type, address, latitude, longitude, h3_cell, region, country,
+        SELECT site_id::text AS entity_id, external_ref, name, site_type, occupancy, address, latitude, longitude, h3_cell, region, country,
                CAST(annual_value_eur AS FLOAT) AS annual_value_eur, CAST(annual_throughput_eur AS FLOAT) AS annual_throughput_eur,
                CAST(area_ha AS FLOAT) AS area_ha, held_from::text AS held_from, held_until::text AS held_until,
                entity_id::text AS reporting_entity_id, NULL::text AS intragroup_entity_id
@@ -562,10 +574,10 @@ def _site_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
         r.setdefault("_precision", "exact")
         r.setdefault("_confidence", 1.0)
     session.execute(text("""
-        INSERT INTO sc_company_sites (site_id, org_id, name, site_type, address, latitude, longitude, h3_cell, region, country,
-                                      annual_value_eur, annual_throughput_eur, area_ha, held_from, held_until, external_ref,
+        INSERT INTO sc_company_sites (site_id, org_id, name, site_type, occupancy, address, latitude, longitude, h3_cell, region,
+                                      country, annual_value_eur, annual_throughput_eur, area_ha, held_from, held_until, external_ref,
                                       entity_id, confidence, geocode_precision, source)
-        VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), :name, :site_type, :address, :latitude, :longitude, :h3_cell,
+        VALUES (CAST(:entity_id AS uuid), CAST(:org_id AS uuid), :name, :site_type, :occupancy, :address, :latitude, :longitude, :h3_cell,
                 :region, :country, :annual_value_eur, :annual_throughput_eur, :area_ha, CAST(:held_from AS date),
                 CAST(:held_until AS date), :external_ref, CAST(:reporting_entity_id AS uuid), :_confidence, :_precision, 'intake')
     """), recs)
@@ -575,7 +587,7 @@ def _site_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     for r in recs:
         r["org_id"] = org_id
     session.execute(text("""
-        UPDATE sc_company_sites s SET name = :name, site_type = :site_type, address = :address, latitude = :latitude,
+        UPDATE sc_company_sites s SET name = :name, site_type = :site_type, occupancy = :occupancy, address = :address, latitude = :latitude,
                longitude = :longitude, h3_cell = :h3_cell, region = :region, country = :country,
                annual_value_eur = :annual_value_eur, annual_throughput_eur = :annual_throughput_eur, area_ha = :area_ha,
                held_from = CAST(:held_from AS date), held_until = CAST(:held_until AS date), external_ref = :external_ref,
@@ -585,7 +597,7 @@ def _site_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
 
 
 SITES = Sector("company_sites", "name", "annual_value_eur",
-               ("name", "site_type", "address", "latitude", "longitude", "region", "country", "annual_value_eur",
+               ("name", "site_type", "occupancy", "address", "latitude", "longitude", "region", "country", "annual_value_eur",
                 "annual_throughput_eur", "area_ha", "held_from", "held_until", "external_ref"),
                _site_prepare, _site_build, _site_existing, _site_insert, _site_update,
                table="sc_company_sites", id_column="site_id", group_entities=True)

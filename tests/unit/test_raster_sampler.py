@@ -55,3 +55,20 @@ def test_inprocess_mode_for_tests(tif, monkeypatch):
     from services.geo import raster_sampler as rs
     assert rs.sample(tif, [(2.5, 7.5)]) == [[22.0]] and rs.health()["inprocess"]
     assert os.environ["RASTER_SAMPLER_INPROCESS"] == "1"
+
+
+def test_masked_tells_inside_the_shape_from_holding_a_value(tmp_path, isolated):
+    """E172: a nodata pixel inside the shape is inside (a dry flood-map pixel is land), but holds no value."""
+    from rasterio.transform import from_origin
+
+    from services.geo import raster_sampler as rs
+    p = tmp_path / "n.tif"
+    data = np.full((10, 10), -9999.0, dtype="float32")
+    data[2:4, 2:4] = 1.5                                            # four wet pixels, the rest nodata
+    with rasterio.open(p, "w", driver="GTiff", height=10, width=10, count=1, dtype="float32", crs="EPSG:4326",
+                       transform=from_origin(0.0, 10.0, 1.0, 1.0), nodata=-9999.0) as dst:
+        dst.write(data, 1)
+    got = rs.masked(str(p), {"type": "Polygon", "coordinates": [[(1, 9), (6, 9), (6, 4), (1, 4), (1, 9)]]})
+    assert got["inside"].sum() == 25                                # the 5×5 pixel centres inside the square
+    assert got["valid"].sum() == 4                                  # of which four hold a value
+    assert (got["valid"] <= got["inside"]).all()

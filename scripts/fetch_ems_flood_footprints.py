@@ -11,7 +11,12 @@ pages carry no event title, so an activation id cannot be looked up by name. We 
 around a best guess and VERIFY each by evidence inside the package itself: the areaOfInterestA footprint must
 sit inside the event's fetch_area and the product's file date must be within DATE_TOL days of the event peak.
 Unverified candidates are discarded; a verified one is recorded with its id, AOIs and product date.
-Usage: PYTHONPATH=. .venv/bin/python scripts/fetch_ems_flood_footprints.py
+Each observed layer must also be the product's own (E172): its file names the activation and AOI it is listed
+under and its polygons lie inside that product's outline — the catalogue once listed another activation's layer (a
+Bolivian flood) under Storm Boris. Accepted layers and refused ones (with the reason) are recorded in the file, with
+the mapped area: the union of the accepted products' own outlines — where EMS looked. Outside it a place was not
+observed, so it is neither flooded nor dry.
+Usage: PYTHONPATH=. .venv/bin/python scripts/fetch_ems_flood_footprints.py [--refetch "<event name>"]
 """
 from __future__ import annotations
 
@@ -24,6 +29,7 @@ from datetime import date
 from pathlib import Path
 
 import requests
+from shapely import wkt
 from shapely.geometry import shape
 from shapely.ops import unary_union
 
@@ -63,17 +69,43 @@ def api_activation(emsr: str) -> dict | None:
     return res[0] if res else None
 
 
-def api_observed_layers(act: dict) -> list[str]:
-    """JSON URLs of every delineation product's observedEventA layer, across all AOIs."""
-    urls = []
+def api_observed_layers(act: dict) -> list[dict]:
+    """Every delineation product's observedEventA layer, across all AOIs: its JSON URL with the activation, AOI number
+    and product outline (WKT) it is listed under — the evidence `layer_refusal` checks it against."""
+    out = []
     for aoi in act.get("aois", []):
         for pr in aoi.get("products", []):
             if pr.get("type") != "DEL":
                 continue
             for layer in pr.get("layers", []):
                 if "observedEventA" in (layer.get("name") or "") and layer.get("json"):
-                    urls.append(layer["json"])
-    return urls
+                    out.append({"url": layer["json"], "emsr": pr.get("activationCode") or act.get("code"),
+                                "aoi": pr.get("aoiNumber", aoi.get("number")), "extent": pr.get("extent") or aoi.get("extent")})
+    return out
+
+
+INSIDE_MIN = 0.99     # share of a layer's flooded area that must lie inside the product outline it is listed under
+
+
+def layer_refusal(layer: dict, geoms: list) -> str | None:
+    """Why a listed observedEventA layer is not this product's own observation, or None when it is (E172). The EMS
+    catalogue can list a layer of another activation under a product (EMSR756 AOI02 listed EMSR765_AOI01's file — a
+    flood in Bolivia), so a layer is accepted only when its file names the activation and AOI it is listed under AND
+    its polygons lie inside that product's outline."""
+    from shapely import wkt
+    name = layer["url"].rsplit("/", 1)[-1]
+    own = f"{layer['emsr']}_AOI{int(layer['aoi']):02d}_"
+    if not name.startswith(own):
+        return f"listed under {own.rstrip('_')} but the file is {name}"
+    if not layer.get("extent"):
+        return f"{name}: the product states no outline to check the polygons against"
+    if not geoms:
+        return None
+    u = unary_union(geoms)
+    inside = u.intersection(wkt.loads(layer["extent"]).buffer(0)).area / u.area if u.area else 1.0
+    if inside < INSIDE_MIN:
+        return f"{name}: only {inside:.1%} of its flooded area lies inside the product outline it is listed under"
+    return None
 
 
 def api_verify(ev: dict, act: dict) -> bool:
@@ -133,37 +165,58 @@ def fetch_event(ev: dict) -> dict | None:
     if g is None:
         return None
     lo, hi = SPANS.get(ev["name"], (g - SPAN, g + SPAN))
-    all_obs, used, pdates = [], {}, []
+    all_obs, used, pdates, layers, refused, mapped = [], {}, [], [], [], []
     for k in range(lo, hi + 1):
         emsr = f"EMSR{k:03d}"
         act = api_activation(emsr)
         if act is not None:                       # API era: verify on metadata, read the observedEventA layer JSONs
             if not api_verify(ev, act):
                 continue
-            for u in api_observed_layers(act):
+            for lay in api_observed_layers(act):
+                name = lay["url"].rsplit("/", 1)[-1]
                 try:
-                    fc = requests.get(u, headers=HEADERS, timeout=120).json()
+                    fc = requests.get(lay["url"], headers=HEADERS, timeout=120).json()
                 except Exception as e:
-                    print(f"    {u.rsplit('/', 1)[-1]}: {e}"); continue
+                    print(f"    {name}: {e}"); continue
                 geoms = [shape(f["geometry"]).buffer(0) for f in fc.get("features", []) if f.get("geometry")]
+                why = layer_refusal(lay, geoms)
+                if why:
+                    refused.append({"emsr": lay["emsr"], "aoi": lay["aoi"], "file": name, "reason": why})
+                    print(f"    refused — {why}"); continue
                 if geoms:
                     all_obs += geoms; used[emsr] = used.get(emsr, 0) + 1
+                    layers.append({"emsr": lay["emsr"], "aoi": lay["aoi"], "file": name})
+                    mapped.append(wkt.loads(lay["extent"]).buffer(0))
                     pdates.append(date.fromisoformat(act["eventTime"][:10]))
             print(f"    {emsr} {act['name']} ({act['eventTime'][:10]}): {used.get(emsr, 0)} observed-event layers")
             continue
         for u in product_zips(emsr):
+            name = u.rsplit("/", 1)[-1]
             try:
                 aoi, obs, pdate = read_package(u)
             except Exception as e:  # one broken package must not kill the scan
-                print(f"    {u.rsplit('/', 1)[-1]}: {e}"); continue
-            if verify(ev, aoi, pdate) and obs:
-                all_obs += obs; used[emsr] = used.get(emsr, 0) + 1; pdates.append(pdate)
+                print(f"    {name}: {e}"); continue
+            if not (verify(ev, aoi, pdate) and obs):
+                continue
+            o = unary_union(obs)
+            inside = o.intersection(unary_union(aoi)).area / o.area if o.area else 1.0
+            if inside < INSIDE_MIN:              # the same rule as the API era: the observation lies in its own AOI
+                refused.append({"emsr": emsr, "file": name,
+                                "reason": f"only {inside:.1%} of its flooded area lies inside the package's own AOI"})
+                continue
+            all_obs += obs; used[emsr] = used.get(emsr, 0) + 1; pdates.append(pdate)
+            layers.append({"emsr": emsr, "file": name})
+            mapped += aoi
     if not all_obs:
         return None
     u = unary_union(all_obs)
+    area = unary_union(mapped)
     return {"type": "FeatureCollection", "event": ev["name"], "emsr": "+".join(sorted(used)), "n_aoi_packages": sum(used.values()),
-            "product_date": min(pdates).isoformat(), "flooded_km2": round(_km2(u), 1),
+            "product_date": min(pdates).isoformat(), "flooded_km2": round(_km2(u), 1), "mapped_km2": round(_km2(area), 1),
             "source": "Copernicus EMS rapid mapping, delineation product, observedEventA (official flooded area)",
+            "layers": layers, "refused": refused,
+            # the areas EMS actually mapped (each accepted product's own outline): outside them nothing was observed
+            "mapped_area": area.__geo_interface__,
             "features": [{"type": "Feature", "properties": {"emsr": "+".join(sorted(used))}, "geometry": u.__geo_interface__}]}
 
 
@@ -173,13 +226,16 @@ def _km2(geom) -> float:
     return geom.area * (111.32 ** 2) * math.cos(math.radians(lat))
 
 
-def main() -> int:
+def main(refetch: set[str] = frozenset()) -> int:
+    """Fetch every EMS-era event not yet landed; `--refetch "<event name>"` rebuilds the named events only."""
     OUT.mkdir(parents=True, exist_ok=True)
     for ev in EVENTS:
+        if refetch and ev["name"] not in refetch:
+            continue
         if ev["peak"] < date(2012, 1, 1) or ev["name"] not in GUESS:
             print(f"{ev['name']:30s} pre-EMS / no candidate — skipped"); continue
         out = OUT / f"ems_{slug(ev['name'])}.geojson"
-        if out.exists():
+        if out.exists() and ev["name"] not in refetch:
             print(f"{ev['name']:30s} already landed ({out.name})"); continue
         fc = fetch_event(ev)
         if fc is None:
@@ -187,9 +243,10 @@ def main() -> int:
             print(f"{ev['name']:30s} NOT FOUND in EMSR{lo:03d}..EMSR{hi:03d}"); continue
         out.write_text(json.dumps(fc))
         print(f"{ev['name']:30s} {fc['emsr']}  AOIs {fc['n_aoi_packages']}  product {fc['product_date']}  "
-              f"flooded {fc['flooded_km2']} km²")
+              f"flooded {fc['flooded_km2']} km²  refused {len(fc['refused'])}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    args = sys.argv[1:]
+    sys.exit(main({args[i + 1] for i, a in enumerate(args) if a == "--refetch" and i + 1 < len(args)}))

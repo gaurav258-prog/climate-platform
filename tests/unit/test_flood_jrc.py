@@ -89,3 +89,20 @@ def test_a_cell_is_not_scored_from_a_partial_read(synthetic_tiles, tmp_path):
         assert ts.readable(box(5.0, 5.0, 5.1, 5.1))           # the complete west tile still reads
     finally:
         ts.close()
+
+
+def test_a_node_is_judged_only_where_ems_mapped_it():
+    """E172: two activations far apart — the land between them was not mapped, so its nodes are not judged dry (the
+    observed polygons' convex hull used to cover it); a node is judged when at least half its box was mapped."""
+    import h3
+    import pandas as pd
+    from shapely.geometry import box
+
+    from services.validation.validators.flood_jrc import event_nodes, observed_share
+    ev = {"flood_bbox": [51.0, 10.0, 49.0, 14.0]}
+    mapped = box(10.0, 49.0, 11.0, 50.0).union(box(13.0, 49.0, 14.0, 50.0))
+    inside, between = h3.latlng_to_cell(49.5, 10.5, 7), h3.latlng_to_cell(49.5, 12.0, 7)
+    judged = {c for c, _b in event_nodes(pd.Series([inside, between]), ev, mapped)}
+    assert inside in judged and between not in judged
+    b = box(10.95, 49.45, 11.05, 49.55)                          # half mapped; the mapped half all flooded
+    assert observed_share(box(10.0, 49.0, 11.0, 50.0), mapped, b) == 1.0

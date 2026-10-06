@@ -8,7 +8,7 @@ GOOD = {
     "source": {"authors": "A. Author", "year": 2017, "title": "A title", "publisher": "A publisher",
                "url": "https://example.org", "file": "data/reference/vulnerability/sources/x.pdf", "sha256": "ab" * 32},
     "licence": "CC BY 4.0", "beyond_last": "hold",
-    "curves": [{"key": "test_family:residential:europe", "occupancy": "residential", "region": "europe",
+    "curves": [{"key": "test_family:residential:europe", "occupancy": "residential", "region": "europe", "countries": ["ES"],
                 "points": [[0, 0], [0.5, 0.25], [1, 0.4], [6, 1.0]], "quote": {"table": "Table 3", "page": 12}}]}
 
 
@@ -55,3 +55,17 @@ def test_the_ratio_is_read_off_the_published_points():
     assert curves.ratio(pts, 0.25) == 0.125
     assert abs(curves.ratio(pts, 3.5) - (0.4 + 0.6 * 2.5 / 5)) < 1e-12
     assert curves.ratio(pts, 9) == 1.0
+
+
+def test_a_measured_family_records_its_derivation_test_and_bands():
+    d = copy.deepcopy(GOOD)
+    d["kind"] = "measured"
+    del d["curves"][0]["quote"]
+    assert any("protocol" in p for p in curves.check_family(d))
+    d["derivation"] = {"protocol": "loss-protocol-v1", "claims_used": 10}
+    d["test"] = {"passed": False, "events_tested": 3}
+    assert any("bands" in p for p in curves.check_family(d))
+    d["curves"][0]["bands"] = [{"n": 5, "p10": 0.01, "p90": 0.5}]
+    assert curves.check_family(d) == []
+    d["curves"][0]["countries"] = []
+    assert any("countries" in p for p in curves.check_family(d))

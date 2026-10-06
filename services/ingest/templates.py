@@ -47,6 +47,10 @@ ASSET_TEMPLATE_FIELDS = _template(
     ("outstanding_loan_balance_eur", False), ("loan_origination_date", False), ("region", False), ("country", False),
     ("borrower_entity_id", False), ("minimum_safeguards_status", False), ("counterparty_govt_level", False),
     ("no_stated_maturity", False), ("counterparty_sector", False), ("immovable_collateral", False),
+    ("building_value_eur", False, {"description": "The collateral building's own value, land excluded — what a damage "
+                                                  "curve's share is taken of. Without it a flood loss on the loan's "
+                                                  "collateral is a named gap (its appraised value includes the land)."}),
+    ("occupancy", False),
     ("external_ref", False, _ref("loan / facility")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
@@ -56,6 +60,7 @@ POLICY_TEMPLATE_FIELDS = _template(
     ("building_value_eur", False, {"description": "TIV component. Provide this + contents + BI, OR sum_insured_eur directly."}),
     ("contents_value_eur", False), ("business_interruption_value_eur", False), ("sum_insured_eur", False),
     ("construction_type", False), ("year_built", False), ("number_of_stories", False), ("deductible_pct", False),
+    ("occupancy", False),
     ("region", False, {"example": "Valencia"}), ("country", False, {"example": "ES"}), ("postal_code", False, {"example": "46001"}),
     ("motor_sum_insured_eur", False), ("policy_type", False), ("external_ref", False, _ref("policy or location")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
@@ -66,6 +71,10 @@ PROPERTY_TEMPLATE_FIELDS = _template(
     ("property_value_eur", True), ("annual_noi_eur", True), ("annual_gross_rental_revenue_eur", False),
     ("sum_insured_eur", False, {"description": "The property's insured value (buildings sum insured) — the base of what "
                                               "its insurance costs; never assumed equal to its market value."}),
+    ("building_value_eur", False, {"description": "The building's own value, land excluded — what a damage curve's share "
+                                                  "is taken of. Without it a flood loss is a named gap (the property "
+                                                  "value includes the land).", "example": "8000000"}),
+    ("occupancy", False),
     ("property_type", True), ("construction_type", False), ("year_built", False, {"example": "2011"}),
     ("number_of_stories", False, {"example": "1"}), ("region", False, {"example": "South Holland"}),
     ("country", False, {"example": "NL"}), ("epc_rating", False), ("borrower_entity_id", False),
@@ -99,8 +108,8 @@ SITE_TEMPLATE_FIELDS = _template(
     ("site_name", True),
     ("latitude", True, {"description": "Decimal degrees. Leave blank if you give the address.", "example": "39.4699"}),
     ("longitude", True, {"description": "Decimal degrees. Leave blank if you give the address.", "example": "-0.3763"}),
-    ("address", False), ("site_type", False), ("country", False, {"example": "ES"}), ("region", False, {"example": "Valencia"}),
-    ("annual_value_eur", False), ("annual_throughput_eur", False), ("site_area_ha", False),
+    ("address", False), ("site_type", False), ("occupancy", False), ("country", False, {"example": "ES"}),
+    ("region", False, {"example": "Valencia"}), ("annual_value_eur", False), ("annual_throughput_eur", False), ("site_area_ha", False),
     ("held_from", False), ("held_until", False), ("external_ref", False, _ref("site")), ("reporting_entity", False),
     ("currency", False), ("book_date", False),
 )

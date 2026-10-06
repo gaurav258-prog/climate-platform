@@ -72,36 +72,27 @@ def tile_for(lon: float, lat: float) -> Optional[str]:
 
 
 class TileReader:
+    """One EGMS tile, read through the isolated raster sampler (services.geo.raster_sampler, E170)."""
+
     def __init__(self, name: str):
-        import rasterio
         self.name = name
-        self.ds = rasterio.open(_tile_index()[name]["path"])
+        self.path = _tile_index()[name]["path"]
 
     def close(self):
-        self.ds.close()
+        pass
 
     def cell_rate(self, h3_cell: str) -> Optional[dict]:
         """{rate, n_pixels, mean_velocity, min_velocity} for an H3 cell, or None with too few measured pixels."""
         import h3
-        from rasterio.features import geometry_mask
-        from rasterio.windows import from_bounds
-        from shapely.geometry import Polygon
-        poly = Polygon([_to_3035(lo, la) for la, lo in h3.cell_to_boundary(h3_cell)])
-        minx, miny, maxx, maxy = poly.bounds
-        win = from_bounds(minx, miny, maxx, maxy, self.ds.transform).round_offsets().round_lengths()
-        if win.width < 1 or win.height < 1:
+
+        from services.geo import raster_sampler
+        ring = [_to_3035(lo, la) for la, lo in h3.cell_to_boundary(h3_cell)]
+        z = raster_sampler.zonal(self.path, ring + ring[:1], values=True)
+        if z is None or z["present"] < MIN_PIXELS:
             return None
-        arr = self.ds.read(1, window=win).astype("float32")
-        if arr.size == 0:
-            return None
-        inside = ~geometry_mask([poly], out_shape=arr.shape, transform=self.ds.window_transform(win), invert=False)
-        nod = self.ds.nodata
-        valid = inside & np.isfinite(arr) & ((arr != nod) if nod is not None else True)
-        if valid.sum() < MIN_PIXELS:
-            return None
-        v = arr[valid]
+        v = np.asarray(z["values"], dtype="float32")
         rate = float(np.percentile(-v, PCT))
-        return {"rate_mm_yr": round(rate, 2), "n_pixels": int(valid.sum()), "mean_velocity_mm_yr": round(float(v.mean()), 2),
+        return {"rate_mm_yr": round(rate, 2), "n_pixels": int(v.size), "mean_velocity_mm_yr": round(float(v.mean()), 2),
                 "min_velocity_mm_yr": round(float(v.min()), 2), "score": rate_to_score(rate)}
 
 

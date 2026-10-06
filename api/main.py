@@ -339,6 +339,8 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(reference_releases_router.router)
     from api.routers import calibrations as calibrations_router
     app.include_router(calibrations_router.router)
+    from api.routers import loss as loss_router
+    app.include_router(loss_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────

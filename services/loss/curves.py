@@ -9,7 +9,11 @@ A family file:
   damage_basis                          what the ratio is a share of: "building", "contents" or "building_and_contents"
   source {authors, year, title, publisher, url, file, sha256}   the publication, and the copy held
   licence                               as the publisher states it
-  curves [{key, occupancy, region, points [[x, ratio], …], quote {table, page}}]
+  kind                                  "published" (transcribed from the publisher's table: each curve quotes
+                                        {table, page}) or "measured" (computed from a recorded dataset under
+                                        data/reference/loss_protocol.json: a derivation, each curve's bands with
+                                        their spread, and the held-out test with whether it passed)
+  curves [{key, occupancy, region, countries [ISO2 …], points [[x, ratio], …], quote | bands}]
   beyond_last                           "hold": the ratio at the last point holds beyond it (no extrapolation)"""
 from __future__ import annotations
 
@@ -19,7 +23,8 @@ from functools import lru_cache
 from services.loss import registry
 
 DIR = registry.REF / "vulnerability"
-BASES = {"building", "contents", "building_and_contents"}
+BASES = {"building", "contents", "building_and_contents", "asset_value"}
+ALL_USES = "*"          # an aggregate curve (damage_basis asset_value): every occupancy
 
 
 class CurveError(ValueError):
@@ -43,6 +48,15 @@ def check_family(doc: dict) -> list[str]:
         out.append(f"{fam}: no licence")
     if doc.get("beyond_last") != "hold":
         out.append(f"{fam}: beyond the last point the ratio holds ('hold'); nothing else is allowed")
+    kind = doc.get("kind", "published")
+    if kind not in ("published", "measured"):
+        out.append(f"{fam}: kind must be 'published' or 'measured'")
+    if kind == "measured":
+        d, t = doc.get("derivation") or {}, doc.get("test") or {}
+        if not (d.get("protocol") and d.get("claims_used")):
+            out.append(f"{fam}: a measured family records its protocol and the claims it used")
+        if not isinstance(t.get("passed"), bool) or not t.get("events_tested"):
+            out.append(f"{fam}: a measured family records its held-out test and whether it passed")
     keys = set()
     classes = set(registry.occupancy_classes())
     for c in doc.get("curves") or []:
@@ -50,13 +64,24 @@ def check_family(doc: dict) -> list[str]:
         if k in keys:
             out.append(f"{fam}: curve {k} appears twice")
         keys.add(k)
-        if c.get("occupancy") not in classes:
+        if c.get("occupancy") == ALL_USES:
+            if doc.get("damage_basis") != "asset_value":
+                out.append(f"{fam}/{k}: only an aggregate curve (damage basis asset_value) applies to every occupancy")
+        elif c.get("occupancy") not in classes:
             out.append(f"{fam}/{k}: occupancy '{c.get('occupancy')}' is not a registered class")
         if not c.get("region"):
             out.append(f"{fam}/{k}: no region")
-        q = c.get("quote") or {}
-        if not (q.get("table") and q.get("page")):
-            out.append(f"{fam}/{k}: the table and page it was transcribed from are not quoted")
+        if not c.get("countries"):
+            out.append(f"{fam}/{k}: no countries the curve applies to")
+        if kind == "published":
+            q = c.get("quote") or {}
+            if not (q.get("table") and q.get("page")):
+                out.append(f"{fam}/{k}: the table and page it was transcribed from are not quoted")
+        else:
+            bands = c.get("bands") or []
+            if not bands or any(b.get("n", 0) <= 0 or b.get("p10") is None or b.get("p90") is None
+                                or not (b["p10"] <= b["p90"]) for b in bands):
+                out.append(f"{fam}/{k}: its bands each need their claims and a 10th–90th percentile range")
         pts = c.get("points") or []
         xs, ys = [p[0] for p in pts], [p[1] for p in pts]
         if len(pts) < 2 or xs != sorted(set(xs)) or xs[0] < 0:
@@ -69,16 +94,40 @@ def check_family(doc: dict) -> list[str]:
 
 
 @lru_cache(maxsize=None)
-def families() -> dict[str, dict]:
-    """The registered families, each checked: a family with a problem is refused, never half-used."""
-    out = {}
+def _load() -> tuple[dict[str, dict], dict[str, list[str]]]:
+    sound, refused = {}, {}
     for path in sorted(DIR.glob("*.json")) if DIR.exists() else []:
         doc = json.loads(path.read_text(encoding="utf-8"))
         problems = check_family(doc)
         if problems:
-            raise CurveError(f"{path.name}: " + "; ".join(problems))
-        out[doc["family"]] = doc
-    return out
+            refused[doc.get("family", path.stem)] = problems
+        else:
+            sound[doc["family"]] = doc
+    return sound, refused
+
+
+def families() -> dict[str, dict]:
+    """The registered families that are sound — one with a problem is refused (see refused()), never half-used, and
+    never stops the others."""
+    return _load()[0]
+
+
+def refused() -> dict[str, list[str]]:
+    """{family: its problems} for every registered family that cannot be used, so a screen can say why."""
+    return _load()[1]
+
+
+def reload() -> None:
+    _load.cache_clear()
+
+
+def curve_for(family: str, occupancy: str, country: str) -> dict | None:
+    """The family's curve for this occupancy in this country, or None."""
+    fam = families().get(family)
+    if not fam:
+        return None
+    return next((c for c in fam["curves"] if c["occupancy"] in (occupancy, ALL_USES) and country in c["countries"]),
+                None)
 
 
 def ratio(points: list, x: float) -> float:

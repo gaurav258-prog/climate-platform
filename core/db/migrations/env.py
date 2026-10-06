@@ -37,28 +37,29 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def _file_sha(revision: str) -> str:
-    import hashlib
-
+def _path(revision: str) -> str:
     from alembic.script import ScriptDirectory
-    path = ScriptDirectory.from_config(config).get_revision(revision).path
-    with open(path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()
+    return ScriptDirectory.from_config(config).get_revision(revision).path
 
 
 def _record_applied(ctx, step, heads, run_args) -> None:
-    """Keep the hash of each migration FILE as it was applied (E100): a file edited after it ran against this database
-    is then caught by scripts/check_applied_migrations.py (in the gate) instead of leaving the schema silently unlike
-    the file. Kept outside the public schema, so the schema checks never see it."""
+    """Keep the fingerprints of each migration FILE as it was applied (E100; core.db.migration_fingerprint, E172): a file
+    edited after it ran against this database is then caught by scripts/check_applied_migrations.py (in the gate)
+    instead of leaving the schema silently unlike the file — unless the edit is confined to its REFUSAL_PROBE. Kept
+    outside the public schema, so the schema checks never see it."""
     conn = ctx.connection
     conn.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS migration_meta")
     conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS migration_meta.applied_file (
         revision TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())""")
+    conn.exec_driver_sql("ALTER TABLE migration_meta.applied_file ADD COLUMN IF NOT EXISTS schema_sha256 TEXT")
     if step.is_upgrade:
+        from core.db.migration_fingerprint import file_sha, schema_sha
         rev = step.up_revision_id
-        conn.exec_driver_sql("""INSERT INTO migration_meta.applied_file (revision, sha256) VALUES (%(r)s, %(s)s)
-                                ON CONFLICT (revision) DO UPDATE SET sha256 = EXCLUDED.sha256, applied_at = now()""",
-                             {"r": rev, "s": _file_sha(rev)})
+        conn.exec_driver_sql("""INSERT INTO migration_meta.applied_file (revision, sha256, schema_sha256)
+                                VALUES (%(r)s, %(s)s, %(m)s)
+                                ON CONFLICT (revision) DO UPDATE SET sha256 = EXCLUDED.sha256,
+                                    schema_sha256 = EXCLUDED.schema_sha256, applied_at = now()""",
+                             {"r": rev, "s": file_sha(_path(rev)), "m": schema_sha(_path(rev))})
     else:
         conn.exec_driver_sql("DELETE FROM migration_meta.applied_file WHERE revision = %(r)s", {"r": step.up_revision_id})
 

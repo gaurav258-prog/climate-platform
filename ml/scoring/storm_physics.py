@@ -34,13 +34,18 @@ _SCORE_ANCHORS = [0, 15, 35, 50, 65, 80, 95, 100]
 _DEFAULT_RMAX_KM_BY_CAT = {5: 20.0, 4: 30.0, 3: 35.0, 2: 45.0, 1: 55.0, 0: 65.0, -1: 75.0}
 
 
+def wind_field(vmax, distance_km, rmax_km, x: float = DECAY_EXPONENT):
+    """Modified Rankine Vortex over arrays: wind at each distance from its track point, in the unit of vmax (the
+    formula is linear in vmax). The one implementation — wind_speed_at_distance and the STORM event set use it."""
+    d = np.maximum(np.asarray(distance_km, dtype=float), 0.01)
+    rmax = np.maximum(np.asarray(rmax_km, dtype=float), 0.1)
+    v = np.asarray(vmax, dtype=float)
+    return np.where(d <= rmax, v, v * (rmax / d) ** x)
+
+
 def wind_speed_at_distance(vmax_kt, distance_km, rmax_km, x: float = DECAY_EXPONENT):
     """Modified Rankine Vortex: wind speed (kt) at a given distance from the storm centre."""
-    d = np.maximum(np.asarray(distance_km, dtype=float), 0.01)
-    rmax = max(float(rmax_km), 0.1)
-    inside = d <= rmax
-    decayed = float(vmax_kt) * (rmax / d) ** x
-    return np.where(inside, float(vmax_kt), decayed)
+    return wind_field(float(vmax_kt), distance_km, float(rmax_km), x)
 
 
 def wind_to_score(wind_kt):
