@@ -20,12 +20,14 @@ a section "TBD" over writing an unverified claim.
 
 ## 1. Executive summary
 
-Tellumen is a multi-tenant climate-risk intelligence platform. It ingests satellite and
-reanalysis data, scores physical climate hazards (volcanic, seismic, flood, wildfire, heat,
-drought, storm, pollution) at H3-cell resolution, and exposes those scores to three customer
-verticals — banking (asset exposure), insurance (parametric contracts, pricing), and agriculture
-(supply-chain COGS-at-risk) — through an API, a web UI, and regulatory export packages
-(CSRD/ECB/EIOPA/Taxonomy).
+Tellumen is a multi-tenant climate-risk intelligence platform. It ingests satellite, reanalysis
+and agency data and scores physical climate hazards at H3-cell resolution. It covers all 28
+hazards of the EU Taxonomy checklist (Regulation 2021/2139, Appendix A), each at a stated maturity
+tier: 14 calibrated, 7 screening, 6 by nature (nothing observed to backtest against — context,
+never a headline) and 1 reference (a zone / geophysical layer); `core/hazard_taxonomy.py` is the
+source of truth. The scores serve five sectors — bank, insurer, asset manager, REIT and agri-food
+— plus a supervisor workspace for regulators, through an API, a web UI and regulatory filings
+exported from frozen snapshots (formats per report type in §8).
 
 ## 2. Scope
 
@@ -50,13 +52,18 @@ dedicated `docs/*_METHODOLOGY.md` files, linked in §11), brand/visual identity 
 | Regulatory | `services/regulatory_monitoring/` | CSRD/ECB/EIOPA/Taxonomy package generation, versioning, audit trail |
 | Notifications | `services/notifications/` | Alerts, webhooks, email/SMS dispatch |
 | Core | `core/` | DB models, session management, H3 geospatial utilities, config |
-| UI | `ui/` | React/Vite frontend — risk map, ops dashboard, parametric contract view, compliance export |
+| UI | `web/` | React 19 + Vite + TypeScript frontend — risk map, ops dashboard, parametric contract view, compliance export |
 
 Data flow: adapters (`services/ingestion`) → raw observations → hazard scorers (`ml/scoring`) →
 append-only `canonical_scores` → consumed by `api/` for the UI, vertical intelligence modules, and
 regulatory export.
 
 ## 4. Hazard catalog
+
+The table below is the original eight scorer channels and is not maintained row by row (flood's
+calibrated score, for one, now comes from the JRC river-flood maps). The authoritative list is
+`core/hazard_taxonomy.py`: all 28 EU Taxonomy hazards, the channels serving each and its tier (§1),
+shown in the app on the Coverage page (`web/src/pages/Coverage.tsx`).
 
 | Hazard | Approach | Scorer | Primary data | Backtest anchor |
 |---|---|---|---|---|
@@ -76,7 +83,7 @@ a supplementary monitoring signal only and is *not* an input to the volcanic sco
 
 ## 5. Data architecture
 
-Core tables (PostgreSQL + TimescaleDB + PostGIS):
+Core tables (PostgreSQL; TimescaleDB optional, no PostGIS — see §7):
 
 - **Observations/ingestion:** `satellite_observations`, `seismic_events`, `flood_observations`,
   `wildfire_observations`, `heat_observations`
@@ -128,7 +135,13 @@ JWT + bcrypt. Roles are org-scoped (admin, analyst, reporter, viewer); permissio
   check) and a worker image (per-hazard-type scoring process).
 - `docker-compose.yml` — local dev stack: PostgreSQL 16 + TimescaleDB (`:5433`), MLflow (`:5001`,
   SQLite backend), Adminer (`:8080`).
-- Database requires PostGIS and `uuid-ossp` extensions in addition to TimescaleDB.
+- No PostgreSQL extension is required. TimescaleDB is optional: the migrations make the feature
+  stores (`ml_features_flood`, `_heat`, `_wildfire`, `_drought`) hypertables when it is installed and
+  plain tables otherwise; `canonical_scores` is deliberately never a hypertable. PostGIS is not used —
+  the target server does not have it (`plot_geometry_20260727`): geometry (geodesic area,
+  point-in-polygon, forest-loss overlay) runs in Python via shapely/pyproj
+  (`services/intelligence/geometry.py`) and H3 indexing via the `h3` library. UUID defaults use
+  PostgreSQL's built-in `gen_random_uuid()`, not `uuid-ossp`.
 
 ## 8. External interfaces
 
@@ -148,6 +161,16 @@ the signed-HMAC event bus (`services/integrations/webhooks.py`, `emit_event` + t
 catalogue). Alongside these, five governance/intelligence endpoints added this cycle:
 `/v1/reg-tasks/kri/detection-lag`, `/v1/notifications`, `/v1/gl`, `/v1/arrears`, `/v1/prices`
 (see §12, 2026-08-18).
+
+**Filing export formats** (`EXPORT_FORMATS` in `services/governance/filings.py`, rendered from the
+frozen snapshot by `services/governance/filing_export.py`): JSON for every report type; XLSX as well
+for the bank's EU Taxonomy Art. 8 and Pillar 3 ESG reports, SFDR PAI, the asset manager's and REIT's
+TCFD, the REIT's EU Taxonomy KPIs, Solvency II S.27.01.01 and the insurer climate disclosure; HTML
+for the SFDR pre-contractual and periodic disclosures. ESRS (CSRD E1, the ESRS statement) and the
+insurer's ORSA-climate and recovery-stress reports are JSON only. **XBRL exists only for Solvency II
+S.27.01.01**, on EIOPA's own taxonomy; no report type has iXBRL. Pillar 3, EU Taxonomy, ESRS and SFDR
+get no (i)XBRL until the official taxonomies are bound (`docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` #1,
+#2, #17) — an instance under element names of our own is not a filing.
 
 ## 9. Non-functional characteristics
 
@@ -170,13 +193,14 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 - `docs/*_METHODOLOGY.md` — one per hazard type (volcanic, seismic, storm, pollution, supply-chain)
 - `docs/BACKTEST_DATA.md` — backtest event dataset status
 - `docs/OPS_EMAIL_NOTIFICATIONS.md` — ops runbook: SMTP config, Celery worker/beat, DNS (SPF/DKIM/DMARC) for the @mention email path
-- `docs/investor_brief.md`, `docs/objection_tracker.md` — external/market-facing material
+- `docs/investor_brief.md`, `docs/objection_tracker.md` — June 2026 market-facing drafts, **superseded** (2026-10-06): not to be quoted; each opens with a banner saying what no longer holds
 
 ## 12. Change log
 
 | Date | Version | Change |
 |---|---|---|
-| 2026-10-06 | 2.218 | **Loss from the hazard itself (E171), and four data defects fixed at the source (E172).** Each asset's loss is read off a damage curve the institution adopts (Settings → Methodology, audited, 4-eyes where required) at the hazard's physical intensity by return period — flood depth from the JRC maps, cyclone wind from the STORM event set — as a range (10th–90th percentile) with the standing the curve earned on observed losses: published, held or untested; every missing input is a named gap. The first measured curve (US residential flood, 273,373 NFIP claims, protocol registered before the test) holds its range (77.9% of held-out claims inside 10–90%) but misses event totals (11 of 38 within ±30%), so its figures are held; the published cyclone curves (Eberenz et al. 2021) are refused until a cited conversion from 1-minute to STORM's 10-minute wind is registered. A ratio is taken only of the value its curve names: the building's own value (land excluded) — the property and loan books and every upload template gain it, and the building use (occupancy); a market, appraised or position value is never read as one. A grouping ('EU') as a country is a named gap. Expected annual loss is the area under the loss–exceedance curve; a book curve adds only published figures on a stated dependence. Output: `/v1/loss` (families, layers, runs, results) and Review → Loss. E172: the EMS flood extents accept a layer only when it is the product's own (the catalogue had listed a Bolivian flood under Storm Boris) and record the area EMS mapped; the flood validator judges nodes only there (pooled ρ 0.68, AUC 0.80, 144 nodes — unmapped land no longer counted dry); the isolated raster read tells 'inside the shape' from 'holds a value'; the 30 m terrain fetch is priced and capped (19 tiles, 0.62 GB). The 30 m flood refinement met its registered rule by a margin inside sampling noise and is recorded as a candidate, not in use. |
+| 2026-10-06 | 2.218 | **Loss from the hazard itself (E171), and five data and check defects fixed at the source (E172).** Each asset's loss is read off a damage curve the institution adopts (Settings → Methodology, audited, 4-eyes where required) at the hazard's physical intensity by return period — flood depth from the JRC maps, cyclone wind from the STORM event set — as a range (10th–90th percentile) with the standing the curve earned on observed losses: published, held or untested; every missing input is a named gap. The first measured curve (US residential flood, 273,373 NFIP claims, protocol registered before the test) holds its range (77.9% of held-out claims inside 10–90%) but misses event totals (11 of 38 within ±30%), so its figures are held; the published cyclone curves (Eberenz et al. 2021) are refused until a cited conversion from 1-minute to STORM's 10-minute wind is registered. A ratio is taken only of the value its curve names: the building's own value (land excluded) — the property and loan books and every upload template gain it, and the building use (occupancy); a market, appraised or position value is never read as one. A grouping ('EU') as a country is a named gap. Expected annual loss is the area under the loss–exceedance curve; a book curve adds only published figures on a stated dependence. Output: `/v1/loss` (families, layers, runs, results) and Review → Loss. E172: the EMS flood extents accept a layer only when it is the product's own (the catalogue had listed a Bolivian flood under Storm Boris) and record the area EMS mapped; the flood validator judges nodes only there (pooled ρ 0.68, AUC 0.80, 144 nodes — unmapped land no longer counted dry); the isolated raster read tells 'inside the shape' from 'holds a value'; the 30 m terrain fetch is priced and capped (19 tiles, 0.62 GB). The 30 m flood refinement met its registered rule by a margin inside sampling noise and is recorded as a candidate, not in use. |
+| 2026-10-06 | 2.217 | **The documents describe the code as it is (found building the stakeholder deck).** (1) No PostGIS: the target server does not have it (`plot_geometry_20260727`); geometry runs in Python (shapely/pyproj, `services/intelligence/geometry.py`) and H3 via the `h3` library. TimescaleDB is optional and `uuid-ossp` is not used (`gen_random_uuid()`). §5, §7 and the `/info` description string in `api/main.py` corrected (text only, no behaviour change). (2) Export formats stated per report type (§8): XBRL only for Solvency II S.27.01.01; Pillar 3, EU Taxonomy and SFDR export JSON/XLSX and ESRS JSON until the official taxonomies are bound (GO_LIVE #1, #2, #17). docs/REGULATOR_STRATEGY.md and docs/AGRI_REGULATORY_SCOPE.md no longer claim more. (3) The frontend is `web/` (React 19, Vite, TypeScript), not `ui/` (§3). (4) §1 states the 28 EU Taxonomy hazards covered (14 calibrated, 7 screening, 6 by nature, 1 reference — `core/hazard_taxonomy.py`) and five sectors (bank, insurer, asset manager, REIT, agri-food) plus a supervisor workspace, not 8 hazards and three verticals; §4 points to the registry. (5) docs/investor_brief.md and docs/objection_tracker.md (June 2026) marked superseded: the data is direct from authoritative EU and US agencies, never "free / open / zero-cost". |
 | 2026-10-06 | 2.216 | **Loss foundation: the data model (E169).** Hazard intensity in physical units by return period (flood depth in metres, wind in m/s), stored per point with what the surrounding cell holds; stochastic event sets; what each asset is used for (occupancy); loss runs with results per asset and peril — a figure or a named gap — and the book's exceedance curve; the building each asset stands on. Registries for layers, event sets and occupancy, and a cited, quoted format for published damage curves. Nothing is computed yet: ingestion, calculation and output follow. |
 | 2026-10-04 | 2.215 | **Crop calendars must describe the crop; calibrations go live for review (E168).** A crop's season comes from a calendar only when it covers at least half of the crop's mapped area in the country (else held, with the figures). Generated recipes are re-checked on each generation and retired with the reason when they no longer stand. The Calibrations page shows each batch as it stands, with withdrawn runs and why; an emptied batch closes itself. Live state: the 7 approved yield releases landed (~801k rows: FAOSTAT, Eurostat national + regional, USDA FAS, NASS state + county, StatCan); 1,116 crop × country recipes over each crop's own growing area; three batches await review (31 + 1 re-runs of published fits — Barley/TN falls below the 0.40 bar once 1991's partial season is dropped — and 1,057 first runs, 2 passing). |
 | 2026-10-04 | 2.214 | **Seasons only in full (E167).** A drought, soil-water or frost figure for a growing season is reported only when every month of the season has one — never from part of a season (the record's first season, or one still in progress). The global weather build now matches the regional files on every full season 1992–2024; global ERA5-Land 1991 – Aug 2026 is on disk and pinned (8 files, 5.72 GB). |

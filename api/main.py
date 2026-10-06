@@ -376,7 +376,7 @@ async def platform_info() -> dict:
             "UK FCA Climate (Double materiality, £5B+ AUM)"
         ],
         "architecture": {
-            "database": "PostgreSQL 14+ with TimescaleDB, PostGIS, uuid-ossp",
+            "database": "PostgreSQL 14+ (TimescaleDB optional; no PostGIS: geometry via shapely/pyproj, H3 via the h3 library)",
             "api_framework": "FastAPI (async)",
             "orm": "SQLAlchemy 2.0",
             "multi_tenancy": "Organization-based (org_id isolation)",

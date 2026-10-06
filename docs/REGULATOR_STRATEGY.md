@@ -54,7 +54,7 @@ in one queryable place — the natural plug-in point for cross-filer verificatio
 | Independently verify a filed deforestation/hazard claim | EUDR mandates independent verification; JRC tool not ready | Re-run our determination on the filed geolocations → **diff vs claim** | **have** — any-address engine |
 | Hit a mandated check volume with scarce inspectors | 1/3/9% risk-based checks | Rank filers/consignments by **inspection priority** | new: scoring view |
 | See systemic exposure across all filers | ECB municipality-level physical-risk aggregation | H3 roll-up → **sector / national hotspot map** | **have** — H3 + roll-up |
-| Ingest filings at scale, machine-readable | ESAP public API from 2028; TRACES DDS | We already **emit** XBRL/DDS — flip to **receive** | partial |
+| Ingest filings at scale, machine-readable | ESAP public API from 2028; TRACES DDS | We already **emit** DDS and Solvency II XBRL (S.27.01.01; the other reports export JSON/XLSX until their official taxonomies are bound) — flip to **receive** | partial |
 | Spot greenwashing / outliers | supervisory priority | Peer-outlier detection on one golden source | new: analytics |
 | Govern & audit the oversight itself | any supervisory workflow | RBAC · 4-eyes · immutable snapshots · audit | **have** — governance spine |
 

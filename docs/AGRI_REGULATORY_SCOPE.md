@@ -56,12 +56,12 @@ climate + nature risk properly, and we don't pretend to do your carbon accountin
   exposure is mapped and the € withheld. This honesty gate carries all the way into every disclosure
   datapoint we emit.
 
-## Build status (2026-07-30)
+## Build status (2026-07-30; XBRL line corrected 2026-10-06)
 
 - ✅ EUDR (determination + DDS + TRACES reference capture)
 - ✅ CSRD / ESRS **E1 physical risk** (own operations + sourcing; JSON + Excel)
 - ✅ ESRS **Climate & Nature pack** — E1 physical + **E3 water** + **E4 biodiversity/deforestation** (JSON + Excel)
-- ✅ **XBRL tagging** — facts keyed to ESRS disclosure requirements + a well-formed XBRL instance (provisional taxonomy binding, disclosed)
+- ✗ **XBRL tagging — removed 2026-09-30 (E60).** The provisional binding tagged our own metrics under element names EFRAG never published, which is not a filing; the ESRS statement exports JSON until EFRAG's taxonomy for the amended ESRS is final (`docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` #1)
 - ✅ **EU Taxonomy climate-adaptation** — CRVA + substantial-contribution evidence (we do NOT compute aligned turnover/capex/opex %)
 - ⏭ Bind XBRL to the adopted EFRAG ESRS taxonomy (ops/licensing step); configurable timing/thresholds
 - ⛔ (by design) GHG accounting, pollution, circular economy, social, governance

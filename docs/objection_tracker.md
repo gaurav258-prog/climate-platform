@@ -1,6 +1,19 @@
 # Objection Tracker — Climate Intelligence Platform
 *Living document. Update after every investor meeting, customer conversation, or pilot engagement.*
 
+> **Superseded (2026-10-06) — do not use these answers as written.** The v1 answers (June 2026) no longer
+> match the platform or its positioning. In particular:
+> - **Data:** describe it as coming **direct from authoritative EU and US agencies** — never as free, open or
+>   zero-cost. OBJ-01's framing ("the data is free", "free inputs are our cost structure advantage") is retired.
+> - **Exports:** XBRL exists only for Solvency II S.27.01.01. Pillar 3, EU Taxonomy and SFDR export JSON/XLSX,
+>   and ESRS JSON, until the official taxonomies are bound (`docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` #1, #2, #17).
+>   OBJ-04's "XBRL export" is wrong.
+> - **Platform:** it covers all 28 EU Taxonomy hazards (14 calibrated, 7 screening, 6 by nature, 1 reference —
+>   `core/hazard_taxonomy.py`) for five sectors (bank, insurer, asset manager, REIT, agri-food) plus a supervisor
+>   workspace. The data sources, models and training events cited below are out of date.
+>
+> Current description of the software: `docs/SOFTWARE_DESCRIPTION.md`.
+
 **How to use:** After each conversation, log the exact words used, the context (who said it, when), and whether the current answer landed. If the answer didn't land, note what they pushed back on and draft a revised response. The goal is to reach a version of each answer that closes the conversation — not extends it.
 
 ---
