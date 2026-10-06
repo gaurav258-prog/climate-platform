@@ -11,7 +11,8 @@ HISTORY = ("regulatory_task_event", "regulatory_filing_event", "supervision_requ
            "model_status_event", "regspec_signoff", "regulatory_filing",
            "model_registry", "model_drift_observation", "kri_threshold_version", "asset_conflicts", "report_snapshots",
            "access_audit_log", "approval_requests", "regulatory_task_mention", "webhook_deliveries",
-           "entity_structure_import_rows", "reported_figure", "client_intake_user")
+           "entity_structure_import_rows", "reported_figure", "client_intake_user", "loss_runs",
+           "asset_building_matches")
 # activity lists: ordered by when, the id breaks a tie so the order (and a SCIM page) is the same every time
 TIE_BROKEN = {"webhook_endpoints": "endpoint_id", "refresh_token": "token_id", "invoice": "invoice_id",
               "esign_request": "request_id", "customer_contract": "contract_id", "assurance_share": "share_id",

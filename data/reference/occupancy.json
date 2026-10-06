@@ -1,0 +1,30 @@
+{
+  "basis": "The occupancy classes of the loss foundation (E169): the building-use classes of the published depth-damage curves the platform offers (Huizinga, de Moel & Szewczyk 2017, JRC Technical Report JRC105688, 'Global flood depth-damage functions'), so an asset's stated use selects its curve within the family the institution adopts. The class names are verified against the report when its curves are ingested.",
+  "classes": {
+    "residential": "dwellings: houses and apartment buildings",
+    "commercial": "buildings for trade and services: offices, shops, retail",
+    "industrial": "buildings for production: factories, plants, workshops",
+    "transport": "transport infrastructure assets",
+    "infrastructure": "roads and other civil infrastructure",
+    "agriculture": "agricultural land and buildings"
+  },
+  "crosswalk_basis": "Asset types whose use is unambiguous are read as their class; every other type needs the institution's statement of occupancy (a warehouse, a hotel or a power plant is classed differently by different curve sets, so the platform does not choose).",
+  "crosswalk": {
+    "portfolio_entities.entity_type": {
+      "residential_real_estate": "residential",
+      "commercial_real_estate": "commercial",
+      "office": "commercial",
+      "retail": "commercial",
+      "Retail": "commercial",
+      "industrial": "industrial",
+      "light_industrial": "industrial",
+      "Manufacturing": "industrial",
+      "agriculture": "agriculture",
+      "Agriculture": "agriculture"
+    },
+    "sc_company_sites.site_type": {
+      "office": "commercial",
+      "factory": "industrial"
+    }
+  }
+}

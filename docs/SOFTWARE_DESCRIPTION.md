@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.215 |
+| Version | 2.216 |
 | Last updated | 2026-10-04 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -176,6 +176,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-06 | 2.216 | **Loss foundation: the data model (E169).** Hazard intensity in physical units by return period (flood depth in metres, wind in m/s), stored per point with what the surrounding cell holds; stochastic event sets; what each asset is used for (occupancy); loss runs with results per asset and peril — a figure or a named gap — and the book's exceedance curve; the building each asset stands on. Registries for layers, event sets and occupancy, and a cited, quoted format for published damage curves. Nothing is computed yet: ingestion, calculation and output follow. |
 | 2026-10-04 | 2.215 | **Crop calendars must describe the crop; calibrations go live for review (E168).** A crop's season comes from a calendar only when it covers at least half of the crop's mapped area in the country (else held, with the figures). Generated recipes are re-checked on each generation and retired with the reason when they no longer stand. The Calibrations page shows each batch as it stands, with withdrawn runs and why; an emptied batch closes itself. Live state: the 7 approved yield releases landed (~801k rows: FAOSTAT, Eurostat national + regional, USDA FAS, NASS state + county, StatCan); 1,116 crop × country recipes over each crop's own growing area; three batches await review (31 + 1 re-runs of published fits — Barley/TN falls below the 0.40 bar once 1991's partial season is dropped — and 1,057 first runs, 2 passing). |
 | 2026-10-04 | 2.214 | **Seasons only in full (E167).** A drought, soil-water or frost figure for a growing season is reported only when every month of the season has one — never from part of a season (the record's first season, or one still in progress). The global weather build now matches the regional files on every full season 1992–2024; global ERA5-Land 1991 – Aug 2026 is on disk and pinned (8 files, 5.72 GB). |
 | 2026-10-04 | 2.213 | **Worker can no longer crash-loop (E166).** The background worker runs threads, never forked children, and refuses to start otherwise; a job that kills its worker three times is failed and recorded, not re-run forever — an abandoned address lookup ends 'failed' so nothing waits on it. |

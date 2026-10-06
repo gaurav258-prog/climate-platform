@@ -1,0 +1,54 @@
+{
+  "basis": "Hazard intensity layers in physical units by return period (E169). Each layer is a published dataset read as it is, or derived from a registered event set by a stated method; samples are stored per layer version in hazard_intensity_samples.",
+  "layers": {
+    "jrc_river_flood": {
+      "peril": "flood",
+      "metric": "water_depth",
+      "unit": "m",
+      "version": "v2.1.2",
+      "source": "JRC / Copernicus EMS global river flood hazard maps (CEMS-GLOFAS flood_hazard), LISFLOOD-FP",
+      "url": "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/CEMS-GLOFAS/flood_hazard",
+      "resolution_m": 90,
+      "return_periods": [
+        10,
+        100,
+        500
+      ],
+      "files": {
+        "dir": "data/jrc_flood",
+        "tiles": 271,
+        "pattern": "ID{id}_{tile}_RP{rp}_depth.tif",
+        "index": "data/reference/jrc_flood_tiles.json"
+      },
+      "dry_below": 0.05,
+      "dry_basis": "depths of 0.05 m or less are raster noise and read as dry (ml.scoring.flood_jrc.DEPTH_MIN_M)",
+      "coverage": "river flooding only, global land; pluvial and coastal flooding are other channels",
+      "licence": null,
+      "licence_status": "to verify against the JRC data catalogue entry before customer-facing use"
+    },
+    "storm_v4_wind": {
+      "peril": "storm",
+      "metric": "max_wind_speed",
+      "unit": "m/s",
+      "version": "v4",
+      "source": "derived from the event set storm_v4: per synthetic year, the highest wind at the point",
+      "derived_from": "storm_v4",
+      "wind_field": "modified Rankine vortex as ml.scoring.storm_physics (the calibrated storm channel)",
+      "resolution_m": null,
+      "return_periods": [
+        10,
+        25,
+        50,
+        100,
+        200,
+        250,
+        500,
+        1000
+      ],
+      "coverage": "the six STORM basins (EP, NA, NI, SI, SP, WP)",
+      "licence": "CC0 1.0",
+      "licence_status": "verified (4TU API, data/storm_synthetic/MANIFEST.md)",
+      "metric_note": "STORM's README gives 'Maximum wind speed, m/s' with no averaging period; the period is quoted from Bloemendaal et al. (2020) when the layer is built"
+    }
+  }
+}

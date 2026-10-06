@@ -1,0 +1,47 @@
+{
+  "basis": "Stochastic event sets (E169): simulated years of events, so losses across a book can be combined event by event instead of by assumption.",
+  "event_sets": {
+    "storm_v4": {
+      "peril": "storm",
+      "version": "v4",
+      "source": "Bloemendaal et al., STORM IBTrACS present-climate synthetic tropical cyclone tracks",
+      "doi": "10.4121/12706085.v4",
+      "url": "https://data.4tu.nl/articles/dataset/STORM_tropical_cyclone_synthetic_tracks/12706085",
+      "published": "2022-07-22",
+      "licence": "CC0 1.0",
+      "years_simulated": 10000,
+      "basins": [
+        "EP",
+        "NA",
+        "NI",
+        "SI",
+        "SP",
+        "WP"
+      ],
+      "files": {
+        "dir": "data/storm_synthetic/STORMV4/VERSIE4",
+        "per_basin": 10,
+        "years_per_file": 1000,
+        "pattern": "STORM_DATA_IBTRACS_{basin}_1000_YEARS_{index}.txt",
+        "archive": "data/storm_synthetic/STORMV4.zip",
+        "archive_md5": "d3e5647fa9c01b1ed33c33c0c930eb30"
+      },
+      "columns": [
+        "year",
+        "month",
+        "tc_number",
+        "time_step",
+        "basin_id",
+        "lat",
+        "lon_0_360",
+        "min_pressure_hpa",
+        "max_wind_ms",
+        "rmw_km",
+        "category",
+        "landfall",
+        "distance_to_land_km"
+      ],
+      "time_step_hours": 3
+    }
+  }
+}
