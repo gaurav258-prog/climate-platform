@@ -1,6 +1,20 @@
 # Climate Intelligence Platform — Investor Brief
 *Draft v0.1 · June 2026 · Confidential*
 
+> **Superseded (2026-10-06) — do not quote from this draft.** It no longer describes the platform or its
+> positioning. In particular:
+> - **Data:** describe it as coming **direct from authoritative EU and US agencies** — never as free, open,
+>   zero-cost or an "open data moat" (the "Data cost", "Cost structure" and "EU Grant" passages below).
+> - **Exports:** XBRL exists only for Solvency II S.27.01.01. Pillar 3, EU Taxonomy and SFDR export JSON/XLSX,
+>   and ESRS JSON, until the official taxonomies are bound (`docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` #1, #2, #17).
+>   The "XBRL export" claims below are wrong.
+> - **Platform:** it covers all 28 EU Taxonomy hazards (14 calibrated, 7 screening, 6 by nature, 1 reference —
+>   `core/hazard_taxonomy.py`) for five sectors (bank, insurer, asset manager, REIT, agri-food) plus a supervisor
+>   workspace. The data sources, models and backtests described below are out of date.
+> - The market sizing, go-to-market and revenue figures are this draft's own and have not been re-checked.
+>
+> Current description of the software: `docs/SOFTWARE_DESCRIPTION.md`.
+
 ---
 
 ## The Thesis
