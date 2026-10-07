@@ -37,6 +37,9 @@ def test_layers_are_listed_with_what_is_sampled(api):
     assert {"jrc_river_flood", "storm_v4_wind"} <= set(layers)
     assert layers["storm_v4_wind"]["metric"] == "max_sustained_wind_10min"
     assert layers["jrc_river_flood"]["sampled"]["places"] >= 0
+    if "jrc_flood_30m" in layers:                                   # a refinement shows both of its tests and its status
+        r = layers["jrc_flood_30m"]
+        assert r["status"] in ("candidate", "in_use") and "test" in r and "building_scale_test" in r
 
 
 def test_a_run_lists_gaps_by_reason_and_never_adds_across_standing(api):

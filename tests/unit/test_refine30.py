@@ -33,3 +33,17 @@ def test_the_90m_reading_is_the_validators(monkeypatch):
         pytest.skip("the flood maps or the terrain tiles are not on this machine")
     st, ref = box_stats(b), TileSet().stats(b)
     assert st["m90"][0] == pytest.approx(ref[100][0]) and st["m90"][1] == pytest.approx(ref[100][1])
+
+
+def test_csi_counts_hits_against_misses_and_false_alarms():
+    from services.loss.refine30 import _scores
+    s = _scores({"hits": 30, "misses": 10, "false_alarms": 20})
+    assert s["csi"] == 0.5 and s["hit_rate"] == 0.75 and s["false_alarm_ratio"] == 0.4
+    assert _scores({"hits": 0, "misses": 0, "false_alarms": 0})["csi"] is None
+
+
+def test_the_respread_can_narrow_a_flood_but_never_widen_it():
+    # every 30 m depth comes from a wet 90 m parent: a dry parent contributes nothing, so the 30 m wet set is a subset
+    from services.loss.refine30 import respread_depths
+    d = respread_depths(np.array([1, 1, 1, 1]), np.array([10.0, 10.2, 10.4, 11.6]), np.array([0.3, 0.3, 0.3, 0.3]))
+    assert (d > 0.05).sum() == 3 and d[3] < 0                         # the high corner is dry, the rest stay wet

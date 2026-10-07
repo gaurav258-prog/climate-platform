@@ -160,6 +160,161 @@
         },
         "nodes_without_both_rasters": 0,
         "passed": true
+      },
+      "building_scale_test": {
+        "protocol": "terrain_refinement.building_scale_test",
+        "registered": "2026-10-06",
+        "run": "2026-10-06",
+        "rule": "the refinement is better at building scale only when the 5th percentile of the resampled difference in pooled CSI (30 m minus 90 m) is above zero; when the 95th percentile is below zero it is worse; otherwise the test cannot tell them apart",
+        "pooled": {
+          "nodes": 144,
+          "pixels": 13690299,
+          "m90": {
+            "csi": 0.2208,
+            "hit_rate": 0.5022,
+            "false_alarm_ratio": 0.7173,
+            "hits": 339599,
+            "misses": 336668,
+            "false_alarms": 861561
+          },
+          "m30": {
+            "csi": 0.2226,
+            "hit_rate": 0.4759,
+            "false_alarm_ratio": 0.7051,
+            "hits": 321816,
+            "misses": 354451,
+            "false_alarms": 769629
+          }
+        },
+        "csi_difference_90pct_interval": [
+          -0.0049,
+          0.0069
+        ],
+        "draws": 2000,
+        "verdict": "cannot tell",
+        "per_event": {
+          "2021 Rhine/Ahr": {
+            "nodes": 27,
+            "pixels": 2041290,
+            "m90": {
+              "csi": 0.0303,
+              "hit_rate": 0.2012,
+              "false_alarm_ratio": 0.9655,
+              "hits": 2404,
+              "misses": 9547,
+              "false_alarms": 67334
+            },
+            "m30": {
+              "csi": 0.033,
+              "hit_rate": 0.1984,
+              "false_alarm_ratio": 0.9619,
+              "hits": 2371,
+              "misses": 9580,
+              "false_alarms": 59816
+            }
+          },
+          "2024 Storm Boris": {
+            "nodes": 49,
+            "pixels": 3684503,
+            "m90": {
+              "csi": 0.2208,
+              "hit_rate": 0.4342,
+              "false_alarm_ratio": 0.69,
+              "hits": 20726,
+              "misses": 27007,
+              "false_alarms": 46128
+            },
+            "m30": {
+              "csi": 0.2235,
+              "hit_rate": 0.4038,
+              "false_alarm_ratio": 0.6663,
+              "hits": 19273,
+              "misses": 28460,
+              "false_alarms": 38488
+            }
+          },
+          "2019 Spain DANA": {
+            "nodes": 4,
+            "pixels": 368193,
+            "m90": {
+              "csi": 0.2167,
+              "hit_rate": 0.9072,
+              "false_alarm_ratio": 0.7784,
+              "hits": 42788,
+              "misses": 4375,
+              "false_alarms": 150300
+            },
+            "m30": {
+              "csi": 0.2267,
+              "hit_rate": 0.9035,
+              "false_alarm_ratio": 0.7677,
+              "hits": 42614,
+              "misses": 4549,
+              "false_alarms": 140804
+            }
+          },
+          "2020 Storm Alex": {
+            "nodes": 10,
+            "pixels": 1031159,
+            "m90": {
+              "csi": 0.0239,
+              "hit_rate": 0.0342,
+              "false_alarm_ratio": 0.9263,
+              "hits": 168,
+              "misses": 4744,
+              "false_alarms": 2112
+            },
+            "m30": {
+              "csi": 0.0247,
+              "hit_rate": 0.0334,
+              "false_alarm_ratio": 0.9128,
+              "hits": 164,
+              "misses": 4748,
+              "false_alarms": 1716
+            }
+          },
+          "2023 Emilia-Romagna": {
+            "nodes": 28,
+            "pixels": 3349098,
+            "m90": {
+              "csi": 0.1459,
+              "hit_rate": 0.4905,
+              "false_alarm_ratio": 0.8281,
+              "hits": 114724,
+              "misses": 119183,
+              "false_alarms": 552587
+            },
+            "m30": {
+              "csi": 0.151,
+              "hit_rate": 0.4693,
+              "false_alarm_ratio": 0.8179,
+              "hits": 109779,
+              "misses": 124128,
+              "false_alarms": 492908
+            }
+          },
+          "2024 Valencia DANA": {
+            "nodes": 26,
+            "pixels": 3216056,
+            "m90": {
+              "csi": 0.4249,
+              "hit_rate": 0.4803,
+              "false_alarm_ratio": 0.2135,
+              "hits": 158789,
+              "misses": 171812,
+              "false_alarms": 43100
+            },
+            "m30": {
+              "csi": 0.4028,
+              "hit_rate": 0.4465,
+              "false_alarm_ratio": 0.1956,
+              "hits": 147615,
+              "misses": 182986,
+              "false_alarms": 35897
+            }
+          }
+        },
+        "nodes_without_both_rasters": 0
       }
     }
   }
