@@ -601,5 +601,483 @@
     "set": "test"
    }
   ]
+ },
+ "aqueduct_floods_riverine": {
+  "source": "WRI Aqueduct Floods hazard maps, riverine inundation (aqueduct.wridata.org/AqueductFloods20)",
+  "url": "https://aqueduct.wridata.org/AqueductFloods20",
+  "approved": "product owner, 2026-10-07 (93 files, about 8.5 GB)",
+  "contents": "inundation depth by return period: WATCH-forced baseline (1980) and RCP4.5/RCP8.5 2030/2050/2080 from five CMIP5 climate models; return periods 10, 100, 500 years",
+  "licence": null,
+  "licence_status": "to read from WRI's terms before any use",
+  "method_status": "how the future maps are built: to read from WRI's method note before any use",
+  "absent": [],
+  "failed": {},
+  "files": [
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_historical_000000000WATCH_1980_rp00010.tif",
+    "bytes": 88181962,
+    "sha256": "ac103ffc02e453fbba9558a33c78e00aefdd8dd551453ee72666affc53278001"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_historical_000000000WATCH_1980_rp00100.tif",
+    "bytes": 92162308,
+    "sha256": "a63c94a3c7787f937d923e93465571c53cc4b2765678336c3ece78a491f2a5d7"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_historical_000000000WATCH_1980_rp00500.tif",
+    "bytes": 94549274,
+    "sha256": "5fc5d15c170994e98f95e516d3557e80c11dd30e83a720b67a129a5cef9c9fbd"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2030_rp00010.tif",
+    "bytes": 88733128,
+    "sha256": "5e19a3bcedcdc70ec15341708e9cc951ffe57846c245d4e579ad0cb3353986f4"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2030_rp00100.tif",
+    "bytes": 92342926,
+    "sha256": "74e1bdc6cd0b2657155a7299db2a85db8b8f41a620543de1ce20f133120b83f6"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2030_rp00500.tif",
+    "bytes": 94520302,
+    "sha256": "0978e33b7f352e90ba32a9d604df8631e10cf20493ba50c6f7345e9b3d8ca7a7"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2050_rp00010.tif",
+    "bytes": 88933988,
+    "sha256": "d7ee124318fed2886c3fa1ca85ad46506521d48f95058b4a233242ea1a357a25"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2050_rp00100.tif",
+    "bytes": 92592504,
+    "sha256": "1da66e54b3a3a6c5fdf3962615d02f24a53fa41ae0bf8357e5855e98d8479db8"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2050_rp00500.tif",
+    "bytes": 94802390,
+    "sha256": "90c3a1aa00708b74ae7c875e300a420567971e3fbefc799a4f224b7ddff6cbed"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2080_rp00010.tif",
+    "bytes": 89046062,
+    "sha256": "2db473bfc293b578ace61659fc180bcd95dfc8d63bd819b6be357fb56bd8f156"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2080_rp00100.tif",
+    "bytes": 92885704,
+    "sha256": "3d80b93ef791cec181642dc44c559c4a89af919377690302bebce5656d016ec0"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00000NorESM1-M_2080_rp00500.tif",
+    "bytes": 95153370,
+    "sha256": "d699f0c2dce1ce456def79f3710912f3852eb377d17f9b26732859b9e132078d"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2030_rp00010.tif",
+    "bytes": 88716134,
+    "sha256": "1364751546aad85d6e7aef18f969ba3b1ddddaf89513faa0daa0510ad57e38d6"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2030_rp00100.tif",
+    "bytes": 92202286,
+    "sha256": "9c54823d164104c24862bfab0fcd77f066b933c1c254bde065fef36d8d10173b"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2030_rp00500.tif",
+    "bytes": 94312076,
+    "sha256": "b07798f4d8215c80278e1d2b4f74b5966a75446549ad78fadb9150003dc84df2"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2050_rp00010.tif",
+    "bytes": 89156772,
+    "sha256": "ceb7f4bbc8199dd57b421780daab5146847e1bc93ea8dc9512e11625f2a9ff8e"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2050_rp00100.tif",
+    "bytes": 92768920,
+    "sha256": "6830d45e9cae7d98ba4a10ab9691eac2f5de69598d6706b5956bd4cbbed23c53"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2050_rp00500.tif",
+    "bytes": 94946354,
+    "sha256": "76c376bb89604efd040a46fa508a91357c8f6abc5eae8542bf947062b9b46893"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2080_rp00010.tif",
+    "bytes": 89710118,
+    "sha256": "3d25dc0d6f9927ddc2e795819426be2515c0facee23a8ec05f7e58c1669b646b"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2080_rp00100.tif",
+    "bytes": 93792558,
+    "sha256": "e167922833b912b549665aeb7b71a8306d0245270a79bb6126aeb8c3d07acc38"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000GFDL-ESM2M_2080_rp00500.tif",
+    "bytes": 96185908,
+    "sha256": "27786eee5234d4108140a8e9a2e91d1305feaa9910c73d2db6cd08068cde58d8"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2030_rp00010.tif",
+    "bytes": 88990684,
+    "sha256": "149631427dd62612565443b68340c9d6007b5ce661b11373569d28b60632d23d"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2030_rp00100.tif",
+    "bytes": 92676632,
+    "sha256": "f8596fc66670b9ae0426649592dc13687676e69a29bd937710773271c975cb1e"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2030_rp00500.tif",
+    "bytes": 94901694,
+    "sha256": "82283ba024f5273634cc93d9898032b6aee30a5b8d12c0ea6774146a9a552f81"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2050_rp00010.tif",
+    "bytes": 89094016,
+    "sha256": "2c315d871d8555aa1a1f82200cd78f0912dd45cdc1afd20485c214f01f79bf21"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2050_rp00100.tif",
+    "bytes": 92870310,
+    "sha256": "9cecb85ee6e73dc159ecf149a28d0b2935d276c0bf4953786d1c2db7f8af78ed"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2050_rp00500.tif",
+    "bytes": 95134920,
+    "sha256": "ca9b5b0c0ed47dab31eac57e3e4f9ee142f33207fc8ff0a141b70da5294f7943"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2080_rp00010.tif",
+    "bytes": 89442270,
+    "sha256": "e8afef1fa4ae21788a7d55bbca16f327685f7c415cdb4d263f11d4567478ab90"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2080_rp00100.tif",
+    "bytes": 93533424,
+    "sha256": "3f7cfb21d11fd416ba996d55fbe90dae9412f96f4a54ad7a48da01251b736f88"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_0000HadGEM2-ES_2080_rp00500.tif",
+    "bytes": 95958778,
+    "sha256": "3db02874829bd974da19deb13e4e3a3513f95eb2829f366efd54768382135d4b"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2030_rp00010.tif",
+    "bytes": 88970220,
+    "sha256": "02b31fea751fd0597d9fe1c0fee9e45aa4e8adebe0e192a78c5f5f00d27a43cb"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2030_rp00100.tif",
+    "bytes": 92645358,
+    "sha256": "019717b042a751c422d98bd9aa9fb4a7a4cb628773e0c1f40b7a83ed6e2a1bbd"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2030_rp00500.tif",
+    "bytes": 94819744,
+    "sha256": "779ab00ed6cd7221d7d1b0da4e1849ad4c6b1cd7e1531f4483d03faca934cd13"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2050_rp00010.tif",
+    "bytes": 89150848,
+    "sha256": "37e7d5e4fb8d901d20660535ffc301b3dc8ce2d0da8b17857e2cba34a9f349b8"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2050_rp00100.tif",
+    "bytes": 92961660,
+    "sha256": "1c75c24db71fc9f0c4ae5e30617497be82e39eefc7d2a6e935545369e71577f5"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2050_rp00500.tif",
+    "bytes": 95189096,
+    "sha256": "aabc47a0d74828e4f900062c2aa46f4e0a58bf944c34e258d467358553ac5196"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2080_rp00010.tif",
+    "bytes": 89685494,
+    "sha256": "a54cc73dd825a4c1f9f27bc3556356ee4da5278a7b45af6b48b029d43c579a5d"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2080_rp00100.tif",
+    "bytes": 93805544,
+    "sha256": "e459b5bd70a469c12327a33fceb78730d27256076b0c77fee4729a552acb45e4"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_00IPSL-CM5A-LR_2080_rp00500.tif",
+    "bytes": 96235818,
+    "sha256": "b2226d6a343dea40dc8f361e7940ac1b6932edf98fdbbe4d1f1f2498cda9e865"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2030_rp00010.tif",
+    "bytes": 88545472,
+    "sha256": "3d4498f5ffe3128ec781934b7ca9e75a73085c42c475489f4099584913b7452d"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2030_rp00100.tif",
+    "bytes": 92070376,
+    "sha256": "470f8932d9dd70ec5525f5a9ff6d9d7e619949ae7d5f1243e3a84491c375815c"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2030_rp00500.tif",
+    "bytes": 94223890,
+    "sha256": "ee46510ecd6035ae973cdc76440c42181e054d5ab4f5fb44c5ccafba8807cf59"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2050_rp00010.tif",
+    "bytes": 88853466,
+    "sha256": "4f718768135b87f4d65092328b22ceb077b0e62fcdee3516da005136ce35de82"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2050_rp00100.tif",
+    "bytes": 92532354,
+    "sha256": "9d149b3bdb741e4d16eb8f534cd994d630700c792cb7b1c834e2affa6a03efb9"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2050_rp00500.tif",
+    "bytes": 94738464,
+    "sha256": "808f1118e92236e8608bea794ce6ea6b26e76838e83276a4ac25d06422793a2a"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2080_rp00010.tif",
+    "bytes": 89449078,
+    "sha256": "651ac65ecb2c75eb63af113a86574035d2eb224df98797b0fd809a405a7e5c4a"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2080_rp00100.tif",
+    "bytes": 93506070,
+    "sha256": "ae306b13cc4f7e9f96c367bcd59e9ded4bb019de69048e9a8f33cbc2bb15508c"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp4p5_MIROC-ESM-CHEM_2080_rp00500.tif",
+    "bytes": 95951224,
+    "sha256": "25a1d90a99b24d2d27af72a9f865412d226f14b721aa5a39d56711f33bf411b1"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2030_rp00010.tif",
+    "bytes": 88516542,
+    "sha256": "744171b2366fbcf6779703621ab1988dfc010f2e605d472afe1e47ed878411b0"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2030_rp00100.tif",
+    "bytes": 92006424,
+    "sha256": "0a5fcd52e5b2f30f7490571b875358373406072fb3bc6149b8a06c8f385d4465"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2030_rp00500.tif",
+    "bytes": 94099802,
+    "sha256": "3034a0ff3c89e806964c8126807a56a5689aff55a799d43d585b636e21cbf991"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2050_rp00010.tif",
+    "bytes": 88805528,
+    "sha256": "059e2a20c22da9ae77f265c18c9db210cbb2897a95c819fd92bee6b7ea9ed5b2"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2050_rp00100.tif",
+    "bytes": 92460904,
+    "sha256": "b4fb2446e0af6025485a5fcbbac1378157b8cc8ea1446e396743df16956e6356"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2050_rp00500.tif",
+    "bytes": 94601658,
+    "sha256": "97bc0d873a5461a4c3151289c7b8e3186a3a7334df901bc71ca4b15d96fad89b"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2080_rp00010.tif",
+    "bytes": 89241172,
+    "sha256": "1a4366866603dfab158a0d37388e030d20e9f684b71e6c163d6ab36b3e6a54f5"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2080_rp00100.tif",
+    "bytes": 93233936,
+    "sha256": "1705bd189c435659ba5653593a3e80fc7327463ab810d9faf7f945e986c5d090"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00000NorESM1-M_2080_rp00500.tif",
+    "bytes": 95555668,
+    "sha256": "fbfb065b22bf938e14f723580699d8f7dc751a184dbc1f1875704015eeb6028e"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2030_rp00010.tif",
+    "bytes": 89132134,
+    "sha256": "a2a668fffad2be9c832d9cb4af7eb16e248aa4dd7a9e800e40865738053104b2"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2030_rp00100.tif",
+    "bytes": 92886020,
+    "sha256": "8d656e8efae8b7180627d9f3b7e316dfe8a75a98101b328cd79d21ef4dbf7d86"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2030_rp00500.tif",
+    "bytes": 95149098,
+    "sha256": "c3c5e29772a5028d4ebd21e13bc9c2311e9b726ab25937ca62cc1b360f097c90"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2050_rp00010.tif",
+    "bytes": 89744412,
+    "sha256": "08d02ebf922970da296da30af55126476b1b356dc68a6993b0c8296eaab4a207"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2050_rp00100.tif",
+    "bytes": 93772042,
+    "sha256": "44678062c26ff1d2e3d66af3d45dcbca2ac764ca99ee56daf978a6fe754c0f36"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2050_rp00500.tif",
+    "bytes": 96175906,
+    "sha256": "9d8f1fe9f353a93a3ca0b673c9a61b2cc819321314d22627ee56ea42667e2bfb"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2080_rp00010.tif",
+    "bytes": 90277052,
+    "sha256": "0c463a63ccc9e0a3a3fe6e971d36414012ee0115338b0b9c3f0c7201fb77760b"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2080_rp00100.tif",
+    "bytes": 94597490,
+    "sha256": "a96d51facf879139baa1569338ff3c7284e9bd8bde8639ee030eed690d4a390c"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000GFDL-ESM2M_2080_rp00500.tif",
+    "bytes": 97123056,
+    "sha256": "86162e1294991a4ea68b12d67347527387598bfefe1aad7c043a28c5d1c13717"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2030_rp00010.tif",
+    "bytes": 89309568,
+    "sha256": "f07e942514be22fcec872586d43db861c471396aacc9a98ee4c26776f0b74256"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2030_rp00100.tif",
+    "bytes": 93114616,
+    "sha256": "52bbdd379aeaa0b20ae54c079583b590bfcf5a92a824e189aa478d48bb467629"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2030_rp00500.tif",
+    "bytes": 95383130,
+    "sha256": "8b9eac68d4dd312d1922925fa656bba73219041a07fa8f88b94d2015697c9338"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2050_rp00010.tif",
+    "bytes": 89391230,
+    "sha256": "71c4e056c642407f8f940c8261cd33a8430432e65d91c624601d1ddda4087887"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2050_rp00100.tif",
+    "bytes": 93290058,
+    "sha256": "1d9a71eeec1e754249fbe79bf2c370f42d5a9020ba6e00cd3d13841f299b1d75"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2050_rp00500.tif",
+    "bytes": 95599918,
+    "sha256": "7a448fbd4e2b768a75ec691e54de001e1b89e8dcd81fe6b7f5a6346aed67353f"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2080_rp00010.tif",
+    "bytes": 90340734,
+    "sha256": "4c80871858398e351cfdd9572ce699f70e3730d2bb6ccd47ea9c94c2a2d3cd67"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2080_rp00100.tif",
+    "bytes": 94720228,
+    "sha256": "ac488a41432e5488f696c0baee92200d8abac5d66c44e0a8d1196e8a38891b37"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_0000HadGEM2-ES_2080_rp00500.tif",
+    "bytes": 97290094,
+    "sha256": "37ac52b5a8ba3bdc108a489ad4ba57aa5c63cf4a23a8c513ba5b4e4db7f00820"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2030_rp00010.tif",
+    "bytes": 89284572,
+    "sha256": "0661b28175920133718ae0263de3a8972662a03e3123da3502d924de90597cd6"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2030_rp00100.tif",
+    "bytes": 93117726,
+    "sha256": "182e35baa5820c3c6e015a3cae39148eed9f888e50458ee2b6a5e33169baddd2"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2030_rp00500.tif",
+    "bytes": 95408868,
+    "sha256": "1da770f11ec3e15b01f9b81df9633148195f5faea90f2be90a88e7806c56f5d3"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2050_rp00010.tif",
+    "bytes": 89522914,
+    "sha256": "1b8fd79ee0683e2c093ea7467c2cbaf291f5b87747dd832e4fbac849859e6f25"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2050_rp00100.tif",
+    "bytes": 93524676,
+    "sha256": "dd6bf67c0a2fcab48a7dcff1c8c8648f0da17953596a80f90b6ee108c07dbeeb"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2050_rp00500.tif",
+    "bytes": 95841566,
+    "sha256": "a28434b03567cd86464d1cfaa6d88a7f89a416420aef1ae663c4f5357dfe0002"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2080_rp00010.tif",
+    "bytes": 90262292,
+    "sha256": "083a8b8b95ec194537d27ea0a8cc488e7eabd73580695115548e25d98b289525"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2080_rp00100.tif",
+    "bytes": 94665328,
+    "sha256": "f353013297a4ba2ff53b94221ba7744f38de9b05b7424906c4f61ae5330acf68"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_00IPSL-CM5A-LR_2080_rp00500.tif",
+    "bytes": 97230676,
+    "sha256": "97da010b3bc3a32d909cda44374a53727a82e0fa708f8614226dda2e62f8136f"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2030_rp00010.tif",
+    "bytes": 88760022,
+    "sha256": "9b02e33d7962eadf7539008a28464c092f9a11fade2c563eee756c3f159cfe4f"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2030_rp00100.tif",
+    "bytes": 92477880,
+    "sha256": "a51580072ac9fb2bbda15be855c538370cc3f5966d60b3efd5d49f0b8dc3d511"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2030_rp00500.tif",
+    "bytes": 94714308,
+    "sha256": "265ca004ff394ddf1e0746e2f0543580078b1e770d3dfaf58069364bc9ee9db3"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2050_rp00010.tif",
+    "bytes": 89239794,
+    "sha256": "6b12f8c0d9c540120b9bc99bf82c04426cdd04d33d467a3dbbb9476ff5fe0be6"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2050_rp00100.tif",
+    "bytes": 93079836,
+    "sha256": "a92545aef351f876afa99f9c8230d77b5a63def3af6988d1fd91d5d5b77311cb"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2050_rp00500.tif",
+    "bytes": 95415248,
+    "sha256": "ab80487f6331596436f2de83be330ad127f2dfe2f6844e2eb4abddefa99d87c1"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2080_rp00010.tif",
+    "bytes": 89901174,
+    "sha256": "6bcbe286295eae354b525b6b9acb4c445f5aecef962b4a7be35c6f085e97d145"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2080_rp00100.tif",
+    "bytes": 94113166,
+    "sha256": "9182198f33bcd387dd90e024dd385c67a47338791b65af63c62359b97738da92"
+   },
+   {
+    "file": "data/datasets/aqueduct_floods/inunriver_rcp8p5_MIROC-ESM-CHEM_2080_rp00500.tif",
+    "bytes": 96657854,
+    "sha256": "96e4e5b99abd42e6d57d299fd5477cf7946eac4ec2d61eeabd6a72761ed70e61"
+   }
+  ]
  }
 }
