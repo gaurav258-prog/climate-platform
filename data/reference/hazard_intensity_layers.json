@@ -323,6 +323,80 @@
         "basis": "neither test could tell the 30 m layer from the 90 m maps: node scale ρ +0.0015 and AUC +0.0009 inside sampling noise; building scale CSI 0.223 vs 0.221 with a 90% interval of −0.005 to +0.007. Adopting would change loss figures and fetch ~5 GB more with no evidence of a gain",
         "revisit_when": "a test at building scale against observed losses or a finer observed extent shows a gain beyond the registered noise margin"
       }
+    },
+    "aqueduct_river_flood": {
+      "peril": "flood",
+      "metric": "water_depth",
+      "unit": "m",
+      "version": "v2.0",
+      "source": "WRI Aqueduct Floods hazard maps v2.0, riverine inundation (GLOFRIS: PCR-GLOBWB 2 at 5′, downscaled to 30″ by volume spreading)",
+      "url": "https://aqueduct.wridata.org/AqueductFloods20",
+      "citation": "Ward, P.J., H.C. Winsemius, S. Kuzma, et al. 2020. 'Aqueduct Floods Methodology.' Technical Note. Washington, D.C.: World Resources Institute",
+      "method_file": "data/datasets/sources/wri_aqueduct_floods_methodology_2020.pdf",
+      "resolution_m": 1000,
+      "resolution_basis": "'regridded to 30 × 30 arc seconds (30″ × 30″)—about 1 km × 1 km at the equator' (Ward et al. 2020, section 2)",
+      "return_periods": [
+        10,
+        100,
+        500
+      ],
+      "files": {
+        "dir": "data/datasets/aqueduct_floods",
+        "pattern": "inunriver_{scenario}_{model}_{year}_rp{rp:05d}.tif",
+        "manifest": "data/reference/supply_datasets.json → aqueduct_floods_riverine"
+      },
+      "dry_below": 0.0,
+      "dry_basis": "Aqueduct counts a cell as impacted 'when water levels exceed 0 m' (Ward et al. 2020, section 2); no-data (−9999) is dry",
+      "reads_as": "the 30″ pixel holding the asset, as Aqueduct reads urban damage 'from the occurring water depth in that grid cell' (section 2): share 1 when the pixel is wet, its depth as the mean",
+      "present": {
+        "scenario": "historical",
+        "model": "000000000WATCH",
+        "year": "1980",
+        "covers": "1960–1999, forced by observed weather (EU-WATCH) — 'assumed as the present-day values' (appendix A.1.1)"
+      },
+      "pathways": [
+        "rcp4p5",
+        "rcp8p5"
+      ],
+      "models": [
+        "00000NorESM1-M",
+        "0000GFDL-ESM2M",
+        "0000HadGEM2-ES",
+        "00IPSL-CM5A-LR",
+        "MIROC-ESM-CHEM"
+      ],
+      "periods": {
+        "2030": "2010–2049",
+        "2050": "2030–2069",
+        "2080": "2060–2099"
+      },
+      "future_method": "'changes in future flood volumes were calculated, for all GCMs, from differences between the values in future (RCP and GCM combination) and historical (GCM) conditions … We then imposed the difference to the present-day run forced with the EUWATCH dataset' (appendix A.1.1)",
+      "flood_protection": "'The hazard layers have been simulated without considering the presence of flood protection' (section 3) — as jrc_river_flood",
+      "coverage": "river flooding, global land",
+      "licence": "CC BY 4.0",
+      "licence_status": "verified: WRI's catalogue record for the dataset (datasets.wri.org API, package aqueduct-floods-hazard-maps) states license_id 'cc-by'; attribution: the citation above (2026-10-07)",
+      "use": {
+        "decided": {
+          "by": "product owner",
+          "date": "2026-10-07"
+        },
+        "role": "projected runs only; today's official flood figure stays jrc_river_flood",
+        "compared_with": "its own present-day map only — a projected figure is never subtracted from or set against a jrc_river_flood figure",
+        "scenario_map": {
+          "orderly_1_5c": null,
+          "disorderly_2c": "rcp4p5",
+          "hot_house_3_5c": "rcp8p5"
+        },
+        "scenario_basis": "same 2100 radiative forcing: RCP4.5 ↔ SSP2-4.5, RCP8.5 ↔ SSP5-8.5; Aqueduct ran no RCP2.6, so a 1.5 °C pathway has no published map",
+        "horizon_map": {
+          "2030": "2030",
+          "2050": "2050",
+          "2080": "2080",
+          "2100": null
+        },
+        "horizon_basis": "Aqueduct's periods end in 2099 with the 2060–2099 map labelled 2080; 2100 has no map and 2080 is offered as its own horizon",
+        "range": "central: the middle (median) of the five models; low: the lowest model's curve-low figure; high: the highest model's curve-high figure — the spread of the curve and of the models together"
+      }
     }
   }
 }

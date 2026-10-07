@@ -76,5 +76,14 @@
       "rule": "the refinement is better at building scale only when the 5th percentile of the resampled difference in pooled CSI (30 m minus 90 m) is above zero; when the 95th percentile is below zero it is worse; otherwise the test cannot tell them apart",
       "caveat_stated_before": "a 1-in-100-year map is compared with single events larger or smaller than 1-in-100, which lowers both maps' CSI alike; the comparison between them is what the test reads, not either CSI on its own"
     }
+  },
+  "projection_present_day_check": {
+    "registered": "2026-10-07",
+    "statement": "stated before the check was built or run; it is reported, not a gate — the future cannot be tested, and this shows how far the projection source's present day sits from what was observed and from the JRC maps",
+    "layer": "aqueduct_river_flood (present-day map: historical, 000000000WATCH, 1980)",
+    "observed": "the flood_jrc_ems validator's target and nodes: the six Copernicus EMS events, nodes at least half inside the mapped area, the observed flooded share of each node's mapped part",
+    "predictor": "as for the JRC maps: the share of the node box's 30″ pixels wet at the 1-in-100-year period × the depth–damage fraction at their mean depth (ml.scoring.flood_jrc.flood_score)",
+    "measures": "pooled Spearman rank correlation and AUC (observed share > 2%), beside the JRC maps' recorded run (ρ 0.68, AUC 0.80, 144 nodes)",
+    "agreement": "at every asset location: whether the two sources agree the place is wet or dry at the 1-in-100-year period (JRC: the location's H3 cell has a flooded share; Aqueduct: its 30″ pixel is wet), reported as counts"
   }
 }
