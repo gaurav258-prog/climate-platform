@@ -94,19 +94,10 @@ def plan_refusal(plan: list[dict], max_gb: float) -> str | None:
 def fetch(p: dict) -> dict:
     if p["status"] != "to_fetch":
         return p
+    from scripts.download import download
     name = p["tile"]
-    out = OUT / f"{name}.tif"
-    tmp = out.with_suffix(".part")
-    with requests.get(f"{BASE}/{name}/{name}.tif", stream=True, timeout=300) as r:
-        r.raise_for_status()
-        with open(tmp, "wb") as f:
-            for chunk in r.iter_content(1 << 20):
-                f.write(chunk)
-    if tmp.stat().st_size != p["bytes"]:
-        tmp.unlink()
-        return {**p, "status": "short"}
-    tmp.replace(out)
-    return {**p, "status": "fetched"}
+    got = download(f"{BASE}/{name}/{name}.tif", OUT / f"{name}.tif", p["bytes"])
+    return {**p, "status": "fetched" if got in ("fetched", "held") else "failed", "why": got}
 
 
 def main() -> int:
@@ -137,7 +128,7 @@ def main() -> int:
         return 0
     with ThreadPoolExecutor(a.parallel) as ex:
         results = list(ex.map(fetch, plan))
-    short = [r["tile"] for r in results if r["status"] == "short"]
+    failed = {r["tile"]: r["why"] for r in results if r["status"] == "failed"}
     files = []
     for r in results:
         if r["status"] in ("fetched", "held"):
@@ -151,10 +142,11 @@ def main() -> int:
                                 "licence_pointer": "the bucket readme: 'available on a free basis for the general public under the "
                                                    "terms and conditions of the Licence' at spacedata.copernicus.eu",
                                 "absent": sorted(r["tile"] for r in results if r["status"] == "absent"),
+                                "failed": failed,
                                 "files": files})
     print({"fetched": sum(r["status"] == "fetched" for r in results), "held": sum(r["status"] == "held" for r in results),
-           "short": short}, flush=True)
-    return 0 if not short else 1
+           "failed": failed}, flush=True)
+    return 0 if not failed else 1
 
 
 if __name__ == "__main__":
