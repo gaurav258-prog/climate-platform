@@ -301,6 +301,9 @@ def main() -> None:
     # the cloned REIT books carry the facts EU Taxonomy activity 7.7 needs (only empty facts are filled)
     from scripts.seed_demo_reit_facts import main as seed_reit_facts
     seed_reit_facts()
+    # the demo books' building use and building value, which a flood loss needs (only empty facts are filled)
+    from scripts.seed_demo_building_facts import main as seed_building_facts
+    seed_building_facts()
     # the demo funds' reference-period history and the fictional investees' Taxonomy KPIs (SFDR periodic template)
     from scripts.seed_demo_sfdr_history import main as seed_sfdr_history
     seed_sfdr_history()
