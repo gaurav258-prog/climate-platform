@@ -85,5 +85,16 @@
     "predictor": "as for the JRC maps: the share of the node box's 30″ pixels wet at the 1-in-100-year period × the depth–damage fraction at their mean depth (ml.scoring.flood_jrc.flood_score)",
     "measures": "pooled Spearman rank correlation and AUC (observed share > 2%), beside the JRC maps' recorded run (ρ 0.68, AUC 0.80, 144 nodes)",
     "agreement": "at every asset location: whether the two sources agree the place is wet or dry at the 1-in-100-year period (JRC: the location's H3 cell has a flooded share; Aqueduct: its 30″ pixel is wet), reported as counts"
+  },
+  "published_curve_test": {
+    "registered": "2026-10-07",
+    "statement": "stated before the test was built or run, at the product owner's decision (2026-10-07): a published curve's figures are 'published' only after it passes this test; untested curves are shown as 'untested'",
+    "curve": "jrc_huizinga_2017:residential:021 (North America, residential)",
+    "claims": "the same prepared NFIP claims and set-asides as measured_curves (residential codes, exteriorWaterDepth in inches, 0 < depth ≤ 144 in), depth converted to metres (× 0.0254)",
+    "held_out": "nothing is fitted to the claims, so every event with at least test.min_event_claims claims is held out",
+    "predicted": "each claim's damage ratio read off the curve at its depth (linear between the published points, the last held beyond); an event's predicted total = Σ ratio × the building's value (buildingPropertyValue)",
+    "range": "the curve's published range at each depth: the damage fraction ± one published standard deviation, bounded to [0, 1]",
+    "pass": "both of the protocol's tests as written in 'test': event totals within ±30% in at least two thirds of events (test.event_total), and the share of claims whose recorded damage ratio lies inside the range between 75% and 85% (test.band) — passed → published, failed → held",
+    "note_stated_before": "the band test was written for a 10th–90th percentile range; a ± one standard deviation range need not hold 75–85% of claims, and the test is applied as written all the same"
   }
 }
