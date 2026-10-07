@@ -396,6 +396,97 @@
         },
         "horizon_basis": "Aqueduct's periods end in 2099 with the 2060–2099 map labelled 2080; 2100 has no map and 2080 is offered as its own horizon",
         "range": "central: the middle (median) of the five models; low: the lowest model's curve-low figure; high: the highest model's curve-high figure — the spread of the curve and of the models together"
+      },
+      "present_day_check": {
+        "protocol": "projection_present_day_check",
+        "registered": "2026-10-07",
+        "run": "2026-10-07",
+        "against_observed": {
+          "pooled": {
+            "aqueduct": {
+              "n": 144,
+              "rho": 0.5361,
+              "auc_share_gt_2pct": 0.7293
+            },
+            "jrc": {
+              "n": 144,
+              "rho": 0.6796,
+              "auc_share_gt_2pct": 0.8033
+            }
+          },
+          "per_event": {
+            "2021 Rhine/Ahr": {
+              "aqueduct": {
+                "n": 27,
+                "rho": 0.1152,
+                "auc_share_gt_2pct": 0.38
+              },
+              "jrc": {
+                "n": 27,
+                "rho": 0.1194,
+                "auc_share_gt_2pct": 0.28
+              }
+            },
+            "2024 Storm Boris": {
+              "aqueduct": {
+                "n": 49,
+                "rho": 0.5162,
+                "auc_share_gt_2pct": 0.6397
+              },
+              "jrc": {
+                "n": 49,
+                "rho": 0.7522,
+                "auc_share_gt_2pct": 0.7667
+              }
+            },
+            "2020 Storm Alex": {
+              "aqueduct": {
+                "n": 10,
+                "rho": -0.1417,
+                "auc_share_gt_2pct": null
+              },
+              "jrc": {
+                "n": 10,
+                "rho": -0.147,
+                "auc_share_gt_2pct": null
+              }
+            },
+            "2023 Emilia-Romagna": {
+              "aqueduct": {
+                "n": 28,
+                "rho": 0.3663,
+                "auc_share_gt_2pct": 0.6524
+              },
+              "jrc": {
+                "n": 28,
+                "rho": 0.7007,
+                "auc_share_gt_2pct": 0.8021
+              }
+            },
+            "2024 Valencia DANA": {
+              "aqueduct": {
+                "n": 26,
+                "rho": 0.6895,
+                "auc_share_gt_2pct": 0.8571
+              },
+              "jrc": {
+                "n": 26,
+                "rho": 0.7687,
+                "auc_share_gt_2pct": 0.8542
+              }
+            }
+          }
+        },
+        "agreement_at_assets": {
+          "locations": 5825,
+          "jrc_no_land_in_cell": 6,
+          "both_wet": 632,
+          "both_dry": 4303,
+          "jrc_wet_only": 408,
+          "aqueduct_wet_only": 476,
+          "agree_share": 0.8481,
+          "basis": "JRC wet: the location's H3 res-8 cell has a flooded share; Aqueduct wet: its 30″ pixel is wet"
+        }
       }
     }
   }

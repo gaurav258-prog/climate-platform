@@ -126,3 +126,59 @@ def test_the_book_curve_adds_only_published_figures_on_the_stated_dependence(ses
 def test_eal_is_the_area_under_the_exceedance_curve():
     assert engine.eal({10: 100.0, 100: 1000.0, 500: 2000.0}) == pytest.approx(
         (0.1 - 0.01) * 550 + (0.01 - 0.002) * 1500 + 0.002 * 2000)
+
+
+def _aqueduct_samples(s, depths: dict, lat=LAT, lon=LON):
+    """depths: {(scenario, period, model): 1-in-100 depth}; 1-in-10 and 1-in-500 scale by 0.6 and 1.3."""
+    from services.loss import registry
+    v = registry.layer("aqueduct_river_flood")["version"]
+    for (sc, per, m), d in depths.items():
+        for rp, k in ((10, 0.6), (100, 1.0), (500, 1.3)):
+            s.execute(text("""INSERT INTO hazard_intensity_samples (layer_key, layer_version, latitude, longitude, h3_cell,
+                              rp_years, status, value, cell_fraction, cell_mean, scenario, period, climate_model)
+                              VALUES ('aqueduct_river_flood', :v, :la, :lo, 'test', :rp, 'sampled', :d, :f, :d, :sc, :per, :m)
+                              ON CONFLICT DO NOTHING"""),
+                      {"v": v, "la": lat, "lo": lon, "rp": rp, "d": d * k, "f": 1.0 if d > 0 else 0.0, "sc": sc, "per": per,
+                       "m": m})
+
+
+def test_a_projection_reads_the_middle_model_and_the_same_sources_today(session_rolled_back):
+    """Product owner's decisions (2026-10-07): the projection source's own depths; the middle model as the central
+    figure, the models' lowest and highest as the range; beside it the same source's present day."""
+    from services.loss import registry
+    s = session_rolled_back
+    fam = curves.families().get("nfip_measured")
+    if fam is None:
+        pytest.skip("the measured family is not built on this machine")
+    L = registry.layer("aqueduct_river_flood")
+    org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
+    _asset(s, org)
+    _flood_samples(s)
+    today = (L["present"]["scenario"], L["present"]["year"], L["present"]["model"])
+    depths = {today: 0.5, **{("rcp8p5", "2050", m): d for m, d in zip(L["models"], (0.4, 0.8, 1.2, 1.6, 2.0))}}
+    _aqueduct_samples(s, depths)
+    out = engine.run(s, org, "realestate", "hot_house_3_5c", "2050")
+    r = _results(s, out["run_id"])
+    f = r["flood"]
+    assert f["gap"] is None and f["standing"] in ("held", "published", "untested")
+    model_eal = {m: float(v) for m, v in f["model_eal"].items()}
+    assert len(model_eal) == 5 and float(f["eal_eur"]) == sorted(model_eal.values())[2]      # the middle model
+    assert float(f["eal_low_eur"]) <= min(model_eal.values()) and float(f["eal_high_eur"]) >= max(model_eal.values())
+    assert float(f["eal_same_source_today_eur"]) < float(f["eal_eur"])                      # deeper water than today
+    assert r["storm"]["gap"] == "no published projection of storm intensity is registered"
+    run = s.execute(text("SELECT inputs FROM loss_runs WHERE run_id = CAST(:r AS uuid)"), {"r": out["run_id"]}).scalar()
+    assert run["layers"]["flood"]["pathway"] == "rcp8p5" and run["layers"]["flood"]["period"] == "2050"
+
+
+def test_a_scenario_or_horizon_the_source_does_not_publish_is_a_named_gap(session_rolled_back):
+    s = session_rolled_back
+    org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
+    _asset(s, org)
+    r = _results(s, engine.run(s, org, "realestate", "orderly_1_5c", "2050")["run_id"])["flood"]
+    assert "ran no RCP2.6" in r["gap"]
+    r = _results(s, engine.run(s, org, "realestate", "disorderly_2c", "2100")["run_id"])["flood"]
+    assert "publishes no flood map for 2100" in r["gap"]
+    with pytest.raises(ValueError):
+        engine.run(s, org, "realestate", "baseline", "2050")
+    with pytest.raises(ValueError):
+        engine.run(s, org, "realestate", "hot_house_3_5c", "current")

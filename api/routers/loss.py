@@ -42,26 +42,44 @@ def families(session: DbSession, ctx: dict = Depends(require_permission("modules
 @router.get("/layers", summary="Hazard intensity layers (physical units by return period) and how many places are sampled")
 def layers(session: DbSession, ctx: dict = Depends(require_permission("modules.view"))):
     from services.loss import registry
-    counts = {(r[0], r[1]): {"places": r[2], "outside_coverage": r[3]} for r in session.execute(text("""
+    counts = {(r[0], r[1]): {"places": r[2], "outside_coverage": r[3], "maps": r[4]} for r in session.execute(text("""
         SELECT layer_key, layer_version, count(DISTINCT (latitude, longitude)),
-               count(DISTINCT (latitude, longitude)) FILTER (WHERE status = 'outside_coverage')
+               count(DISTINCT (latitude, longitude)) FILTER (WHERE status = 'outside_coverage'),
+               count(DISTINCT (scenario, period, climate_model))
         FROM hazard_intensity_samples GROUP BY 1, 2""")).all()}
     return {"layers": [{"key": k, **{f: L.get(f) for f in ("peril", "metric", "unit", "version", "source", "resolution_m",
                                                           "return_periods", "coverage", "licence", "licence_status",
                                                           "status", "refines", "domain_note", "adoption")},
-                        "test": L.get("test"), "building_scale_test": L.get("building_scale_test"), "decision": L.get("decision"), "sampled": counts.get((k, L["version"]), {"places": 0, "outside_coverage": 0})}
+                        "test": L.get("test"), "building_scale_test": L.get("building_scale_test"), "decision": L.get("decision"), "present_day_check": L.get("present_day_check"),
+                        "use": L.get("use"), "sampled": counts.get((k, L["version"]), {"places": 0, "outside_coverage": 0})}
                        for k, L in registry.layers().items()]}
 
 
 class RunRequest(BaseModel):
     book: str = Field(..., pattern="^(banking|insurance|insurer_investments|realestate|assetmgmt|company_sites)$")
+    scenario: str = Field("baseline", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$")
+    horizon: str = Field("current", pattern="^(current|2030|2050|2080|2100)$")
 
 
-@router.post("/runs", summary="Start a loss run over one book (background job; recorded, never edited)")
+@router.post("/runs", summary="Start a loss run over one book, today or projected (background job; recorded, never edited)")
 def start_run(body: RunRequest, ctx: dict = Depends(require_permission("reports.publish"))):
+    if (body.scenario == "baseline") != (body.horizon == "current"):
+        raise HTTPException(422, {"error": "scenario_horizon", "message": "today's climate is scenario 'baseline' with "
+                                  "horizon 'current'; a projection names both a scenario and a year"})
     from services.tasks.jobs import submit
-    job = submit("loss.run", ctx["org"]["org_id"], body.book, "baseline", "current", ctx["user"]["id"])
-    return {"status": "started", "book": body.book, "job": job}
+    job = submit("loss.run", ctx["org"]["org_id"], body.book, body.scenario, body.horizon, ctx["user"]["id"])
+    return {"status": "started", "book": body.book, "scenario": body.scenario, "horizon": body.horizon, "job": job}
+
+
+@router.get("/projection", summary="What a projected run can serve: scenarios and horizons, and why the rest are gaps")
+def projection(ctx: dict = Depends(require_permission("modules.view"))):
+    from services.loss import engine, registry
+    L = registry.layer(engine.PROJECTED_FLOOD)
+    cells = [{"scenario": sc, "horizon": h, "gap": engine.projection_gap("flood", sc, h)}
+             for sc in engine.SCENARIOS if sc != "baseline" for h in engine.HORIZONS if h != "current"]
+    return {"source": L["source"], "citation": L["citation"], "licence": L["licence"], "periods": L["periods"],
+            "models": L["models"], "use": L["use"], "present_day_check": L.get("present_day_check"), "flood": cells,
+            "storm": engine.projection_gap("storm", "hot_house_3_5c", "2050")}
 
 
 @router.get("/runs", summary="This org's loss runs, newest first")
@@ -87,6 +105,7 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
         SELECT lr.asset_kind, lr.asset_id::text, lr.peril, CAST(lr.exposed_value_eur AS FLOAT) AS exposed_value_eur,
                lr.occupancy, lr.curve_key, CAST(lr.eal_eur AS FLOAT) AS eal_eur, CAST(lr.eal_low_eur AS FLOAT) AS eal_low_eur,
                CAST(lr.eal_high_eur AS FLOAT) AS eal_high_eur, lr.standing, lr.loss_at_rp, lr.gap,
+               CAST(lr.eal_same_source_today_eur AS FLOAT) AS eal_same_source_today_eur, lr.model_eal,
                COALESCE(pe.entity_name, cs.name) AS asset_name, COALESCE(pe.country, cs.country) AS country
         FROM loss_results lr
         LEFT JOIN portfolio_entities pe ON lr.asset_kind = 'portfolio_entity' AND pe.entity_id = lr.asset_id
@@ -100,14 +119,19 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
             continue
         k = f"{r['peril']}:{r['standing']}"
         t = by_standing.setdefault(k, {"peril": r["peril"], "standing": r["standing"], "results": 0,
-                                       "eal_low_eur": 0.0, "eal_eur": 0.0, "eal_high_eur": 0.0})
+                                       "eal_low_eur": 0.0, "eal_eur": 0.0, "eal_high_eur": 0.0,
+                                       "eal_same_source_today_eur": None})
         t["results"] += 1
         for f in ("eal_low_eur", "eal_eur", "eal_high_eur"):
             t[f] = round(t[f] + (r[f] or 0.0), 2)
+        if r["eal_same_source_today_eur"] is not None:
+            t["eal_same_source_today_eur"] = round((t["eal_same_source_today_eur"] or 0.0) + r["eal_same_source_today_eur"], 2)
     ep = [dict(r) for r in session.execute(text("""
         SELECT peril, kind, rp_years, CAST(loss_eur AS FLOAT) AS loss_eur, basis FROM loss_ep_points
         WHERE run_id = CAST(:r AS uuid) ORDER BY peril, rp_years"""), {"r": run_id}).mappings()]
     return {"run": dict(run), "totals": sorted(by_standing.values(), key=lambda t: (t["peril"], t["standing"])),
-            "totals_basis": "sums of per-asset figures within one standing; figures of different standing are never added",
+            "totals_basis": "sums of per-asset figures within one standing; figures of different standing are never added. "
+                            "A projected run's figure is compared only with the same source's present day "
+                            "(eal_same_source_today_eur), never with a today run's figure",
             "gaps": [{"reason": k, "count": v} for k, v in sorted(gaps.items(), key=lambda kv: -kv[1])],
             "results": results, "book_curve": ep}

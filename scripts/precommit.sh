@@ -29,6 +29,9 @@ venv/bin/python -m scripts.check_migration_roundtrip
 
 step "web build"
 (cd web && npm run build >/tmp/precommit-web.log 2>&1) || { tail -30 /tmp/precommit-web.log; exit 1; }
+
+step "web unit tests"
+(cd web && npm test >/tmp/precommit-web-test.log 2>&1) || { tail -30 /tmp/precommit-web-test.log; exit 1; }
 echo ok
 
 step "test suite (+ demo-data guard)"

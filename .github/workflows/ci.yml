@@ -117,11 +117,38 @@ jobs:
         # Rule selection + ignores live in pyproject.toml [tool.ruff.lint]
         run: ruff check .
 
+  # ── Web app: type-checked build + unit tests (as the local gate, scripts/precommit.sh) ──
+  web:
+    name: Web build & unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (tsc -b + vite)
+        run: npm run build
+
+      - name: Unit tests (node --test)
+        run: npm test
+
   # ── Docker build + push (main branch only) ─────────────────────────────
   build-push:
     name: Build & push image
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, lint]
+    needs: [unit-tests, integration-tests, lint, web]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     permissions:

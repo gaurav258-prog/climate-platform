@@ -15,7 +15,13 @@ stopped it.
   7  standing             the family's held-out test under data/reference/loss_protocol.json: passed → published,
                           failed → held (shown, never used), no test where the asset is → untested
 The book's exceedance curve adds only published figures, on the basis the institution states (loss_flood_dependence);
-with none, the curve is a named gap. Scenarios beyond today wait on projected intensity (a named gap)."""
+with none, the curve is a named gap.
+
+A projected run (assess_projected; the product owner's decisions of 2026-10-07, recorded with the aqueduct_river_flood
+layer) reads the published projection's own depths for the scenario's pathway and the horizon's period, one figure per
+climate model: the middle model is the central figure, the models' lowest and highest the range, and the same source's
+present-day figure stands beside it — the only figure a projected loss is compared with. A scenario or horizon the source
+does not publish, and any peril without a registered projection, is a named gap."""
 from __future__ import annotations
 
 import json
@@ -31,13 +37,23 @@ from services.loss import curves, registry
 ENGINE_VERSION = "loss-v1"
 LAYERS = {"flood": "jrc_river_flood", "storm": "storm_v4_wind"}
 BOOKS = ("banking", "insurance", "insurer_investments", "realestate", "assetmgmt", "company_sites")
+SCENARIOS = ("baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c")
+HORIZONS = ("current", "2030", "2050", "2080", "2100")
 
 
-def _samples(session: Session, layer_key: str, version: str, lat: float, lon: float) -> dict[int, dict]:
+PRESENT = {"scenario": "present", "period": "present", "climate_model": ""}
+PROJECTED_FLOOD = "aqueduct_river_flood"
+
+
+def _samples(session: Session, layer_key: str, version: str, lat: float, lon: float,
+             variant: Optional[dict] = None) -> dict[int, dict]:
+    v = variant or PRESENT
     return {r["rp_years"]: dict(r) for r in session.execute(text("""
         SELECT rp_years, status, value, cell_fraction, cell_mean FROM hazard_intensity_samples
-        WHERE layer_key = :k AND layer_version = :v AND latitude = :la AND longitude = :lo"""),
-        {"k": layer_key, "v": version, "la": lat, "lo": lon}).mappings()}
+        WHERE layer_key = :k AND layer_version = :v AND latitude = :la AND longitude = :lo
+          AND scenario = :s AND period = :p AND climate_model = :m"""),
+        {"k": layer_key, "v": version, "la": lat, "lo": lon, "s": v["scenario"], "p": v["period"],
+         "m": v["climate_model"]}).mappings()}
 
 
 def _band_at(curve: dict, x: float) -> tuple[float, float]:
@@ -138,60 +154,149 @@ def _country_gap(session: Session, asset: dict, country: str) -> str:
     return f"the book states '{country}', which is not a country — a curve is chosen by country{hint}"
 
 
+def _resolve(session: Session, asset: dict, peril: str, family_key: Optional[str], base: dict):
+    """Steps 2–5: (base, None) with base['gap'] set, or (base, {family, curve, value, country})."""
+    if not family_key:
+        return {**base, "gap": f"no {peril} damage-curve family adopted (stated method)"}, None
+    family = curves.families().get(family_key)
+    if family is None:
+        why = "; ".join(curves.refused().get(family_key, ["not registered"]))
+        return {**base, "gap": f"the adopted family {family_key} cannot be used: {why}"}, None
+    occ, why = registry.occupancy_of(asset.get("occupancy"), asset["table"], asset.get("asset_type"))
+    if occ is None:
+        return {**base, "gap": why}, None
+    base = {**base, "occupancy": occ}
+    country = (asset.get("country") or "").strip().upper()
+    if country not in _countries():
+        return {**base, "gap": _country_gap(session, asset, country)}, None
+    curve = curves.curve_for(family_key, occ, country)
+    if curve is None:
+        return {**base, "gap": f"{family_key} has no {occ} curve for {country or 'an unknown country'}"}, None
+    base = {**base, "curve_key": curve["key"]}
+    value, why = _value_for(asset, family)
+    if value is None:
+        return {**base, "gap": why}, None
+    return {**base, "exposed_value_eur": value}, {"family": family, "curve": curve, "value": value, "country": country}
+
+
+def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tuple[Optional[dict], Optional[str]]:
+    """Step 6 per return period: {rp: (low, central, high)}, or the gap that stopped it."""
+    rows = {}
+    for rp, r in sorted(s.items()):
+        if peril == "flood":
+            share, depth = (r["cell_fraction"] or 0.0), (r["cell_mean"] or 0.0)
+            if share == 0 or depth <= 0:
+                rows[rp] = (0.0, 0.0, 0.0)
+                continue
+            central = curves.ratio(curve["points"], depth)
+            try:
+                lo, hi = _band_at(curve, depth)
+            except ValueError:
+                return None, f"{curve['key']} has no damage range at {depth:.2f} m"
+            rows[rp] = (value * share * min(lo, central), value * share * central, value * share * max(hi, central))
+        else:
+            ratio = curves.ratio(curve["points"], float(r["value"] or 0.0))
+            rows[rp] = (value * ratio, value * ratio, value * ratio)
+    return rows, None
+
+
+def _summary(rows: dict) -> dict:
+    low, central, high = ({rp: v[i] for rp, v in rows.items()} for i in range(3))
+    return {"eal_eur": round(eal(central), 2), "eal_low_eur": round(eal(low), 2), "eal_high_eur": round(eal(high), 2),
+            "loss_at_rp": {str(rp): {"low": round(low[rp], 2), "central": round(central[rp], 2), "high": round(high[rp], 2)}
+                           for rp in sorted(rows)}}
+
+
+def _intensity_gap(s: dict, layer_key: str, version: str, what: str = "") -> Optional[str]:
+    if not s:
+        return f"{layer_key} {version}{what} has not been sampled at this location yet"
+    if any(r["status"] != "sampled" for r in s.values()):
+        return f"outside the coverage of {layer_key} {version}"
+    return None
+
+
 def assess(session: Session, asset: dict, peril: str, family_key: Optional[str]) -> dict:
-    """One asset and peril through the decision tree (no database writes)."""
+    """One asset and peril through the decision tree, today's climate (no database writes)."""
     layer_key = LAYERS[peril]
     L = registry.layer(layer_key)
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
     if asset.get("latitude") is None or asset.get("longitude") is None:
         return {**base, "gap": "the asset has no location"}
     s = _samples(session, layer_key, L["version"], float(asset["latitude"]), float(asset["longitude"]))
-    if not s:
-        return {**base, "gap": f"{layer_key} {L['version']} has not been sampled at this location yet"}
-    if any(r["status"] != "sampled" for r in s.values()):
-        return {**base, "gap": f"outside the coverage of {layer_key} {L['version']}"}
-    if not family_key:
-        return {**base, "gap": f"no {peril} damage-curve family adopted (stated method)"}
-    family = curves.families().get(family_key)
-    if family is None:
-        why = "; ".join(curves.refused().get(family_key, ["not registered"]))
-        return {**base, "gap": f"the adopted family {family_key} cannot be used: {why}"}
-    occ, why = registry.occupancy_of(asset.get("occupancy"), asset["table"], asset.get("asset_type"))
-    if occ is None:
+    why = _intensity_gap(s, layer_key, L["version"])
+    if why:
         return {**base, "gap": why}
-    base["occupancy"] = occ
-    country = (asset.get("country") or "").strip().upper()
-    if country not in _countries():
-        return {**base, "gap": _country_gap(session, asset, country)}
-    curve = curves.curve_for(family_key, occ, country)
-    if curve is None:
-        return {**base, "gap": f"{family_key} has no {occ} curve for {country or 'an unknown country'}"}
-    base["curve_key"] = curve["key"]
-    value, why = _value_for(asset, family)
-    if value is None:
-        return {**base, "exposed_value_eur": None, "gap": why}
-    base["exposed_value_eur"] = value
-    rp_rows = {}
-    for rp, r in sorted(s.items()):
-        if peril == "flood":
-            share, depth = (r["cell_fraction"] or 0.0), (r["cell_mean"] or 0.0)
-            if share == 0 or depth <= 0:
-                rp_rows[rp] = (0.0, 0.0, 0.0)
-                continue
-            central = curves.ratio(curve["points"], depth)
-            try:
-                lo, hi = _band_at(curve, depth)
-            except ValueError:
-                return {**base, "gap": f"{curve['key']} has no damage range at {depth:.2f} m"}
-            rp_rows[rp] = (value * share * min(lo, central), value * share * central, value * share * max(hi, central))
-        else:
-            ratio = curves.ratio(curve["points"], float(r["value"] or 0.0))
-            rp_rows[rp] = (value * ratio, value * ratio, value * ratio)
-    low, central, high = ({rp: v[i] for rp, v in rp_rows.items()} for i in range(3))
-    return {**base, "gap": None, "standing": standing(family, country),
-            "eal_eur": round(eal(central), 2), "eal_low_eur": round(eal(low), 2), "eal_high_eur": round(eal(high), 2),
-            "loss_at_rp": {str(rp): {"low": round(low[rp], 2), "central": round(central[rp], 2), "high": round(high[rp], 2)}
-                           for rp in sorted(rp_rows)}}
+    base, ctx = _resolve(session, asset, peril, family_key, base)
+    if ctx is None:
+        return base
+    rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
+    if rows is None:
+        return {**base, "gap": why}
+    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"]), **_summary(rows)}
+
+
+def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[str]:
+    """Why a projected run has no figure for this peril, scenario and horizon — or None when the source serves it."""
+    if peril != "flood":
+        return f"no published projection of {peril} intensity is registered"
+    use = registry.layer(PROJECTED_FLOOD)["use"]
+    if use["scenario_map"].get(scenario) is None:
+        return (f"no published flood projection for {scenario}: the projection source (WRI Aqueduct Floods) ran no "
+                "RCP2.6, so a 1.5 °C pathway has no map")
+    if use["horizon_map"].get(horizon) is None:
+        return f"the projection source publishes no flood map for {horizon}: its last period is 2060–2099, offered as 2080"
+    return None
+
+
+def assess_projected(session: Session, asset: dict, peril: str, family_key: Optional[str], scenario: str,
+                     horizon: str) -> dict:
+    """One asset and peril in a projected climate (product owner's decisions, 2026-10-07): the projection source's own
+    depths for the pathway and period of each of its climate models; central = the middle model (by expected annual loss),
+    its whole loss curve; low = the lowest curve-low of the models, high = the highest curve-high, per return period and
+    for the annual figure; beside it the same source's present-day figure, the only figure it is compared with."""
+    base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
+    why = projection_gap(peril, scenario, horizon)
+    if why:
+        return {**base, "gap": why}
+    if asset.get("latitude") is None or asset.get("longitude") is None:
+        return {**base, "gap": "the asset has no location"}
+    L = registry.layer(PROJECTED_FLOOD)
+    lat, lon = float(asset["latitude"]), float(asset["longitude"])
+    today_v = {"scenario": L["present"]["scenario"], "period": L["present"]["year"], "climate_model": L["present"]["model"]}
+    today = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon, today_v)
+    why = _intensity_gap(today, PROJECTED_FLOOD, L["version"], " (present day)")
+    if why:
+        return {**base, "gap": why}
+    base, ctx = _resolve(session, asset, peril, family_key, base)
+    if ctx is None:
+        return base
+    pathway, period = L["use"]["scenario_map"][scenario], L["use"]["horizon_map"][horizon]
+    per_model = {}
+    for m in L["models"]:
+        s = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon,
+                     {"scenario": pathway, "period": period, "climate_model": m})
+        why = _intensity_gap(s, PROJECTED_FLOOD, L["version"], f" ({pathway}, {m}, {period})")
+        if why:
+            return {**base, "gap": why}
+        rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
+        if rows is None:
+            return {**base, "gap": why}
+        per_model[m] = _summary(rows)
+    today_rows, why = _rp_figures(ctx["curve"], ctx["value"], today, peril)
+    if today_rows is None:
+        return {**base, "gap": why}
+    ranked = sorted(per_model.values(), key=lambda x: x["eal_eur"])
+    middle = ranked[len(ranked) // 2]
+    rps = sorted(middle["loss_at_rp"], key=int)
+    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"]),
+            "eal_eur": middle["eal_eur"],
+            "eal_low_eur": min(x["eal_low_eur"] for x in per_model.values()),
+            "eal_high_eur": max(x["eal_high_eur"] for x in per_model.values()),
+            "loss_at_rp": {rp: {"low": min(x["loss_at_rp"][rp]["low"] for x in per_model.values()),
+                                "central": middle["loss_at_rp"][rp]["central"],
+                                "high": max(x["loss_at_rp"][rp]["high"] for x in per_model.values())} for rp in rps},
+            "eal_same_source_today_eur": _summary(today_rows)["eal_eur"],
+            "model_eal": {m: x["eal_eur"] for m, x in per_model.items()}}
 
 
 def run(session: Session, org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
@@ -200,21 +305,24 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
     from services.calc_settings import get_calc_settings
     if book not in BOOKS:
         raise ValueError(f"book must be one of {BOOKS}")
+    if (scenario == "baseline") != (horizon == "current"):
+        raise ValueError("today's climate is scenario 'baseline' with horizon 'current'; a projection names both")
+    if scenario not in SCENARIOS or horizon not in HORIZONS:
+        raise ValueError(f"scenario must be one of {SCENARIOS} and horizon one of {HORIZONS}")
+    projected = scenario != "baseline"
     settings = get_calc_settings(session, org_id)
     adopted = {p: settings.get(f"loss_curve_family_{p}") for p in LAYERS}
     assets = _assets(session, org_id, book)
     results = []
     for a in assets:
         for peril in LAYERS:
-            if (scenario, horizon) != ("baseline", "current"):
-                r = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None,
-                     "gap": "projected intensity for this scenario and horizon is not built yet"}
-            else:
-                r = assess(session, a, peril, adopted[peril])
+            r = (assess_projected(session, a, peril, adopted[peril], scenario, horizon) if projected
+                 else assess(session, a, peril, adopted[peril]))
             results.append({**r, "asset_kind": a["asset_kind"], "asset_id": a["asset_id"]})
     gapped = {a["asset_id"] for a in assets} - {r["asset_id"] for r in results if r["gap"] is None}
     inputs = {
-        "layers": {p: {"key": k, "version": registry.layer(k)["version"]} for p, k in LAYERS.items()},
+        "layers": ({p: {"key": k, "version": registry.layer(k)["version"]} for p, k in LAYERS.items()} if not projected
+                   else {"flood": _projection_inputs(scenario, horizon), "storm": None}),
         "families_adopted": adopted,
         "families": {k: {"kind": f.get("kind", "published"), "source_sha256": f["source"]["sha256"],
                          "test_passed": (f.get("test") or {}).get("passed")} for k, f in curves.families().items()
@@ -240,14 +348,27 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
     if results:
         session.execute(text("""
             INSERT INTO loss_results (run_id, asset_kind, asset_id, peril, exposed_value_eur, occupancy, curve_key, eal_eur,
-                                      eal_low_eur, eal_high_eur, standing, loss_at_rp, gap)
+                                      eal_low_eur, eal_high_eur, standing, loss_at_rp, gap, eal_same_source_today_eur,
+                                      model_eal)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
-                    :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap)"""),
-            [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None, **r,
-              "loss_at_rp": json.dumps(r["loss_at_rp"]) if r.get("loss_at_rp") else None} for r in results])
+                    :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
+                    :eal_same_source_today_eur, CAST(:model_eal AS jsonb))"""),
+            [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
+              "eal_same_source_today_eur": None, **r,
+              "loss_at_rp": json.dumps(r["loss_at_rp"]) if r.get("loss_at_rp") else None,
+              "model_eal": json.dumps(r["model_eal"]) if r.get("model_eal") else None} for r in results])
     ep = _ep_points(session, run_id, results, settings)
     return {"run_id": run_id, "assets": len(assets), "with_a_figure": len(assets) - len(gapped),
             "results": len(results), "ep_points": ep, "gaps": _gap_summary(results)}
+
+
+def _projection_inputs(scenario: str, horizon: str) -> dict:
+    L = registry.layer(PROJECTED_FLOOD)
+    use = L["use"]
+    return {"key": PROJECTED_FLOOD, "version": L["version"], "pathway": use["scenario_map"].get(scenario),
+            "period": use["horizon_map"].get(horizon), "models": L["models"], "decided": use["decided"],
+            "compared_with": use["compared_with"], "scenario_basis": use["scenario_basis"], "range": use["range"],
+            "reads_as": L["reads_as"], "licence": L["licence"]}
 
 
 def _ep_points(session: Session, run_id: str, results: list[dict], settings: dict) -> int:

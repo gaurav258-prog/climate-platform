@@ -66,3 +66,29 @@ def test_another_orgs_run_is_not_found(api):
 def test_a_run_needs_a_known_book(api):
     h = _login(api, *ADMIN)
     assert api.post("/v1/loss/runs", json={"book": "everything"}, headers=h).status_code == 422
+
+
+def test_a_projection_names_both_a_scenario_and_a_year(api):
+    h = _login(api, *ADMIN)
+    assert api.post("/v1/loss/runs", json={"book": "banking", "scenario": "hot_house_3_5c"}, headers=h).status_code == 422
+    assert api.post("/v1/loss/runs", json={"book": "banking", "horizon": "2050"}, headers=h).status_code == 422
+    assert api.post("/v1/loss/runs", json={"book": "banking", "scenario": "x", "horizon": "2050"}, headers=h).status_code == 422
+
+
+def test_the_projection_page_says_what_is_served_and_why_the_rest_is_not(api):
+    h = _login(api, *ADMIN)
+    body = api.get("/v1/loss/projection", headers=h).json()
+    cells = {(c["scenario"], c["horizon"]): c["gap"] for c in body["flood"]}
+    assert cells[("hot_house_3_5c", "2050")] is None and cells[("disorderly_2c", "2080")] is None
+    assert "RCP2.6" in cells[("orderly_1_5c", "2050")] and "2100" in cells[("hot_house_3_5c", "2100")]
+    assert body["licence"] == "CC BY 4.0" and len(body["models"]) == 5
+    assert body["storm"] == "no published projection of storm intensity is registered"
+
+
+def test_a_projected_run_carries_the_same_sources_today(api):
+    h = _login(api, *ADMIN)
+    run_id = engine.run(api.s, _org(api), "banking", "disorderly_2c", "2050")["run_id"]
+    body = api.get(f"/v1/loss/runs/{run_id}", headers=h).json()
+    assert body["run"]["scenario"] == "disorderly_2c" and body["run"]["time_horizon"] == "2050"
+    assert all("eal_same_source_today_eur" in r and "model_eal" in r for r in body["results"])
+    assert body["run"]["inputs"]["layers"]["flood"]["pathway"] == "rcp4p5"

@@ -6,6 +6,7 @@ import { api, apiMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { balance, flow } from '../lib/money'
 import { toast } from '../lib/toast'
+import { arrivedRun } from '../lib/runWait'
 import { PageHeader, Card, StatGrid, SectionHead, Button } from '../components/ui'
 import { HBar } from '../components/Charts'
 import ReviewTabs from '../components/ReviewTabs'
@@ -20,11 +21,13 @@ interface Curve { key: string; occupancy: string; region: string | null; countri
 interface FamilyTest { passed: boolean; band_coverage?: number; events_tested?: number; events_within_tolerance?: number; median_abs_error?: number; passed_band?: boolean; passed_event_total?: boolean; protocol?: string }
 interface Family { family: string; kind: 'published' | 'measured'; peril: string; metric: string; unit: string; damage_basis: string | null; source: { authors?: string; title?: string; year?: number; url?: string } | null; curves: Curve[]; test: FamilyTest | null; derivation: { claims_used?: number } | null }
 interface Families { families: Family[]; refused: { family: string; reasons: string[] }[]; adopted: Record<string, string | null>; dependence: Record<string, string | null> }
-interface Layer { key: string; peril: string; metric: string; unit: string; version: string; source: string; resolution_m: number | null; return_periods: number[]; licence: string | null; licence_status: string | null; status: string | null; test: { passed: boolean; pooled?: { m90: { rho: number; auc_share_gt_2pct: number }; m30: { rho: number; auc_share_gt_2pct: number } } } | null; decision?: { date: string; outcome: string; basis: string } | null; building_scale_test?: { verdict: string; csi_difference_90pct_interval: [number, number]; pooled: { pixels: number; m90: { csi: number }; m30: { csi: number } } } | null; sampled: { places: number; outside_coverage: number } }
-interface RunRow { run_id: string; book: string; as_of: string; n_assets: number; n_gaps: number; created_at: string; families_adopted: Record<string, string | null> }
+interface Layer { key: string; peril: string; metric: string; unit: string; version: string; source: string; resolution_m: number | null; return_periods: number[]; licence: string | null; licence_status: string | null; status: string | null; test: { passed: boolean; pooled?: { m90: { rho: number; auc_share_gt_2pct: number }; m30: { rho: number; auc_share_gt_2pct: number } } } | null; decision?: { date: string; outcome: string; basis: string } | null; present_day_check?: Projection['present_day_check'] | null; use?: { role: string; compared_with: string } | null; building_scale_test?: { verdict: string; csi_difference_90pct_interval: [number, number]; pooled: { pixels: number; m90: { csi: number }; m30: { csi: number } } } | null; sampled: { places: number; outside_coverage: number; maps?: number } }
+interface RunRow { run_id: string; book: string; scenario: string; time_horizon: string; as_of: string; n_assets: number; n_gaps: number; created_at: string; families_adopted: Record<string, string | null> }
+interface Projection { source: string; citation: string; licence: string; periods: Record<string, string>; models: string[]; flood: { scenario: string; horizon: string; gap: string | null }[]; storm: string | null; present_day_check?: { against_observed: { pooled: { aqueduct: { rho: number; auc_share_gt_2pct: number }; jrc: { rho: number; auc_share_gt_2pct: number } } }; agreement_at_assets: { agree_share: number; locations: number } } }
 interface Band { low: number; central: number; high: number }
-interface Result { asset_id: string; asset_name: string | null; country: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_key: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null }
-interface RunDetail { run: RunRow & { inputs: Record<string, unknown> }; totals: { peril: string; standing: Standing; results: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number }[]; gaps: { reason: string; count: number }[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[] }
+interface Result { asset_id: string; asset_name: string | null; country: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_key: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null; eal_same_source_today_eur: number | null; model_eal: Record<string, number> | null }
+interface ProjectionInputs { key: string; pathway: string; period: string; models: string[] }
+interface RunDetail { run: RunRow & { inputs: { layers?: { flood?: ProjectionInputs | { key: string } } } }; totals: { peril: string; standing: Standing; results: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null }[]; gaps: { reason: string; count: number }[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[] }
 
 const BOOKS: Record<string, { key: string; label: string }[]> = {
   bank: [{ key: 'banking', label: 'Loan book' }],
@@ -39,6 +42,11 @@ const STANDING: Record<Standing, { label: string; hint: string; color: string }>
   untested: { label: 'Untested', hint: 'no observed losses to test the curve where the asset is', color: 'var(--color-slate)' },
 }
 const PERIL: Record<string, string> = { flood: 'River flood', storm: 'Tropical cyclone' }
+const SCENARIO: Record<string, string> = { baseline: 'Today', disorderly_2c: 'Disorderly 2 °C', hot_house_3_5c: 'Hot house 3.5 °C', orderly_1_5c: 'Orderly 1.5 °C' }
+const HORIZONS = ['2030', '2050', '2080', '2100']
+const PATHWAY: Record<string, string> = { rcp4p5: 'RCP4.5', rcp8p5: 'RCP8.5' }
+const runLabel = (r: RunRow) => r.scenario === 'baseline' ? 'Today' : `${SCENARIO[r.scenario] ?? r.scenario} · ${r.time_horizon}`
+const change = (now: number | null, then: number | null) => now == null || !then ? '—' : `${now >= then ? '+' : ''}${(((now - then) / then) * 100).toFixed(0)}%`
 
 function StandingChip({ s }: { s: Standing }) {
   const v = STANDING[s]
@@ -53,23 +61,32 @@ export default function Loss() {
   const canRun = (profile?.permissions ?? []).includes('reports.publish')
   const fams = useQuery({ queryKey: ['loss-families'], queryFn: () => api.get<Families>('/v1/loss/families') })
   const layers = useQuery({ queryKey: ['loss-layers'], queryFn: () => api.get<{ layers: Layer[] }>('/v1/loss/layers') })
+  const proj = useQuery({ queryKey: ['loss-projection'], queryFn: () => api.get<Projection>('/v1/loss/projection') })
   const [book, setBook] = useState(books[0]?.key ?? '')
+  const [scenario, setScenario] = useState('baseline')
+  const [horizon, setHorizon] = useState('2050')
+  const projGap = scenario === 'baseline' ? null : proj.data?.flood.find(c => c.scenario === scenario && c.horizon === horizon)?.gap ?? null
   const [waiting, setWaiting] = useState(0)
   const runs = useQuery({
     queryKey: ['loss-runs', book], enabled: !!book,
     queryFn: () => api.get<{ runs: RunRow[] }>(`/v1/loss/runs?book=${book}&limit=20`),
     refetchInterval: waiting ? 3000 : false,
+    refetchIntervalInBackground: true,           // a run started here lands even if the tab is out of sight
   })
   const [runId, setRunId] = useState<string | null>(null)
+  const [before, setBefore] = useState<string | null>(null)          // the newest run when this one was started
   const latest = runs.data?.runs[0]?.run_id ?? null
-  useEffect(() => { if (waiting && latest && latest !== runId) { setWaiting(0); setRunId(latest); toast.success('Loss run recorded.') } }, [latest, waiting, runId])
+  useEffect(() => {
+    const got = arrivedRun(latest, before, !!waiting)
+    if (got) { setWaiting(0); setRunId(got); toast.success('Loss run recorded.') }
+  }, [latest, waiting, before])
   useEffect(() => { if (waiting && Date.now() - waiting > 120000) setWaiting(0) }, [runs.dataUpdatedAt, waiting])
   const shown = runId ?? latest
 
   const start = async () => {
     try {
-      await api.post('/v1/loss/runs', { book })
-      setRunId(null); setWaiting(Date.now()); toast.info('Loss run started.')
+      await api.post('/v1/loss/runs', scenario === 'baseline' ? { book } : { book, scenario, horizon })
+      setBefore(latest); setWaiting(Date.now()); toast.info('Loss run started.')
     } catch (e) { toast.error(apiMessage(e, 'Could not start the loss run.')) }
   }
 
@@ -87,15 +104,26 @@ export default function Loss() {
               className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">
               {books.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
             </select>
-            {canRun && <Button onClick={start} disabled={!!waiting}><Play size={14} className="inline -mt-0.5 mr-1" />{waiting ? 'Running…' : 'Run losses now'}</Button>}
+            <select value={scenario} onChange={e => setScenario(e.target.value)} aria-label="Climate"
+              className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">
+              {Object.entries(SCENARIO).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+            {scenario !== 'baseline' && (
+              <select value={horizon} onChange={e => setHorizon(e.target.value)} aria-label="Year"
+                className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">
+                {HORIZONS.map(h => <option key={h} value={h}>{h}{proj.data?.periods[h] ? ` (${proj.data.periods[h]})` : ''}</option>)}
+              </select>
+            )}
+            {canRun && <Button onClick={start} disabled={!!waiting || !!projGap}><Play size={14} className="inline -mt-0.5 mr-1" />{waiting ? 'Running…' : 'Run losses now'}</Button>}
             {(runs.data?.runs.length ?? 0) > 0 && (
               <select value={shown ?? ''} onChange={e => setRunId(e.target.value)} aria-label="Run"
                 className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">
-                {runs.data!.runs.map(r => <option key={r.run_id} value={r.run_id}>{new Date(r.created_at).toLocaleString()} · {r.n_assets} assets</option>)}
+                {runs.data!.runs.map(r => <option key={r.run_id} value={r.run_id}>{runLabel(r)} · {new Date(r.created_at).toLocaleString()} · {r.n_assets} assets</option>)}
               </select>
             )}
           </div>
         )}
+        {projGap && <div className="text-[12px] text-[var(--color-warn)]">Not available: {projGap}.</div>}
         {shown ? <RunView runId={shown} /> : books.length > 0 && !runs.isLoading &&
           <div className="text-[12.5px] text-[var(--color-faint)]">No loss run yet for this book.</div>}
       </Card>
@@ -155,8 +183,15 @@ function RunView({ runId }: { runId: string }) {
   if (q.isLoading || !q.data) return <div className="text-[12.5px] text-[var(--color-faint)]">Loading the run…</div>
   const d = q.data
   const withFigure = d.results.filter(r => !r.gap)
+  const fl = d.run.inputs.layers?.flood as ProjectionInputs | undefined
+  const projected = d.run.scenario !== 'baseline'
   return (
     <div className="space-y-5">
+      {projected && fl?.pathway && (
+        <div className="rounded-lg border border-[var(--color-line-2)] px-3.5 py-3 text-[12.5px] text-[var(--color-ink)]">
+          <span className="font-semibold">{SCENARIO[d.run.scenario]} · {d.run.time_horizon}</span>: flood depth from WRI Aqueduct Floods, {PATHWAY[fl.pathway] ?? fl.pathway}, period {fl.period}, five climate models. The central figure is the middle model; the range spans the lowest and highest. Each figure is compared only with Aqueduct's own present day, never with today's run (which reads the JRC maps).
+        </div>
+      )}
       <StatGrid cols={4} items={[
         { label: 'Assets', value: d.run.n_assets.toLocaleString(), sub: `as of ${d.run.as_of}` },
         { label: 'Asset–peril figures', value: withFigure.length.toLocaleString(), sub: 'a range each, with its standing' },
@@ -172,6 +207,7 @@ function RunView({ runId }: { runId: string }) {
                 <div className="flex items-center justify-between gap-2"><span className="text-[12px] text-[var(--color-ink)]">{PERIL[t.peril] ?? t.peril}</span><StandingChip s={t.standing} /></div>
                 <div className="display text-[20px] tabular-nums mt-1.5">{flow(t.eal_eur)}</div>
                 <div className="text-[11px] text-[var(--color-mute)] mt-1 tabular-nums">range {flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} asset{t.results === 1 ? '' : 's'}</div>
+                {t.eal_same_source_today_eur != null && <div className="text-[11px] text-[var(--color-mute)] mt-0.5 tabular-nums">same source today {flow(t.eal_same_source_today_eur)} · change {change(t.eal_eur, t.eal_same_source_today_eur)}</div>}
               </div>
             ))}
           </div>
@@ -195,7 +231,9 @@ function RunView({ runId }: { runId: string }) {
             <thead><tr className="text-left text-[var(--color-mute)] border-b border-[var(--color-line)]">
               <th className="py-1.5 pr-3 font-medium">Asset</th><th className="pr-3 font-medium">Peril</th><th className="pr-3 font-medium text-right" title="The value the curve's ratio is taken of — for a building curve, the building's own value (land excluded) as your book states it">Building value</th>
               <th className="pr-3 font-medium">Use · curve</th><th className="pr-3 font-medium">Standing</th>
-              <th className="pr-3 font-medium text-right">Expected annual loss (range)</th><th className="font-medium text-right">1-in-100 loss</th>
+              <th className="pr-3 font-medium text-right">Expected annual loss (range)</th>
+              {projected && <th className="pr-3 font-medium text-right" title="The same asset in the projection source's own present-day map — the only figure a projected loss is compared with">Same source today</th>}
+              <th className="font-medium text-right">1-in-100 loss</th>
             </tr></thead>
             <tbody>
               {rows.slice(0, 200).map(r => (
@@ -203,10 +241,11 @@ function RunView({ runId }: { runId: string }) {
                   <td className="py-1.5 pr-3 text-[var(--color-ink)]">{r.asset_name ?? r.asset_id.slice(0, 8)}<span className="text-[var(--color-faint)]"> {r.country}</span></td>
                   <td className="pr-3">{PERIL[r.peril] ?? r.peril}</td>
                   <td className="pr-3 text-right">{r.exposed_value_eur ? balance(r.exposed_value_eur) : '—'}</td>
-                  {r.gap ? <td colSpan={4} className="pr-3 text-[var(--color-warn)]">{r.gap}</td> : (<>
+                  {r.gap ? <td colSpan={projected ? 5 : 4} className="pr-3 text-[var(--color-warn)]">{r.gap}</td> : (<>
                     <td className="pr-3 text-[var(--color-mute)]">{r.occupancy} · <span className="mono text-[10.5px]">{r.curve_key}</span></td>
                     <td className="pr-3">{r.standing && <StandingChip s={r.standing} />}</td>
                     <td className="pr-3 text-right">{flow(r.eal_eur)} <span className="text-[var(--color-faint)]">({flow(r.eal_low_eur)} – {flow(r.eal_high_eur)})</span></td>
+                    {projected && <td className="pr-3 text-right" title={r.model_eal ? Object.entries(r.model_eal).map(([m, v]) => `${m.replace(/^0+/, '')}: ${flow(v)}`).join('\n') : undefined}>{flow(r.eal_same_source_today_eur)} <span className="text-[var(--color-faint)]">{change(r.eal_eur, r.eal_same_source_today_eur)}</span></td>}
                     <td className="text-right">{r.loss_at_rp?.['100'] ? balance(r.loss_at_rp['100'].central) : '—'}</td>
                   </>)}
                 </tr>
@@ -239,9 +278,13 @@ function LayersView({ layers }: { layers: Layer[] }) {
               {L.status && <span className="mono text-[10.5px] px-2 py-0.5 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)]">{L.status === 'in_use' ? 'in use' : 'candidate — not used'}</span>}
             </div>
             <div className="text-[var(--color-mute)] mt-0.5">{L.source}</div>
-            <div className="text-[var(--color-mute)] mt-0.5">Sampled at {L.sampled.places.toLocaleString()} places{L.sampled.outside_coverage ? ` (${L.sampled.outside_coverage.toLocaleString()} outside its coverage)` : ''} · licence: {L.licence ?? L.licence_status ?? 'not recorded'}</div>
+            <div className="text-[var(--color-mute)] mt-0.5">Sampled at {L.sampled.places.toLocaleString()} places{(L.sampled.maps ?? 1) > 1 ? ` on ${L.sampled.maps} maps` : ''}{L.sampled.outside_coverage ? ` (${L.sampled.outside_coverage.toLocaleString()} outside its coverage)` : ''} · licence: {L.licence ?? L.licence_status ?? 'not recorded'}</div>
             {L.test?.pooled && (
               <div className="text-[var(--color-ink)] mt-0.5">Test against observed flood extents (0.1° areas): rank correlation {L.test.pooled.m30.rho.toFixed(3)} vs {L.test.pooled.m90.rho.toFixed(3)} for the 90 m maps; AUC {L.test.pooled.m30.auc_share_gt_2pct.toFixed(3)} vs {L.test.pooled.m90.auc_share_gt_2pct.toFixed(3)}{L.status === 'in_use' ? ' — in use' : ' — not in use'}</div>
+            )}
+            {L.use && <div className="text-[var(--color-ink)] mt-0.5"><span className="font-semibold">Use:</span> {L.use.role}; {L.use.compared_with}.</div>}
+            {L.present_day_check && (
+              <div className="text-[var(--color-ink)] mt-0.5">Present-day check on six observed floods: rank correlation {L.present_day_check.against_observed.pooled.aqueduct.rho.toFixed(2)} vs {L.present_day_check.against_observed.pooled.jrc.rho.toFixed(2)} for the JRC maps, AUC {L.present_day_check.against_observed.pooled.aqueduct.auc_share_gt_2pct.toFixed(2)} vs {L.present_day_check.against_observed.pooled.jrc.auc_share_gt_2pct.toFixed(2)}; agrees with the JRC maps on wet or dry at {(L.present_day_check.agreement_at_assets.agree_share * 100).toFixed(0)}% of {L.present_day_check.agreement_at_assets.locations.toLocaleString()} asset locations. Reported, not a gate: a future cannot be tested.</div>
             )}
             {L.decision && (
               <div className="text-[var(--color-ink)] mt-0.5"><span className="font-semibold">Decision ({L.decision.date}):</span> {L.decision.outcome} — {L.decision.basis}.</div>
