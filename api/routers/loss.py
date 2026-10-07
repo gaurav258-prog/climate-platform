@@ -22,7 +22,11 @@ def _family_view(key: str, f: dict) -> dict:
     return {"family": key, "kind": f.get("kind", "published"), "peril": f["peril"], "metric": f["metric"], "unit": f["unit"],
             "damage_basis": f.get("damage_basis"), "source": f.get("source"), "licence": f.get("licence"),
             "curves": [{"key": c["key"], "occupancy": c["occupancy"], "region": c.get("region"),
-                        "countries": c["countries"], "points": c["points"], "bands": c.get("bands")} for c in f["curves"]],
+                        "countries": c["countries"], "points": c["points"], "bands": c.get("bands"),
+                        "sd": c.get("sd"), "spread": c.get("spread"),
+                        "test": {k: v for k, v in c["test"].items() if k not in ("events", "set_aside")} if c.get("test") else None}
+                       for c in f["curves"]],
+            "regions_basis": f.get("regions_basis"), "absent": f.get("absent"), "not_carried": f.get("not_carried"),
             "derivation": f.get("derivation"),
             "test": {k: v for k, v in t.items() if k != "events"} if t else None,
             "test_events": t.get("events") if t else None}

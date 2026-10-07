@@ -14,6 +14,9 @@ A family file:
                                         data/reference/loss_protocol.json: a derivation, each curve's bands with
                                         their spread, and the held-out test with whether it passed)
   curves [{key, occupancy, region, countries [ISO2 …], points [[x, ratio], …], quote | bands}]
+                                        a published curve may carry the publisher's standard deviation per point
+                                        (sd [[x, σ], …]) or say "spread": "none published"; with spread_required
+                                        on the family, every curve must say which
   beyond_last                           "hold": the ratio at the last point holds beyond it (no extrapolation)"""
 from __future__ import annotations
 
@@ -77,6 +80,12 @@ def check_family(doc: dict) -> list[str]:
             q = c.get("quote") or {}
             if not (q.get("table") and q.get("page")):
                 out.append(f"{fam}/{k}: the table and page it was transcribed from are not quoted")
+            sd, xs_ = c.get("sd"), [p[0] for p in c.get("points") or []]
+            if sd is not None:
+                if [p[0] for p in sd] != xs_ or any(p[1] is None or p[1] < 0 for p in sd):
+                    out.append(f"{fam}/{k}: its published standard deviation needs one non-negative value per depth")
+            elif c.get("spread") not in ("none published", None) or (doc.get("spread_required") and c.get("spread") is None):
+                out.append(f"{fam}/{k}: a curve states its published spread ('sd') or that none is published")
         else:
             bands = c.get("bands") or []
             if not bands or any(b.get("n", 0) <= 0 or b.get("p10") is None or b.get("p90") is None

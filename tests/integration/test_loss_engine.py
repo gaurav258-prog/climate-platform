@@ -182,3 +182,25 @@ def test_a_scenario_or_horizon_the_source_does_not_publish_is_a_named_gap(sessio
         engine.run(s, org, "realestate", "baseline", "2050")
     with pytest.raises(ValueError):
         engine.run(s, org, "realestate", "hot_house_3_5c", "current")
+
+
+def test_a_european_home_on_the_jrc_curve_is_untested_and_a_us_home_held(session_rolled_back):
+    """Product owner's decisions (2026-10-07): the JRC curves cover the UN M49 region's countries; Europe publishes no
+    spread, so its figure has no range; a curve tested on its own carries that test's standing, every other is
+    untested."""
+    s = session_rolled_back
+    fam = curves.families().get("jrc_huizinga_2017")
+    if fam is None:
+        pytest.skip("the JRC family is not built on this machine")
+    org = _org(s, {"loss_curve_family_flood": "jrc_huizinga_2017"})
+    _asset(s, org, country="DE", lat=50.94, lon=6.96)
+    _flood_samples(s, lat=50.94, lon=6.96, share=0.5, depth=1.0)
+    _asset(s, org, country="US")
+    _flood_samples(s)
+    rows = {r["curve_key"]: dict(r) for r in s.execute(text("""SELECT * FROM loss_results WHERE run_id = CAST(:r AS uuid)
+            AND peril = 'flood'"""), {"r": engine.run(s, org, "realestate")["run_id"]}).mappings()}
+    de, us = rows["jrc_huizinga_2017:residential:150"], rows["jrc_huizinga_2017:residential:021"]
+    assert de["standing"] == "untested" and de["eal_low_eur"] == de["eal_eur"] == de["eal_high_eur"]
+    eu_curve = next(c for c in fam["curves"] if c["key"] == "jrc_huizinga_2017:residential:150")
+    assert de["loss_at_rp"]["100"]["central"] == pytest.approx(400000 * 0.5 * curves.ratio(eu_curve["points"], 1.0), rel=1e-6)
+    assert us["standing"] == "held" and us["eal_low_eur"] < us["eal_eur"] < us["eal_high_eur"]

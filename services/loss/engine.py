@@ -56,15 +56,23 @@ def _samples(session: Session, layer_key: str, version: str, lat: float, lon: fl
          "m": v["climate_model"]}).mappings()}
 
 
-def _band_at(curve: dict, x: float) -> tuple[float, float]:
-    """(low, high) damage ratio at intensity x: the band holding x (measured curves); a published curve without bands
-    has no range of its own."""
+def _band_at(curve: dict, x: float, central: float) -> tuple[float, float]:
+    """(low, high) damage ratio at intensity x:
+      measured curve   the band holding x (its claims' 10th–90th percentile)
+      published curve  the publisher's standard deviation at x (linear between its points, the last held beyond):
+                       central ± one standard deviation, bounded to [0, 1]
+      none published   no range of its own: (central, central)"""
     for b in curve.get("bands") or []:
         if b["from_m"] < x <= b["to_m"]:
             return b["p10"], b["p90"]
     bands = curve.get("bands") or []
     if bands and x > bands[-1]["to_m"]:
         return bands[-1]["p10"], bands[-1]["p90"]
+    if curve.get("sd"):
+        sd = curves.ratio(curve["sd"], x) if x > curve["sd"][0][0] else curve["sd"][0][1]
+        return max(0.0, central - sd), min(1.0, central + sd)
+    if curve.get("spread") == "none published":
+        return central, central
     raise ValueError("no band")
 
 
@@ -77,7 +85,11 @@ def eal(losses: dict[int, float]) -> float:
     return out + p[-1] * losses[rps[-1]]
 
 
-def standing(family: dict, country: str) -> str:
+def standing(family: dict, country: str, curve: Optional[dict] = None) -> str:
+    """The figure's standing under data/reference/loss_protocol.json: a curve tested on its own (published_curve_test)
+    is published or held by that test; otherwise the family's test where it covers the country; otherwise untested."""
+    if curve is not None and curve.get("test"):
+        return "published" if curve["test"].get("passed") else "held"
     t = family.get("test")
     if not t:
         return "untested"
@@ -190,7 +202,7 @@ def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tu
                 continue
             central = curves.ratio(curve["points"], depth)
             try:
-                lo, hi = _band_at(curve, depth)
+                lo, hi = _band_at(curve, depth, central)
             except ValueError:
                 return None, f"{curve['key']} has no damage range at {depth:.2f} m"
             rows[rp] = (value * share * min(lo, central), value * share * central, value * share * max(hi, central))
@@ -232,7 +244,7 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
     if rows is None:
         return {**base, "gap": why}
-    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"]), **_summary(rows)}
+    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows)}
 
 
 def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[str]:
@@ -288,7 +300,7 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
     ranked = sorted(per_model.values(), key=lambda x: x["eal_eur"])
     middle = ranked[len(ranked) // 2]
     rps = sorted(middle["loss_at_rp"], key=int)
-    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"]),
+    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]),
             "eal_eur": middle["eal_eur"],
             "eal_low_eur": min(x["eal_low_eur"] for x in per_model.values()),
             "eal_high_eur": max(x["eal_high_eur"] for x in per_model.values()),

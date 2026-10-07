@@ -17,9 +17,9 @@ import ReviewTabs from '../components/ReviewTabs'
 // standing are never added together; a refused curve family is shown with why, never offered.
 
 type Standing = 'published' | 'held' | 'untested'
-interface Curve { key: string; occupancy: string; region: string | null; countries: string[] }
+interface Curve { key: string; occupancy: string; region: string | null; countries: string[]; sd?: number[][] | null; spread?: string | null; test?: FamilyTest | null }
 interface FamilyTest { passed: boolean; band_coverage?: number; events_tested?: number; events_within_tolerance?: number; median_abs_error?: number; passed_band?: boolean; passed_event_total?: boolean; protocol?: string }
-interface Family { family: string; kind: 'published' | 'measured'; peril: string; metric: string; unit: string; damage_basis: string | null; source: { authors?: string; title?: string; year?: number; url?: string } | null; curves: Curve[]; test: FamilyTest | null; derivation: { claims_used?: number } | null }
+interface Family { family: string; kind: 'published' | 'measured'; peril: string; metric: string; unit: string; damage_basis: string | null; source: { authors?: string; title?: string; year?: number; url?: string } | null; curves: Curve[]; test: FamilyTest | null; derivation: { claims_used?: number } | null; regions_basis?: string | null; absent?: string[] | null; not_carried?: Record<string, string> | null }
 interface Families { families: Family[]; refused: { family: string; reasons: string[] }[]; adopted: Record<string, string | null>; dependence: Record<string, string | null> }
 interface Layer { key: string; peril: string; metric: string; unit: string; version: string; source: string; resolution_m: number | null; return_periods: number[]; licence: string | null; licence_status: string | null; status: string | null; test: { passed: boolean; pooled?: { m90: { rho: number; auc_share_gt_2pct: number }; m30: { rho: number; auc_share_gt_2pct: number } } } | null; decision?: { date: string; outcome: string; basis: string } | null; present_day_check?: Projection['present_day_check'] | null; use?: { role: string; compared_with: string } | null; building_scale_test?: { verdict: string; csi_difference_90pct_interval: [number, number]; pooled: { pixels: number; m90: { csi: number }; m30: { csi: number } } } | null; sampled: { places: number; outside_coverage: number; maps?: number } }
 interface RunRow { run_id: string; book: string; scenario: string; time_horizon: string; as_of: string; n_assets: number; n_gaps: number; created_at: string; families_adopted: Record<string, string | null> }
@@ -156,8 +156,22 @@ function Families({ q, loading }: { q?: Families; loading: boolean }) {
           <div className="text-[12px] text-[var(--color-mute)] mt-1">
             {f.source?.authors}{f.source?.year ? ` (${f.source.year})` : ''}{f.source?.title ? ` — ${f.source.title}` : ''}
             {f.derivation?.claims_used ? ` · built from ${f.derivation.claims_used.toLocaleString()} claims` : ''}
-            {' · '}{f.curves.length} curve{f.curves.length === 1 ? '' : 's'} for {Array.from(new Set(f.curves.flatMap(c => c.countries))).join(', ')}
+            {' · '}{f.curves.length} curve{f.curves.length === 1 ? '' : 's'} for {(() => { const cs = Array.from(new Set(f.curves.flatMap(c => c.countries))); return cs.length <= 10 ? cs.join(', ') : `${cs.length} countries` })()}
           </div>
+          {f.kind === 'published' && (
+            <div className="text-[12px] text-[var(--color-mute)] mt-1.5 space-y-1">
+              <div>{f.curves.length} curves ({Array.from(new Set(f.curves.map(c => c.occupancy))).join(', ')}) by region{f.regions_basis ? ' — regions are the UN M49 groupings' : ''}; {f.curves.filter(c => c.sd).length} with a published range (± one standard deviation), {f.curves.filter(c => c.spread === 'none published').length} with none published.</div>
+              {f.curves.filter(c => c.test).map(c => (
+                <div key={c.key} className="text-[var(--color-ink)] flex flex-wrap items-center gap-2">
+                  <span className="mono text-[10.5px]">{c.occupancy} · {c.region}</span>
+                  <StandingChip s={c.test!.passed ? 'published' : 'held'} />
+                  <span>tested on {c.test!.events_tested} US flood events: totals within ±30% in {c.test!.events_within_tolerance}; range holds {((c.test!.band_coverage ?? 0) * 100).toFixed(0)}% of claims</span>
+                </div>
+              ))}
+              <div>Every other curve is <StandingChip s="untested" /> — no observed losses to test it against.</div>
+              {(f.absent ?? []).length > 0 && <div>Not in the source: {f.absent!.join('; ')}.</div>}
+            </div>
+          )}
           {f.test && (
             <div className="text-[12px] text-[var(--color-ink)] mt-1.5 flex flex-wrap gap-x-5 gap-y-1">
               {f.test.band_coverage != null && <span>Range holds {(f.test.band_coverage * 100).toFixed(1)}% of held-out claims (75–85% needed) — {f.test.passed_band ? 'pass' : 'fail'}</span>}
