@@ -49,7 +49,7 @@ def layers(session: DbSession, ctx: dict = Depends(require_permission("modules.v
     return {"layers": [{"key": k, **{f: L.get(f) for f in ("peril", "metric", "unit", "version", "source", "resolution_m",
                                                           "return_periods", "coverage", "licence", "licence_status",
                                                           "status", "refines", "domain_note", "adoption")},
-                        "test": L.get("test"), "building_scale_test": L.get("building_scale_test"), "sampled": counts.get((k, L["version"]), {"places": 0, "outside_coverage": 0})}
+                        "test": L.get("test"), "building_scale_test": L.get("building_scale_test"), "decision": L.get("decision"), "sampled": counts.get((k, L["version"]), {"places": 0, "outside_coverage": 0})}
                        for k, L in registry.layers().items()]}
 
 

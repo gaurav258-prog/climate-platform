@@ -47,3 +47,17 @@ def test_the_respread_can_narrow_a_flood_but_never_widen_it():
     from services.loss.refine30 import respread_depths
     d = respread_depths(np.array([1, 1, 1, 1]), np.array([10.0, 10.2, 10.4, 11.6]), np.array([0.3, 0.3, 0.3, 0.3]))
     assert (d > 0.05).sum() == 3 and d[3] < 0                         # the high corner is dry, the rest stay wet
+
+
+def test_a_recorded_decision_survives_a_rerun_of_the_test(tmp_path, monkeypatch):
+    import json
+
+    from services.loss import refine30
+    f = tmp_path / "layers.json"
+    decision = {"by": "product owner", "date": "2026-10-07", "outcome": "keep the 90 m maps", "basis": "x"}
+    f.write_text(json.dumps({"layers": {"jrc_flood_30m": {"decision": decision, "building_scale_test": {"verdict": "cannot tell"}}}}))
+    monkeypatch.setattr(refine30, "LAYERS_FILE", f)
+    refine30.record({"passed": True, "difference_90pct_interval": {"rho": [-0.002, 0.005], "auc": [-0.001, 0.004]}})
+    L = json.loads(f.read_text())["layers"]["jrc_flood_30m"]
+    assert L["decision"] == decision and L["building_scale_test"]["verdict"] == "cannot tell"
+    assert L["status"] == "candidate" and L["adoption"] == "decided 2026-10-07: keep the 90 m maps"

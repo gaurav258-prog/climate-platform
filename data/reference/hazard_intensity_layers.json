@@ -65,7 +65,7 @@
       ],
       "method": "the JRC 1-in-100-year depth (90 m) re-spread over the Copernicus GLO-30 surface (30 m): in each wet 90 m pixel the water surface is the mean 30 m elevation of its land sub-pixels plus the mapped depth; a 30 m sub-pixel is wet where that surface stands more than 0.05 m above it. Water never spreads outside the pixels the JRC maps flood",
       "status": "candidate",
-      "adoption": "passed the registered rule; whether it replaces the 90 m maps is the product owner's decision — the 90% interval of the difference (rank correlation [-0.002, 0.0053], AUC [-0.0014, 0.0036]) shows how much of the gain is sampling noise",
+      "adoption": "decided 2026-10-07: keep the 90 m maps (jrc_river_flood)",
       "licence": null,
       "licence_status": "GLO-30: to verify before customer-facing use (data/reference/supply_datasets.json)",
       "test": {
@@ -315,6 +315,13 @@
           }
         },
         "nodes_without_both_rasters": 0
+      },
+      "decision": {
+        "by": "product owner",
+        "date": "2026-10-07",
+        "outcome": "keep the 90 m maps (jrc_river_flood)",
+        "basis": "neither test could tell the 30 m layer from the 90 m maps: node scale ρ +0.0015 and AUC +0.0009 inside sampling noise; building scale CSI 0.223 vs 0.221 with a 90% interval of −0.005 to +0.007. Adopting would change loss figures and fetch ~5 GB more with no evidence of a gain",
+        "revisit_when": "a test at building scale against observed losses or a finer observed extent shows a gain beyond the registered noise margin"
       }
     }
   }

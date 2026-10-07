@@ -312,7 +312,7 @@ def record(result: dict) -> None:
     rule says the refinement is used ONLY when it wins, so passing is necessary, and adopting it is a stated decision."""
     doc = json.loads(LAYERS_FILE.read_text(encoding="utf-8"))
     rule = json.loads((registry.REF / "loss_protocol.json").read_text(encoding="utf-8"))["terrain_refinement"]
-    kept = {k: v for k, v in doc["layers"].get(LAYER_KEY, {}).items() if k == "building_scale_test"}
+    kept = {k: v for k, v in doc["layers"].get(LAYER_KEY, {}).items() if k in ("building_scale_test", "decision")}
     doc["layers"][LAYER_KEY] = {**kept,
         "peril": "flood", "metric": "water_depth", "unit": "m", "version": "glo30-v1",
         "source": "the JRC river-flood maps (jrc_river_flood) re-spread over the Copernicus DEM GLO-30 Public surface",
@@ -324,5 +324,7 @@ def record(result: dict) -> None:
                     if result["passed"] else "not used: it did not beat the 90 m maps on both measures",
         "licence": None, "licence_status": "GLO-30: to verify before customer-facing use (data/reference/supply_datasets.json)",
         "test": result}
+    if "decision" in kept:                        # the product owner's recorded decision stands over a re-run
+        doc["layers"][LAYER_KEY]["adoption"] = f"decided {kept['decision']['date']}: {kept['decision']['outcome']}"
     LAYERS_FILE.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     registry.layers.cache_clear()
