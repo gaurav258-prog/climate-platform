@@ -106,3 +106,15 @@ def test_a_node_is_judged_only_where_ems_mapped_it():
     assert inside in judged and between not in judged
     b = box(10.95, 49.45, 11.05, 49.55)                          # half mapped; the mapped half all flooded
     assert observed_share(box(10.0, 49.0, 11.0, 50.0), mapped, b) == 1.0
+
+
+def test_the_european_curve_is_the_workbooks_cells():
+    """E175: the cited curve is the JRC database's own cells — sheet 'Damage functions', B4:B12 depths and C4:C12
+    fractions (the report shows Europe only as a figure; it has no 'Table 3' for it)."""
+    from pathlib import Path
+    src = Path(__file__).resolve().parents[2] / "data/datasets/sources/jrc105688_huizinga_2017_global_flood_depth_damage_functions.xlsx"
+    if not src.exists():
+        pytest.skip("the JRC workbook is not on this machine")
+    openpyxl = pytest.importorskip("openpyxl")
+    ws = openpyxl.load_workbook(src, data_only=True)["Damage functions"]
+    assert [(ws[f"B{r}"].value, ws[f"C{r}"].value) for r in range(4, 13)] == list(flood_jrc._DDF)

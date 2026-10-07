@@ -10,7 +10,9 @@ over that share, plus the same at RP10 and RP500 for frequency context. Score:
     score = 100 × frac_RP100 × DDF(mean_depth_RP100)
 
 where DDF is the JRC global depth–damage function for residential buildings, Europe (Huizinga, de Moel &
-Szewczyk 2017, Table 3), a cited curve, not a fitted one: the score reads "share of the cell in the 100-year
+Szewczyk 2017, EUR 28552 EN: the database workbook, sheet 'Damage functions', cells C4:C12 — the report itself shows the
+European curves only as figures, Appendix F, Figure F-3; source files under data/datasets/sources/jrc105688_*), a cited
+curve, not a fitted one: the score reads "share of the cell in the 100-year
 floodplain, weighted by how damaging the water there is". Depths ≤ DEPTH_MIN_M are treated as dry (raster noise).
 The maps are RIVER flooding only: pluvial/flash flooding and coastal surge are other channels (disclosed).
 """
@@ -28,7 +30,8 @@ RETURN_PERIODS = (10, 100, 500)
 DEPTH_MIN_M = 0.05
 FLOOD_MODEL_VERSION = "flood-jrc-glofas-rp-v3"
 
-# Huizinga et al. (2017) residential Europe: damage fraction by depth (m). Linear between points, 1.0 beyond 6 m.
+# Huizinga et al. (2017) residential Europe: damage fraction by depth (m) — workbook 'Damage functions' C4:C12 (depths B4:B12).
+# Linear between points, 1.0 beyond 6 m.
 _DDF = [(0.0, 0.00), (0.5, 0.25), (1.0, 0.40), (1.5, 0.50), (2.0, 0.60), (3.0, 0.75), (4.0, 0.85), (5.0, 0.95), (6.0, 1.00)]
 
 

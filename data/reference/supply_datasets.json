@@ -1079,5 +1079,24 @@
     "sha256": "96e4e5b99abd42e6d57d299fd5477cf7946eac4ec2d61eeabd6a72761ed70e61"
    }
   ]
+ },
+ "jrc_huizinga_2017_flood_damage_functions": {
+  "source": "JRC Publications Repository, JRC105688: Huizinga, J., de Moel, H., Szewczyk, W. (2017). Global flood depth-damage functions. Methodology and the database with guidelines. EUR 28552 EN. doi:10.2760/16510",
+  "url": "https://publications.jrc.ec.europa.eu/repository/handle/JRC105688",
+  "approved": "product owner (JRC flood curves, about 6 MB); fetched 2026-10-07 through the product owner's browser — the repository rejects automated requests",
+  "licence": "© European Union, 2017: 'The reuse of the document is authorised, provided the source is acknowledged and the original meaning or message of the texts are not distorted' (report, page ii)",
+  "contents": "report (PDF) and the database workbook (XLSX, 'European damage functions updated in October 2017'): fractional depth-damage functions for six classes × Europe, North America, Central & South America, Asia, Africa, Oceania and Global, with standard deviations for five regions; maximum damage per country",
+  "files": [
+   {
+    "file": "data/datasets/sources/jrc105688_huizinga_2017_global_flood_depth_damage_functions.pdf",
+    "bytes": 4094489,
+    "sha256": "f1e9f1b110ef52e77e3a83cdb23eff4a5ece0b67040de450712cd454771ef745"
+   },
+   {
+    "file": "data/datasets/sources/jrc105688_huizinga_2017_global_flood_depth_damage_functions.xlsx",
+    "bytes": 517723,
+    "sha256": "5b944b59167e6cf5215885cccd99fae762c40a2e6c9f8d5b5d2afdad2cf5ddad"
+   }
+  ]
  }
 }
