@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, ApiError, setToken, setRefreshToken } from '../lib/api'
-import { BrandMark } from '../components/ui'
+import { BrandMark, Wordmark } from '../components/BrandMark'
 
 function msg(e: unknown, f: string) { return e instanceof ApiError ? (e.body as { error?: { message?: string } })?.error?.message ?? f : f }
 const inp = 'w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)]'
@@ -26,7 +26,7 @@ export default function Signup() {
     <div className="public-page">
       <div className="w-full max-w-[440px] fadeup">
         <div className="flex items-center gap-3 mb-6"><BrandMark size={36} />
-          <div><div className="display text-xl font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div>
+          <div><Wordmark className="block text-xl" />
             <div className="mono text-[10px] tracking-[0.25em] text-[var(--color-blue)] mt-0.5">START A 14-DAY TRIAL</div></div>
         </div>
         <form onSubmit={submit} className="card p-6 space-y-3">

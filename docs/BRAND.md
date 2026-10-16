@@ -29,8 +29,10 @@ brand survives expansion from climate into nature / physical-asset risk without 
 ## 4. The mark
 A **hexagon** — the H3 cell the engine tessellates the Earth into (the heritage of the whole
 naming exploration) — holding a **rising lumen** (a radial light with a bright core). Self-
-contained colours so it reads on light or dark. Files: `ui/public/favicon.svg` and the React
-component `ui/src/components/BrandMark.jsx`.
+contained colours so it reads on light or dark. Files: `web/public/favicon.svg` and the React
+components `BrandMark` (the mark) and `Wordmark` in `web/src/components/BrandMark.tsx`; the
+wordmark colours are the `--brand-tel` / `--brand-lumen` tokens in `web/src/index.css`, which
+follow the light/dark theme.
 
 Clear space ≥ the hexagon's height on all sides. Minimum size 20 px. Never recolour, rotate,
 or stretch the mark.

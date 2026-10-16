@@ -49,6 +49,9 @@
   --color-warn: #b45309;
   --color-bad: #e11d48;
   --color-on-accent: #ffffff;
+  /* Wordmark colours exactly as docs/BRAND.md §3/§5 — Ink + Signal Blue on light grounds (components/BrandMark.tsx). */
+  --brand-tel: #1d1d1f;
+  --brand-lumen: #0071e3;
   /* Analytics chart tokens — scenario severity ramp (cool→hot) + sequential magnitude hue.
      Validated (dataviz skill) for the light chart surface; dark values below. */
   --scn-baseline: #2a78d6;   /* Today          */
@@ -90,6 +93,9 @@
   --color-warn: #f59e0b;
   --color-bad: #fb7185;
   --color-on-accent: #08111f;
+  /* Wordmark on dark grounds: near-white Core + Sky (docs/BRAND.md). */
+  --brand-tel: #eaf6ff;
+  --brand-lumen: #8fd0ff;
   /* Analytics chart tokens — dark-surface steps of the same ramp (validated, dataviz skill). */
   --scn-baseline: #3987e5;
   --scn-orderly: #1fa595;

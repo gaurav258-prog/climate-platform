@@ -5,7 +5,7 @@ import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
-import { BrandMark } from './ui'
+import { BrandMark, Wordmark } from './BrandMark'
 import { Drawer } from './Drawer'
 import { CloseButton } from './Dialog'
 
@@ -154,7 +154,7 @@ function NavPanel({ collapsed, toggleCollapse, onNavigate, onClose, dark, applyT
         </button>
       ) : (<>
         <BrandMark size={24} />
-        <span className="display font-semibold text-[15px]">Tel<span className="text-[var(--color-sky)]">lumen</span></span>
+        <Wordmark className="text-[15px]" />
         <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1">{SECTOR_TAG[sector] ?? ''}</span>
         {onClose
           ? <CloseButton onClick={onClose} size={18} label="Close menu" className="ml-auto" />
@@ -317,7 +317,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <Menu size={20} />
           </button>
           <BrandMark size={22} />
-          <span className="display font-semibold text-[15px]">Tel<span className="text-[var(--color-sky)]">lumen</span></span>
+          <Wordmark className="text-[15px]" />
           <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1 truncate">{SECTOR_TAG[sector] ?? ''}</span>
         </header>
         {viewing && (

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { FileLock2 } from 'lucide-react'
 import { api } from '../lib/api'
-import { BrandMark } from '../components/ui'
+import { BrandMark, Wordmark } from '../components/BrandMark'
 import { SECTION_LABEL, STATUS, type Remittance } from '../components/Remittance'
 
 // The recipient's page: opened from the link in the remittance e-mail, no login. Shows what was remitted, by whom,
@@ -17,7 +17,7 @@ export default function Remit() {
   return (
     <div className="public-page">
       <div className="w-full max-w-[560px] fadeup">
-        <div className="flex items-center gap-3 mb-6"><BrandMark size={34} /><div className="display text-xl font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div></div>
+        <div className="flex items-center gap-3 mb-6"><BrandMark size={34} /><Wordmark className="block text-xl" /></div>
         <div className="card p-6">
           {err && <div className="text-center py-4"><h1 className="display text-xl font-semibold m-0">Not available</h1><p className="text-[13px] text-[var(--color-mute)] mt-2">{err}</p></div>}
           {!d && !err && <p className="text-[var(--color-faint)] text-sm">Opening…</p>}

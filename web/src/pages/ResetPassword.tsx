@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle2, KeyRound } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { BrandMark } from '../components/ui'
+import { BrandMark, Wordmark } from '../components/BrandMark'
 
 function msg(e: unknown, f: string) { return e instanceof ApiError ? (e.body as { error?: { message?: string } })?.error?.message ?? f : f }
 const inp = 'w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)]'
@@ -32,7 +32,7 @@ export default function ResetPassword() {
   return (
     <div className="public-page">
       <div className="w-full max-w-[400px] fadeup">
-        <div className="flex items-center gap-3 mb-6"><BrandMark size={34} /><div className="display text-xl font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div></div>
+        <div className="flex items-center gap-3 mb-6"><BrandMark size={34} /><Wordmark className="block text-xl" /></div>
         <div className="card p-6">
           {state === 'loading' && <p className="text-[var(--color-faint)] text-sm">Loading…</p>}
           {state === 'invalid' && <div className="text-center py-4"><h1 className="display text-xl font-semibold m-0">This reset link has expired</h1><p className="text-[13px] text-[var(--color-mute)] mt-2">Request a new one from the sign-in screen.</p><a href="/" className="inline-block mt-4 text-[13px] text-[var(--color-sky)]">Back to sign in →</a></div>}

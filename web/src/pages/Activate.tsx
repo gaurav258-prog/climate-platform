@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle2, ShieldCheck, KeyRound } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { BrandMark } from '../components/ui'
+import { BrandMark, Wordmark } from '../components/BrandMark'
 
 interface Activation { email: string; full_name: string | null; org_name: string; password_set: boolean; mfa_enrolled: boolean }
 function msg(e: unknown, fallback: string): string {
@@ -104,7 +104,7 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="public-page">
       <div className="w-full max-w-[420px] fadeup">
         <div className="flex items-center gap-3 mb-6"><BrandMark size={34} />
-          <div className="display text-xl font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div>
+          <Wordmark className="block text-xl" />
         </div>
         <div className="card p-6">{children}</div>
       </div>

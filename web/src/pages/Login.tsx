@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { api, ApiError, setToken, setRefreshToken } from '../lib/api'
-import { BrandMark, Button } from '../components/ui'
+import { Button } from '../components/ui'
+import { BrandMark, Wordmark } from '../components/BrandMark'
 import * as webauthn from '../lib/webauthn'
 
 function errCode(e: unknown): string | undefined {
@@ -98,9 +99,7 @@ export default function Login() {
         <div className="flex items-center gap-3 mb-8">
           <BrandMark size={40} />
           <div>
-            <div className="display text-2xl font-semibold leading-none">
-              Tel<span className="text-[var(--color-sky)]">lumen</span>
-            </div>
+            <Wordmark className="block text-2xl leading-none" />
             <div className="mono text-[10px] tracking-[0.25em] text-[var(--color-blue)] mt-1">LIGHT ON THE EARTH</div>
           </div>
         </div>
