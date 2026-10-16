@@ -3,6 +3,8 @@
   data/reference/hazard_intensity_layers.json   intensity layers: peril, metric, unit, version, return periods, source
   data/reference/event_sets.json                stochastic event sets: source, DOI, licence, simulated years, files
   data/reference/occupancy.json                 building-use classes and the declared crosswalk from asset types
+  hazard_intensity_layers.json → protection_layers   published flood-protection standards (design return period in
+                                                years) and the rule that applies them (loss_protocol.json flood_protection)
 
 A layer or event set is used only as registered: its key and version are written with every sample and loss run."""
 from __future__ import annotations
@@ -24,6 +26,23 @@ class RegistryError(ValueError):
 @lru_cache(maxsize=1)
 def layers() -> dict[str, dict]:
     return json.loads((REF / "hazard_intensity_layers.json").read_text(encoding="utf-8"))["layers"]
+
+
+@lru_cache(maxsize=1)
+def protection_layers() -> dict[str, dict]:
+    return json.loads((REF / "hazard_intensity_layers.json").read_text(encoding="utf-8")).get("protection_layers", {})
+
+
+def coverage_countries(layer_key: str) -> frozenset[str]:
+    """The countries a layer that names coverage_countries serves: UN M49 Europe (150) less Russia, Belarus and Ukraine
+    — the only statement registered so far; any other is refused, never guessed."""
+    from services.reference import m49
+    stated = layer(layer_key).get("coverage_countries")
+    if stated is None:
+        raise RegistryError(f"layer '{layer_key}' names no coverage countries")
+    if not stated.startswith("UN M49 Europe (150) less Russia, Belarus and Ukraine"):
+        raise RegistryError(f"layer '{layer_key}': coverage '{stated}' is not one the registry reads")
+    return frozenset(m49.countries("150")) - {"RU", "BY", "UA"}
 
 
 @lru_cache(maxsize=1)
@@ -84,6 +103,26 @@ def check() -> list[str]:
             out.append(f"layer {k}: in use without a passed test")
         if not L.get("licence") and not L.get("licence_status"):
             out.append(f"layer {k}: neither a licence nor its verification status")
+        if L.get("replaces"):
+            if L["replaces"] not in layers() or layers()[L["replaces"]]["peril"] != L["peril"]:
+                out.append(f"layer {k}: replaces '{L['replaces']}', which is not a registered layer of the same peril")
+            if L.get("status") not in ("candidate", "in_use", "refused"):
+                out.append(f"layer {k}: a replacement is a 'candidate', 'in_use' after a passed check, or 'refused'")
+            try:
+                coverage_countries(k)
+            except RegistryError as e:
+                out.append(str(e))
+    protocol = json.loads((REF / "loss_protocol.json").read_text(encoding="utf-8"))
+    for k, P in protection_layers().items():
+        if P.get("unit") != "years" or P.get("metric") != "design_return_period":
+            out.append(f"protection layer {k}: a protection standard is a design return period in years")
+        for a in P.get("applies_to") or [None]:
+            if a not in layers():
+                out.append(f"protection layer {k}: applies to unregistered layer '{a}'")
+        if not P.get("licence"):
+            out.append(f"protection layer {k}: no licence")
+        if P.get("rule") != "data/reference/loss_protocol.json → flood_protection" or "flood_protection" not in protocol:
+            out.append(f"protection layer {k}: its rule must be the registered loss_protocol flood_protection")
     for k, E in event_sets().items():
         if E["peril"] not in perils:
             out.append(f"event set {k}: peril '{E['peril']}' is not a hazard type")

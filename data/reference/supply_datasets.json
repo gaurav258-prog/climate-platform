@@ -1098,5 +1098,123 @@
     "sha256": "5b944b59167e6cf5215885cccd99fae762c40a2e6c9f8d5b5d2afdad2cf5ddad"
    }
   ]
+ },
+ "jrc_flood_europe": {
+  "source": "JRC / Copernicus EMS European river flood hazard maps (CEMS-EFAS flood_hazard), LISFLOOD-FP",
+  "url": "https://jeodpp.jrc.ec.europa.eu/ftp/public/JRC-OpenData/CEMS-EFAS/flood_hazard",
+  "approved": "product owner, 2026-10-16",
+  "contents": "river flood depth (m) at return periods 10, 20, 30, 40, 50, 75, 100, 200, 500 years, 3 arc-seconds; permanent water bodies and spurious-depth areas; README, CHANGELOG, copyright notice",
+  "licence_notice_file": "data/datasets/jrc_flood_europe/copyright.txt",
+  "licence_status": "the folder's copyright notice is held beside the data; its terms are quoted into data/reference/hazard_intensity_layers.json before any use",
+  "absent": [],
+  "failed": {},
+  "files": [
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP10_filled_depth.tif",
+    "bytes": 272286610,
+    "sha256": "15f86b86c228a065250b05488548d7386ac8e33cec4cba6da93f712f7500f45b"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP20_filled_depth.tif",
+    "bytes": 293735892,
+    "sha256": "1a8f08e93aa1688d2d3d8126ff14921d0037028a4473f107aa5973025f225027"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP30_filled_depth.tif",
+    "bytes": 298074166,
+    "sha256": "41edfdf1f5422581ff756e7937221574ba09411ffe2c10bcfa951e71ced16367"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP40_filled_depth.tif",
+    "bytes": 304739764,
+    "sha256": "215971e2853344c28e0fb20e5da2ef0076480420477e33f36b5f86304a795bbb"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP50_filled_depth.tif",
+    "bytes": 309424632,
+    "sha256": "2c6b5b6bc24cc996b450d0ce2fb5a577a44c8f64ae7fa2b49d29b35a713d12c4"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP75_filled_depth.tif",
+    "bytes": 318236424,
+    "sha256": "54902ede6d507fab220d088604350db86908adaef17feec7d285247a8c2b8375"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP100_filled_depth.tif",
+    "bytes": 323117744,
+    "sha256": "6b7c80b9bda981abb54038455032efd1cf5ec49c8bbed4b1b066cc5c18ed5aa1"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP200_filled_depth.tif",
+    "bytes": 335098080,
+    "sha256": "d32827006bc0ad6620a4c98ecbfab4342e423c58355c6122837ff679fea596f1"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_RP500_filled_depth.tif",
+    "bytes": 349928950,
+    "sha256": "1d69bffd1d0f89dc8316a7a2a33d1df3dc75e247cd89d5444f351609dcbbeda2"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_permanent_water_bodies.tif",
+    "bytes": 112287284,
+    "sha256": "5e14f13fb202263a8407026aa60e7c455db7976284217e5da09ea49c13112eee"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/Europe_spurious_depth_areas.tif",
+    "bytes": 74730820,
+    "sha256": "6b609153e28b7e634159525cf7cc9089242a8e17de2578f162d51a0e80d2e7c8"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/README.txt",
+    "bytes": 4456,
+    "sha256": "ff1ec167e76d6b86a71292ce5b34a49134c869454cfc106b945726011e4f99cf"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/CHANGELOG.txt",
+    "bytes": 2690,
+    "sha256": "15079e4104eca0105b4b5ff173e31300734364a48a01967ea3da68f38c941e9e"
+   },
+   {
+    "file": "data/datasets/jrc_flood_europe/copyright.txt",
+    "bytes": 540,
+    "sha256": "f20723519a580fb35b3499870f0b1baea54f483195105416e547f0014f1610d2"
+   }
+  ],
+  "unpacked": {}
+ },
+ "jrc_flood_protection_europe": {
+  "source": "JRC PESETA IV floods collection — map of estimated flood defence standards in Europe (Dottori et al. 2022)",
+  "url": "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/PESETAIV/Paper_floods",
+  "approved": "product owner, 2026-10-16",
+  "contents": "design return period (years) of local protection structures against river floods, 500 m GeoTIFF; the collection description; copyright notice",
+  "licence_notice_file": "data/datasets/jrc_flood_protection_europe/copyright.txt",
+  "licence_status": "the folder's copyright notice is held beside the data; its terms are quoted into data/reference/hazard_intensity_layers.json before any use",
+  "absent": [],
+  "failed": {},
+  "files": [
+   {
+    "file": "data/datasets/jrc_flood_protection_europe/floodProtection_v2019_paper.zip",
+    "bytes": 980287,
+    "sha256": "b9dc2e54c0381f310be90122ba08db499a0fbeb5dd8a4b49299797e6e7a039f4"
+   },
+   {
+    "file": "data/datasets/jrc_flood_protection_europe/PESETA_IV_collection_description-v3.pdf",
+    "bytes": 1001892,
+    "sha256": "a99a1b738d70a615a56efdd5b466f7b0c996fd05b7a0f90e8c86dd2ab3c876c4"
+   },
+   {
+    "file": "data/datasets/jrc_flood_protection_europe/copyright.txt",
+    "bytes": 540,
+    "sha256": "f20723519a580fb35b3499870f0b1baea54f483195105416e547f0014f1610d2"
+   }
+  ],
+  "unpacked": {
+   "data/datasets/jrc_flood_protection_europe/floodProtection_v2019_paper.zip": [
+    "floodProtection_v2019_paper3.tfw",
+    "floodProtection_v2019_paper3.tif",
+    "floodProtection_v2019_paper3.tif.aux.xml",
+    "floodProtection_v2019_paper3.tif.xml"
+   ]
+  }
  }
 }

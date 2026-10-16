@@ -96,5 +96,24 @@
     "range": "the curve's published range at each depth: the damage fraction ± one published standard deviation, bounded to [0, 1]",
     "pass": "both of the protocol's tests as written in 'test': event totals within ±30% in at least two thirds of events (test.event_total), and the share of claims whose recorded damage ratio lies inside the range between 75% and 85% (test.band) — passed → published, failed → held",
     "note_stated_before": "the band test was written for a 10th–90th percentile range; a ± one standard deviation range need not hold 75–85% of claims, and the test is applied as written all the same"
+  },
+  "flood_protection": {
+    "registered": "2026-10-16",
+    "decided": "the product owner's decisions of 2026-10-16: (1) protection levels from the JRC European map (jrc_flood_protection_europe); (2) the JRC European flood maps with nine return periods, once checked (europe_maps_check); (3) both figures shown — defended and undefended — and the institution states which leads (calc setting loss_flood_headline); (4) outside the protection map the undefended figure, labelled 'protection unknown'",
+    "rule": "'The flood protection is added to the risk curve as a vertical line. All impacts to the right of the flood protection line (i.e., damage from smaller floods) are assumed to be protected against and are set to 0. EAD is calculated by integrating the area of the curve to the left of the flood protection line.' and footnote 4: 'The flood protection, in return years, is first converted into a probability before being added to the calculation (i.e., 1/flood protection).' (Ward et al. 2020, Aqueduct Floods Methodology, section 6, p. 5 — data/datasets/sources/wri_aqueduct_floods_methodology_2020.pdf); the JRC's own PESETA IV assessment pairs this protection map with the same Huizinga et al. (2017) curves (Dottori et al. 2020, Annex A1.2)",
+    "applied_as": "on the run's own loss–exceedance curve (straight lines in annual exceedance probability between the return periods held, the rarest loss held beyond the rarest): the line at p = 1 / design years; the curve's value at the line read on the same straight line; the defended expected annual loss is the area at probabilities at or below p, the same for the range's low and high curves. A line more frequent than the most frequent period held removes nothing (those floods are not in the maps); a line rarer than the rarest period held leaves only the held tail beyond the line",
+    "not_applied": {
+      "projected runs": "a defended projection is a named gap: the projection source moves the protection level with the climate ('a 50-year flood protection level in 2010 may only protect against 25-year floods in 2050', Ward et al. 2020, section 5), with its own protection data — not decided",
+      "outside the map": "the undefended figure, labelled 'protection unknown' (decision 4)"
+    }
+  },
+  "europe_maps_check": {
+    "registered": "2026-10-16",
+    "statement": "stated before the check was built or run",
+    "layer": "jrc_river_flood_europe (v3.1.1) against jrc_river_flood (v2.1.2)",
+    "target": "the flood_jrc_ems validator's six Copernicus EMS observed floods, on its own nodes (inside the event box, at least half the 0.1° box inside the area EMS mapped): the observed flooded share of each node's mapped part",
+    "predictor": "for each map, as the validator reads the global maps: the share of the node box's land pixels flooded at the 1-in-100-year period (permanent water excluded, depths above 0.05 m) × the depth–damage fraction at their mean depth (ml.scoring.flood_jrc.flood_score)",
+    "rule": "the European maps replace the global maps inside coverage_countries unless they rank the observed floods worse: refused when the 95th percentile of the paired-bootstrap difference (European − global; 2,000 resamples of the nodes, seed 7) is below zero for the rank correlation OR for the AUC (observed share > 2%)",
+    "why_not_better": "the reason to switch is the nine return periods a defence level is read against (the product owner's decision, 2026-10-16), not a sharper flood extent — so the check guards against a worse map rather than demanding a better one"
   }
 }

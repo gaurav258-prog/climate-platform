@@ -488,6 +488,69 @@
           "basis": "JRC wet: the location's H3 res-8 cell has a flooded share; Aqueduct wet: its 30″ pixel is wet"
         }
       }
+    },
+    "jrc_river_flood_europe": {
+      "peril": "flood",
+      "metric": "water_depth",
+      "unit": "m",
+      "version": "v3.1.1",
+      "source": "JRC / Copernicus EMS river flood hazard maps for Europe and the Mediterranean Basin region (CEMS-EFAS flood_hazard): LISFLOOD river flow, LISFLOOD-FP inundation",
+      "url": "https://jeodpp.jrc.ec.europa.eu/ftp/public/JRC-OpenData/CEMS-EFAS/flood_hazard",
+      "doi": "10.2905/1D128B6C-A4EE-4858-9E34-6210707F3C81",
+      "citation": "Baugh, C., Colonese, J., D'Angelo, C., Dottori, F., Neal, J., Prudhomme, C., Salamon, P. (2024): An updated dataset of global and European flood hazard maps. Manuscript under preparation (README A01)",
+      "resolution_m": 90,
+      "return_periods": [
+        10,
+        20,
+        30,
+        40,
+        50,
+        75,
+        100,
+        200,
+        500
+      ],
+      "files": {
+        "dir": "data/datasets/jrc_flood_europe",
+        "pattern": "Europe_RP{rp}_filled_depth.tif",
+        "water": "Europe_permanent_water_bodies.tif",
+        "caution": "Europe_spurious_depth_areas.tif",
+        "manifest": "data/reference/supply_datasets.json → jrc_flood_europe"
+      },
+      "dry_below": 0.05,
+      "dry_basis": "read as the global JRC maps are (jrc_river_flood): no-data (−9999) is dry, depths of 0.05 m or less are raster noise; permanent water bodies (the README's mask, value 1) are neither land nor flooded",
+      "caution": "the publisher's spurious-depth mask: 'areas where depths >10m are predicted in small channels (<3,000km^2) for the 10-year return period, plus a 2km buffer … Users should exercise caution when using the depth values in these areas' (README F02) — a location whose cell touches it carries that caution with its figure; the figure is not dropped",
+      "coverage": "river flooding only; European extended domain (README D01), land only (D03); the maps publish no domain outline, so the layer serves only assets whose stated country is in coverage_countries",
+      "coverage_countries": "UN M49 Europe (150) less Russia, Belarus and Ukraine — the countries the JRC protection map covers",
+      "licence": "CC BY 4.0 — 'Any copyright and/or sui generis right on the dataset is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) licence … Reuse is allowed provided appropriate credit is given and any changes are indicated' (copyright.txt held beside the data); README A02: 'no restrictions, free and open Copernicus product'",
+      "replaces": "jrc_river_flood",
+      "status": "candidate",
+      "adoption": "the product owner's decision (2026-10-16): the nine return periods replace the global maps' three inside coverage_countries once the check registered in data/reference/loss_protocol.json 'europe_maps_check' does not refuse them"
+    }
+  },
+  "protection_layers": {
+    "jrc_flood_protection_europe": {
+      "peril": "flood",
+      "metric": "design_return_period",
+      "unit": "years",
+      "version": "v2019_paper3",
+      "source": "JRC PESETA IV floods collection — 'map of estimated flood defence standards in Europe … Cell values indicate the estimated return period of design (in years) of local protection structures against river floods' (PESETA IV collection description v3, 3 October 2022)",
+      "url": "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/PESETAIV/Paper_floods",
+      "citation": "Dottori, F., Mentaschi, L., Bianchi, A., Alfieri, L., Feyen, L. (2023): Cost-effective adaptation strategies to rising river flood risk in Europe. Nature Climate Change 13, 196–202 (doi:10.1038/s41558-022-01540-0) — 'Dottori et al. (2022)' in the collection description",
+      "built_from": "'The new dataset combine information on protection design levels with modelled protection standards calculated by Jongman et al. (2014) and Scussolini et al. (2016)' (Dottori et al. 2020, EUR 29955 EN, Annex A1.2)",
+      "file": "data/datasets/jrc_flood_protection_europe/floodProtection_v2019_paper/floodProtection_v2019_paper3.tif",
+      "crs": "EPSG:3035 (ETRS89-extended / LAEA Europe)",
+      "resolution_m": 500,
+      "nodata": -1,
+      "values": "2 to 10,000 years (the file's own statistics)",
+      "reads_as": "the 500 m pixel holding the asset's location: its design return period; no-data (−1) or a location off the map is 'protection unknown'",
+      "coverage": "'all countries in geographical Europe bar Russia, Belarus, Ukraine, and countries in the Caucasus (due to lack of information)' (collection description)",
+      "applies_to": [
+        "jrc_river_flood_europe",
+        "jrc_river_flood"
+      ],
+      "licence": "CC BY 4.0 (copyright.txt held beside the data, the same notice as the flood maps')",
+      "rule": "data/reference/loss_protocol.json → flood_protection"
     }
   }
 }
