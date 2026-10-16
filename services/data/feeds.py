@@ -527,10 +527,32 @@ def _failure(e: Exception) -> str:
     return str(e)
 
 
+# One scheduled refresh at a time on a database, and never during a test run (E178): Celery beat and the API's fallback
+# ticker take this Postgres advisory lock for a whole scheduled tick; the test suite's demo-data guard (tests/conftest.py)
+# holds it for the whole run. A tick that cannot take it is deferred — the next one refreshes whatever is due — so the
+# platform's own writes (a staged release, an approval request) never land inside a test run's fingerprint window.
+SCHEDULED_REFRESH_LOCK = 7_211_031_016
+
+
 def run_scheduled_refreshes(session: Session, force: bool = False) -> list[dict]:
-    """The automation entry point (Celery beat calls this daily; scripts/refresh_feeds_now.py runs it
+    """The automation entry point (Celery beat calls this hourly; scripts/refresh_feeds_now.py runs it
     once). For every auto-scheduled feed that is DUE by its cadence (or all of them when force=True),
-    run its refresh and log the result. on_demand/planned/estimated feeds are intentionally skipped."""
+    run its refresh and log the result. on_demand/planned/estimated feeds are intentionally skipped.
+    A scheduled tick (force=False) runs only while it holds SCHEDULED_REFRESH_LOCK; otherwise it is deferred ([])."""
+    if force:
+        return _refresh_due(session, force=True)
+    with session.get_bind().connect() as lock:
+        if not lock.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": SCHEDULED_REFRESH_LOCK}).scalar():
+            import logging
+            logging.getLogger(__name__).info("scheduled feed refresh deferred: another tick or a test run holds the lock")
+            return []
+        try:
+            return _refresh_due(session, force=False)
+        finally:
+            lock.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": SCHEDULED_REFRESH_LOCK})
+
+
+def _refresh_due(session: Session, force: bool) -> list[dict]:
     fresh = {x["key"]: x for x in feed_freshness(session)}
     done: list[dict] = []
     for f in FEEDS:

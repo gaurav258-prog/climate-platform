@@ -31,7 +31,8 @@ def verify(urls: list[str], parallel: int) -> list[str]:
     def check(u: str):
         f = OUT / u.rsplit("/", 1)[1]
         try:
-            n = int(requests.head(u, timeout=60, allow_redirects=True).headers.get("content-length", -1))
+            from scripts.download import remote_size
+            n = remote_size(u)[1]
         except Exception:
             return u
         return None if f.exists() and f.stat().st_size == n else u

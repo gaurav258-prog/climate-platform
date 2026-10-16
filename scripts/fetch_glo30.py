@@ -25,8 +25,6 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import requests
-
 BASE = "https://copernicus-dem-30m.s3.amazonaws.com"
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "datasets" / "glo30"
@@ -75,11 +73,12 @@ def asset_tiles() -> set[tuple[int, int]]:
 
 def price(tile: tuple[int, int]) -> dict:
     name = tile_name(*tile)
-    h = requests.head(f"{BASE}/{name}/{name}.tif", timeout=60)
-    if h.status_code in (403, 404):
+    from scripts.download import remote_size
+    status, size = remote_size(f"{BASE}/{name}/{name}.tif")
+    if status in (403, 404):
         return {"tile": name, "status": "absent"}
-    h.raise_for_status()
-    size = int(h.headers["Content-Length"])
+    if size is None:
+        raise RuntimeError(f"{name}: the server answered {status} with no size")
     out = OUT / f"{name}.tif"
     return {"tile": name, "bytes": size, "status": "held" if out.exists() and out.stat().st_size == size else "to_fetch"}
 

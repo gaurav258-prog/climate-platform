@@ -19,8 +19,6 @@ import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import requests
-
 BASE = "https://aqueduct.wridata.org/AqueductFloods20"
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "datasets" / "aqueduct_floods"
@@ -39,11 +37,12 @@ def names() -> list[str]:
 
 
 def price(name: str) -> dict:
-    h = requests.head(f"{BASE}/{name}", timeout=60)
-    if h.status_code in (403, 404):
+    from scripts.download import remote_size
+    status, size = remote_size(f"{BASE}/{name}")
+    if status in (403, 404):
         return {"file": name, "status": "absent"}
-    h.raise_for_status()
-    size = int(h.headers["Content-Length"])
+    if size is None:
+        raise RuntimeError(f"{name}: the server answered {status} with no size")
     out = OUT / name
     return {"file": name, "bytes": size, "status": "held" if out.exists() and out.stat().st_size == size else "to_fetch"}
 

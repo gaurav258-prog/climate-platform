@@ -1,7 +1,8 @@
 """Suite-wide guard (error log E2): the test run must leave the demo database exactly as it found it.
 
 A fingerprint of the demo business tables (content) and of the append-only records (row counts) is taken when the run
-starts and compared when it ends. A test that commits and does not clean up — or writes through a path that commits —
+starts and compared when it ends. For the whole run the guard holds the scheduled feed-refresh lock (E178), so the
+platform's own scheduled writes wait instead of reading as a leak. A test that commits and does not clean up — or writes through a path that commits —
 fails the whole run, naming the table, instead of silently leaving data behind (as 202 fact rows and four renamed demo
 sites once were). Skipped when the database is unreachable. Set TELLUMEN_SKIP_DB_GUARD=1 to bypass deliberately.
 """
@@ -43,11 +44,30 @@ def _fingerprint() -> dict | None:
 
 
 _START: dict | None = None
+_SCHEDULE_LOCK = None     # a dedicated connection holding the scheduled-refresh lock for the whole run (E178)
+
+
+def _hold_the_schedule() -> None:
+    """Wait for any scheduled feed refresh in flight, then keep the next ones out until the run ends (E178): the
+    platform's own scheduled writes would otherwise read as a leaking test. Waits at most 20 minutes."""
+    global _SCHEDULE_LOCK
+    try:
+        from sqlalchemy import text
+
+        from core.db.config import engine
+        from services.data.feeds import SCHEDULED_REFRESH_LOCK
+        c = engine.connect()
+        c.execute(text("SET lock_timeout = '20min'"))
+        c.execute(text("SELECT pg_advisory_lock(:k)"), {"k": SCHEDULED_REFRESH_LOCK})
+        _SCHEDULE_LOCK = c
+    except Exception:  # noqa: BLE001 — no database: nothing to hold
+        _SCHEDULE_LOCK = None
 
 
 def pytest_sessionstart(session):
     global _START
-    if os.environ.get("TELLUMEN_SKIP_DB_GUARD") != "1":
+    if os.environ.get("TELLUMEN_SKIP_DB_GUARD") != "1" and not os.environ.get("PYTEST_XDIST_WORKER"):
+        _hold_the_schedule()
         _START = _fingerprint()
 
 
@@ -55,6 +75,14 @@ def pytest_sessionfinish(session, exitstatus):
     if _START is None or os.environ.get("PYTEST_XDIST_WORKER"):
         return
     end = _fingerprint()
+    if _SCHEDULE_LOCK is not None:            # a pooled connection keeps a session lock: release it, then return it
+        from sqlalchemy import text
+
+        from services.data.feeds import SCHEDULED_REFRESH_LOCK
+        _SCHEDULE_LOCK.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": SCHEDULED_REFRESH_LOCK})
+        _SCHEDULE_LOCK.execute(text("RESET lock_timeout"))
+        _SCHEDULE_LOCK.commit()
+        _SCHEDULE_LOCK.close()
     if end is None:
         return
     changed = [k for k in _START if _START[k] != end.get(k)]

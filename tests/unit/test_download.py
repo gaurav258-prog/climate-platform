@@ -73,3 +73,35 @@ def test_a_whole_file_is_held(tmp_path, monkeypatch):
     out.write_bytes(BODY)
     calls = _server(monkeypatch, lambda n, rng: _Resp(200, BODY))
     assert dl.download("u", out, len(BODY), pause_s=0) == "held" and calls == []
+
+
+def test_the_file_is_asked_for_as_stored(tmp_path, monkeypatch):
+    """E177: a server that compresses text in transit reports the compressed length while the client hands back the
+    uncompressed bytes — the size and the file are both read as stored, so they can match."""
+    seen = []
+
+    def get(url, stream, timeout, headers):
+        seen.append(headers)
+        return _Resp(200, BODY)
+    monkeypatch.setattr(dl.requests, "get", get)
+    assert dl.download("u", tmp_path / "README.txt", len(BODY), pause_s=0) == "fetched"
+    assert all(h.get("Accept-Encoding") == "identity" for h in seen)
+
+
+def test_the_size_is_read_as_stored(monkeypatch):
+    class _Head:
+        status_code, headers = 200, {"Content-Length": "4456"}
+    seen = {}
+
+    def head(url, timeout, allow_redirects, headers):
+        seen.update(headers)
+        return _Head()
+    monkeypatch.setattr(dl.requests, "head", head)
+    assert dl.remote_size("u") == (200, 4456) and seen.get("Accept-Encoding") == "identity"
+
+
+def test_a_missing_file_has_no_size(monkeypatch):
+    class _Head:
+        status_code, headers = 404, {"Content-Length": "153"}
+    monkeypatch.setattr(dl.requests, "head", lambda url, timeout, allow_redirects, headers: _Head())
+    assert dl.remote_size("u") == (404, None)
