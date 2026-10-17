@@ -1,0 +1,346 @@
+{
+ "api/deps.py": {
+  "display": 3,
+  "error": 0
+ },
+ "api/routers/approvals.py": {
+  "display": 1,
+  "error": 0
+ },
+ "api/routers/auth.py": {
+  "display": 2,
+  "error": 0
+ },
+ "api/routers/decisions.py": {
+  "display": 1,
+  "error": 0
+ },
+ "api/routers/funds.py": {
+  "display": 1,
+  "error": 4
+ },
+ "api/routers/geo.py": {
+  "display": 1,
+  "error": 0
+ },
+ "api/routers/gl.py": {
+  "display": 1,
+  "error": 0
+ },
+ "api/routers/intake_batches.py": {
+  "display": 1,
+  "error": 0
+ },
+ "api/routers/provided.py": {
+  "display": 1,
+  "error": 0
+ },
+ "api/routers/realized.py": {
+  "display": 2,
+  "error": 0
+ },
+ "api/routers/source_systems.py": {
+  "display": 1,
+  "error": 2
+ },
+ "api/routers/supply.py": {
+  "display": 2,
+  "error": 0
+ },
+ "api/services/intake_http.py": {
+  "display": 3,
+  "error": 0
+ },
+ "api/services/rbac.py": {
+  "display": 0,
+  "error": 3
+ },
+ "services/calc_settings.py": {
+  "display": 10,
+  "error": 0
+ },
+ "services/calibration/crop_weather.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/calibration/publish.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/data/feeds.py": {
+  "display": 14,
+  "error": 0
+ },
+ "services/eet/share_classes.py": {
+  "display": 0,
+  "error": 2
+ },
+ "services/eudr/records.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/eudr/trade.py": {
+  "display": 0,
+  "error": 3
+ },
+ "services/governance/client_onboarding.py": {
+  "display": 0,
+  "error": 3
+ },
+ "services/governance/config_governance.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/data_dictionary.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/entities.py": {
+  "display": 0,
+  "error": 7
+ },
+ "services/governance/entity_extraction.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/entity_structure_import.py": {
+  "display": 0,
+  "error": 4
+ },
+ "services/governance/esrs_comparatives.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/esrs_document.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/filing_annex.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/filing_variance.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/filings.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/gl_recon.py": {
+  "display": 3,
+  "error": 0
+ },
+ "services/governance/ifrs_s2_incurred.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/kri.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/onboarding.py": {
+  "display": 2,
+  "error": 0
+ },
+ "services/governance/pillar3_grids.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/provided_data.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/readiness.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/governance/record_retention.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/report_snapshots.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/seasonal_arrears.py": {
+  "display": 3,
+  "error": 0
+ },
+ "services/governance/signup.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/solvency2_natcat.py": {
+  "display": 1,
+  "error": 1
+ },
+ "services/governance/sso.py": {
+  "display": 0,
+  "error": 3
+ },
+ "services/governance/tasks.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/governance/tenant_provisioning.py": {
+  "display": 0,
+  "error": 2
+ },
+ "services/ingest/bank_counterparties.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/ingest/eudr_sectors.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/ingest/filing_import.py": {
+  "display": 0,
+  "error": 2
+ },
+ "services/ingest/sector_contract.py": {
+  "display": 0,
+  "error": 2
+ },
+ "services/ingest/sector_ingest.py": {
+  "display": 0,
+  "error": 10
+ },
+ "services/ingest/templates.py": {
+  "display": 5,
+  "error": 0
+ },
+ "services/intake/catalog.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/intake/inbox.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/intake/money.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/intake/storage.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/intelligence/forward_risk.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/intelligence/price_index.py": {
+  "display": 3,
+  "error": 0
+ },
+ "services/intelligence/realized_exposure.py": {
+  "display": 3,
+  "error": 0
+ },
+ "services/intelligence/resilience_capex.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/intelligence/resourcing.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/intelligence/site_interruption.py": {
+  "display": 2,
+  "error": 0
+ },
+ "services/intelligence/supply_concentration.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/intelligence/taxonomy_adaptation.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/intelligence/underwriting_review.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/loss/projection_check.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/loss/registry.py": {
+  "display": 0,
+  "error": 2
+ },
+ "services/mlops/model_governance.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/money/params.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/reference/carbon_price.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/reference/client_fx.py": {
+  "display": 0,
+  "error": 4
+ },
+ "services/reference/eurostat_crops.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/reference/eurostat_regional.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/reference/faostat_crops.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/reference/fas_psd.py": {
+  "display": 1,
+  "error": 2
+ },
+ "services/reference/fx.py": {
+  "display": 4,
+  "error": 0
+ },
+ "services/reference/imf_fx.py": {
+  "display": 0,
+  "error": 1
+ },
+ "services/reference/nass_county.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/reference/nass_quickstats.py": {
+  "display": 1,
+  "error": 3
+ },
+ "services/reference/statcan_crops.py": {
+  "display": 1,
+  "error": 0
+ },
+ "services/scoring/combined_var.py": {
+  "display": 2,
+  "error": 0
+ },
+ "services/scoring/loan_transition.py": {
+  "display": 2,
+  "error": 0
+ },
+ "services/scoring/portfolio_concentration.py": {
+  "display": 2,
+  "error": 0
+ },
+ "services/supervision/levels.py": {
+  "display": 0,
+  "error": 2
+ },
+ "services/tasks/worker_guard.py": {
+  "display": 0,
+  "error": 1
+ }
+}

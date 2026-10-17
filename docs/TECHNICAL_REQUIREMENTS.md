@@ -168,7 +168,7 @@ Scripts: `npm run dev` → `vite`, `npm run build` → `tsc -b && vite build`, `
 
 ### API
 
-FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **651 operations on 574 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
+FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **652 operations on 575 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
 
 | Tag | Operations |
 |---|---|
@@ -199,7 +199,7 @@ FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **
 | passkeys · esign | 9 |
 | sso | 9 |
 | Entity-structure import | 8 |
-| Meta | 7 |
+| Meta | 8 |
 | Loss | 6 |
 | Realized exposure | 6 |
 | Scores | 6 |

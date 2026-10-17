@@ -178,7 +178,7 @@ Animations (`@keyframes`): `drift`, `fadeup`, `sheen`, `toastIn`. `prefers-reduc
 
 ## 7. Shared components
 
-The page kit and overlay primitives other screens build from (84 component files are in `web/src/components/`; the ones below are the shared kit). *Notes* is the comment above each in the code.
+The page kit and overlay primitives other screens build from (86 component files are in `web/src/components/`; the ones below are the shared kit). *Notes* is the comment above each in the code.
 
 | Component | File | Props | Notes |
 |---|---|---|---|
@@ -187,7 +187,7 @@ The page kit and overlay primitives other screens build from (84 component files
 | `ExportButton` | `ui.tsx` | onExport, label, className | The one consistent "export what I'm looking at" control — wired to lib/export downloadCsv on every view, so extract-to-your-own-tool is a standard affordance across all sectors, not an ad-hoc per-page button. |
 | `Card` | `ui.tsx` | className, children, style, onClick, lift | `lift` opts a card into the hover-lift micro-interaction (used for clickable/drillable cards). The transform lives only during :hover (see skins.css) so it never leaves a retained transform that would trap fixed drawers. |
 | `Eyebrow` | `ui.tsx` | children | The page's flow-stage hue tints the eyebrow (Shell sets --stage per route), so a page's header echoes its nav stage. Falls back to the neutral blue where --stage isn't set (e.g. login, standalone screens). |
-| `PageHeader` | `ui.tsx` | eyebrow, title, lead, actions, children | The "great page" kit Standard page header — stage-coloured eyebrow, a large balanced title, one plain-language lede, and an optional actions slot (filters/export/toggles) on the right. Use on every page so headers read the same. |
+| `PageHeader` | `ui.tsx` | eyebrow, title, lead, about, actions, children | The "great page" kit Standard page header — stage-coloured eyebrow, a large balanced title and at most one short line under it; the UI standard (2026-10-16) keeps explanations off the main screen: a `lead` longer than one short line (12 words), and any `about` sections, open from "About this page" in the details pop-up. Actions (filters/export/toggles) sit right. |
 | `HeroMetric` | `ui.tsx` | value, label, tone, sub, className | A big headline metric — the "lead with the answer" hero number, count-up animated. Pass a preformatted string ("€648.1m", "70%") or a raw number. Optional tone colour and a small sub-line. |
 | `HeroStrip` | `ui.tsx` | children, className, style | A hero summary strip — a row of HeroMetrics on one elevated card, evenly divided. The "answer first" band that leads most pages. Children are HeroMetric (or anything); they lay out as equal columns on ≥sm. |
 | `PlainLead` | `ui.tsx` | children, className | A one-line plain-language explainer under a section head — the "what this is / how to read it" line that keeps a data-dense surface legible. Kept deliberately short. |

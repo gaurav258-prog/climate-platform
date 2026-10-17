@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import clsx from 'clsx'
 import { pressable } from '../lib/pressable'
+import { HEADING, InfoButton, isShort, type DetailSection } from './Details'
 
 // ── Count-up number — the KPI/stat "hooked" micro-moment. Animates from 0 to the value on mount/change,
 // respects prefers-reduced-motion (jumps straight to the value), and renders through a formatter so it works
@@ -79,17 +80,25 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 }
 
 // ── The "great page" kit ─────────────────────────────────────────────────────────────────────
-// Standard page header — stage-coloured eyebrow, a large balanced title, one plain-language lede, and an
-// optional actions slot (filters/export/toggles) on the right. Use on every page so headers read the same.
-export function PageHeader({ eyebrow, title, lead, actions, children }: {
-  eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode; actions?: ReactNode; children?: ReactNode
+// Standard page header — stage-coloured eyebrow, a large balanced title and at most one short line under it; the
+// UI standard (2026-10-16) keeps explanations off the main screen: a `lead` longer than one short line (12 words), and
+// any `about` sections, open from "About this page" in the details pop-up. Actions (filters/export/toggles) sit right.
+export function PageHeader({ eyebrow, title, lead, about, actions, children }: {
+  eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode; about?: DetailSection[]; actions?: ReactNode; children?: ReactNode
 }) {
+  const short = lead != null && isShort(lead, 12)
+  const sections = [...(lead != null && !short ? [{ heading: HEADING.shows, body: lead }] : []), ...(about ?? [])]
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
         {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
         <h1 className="display text-[30px] leading-tight font-semibold text-[var(--color-ink)] mt-2 mb-1" style={{ textWrap: 'balance' } as React.CSSProperties}>{title}</h1>
-        {lead && <p className="text-[14.5px] leading-relaxed text-[var(--color-mute)] max-w-2xl">{lead}</p>}
+        {(short || sections.length > 0) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {short && <p className="text-[14.5px] leading-relaxed text-[var(--color-mute)] m-0">{lead}</p>}
+            <InfoButton details={{ title: typeof title === 'string' ? title : 'About this page', sections }} />
+          </div>
+        )}
         {children}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
@@ -122,6 +131,8 @@ export function HeroStrip({ children, className, style }: { children: ReactNode;
 // A one-line plain-language explainer under a section head — the "what this is / how to read it" line that
 // keeps a data-dense surface legible. Kept deliberately short.
 export function PlainLead({ children, className }: { children: ReactNode; className?: string }) {
+  if (!isShort(children, 12))       // UI standard: an explanation opens from "How to read this", not inline
+    return <InfoButton className={className} label="How to read this" details={{ title: 'How to read this', sections: [{ heading: HEADING.read, body: children }] }} />
   return <p className={clsx('text-[13px] leading-relaxed text-[var(--color-mute)] max-w-3xl', className)}>{children}</p>
 }
 
@@ -148,7 +159,9 @@ export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
         <div>
           {eyebrow && <p className="mono text-[11px] uppercase tracking-[0.22em] m-0" style={{ color: 'var(--stage, var(--color-blue))' }}>{eyebrow}</p>}
           <h2 className="display text-[26px] leading-[1.12] font-semibold mt-2 mb-2 text-[var(--color-ink)]" style={{ textWrap: 'balance' } as React.CSSProperties}>{title}</h2>
-          {lead && <p className="text-[13px] text-[var(--color-mute)] max-w-md leading-relaxed">{lead}</p>}
+          {lead != null && (isShort(lead, 12)
+            ? <p className="text-[13px] text-[var(--color-mute)] max-w-md leading-relaxed">{lead}</p>
+            : <InfoButton details={{ title: typeof title === 'string' ? title : 'About this view', sections: [{ heading: HEADING.shows, body: lead }] }} label="About this view" />)}
         </div>
         {stat.length > 0 && (
           <div className={clsx('grid gap-3', cols)}>
@@ -212,7 +225,9 @@ export function SectionHead({ icon: Icon, hint, children, className }: {
     <div className={clsx('flex items-center gap-2 min-w-0 flex-wrap', className)}>
       {Icon && <Icon size={16} className="text-[var(--color-blue)] shrink-0" />}
       <h3 className="font-semibold text-[15.5px] text-[var(--color-ink)] leading-tight m-0">{children}</h3>
-      {hint && <span className="text-[13px] text-[var(--color-mute)] hidden sm:inline">· {hint}</span>}
+      {hint != null && (isShort(hint)
+        ? <span className="text-[13px] text-[var(--color-mute)] hidden sm:inline">· {hint}</span>
+        : <InfoButton compact details={{ title: children, sections: [{ heading: HEADING.shows, body: hint }] }} />)}
     </div>
   )
 }
@@ -232,11 +247,12 @@ export function StatCard({ label, value, sub, accent, title }: StatItem) {
       <div className="flex items-center gap-2 mb-1.5">
         {accent && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: accent }} />}
         <span className="text-[12px] text-[var(--color-ink)] leading-tight">{label}</span>
+        {sub != null && !isShort(sub) && <InfoButton compact className="ml-auto" details={{ title: label, sections: [{ heading: HEADING.shows, body: sub }] }} />}
       </div>
       <div className="display text-[21px] leading-none tabular-nums" style={accent ? { color: accent } : undefined}>
         {value}
       </div>
-      {sub != null && <div className="text-[11px] text-[var(--color-mute)] mt-1.5 leading-snug">{sub}</div>}
+      {sub != null && isShort(sub) && <div className="text-[11px] text-[var(--color-mute)] mt-1.5 leading-snug">{sub}</div>}
     </div>
   )
 }

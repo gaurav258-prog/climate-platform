@@ -40,3 +40,11 @@ def model_limitations(ctx: dict = Depends(require_permission("modules.view"))):
     honest counterpart to the coverage and projection maps. Static registry — view access only."""
     from ml.scoring.model_limitations import model_limitations as _ml
     return _ml()
+
+
+@router.get("/labels", summary="Customer words for the platform's codes — one catalogue for the server and every screen")
+def labels(ctx: dict = Depends(require_permission("modules.view"))):
+    """The UI standard (2026-10-16): a code never reaches a screen as-is. Each register names its own codes for
+    customers; this serves them together, so every screen shows the same words. Static — no tenant data."""
+    from services.money import params
+    return {"method": {k: v["short"] for k, v in params.parameters().items()}}

@@ -33,6 +33,7 @@
  },
  "parameters": {
   "method.t1_sector_scope3_intensity": {
+   "short": "Sector scope 3 intensity (liabilities)",
    "label": "Sector-average scope 3 emissions intensity of a NACE division, in tCO2e per EUR million of a counterparty's total liabilities and equity — as the source the institution uses publishes it (stated with the source's name and year)",
    "unit": "tCO2e/EUR m",
    "breakdown": "nace_division",
@@ -40,6 +41,7 @@
    "used_for": "Pillar 3 Template 1 columns i-j: the scope 3 of a counterparty whose scope 3 is not gathered from it (Annex XL: 'Institutions shall base the estimation of scope 3 emissions on the information on emissions gathered from their counterparties and on the information on sector-average emissions intensity.')"
   },
   "method.t1_sector_scope3_intensity_revenue": {
+   "short": "Sector scope 3 intensity (revenue)",
    "label": "Sector-average scope 3 emissions intensity of a NACE division, in tCO2e per EUR million of a counterparty's revenue — as the source the institution uses publishes it (stated with the source's name and year)",
    "unit": "tCO2e/EUR m",
    "breakdown": "nace_division",
@@ -47,101 +49,119 @@
    "used_for": "Pillar 3 Template 1 columns i-j, where the institution states the revenue basis (p3esg_t1_scope3_sector_average = intensity_x_revenue): the scope 3 of a counterparty whose scope 3 is not gathered from it (Annex XL: 'Institutions shall base the estimation of scope 3 emissions on the information on emissions gathered from their counterparties and on the information on sector-average emissions intensity.')"
   },
   "method.at_risk_level": {
+   "short": "Your at-risk threshold",
    "label": "The hazard score (0-100) at or above which the institution treats an exposure as at material physical risk",
    "unit": "score",
    "used_for": "value at material physical risk; exposures sensitive to physical risk (Pillar 3 Template 5); forward crossings; the decision spine's at-risk line"
   },
   "method.valuation_haircut": {
+   "short": "Climate value haircut",
    "label": "Share of an asset's (collateral) value the institution discounts for physical climate risk, by peril and hazard band of the asset's headline hazard",
    "unit": "ratio",
    "breakdown": "peril_band",
    "used_for": "climate-adjusted value and loan-to-value, value-loss band, climate VaR, resilience capex (the loss a retrofit addresses)"
   },
   "method.damage_ratio": {
+   "short": "Damage ratio",
    "label": "Mean damage ratio if a damaging event occurs — the share of the exposure's value lost — by peril and hazard band (the institution's own curve)",
    "unit": "ratio",
    "breakdown": "peril_band",
    "used_for": "expected loss (bank), scenario loss, expected annual loss and technical premium (insurer, property), catastrophe simulation"
   },
   "method.annual_event_probability": {
+   "short": "Annual event probability",
    "label": "Annual probability of a damaging event, by peril and hazard band (the institution's own frequency)",
    "unit": "ratio",
    "breakdown": "peril_band",
    "used_for": "expected annual loss (bank and insurer), technical premium, catastrophe simulation"
   },
   "method.var_relative_uncertainty": {
+   "short": "Value-at-risk uncertainty",
    "label": "Relative uncertainty of a holding's haircut for the Monte-Carlo VaR (the triangular band is the haircut × (1 ± this))",
    "unit": "ratio",
    "used_for": "asset-manager Monte-Carlo climate VaR (opt-in method)"
   },
   "method.expense_ratio": {
+   "short": "Expense ratio",
    "label": "Expense ratio loaded on the technical premium (share of the premium)",
    "unit": "ratio",
    "used_for": "insurer and property technical premium"
   },
   "method.profit_margin": {
+   "short": "Profit margin",
    "label": "Profit margin loaded on the technical premium (share of the premium)",
    "unit": "ratio",
    "used_for": "insurer and property technical premium"
   },
   "method.adaptation_effectiveness": {
+   "short": "Retrofit effectiveness",
    "label": "Share of the physical value loss a resilience retrofit avoids, by peril",
    "unit": "ratio",
    "breakdown": "peril",
    "used_for": "resilience capex: avoided loss and benefit-cost ratio"
   },
   "method.resilience_capex_share": {
+   "short": "Resilience retrofit cost",
    "label": "Resilience retrofit capex as a share of the asset's value, by hazard band",
    "unit": "ratio",
    "breakdown": "band",
    "used_for": "resilience capex"
   },
   "method.stranded_share": {
+   "short": "Stranded-asset share",
    "label": "Share of an exposure's value at risk of stranding in the low-carbon transition, by NACE division, under a scenario and horizon (the institution's own)",
    "unit": "ratio",
    "breakdown": "division_scenario_horizon",
    "used_for": "transition expected loss (bank), combined physical + transition climate VaR (asset manager)"
   },
   "method.carbon_price": {
+   "short": "Carbon price",
    "label": "Carbon price in EUR per tonne of CO2e under a scenario and horizon (the institution's own, e.g. from the NGFS vintage it uses)",
    "unit": "EUR/tCO2e",
    "breakdown": "scenario_horizon",
    "used_for": "carbon cost of a counterparty's emissions (transition overlay)"
   },
   "method.transition_var_relative_uncertainty": {
+   "short": "Transition risk uncertainty",
    "label": "Relative uncertainty of a holding's stranded share for the combined VaR (the triangular band is the share × (1 ± this))",
    "unit": "ratio",
    "used_for": "combined physical + transition climate VaR (asset manager)"
   },
   "method.frequency_review_tolerance": {
+   "short": "Pricing review tolerance",
    "label": "How far the observed event frequency at a policy may differ from the priced frequency before the review flags it (share: observed ≥ priced × (1 + this) → possibly under-priced; ≤ × (1 − this) → possibly conservative)",
    "unit": "ratio",
    "used_for": "underwriting review verdicts"
   },
   "method.brown_discount": {
+   "short": "Energy-performance discount",
    "label": "Share of a building's value the institution discounts for its energy performance (transition: tightening minimum energy-performance standards), by EPC grade — 0 for a grade it does not discount",
    "unit": "ratio",
    "breakdown": "epc_grade",
    "used_for": "energy-stranding value at risk (real estate), collateral value at risk and stressed LTV (bank)"
   },
   "method.retrofit_capex_share": {
+   "short": "Energy retrofit cost",
    "label": "Retrofit capex to bring a building of this EPC grade to the performance the institution's standard requires, as a share of its value — 0 where none is needed",
    "unit": "ratio",
    "breakdown": "epc_grade",
    "used_for": "retrofit capex to de-risk (real estate, bank collateral)"
   },
   "method.runway_materiality": {
+   "short": "Runway materiality threshold",
    "label": "Share of the book newly crossing the stated at-risk level by a horizon that the institution treats as material — the earliest such horizon is the runway ('act by')",
    "unit": "ratio",
    "used_for": "forward-risk runway"
   },
   "method.bi_downtime_share": {
+   "short": "Site downtime share",
    "label": "Expected share of the year an own site is down from physical hazard, by peril and hazard band of the site's headline hazard (the company's own)",
    "unit": "ratio",
    "breakdown": "peril_band",
    "used_for": "business interruption at risk at own sites (operations, ESRS E1 own operations)"
   },
   "method.reallocation_cap": {
+   "short": "Sourcing shift limit",
    "label": "Largest share of a commodity's spend the company treats as shiftable to a lower-risk origin it already sources, near-term (its own procurement judgement)",
    "unit": "ratio",
    "used_for": "re-sourcing: avoidable volume at risk"

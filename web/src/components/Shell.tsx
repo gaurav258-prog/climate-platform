@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { displayNote } from '../lib/money'
+import { displayCurrency, displayNote } from '../lib/money'
+import { InfoButton } from './Details'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, Menu, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope, Building2, DatabaseZap, FlaskConical } from 'lucide-react'
 import clsx from 'clsx'
@@ -326,8 +327,11 @@ export default function Shell({ children }: { children: ReactNode }) {
             <button onClick={exitViewing} className="shrink-0 rounded-lg px-3 py-1 font-medium bg-[var(--color-warn)] text-[#1a1206] hover:opacity-90">Exit to platform</button>
           </div>
         )}
-        {!bleed && displayNote() && (
-          <div className="px-4 md:px-8 py-1.5 text-[11px] mono text-[var(--color-faint)] border-b border-[var(--color-line)] break-words" role="note">{displayNote()}</div>
+        {!bleed && displayNote() && (   // UI standard: one short line; how amounts are converted opens from ⓘ
+          <div className="px-4 md:px-8 py-1.5 text-[12px] text-[var(--color-mute)] border-b border-[var(--color-line)] flex items-center gap-2" role="note">
+            <span>Amounts in {displayCurrency()}</span>
+            <InfoButton compact details={{ title: 'Currency', sections: [{ heading: 'How amounts are converted', body: displayNote() }] }} />
+          </div>
         )}
         {bleed ? (
           <div className="relative h-[calc(100dvh-3.5rem)] md:h-screen overflow-hidden">{children}</div>
