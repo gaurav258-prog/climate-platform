@@ -47,5 +47,11 @@ def test_a_stated_level_is_checked_where_it_enters():
     assert clean_basis({"scenario": "disorderly_2c", "at_risk_level": "60"}) == {"scenario": "disorderly_2c", "at_risk_level": 60.0}
     assert clean_basis({"at_risk_level": ""}) == {}
     for bad in ("high", "-1", "101"):
-        with pytest.raises(ValueError, match="at_risk_level"):
+        with pytest.raises(ValueError, match="at-risk level"):
             clean_basis({"at_risk_level": bad})
+    # the scenario and year are ones the lens can rebuild at — a typed name would rebuild at nothing
+    assert clean_basis({"scenario": "baseline", "horizon": "current"}) == {"scenario": "baseline", "horizon": "current"}
+    with pytest.raises(ValueError, match="scenario"):
+        clean_basis({"scenario": "Disorderly 2°C"})
+    with pytest.raises(ValueError, match="year"):
+        clean_basis({"horizon": "2040"})

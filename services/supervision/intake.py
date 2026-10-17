@@ -21,6 +21,7 @@ from typing import Optional
 import h3
 from sqlalchemy import text
 
+from core import messages
 from services.geo.region_points import resolve as resolve_region
 from services.ingest.upload_validation import parse_table
 from services.supervision.lens import cell_key
@@ -85,21 +86,32 @@ def _num(v) -> Optional[float]:
         s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
     elif s.count(","):
         s = s.replace(",", ".") if len(s.split(",")[-1]) <= 2 else s.replace(",", "")
+    elif s.count(".") > 1:
+        s = s.replace(".", "")          # 1.000.000 — dots that only group thousands
     try:
         return float(s)
     except ValueError:
         return None
 
 
+def _issue(code: str, field: dict, value=None) -> dict:
+    """One problem on one row: its message code (core/messages.py) with the field's own label, and the value as read."""
+    return {"code": code, "field": field["id"], "label": messages.label(code, field=field["label"]),
+            "value": None if value is None else str(value)[:60]}
+
+
 def map_rows(raw: bytes, filename: Optional[str], fields: list[dict], mapping: dict[str, Optional[str]]) -> dict:
-    """Parse + map + validate. Returns {columns, rows (mapped dicts), errors:[{row, problems}], n_total, n_valid,
-    missing_required:[field ids]} — the same shape a preparer previews and the import saves."""
+    """Parse + map + validate. Returns {columns, rows (mapped dicts), errors:[{row, problems, issues}], problem_types,
+    n_total, n_valid, missing_required:[field ids]} — the same shape a preparer previews and the import saves. A problem
+    is a message code: `issues` carry it with the field and value, `problems` its words, and `problem_types` counts every
+    row (errors lists the first 200) by code and field, with the explanation for the screen's pop-up."""
     df = parse_table(raw, filename)
     columns = [str(c) for c in df.columns]
     missing = [f["id"] for f in fields if f.get("required") and not mapping.get(f["id"])]
     rows, errors = [], []
+    types: dict[tuple[str, str], dict] = {}
     for i, rec in enumerate(df.to_dict(orient="records")):
-        row, problems = {}, []
+        row, issues = {}, []
         for f in fields:
             col = mapping.get(f["id"])
             v = rec.get(col) if col else None
@@ -108,21 +120,32 @@ def map_rows(raw: bytes, filename: Optional[str], fields: list[dict], mapping: d
             if f.get("type") == "number":
                 n = _num(v)
                 if v not in (None, "") and n is None:
-                    problems.append(f"{f['label']}: not a number ({v!r})")
+                    issues.append(_issue("supervision.intake.row.not_a_number", f, v))
                 v = n
             elif f.get("type") == "date" and v not in (None, ""):
                 try:
                     v = v.date().isoformat() if hasattr(v, "date") else datetime.fromisoformat(str(v)[:10]).date().isoformat()
                 except ValueError:
-                    problems.append(f"{f['label']}: not a date ({v!r})"); v = None
+                    issues.append(_issue("supervision.intake.row.not_a_date", f, v)); v = None
             elif v is not None:
                 v = str(v).strip() or None
-            if f.get("required") and col and v in (None, ""):
-                problems.append(f"{f['label']}: missing")
+            if f.get("required") and col and v in (None, "") and not any(p["field"] == f["id"] for p in issues):
+                issues.append(_issue("supervision.intake.row.missing", f))     # an unreadable value is not a missing one
             row[f["id"]] = v
-        (errors if problems else rows).append({"row": i + 2, "problems": problems} if problems else row)
+        for p in issues:
+            t = types.setdefault((p["code"], p["field"]), {"code": p["code"], "field": p["field"], "label": p["label"],
+                                                         "count": 0, "rows": []})
+            t["count"] += 1
+            if len(t["rows"]) < 50:
+                t["rows"].append(i + 2)
+        (errors if issues else rows).append({"row": i + 2, "problems": [p["label"] for p in issues], "issues": issues}
+                                            if issues else row)
+    named = {f["id"]: f["label"] for f in fields}
+    for (code, fid), t in types.items():
+        t["detail"] = messages.render(code, field=named[fid])["detail"]
     return {"columns": columns, "rows": rows, "errors": errors[:200], "n_total": len(df), "n_valid": len(rows),
-            "n_error": len(errors), "missing_required": missing, "ok": not missing and len(rows) > 0}
+            "n_error": len(errors), "missing_required": missing, "ok": not missing and len(rows) > 0,
+            "problem_types": sorted(types.values(), key=lambda t: -t["count"])}
 
 
 # ── submitted template ────────────────────────────────────────────────────────────────────────────────────

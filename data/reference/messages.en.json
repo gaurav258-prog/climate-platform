@@ -321,6 +321,116 @@
    "detail": {
     "what": "Receipt of this letter was acknowledged before; it is recorded once."
    }
+  },
+  "supervision.intake.not_in_population": {
+   "status": 404,
+   "label": "Not in your supervised population",
+   "detail": {
+    "what": "This entity is not part of the population your authority supervises, so its intake cannot be opened.",
+    "next": "Open the entity from Population."
+   }
+  },
+  "supervision.intake.no_spec": {
+   "status": 422,
+   "label": "Sector outside your supervision profile",
+   "detail": {
+    "what": "Intake is set up per sector in your supervision profile, and this entity's sector is not in it.",
+    "next": "To supervise this sector, choose a profile that includes it in Settings. The entity's regional exposure and filings stay on its file."
+   }
+  },
+  "supervision.intake.unknown_file": {
+   "status": 404,
+   "label": "Unknown kind of file",
+   "detail": {
+    "what": "A file here is either the template the entity submitted or your own granular data."
+   }
+  },
+  "supervision.intake.unreadable": {
+   "status": 400,
+   "label": "The file could not be read",
+   "detail": {
+    "what": "The file is not a table this screen can read.",
+    "next": "Upload a CSV or Excel file with the column names in its first row."
+   }
+  },
+  "supervision.intake.unmatched_fields": {
+   "status": 422,
+   "label": "Required fields not matched",
+   "detail": {
+    "what": "{n} required fields are not matched to a column of your file: {fields}. Nothing has been saved.",
+    "next": "Match each required field to a column, then check the file again."
+   }
+  },
+  "supervision.intake.no_valid_rows": {
+   "status": 422,
+   "label": "No complete rows in the file",
+   "detail": {
+    "what": "Every row has a problem, so there is nothing to save.",
+    "next": "Correct the flagged rows in your file and upload it again."
+   }
+  },
+  "supervision.intake.invalid_period": {
+   "status": 422,
+   "label": "Not a financial year",
+   "detail": {
+    "what": "'{period}' is not a financial year. Supervisory periods are financial years, such as FY2025."
+   }
+  },
+  "supervision.intake.invalid_basis": {
+   "status": 422,
+   "label": "Check the stated basis",
+   "detail": {
+    "what": "{problem}",
+    "next": "Choose the scenario and year the entity states, and enter an at-risk level from 0 to 100, or leave them empty if it states none."
+   }
+  },
+  "supervision.intake.no_granular_data": {
+   "status": 422,
+   "label": "Import your granular data first",
+   "detail": {
+    "what": "Scenario projections run on the locations in your granular data, and none is on file for this entity yet."
+   }
+  },
+  "supervision.intake.template_saved": {
+   "label": "Template saved for {period}",
+   "detail": {
+    "what": "{rows} rows were saved as {cells} template cells for {period}. Rows with problems are left out: {skipped}.",
+    "next": "Open the independent lens to compare it with the template rebuilt from your granular data."
+   }
+  },
+  "supervision.intake.data_imported": {
+   "label": "Granular data imported for {period}",
+   "detail": {
+    "what": "{rows} rows imported: {located} placed on the map, {unlocated} without a usable location. Rows with problems are left out: {skipped}. This import replaces your earlier granular data for this entity.",
+    "next": "Scores and scenario projections are computed in the background. The figures on this page update as they finish."
+   }
+  },
+  "supervision.intake.projections_started": {
+   "label": "Scenario projections started",
+   "detail": {
+    "what": "Projections are running for {n} locations under every scenario and year. The figures on this page update as they finish."
+   }
+  },
+  "supervision.intake.row.not_a_number": {
+   "label": "{field}: not a number",
+   "detail": {
+    "what": "This column must hold a number, such as 1250000 or 1.250.000,00.",
+    "next": "Correct the value in your file and upload it again."
+   }
+  },
+  "supervision.intake.row.not_a_date": {
+   "label": "{field}: not a date",
+   "detail": {
+    "what": "This column must hold a date written as year-month-day, such as 2031-06-30, or an Excel date cell.",
+    "next": "Correct the value in your file and upload it again."
+   }
+  },
+  "supervision.intake.row.missing": {
+   "label": "{field}: missing",
+   "detail": {
+    "what": "This field is required, and the row leaves it empty.",
+    "next": "Fill it in your file, or match the field to another column."
+   }
   }
  },
  "names": {

@@ -22,6 +22,8 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, attachment, require_permission
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
 from services.governance import filings as F
 from services.supervision.levels import authority_level, clean_basis, entity_level
 
@@ -366,7 +368,7 @@ def _intake_spec(session, reg: str, subject_org_id: str) -> dict:
     t = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": subject_org_id}).scalar()
     sec = sector_config(cfg, t)
     if not sec or not sec.get("intake"):
-        raise HTTPException(status_code=422, detail={"error": "no_intake_spec", "message": "No granular intake is configured for this sector under your supervision profile."})
+        raise UserError("supervision.intake.no_spec")
     return {"config": cfg, "sector_type": t, "intake": sec["intake"]}
 
 
@@ -376,9 +378,11 @@ def intake_status(org_id: str, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("supervision.intake.not_in_population")
     spec = _intake_spec(session, reg, org_id)
-    return {"entity": org_id, "sector_type": spec["sector_type"], "intake": spec["intake"], **shadow_status(session, reg, org_id)}
+    name = session.execute(text("SELECT name FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).scalar()
+    return {"entity": org_id, "entity_name": name, "sector_type": spec["sector_type"], "intake": spec["intake"],
+            **shadow_status(session, reg, org_id)}
 
 
 @router.post("/intake/{org_id}/{kind}/validate", summary="Dry run: parse + suggest/apply a column mapping, report row problems — saves nothing")
@@ -389,27 +393,46 @@ async def intake_validate(org_id: str, kind: str, session: DbSession, ctx: Super
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("supervision.intake.not_in_population")
     if kind not in ("submission", "granular"):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Select either the submitted template or the granular extract."})
+        raise UserError("supervision.intake.unknown_file")
     spec = _intake_spec(session, reg, org_id)["intake"][kind]
     fields = spec["cell_fields"] if kind == "submission" else spec["row_fields"]
     raw = await file.read()
     try:
         cols = [str(c) for c in parse_table(raw, file.filename).columns]
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={"error": "unreadable", "message": "The file could not be read. Please upload a valid CSV or Excel file."}) from e
+        raise UserError("supervision.intake.unreadable") from e
     m = json.loads(mapping) if mapping else suggest_mapping(cols, fields)
     rep = map_rows(raw, file.filename, fields, m)
     rep.pop("rows", None)
-    return {"kind": kind, "fields": fields, "mapping": m, **rep}
+    refusal = _not_importable(rep, fields)
+    return {"kind": kind, "fields": fields, "mapping": m, **rep,
+            "status_message": messages.render(refusal.code, **refusal.params) if refusal else None}
+
+
+def _not_importable(rep: dict, fields: list[dict]) -> Optional[UserError]:
+    """Why a checked file cannot be saved — required fields left unmatched, or no complete row — or None."""
+    if rep["missing_required"]:
+        labels = [f["label"] for f in fields if f["id"] in rep["missing_required"]]
+        return UserError("supervision.intake.unmatched_fields", n=len(labels), fields=", ".join(labels))
+    return None if rep["ok"] else UserError("supervision.intake.no_valid_rows")
 
 
 def _clean_basis(raw: Optional[str]) -> dict:
     try:
         return clean_basis(json.loads(raw) if raw else {})
     except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+        raise UserError("supervision.intake.invalid_basis", problem=str(e)) from None
+
+
+def _intake_period(raw: str) -> str:
+    """The financial year a file is for, as its one canonical label (FY2025)."""
+    from services.supervision.deadlines import canonical_period
+    try:
+        return canonical_period(raw)[0]
+    except ValueError:
+        raise UserError("supervision.intake.invalid_period", period=raw) from None
 
 
 @router.post("/intake/{org_id}/{kind}", summary="Import: save the submitted template cells, or build the shadow book from granular rows")
@@ -424,29 +447,37 @@ async def intake_import(org_id: str, kind: str, session: DbSession, ctx: Supervi
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("supervision.intake.not_in_population")
     if kind not in ("submission", "granular"):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Select either the submitted template or the granular extract."})
+        raise UserError("supervision.intake.unknown_file")
     spec = _intake_spec(session, reg, org_id)["intake"][kind]
     fields = spec["cell_fields"] if kind == "submission" else spec["row_fields"]
+    period_label = _intake_period(period_label)
+    stated = _clean_basis(basis) if kind == "submission" else {}
     raw = await file.read(); m = json.loads(mapping)
     rep = map_rows(raw, file.filename, fields, m)
-    if not rep["ok"]:
-        raise HTTPException(status_code=422, detail={"error": "invalid_file", "message": "Please correct the column mapping and flagged rows before importing.", "missing_required": rep["missing_required"], "n_error": rep["n_error"]})
+    if refusal := _not_importable(rep, fields):
+        raise refusal
     if kind == "submission":
         cells = cells_from_rows(rep["rows"])
         res = save_submission(session, regulator_org_id=reg, subject_org_id=org_id, framework=spec["framework"], template=spec["template"],
-                              period_label=period_label, basis=_clean_basis(basis), cells=cells, raw=raw,
+                              period_label=period_label, basis=stated, cells=cells, raw=raw,
                               filename=file.filename, mapping=m, user_id=ctx["user"]["id"])
         action = "supervisor.intake.submission"
+        message = messages.render("supervision.intake.template_saved", period=period_label, rows=rep["n_valid"],
+                                  cells=res["n_cells"], skipped=rep["n_error"])
     else:
         res = build_shadow_book(session, regulator_org_id=reg, subject_org_id=org_id, period_label=period_label, rows=rep["rows"],
                                 raw=raw, filename=file.filename, mapping=m, user_id=ctx["user"]["id"])
         action = "supervisor.intake.granular"
+        unlocated = res["located"].get("unlocated", 0)
+        message = messages.render("supervision.intake.data_imported", period=period_label, rows=res["n_rows"],
+                                  located=res["n_rows"] - unlocated, unlocated=unlocated, skipped=rep["n_error"])
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action=action, target_type="organization", target_id=org_id,
                 detail={"period_label": period_label, "file": file.filename, "n_valid": rep["n_valid"], "n_error": rep["n_error"]})
     session.commit()
-    return {"kind": kind, "period_label": period_label, "n_valid": rep["n_valid"], "n_error": rep["n_error"], "result": res}
+    return {"kind": kind, "period_label": period_label, "n_valid": rep["n_valid"], "n_error": rep["n_error"], "result": res,
+            "message": message}
 
 
 @router.get("/entity/{org_id}/lens", summary="The independent lens: submitted template vs the same template rebuilt from the shadow book")
@@ -488,15 +519,16 @@ def intake_project(org_id: str, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("supervision.intake.not_in_population")
     cells = shadow_cells(session, reg, org_id)
     if not cells:
-        raise HTTPException(status_code=422, detail={"error": "no_shadow_book", "message": "Build the shadow book for this entity before running projections."})
+        raise UserError("supervision.intake.no_granular_data")
     job = schedule_projection(cells)   # the worker, or a child process when the worker is away — never this process
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.intake.project", target_type="organization",
                 target_id=org_id, detail={"n_cells": len(cells), "job": job})
     session.commit()
-    return {"status": "scheduled", "n_cells": len(cells), "job": job, "coverage": projection_coverage(session, cells)}
+    return {"status": "scheduled", "n_cells": len(cells), "job": job, "coverage": projection_coverage(session, cells),
+            "message": messages.render("supervision.intake.projections_started", n=len(cells))}
 
 
 # ── Population-level lens + analytics ───────────────────────────────────────────────────────────────────

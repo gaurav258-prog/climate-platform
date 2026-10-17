@@ -40,17 +40,23 @@ def with_entity_level(session, subject_org_id: str, basis: Optional[dict]) -> di
 
 
 def clean_basis(basis: Optional[dict]) -> dict:
-    """A submission's stated basis as it enters: the at-risk level, when given, is a headline score in [0, 100] — checked
-    here, never guessed later. Raises ValueError naming the problem."""
+    """A submission's stated basis as it enters, checked here, never guessed later: the at-risk level, when given, is a
+    headline score in [0, 100]; the scenario and horizon, when given, are ones the lens can rebuild at (the projection
+    anchors). Raises ValueError naming the problem in the reader's words."""
+    from services.supervision.projection import HORIZONS, SCENARIOS
     b = {k: v for k, v in dict(basis or {}).items() if v not in (None, "")}
     if "at_risk_level" in b:
         try:
             lvl = float(str(b["at_risk_level"]).strip())
         except ValueError:
-            raise ValueError("at_risk_level must be a number (a headline score 0–100)") from None
+            raise ValueError("The at-risk level must be a number from 0 to 100.") from None
         if not 0 <= lvl <= 100:
-            raise ValueError("at_risk_level must be between 0 and 100")
+            raise ValueError("The at-risk level must be a number from 0 to 100.")
         b["at_risk_level"] = lvl
+    if "scenario" in b and b["scenario"] not in SCENARIOS:
+        raise ValueError("The stated scenario is not one of the platform's scenarios.")
+    if "horizon" in b and str(b["horizon"]) not in HORIZONS:
+        raise ValueError("The stated year must be today, 2030, 2050 or 2100.")
     return b
 
 

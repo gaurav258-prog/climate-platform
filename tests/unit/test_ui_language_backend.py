@@ -28,6 +28,15 @@ def test_a_fixed_file_lowers_the_baseline():
     assert stale == [], f"Lower the baseline: venv/bin/python -m scripts.ui_language --write — {stale}"
 
 
+def test_a_user_error_names_a_catalogue_code(tmp_path):
+    # a UserError's argument is a code, not words — counted only when the catalogue lacks it (a typo would 500)
+    f = tmp_path / "r.py"
+    f.write_text('def a():\n    raise UserError("supervision.intake.no_spec")\n'
+                 'def b():\n    raise UserError("supervision.intake.no_such_code")\n'
+                 'def c():\n    raise ValueError("bad at_risk_level")\n', encoding="utf-8")
+    assert U.scan(f)["error"] == 2
+
+
 def test_the_message_catalogue_is_sound():
     from core import messages
     assert messages.check() == []
