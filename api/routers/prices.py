@@ -5,12 +5,13 @@ from __future__ import annotations
 import csv
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 import services.intelligence.price_index as P
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/prices", tags=["Commodity price indices"])
 
@@ -20,6 +21,12 @@ _TEMPLATE = ("source,commodity,period_ym,index_value,unit,currency\n"
 
 class RowsBody(BaseModel):
     rows: list[dict]
+
+
+def _no_rows(res: dict) -> UserError:
+    """Nothing usable in an upload: the first refused row with its reason, or an empty file."""
+    first = res["refused"][0] if res["refused"] else None
+    return UserError("agri.data.price.no_rows", row=first["row"], reason=first["reason"]) if first else UserError("agri.data.file_empty")
 
 
 @router.get("/template.csv", summary="Price-index upload template (CSV)")
@@ -40,13 +47,10 @@ async def upload(session: DbSession, file: UploadFile = File(...),
     try:
         rows = list(csv.DictReader(io.StringIO(raw)))
     except Exception:
-        raise HTTPException(422, {"error": "bad_csv", "message": "Could not parse the CSV."})
+        raise UserError("agri.data.file_unreadable")
     res = P.ingest(session, rows)
     if res["rows"] == 0:
-        why = "; ".join(f"row {r['row']}: {r['reason']}" for r in res["refused"][:3])
-        raise HTTPException(422, {"error": "no_valid_rows",
-                                  "message": "No valid rows — each needs commodity, period_ym (YYYY-MM), index_value and the "
-                                             f"currency it is quoted in. {why}".strip()})
+        raise _no_rows(res)
     return res
 
 
@@ -54,6 +58,5 @@ async def upload(session: DbSession, file: UploadFile = File(...),
 def upload_rows(body: RowsBody, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     res = P.ingest(session, body.rows)
     if res["rows"] == 0:
-        why = "; ".join(f"row {r['row']}: {r['reason']}" for r in res["refused"][:3])
-        raise HTTPException(422, {"error": "no_valid_rows", "message": f"No valid rows. {why}".strip()})
+        raise _no_rows(res)
     return res

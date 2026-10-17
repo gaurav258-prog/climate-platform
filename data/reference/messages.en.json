@@ -31,6 +31,189 @@
     "what": "{what}"
    }
   },
+  "agri.data.source.climate": {
+   "label": "Climate reanalysis",
+   "detail": {
+    "what": "Temperature, rainfall and soil moisture for every place on land, from the Copernicus ERA5 and ERA5-Land reanalysis produced by ECMWF.",
+    "why": "The drought, heat, soil-water and frost scores are measured on it."
+   }
+  },
+  "agri.data.source.crop_weather": {
+   "label": "Growing-season weather",
+   "detail": {
+    "what": "Monthly rainfall, temperature and evaporation over each crop's growing areas worldwide, from Copernicus ERA5-Land.",
+    "why": "It tests how closely each crop's harvest has followed the weather in past seasons."
+   }
+  },
+  "agri.data.source.crop_statistics": {
+   "label": "Official crop statistics",
+   "detail": {
+    "what": "Production, area and yield by country and region, from FAOSTAT, Eurostat, the US Department of Agriculture and Statistics Canada.",
+    "why": "They show how far each crop's harvest fell in past bad years. That sets how a hazard score becomes lost volume, and a euro figure is published only where this test passes."
+   }
+  },
+  "agri.data.source.forest": {
+   "label": "Forest loss",
+   "detail": {
+    "what": "Annual forest loss worldwide, from Hansen Global Forest Change (University of Maryland).",
+    "why": "It is read for each plot when a deforestation check under the EU Deforestation Regulation runs."
+   }
+  },
+  "agri.data.source.prices": {
+   "label": "Commodity prices",
+   "detail": {
+    "what": "Monthly prices from the World Bank commodity price data (the Pink Sheet) and the European Commission's agri-food data portal.",
+    "why": "They show the input-cost pressure that observed price moves put on your sourcing spend."
+   }
+  },
+  "agri.data.price.no_book": {
+   "label": "No sourcing plots yet",
+   "detail": {
+    "what": "Price pressure is measured on the spend of your sourcing plots, and none are on file.",
+    "next": "Add your plots under Suppliers & crops."
+   }
+  },
+  "agri.data.price.no_index": {
+   "label": "No price index",
+   "detail": {
+    "what": "No price series is loaded for {commodity}, so its spend carries no price move.",
+    "next": "Load a price series for it with Load indices."
+   }
+  },
+  "agri.data.price.no_currency": {
+   "label": "Price currency not stated",
+   "detail": {
+    "what": "The price series for {commodity} does not say which currency it is quoted in, so its move cannot be measured in {currency}.",
+    "next": "Load the series again with the currency it is quoted in."
+   }
+  },
+  "agri.data.price.no_rate": {
+   "label": "No exchange rate",
+   "detail": {
+    "what": "There is no {quote} to {currency} exchange rate for {period}, so the price move for {commodity} cannot be measured in {currency}."
+   }
+  },
+  "agri.data.price.row_value": {
+   "label": "Index value is not a number",
+   "detail": {
+    "what": "Each row needs its index value as a number."
+   }
+  },
+  "agri.data.price.row_key": {
+   "label": "Commodity and month are required",
+   "detail": {
+    "what": "Each row needs the commodity and the month, written as year and month (for example 2026-09)."
+   }
+  },
+  "agri.data.price.row_currency": {
+   "label": "Currency is required",
+   "detail": {
+    "what": "Each row needs the currency its price is quoted in, as a three-letter code (for example USD)."
+   }
+  },
+  "agri.data.price.row_unknown_currency": {
+   "label": "Currency not supported",
+   "detail": {
+    "what": "{currency} is not a currency the platform can convert. Use a three-letter currency code (for example USD or EUR)."
+   }
+  },
+  "agri.data.price.no_rows": {
+   "status": 422,
+   "label": "No usable rows in the file",
+   "detail": {
+    "what": "None of the rows could be used. The first problem is in row {row}: {reason}.",
+    "next": "Download the template, fill in its columns and load the file again."
+   }
+  },
+  "agri.data.arrears.none": {
+   "label": "No arrears uploaded yet",
+   "detail": {
+    "what": "Upload the days past due of your agricultural loans. Each past-due loan is then sorted into harvest carry-over, a bad harvest, or genuine deterioration.",
+    "next": "Choose the currency and book date, then upload the file."
+   }
+  },
+  "agri.data.arrears.seasonal": {
+   "label": "Inside the {crop} harvest window",
+   "detail": {
+    "what": "{days} days past due in {month}, inside the harvest window for {crop} and within the {cap}-day seasonal limit.",
+    "why": "Farm income arrives after the harvest, so arrears in this window are usually repaid from the next sale."
+   }
+  },
+  "agri.data.arrears.bad_harvest": {
+   "label": "Harvest of {crop} in {country} fell {fall}%",
+   "detail": {
+    "what": "National {crop} production in {country} fell {fall}% on the year before, in the {season} season. The loan is {days} days past due.",
+    "why": "A national bad harvest explains a pattern. It does not prove that this borrower's own harvest failed."
+   }
+  },
+  "agri.data.arrears.over_limit": {
+   "label": "Beyond the {cap}-day seasonal limit",
+   "detail": {
+    "what": "{days} days past due is beyond the {cap}-day seasonal limit, so the harvest cycle does not explain it."
+   }
+  },
+  "agri.data.arrears.outside_window": {
+   "label": "Outside the {crop} harvest window",
+   "detail": {
+    "what": "{month} is outside the harvest window for {crop}, so harvest carry-over does not explain this arrear."
+   }
+  },
+  "agri.data.arrears.no_calendar": {
+   "label": "No harvest calendar for this crop",
+   "detail": {
+    "what": "There is no harvest calendar for {crop}, so the loan gets no seasonal allowance."
+   }
+  },
+  "agri.data.arrears.no_crop": {
+   "label": "No crop on record",
+   "detail": {
+    "what": "The loan has no crop on record, so no harvest window applies and it gets no seasonal allowance.",
+    "next": "Add the crop the loan finances to the upload."
+   }
+  },
+  "agri.data.arrears.no_country": {
+   "label": "No country, so no harvest check",
+   "detail": {
+    "what": "The loan has no country on record, so national harvest figures could not be checked. It is counted as genuine.",
+    "next": "Add the borrower's country (a two-letter code) to the upload."
+   }
+  },
+  "agri.data.arrears.row_days": {
+   "label": "Days past due is not a whole number",
+   "detail": {
+    "what": "Each row needs its days past due as a whole number."
+   }
+  },
+  "agri.data.arrears.row_ref": {
+   "label": "Loan reference is missing",
+   "detail": {
+    "what": "Each row needs the loan's reference."
+   }
+  },
+  "agri.data.arrears.no_rows": {
+   "status": 422,
+   "label": "No usable rows in the file",
+   "detail": {
+    "what": "None of the rows could be used. The first problem is in row {row}: {reason}.",
+    "next": "Download the template, fill in its columns and upload the file again."
+   }
+  },
+  "agri.data.file_unreadable": {
+   "status": 422,
+   "label": "The file could not be read",
+   "detail": {
+    "what": "The file is not a readable CSV file.",
+    "next": "Save it as CSV (comma-separated values) and try again."
+   }
+  },
+  "agri.data.file_empty": {
+   "status": 422,
+   "label": "The file has no rows",
+   "detail": {
+    "what": "The file holds no rows to use, at most a header line.",
+    "next": "Download the template, fill in its columns and try again."
+   }
+  },
   "loss.gap.no_location": {
    "label": "No location",
    "detail": {

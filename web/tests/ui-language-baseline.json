@@ -179,12 +179,6 @@
   "monoProse": 0,
   "apiProse": 0
  },
- "src/components/PricePressure.tsx": {
-  "internal": 1,
-  "raw": 0,
-  "monoProse": 2,
-  "apiProse": 0
- },
  "src/components/ProvidedData.tsx": {
   "internal": 0,
   "raw": 0,
@@ -213,12 +207,6 @@
   "internal": 0,
   "raw": 0,
   "monoProse": 7,
-  "apiProse": 0
- },
- "src/components/SeasonalArrears.tsx": {
-  "internal": 4,
-  "raw": 0,
-  "monoProse": 1,
   "apiProse": 0
  },
  "src/components/SfdrDocumentItems.tsx": {
@@ -399,12 +387,6 @@
   "internal": 3,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 0
- },
- "src/pages/DataFoundation.tsx": {
-  "internal": 4,
-  "raw": 0,
-  "monoProse": 3,
   "apiProse": 0
  },
  "src/pages/DataHub.tsx": {

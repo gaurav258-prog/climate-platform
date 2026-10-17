@@ -23,6 +23,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
 from services.reference.fx import FxError, average_rate
 
 BASELINE_MONTHS = 12   # trailing window the latest index is compared against
@@ -42,6 +43,11 @@ def currency_of(unit: Optional[str], source: Optional[str]) -> Optional[str]:
     return None
 
 
+def _refused(row: int, code: str, **params) -> dict:
+    """A refused row: its reason in customer words and as a message code (agri.data.price.row_*)."""
+    return {"row": row, "reason": messages.label(code, **params), "reason_code": code}
+
+
 def ingest(session: Session, rows: list[dict]) -> dict:
     """Upsert reference index rows. rows: {source, commodity, period_ym 'YYYY-MM', index_value, unit?, currency?}.
     A row whose currency is neither given nor readable from its unit / publisher is refused with the reason."""
@@ -54,15 +60,15 @@ def ingest(session: Session, rows: list[dict]) -> dict:
         try:
             val = float(str(r.get("index_value")).replace(",", "").strip())
         except (TypeError, ValueError, AttributeError):
-            refused.append({"row": i, "reason": "index_value is not a number"})
+            refused.append(_refused(i, "agri.data.price.row_value"))
             continue
         if not commodity or len(period) != 7:
-            refused.append({"row": i, "reason": "commodity and period_ym (YYYY-MM) are required"})
+            refused.append(_refused(i, "agri.data.price.row_key"))
             continue
         ccy = (str(r.get("currency") or "").strip().upper() or currency_of(r.get("unit"), r.get("source")))
         if not ccy or ccy not in known:
-            refused.append({"row": i, "reason": "currency is required (ISO code the series is quoted in, e.g. USD)"
-                            if not ccy else f"'{ccy}' is not a currency we can convert"})
+            refused.append(_refused(i, "agri.data.price.row_currency") if not ccy
+                           else _refused(i, "agri.data.price.row_unknown_currency", currency=ccy))
             continue
         session.execute(text("""
             INSERT INTO commodity_price_index (price_id, source, commodity, period_ym, index_value, unit, currency)
@@ -84,7 +90,8 @@ def _month(ym: str) -> tuple[date, date]:
 def _shock(session: Session, commodity: str, buyer_ccy: str = "EUR") -> Optional[dict]:
     """Latest month vs the mean of the prior BASELINE_MONTHS, in the buyer's currency — the observed % move, split into
     the move in the quote currency and the currency's own move. One series only (the most recently updated), never a
-    mix of publishers. None if no data; {"usable": False, "reason"} if it can't be put in the buyer's currency."""
+    mix of publishers. None if no data; {"usable": False, "reason_code", "reason_params"} if it can't be put in the
+    buyer's currency (a message code of agri.data.price.*)."""
     src = session.execute(text("""
         SELECT source FROM commodity_price_index WHERE commodity = :c ORDER BY period_ym DESC, ingested_at DESC LIMIT 1
     """), {"c": commodity.lower()}).scalar()
@@ -99,7 +106,8 @@ def _shock(session: Session, commodity: str, buyer_ccy: str = "EUR") -> Optional
     base = {"commodity": commodity, "latest_period": latest["period_ym"], "source": latest["source"], "unit": latest["unit"],
             "quote_currency": q, "currency": buyer_ccy}
     if q is None:
-        return {**base, "usable": False, "reason": "the series does not say which currency it is quoted in"}
+        return {**base, "usable": False, "reason_code": "agri.data.price.no_currency",
+                "reason_params": {"commodity": commodity, "currency": buyer_ccy}}
 
     def move(vals: list[float]) -> float:
         prior = vals[1:]
@@ -116,7 +124,8 @@ def _shock(session: Session, commodity: str, buyer_ccy: str = "EUR") -> Optional
             try:
                 qr, br = average_rate(session, q, s, e), average_rate(session, buyer_ccy, s, e)
             except FxError:
-                return {**base, "usable": False, "reason": f"no {q}→{buyer_ccy} rate for {r['period_ym']}"}
+                return {**base, "usable": False, "reason_code": "agri.data.price.no_rate",
+                        "reason_params": {"quote": q, "currency": buyer_ccy, "period": r["period_ym"], "commodity": commodity}}
             buyer.append(r["v"] * br["units_per_eur"] / qr["units_per_eur"])
     shock, local_move = move(buyer), move(local)
     return {**base, "usable": True, "latest_index": round(local[0], 2), "baseline_index": round(sum(local[1:]) / max(len(local) - 1, 1), 2),
@@ -137,7 +146,7 @@ def book_price_pressure(session: Session, org_id: str) -> dict:
         WHERE p.org_id = CAST(:o AS uuid) GROUP BY co.name
     """), {"o": org_id}).mappings().all()
     if not plots:
-        return {"available": False, "reason": "no_sourcing_book"}
+        return {"available": False, "message": messages.render("agri.data.price.no_book")}
     # spend is held in EUR; in another presentation currency it is shown at today's closing rate
     to_ccy = 1.0 if ccy == "EUR" else rate_for(session, ccy)["units_per_eur"]
     items, total_spend, pressure, covered_spend = [], 0.0, 0.0, 0.0
@@ -146,8 +155,10 @@ def book_price_pressure(session: Session, org_id: str) -> dict:
         total_spend += spend
         sh = _shock(session, pl["commodity"], ccy)
         if sh is None or not sh["usable"]:
+            why = (messages.render(sh["reason_code"], **sh["reason_params"]) if sh else
+                   messages.render("agri.data.price.no_index", commodity=pl["commodity"]))
             items.append({"commodity": pl["commodity"], "spend_eur": round(spend), "covered": False,
-                          "shock_pct": None, "pressure_eur": 0, "reason": (sh or {}).get("reason") or "no index loaded"})
+                          "shock_pct": None, "pressure_eur": 0, "reason_message": why})
             continue
         covered_spend += spend
         p = spend * max(0.0, sh["shock_pct"]) / 100.0
@@ -166,7 +177,7 @@ def book_price_pressure(session: Session, org_id: str) -> dict:
             "pressure_pct_of_spend": round(100 * pressure / total_spend, 2) if total_spend else 0,
         },
         "commodities": items,
-        "note": (f"Amounts in {ccy} (fields keep their *_eur names). Each price move is measured in {ccy}: a series quoted "
+        "note": (f"Amounts in {ccy}. Each price move is measured in {ccy}: a series quoted "
                  f"in another currency is converted month by month at that month's average rate, so the move includes "
                  f"the currency's own move (shown separately)."),
     }

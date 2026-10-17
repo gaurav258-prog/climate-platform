@@ -6,12 +6,13 @@ import csv
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 import services.governance.seasonal_arrears as A
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/arrears", tags=["Seasonal-arrears overlay"])
 
@@ -24,6 +25,12 @@ class RowsBody(BaseModel):
     rows: list[dict]
     currency: Optional[str] = Field(None, description="ISO 4217 code of the exposures, unless each row has a 'currency'.")
     book_date: Optional[str] = Field(None, description="YYYY-MM-DD the figures describe, unless each row has 'as_of_date'.")
+
+
+def _no_rows(res: dict) -> UserError:
+    """Nothing usable in an upload: the first refused row with its reason, or an empty file."""
+    first = res["skipped"][0] if res["skipped"] else None
+    return UserError("agri.data.arrears.no_rows", row=first["row"], reason=first["reason"]) if first else UserError("agri.data.file_empty")
 
 
 @router.get("/template.csv", summary="Arrears upload template (CSV)")
@@ -45,11 +52,10 @@ async def upload(session: DbSession, file: UploadFile = File(...), currency: Opt
     try:
         rows = list(csv.DictReader(io.StringIO(raw)))
     except Exception:
-        raise HTTPException(422, {"error": "bad_csv", "message": "Could not parse the CSV."})
+        raise UserError("agri.data.file_unreadable")
     res = A.ingest(session, ctx["org"]["org_id"], rows, ctx["user"]["id"], currency, book_date)
     if res["rows"] == 0:
-        raise HTTPException(422, {"error": "no_valid_rows", "skipped": res["skipped"],
-                                  "message": "No usable rows. " + (res["skipped"][0]["reason"] if res["skipped"] else "")})
+        raise _no_rows(res)
     return res
 
 
@@ -57,6 +63,5 @@ async def upload(session: DbSession, file: UploadFile = File(...), currency: Opt
 def upload_rows(body: RowsBody, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     res = A.ingest(session, ctx["org"]["org_id"], body.rows, ctx["user"]["id"], body.currency, body.book_date)
     if res["rows"] == 0:
-        raise HTTPException(422, {"error": "no_valid_rows", "skipped": res["skipped"],
-                                  "message": "No usable rows. " + (res["skipped"][0]["reason"] if res["skipped"] else "")})
+        raise _no_rows(res)
     return res

@@ -364,11 +364,6 @@
   "error": 1,
   "rawError": 0
  },
- "services/governance/seasonal_arrears.py": {
-  "display": 3,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/signup.py": {
   "display": 0,
   "error": 1,
@@ -451,11 +446,6 @@
  },
  "services/intelligence/forward_risk.py": {
   "display": 1,
-  "error": 0,
-  "rawError": 0
- },
- "services/intelligence/price_index.py": {
-  "display": 3,
   "error": 0,
   "rawError": 0
  },

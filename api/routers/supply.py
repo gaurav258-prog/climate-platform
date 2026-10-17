@@ -949,6 +949,12 @@ def validation(session: DbSession):
     return {"impact_version": IMPACT_VERSION, "events": out}
 
 
+@router.get("/foundation", summary="How agriculture scores are produced — sources, plots, scores and euros in one read")
+def foundation(session: DbSession, org_id: OrgId):
+    from services.intelligence.agri_foundation import foundation as _foundation
+    return _foundation(session, org_id)
+
+
 @router.get("/models", summary="Agriculture hazard models + impact-fn + per-commodity calibration")
 def models(session: DbSession, org_id: OrgId):
     from services.intelligence.supply_cogs import get_calibrations

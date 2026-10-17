@@ -17,12 +17,16 @@ allowance — it is treated as genuine (conservative).
 Climate-attributed basis: crop_yield_observations (FAOSTAT/ICCO/ICO-grade, the same table the agri vertical's
 own "Realized Exposure" feature already uses) — a >5% year-on-year national production decline for the loan's
 crop x country x season. This is a COARSE, national-level proxy for one borrower's own harvest, disclosed as
-such in every rationale string; it explains a PATTERN, it does not prove this specific farm failed. A loan
+such in every reason; it explains a PATTERN, it does not prove this specific farm failed. A loan
 with no `country` on record cannot be checked (never guessed from the free-text `region`) and is reported
 separately as "not checked", not silently folded into "genuine".
+
+Every reason is a code of the message catalogue (agri.data.arrears.*, core/messages.py) with its values in customer
+words — the crop as uploaded, the month's name, the country's name — so a screen shows its label and its detail.
 """
 from __future__ import annotations
 
+import calendar
 import json
 import uuid
 from datetime import date
@@ -30,6 +34,8 @@ from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from core import messages
 
 # crop -> months (1-12) where post-harvest carry-over arrears are expected (Northern-hemisphere default)
 CROP_SEASONAL_WINDOW: dict[str, set[int]] = {
@@ -81,29 +87,44 @@ def _window(crop_key: Optional[str]) -> Optional[set[int]]:
 def classify_loan(crop: Optional[str], dpd: int, month: int, country: Optional[str],
                   yield_shocks: dict[tuple[str, str, int], float], season_year: Optional[int]) -> dict:
     """Pure classifier — no DB. `yield_shocks` is a pre-fetched {(crop_key, country, season_year): yoy_change_pct}
-    map for shocks below YIELD_SHOCK_THRESHOLD_PCT (see `_yield_shock_map`). Returns {classification, rationale}."""
+    map for shocks below YIELD_SHOCK_THRESHOLD_PCT (see `_yield_shock_map`). Returns {classification, code, params,
+    country_checked}: the reason as a message code (agri.data.arrears.*) with its values — the country as its code,
+    which the caller names — and whether the national-harvest check could run."""
     crop_key = _crop_key(crop)
     win = _window(crop_key)
+    name = (crop or crop_key or "").strip()
+    common = {"crop": name, "days": dpd, "month": calendar.month_name[month], "cap": SEASONAL_MAX_DPD}
     if win and (month in win) and dpd <= SEASONAL_MAX_DPD:
-        return {"classification": "seasonal",
-                "rationale": f"{crop} carry-over — month {month} in harvest window, {dpd}d ≤ {SEASONAL_MAX_DPD}d cap"}
+        return {"classification": "seasonal", "code": "agri.data.arrears.seasonal", "params": common,
+                "country_checked": True}
 
     if country and crop_key and season_year:
         yoy = yield_shocks.get((crop_key, country.upper(), season_year))
         if yoy is not None:
-            return {"classification": "climate_attributed",
-                    "rationale": f"{country.upper()} {crop or crop_key} production fell {yoy:.1f}% y/y in {season_year} "
-                                f"(FAOSTAT-grade, national) — a bad harvest, not a credit-specific signal; {dpd}d past due"}
+            return {"classification": "climate_attributed", "code": "agri.data.arrears.bad_harvest",
+                    "params": {**common, "country": country.upper(), "fall": f"{abs(yoy):.1f}", "season": season_year},
+                    "country_checked": True}
 
     if win and month in win and dpd > SEASONAL_MAX_DPD:
-        reason = f"{dpd}d exceeds the {SEASONAL_MAX_DPD}d seasonal cap"
+        code = "agri.data.arrears.over_limit"
     elif win:
-        reason = f"month {month} outside {crop}'s harvest window"
+        code = "agri.data.arrears.outside_window"
+    elif name:
+        code = "agri.data.arrears.no_calendar"
     else:
-        reason = "no seasonal calendar for this crop"
-    if not country:
-        reason += "; no country on record, so no climate-shock check was possible"
-    return {"classification": "genuine", "rationale": reason}
+        code = "agri.data.arrears.no_crop"
+    return {"classification": "genuine", "code": code, "params": common, "country_checked": bool(country)}
+
+
+def _country_names(session: Session, codes: set[str]) -> dict[str, str]:
+    if not codes:
+        return {}
+    return {r[0].strip(): r[1] for r in session.execute(text(
+        "SELECT iso2, name_en FROM ref_countries WHERE iso2 = ANY(:c)"), {"c": sorted(codes)}).all()}
+
+
+def _skip(row: int, code: str) -> dict:
+    return {"row": row, "reason": messages.label(code), "reason_code": code}
 
 
 def _yield_shock_map(session: Session, keys: set[tuple[str, str]]) -> dict[tuple[str, str, int], float]:
@@ -137,10 +158,10 @@ def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[st
         try:
             dpd = int(float(str(r.get("days_past_due")).strip()))
         except (TypeError, ValueError, AttributeError):
-            skipped.append({"row": i, "reason": "days_past_due is not a whole number"})
+            skipped.append(_skip(i, "agri.data.arrears.row_days"))
             continue
         if not ref:
-            skipped.append({"row": i, "reason": "loan_ref is missing"})
+            skipped.append(_skip(i, "agri.data.arrears.row_ref"))
             continue
         raw_exp = r.get("exposure", r.get("exposure_eur"))
         asof = str(r.get("as_of_date") or "").strip() or book_date
@@ -179,7 +200,8 @@ def _latest_batch(session: Session, org_id: str):
 def assessment(session: Session, org_id: str, as_of_month: Optional[int] = None) -> dict:
     batch = _latest_batch(session, org_id)
     if not batch:
-        return {"available": False, "reason": "no_arrears_uploaded"}
+        return {"available": False, "message": messages.render("agri.data.arrears.none"),
+                "seasonal_cap_days": SEASONAL_MAX_DPD, "yield_shock_threshold_pct": YIELD_SHOCK_THRESHOLD_PCT}
     month = as_of_month or (batch["asof"].month if batch["asof"] else date.today().month)
     rows = session.execute(text("""
         SELECT loan_ref, borrower_name, crop, region, country, CAST(exposure_eur AS FLOAT) AS exposure_eur, days_past_due, as_of_date
@@ -191,6 +213,7 @@ def assessment(session: Session, org_id: str, as_of_month: Optional[int] = None)
     keys = {(_crop_key(r["crop"]), r["country"].upper()) for r in rows if r["crop"] and r["country"]}
     keys = {(k, c) for k, c in keys if k}
     shocks = _yield_shock_map(session, keys)
+    names = _country_names(session, {r["country"].strip().upper() for r in rows if r["country"]})
 
     loans = []
     totals = {"seasonal": 0.0, "climate_attributed": 0.0, "genuine": 0.0}
@@ -200,6 +223,9 @@ def assessment(session: Session, org_id: str, as_of_month: Optional[int] = None)
         # crop_yield_observations.season_year is the crop-year END — the as_of_date's own year is the honest default
         season_year = (r["as_of_date"] or date.today()).year
         res = classify_loan(r["crop"], r["days_past_due"], month, r["country"], shocks, season_year)
+        params = res["params"]
+        if "country" in params:
+            params = {**params, "country": names.get(params["country"], params["country"])}
         exp = r["exposure_eur"] or 0
         cls = res["classification"]
         totals[cls] += exp
@@ -208,7 +234,9 @@ def assessment(session: Session, org_id: str, as_of_month: Optional[int] = None)
             n_no_country += 1
         loans.append({"loan_ref": r["loan_ref"], "borrower_name": r["borrower_name"], "crop": r["crop"],
                       "region": r["region"], "country": r["country"], "exposure_eur": round(exp),
-                      "days_past_due": r["days_past_due"], "classification": cls, "rationale": res["rationale"]})
+                      "days_past_due": r["days_past_due"], "classification": cls,
+                      "reason_message": messages.render(res["code"], **params),
+                      "check_message": None if res["country_checked"] else messages.render("agri.data.arrears.no_country")})
     total_eur = sum(totals.values())
     return {
         "available": True, "as_of": batch["asof"].isoformat() if batch["asof"] else None, "assessed_month": month,
