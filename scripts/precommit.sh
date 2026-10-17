@@ -37,6 +37,19 @@ step "web unit tests"
 (cd web && npm test >/tmp/precommit-web-test.log 2>&1) || { tail -30 /tmp/precommit-web-test.log; exit 1; }
 echo ok
 
+step "data folders the tests read (E194: a worktree links the main checkout's git-ignored data)"
+main_root="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
+if [ "$main_root" != "$(pwd -P)" ]; then
+  missing=""
+  for d in "$main_root"/data/*/; do n="$(basename "$d")"; [ -e "data/$n" ] || missing="$missing $n"; done
+  if [ -n "$missing" ]; then
+    echo "this worktree lacks git-ignored data folders the main checkout holds:$missing"
+    echo "link them (untracked, never staged):  for n in$missing; do ln -s \"$main_root/data/\$n\" \"data/\$n\"; done"
+    exit 1
+  fi
+fi
+echo ok
+
 step "test suite (+ demo-data guard)"
 venv/bin/pytest -q -p no:cacheprovider
 
