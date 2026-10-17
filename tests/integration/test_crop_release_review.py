@@ -39,6 +39,12 @@ def _zip(rows: list[tuple[int, str, str, int, float]]) -> bytes:
     return out.getvalue()
 
 
+def _why(aside: list[dict]) -> dict[str, int]:
+    """Set-aside counts by reason code and value — {'not_a_number (D)': 1, …} (yield_sources.SetAside)."""
+    return {" ".join([a["code"].removeprefix("reference.release.aside."), *a["params"].values()]): a["rows"]
+            for a in aside}
+
+
 @pytest.fixture(autouse=True)
 def _raw_in_tmp(tmp_path, monkeypatch):
     """Raw publisher data a test 'downloads' is kept in a temporary folder, never in the checkout."""
@@ -119,8 +125,10 @@ def test_while_a_release_is_open_the_schedule_does_not_fetch(api, source, monkey
     s = api.s
     first = R.stage(s, _zip([(107, "Cocoa beans", "Production", 2030, 10.0)]))
     assert first["staged"]
-    with pytest.raises(R.ReleaseError, match="still open"):
+    with pytest.raises(R.ReleaseError, match="still open") as e:
         R.stage(s, _zip([(107, "Cocoa beans", "Production", 2031, 10.0)]))
+    assert e.value.code == "reference.release.error.still_open"
+    assert e.value.params == {"source": "FAOSTAT crop production"}          # the source by its customer name
 
     def no_fetch(*a, **k):
         raise AssertionError("fetched while a release is open")
@@ -272,10 +280,8 @@ def test_usda_nass_reads_states_and_sets_aside_forecasts_withheld_and_other_stat
     assert (r["country"], r["production_tonnes"], r["area_harvested_ha"]) == \
            ("US", round(120000 * bu, 1), round(1000 * 0.40468564224, 1))
     assert r["yield_tonnes_ha"] == round(120000 * bu / (1000 * 0.40468564224), 4) and r["yoy_change_pct"] == 20.0
-    assert N.set_aside(data, locs) == {"area without a production estimate for the year": 1,
-                                       "not a state of the region reference (OTHER STATES)": 1,
-                                       "not given as a number ((D))": 1,
-                                       "season in progress — 'YEAR' repeats NASS's forecast": 1}
+    assert _why(N.set_aside(data, locs)) == {"area_only": 1, "state_group OTHER STATES": 1, "not_a_number (D)": 1,
+                                             "season_forecast": 1}
     assert N.stamp(data) == "2026-09-11 12:00:00.000"
 
 
@@ -312,8 +318,9 @@ def test_a_region_outside_the_region_reference_is_refused(api, monkeypatch):
                          {"commodity": "Maize", "country": "US", "region_code": "US-ZZ", "season_year": 2025,
                           "production_tonnes": 1.0, "area_harvested_ha": 1.0, "yield_tonnes_ha": 1.0,
                           "yoy_change_pct": None, "note": ""}])
-    with pytest.raises(R.ReleaseError, match="US-ZZ"):
+    with pytest.raises(R.ReleaseError) as e:
         R.stage(api.s, b"region test", source=ys)
+    assert e.value.code == "reference.release.error.unknown_regions" and e.value.params == {"regions": "US-ZZ"}
     assert api.s.execute(text("SELECT count(*) FROM crop_yield_releases WHERE source = 'Region test (E157)'")).scalar() == 0
 
 
@@ -349,12 +356,10 @@ def test_eurostat_regional_reads_nuts2_and_sums_wheat_from_its_two_parts():
     w = rows[("Wheat", "EL52", 2024)]
     assert (w["country"], w["production_tonnes"], w["area_harvested_ha"], w["yield_tonnes_ha"]) == ("GR", 40000.0, 8000.0, 5.0)
     assert rows[("Durum wheat", "EL52", 2024)]["yield_tonnes_ha"] == 5.0          # published, one code
-    aside = E.set_aside(data, regions_)
-    assert aside["a summed crop with a part not published for the region and year"] == 2     # EL52 2023, ES61 2024
-    assert aside["a NUTS-1 figure (regional series are read at NUTS-2)"] >= 1
-    assert aside["extra-regio (not a territory)"] >= 1
-    assert aside["not a NUTS 2021 region (a region of an earlier or later NUTS version)"] >= 1
-    assert aside["a national or aggregate figure (national series are read from apro_cpsh1)"] >= 1
+    aside = _why(E.set_aside(data, regions_))
+    assert aside["part_unpublished"] == 2                                          # EL52 2023, ES61 2024
+    assert aside["larger_region"] >= 1 and aside["extra_regio"] >= 1
+    assert aside["other_nuts_version"] >= 1 and aside["national_figure"] >= 1
 
 
 def test_eurostat_is_asked_again_while_it_prepares_a_large_answer(monkeypatch):
@@ -414,9 +419,8 @@ def test_statcan_reads_canada_and_provinces_and_sets_aside_the_season_in_progres
     assert (r["commodity"], r["country"], r["production_tonnes"], r["area_harvested_ha"], r["yield_tonnes_ha"]) == \
            ("Durum wheat", "CA", 7304979.0, 2593000.0, 2.817)
     assert got[("CA-SK", 2025)]["yoy_change_pct"] == 25.0
-    assert C.set_aside(data, regions.ca_sgc_codes()) == {
-        "an aggregate of provinces (Prairie provinces)": 1, "not published (suppressed (confidentiality))": 1,
-        "season in progress — released before the November survey's final production": 1}
+    assert _why(C.set_aside(data, regions.ca_sgc_codes())) == {
+        "province_group Prairie provinces": 1, "not_published suppressed (confidentiality)": 1, "season_preliminary": 1}
     december = _statcan_zip(rows, released=(2026, 12, 4, 0, 0, 0))     # after the November survey: the year is read
     assert ("", 2026) in {(r["region_code"], r["season_year"]) for r in C.parse(december, regions.ca_sgc_codes())}
 
@@ -450,11 +454,8 @@ def test_usda_nass_county_reads_counties_of_the_census_list():
     assert set(rows) == {("US-IA-19001", 2024), ("US-IA-19001", 2025)}
     assert rows[("US-IA-19001", 2025)]["production_tonnes"] == round(12000 * 56 * 0.45359237 / 1000, 1)
     assert rows[("US-IA-19001", 2025)]["yoy_change_pct"] == 20.0
-    assert C.set_aside(data, locs) == {
-        "NASS's combined counties (OTHER (COMBINED) COUNTIES), not a county": 1,
-        "area without a production estimate for the year": 1,
-        "not a county of the Census Bureau's 2020 county list (renamed or dissolved since)": 1,
-        "not given as a number ((D))": 1}
+    assert _why(C.set_aside(data, locs)) == {"combined_counties": 1, "area_only": 1, "not_a_county": 1,
+                                             "not_a_number (D)": 1}
     assert C.stamp(data) == "2026-02-20 15:00:00.000"
     from services.reference import regions
     assert C.countries(None)["IA19001"] == "US-IA-19001" and regions.known("US-IA-19001")

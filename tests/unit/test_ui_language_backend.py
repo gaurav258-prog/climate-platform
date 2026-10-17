@@ -40,3 +40,12 @@ def test_a_user_error_names_a_catalogue_code(tmp_path):
 def test_the_message_catalogue_is_sound():
     from core import messages
     assert messages.check() == []
+
+
+def test_a_raised_catalogue_code_is_not_screen_text(tmp_path):
+    """A refusal raised as a code of the message catalogue reaches the screen as its label (core/errors.py), so the
+    guard does not count the code; raised words with internal language still count."""
+    f = tmp_path / "x.py"
+    f.write_text('def a():\n    raise UserError("reference.release.error.not_found")\n\n'
+                 'def b():\n    raise ValueError("release_id not_found")\n', encoding="utf-8")
+    assert U.scan(f)["error"] == 1

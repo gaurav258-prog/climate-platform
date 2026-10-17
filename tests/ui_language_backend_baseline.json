@@ -159,11 +159,6 @@
   "error": 0,
   "rawError": 0
  },
- "api/routers/reference_releases.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 4
- },
  "api/routers/reg_changes.py": {
   "display": 0,
   "error": 0,
@@ -245,7 +240,7 @@
   "rawError": 0
  },
  "services/data/feeds.py": {
-  "display": 14,
+  "display": 7,
   "error": 0,
   "rawError": 0
  },

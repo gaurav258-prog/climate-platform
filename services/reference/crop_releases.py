@@ -26,8 +26,9 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
 from services.reference import regions
-from services.reference.yield_sources import YieldSource
+from services.reference.yield_sources import YieldSource, by_label
 from services.reference.yield_sources import get as source_get
 
 REQUEST_TYPE = "reference.release_land"
@@ -37,7 +38,13 @@ _TOP = 10
 
 
 class ReleaseError(ValueError):
-    """The step cannot be taken as asked (wrong status, no reason, a release still open)."""
+    """The step cannot be taken as asked (wrong status, no reason, a release still open) — a code of the message
+    catalogue (reference.release.error.*) with its values; its text is the customer label, the API answers with the
+    code (core/errors.py UserError)."""
+
+    def __init__(self, code: str, **params) -> None:
+        self.code, self.params = code, params
+        super().__init__(messages.label(code, **params))
 
 
 class ReleaseNotFound(ReleaseError):
@@ -46,6 +53,13 @@ class ReleaseNotFound(ReleaseError):
 
 def _src(src: YieldSource | None) -> YieldSource:
     return src or source_get("faostat")
+
+
+def source_name(source: YieldSource | str) -> str:
+    """A source's customer name (reference.release.source.<key>), from the source or its store label; a label no
+    source holds any more is shown as stored."""
+    ys = by_label(source) if isinstance(source, str) else source
+    return messages.label(f"reference.release.source.{ys.key}") if ys else str(source)
 
 
 RAW_ROOT = Path(__file__).resolve().parents[2] / "data" / "datasets" / "raw_releases"
@@ -111,11 +125,11 @@ def stage(session: Session, data: bytes, *, last_modified: str | None = None, et
     open_ = session.execute(text("SELECT release_id::text FROM crop_yield_releases WHERE source = :s AND status IN ('staged', 'proposed')"),
                             {"s": src}).scalar()
     if open_:
-        raise ReleaseError(f"release {open_} is still open for review — land or reject it before staging another")
+        raise ReleaseError("reference.release.error.still_open", source=source_name(ys))
     rows = [{**r, "region_code": r.get("region_code") or ""} for r in ys.parse(data, countries)]
     unknown = sorted({r["region_code"] for r in rows if r["region_code"] and not regions.known(r["region_code"])})
     if unknown:                                   # a region the reference does not hold is refused, never stored (E157)
-        raise ReleaseError(f"{src}: region codes not in the region reference — {', '.join(unknown[:10])}")
+        raise ReleaseError("reference.release.error.unknown_regions", regions=", ".join(unknown[:10]))
     held = _held(session, src)
     added, revised, recomputed, by_commodity, changed = [], [], [], {}, {}
     for r in rows:
@@ -214,7 +228,7 @@ CHANGES = ("revised", "added", "recomputed")
 
 def release_rows(session: Session, release_id: str, change: str | None = None, limit: int = 500) -> list[dict]:
     if change is not None and change not in CHANGES:
-        raise ReleaseError(f"change must be one of {', '.join(CHANGES)}")
+        raise ReleaseError("reference.release.error.unknown_change")
     return [dict(r) for r in session.execute(text(f"""
         SELECT commodity, country, region_code, season_year, change,
                {", ".join(f"CAST({c} AS FLOAT) AS {c}" for c in _FIELDS)}, held_before
@@ -227,7 +241,7 @@ def _release(session: Session, release_id: str) -> dict:
     r = session.execute(text("SELECT release_id::text, status, source FROM crop_yield_releases WHERE release_id = CAST(:r AS uuid)"),
                         {"r": release_id}).mappings().first()
     if not r:
-        raise ReleaseNotFound("release not found")
+        raise ReleaseNotFound("reference.release.error.not_found")
     return dict(r)
 
 
@@ -240,14 +254,15 @@ def propose(session: Session, platform_org_id: str, release_id: str, maker_user_
         maker_user_id = SYSTEM_USER
     rel = _release(session, release_id)
     if rel["status"] != "staged":
-        raise ReleaseError(f"only a staged release can be proposed (this one is {rel['status']})")
+        raise ReleaseError("reference.release.error.not_awaiting_review")
     why = (reason or "").strip()
     if len(why) < 10:
-        raise ReleaseError("say what was reviewed (at least 10 characters) — it is kept with the release")
+        raise ReleaseError("reference.release.error.review_note_required")
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (CAST(:o AS uuid), :t, :title, CAST(:p AS jsonb), CAST(:m AS uuid)) RETURNING request_id::text"""),
-        {"o": platform_org_id, "t": REQUEST_TYPE, "title": f"Land the {rel['source']} release",
+        {"o": platform_org_id, "t": REQUEST_TYPE, "title": messages.label("reference.release.approval_title",
+                                                                           source=source_name(rel["source"])),
          "p": json.dumps({"release_id": release_id, "review": why}), "m": maker_user_id}).scalar()
     session.execute(text("""UPDATE crop_yield_releases SET status = 'proposed', approval_request_id = CAST(:a AS uuid)
                             WHERE release_id = CAST(:r AS uuid)"""), {"a": rid, "r": release_id})
@@ -257,11 +272,11 @@ def propose(session: Session, platform_org_id: str, release_id: str, maker_user_
 def reject(session: Session, release_id: str, actor_user_id: str, reason: str) -> dict:
     """A staged release closed without landing (e.g. the file is damaged); a proposed one is closed by its decision."""
     rel = _release(session, release_id)
-    if rel["status"] != "staged":
-        raise ReleaseError(f"only a staged release is rejected here (this one is {rel['status']}; decide its approval request)")
+    if rel["status"] != "staged":                  # a proposed release is closed by its approval request's decision
+        raise ReleaseError("reference.release.error.not_awaiting_review")
     why = (reason or "").strip()
     if len(why) < 10:
-        raise ReleaseError("say why the release is rejected (at least 10 characters)")
+        raise ReleaseError("reference.release.error.reject_note_required")
     _close(session, release_id, "rejected", actor_user_id, why)
     return {"release_id": release_id, "status": "rejected"}
 
@@ -278,7 +293,7 @@ def apply_decision(session: Session, payload: dict, decision: str, checker_user_
     release_id = (payload or {}).get("release_id")
     rel = _release(session, release_id)
     if rel["status"] != "proposed":
-        raise ReleaseError(f"the release is {rel['status']}, not awaiting a decision")
+        raise ReleaseError("reference.release.error.not_awaiting_decision")
     if decision != "approved":
         _close(session, release_id, "rejected", checker_user_id, reason or f"{decision} by the second reviewer")
         return {"release_id": release_id, "status": "rejected", "landed_rows": 0}

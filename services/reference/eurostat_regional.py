@@ -20,7 +20,7 @@ from functools import lru_cache
 
 from services.reference.eurostat_crops import ALIASES, _series, fetch
 from services.reference.eurostat_crops import stamp as eurostat_stamp
-from services.reference.yield_sources import store_round
+from services.reference.yield_sources import SetAside, store_round
 
 BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/apro_cpshr"
 SOURCE = "EUROSTAT apro_cpshr"
@@ -83,23 +83,21 @@ def stamp(data: bytes) -> str | None:
 
 
 def _why_not_a_region(geo: str, region_map: dict[str, str]) -> str | None:
+    """The set-aside reason (SetAside) for a code that is not a NUTS-2 region of the 2021 list, or None."""
     if len(geo) != 4 or geo.startswith(("EU", "EA")):
-        return "a national or aggregate figure (national series are read from apro_cpsh1)" if len(geo) != 3 \
-            else "a NUTS-1 figure (regional series are read at NUTS-2)"
+        return "national_figure" if len(geo) != 3 else "larger_region"   # national series are apro_cpsh1's
     if geo.endswith("ZZ"):
-        return "extra-regio (not a territory)"
+        return "extra_regio"
     if geo not in region_map:
-        return "not a NUTS 2021 region (a region of an earlier or later NUTS version)"
+        return "other_nuts_version"
     return None
 
 
 @lru_cache(maxsize=2)
-def _read(data: bytes, regions_: tuple[tuple[str, str], ...]) -> tuple[list[dict], dict[str, int]]:
+def _read(data: bytes, regions_: tuple[tuple[str, str], ...]) -> tuple[list[dict], list[dict]]:
     docs, region_map = json.loads(data), dict(regions_)
-    aside: dict[str, int] = {}
-
-    def skip(why: str) -> None:
-        aside[why] = aside.get(why, 0) + 1
+    aside = SetAside()
+    skip = aside.add
 
     rows = []
     for commodity, codes in sorted(crops().items()):
@@ -113,13 +111,13 @@ def _read(data: bytes, regions_: tuple[tuple[str, str], ...]) -> tuple[list[dict
                 continue
             vals = {f: [s[c].get(f, {}).get((geo, year)) for c in codes] for f in ("prod", "area")}
             if len(codes) > 1 and any(None in v and any(x is not None for x in v) for v in vals.values()):
-                skip("a summed crop with a part not published for the region and year")
+                skip("part_unpublished")
                 continue
             prod = sum(vals["prod"]) * 1000 if None not in vals["prod"] else None
             area = sum(vals["area"]) * 1000 if None not in vals["area"] else None
             if prod is None:
                 if area is not None:
-                    skip("an area with no production figure")
+                    skip("area_only")
                 continue
             prod_of[(geo, year)] = prod
             yld = s[codes[0]].get("yield", {}).get((geo, year)) if len(codes) == 1 else (prod / area if area else None)
@@ -133,12 +131,12 @@ def _read(data: bytes, regions_: tuple[tuple[str, str], ...]) -> tuple[list[dict
                 prev = prod_of.get((r["region_code"], r["season_year"] - 1))
                 cur = prod_of[(r["region_code"], r["season_year"])]
                 r["yoy_change_pct"] = store_round((cur - prev) / prev * 100, 2) if prev else None
-    return rows, dict(sorted(aside.items()))
+    return rows, aside.counts()
 
 
 def parse(data: bytes, region_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(region_map.items())))[0]
 
 
-def set_aside(data: bytes, region_map: dict[str, str]) -> dict[str, int]:
+def set_aside(data: bytes, region_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(region_map.items())))[1]

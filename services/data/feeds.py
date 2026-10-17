@@ -204,29 +204,30 @@ FEEDS: list[dict] = [
      "note": "Production, area and yield per country and year for the mapped crops and origins (1961→), the input of the "
              "crop calibrations, realised-exposure and world-crop views. Checked monthly for a new file (FAO publishes "
              "about once a year and revises earlier years); a new file is staged with its difference and lands only "
-             "after review, as the platform's Approvers policy states (E148, E150)."},
+             "after review, as the platform's Approvers policy states."},
     {"key": "crop_production_eurostat", "name": "Eurostat crop production (apro_cpsh1)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: Eurostat, apro_cpsh1 — Crop production in EU standard humidity",
      "note": "Area, production and yield per country and year for the registry's crops with a Eurostat code, in the EU-27, "
              "EFTA, the UK and candidate countries — including durum wheat (FAOSTAT does not separate it) and the latest "
              "season ahead of FAOSTAT. Checked monthly against the dataset's update stamp; a new publication is staged with "
-             "its difference and lands only after review (E153)."},
+             "its difference and lands only after review."},
     {"key": "crop_production_eurostat_regional", "name": "Eurostat crop production by NUTS-2 region (apro_cpshr)",
      "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: Eurostat, apro_cpshr — Crop production in EU standard humidity by NUTS 2 region",
      "note": "Area, production and yield per NUTS-2 region (NUTS 2021) and year for the registry's crops published by "
              "region — wheat as common wheat + durum, the two parts of Eurostat's wheat total. National figures stay "
-             "apro_cpsh1's; NUTS-1, extra-regio and other-NUTS-version codes are set aside and shown with the release. "
+             "the national dataset's; NUTS-1, extra-regio and other-NUTS-version codes are set aside and shown with "
+             "the release. "
              "Checked monthly against the dataset's update stamp; a new publication is staged with its difference and "
-             "lands only after review (E158)."},
+             "lands only after review."},
     {"key": "crop_production_usda_fas", "name": "USDA FAS — Production, Supply and Distribution (PSD)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: USDA Foreign Agricultural Service, PSD database",
      "note": "Official production, area and yield estimates per country and MARKET year for the registry's crops with a FAS "
              "code — the current and recent seasons, ahead of FAOSTAT's 1–2 year lag. Definitions that differ from FAO's "
              "(milled rice, palm and olive oil, shelled almonds) are stated in the crop registry. Checked monthly against "
-             "FAS's release dates; a new release is staged with its difference and lands only after review (E155)."},
+             "FAS's release dates; a new release is staged with its difference and lands only after review."},
     {"key": "crop_production_usda_nass", "name": "USDA NASS Quick Stats — US and state crop production", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats",
@@ -234,7 +235,7 @@ FEEDS: list[dict] = [
              "the registry's crops with a NASS series — the sub-national history behind US origins. Annual survey "
              "estimates only: a season still in progress (NASS repeats its forecast under 'YEAR') and withheld values "
              "are set aside and shown with the release. Checked monthly for records NASS loaded since the last release; "
-             "a new release is staged with its difference and lands only after review (E157)."},
+             "a new release is staged with its difference and lands only after review."},
     {"key": "crop_production_usda_nass_county", "name": "USDA NASS Quick Stats — US county crop production",
      "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats (county estimates)",
@@ -242,7 +243,7 @@ FEEDS: list[dict] = [
              "NASS series — published once a year after NASS's annual summary. Combined counties, counties no longer "
              "in the 2020 list and withheld values are set aside and shown with the release. Checked monthly for records "
              "NASS loaded since the last release; a new release is staged with its difference and lands only after "
-             "review (E161)."},
+             "review."},
     {"key": "crop_production_statcan", "name": "Statistics Canada — field crops (32-10-0359-01)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: Statistics Canada, Table 32-10-0359-01 (Statistics Canada Open Licence)",
@@ -250,7 +251,7 @@ FEEDS: list[dict] = [
              "for the registry's crops grown in Canada — including durum wheat. Final production only: a season still "
              "before the November survey (July and September figures are model-based estimates) and unpublished values "
              "are set aside and shown with the release. Checked monthly against the file's validators; a new file is "
-             "staged with its difference and lands only after review (E160)."},
+             "staged with its difference and lands only after review."},
     {"key": "weather_era5_land_global", "name": "ERA5-Land monthly (global) — crop weather and the supply outlook",
      "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
      "attribution": "Contains modified Copernicus Climate Change Service information (ERA5-Land monthly averaged data)",

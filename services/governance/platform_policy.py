@@ -12,14 +12,21 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+
 PLATFORM_ORG = "99999999-9999-4999-8999-999999999999"
 SYSTEM_USER = "00000000-0000-4000-8000-0000000005e1"
-ACTIONS = {"reference.release_land": "Land a reference data release (e.g. FAOSTAT)",
-           "calibration.publish": "Publish a crop calibration (downside / upside verdict)"}
+# each action's customer name is a code of the message catalogue (core/messages.py)
+ACTIONS = {"reference.release_land": "reference.release.approvers.release_land",
+           "calibration.publish": "reference.release.approvers.calibration_publish"}
 
 
 class PolicyError(ValueError):
-    pass
+    """A policy change refused — a code of the message catalogue with its values (core/errors.py UserError)."""
+
+    def __init__(self, code: str, **params) -> None:
+        self.code, self.params = code, params
+        super().__init__(messages.label(code, **params))
 
 
 def human_approvers(session: Session, action_key: str) -> int:
@@ -34,18 +41,19 @@ def policies(session: Session) -> list[dict]:
         SELECT p.action_key, p.human_approvers, p.updated_at, u.email AS updated_by FROM approval_policy p
         LEFT JOIN users u ON u.user_id = p.updated_by
         WHERE p.org_id = CAST(:o AS uuid) AND p.action_key = ANY(:k)"""), {"o": PLATFORM_ORG, "k": list(ACTIONS)}).mappings()}
-    return [{"action_key": k, "label": v, **(rows.get(k) or {"human_approvers": 2})} for k, v in ACTIONS.items()]
+    return [{"action_key": k, **messages.render(code), **(rows.get(k) or {"human_approvers": 2})}
+            for k, code in ACTIONS.items()]
 
 
 def set_human_approvers(session: Session, action_key: str, n: int, actor_user_id: str, reason: str) -> dict:
     from api.services.rbac import write_audit
     if action_key not in ACTIONS:
-        raise PolicyError(f"action must be one of {', '.join(ACTIONS)}")
+        raise PolicyError("reference.release.error.unknown_rule")
     if n not in (1, 2):
-        raise PolicyError("human approvers is 1 or 2")
+        raise PolicyError("reference.release.error.approvers_count")
     why = (reason or "").strip()
     if len(why) < 10:
-        raise PolicyError("say why (at least 10 characters) — kept in the audit record")
+        raise PolicyError("reference.release.error.rule_note_required")
     before = human_approvers(session, action_key)
     session.execute(text("""
         INSERT INTO approval_policy (org_id, action_key, requires_approval, human_approvers, updated_at, updated_by)

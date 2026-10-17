@@ -21,7 +21,7 @@ import json
 from functools import lru_cache
 
 from services.reference import nass_quickstats as N
-from services.reference.yield_sources import store_round
+from services.reference.yield_sources import SetAside, store_round
 
 SOURCE = "USDA NASS Quick Stats (county)"
 BASE = N.BASE
@@ -81,12 +81,10 @@ def download() -> bytes:
 
 
 @lru_cache(maxsize=2)
-def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dict], dict[str, int]]:
+def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dict], list[dict]]:
     ref, by_desc, location_map = N.reference(), N.crops(), dict(locations)
-    aside: dict[str, int] = {}
-
-    def skip(why: str) -> None:
-        aside[why] = aside.get(why, 0) + 1
+    aside = SetAside()
+    skip = aside.add
 
     vals: dict = {}
     for key, rows in json.loads(data)["data"].items():
@@ -96,15 +94,15 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
         commodity, field = by_desc[desc]
         for r in rows:
             if r["county_code"] == _COMBINED:
-                skip("NASS's combined counties (OTHER (COMBINED) COUNTIES), not a county")
+                skip("combined_counties")
                 continue
             code = location_map.get(r["state_alpha"] + r["state_ansi"] + r["county_ansi"])
             if code is None:
-                skip("not a county of the Census Bureau's 2020 county list (renamed or dissolved since)")
+                skip("not_a_county")
                 continue
             v = N._number(r["Value"])
             if v is None:
-                skip(f"not given as a number ({r['Value'].strip()})")
+                skip("not_a_number", value=r["Value"].strip())
                 continue
             vals.setdefault((commodity, code, int(r["year"])), {})[field] = v * N._factor(ref, commodity, field,
                                                                                             r["unit_desc"])
@@ -113,7 +111,7 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
         prod, area = v.get("prod"), v.get("area")
         if prod is None:
             if area is not None:
-                skip("area without a production estimate for the year")
+                skip("area_only")
             continue
         prev = vals.get((commodity, code, year - 1), {}).get("prod")
         out.append({"commodity": commodity, "country": "US", "region_code": code, "season_year": year,
@@ -122,12 +120,12 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
                     "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if prev else None,
                     "note": "USDA NASS Quick Stats SURVEY county estimate, annual 'YEAR'; definition per the crop "
                             "registry's nass_label; yield = production ÷ area"})
-    return out, dict(sorted(aside.items()))
+    return out, aside.counts()
 
 
 def parse(data: bytes, location_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(location_map.items())))[0]
 
 
-def set_aside(data: bytes, location_map: dict[str, str]) -> dict[str, int]:
+def set_aside(data: bytes, location_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(location_map.items())))[1]

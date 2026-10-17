@@ -25,7 +25,7 @@ import re
 import zipfile
 from functools import lru_cache
 
-from services.reference.yield_sources import store_round
+from services.reference.yield_sources import SetAside, store_round
 
 SOURCE = "STATCAN 32-10-0359-01"
 BASE = "https://www150.statcan.gc.ca/n1/tbl/csv/32100359-eng.zip"
@@ -95,14 +95,12 @@ def _released(z: zipfile.ZipFile) -> tuple[int, int, int]:
 
 
 @lru_cache(maxsize=2)
-def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dict], dict[str, int]]:
+def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dict], list[dict]]:
     by_crop, province_map = crops(), dict(provinces)
     z = zipfile.ZipFile(io.BytesIO(data))
     ry, rm, _ = _released(z)
-    aside: dict[str, int] = {}
-
-    def skip(why: str) -> None:
-        aside[why] = aside.get(why, 0) + 1
+    aside = SetAside()
+    skip = aside.add
 
     vals: dict = {}
     with z.open(TABLE) as f:
@@ -114,14 +112,14 @@ def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dic
             p = _PROVINCE.match(dguid)
             region = "" if _CANADA.match(dguid) else (province_map.get(p.group(1)) if p else None)
             if region is None:
-                skip(f"an aggregate of provinces ({r['GEO']})")
+                skip("province_group", name=r["GEO"])
                 continue
             if r["STATUS"] in NOT_PUBLISHED or not r["VALUE"].strip():
-                skip(f"not published ({NOT_PUBLISHED.get(r['STATUS'], 'no value')})")
+                skip("not_published", why=NOT_PUBLISHED.get(r["STATUS"], "no value"))
                 continue
             year = int(r["REF_DATE"])
             if year == ry and rm < 12:
-                skip("season in progress — released before the November survey's final production")
+                skip("season_preliminary")   # released before the November survey's final production
                 continue
             if r["UOM"] not in ("Hectares", "Metric tonnes", "Kilograms per hectare") or r["SCALAR_FACTOR"] != "units":
                 raise FetchError(f"{commodity} {r['GEO']} {year}: unit '{r['UOM']}' scale '{r['SCALAR_FACTOR']}' "
@@ -132,7 +130,7 @@ def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dic
         prod, area = v.get("prod"), v.get("area")
         if prod is None:
             if area is not None:
-                skip("an area with no production figure")
+                skip("area_only")
             continue
         prev = vals.get((commodity, region, year - 1), {}).get("prod")
         rows.append({"commodity": commodity, "country": "CA", "region_code": region, "season_year": year,
@@ -141,12 +139,12 @@ def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dic
                      "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if prev else None,
                      "note": "Statistics Canada 32-10-0359-01, metric units as published; definition per the crop "
                              "registry's statcan_label"})
-    return rows, dict(sorted(aside.items()))
+    return rows, aside.counts()
 
 
 def parse(data: bytes, province_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(province_map.items())))[0]
 
 
-def set_aside(data: bytes, province_map: dict[str, str]) -> dict[str, int]:
+def set_aside(data: bytes, province_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(province_map.items())))[1]

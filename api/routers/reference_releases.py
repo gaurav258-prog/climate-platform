@@ -10,12 +10,14 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
+from core.errors import UserError
 from services.reference import crop_releases as R
+from services.reference import release_view as V
 
 router = APIRouter(prefix="/v1/ops/reference-releases", tags=["Platform operator"])
 _REVIEW = require_permission("reference.release_review")
@@ -25,20 +27,14 @@ class Reason(BaseModel):
     reason: str = Field(..., max_length=2000)
 
 
-def _fail(e: R.ReleaseError) -> HTTPException:
-    return HTTPException(404 if isinstance(e, R.ReleaseNotFound) else 409, {"error": "release", "message": str(e)})
+def _fail(e: R.ReleaseError) -> UserError:
+    """The refusal in customer words: the catalogue code the service raised, with its values."""
+    return UserError(e.code, **e.params)
 
 
 @router.get("", summary="Reviewed yield-source releases — staged, proposed, landed, rejected — and each source's feed")
 def list_releases(session: DbSession, ctx: dict = Depends(_REVIEW)):
-    from services.data.feeds import feed_freshness
-    from services.reference.yield_sources import all_sources
-    fresh = {f["key"]: f for f in feed_freshness(session)}
-    feeds = [{"source": ys.key, "label": ys.label(),
-              **{k: fresh[ys.feed_key].get(k) for k in ("name", "cadence_days", "last_refresh", "last_status", "status",
-                                                        "awaiting_review", "attribution", "note")}}
-             for ys in all_sources()]
-    return {"feeds": feeds, "releases": R.releases(session)}
+    return {"feeds": V.feeds(session), "releases": V.releases(session)}
 
 
 class Approvers(BaseModel):
@@ -59,7 +55,7 @@ def put_policy(body: Approvers, session: DbSession, ctx: dict = Depends(_REVIEW)
     try:
         return set_human_approvers(session, body.action_key, body.human_approvers, ctx["user"]["id"], body.reason)
     except PolicyError as e:
-        raise HTTPException(422, {"error": "policy", "message": str(e)}) from e
+        raise UserError(e.code, **e.params) from e
 
 
 @router.get("/{release_id}", summary="One release — its difference against the store, row by row (by change)")
@@ -67,11 +63,11 @@ def release_detail(release_id: UUID, session: DbSession, change: Optional[str] =
                    ctx: dict = Depends(_REVIEW)):
     rel = next((r for r in R.releases(session, limit=1000) if r["release_id"] == str(release_id)), None)
     if rel is None:
-        raise HTTPException(404, {"error": "release", "message": "release not found"})
+        raise UserError("reference.release.error.not_found")
     try:
-        return {**rel, "rows": R.release_rows(session, str(release_id), change)}
+        return {**V.release(rel, V.Places(session)), "rows": V.rows(session, str(release_id), change)}
     except R.ReleaseError as e:
-        raise HTTPException(422, {"error": "release", "message": str(e)}) from e
+        raise _fail(e) from e
 
 
 @router.post("/check", summary="Check a yield source for new data now (stages it for review; nothing lands)")
@@ -81,7 +77,7 @@ def check_now(session: DbSession, source: str = Query("faostat"), ctx: dict = De
     try:
         ys = get(source)
     except KeyError as e:
-        raise HTTPException(422, {"error": "release", "message": str(e)}) from e
+        raise UserError("reference.release.error.unknown_source") from e
     out = refresh_one(session, ys.feed_key, actor_user_id=ctx["user"]["id"])
     return {**out, "awaiting_review": R.pending(session, ys)}
 

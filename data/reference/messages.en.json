@@ -431,6 +431,281 @@
     "what": "This field is required, and the row leaves it empty.",
     "next": "Fill it in your file, or match the field to another column."
    }
+  },
+  "reference.release.source.faostat": {
+   "label": "FAOSTAT crop production",
+   "detail": {
+    "what": "Production, harvested area and yield by country and year, from 1961, for the crops and countries the platform covers — published by the UN Food and Agriculture Organization (FAO).",
+    "why": "FAO publishes about once a year and revises earlier years. The platform checks for a new file every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.source.eurostat": {
+   "label": "Eurostat crop production",
+   "detail": {
+    "what": "Area, production and yield by country and year in the EU, EFTA, the UK and candidate countries — including durum wheat, which FAO does not separate, and the latest season before FAO publishes it.",
+    "why": "The platform compares Eurostat's update date every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.source.eurostat_regional": {
+   "label": "Eurostat crop production by region",
+   "detail": {
+    "what": "Area, production and yield by EU region (NUTS 2, 2021 version) and year, for the crops Eurostat publishes by region. Wheat is the sum of common and durum wheat. National figures come from Eurostat's national publication.",
+    "why": "The platform compares Eurostat's update date every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.source.usda_fas": {
+   "label": "USDA world production estimates",
+   "detail": {
+    "what": "Official production, area and yield estimates by country and marketing year from the US Department of Agriculture's Foreign Agricultural Service — the current and recent seasons, ahead of FAO's one-to-two-year delay. Where USDA defines a crop differently from FAO (milled rice, palm and olive oil, shelled almonds), the platform's crop list says so.",
+    "why": "The platform compares USDA's release dates every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.source.usda_nass": {
+   "label": "USDA crop production, US and states",
+   "detail": {
+    "what": "Production, area and yield for the United States and each state from the US Department of Agriculture's National Agricultural Statistics Service — annual survey estimates only.",
+    "why": "The platform asks every month for figures USDA has added since the last release. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.source.usda_nass_county": {
+   "label": "USDA crop production by US county",
+   "detail": {
+    "what": "Production, area and yield for each US county on the Census Bureau's 2020 county list, published once a year after USDA's annual summary.",
+    "why": "The platform asks every month for figures USDA has added since the last release. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.source.statcan": {
+   "label": "Statistics Canada field crops",
+   "detail": {
+    "what": "Area, production and yield for Canada and each province, including durum wheat — final production only.",
+    "why": "The platform compares the file's publication date every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
+  "reference.release.reading_changed": {
+   "label": "Our reading of this source changed",
+   "detail": {
+    "what": "The rules the platform uses to read this publisher's file changed since its last applied release — for example, more countries, regions or crops are now read.",
+    "why": "Rows shown as added or recomputed can come from the new reading, not from the publisher changing its figures.",
+    "next": "Check that the added rows are the ones the new reading should bring before you propose the release."
+   }
+  },
+  "reference.release.by_platform": {
+   "label": "The platform",
+   "detail": {
+    "what": "With one approver stated, the platform proposes each new release itself, with its counts as the review note, and one person approves it."
+   }
+  },
+  "reference.release.approval_title": {
+   "label": "Apply the new {source} release",
+   "detail": {
+    "what": "An operator reviewed this release of {source} and proposes applying it. Approving applies its figures to the platform's data; returning it closes the release and applies nothing."
+   }
+  },
+  "reference.release.aside.area_only": {
+   "label": "Area without a production figure",
+   "detail": {
+    "what": "The publisher gives the harvested area for the year but no production, so no yield can be read.",
+    "why": "This is usually the area of a season still in progress, or a production figure the publisher withholds."
+   }
+  },
+  "reference.release.aside.not_a_number": {
+   "label": "Not given as a number {value}",
+   "detail": {
+    "what": "The publisher gives a symbol instead of a figure — for example (D), withheld to protect individual farms, or (NA), not available. The row is not read."
+   }
+  },
+  "reference.release.aside.not_published": {
+   "label": "Not published ({why})",
+   "detail": {
+    "what": "The publisher marks the value as not published — not available, confidential, or too unreliable to publish. The row is not read."
+   }
+  },
+  "reference.release.aside.state_group": {
+   "label": "A group of states ({name})",
+   "detail": {
+    "what": "The publisher reports these states together. The figure belongs to no single state, so it is not read as one."
+   }
+  },
+  "reference.release.aside.province_group": {
+   "label": "A group of provinces ({name})",
+   "detail": {
+    "what": "The publisher adds several provinces together. The figure belongs to no single province, so it is not read as one."
+   }
+  },
+  "reference.release.aside.combined_counties": {
+   "label": "Combined counties",
+   "detail": {
+    "what": "The publisher combines small counties into one figure to protect individual farms. It belongs to no single county, so it is not read as one."
+   }
+  },
+  "reference.release.aside.not_a_county": {
+   "label": "Not on the 2020 county list",
+   "detail": {
+    "what": "The county is not on the Census Bureau's 2020 county list — it was renamed or dissolved since. The row is not read."
+   }
+  },
+  "reference.release.aside.season_forecast": {
+   "label": "Season in progress (a forecast)",
+   "detail": {
+    "what": "For a season still in progress, the publisher repeats its latest forecast as the year's figure.",
+    "why": "A forecast is not an estimate. The year is read once the publisher gives its estimate."
+   }
+  },
+  "reference.release.aside.season_preliminary": {
+   "label": "Season in progress (before the final survey)",
+   "detail": {
+    "what": "Figures released before the November survey are model-based estimates, not final production.",
+    "why": "The year is read once the final figures are published."
+   }
+  },
+  "reference.release.aside.national_figure": {
+   "label": "A national or EU total",
+   "detail": {
+    "what": "The regional publication also lists national and EU totals.",
+    "why": "National figures come from Eurostat's national publication, so they are not read twice."
+   }
+  },
+  "reference.release.aside.larger_region": {
+   "label": "A larger region (NUTS 1)",
+   "detail": {
+    "what": "Regional figures are read at NUTS 2. Figures for the larger NUTS 1 regions are not read, so no area is counted twice."
+   }
+  },
+  "reference.release.aside.extra_regio": {
+   "label": "Not a territory (extra-regio)",
+   "detail": {
+    "what": "Eurostat's extra-regio codes hold figures that belong to no region. They are not read."
+   }
+  },
+  "reference.release.aside.other_nuts_version": {
+   "label": "A region of another NUTS version",
+   "detail": {
+    "what": "The region code belongs to an earlier or later version of the EU's region list. Regions are read on the 2021 version only."
+   }
+  },
+  "reference.release.aside.part_unpublished": {
+   "label": "A summed crop with a part missing",
+   "detail": {
+    "what": "Some crops are the sum of two published crops — wheat is common wheat plus durum wheat. Where one part is not published for the region and year, the sum would be wrong, so the row is not read."
+   }
+  },
+  "reference.release.driver.drought": {
+   "label": "Drought",
+   "detail": {
+    "what": "Calibrations that read the crop's yield against drought in its growing season."
+   }
+  },
+  "reference.release.driver.heat": {
+   "label": "Heat",
+   "detail": {
+    "what": "Calibrations that read the crop's yield against heat in its growing season."
+   }
+  },
+  "reference.release.driver.soil_water": {
+   "label": "Soil-water stress",
+   "detail": {
+    "what": "Calibrations that read the crop's yield against soil-water stress in its growing season."
+   }
+  },
+  "reference.release.approvers.release_land": {
+   "label": "Applying a reference data release",
+   "detail": {
+    "what": "A new publisher file is applied to the platform's data only after this approval."
+   }
+  },
+  "reference.release.approvers.calibration_publish": {
+   "label": "Publishing a crop calibration",
+   "detail": {
+    "what": "A new or re-run crop calibration is published only after this approval."
+   }
+  },
+  "reference.release.error.not_found": {
+   "status": 404,
+   "label": "Release not found",
+   "detail": {
+    "what": "No release with this reference exists."
+   }
+  },
+  "reference.release.error.unknown_source": {
+   "status": 422,
+   "label": "Unknown data source",
+   "detail": {
+    "what": "The platform has no reviewed data source with this name."
+   }
+  },
+  "reference.release.error.unknown_change": {
+   "status": 422,
+   "label": "Unknown kind of change",
+   "detail": {
+    "what": "Rows are shown as added, revised or recomputed."
+   }
+  },
+  "reference.release.error.still_open": {
+   "status": 409,
+   "label": "Another release is still open",
+   "detail": {
+    "what": "A release of {source} is still waiting for review or approval. A source has one open release at a time.",
+    "next": "Apply or reject the open release first."
+   }
+  },
+  "reference.release.error.unknown_regions": {
+   "status": 409,
+   "label": "Regions not on the region list",
+   "detail": {
+    "what": "The file names regions the platform's region list does not hold: {regions}. The file is refused and nothing is stored.",
+    "next": "Check the publisher's region codes against the official lists the platform reads."
+   }
+  },
+  "reference.release.error.not_awaiting_review": {
+   "status": 409,
+   "label": "This release is no longer awaiting review",
+   "detail": {
+    "what": "It was proposed, applied or rejected since the page was loaded.",
+    "next": "Reload the page to see where it stands."
+   }
+  },
+  "reference.release.error.not_awaiting_decision": {
+   "status": 409,
+   "label": "This release is not awaiting a decision",
+   "detail": {
+    "what": "It was already decided, or it was never proposed.",
+    "next": "Reload the page to see where it stands."
+   }
+  },
+  "reference.release.error.review_note_required": {
+   "status": 409,
+   "label": "Say what you reviewed",
+   "detail": {
+    "what": "A note of at least 10 characters is needed. It is kept with the release."
+   }
+  },
+  "reference.release.error.reject_note_required": {
+   "status": 409,
+   "label": "Say why the release is rejected",
+   "detail": {
+    "what": "A note of at least 10 characters is needed. It is kept with the release."
+   }
+  },
+  "reference.release.error.unknown_rule": {
+   "status": 422,
+   "label": "Unknown approval rule",
+   "detail": {
+    "what": "The platform has no approval rule with this name."
+   }
+  },
+  "reference.release.error.approvers_count": {
+   "status": 422,
+   "label": "Choose one or two approvers",
+   "detail": {
+    "what": "A change is approved by two people, or proposed by the platform and approved by one person."
+   }
+  },
+  "reference.release.error.rule_note_required": {
+   "status": 422,
+   "label": "Say why the rule changes",
+   "detail": {
+    "what": "A note of at least 10 characters is needed. It is kept in the audit record."
+   }
   }
  },
  "names": {

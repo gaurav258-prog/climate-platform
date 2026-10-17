@@ -23,6 +23,29 @@ def store_round(x: float | None, places: int) -> float | None:
     return float(Decimal(repr(float(x))).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
 
 
+class SetAside:
+    """The rows a reader leaves out, counted by reason. A reason is a code of the message catalogue
+    (reference.release.aside.*, core/messages.py) with its values in the publisher's words, so the release shows it in
+    customer language: aside.add("province_group", name="Prairie provinces")."""
+
+    PREFIX = "reference.release.aside."
+
+    def __init__(self) -> None:
+        self._n: dict[tuple, int] = {}
+
+    def add(self, reason: str, **params: str) -> None:
+        key = (self.PREFIX + reason, tuple(sorted(params.items())))
+        self._n[key] = self._n.get(key, 0) + 1
+
+    def counts(self) -> list[dict]:
+        """[{code, params, rows}] — every code checked against the catalogue once, here."""
+        from core import messages
+        unknown = sorted({c for c, _ in self._n} - set(messages.catalogue()))
+        if unknown:
+            raise KeyError(f"set-aside reasons not in the message catalogue: {unknown}")
+        return [{"code": c, "params": dict(p), "rows": n} for (c, p), n in sorted(self._n.items())]
+
+
 @dataclass(frozen=True)
 class YieldSource:
     key: str                      # 'faostat'
@@ -36,8 +59,9 @@ class YieldSource:
     download: Callable           # () -> bytes
     # the release's stamp read from the data, for a publisher that stamps each record (NASS load_time) — else None
     stamp: Callable = lambda data: None
-    # (data, countries) -> {reason: rows} the reader set aside — shown with the release, never silently dropped
-    set_aside: Callable = lambda data, c: {}
+    # (data, countries) -> [{code, params, rows}] the reader set aside (SetAside) — shown with the release, never
+    # silently dropped
+    set_aside: Callable = lambda data, c: []
 
 
 def _faostat() -> YieldSource:

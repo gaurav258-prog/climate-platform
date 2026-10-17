@@ -28,7 +28,7 @@ from pathlib import Path
 
 import requests
 
-from services.reference.yield_sources import store_round
+from services.reference.yield_sources import SetAside, store_round
 
 REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "nass_quickstats.json"
 SOURCE = "USDA NASS Quick Stats"
@@ -134,13 +134,14 @@ def _number(v: str) -> float | None:
 
 
 @lru_cache(maxsize=2)
-def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dict], dict[str, int]]:
-    """(rows, {reason: rows set aside}) — read once per file and location map (parse and set_aside share it)."""
+def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dict], list[dict]]:
+    """(rows, the rows set aside by reason — SetAside) — read once per file and location map (parse and set_aside
+    share it)."""
     ref, by_desc, location_map = reference(), crops(), dict(locations)
     parts = json.loads(data)["data"]
     forecasts = {(r["short_desc"], r["agg_level_desc"], r["state_alpha"], int(r["year"]), r["load_time"], r["Value"])
                  for k, rows in parts.items() if k.endswith("|forecast") for r in rows}
-    aside: dict[str, int] = {}
+    aside = SetAside()
     vals: dict = {}
     for key, rows in parts.items():
         desc, kind = key.rsplit("|", 1)
@@ -151,21 +152,21 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
             loc = "US" if r["agg_level_desc"] == "NATIONAL" else r["state_alpha"]
             code = location_map.get(loc)
             v, year = _number(r["Value"]), int(r["year"])
-            why = (f"not a state of the region reference ({r['location_desc']})" if code is None
-                   else f"not given as a number ({r['Value'].strip()})" if v is None
-                   else "season in progress — 'YEAR' repeats NASS's forecast"
-                   if (desc, r["agg_level_desc"], r["state_alpha"], year, r["load_time"], r["Value"]) in forecasts
-                   else None)
-            if why:
-                aside[why] = aside.get(why, 0) + 1
+            if code is None:                    # NASS's 'OTHER STATES' bucket — not a state of the region reference
+                aside.add("state_group", name=r["location_desc"])
+                continue
+            if v is None:
+                aside.add("not_a_number", value=r["Value"].strip())
+                continue
+            if (desc, r["agg_level_desc"], r["state_alpha"], year, r["load_time"], r["Value"]) in forecasts:
+                aside.add("season_forecast")    # a season in progress: 'YEAR' repeats NASS's forecast
                 continue
             vals.setdefault((commodity, code, year), {})[field] = v * _factor(ref, commodity, field, r["unit_desc"])
     rows = []
     for (commodity, code, year), v in sorted(vals.items()):
         prod, area = v.get("prod"), v.get("area")
         if prod is None:                # an area with no production estimate (June Acreage for a season in progress,
-            why = "area without a production estimate for the year"     # or the production withheld): not a year read
-            aside[why] = aside.get(why, 0) + 1
+            aside.add("area_only")      # or the production withheld): not a year read
             continue
         prev = vals.get((commodity, code, year - 1), {}).get("prod")
         rows.append({"commodity": commodity, "country": "US", "region_code": "" if code == "US" else code,
@@ -175,7 +176,7 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
                      "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if prev else None,
                      "note": "USDA NASS Quick Stats SURVEY, annual 'YEAR'; definition per the crop registry's nass_label; "
                              "yield = production ÷ area"})
-    return rows, dict(sorted(aside.items()))
+    return rows, aside.counts()
 
 
 def _factor(ref: dict, commodity: str, field: str, unit: str) -> float:
@@ -195,5 +196,5 @@ def parse(data: bytes, location_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(location_map.items())))[0]
 
 
-def set_aside(data: bytes, location_map: dict[str, str]) -> dict[str, int]:
+def set_aside(data: bytes, location_map: dict[str, str]) -> list[dict]:
     return _read(data, tuple(sorted(location_map.items())))[1]
