@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -7,7 +8,7 @@ import { minorAmount } from '../lib/money'
 import { Card, Button, PageHeader } from '../components/ui'
 import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 
-interface Plan { key: string; seats: number; price_cents: number; label: string }
+interface Plan { key: string; seats: number; price_cents: number; label: string; self_serve: boolean }
 interface Invoice { number: string; amount_cents: number; currency: string; status: string; created_at: string }
 interface Billing {
   subscription: { plan: string; seats: number; status: string; billing_mode: string; current_period_end: string | null } | null
@@ -19,6 +20,7 @@ export default function Billing() {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['billing'], queryFn: () => api.get<Billing>('/v1/billing') })
   const [busy, setBusy] = useState<string | null>(null)
+  const nav = useNavigate()
   if (q.error) return <Center>Billing is available to your organization's admins.</Center>
   const d = q.data
   if (!d) return <Center>loading…</Center>
@@ -56,7 +58,9 @@ export default function Billing() {
                 <div className="text-[12px] text-[var(--color-mute)] mt-1">{p.seats} seats</div>
                 {isCurrent
                   ? <div className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-good)]"><Check size={13} /> Current plan</div>
-                  : <Button variant="ghost" className="mt-3 w-full justify-center" onClick={() => change(p.key)} disabled={!!busy}>{busy === p.key ? '…' : p.key === 'enterprise' ? 'Contact sales' : 'Switch'}</Button>}
+                  : p.self_serve
+                    ? <Button variant="ghost" className="mt-3 w-full justify-center" onClick={() => change(p.key)} disabled={!!busy}>{busy === p.key ? '…' : 'Switch'}</Button>
+                    : <Button variant="ghost" className="mt-3 w-full justify-center" onClick={() => nav(`/support?subject=${encodeURIComponent(`${p.label} plan enquiry`)}`)}>Contact us</Button>}
               </Card>
             )
           })}

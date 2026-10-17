@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge, ExternalLink } from 'lucide-react'
 import { api, apiMessage, download } from '../lib/api'
 import { toast } from '../lib/toast'
+import { webhookTestOutcome } from '../lib/webhookTest'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import { SharedOnward } from '../components/Remittance'
@@ -333,7 +334,7 @@ function Webhooks() {
     } catch (e) { toast.error((e as { body?: { message?: string } })?.body?.message || 'Could not create the endpoint.') } finally { setBusy(false) }
   }
   const revoke = async (id: string) => { if (!confirm('Revoke this endpoint? It will stop receiving events.')) return; try { await api.del(`/v1/webhooks/${id}`); eps.refetch() } catch { toast.error('Could not revoke.') } }
-  const test = async (id: string) => { try { const r = await api.post<{ status: string; http_status: number | null }>(`/v1/webhooks/${id}/test`); toast.error(r.status === 'delivered' ? `Test delivered (HTTP ${r.http_status}).` : `Test failed (${r.http_status ? 'HTTP ' + r.http_status : 'no response'}). Check the URL.`); del.refetch(); eps.refetch() } catch { toast.error('Could not send the test.') } }
+  const test = async (id: string) => { try { const r = await api.post<{ status: string; http_status: number | null }>(`/v1/webhooks/${id}/test`); const o = webhookTestOutcome(r); if (o.ok) toast.success(o.text); else toast.error(o.text); del.refetch(); eps.refetch() } catch { toast.error('Could not send the test.') } }
   const toggle = (t: string) => setSel(s => s.includes(t) ? s.filter(x => x !== t) : [...s, t])
   const copy = () => { if (secret) { navigator.clipboard?.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 1500) } }
 

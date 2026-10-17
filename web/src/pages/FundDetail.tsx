@@ -3,7 +3,7 @@ import { money } from '../lib/money'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileCheck2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
-import { api, ApiError, download } from '../lib/api'
+import { api, apiMessage, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 import { SfdrBadge } from './Funds'
@@ -90,7 +90,7 @@ export default function FundDetail() {
       const r = await api.post<{ ok?: boolean; reference_year?: number; error?: string }>(`/v1/funds/${id}/sfdr-statement/file`, {})
       if (r.error) setMsg({ t: r.error, ok: false })
       else { setMsg({ t: `Frozen as the fund's record for ${r.reference_year} (not a filing).`, ok: true }); qc.invalidateQueries({ queryKey: ['fund-filings', id] }); stmt.refetch() }
-    } catch (e) { setMsg({ t: e instanceof ApiError ? String(e.body ?? e.message) : 'Could not freeze.', ok: false }) }
+    } catch (e) { setMsg({ t: apiMessage(e, 'Could not freeze.'), ok: false }) }
     finally { setBusy(false) }
   }
 

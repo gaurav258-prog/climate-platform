@@ -15,7 +15,9 @@ function errCode(e: unknown): string | undefined {
 
 // one demo tenant per sector; pick the ROLE first, then a sector — every tenant has all three roles,
 // so you can sign in as the approver to see the maker-checker decision + assignment flow.
-const ROLE_PW: Record<string, string> = { admin: 'Demo!admin1', analyst: 'Demo!analyst1', approver: 'Demo!approve1' }
+// The demo picker exists only on a development server or a build marked as a demo (VITE_DEMO_LOGIN=true); its
+// passwords load from lib/demoLogin.ts only then, so a production bundle never carries them (E185).
+const DEMO_LOGIN = import.meta.env.DEV || import.meta.env.VITE_DEMO_LOGIN === 'true'
 const ROLES: { key: string; label: string; hint: string }[] = [
   { key: 'admin', label: 'Admin', hint: 'setup, users, everything' },
   { key: 'approver', label: 'Approver', hint: 'the 2nd pair of eyes — approve / reject / send back / assign' },
@@ -89,7 +91,10 @@ export default function Login() {
 
   async function demoLogin(tenant: string) {
     setBusy(true); setErr(null)
-    try { await login(`${role}@${tenant}.demo`, ROLE_PW[role]) }  // login() reloads on success
+    try {
+      const { DEMO_ROLE_PASSWORDS } = await import('../lib/demoLogin')
+      await login(`${role}@${tenant}.demo`, DEMO_ROLE_PASSWORDS[role])   // login() reloads on success
+    }
     catch { setErr(`Could not open the demo tenant as ${role}.`); setBusy(false) }
   }
 
@@ -176,7 +181,7 @@ export default function Login() {
           <a href="/signup" className="text-[12px] text-[var(--color-sky)] hover:text-[var(--color-blue)]">New to Tellumen? Start a free trial →</a>
         </div>
 
-        <div className="mt-5">
+        {DEMO_LOGIN && <div className="mt-5">
           <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-2">Jump into a demo sector</div>
           {/* pick the role first — approver reaches the maker-checker decision + assignment flow */}
           <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line)] mb-1">
@@ -198,7 +203,7 @@ export default function Login() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   )

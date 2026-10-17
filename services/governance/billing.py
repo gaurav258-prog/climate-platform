@@ -21,11 +21,12 @@ from core.config import settings
 PRICE_CURRENCY = "EUR"
 
 # seat count + monthly price (minor units of PRICE_CURRENCY); entitlements stay sector-driven, plans govern seats + tier
+# `self_serve`: a customer may switch to it themselves; Enterprise is agreed with our team, never switched to (E182).
 PLANS = {
-    "trial":      {"seats": 5,    "price_cents": 0,      "label": "Trial"},
-    "starter":    {"seats": 10,   "price_cents": 50000,  "label": "Starter"},
-    "growth":     {"seats": 50,   "price_cents": 250000, "label": "Growth"},
-    "enterprise": {"seats": 1000, "price_cents": 0,      "label": "Enterprise (custom)"},
+    "trial":      {"seats": 5,    "price_cents": 0,      "label": "Trial",               "self_serve": True},
+    "starter":    {"seats": 10,   "price_cents": 50000,  "label": "Starter",             "self_serve": True},
+    "growth":     {"seats": 50,   "price_cents": 250000, "label": "Growth",              "self_serve": True},
+    "enterprise": {"seats": 1000, "price_cents": 0,      "label": "Enterprise (custom)", "self_serve": False},
 }
 
 
@@ -85,6 +86,8 @@ def change_plan(session: Session, org_id: str, *, plan: str, actor_user_id: str)
     if plan not in PLANS:
         raise BillingError(f"unknown plan '{plan}'")
     p = PLANS[plan]
+    if not p["self_serve"]:
+        raise BillingError(f"The {p['label']} plan is agreed with our team. Raise a request in Support and we'll be in touch.")
     used = _active_users(session, org_id)
     if used > p["seats"]:
         raise BillingError(f"your {used} users exceed the {p['label']} plan's {p['seats']} seats — remove users or pick a larger plan")

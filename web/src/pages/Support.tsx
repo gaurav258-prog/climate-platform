@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LifeBuoy, Plus, Send, CheckCircle2, RotateCcw, MessageSquare, Search, Clock, AlertTriangle, Sparkles, BookOpen, ChevronRight, LayoutDashboard, Ticket } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -68,7 +68,9 @@ const ago = (iso: string | null) => {
 export default function Support() {
   const qc = useQueryClient()
   const { profile } = useAuth()
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [params] = useSearchParams()
+  const preset = params.get('subject') ?? ''             // a link elsewhere (e.g. Billing → Enterprise) opens a new ticket
+  const [tab, setTab] = useState<Tab>(preset ? 'file' : 'dashboard')
   const [sel, setSel] = useState<string | null>(null)
   const list = useQuery({ queryKey: ['portal-requests'], queryFn: () => api.get<SReq[]>('/v1/portal/requests') })
   const rows = list.data ?? []
@@ -136,7 +138,7 @@ export default function Support() {
         </div>
       )}
 
-      {tab === 'file' && <div className="max-w-2xl"><Compose onDone={id => { refresh(); if (id) { setSel(id); setTab('tickets') } else setTab('dashboard') }} /></div>}
+      {tab === 'file' && <div className="max-w-2xl"><Compose subject={preset} onDone={id => { refresh(); if (id) { setSel(id); setTab('tickets') } else setTab('dashboard') }} /></div>}
 
       {tab === 'tickets' && (
         <div className="grid lg:grid-cols-[minmax(0,360px)_1fr] gap-5 items-start">
@@ -228,9 +230,9 @@ function DocSearch({ guides, mode, onFile }: { guides: typeof DOCS; mode: 'brows
   )
 }
 
-function Compose({ onDone }: { onDone: (id?: string) => void }) {
-  const [category, setCategory] = useState('question')
-  const [subject, setSubject] = useState('')
+function Compose({ onDone, subject: initial = '' }: { onDone: (id?: string) => void; subject?: string }) {
+  const [category, setCategory] = useState(initial ? 'other' : 'question')
+  const [subject, setSubject] = useState(initial)
   const [priority, setPriority] = useState('normal')
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
