@@ -192,6 +192,135 @@
     "what": "The map's publisher flags this area: depths above 10 m in small channels may come from the model or the terrain data rather than a real flood.",
     "next": "Use this figure with care."
    }
+  },
+  "supervision.respondent.access": {
+   "label": "What your supervisor can see",
+   "detail": {
+    "what": "Your supervisor always sees your figures by region (NUTS-3), the level your filings report at. It sees the locations of individual sites only while you grant site-level access.",
+    "why": "Regional figures are what supervisory filings carry. Site locations are more sensitive, so opening them is your decision.",
+    "next": "Grant or revoke site-level access at any time. Each change is recorded in your audit trail and in your supervisor's."
+   }
+  },
+  "supervision.respondent.shared_onward": {
+   "label": "Your case file, shared onward",
+   "detail": {
+    "what": "Your supervisor may share its case file on you with another authority, a supervisory college or a committee.",
+    "why": "Each share covers only the sections listed, carries a watermark, and stops working at its expiry or when your supervisor revokes it.",
+    "next": "Every share and every download also appears in your audit trail."
+   }
+  },
+  "supervision.respondent.mandates": {
+   "label": "How applicability is judged",
+   "detail": {
+    "what": "Each requirement is checked against your regulatory attributes, using the criteria its act sets out.",
+    "why": "Where an attribute the criteria need is not stated, the result is 'Cannot determine', never a guess.",
+    "next": "State the missing attributes under Regulatory attributes on this page."
+   }
+  },
+  "supervision.respondent.no_template": {
+   "status": 422,
+   "label": "No template set up for your sector",
+   "detail": {
+    "what": "{regulator} has not set up a template for organisations in your sector yet.",
+    "next": "Answer its requests on this page instead."
+   }
+  },
+  "supervision.respondent.level_stated": {
+   "label": "At-risk threshold sent: {level}",
+   "detail": {
+    "what": "Your at-risk threshold is sent with the template: the hazard score (0 to 100) at or above which you treat an exposure as at material physical risk.",
+    "why": "Your supervisor reads your share of sensitive exposure at this threshold, on your own definition."
+   }
+  },
+  "supervision.respondent.level_not_stated": {
+   "label": "At-risk threshold not stated",
+   "detail": {
+    "what": "Your at-risk threshold is the hazard score (0 to 100) at or above which you treat an exposure as at material physical risk.",
+    "why": "Without it, your supervisor cannot read your share of sensitive exposure on your own definition.",
+    "next": "Enter it with this submission, or state it in your organisation's methodology settings."
+   }
+  },
+  "supervision.respondent.nothing_to_acknowledge": {
+   "status": 404,
+   "label": "Nothing to acknowledge",
+   "detail": {
+    "what": "This supervision was acknowledged before, or it is not one of your organisation's."
+   }
+  },
+  "supervision.respondent.empty_reply": {
+   "status": 422,
+   "label": "Write a message or choose a status",
+   "detail": {
+    "what": "A reply to your supervisor needs a message, a new status, or both."
+   }
+  },
+  "supervision.respondent.status_not_allowed": {
+   "status": 422,
+   "label": "This status is not yours to set",
+   "detail": {
+    "what": "Your side cannot move this {kind} from {from_status} to {to_status}.",
+    "why": "Your supervisor sets the other statuses, including closing the request."
+   }
+  },
+  "supervision.respondent.attribute_not_yours": {
+   "status": 422,
+   "label": "This attribute is not set here",
+   "detail": {
+    "what": "{attribute} comes from your organisation's record, or is not a regulatory attribute."
+   }
+  },
+  "supervision.respondent.attribute_value": {
+   "status": 422,
+   "label": "Value not understood",
+   "detail": {
+    "what": "{attribute}: enter a number for amounts and counts, and yes or no for the others."
+   }
+  },
+  "supervision.respondent.cannot_submit": {
+   "status": 403,
+   "label": "Submitting needs the release permission",
+   "detail": {
+    "what": "Your role cannot submit a template to a supervisor.",
+    "next": "Ask an administrator in your organisation."
+   }
+  },
+  "supervision.respondent.unreadable_file": {
+   "status": 400,
+   "label": "The file could not be read",
+   "detail": {
+    "what": "Upload a CSV or Excel (.xlsx) file whose first row holds the column names."
+   }
+  },
+  "supervision.respondent.file_has_problems": {
+   "status": 422,
+   "label": "Fix the file before submitting",
+   "detail": {
+    "what": "Some required columns were not found, or some rows have problems.",
+    "next": "Check the file again to see which, correct them, and submit."
+   }
+  },
+  "supervision.respondent.basis_invalid": {
+   "status": 422,
+   "label": "The stated basis was not accepted",
+   "detail": {
+    "what": "The at-risk threshold must be a number from 0 to 100, and a stated scenario or horizon must be one of those offered.",
+    "next": "Correct the stated basis and submit again."
+   }
+  },
+  "supervision.respondent.not_accepted": {
+   "status": 422,
+   "label": "The submission was not accepted",
+   "detail": {
+    "what": "The template could not be saved.",
+    "next": "Check the file and try again. If it keeps happening, raise a request in Support."
+   }
+  },
+  "supervision.respondent.receipt_already": {
+   "status": 409,
+   "label": "Receipt already acknowledged",
+   "detail": {
+    "what": "Receipt of this letter was acknowledged before; it is recorded once."
+   }
   }
  },
  "names": {

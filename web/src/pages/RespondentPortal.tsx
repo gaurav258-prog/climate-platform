@@ -1,35 +1,60 @@
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { Card, PageHeader } from '../components/ui'
-import { RegulatoryAttributes, SupervisorRequestsInbox, SupervisoryAccess, TemplateSubmission } from './Admin'
+import { PageHeader, StatGrid } from '../components/ui'
+import { HEADING } from '../components/Details'
 import { SharedOnward } from '../components/Remittance'
-import { WhatApplies } from '../components/GrcFollowups'
+import { SupervisoryAccess } from './respondent/Supervisors'
+import { Deadlines } from './respondent/Deadlines'
+import { SupervisorRequestsInbox } from './respondent/Requests'
+import { TemplateSubmission } from './respondent/Submission'
+import { WhatApplies } from './respondent/Mandates'
+import { RegulatoryAttributes } from './respondent/Attributes'
+import { day, daysBetween } from './respondent/common'
+import { useCalendar, useMandates, useRequests } from './respondent/data'
 
-// The supervisory portal: everything a supervised entity that does not use Tellumen as a workspace needs to answer its
-// supervisor — and nothing else. The same panels a full tenant sees under Settings → Entities.
-interface Cal { events: { date: string; kind: string; title: string; sub: string; status: string | null; overdue: boolean }[] }
+// The supervisory portal, to the UI standard (2026-10-16): everything a supervised entity that does not use Tellumen as
+// a workspace needs to answer its supervisor — and nothing else. Figures and a timeline first; every explanation one
+// click away. The same panels a full tenant sees under Settings & team → Entities.
+const ABOUT = [
+  { heading: HEADING.shows, body: 'What your supervisor needs from you: acknowledge the supervision, state your regulatory attributes, submit the required template, and answer requests.' },
+  { heading: HEADING.read, body: 'The figures at the top answer what is open and what is due next. The timeline places every report and request on its due date. Each panel below is one task.' },
+  { heading: HEADING.limits, body: 'Every action here is recorded in your audit trail and in your supervisor’s.' },
+]
+const inDays = (n: number) => n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`
+
 export default function RespondentPortal() {
   const { profile } = useAuth()
-  const cal = useQuery({ queryKey: ['portal-calendar'], queryFn: () => api.get<Cal>('/v1/reg-tasks/calendar') })
-  const obligations = (cal.data?.events ?? []).filter(e => e.kind === 'obligation')
+  const [request, setRequest] = useState<string | null>(null)
+  const reqs = useRequests()
+  const cal = useCalendar()
+  const mandates = useMandates()
+  const today = cal.data?.today
+  const reports = (cal.data?.events ?? []).filter(e => e.kind === 'obligation')
+  const next = today ? reports.filter(e => e.date >= today && !e.overdue && !['submitted', 'accepted'].includes(e.status ?? '')).sort((a, b) => a.date.localeCompare(b.date))[0] : undefined
+  const late = reports.filter(e => e.overdue).length
+  const m = mandates.data?.summary
   return (
     <div className="fadeup space-y-6">
-      <PageHeader eyebrow="Supervisory portal" title={profile?.org?.name ?? 'Your organisation'}
-        lead="What your supervisor needs from you: acknowledge the supervision, state your regulatory attributes, submit the required template, and answer requests. Every action is recorded on both sides." />
+      <PageHeader eyebrow="Supervisory portal" title={profile?.org?.name ?? 'Your organisation'} lead="What your supervisor needs from you, in one place." about={ABOUT} />
+      <StatGrid cols={4} items={[
+        { label: 'Open requests', value: reqs.data ? reqs.data.summary.open : '—',
+          sub: reqs.data ? (reqs.data.summary.overdue ? `${reqs.data.summary.overdue} overdue` : 'none overdue') : undefined,
+          accent: reqs.data?.summary.overdue ? 'var(--color-bad)' : undefined },
+        { label: 'Next report due', value: next ? day(next.date) : '—', sub: next && today ? inDays(daysBetween(today, next.date)) : 'nothing upcoming' },
+        { label: 'Reports overdue', value: cal.data ? late : '—', accent: late ? 'var(--color-bad)' : undefined },
+        { label: 'Requirements that apply', value: m ? m.applies : '—',
+          sub: m ? (m.cannot_determine ? `${m.cannot_determine} cannot be determined` : `of ${m.applies + m.not_applicable}`) : undefined,
+          accent: m?.cannot_determine ? 'var(--color-warn)' : undefined },
+      ]} />
       <SupervisoryAccess />
-      <SharedOnward />
-      <WhatApplies />
-      {obligations.length > 0 && (
-        <Card className="p-5">
-          <div className="text-[13px] font-medium text-[var(--color-ink)] mb-2">Deadlines</div>
-          <div className="divide-y divide-[var(--color-line)]">{obligations.map((o, i) => (
-            <div key={i} className="py-1.5 flex items-center justify-between gap-3 text-[12.5px]"><span className="text-[var(--color-ink)]">{o.title}<span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{o.sub}</span></span>
-              <span className="mono text-[11px]" style={{ color: o.overdue ? 'var(--color-bad)' : 'var(--color-mute)' }}>{o.date}{o.overdue ? ' · overdue' : ''}</span></div>))}</div>
-        </Card>)}
+      <Deadlines requests={reqs.data?.requests ?? []} onRequest={setRequest} />
+      <SupervisorRequestsInbox open={request} onOpen={setRequest} />
       <TemplateSubmission />
-      <RegulatoryAttributes />
-      <SupervisorRequestsInbox />
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
+        <WhatApplies />
+        <RegulatoryAttributes />
+      </div>
+      <SharedOnward />
     </div>
   )
 }

@@ -81,6 +81,7 @@ export const STATUS_LABEL: Record<string, string> = {
   accepted: 'Accepted', rejected: 'Rejected', superseded: 'Superseded', withdrawn: 'Withdrawn', released: 'Released', no_submission: 'Not submitted',
   in_progress: 'In progress', none: 'Not filed', filed: 'Filed', pending: 'Awaiting approval', active: 'Active', expired: 'Expired',
   terminated: 'Terminated', computing: 'Computing', done: 'Done', failed: 'Failed', not_assessed: 'Not assessed',
+  not_started: 'Not started', overdue: 'Overdue',
 }
 export const statusLabel = (s?: string | null): string => !s ? '—' : (STATUS_LABEL[s] ?? prettify(s))
 

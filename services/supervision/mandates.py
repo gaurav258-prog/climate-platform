@@ -304,6 +304,8 @@ def applicability_for_entity(session, org_id: str, period_end: Optional[date] = 
                     "latest_version": (m["versions"][-1]["version"] if m.get("versions") else None)})
     order = {APPLIES: 0, CANNOT: 1, NOT_APPLICABLE: 2}
     out.sort(key=lambda x: (order.get(x["status"], 9), x["title"] or ""))
+    from core import messages
+    about = messages.render("supervision.respondent.mandates")
     return {"mandates": out, "attributes": attrs, "period_end": pe.isoformat(), "definitions": reg["attributes"],
             "summary": {"applies": sum(1 for x in out if x["status"] == APPLIES), "cannot_determine": sum(1 for x in out if x["status"] == CANNOT), "not_applicable": sum(1 for x in out if x["status"] == NOT_APPLICABLE)},
-            "note": "Each mandate is judged from the registry's criteria against your regulatory attributes. 'Cannot determine' names the attribute you have not stated; set it under Regulatory attributes."}
+            "about": {"code": about["code"], "label": about["label"], "detail": about["detail"]}}

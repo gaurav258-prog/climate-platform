@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge, ExternalLink } from 'lucide-react'
-import { api, apiMessage, download } from '../lib/api'
+import { api, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
 import { webhookTestOutcome } from '../lib/webhookTest'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import { SharedOnward } from '../components/Remittance'
-import { AppetiteHistory, WhatApplies } from '../components/GrcFollowups'
+import { AppetiteHistory } from '../components/GrcFollowups'
+import { SupervisoryAccess } from './respondent/Supervisors'
+import { SupervisorRequestsInbox } from './respondent/Requests'
+import { TemplateSubmission } from './respondent/Submission'
+import { WhatApplies } from './respondent/Mandates'
+import { RegulatoryAttributes } from './respondent/Attributes'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
@@ -1111,52 +1116,6 @@ function ThreshInput({ defaultValue, onCommit, disabled }: { defaultValue: numbe
 }
 
 
-// ── Supervisory access — what my regulator may see ──────────────────────────────────────────────────────
-// Regional aggregates (NUTS-3) reach the supervisor regardless (that is what filings carry). Individual site
-// locations are ours to open or close; the switch is audited on both sides.
-interface Sup { supervision_id: string; regulator_org_id: string; regulator: string; jurisdiction: string | null
-  site_access: boolean; site_access_granted_at: string | null; site_access_revoked_at: string | null; since: string | null; acknowledged_at: string | null }
-export function SupervisoryAccess() {
-  const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['my-supervisors'], queryFn: () => api.get<{ supervisors: Sup[]; note: string }>('/v1/me/supervisors') })
-  const [busy, setBusy] = useState<string | null>(null)
-  const set = async (s: Sup, granted: boolean) => {
-    setBusy(s.supervision_id)
-    try { await api.post(`/v1/me/supervisors/${s.supervision_id}/site-access`, { granted }); await qc.invalidateQueries({ queryKey: ['my-supervisors'] }) }
-    finally { setBusy(null) }
-  }
-  const ack = async (s: Sup) => {
-    setBusy(s.supervision_id)
-    try { await api.post(`/v1/me/supervisors/${s.supervision_id}/acknowledge`, {}); await qc.invalidateQueries({ queryKey: ['my-supervisors'] }) }
-    finally { setBusy(null) }
-  }
-  const sups = q.data?.supervisors ?? []
-  if (!q.isLoading && sups.length === 0) return null
-  return (
-    <Card className="p-5">
-      <SectionHead hint="regional aggregates always · individual sites only while you grant it">Supervisory access</SectionHead>
-      <div className="text-[12.5px] text-[var(--color-mute)] mb-3">{q.data?.note}</div>
-      <div className="divide-y divide-[var(--color-line)]">
-        {sups.map(s => (
-          <div key={s.supervision_id} className="py-2.5 flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <div className="text-[13px] text-[var(--color-ink)]">{s.regulator}{s.jurisdiction ? <span className="mono text-[10.5px] text-[var(--color-faint)]"> · {s.jurisdiction}</span> : null}</div>
-              <div className="mono text-[10.5px] text-[var(--color-faint)]">
-                supervising since {s.since?.slice(0, 10) ?? '—'} · {s.acknowledged_at ? `acknowledged ${s.acknowledged_at.slice(0, 10)}` : 'not yet acknowledged by you'} · {s.site_access ? `individual sites visible since ${s.site_access_granted_at?.slice(0, 10)}` : s.site_access_revoked_at ? `site access revoked ${s.site_access_revoked_at.slice(0, 10)} · regional only` : 'regional aggregates only'}
-              </div>
-            </div>
-            {!s.acknowledged_at && <Button variant="ghost" onClick={() => ack(s)} disabled={busy === s.supervision_id}>Acknowledge</Button>}
-            <Button onClick={() => set(s, !s.site_access)} disabled={busy === s.supervision_id}>
-              {busy === s.supervision_id ? '…' : s.site_access ? 'Revoke site-level access' : 'Grant site-level access'}
-            </Button>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-}
-
-
 // ── Supervision profile — the regulator's customer class and its expectations (configuration, not code) ────
 interface ProfResp { config: { profile_id: string; label: string; default_scenario: string; default_horizon: string
   sectors: Record<string, { label: string; metrics: { id: string; label: string; unit: string; watch_above?: number; act_above?: number; watch_below?: number }[] }> }
@@ -1289,65 +1248,6 @@ function SupervisionAssignments() {
   )
 }
 
-// ── Requests from my supervisor — respond and report remediation; the supervisor closes ───────────────────
-interface InReq { request_id: string; regulator: string; kind_label: string; title: string; body: string | null; status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string
-  reference?: string | null; legal_basis?: { ref: string; url?: string | null } | null; response_days?: number | null; signatory?: string | null; has_letter?: boolean; receipt_at?: string | null }
-interface InDetail extends InReq { messages: { message_id: string; side: string; body: string | null; status_label: string | null; created_at: string; author: string | null }[]; can_set: { key: string; label: string }[] }
-export function SupervisorRequestsInbox() {
-  const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['my-supervisor-requests'], queryFn: () => api.get<{ requests: InReq[]; can_respond: boolean; summary: { open: number; overdue: number } }>('/v1/me/supervisors/requests') })
-  const [sel, setSel] = useState<string | null>(null)
-  const det = useQuery({ queryKey: ['my-supervisor-request', sel], enabled: !!sel, queryFn: () => api.get<InDetail>(`/v1/me/supervisors/requests/${sel}`) })
-  const [body, setBody] = useState(''); const [busy, setBusy] = useState(false)
-  if (!q.data || q.data.requests.length === 0) return null
-  const d = q.data
-  const send = async (status_to?: string) => {
-    if (!sel) return
-    setBusy(true)
-    try { await api.post(`/v1/me/supervisors/requests/${sel}/messages`, { body: body || null, status_to: status_to ?? null }); setBody(''); await qc.invalidateQueries({ queryKey: ['my-supervisor-request', sel] }); await qc.invalidateQueries({ queryKey: ['my-supervisor-requests'] }) }
-    catch (e) { toast.error((e as Error).message || 'Could not send.') } finally { setBusy(false) }
-  }
-  return (
-    <Card className="p-5">
-      <SectionHead hint={`${d.summary.open} open${d.summary.overdue ? ` · ${d.summary.overdue} overdue` : ''} · you respond and report progress, your supervisor closes`}>Requests from your supervisor</SectionHead>
-      <div className="divide-y divide-[var(--color-line)]">
-        {d.requests.map(r => (
-          <div key={r.request_id} className="py-2">
-            <button onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className="w-full text-left flex items-center gap-3 flex-wrap text-[12.5px]">
-              <span className="mono text-[10.5px] text-[var(--color-mute)] w-36">{r.reference ?? r.kind_label}</span>
-              <span className="text-[var(--color-ink)] flex-1">{r.title}</span>
-              {r.severity && <span className="mono text-[10px]" style={{ color: r.severity === 'high' ? 'var(--color-bad)' : r.severity === 'medium' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{r.severity}</span>}
-              <span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span>
-              <span className="mono text-[10.5px]" style={{ color: r.overdue ? 'var(--color-bad)' : 'var(--color-faint)' }}>due {r.due_date ?? '—'}</span>
-            </button>
-            {sel === r.request_id && det.data && (
-              <div className="mt-2 ml-2 pl-3 border-l border-[var(--color-line)]">
-                <div className="mono text-[10.5px] text-[var(--color-faint)] mb-1">{det.data.reference ? `${det.data.reference} · ` : ''}{det.data.kind_label} from {det.data.regulator} · issued {det.data.raised_at.slice(0, 10)}{det.data.response_days ? ` · response period ${det.data.response_days} days` : ''}</div>
-                {det.data.legal_basis && <div className="text-[12px] text-[var(--color-mute)] mb-1">Legal basis: <span className="text-[var(--color-ink)]">{det.data.legal_basis.ref}</span>{det.data.legal_basis.url && <a href={det.data.legal_basis.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">act ↗</a>}</div>}
-                <div className="flex flex-wrap items-center gap-3 text-[12px] mb-2">
-                  {det.data.has_letter && <button onClick={() => download(`/v1/me/supervisors/requests/${det.data!.request_id}/letter.pdf`, `${det.data!.reference ?? 'letter'}.pdf`)} className="text-[var(--color-sky)] hover:underline">Letter (PDF) ↓</button>}
-                  {det.data.receipt_at ? <span className="text-[var(--color-good)]">receipt acknowledged {det.data.receipt_at.slice(0, 10)}</span> : d.can_respond ? <Button variant="ghost" disabled={busy} onClick={async () => { setBusy(true); try { await api.post(`/v1/me/supervisors/requests/${det.data!.request_id}/receipt`, {}); await qc.invalidateQueries({ queryKey: ['my-supervisor-request', sel] }); await qc.invalidateQueries({ queryKey: ['my-supervisor-requests'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }}>Acknowledge receipt</Button> : null}
-                </div>
-                <div className="space-y-1.5 mb-3">
-                  {det.data.messages.map(m => (
-                    <div key={m.message_id} className={`rounded-lg px-3 py-1.5 text-[12.5px] ${m.side === 'entity' ? 'bg-[var(--color-panel-2)] ml-6' : 'bg-[var(--color-bg-2)] mr-6'}`}>
-                      <div className="mono text-[10px] text-[var(--color-faint)]">{m.side === 'entity' ? 'you' : det.data!.regulator} · {m.author ?? '—'} · {m.created_at.slice(0, 16).replace('T', ' ')}{m.status_label ? ` · set to ${m.status_label}` : ''}</div>
-                      {m.body && <div className="text-[var(--color-ink)] whitespace-pre-wrap">{m.body}</div>}
-                    </div>))}
-                </div>
-                {d.can_respond ? (<>
-                  <textarea value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="Respond to your supervisor…" className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] mb-2" />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="ghost" onClick={() => send()} disabled={busy || !body.trim()}>Send</Button>
-                    {det.data.can_set.map(s => <Button key={s.key} onClick={() => send(s.key)} disabled={busy}>Mark {s.label.toLowerCase()}</Button>)}
-                  </div></>) : <div className="text-[12px] text-[var(--color-faint)]">Responding needs the release permission in your organisation.</div>}
-              </div>)}
-          </div>))}
-      </div>
-    </Card>
-  )
-}
-
 // ── Supervised population — which entities this authority supervises; scope respects the profile ───────────
 interface ScopeRow { supervision_id: string; org_id: string; name: string; type: string; country: string | null; lei: string | null; jurisdiction: string | null; created_at: string | null; acknowledged_at: string | null; site_access: boolean }
 interface ScopeResp { profile_id: string; profile_label: string; sectors: string[]; in_profile: ScopeRow[]; out_of_profile: ScopeRow[]; candidates: { org_id: string; name: string; type: string; country: string | null; lei: string | null }[] }
@@ -1402,114 +1302,6 @@ function SupervisionScope() {
             <Button variant="ghost" disabled={busy} onClick={() => add(c.org_id)}>Add to population</Button>
           </div>))}
       </div>
-    </Card>
-  )
-}
-
-// ── Regulatory attributes — what a supervisor's mandate criteria read (size, listing, PIE status …) ───────────
-interface AttrResp { attributes: Record<string, { value: unknown; source: string; as_of: string | null }>; definitions: Record<string, { label: string; type: string; unit?: string; source?: string }>; can_edit: boolean }
-export function RegulatoryAttributes() {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const isReg = profile?.org?.type === 'regulator'
-  const q = useQuery({ queryKey: ['my-reg-attributes'], enabled: !isReg, queryFn: () => api.get<AttrResp>('/v1/me/supervisors/regulatory-attributes') })
-  const [form, setForm] = useState<Record<string, string>>({})
-  const [asOf, setAsOf] = useState('')
-  const [busy, setBusy] = useState(false)
-  if (isReg || !q.data) return null
-  const d = q.data
-  const editable = Object.entries(d.definitions).filter(([, def]) => !(def.source ?? '').startsWith('organizations.'))
-  const save = async () => {
-    setBusy(true)
-    try {
-      const body: Record<string, unknown> = {}
-      for (const [k, v] of Object.entries(form)) body[k] = v === '' ? null : d.definitions[k].type === 'bool' ? v === 'yes' : d.definitions[k].type === 'number' ? Number(v) : v
-      await api.put('/v1/me/supervisors/regulatory-attributes', { attributes: body, as_of: asOf || null }); setForm({}); toast.success('Regulatory attributes saved.'); await qc.invalidateQueries({ queryKey: ['my-reg-attributes'] })
-    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
-  }
-  const val = (k: string) => form[k] ?? (d.attributes[k]?.value == null ? '' : d.definitions[k].type === 'bool' ? (d.attributes[k].value ? 'yes' : 'no') : String(d.attributes[k].value))
-  return (
-    <Card className="p-5">
-      <SectionHead hint="what your supervisor's mandate criteria read · size, listing and public-interest status · stated as of a balance-sheet date">Regulatory attributes</SectionHead>
-      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[13px]">
-        {editable.map(([k, def]) => (
-          <label key={k} className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] pb-1.5">
-            <span className="text-[var(--color-mute)]">{def.label}{def.unit === 'eur' ? ' (€)' : ''}</span>
-            {def.type === 'bool' ? (
-              <select value={val(k)} disabled={!d.can_edit} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]"><option value="">not stated</option><option value="yes">yes</option><option value="no">no</option></select>
-            ) : <input value={val(k)} disabled={!d.can_edit} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} placeholder="not stated" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px] text-right w-44" />}
-          </label>))}
-      </div>
-      {d.can_edit && <div className="flex items-center gap-3 mt-3"><label className="text-[12px] text-[var(--color-mute)]">As of <input type="date" value={asOf} onChange={e => setAsOf(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]" /></label><Button onClick={save} disabled={busy || Object.keys(form).length === 0}>{busy ? 'Saving…' : 'Save attributes'}</Button></div>}
-    </Card>
-  )
-}
-
-// ── Submit the required template to a supervisor — the same intake the supervisor keys in, from our side ────────
-interface SpecResp { regulator: string; regulator_org_id: string; available: boolean; reason?: string; framework?: string; template?: string; label?: string; at_risk_level?: number | null
-  fields?: { id: string; label: string; required?: boolean; type?: string }[]; on_file: { period_label: string; created_at: string; n_cells: number; source_file: string | null; basis: Record<string, string> | null }[] }
-interface ValResp { fields: { id: string; label: string; required?: boolean }[]; mapping: Record<string, string | null>; columns: string[]; n_total: number; n_valid: number; n_error: number; missing_required: string[]; errors: { row: number; problems: string[] }[] }
-export function TemplateSubmission() {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const isReg = profile?.org?.type === 'regulator'
-  const canSubmit = (profile?.permissions ?? []).some(p => p === 'reports.publish' || p === 'respondent.portal')
-  const sups = useQuery({ queryKey: ['my-supervisors'], enabled: !isReg, queryFn: () => api.get<{ supervisors: { supervision_id: string; regulator: string }[] }>('/v1/me/supervisors') })
-  const [sid, setSid] = useState<string>('')
-  const active = sid || sups.data?.supervisors[0]?.supervision_id || ''
-  const spec = useQuery({ queryKey: ['submission-spec', active], enabled: !!active, queryFn: () => api.get<SpecResp>(`/v1/me/supervisors/${active}/submission-spec`) })
-  const [file, setFile] = useState<File | null>(null)
-  const [val, setVal] = useState<ValResp | null>(null)
-  const [period, setPeriod] = useState(`FY${new Date().getFullYear() - 1}`)
-  const [scenario, setScenario] = useState(''); const [horizon, setHorizon] = useState('')
-  const [busy, setBusy] = useState(false)
-  if (isReg || !sups.data || sups.data.supervisors.length === 0) return null
-  const s = spec.data
-  const send = async (path: string, extra: Record<string, string>) => {
-    const fd = new FormData(); fd.append('file', file!); for (const [k, v] of Object.entries(extra)) fd.append(k, v)
-    const token = localStorage.getItem('tellumen.token')
-    const res = await fetch(path, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd })
-    const body = await res.json(); if (!res.ok) throw new Error(body?.detail?.message || body?.error?.message || 'Request failed'); return body
-  }
-  const validate = async () => { if (!file) return; setBusy(true); try { setVal(await send(`/v1/me/supervisors/${active}/submissions/validate`, {})) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
-  const submit = async () => {
-    if (!file || !val) return
-    setBusy(true)
-    try {
-      const basis = scenario && horizon ? JSON.stringify({ scenario, horizon }) : ''
-      const r = await send(`/v1/me/supervisors/${active}/submissions`, { mapping: JSON.stringify(val.mapping), period_label: period, ...(basis ? { basis } : {}) })
-      toast.success(`Submitted to ${r.regulator}: ${r.n_valid} cells for ${period}.`); setFile(null); setVal(null); await qc.invalidateQueries({ queryKey: ['submission-spec', active] })
-    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
-  }
-  return (
-    <Card className="p-5">
-      <SectionHead hint="the template your supervisor requires · validated before it is sent · audited on both sides">Submit to your supervisor</SectionHead>
-      {sups.data.supervisors.length > 1 && <label className="text-[12px] text-[var(--color-mute)] block mb-3">Supervisor <select value={active} onChange={e => setSid(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">{sups.data.supervisors.map(x => <option key={x.supervision_id} value={x.supervision_id}>{x.regulator}</option>)}</select></label>}
-      {!s ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : !s.available ? <div className="text-[12.5px] text-[var(--color-mute)]">{s.reason}</div> : (<>
-        <div className="text-[12.5px] text-[var(--color-ink)] mb-1">{s.label}</div>
-        <div className="mono text-[10.5px] text-[var(--color-faint)] mb-3">Columns: {s.fields!.map(f => f.label + (f.required ? ' *' : '')).join(' · ')}</div>
-        {s.on_file.length > 0 && <div className="text-[12px] text-[var(--color-mute)] mb-3">On file with {s.regulator}: {s.on_file.map(o => `${o.period_label} (${o.n_cells} cells, ${o.created_at.slice(0, 10)})`).join(' · ')}</div>}
-        {!canSubmit ? <div className="text-[12px] text-[var(--color-faint)]">Submitting needs the release permission in your organisation.</div> : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <input type="file" accept=".csv,.xlsx,.xls" onChange={e => { setFile(e.target.files?.[0] ?? null); setVal(null) }} className="text-[12.5px]" />
-              <label className="text-[12px] text-[var(--color-mute)]">Period <input value={period} onChange={e => setPeriod(e.target.value)} className="ml-2 w-24 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]" /></label>
-              <label className="text-[12px] text-[var(--color-mute)]">Basis stated <select value={scenario} onChange={e => setScenario(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px]"><option value="">none</option>{['baseline', 'orderly_1_5c', 'disorderly_2c', 'hot_house_3_5c'].map(x => <option key={x} value={x}>{x}</option>)}</select>
-                <select value={horizon} onChange={e => setHorizon(e.target.value)} className="ml-1 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px]"><option value="">—</option>{['current', '2030', '2050', '2100'].map(x => <option key={x} value={x}>{x}</option>)}</select></label>
-              <Button variant="ghost" onClick={validate} disabled={!file || busy}>Check the file</Button>
-            </div>
-            <div className="mono text-[10.5px] text-[var(--color-faint)]">{spec.data?.at_risk_level != null
-              ? <>Sent with the template: your stated at-risk level <b className="text-[var(--color-mute)]">{spec.data.at_risk_level}</b> — the supervisor reads your sensitive share at it.</>
-              : <>Your at-risk level is not stated (Methodology) — the supervisor will not be able to read your sensitive share on your definition.</>}</div>
-            {val && (
-              <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
-                <div className="text-[var(--color-ink)]">{val.n_valid} of {val.n_total} rows valid{val.missing_required.length ? ` · missing required: ${val.missing_required.join(', ')}` : ''}{val.n_error ? ` · ${val.n_error} rows with problems` : ''}</div>
-                <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">mapping: {Object.entries(val.mapping).map(([k, v]) => `${k} ← ${v ?? '—'}`).join(' · ')}</div>
-                {val.errors.slice(0, 3).map(e => <div key={e.row} className="text-[var(--color-warn)] mt-0.5">row {e.row}: {e.problems.join('; ')}</div>)}
-                <div className="mt-2"><Button onClick={submit} disabled={busy || val.missing_required.length > 0 || val.n_error > 0}>{busy ? 'Submitting…' : `Submit ${period} to ${s.regulator}`}</Button></div>
-              </div>)}
-          </div>)}
-      </>)}
     </Card>
   )
 }

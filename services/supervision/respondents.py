@@ -89,11 +89,13 @@ def submission_spec(session, supervised_org_id: str, supervision_id: str) -> Opt
     cfg = config_for(session, row["reg"])
     sec = sector_config(cfg, row["type"])
     if not sec or not sec.get("intake"):
+        from core import messages
+        r = messages.render("supervision.respondent.no_template", regulator=row["regulator"])
         return {"regulator": row["regulator"], "regulator_org_id": row["reg"], "available": False,
-                "reason": f"{row['regulator']} has no template intake configured for your sector yet — respond to its requests on the thread instead."}
+                "message": {"code": r["code"], "label": r["label"], "detail": r["detail"]}}
     sub = sec["intake"]["submission"]
     return {"regulator": row["regulator"], "regulator_org_id": row["reg"], "available": True, "framework": sub["framework"], "template": sub["template"],
-            "label": sub["label"], "fields": sub["cell_fields"], "note": sec["intake"].get("_about"),
+            "label": sub["label"], "fields": sub["cell_fields"], "basis_fields": sub.get("basis_fields", []),
             # the level the template goes with — the entity's own stated method for the period (frozen at submission)
             "at_risk_level": entity_level(session, supervised_org_id, None)[0]}
 
@@ -103,7 +105,7 @@ def submit_template(session, *, supervised_org_id: str, supervision_id: str, raw
     from services.supervision.intake import map_rows, save_submission
     spec = submission_spec(session, supervised_org_id, supervision_id)
     if not spec or not spec.get("available"):
-        raise ValueError((spec or {}).get("reason") or "No supervisor found for this submission.")
+        raise ValueError("No template is set up for this supervisor and sector.")
     rep = map_rows(raw, filename, spec["fields"], mapping)
     if rep["missing_required"] or rep["n_error"]:
         return {"accepted": False, "report": {k: v for k, v in rep.items() if k != "rows"}}

@@ -209,11 +209,6 @@
   "error": 0,
   "rawError": 8
  },
- "api/routers/supervisory_access.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
- },
  "api/routers/supply.py": {
   "display": 2,
   "error": 0,

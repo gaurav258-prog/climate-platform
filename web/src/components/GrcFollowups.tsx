@@ -30,40 +30,6 @@ export function AppetiteHistory({ framework }: { framework: string | undefined }
   )
 }
 
-// ── 3 what applies to me and why ────────────────────────────────────────────────────────────────────────────
-interface Check { label: string; attribute: string; result: boolean | null; tier?: string }
-interface Mandate { id: string; title: string; act: { name: string; url: string }; article: { ref: string; excerpt?: string }; status: string; tier: { label: string; frequency?: string } | null
-  missing: string[]; failed: string[]; checks: Check[]; deliverable: { framework: string | null; label: string | null; channel: string | null; due: string | null }; latest_version: string | null }
-interface AppResp { mandates: Mandate[]; summary: { applies: number; cannot_determine: number; not_applicable: number }; note: string; definitions: Record<string, { label: string }> }
-const ST: Record<string, { label: string; color: string }> = { applies: { label: 'Applies', color: 'var(--color-good)' }, cannot_determine: { label: 'Cannot determine', color: 'var(--color-warn)' }, not_applicable: { label: 'Not applicable', color: 'var(--color-faint)' } }
-export function WhatApplies() {
-  const q = useQuery({ queryKey: ['my-mandates'], queryFn: () => api.get<AppResp>('/v1/me/supervisors/mandates') })
-  const [open, setOpen] = useState<string | null>(null)
-  const d = q.data
-  if (!d || d.mandates.length === 0) return null
-  return (
-    <Card className="p-5">
-      <SectionHead hint={`${d.summary.applies} apply · ${d.summary.cannot_determine} cannot determine · ${d.summary.not_applicable} not applicable`}>What applies to you, and why</SectionHead>
-      <div className="text-[12.5px] text-[var(--color-mute)] mb-3">{d.note}</div>
-      <div className="divide-y divide-[var(--color-line)]">{d.mandates.map(m => (
-        <div key={m.id} className="py-2.5 text-[12.5px]">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="font-medium" style={{ color: (ST[m.status] ?? ST.not_applicable).color }}>{(ST[m.status] ?? ST.not_applicable).label}</span>
-            <span className="text-[var(--color-ink)]">{m.title}</span>
-            <a href={m.act.url} target="_blank" rel="noreferrer" className="mono text-[10.5px] text-[var(--color-sky)] hover:underline">{m.article.ref}</a>
-            {m.tier && <span className="mono text-[10.5px] text-[var(--color-faint)]">{m.tier.label}{m.tier.frequency ? ` · ${m.tier.frequency}` : ''}</span>}
-            <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">{m.deliverable.label ?? m.deliverable.framework ?? ''}{m.deliverable.channel ? ` · via ${m.deliverable.channel}` : ''}{m.deliverable.due ? ` · due ${m.deliverable.due}` : ''}</span>
-            <button onClick={() => setOpen(open === m.id ? null : m.id)} className="text-[var(--color-sky)] hover:underline">{open === m.id ? 'Hide' : 'Why'}</button>
-          </div>
-          {m.missing.length > 0 && <div className="text-[11.5px] text-[var(--color-warn)] mt-0.5">Cannot determine until you state: {m.missing.map(a => d.definitions[a]?.label ?? a).join(', ')} (Regulatory attributes above).</div>}
-          {open === m.id && <ul className="mt-1.5 pl-4 m-0 space-y-0.5 text-[12px]">{m.checks.map((c, i) => (
-            <li key={i} style={{ color: c.result === true ? 'var(--color-good)' : c.result === false ? 'var(--color-bad)' : 'var(--color-warn)' }}>{c.result === true ? '✓' : c.result === false ? '✗' : '?'} {c.label}{c.tier ? <span className="text-[var(--color-faint)]"> · {c.tier}</span> : null}</li>))}
-            {m.article.excerpt && <li className="text-[var(--color-mute)] list-none -ml-4 mt-1 italic">“{m.article.excerpt.slice(0, 220)}{m.article.excerpt.length > 220 ? '…' : ''}”</li>}</ul>}
-        </div>))}</div>
-    </Card>
-  )
-}
-
 // ── 2 what a change touches ─────────────────────────────────────────────────────────────────────────────────
 interface Links { framework: string; switches: { key: string; label: string }[]; kris: { key: string; datapoint: string; tier: string }[]; template: { official_form: string | null; form_url: string | null; authority: string | null } | null; mandates: { id: string; title: string; article: string | null }[]; n: number }
 interface Impact { changes: (Links & { celex: string; title: string; summary: string | null; effective_date: string | null; status: string; url: string; detected_at: string; touches: Links; task_id: string | null })[]; frameworks: string[]; links: Record<string, Links>; note: string }

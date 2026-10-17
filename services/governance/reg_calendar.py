@@ -23,6 +23,9 @@ def calendar(session: Session, org_id: str, org_type: str) -> dict:
             "sub": f'{o["period_label"]} · {o["frequency"]}' + (f' · deadline set by {o["set_by"]}' if o.get("source") == "supervisor" and o.get("set_by") else ""),
             "ref_id": o.get("filing_id"),
             "status": o["filing_status"], "overdue": bool(o.get("overdue")), "criticality": None,
+            # the same facts as fields, for a screen that lays them out itself (the supervisory portal's timeline)
+            "period": o["period_label"], "frequency": o["frequency"], "entity": o.get("entity_name") or o.get("fund_name"),
+            "set_by": o.get("set_by") if o.get("source") == "supervisor" else None,
         })
 
     rows = session.execute(text("""

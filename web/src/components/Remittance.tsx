@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { Share2 } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Button, Card, SectionHead } from '../components/ui'
 import { Dialog, CloseButton } from './Dialog'
+import { StatusChip } from './StatusChip'
+import { InfoButton, messageDetails, type Message } from './Details'
 
 // Governed remittance — an evidence pack shared onward to another authority, college or committee.
 // Three surfaces share these types: the issuing supervisor (dialog + list + access log + revoke), the supervised
@@ -161,24 +164,47 @@ export function RemittancesIssued({ orgId }: { orgId: string }) {
 }
 
 // ── what the supervised entity sees ─────────────────────────────────────────────────────────────────────────
+// To the UI standard (2026-10-16): status counts and one line per share; the purpose, legal basis and sections of each
+// share, and what a remittance is, open in pop-ups.
+const TONE: Record<Remittance['status'], 'good' | 'neutral' | 'bad' | 'warn'> = { active: 'good', expired: 'neutral', revoked: 'bad', exhausted: 'warn' }
+const shortDay = (s: string | null | undefined) => s ? new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+
 export function SharedOnward() {
-  const q = useQuery({ queryKey: ['my-remittances'], queryFn: () => api.get<{ remittances: Remittance[]; note: string }>('/v1/me/supervisors/remittances') })
+  const q = useQuery({ queryKey: ['my-remittances'], queryFn: () => api.get<{ remittances: Remittance[]; about: Message }>('/v1/me/supervisors/remittances') })
+  const [all, setAll] = useState(false)
   const rows = q.data?.remittances ?? []
   if (rows.length === 0) return null
+  const counts = (Object.keys(STATUS) as Remittance['status'][]).map(s => [s, rows.filter(r => r.status === s).length] as const).filter(([, n]) => n > 0)
   return (
-    <Card className="p-5">
-      <SectionHead hint="every remittance of your case file · also on your audit trail">Shared onward by your supervisors</SectionHead>
-      <div className="text-[12.5px] text-[var(--color-mute)] mb-3">{q.data?.note}</div>
-      <div className="divide-y divide-[var(--color-line)]">{rows.map(r => (
-        <div key={r.remittance_id} className="py-2 text-[12.5px]">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="mono text-[11px] text-[var(--color-ink)]">{r.reference}</span>
-            <span className="text-[var(--color-ink)]">{r.regulator} → {r.recipient_name} <span className="text-[var(--color-faint)]">· {r.recipient_kind_label}</span></span>
-            <span className="mono text-[10.5px]" style={{ color: STATUS[r.status].color }}>{STATUS[r.status].label}</span>
-            <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">issued {r.created_at.slice(0, 10)} · expires {r.expires_at.slice(0, 10)} · {r.n_downloads} download{r.n_downloads === 1 ? '' : 's'}</span>
-          </div>
-          <div className="text-[11.5px] text-[var(--color-mute)] mt-0.5">Purpose: {r.purpose} · Legal basis: {r.legal_basis.stated ?? r.legal_basis.ref} · Sections: {r.sections.map(s => SECTION_LABEL[s] ?? s).join(', ')}</div>
-        </div>))}</div>
+    <Card className="p-5 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <SectionHead icon={Share2}>Shared onward by your supervisor</SectionHead>
+        {q.data?.about && <InfoButton compact details={messageDetails(q.data.about)} />}
+        <span className="ml-auto flex flex-wrap gap-1.5">{counts.map(([s, n]) => <StatusChip key={s} label={`${STATUS[s].label} · ${n}`} tone={TONE[s]} />)}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="data-table w-full text-[12.5px]">
+          <thead><tr><th>Shared with</th><th>Status</th><th>Issued</th><th>Expires</th><th>Downloads</th><th /></tr></thead>
+          <tbody>{(all ? rows : rows.slice(0, 6)).map(r => (
+            <tr key={r.remittance_id}>
+              <td><span className="text-[var(--color-ink)]">{r.recipient_name}</span><span className="block text-[11px] text-[var(--color-faint)]">{r.recipient_kind_label}</span></td>
+              <td><StatusChip label={STATUS[r.status].label} tone={TONE[r.status]} /></td>
+              <td className="tabular-nums">{shortDay(r.created_at)}</td>
+              <td className="tabular-nums">{shortDay(r.expires_at)}</td>
+              <td className="tabular-nums">{r.n_downloads}{r.max_downloads ? ` of ${r.max_downloads}` : ''}</td>
+              <td><InfoButton compact details={{ title: r.recipient_name, sections: [
+                { heading: 'Reference', body: `${r.reference} · shared by ${r.regulator}` },
+                { heading: 'Purpose', body: r.purpose },
+                { heading: 'Legal basis', body: r.legal_basis.url
+                  ? <a href={r.legal_basis.url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">{r.legal_basis.stated ?? r.legal_basis.ref} ↗</a>
+                  : r.legal_basis.stated ?? r.legal_basis.ref },
+                { heading: 'Sections shared', body: r.sections.map(s => SECTION_LABEL[s] ?? 'Other section').join('; ') },
+                ...(r.revoked_at ? [{ heading: 'Revoked', body: shortDay(r.revoked_at) }] : []),
+              ] }} /></td>
+            </tr>))}</tbody>
+        </table>
+      </div>
+      {rows.length > 6 && <button type="button" onClick={() => setAll(!all)} className="text-[12px] text-[var(--color-sky)] hover:underline">{all ? 'Show fewer' : `Show all ${rows.length}`}</button>}
     </Card>
   )
 }

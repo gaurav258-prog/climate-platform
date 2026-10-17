@@ -138,9 +138,10 @@ def received_open(remittance_id: str, request: Request, session: DbSession, ctx:
 # ── supervised entity ───────────────────────────────────────────────────────────────────────────────────────
 @router.get("/v1/me/supervisors/remittances", summary="Where my supervisors have remitted my case file: to whom, why, under what basis, until when")
 def my_remittances(session: DbSession, ctx: CurrentUser):
+    from core import messages
+    about = messages.render("supervision.respondent.shared_onward")
     return {"remittances": R.list_for_entity(session, ctx["org"]["org_id"]),
-            "note": "Your supervisor may share its case file on you with another authority, college or committee under a governed remittance. "
-                    "You see each one here and on your audit trail: the recipient, the purpose, the legal basis, the sections included, the expiry, and every download."}
+            "about": {"code": about["code"], "label": about["label"], "detail": about["detail"]}}
 
 
 # ── recipient (bearer link) ─────────────────────────────────────────────────────────────────────────────────

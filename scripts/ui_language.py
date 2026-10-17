@@ -2,7 +2,8 @@
 language. An AST scan of api/ and services/ counts, per file, the strings in two places a screen shows:
   display  a value under a display key of a response or record (gap, reason, note, message, title, basis, caution,
            hint, summary, label, description, detail, headline, why, review, notice)
-  error    the message of a raised exception — routers pass str(e) straight to the screen
+  error    the message of a raised exception — routers pass str(e) straight to the screen; a UserError carries a
+           catalogue code instead, which must be in the catalogue
   rawError an exception's own text handed to the screen ({"message": str(e)}, detail=str(e)) — the technical cause
            belongs in the log; the screen gets a catalogue message (core/errors.py UserError)
 that carry internal language (a snake_case code, an E-number, a file or API path, engineering jargon). Counts are held
@@ -39,6 +40,11 @@ def _text(node: ast.AST) -> str | None:
     return None
 
 
+def _codes() -> set[str]:
+    from core import messages
+    return set(messages.catalogue())
+
+
 def _is_str_of_exception(v: ast.AST) -> bool:
     return (isinstance(v, ast.Call) and isinstance(v.func, ast.Name) and v.func.id == "str" and len(v.args) == 1
             and isinstance(v.args[0], ast.Name))
@@ -62,7 +68,12 @@ def scan(path: Path) -> dict[str, int]:
                     (len(n.args) > 1 and _is_str_of_exception(n.args[1])):
                 out["rawError"] += 1
         elif isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) and n.exc.args:
-            if (t := _text(n.exc.args[0])) and INTERNAL.search(t):
+            if isinstance(n.exc.func, ast.Name) and n.exc.func.id == "UserError":
+                # its argument is a catalogue code, not words: the words are the catalogue's (core/messages.check);
+                # a code the catalogue lacks is a breach
+                if (t := _text(n.exc.args[0])) and t not in _codes():
+                    out["error"] += 1
+            elif (t := _text(n.exc.args[0])) and INTERNAL.search(t) and t not in _codes():
                 out["error"] += 1
     return out
 

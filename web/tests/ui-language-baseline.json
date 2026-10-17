@@ -133,9 +133,9 @@
  },
  "src/components/GrcFollowups.tsx": {
   "internal": 0,
-  "raw": 4,
+  "raw": 3,
   "monoProse": 4,
-  "apiProse": 2
+  "apiProse": 1
  },
  "src/components/HexMap.tsx": {
   "internal": 0,
@@ -213,7 +213,7 @@
   "internal": 0,
   "raw": 0,
   "monoProse": 7,
-  "apiProse": 1
+  "apiProse": 0
  },
  "src/components/SeasonalArrears.tsx": {
   "internal": 4,
@@ -331,9 +331,9 @@
  },
  "src/pages/Admin.tsx": {
   "internal": 3,
-  "raw": 5,
+  "raw": 4,
   "monoProse": 9,
-  "apiProse": 4
+  "apiProse": 2
  },
  "src/pages/Analytics.tsx": {
   "internal": 0,
