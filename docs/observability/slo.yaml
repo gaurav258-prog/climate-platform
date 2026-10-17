@@ -22,12 +22,12 @@ slos:
     budget_seconds: 1.0                                      # matches settings.SLO_LATENCY_BUDGET_S
     objective: 0.99                                          # 99% within budget
 
-  # Targets tracked from the latency histogram (http_request_duration_seconds) per surface:
-  latency_targets:
-    any_address_score:   { p95_s: 3.0,  p99_s: 6.0 }         # interactive scoring must feel instant
-    api_read:            { p95_s: 0.4 }
-    filing_export:       { p95_s: 10.0 }
-    async_hazard_jobs:   best_effort: true                   # CDS/FIRMS provider-latency-bound — no hard SLA
+# Targets tracked from the latency histogram (http_request_duration_seconds) per surface:
+latency_targets:
+  any_address_score:   { p95_s: 3.0,  p99_s: 6.0 }         # interactive scoring must feel instant
+  api_read:            { p95_s: 0.4 }
+  filing_export:       { p95_s: 10.0 }
+  async_hazard_jobs:   { best_effort: true }               # CDS/FIRMS provider-latency-bound — no hard SLA
 
 recovery:
   rto_hours: 4                # normal; 1h during a filing window

@@ -1,0 +1,40 @@
+{
+  "_about": "The presentation standard every screen of the web app must meet — the governing section of docs/DESIGN_BRIEF.md (rendered by scripts/project_docs/design.py) and a requirement in docs/PRODUCT_REQUIREMENTS.md. One record, so every reader states the same rules.",
+  "stated_by": "product owner",
+  "date": "2026-10-16",
+  "recorded_from": "the product owner's instruction of 2026-10-16, relayed by the main working session",
+  "applies_to": "everything built and everything still to be built",
+  "rules": [
+    {
+      "id": "customer_language",
+      "title": "Customer language only",
+      "rule": "Only external-facing, customer language on screen.",
+      "not_on_screen": [
+        "internal keys",
+        "file paths",
+        "layer or registry names",
+        "E-numbers",
+        "version strings",
+        "\"product owner's decision\"",
+        "engineering jargon (for example \"named gap\", \"append-only\")"
+      ]
+    },
+    {
+      "id": "minimal_text",
+      "title": "Little text on the main screen; detail on demand",
+      "rule": "As little text as possible on the main UI; further detail in a drill-down pop-up (Dialog or Drawer) with professionally written, structured text."
+    },
+    {
+      "id": "visual_first",
+      "title": "Visual first",
+      "rule": "As much visual representation as possible on the main UI.",
+      "examples": ["charts", "maps", "chips", "gauges", "diagrams"]
+    }
+  ],
+  "known_breaches": [
+    {
+      "route": "/loss",
+      "note": "breaks the standard and will be reworked; its text is not the house style"
+    }
+  ]
+}

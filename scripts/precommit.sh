@@ -27,6 +27,9 @@ venv/bin/python -m scripts.check_applied_migrations
 step "migration round-trip (every revision up and down, on a scratch database)"
 venv/bin/python -m scripts.check_migration_roundtrip
 
+step "project documents match the code (BACKEND_SCHEMA, TECHNICAL_REQUIREMENTS, APP_FLOW, DESIGN_BRIEF)"
+venv/bin/python -m scripts.build_project_docs --check     # schema from its own scratch build at head, never the dev database
+
 step "web build"
 (cd web && npm run build >/tmp/precommit-web.log 2>&1) || { tail -30 /tmp/precommit-web.log; exit 1; }
 
