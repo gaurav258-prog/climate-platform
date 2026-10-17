@@ -91,9 +91,11 @@ def test_the_projection_page_says_what_is_served_and_why_the_rest_is_not(api):
     body = api.get("/v1/loss/projection", headers=h).json()
     cells = {(c["scenario"], c["horizon"]): c["gap"] for c in body["flood"]}
     assert cells[("hot_house_3_5c", "2050")] is None and cells[("disorderly_2c", "2080")] is None
-    assert "RCP2.6" in cells[("orderly_1_5c", "2050")] and "2100" in cells[("hot_house_3_5c", "2100")]
+    assert cells[("orderly_1_5c", "2050")]["code"] == "loss.gap.no_projection_scenario"
+    assert "Orderly 1.5 °C" in cells[("orderly_1_5c", "2050")]["detail"]["what"]
+    assert cells[("hot_house_3_5c", "2100")]["code"] == "loss.gap.no_projection_year"
     assert body["licence"] == "CC BY 4.0" and len(body["models"]) == 5
-    assert body["storm"] == "no published projection of storm intensity is registered"
+    assert body["storm"]["code"] == "loss.gap.no_projection_peril" and body["storm"]["label"] == "No projection for this hazard"
 
 
 def test_a_projected_run_carries_the_same_sources_today(api):

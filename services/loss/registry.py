@@ -111,6 +111,8 @@ def check() -> list[str]:
             out.append(f"layer {k}: in use without a passed test")
         if not L.get("licence") and not L.get("licence_status"):
             out.append(f"layer {k}: neither a licence nor its verification status")
+        if not L.get("name") or "_" in L["name"]:
+            out.append(f"layer {k}: a customer name is required (UI standard)")
         if L.get("replaces"):
             if L["replaces"] not in layers() or layers()[L["replaces"]]["peril"] != L["peril"]:
                 out.append(f"layer {k}: replaces '{L['replaces']}', which is not a registered layer of the same peril")

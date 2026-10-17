@@ -497,12 +497,6 @@
   "monoProse": 2,
   "apiProse": 1
  },
- "src/pages/Loss.tsx": {
-  "internal": 1,
-  "raw": 7,
-  "monoProse": 1,
-  "apiProse": 5
- },
  "src/pages/ModelRisk.tsx": {
   "internal": 0,
   "raw": 3,

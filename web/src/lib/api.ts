@@ -26,6 +26,14 @@ export function apiMessage(e: unknown, fallback: string): string {
   return pick(b?.error) ?? pick(b?.detail) ?? b?.message ?? fallback
 }
 
+/** The structured detail behind a refused request's message (core/errors.py: {error: {error, message, detail}}), if any. */
+export function apiDetail(e: unknown): { what?: string; why?: string; next?: string } | null {
+  if (!(e instanceof ApiError)) return null
+  const b = e.body as { error?: { detail?: unknown } } | null
+  const d = b && typeof b === 'object' ? b.error?.detail : null
+  return d && typeof d === 'object' ? d as { what?: string; why?: string; next?: string } : null
+}
+
 // The server's own reason, whichever shape it arrives in ({error: {message}}, {message}, {detail: {message} | string})
 // — a person sees why, never just a status code.
 function reasonOf(body: unknown): string | null {

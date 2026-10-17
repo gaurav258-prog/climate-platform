@@ -4,7 +4,7 @@ interface Bar { label: string; value: number; color?: string; sub?: string }
 
 // Horizontal bar chart — bars scaled to the max value. Good for "exposure by hazard".
 // Pass onBar to make each row clickable (drill into what the bar is made of).
-export function HBar({ data, format, height = 22, onBar }: { data: Bar[]; format: (n: number) => string; height?: number; onBar?: (i: number) => void }) {
+export function HBar({ data, format, height = 22, onBar, labelWidth = 'w-32' }: { data: Bar[]; format: (n: number) => string; height?: number; onBar?: (i: number) => void; labelWidth?: string }) {
   const max = Math.max(1, ...data.map(d => Math.abs(d.value)))
   const Row = onBar ? 'button' : 'div'
   return (
@@ -12,7 +12,7 @@ export function HBar({ data, format, height = 22, onBar }: { data: Bar[]; format
       {data.map((d, i) => (
         <Row key={i} {...(onBar ? { onClick: () => onBar(i) } : {})}
           className={`flex items-center gap-2 w-full text-left ${onBar ? 'group cursor-pointer' : ''}`}>
-          <div className={`w-32 shrink-0 text-[11.5px] truncate text-right ${onBar ? 'text-[var(--color-mute)] group-hover:text-[var(--color-sky)]' : 'text-[var(--color-mute)]'}`}>{d.label}</div>
+          <div className={`${labelWidth} shrink-0 text-[11.5px] truncate text-right ${onBar ? 'text-[var(--color-mute)] group-hover:text-[var(--color-sky)]' : 'text-[var(--color-mute)]'}`}>{d.label}</div>
           <div className="flex-1 relative rounded" style={{ height, background: 'var(--color-panel-2)' }}>
             <div className="absolute inset-y-0 left-0 rounded" style={{ width: `${Math.max(2, (Math.abs(d.value) / max) * 100)}%`, background: d.color ?? 'var(--color-sky)', opacity: 0.85 }} />
             <div className="absolute inset-0 flex items-center justify-between px-2 text-[10.5px] mono" style={{ color: 'var(--color-ink)' }}>

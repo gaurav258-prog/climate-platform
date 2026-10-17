@@ -1,346 +1,612 @@
 {
  "api/deps.py": {
   "display": 3,
-  "error": 0
+  "error": 0,
+  "rawError": 0
+ },
+ "api/routers/admin.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 7
  },
  "api/routers/approvals.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "api/routers/auth.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
+ },
+ "api/routers/auth_user.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/board_pack.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/calc_settings.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/contracts.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/controls.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
  },
  "api/routers/decisions.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 4
+ },
+ "api/routers/eet.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/entity_structure.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 6
+ },
+ "api/routers/esrs.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/eudr.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 7
+ },
+ "api/routers/filings.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 26
  },
  "api/routers/funds.py": {
   "display": 1,
-  "error": 4
+  "error": 4,
+  "rawError": 0
  },
  "api/routers/geo.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "api/routers/gl.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
+ },
+ "api/routers/grc_followups.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/growth.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/insurance.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/insurer_documents.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
  },
  "api/routers/intake_batches.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 3
+ },
+ "api/routers/intake_facts.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/model_risk.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/onboarding_intake.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/packages.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 4
+ },
+ "api/routers/passkeys_esign.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 4
+ },
+ "api/routers/periods.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 3
+ },
+ "api/routers/prior_filings.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 7
  },
  "api/routers/provided.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 2
  },
  "api/routers/realized.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
+ },
+ "api/routers/reference_releases.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 4
+ },
+ "api/routers/reg_changes.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/reg_tasks.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 10
+ },
+ "api/routers/regspec.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
+ },
+ "api/routers/remittance.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 3
+ },
+ "api/routers/security_admin.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
+ },
+ "api/routers/sfdr_documents.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
  },
  "api/routers/source_systems.py": {
   "display": 1,
-  "error": 2
+  "error": 2,
+  "rawError": 0
+ },
+ "api/routers/sso_scim.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 4
+ },
+ "api/routers/supervisor.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 8
+ },
+ "api/routers/supervisory_access.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
  },
  "api/routers/supply.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 7
+ },
+ "api/routers/transmission.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 5
  },
  "api/services/intake_http.py": {
   "display": 3,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "api/services/rbac.py": {
   "display": 0,
-  "error": 3
+  "error": 3,
+  "rawError": 0
  },
  "services/calc_settings.py": {
   "display": 10,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/calibration/crop_weather.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/calibration/publish.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/data/feeds.py": {
   "display": 14,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/eet/share_classes.py": {
   "display": 0,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/eudr/records.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/eudr/trade.py": {
   "display": 0,
-  "error": 3
+  "error": 3,
+  "rawError": 0
  },
  "services/governance/client_onboarding.py": {
   "display": 0,
-  "error": 3
+  "error": 3,
+  "rawError": 0
  },
  "services/governance/config_governance.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/data_dictionary.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/entities.py": {
   "display": 0,
-  "error": 7
+  "error": 7,
+  "rawError": 0
  },
  "services/governance/entity_extraction.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/entity_structure_import.py": {
   "display": 0,
-  "error": 4
+  "error": 4,
+  "rawError": 0
  },
  "services/governance/esrs_comparatives.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/esrs_document.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/filing_annex.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/filing_variance.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/filings.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/gl_recon.py": {
   "display": 3,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/ifrs_s2_incurred.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/kri.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
+ },
+ "services/governance/kri_esrs.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
  },
  "services/governance/onboarding.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/pillar3_grids.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/provided_data.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/readiness.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/record_retention.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/report_snapshots.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/seasonal_arrears.py": {
   "display": 3,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/governance/signup.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/solvency2_natcat.py": {
   "display": 1,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/sso.py": {
   "display": 0,
-  "error": 3
+  "error": 3,
+  "rawError": 0
  },
  "services/governance/tasks.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/governance/tenant_provisioning.py": {
   "display": 0,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/ingest/bank_counterparties.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/ingest/eudr_sectors.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/ingest/filing_import.py": {
   "display": 0,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/ingest/sector_contract.py": {
   "display": 0,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/ingest/sector_ingest.py": {
   "display": 0,
-  "error": 10
+  "error": 10,
+  "rawError": 0
  },
  "services/ingest/templates.py": {
   "display": 5,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intake/catalog.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intake/inbox.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/intake/money.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
+ },
+ "services/intake/pipeline.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 2
  },
  "services/intake/storage.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/intelligence/forward_risk.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/price_index.py": {
   "display": 3,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/realized_exposure.py": {
   "display": 3,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/resilience_capex.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/resourcing.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/site_interruption.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/supply_concentration.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/taxonomy_adaptation.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/intelligence/underwriting_review.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/loss/projection_check.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/loss/registry.py": {
   "display": 0,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/mlops/model_governance.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/money/params.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/reference/carbon_price.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/reference/client_fx.py": {
   "display": 0,
-  "error": 4
+  "error": 4,
+  "rawError": 0
  },
  "services/reference/eurostat_crops.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/reference/eurostat_regional.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/reference/faostat_crops.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/reference/fas_psd.py": {
   "display": 1,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/reference/fx.py": {
   "display": 4,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/reference/imf_fx.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  },
  "services/reference/nass_county.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/reference/nass_quickstats.py": {
   "display": 1,
-  "error": 3
+  "error": 3,
+  "rawError": 0
  },
  "services/reference/statcan_crops.py": {
   "display": 1,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/scoring/combined_var.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/scoring/loan_transition.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
  },
  "services/scoring/portfolio_concentration.py": {
   "display": 2,
-  "error": 0
+  "error": 0,
+  "rawError": 0
+ },
+ "services/seismic_api.py": {
+  "display": 0,
+  "error": 0,
+  "rawError": 1
  },
  "services/supervision/levels.py": {
   "display": 0,
-  "error": 2
+  "error": 2,
+  "rawError": 0
  },
  "services/tasks/worker_guard.py": {
   "display": 0,
-  "error": 1
+  "error": 1,
+  "rawError": 0
  }
 }

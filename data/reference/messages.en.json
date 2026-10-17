@@ -1,0 +1,223 @@
+{
+ "_about": "Customer words for every message the server sends to a screen (UI standard, product owner 2026-10-16): a short label for the main screen and a structured detail — what it means, why, what to do next — for its pop-up. Read by core/messages.py; values fill {placeholders}.",
+ "messages": {
+  "error.unexpected": {
+   "status": 500,
+   "label": "Something went wrong",
+   "detail": {
+    "what": "The request could not be completed.",
+    "next": "Try again. If it keeps happening, raise a request in Support and say when it happened."
+   }
+  },
+  "error.not_found": {
+   "status": 404,
+   "label": "Not found",
+   "detail": {
+    "what": "What you asked for does not exist, or your organisation cannot see it."
+   }
+  },
+  "error.forbidden": {
+   "status": 403,
+   "label": "Not permitted for your role",
+   "detail": {
+    "what": "Your role does not include this action.",
+    "next": "Ask an administrator in your organisation."
+   }
+  },
+  "error.invalid": {
+   "status": 422,
+   "label": "Please check what you entered",
+   "detail": {
+    "what": "{what}"
+   }
+  },
+  "loss.gap.no_location": {
+   "label": "No location",
+   "detail": {
+    "what": "The asset has no coordinates, so no hazard can be read at it.",
+    "next": "Add the asset's latitude and longitude in Your data."
+   }
+  },
+  "loss.gap.not_read": {
+   "label": "Hazard not read here yet",
+   "detail": {
+    "what": "The {map} have not been read at this location yet.",
+    "next": "Run losses again — a run reads any new location first."
+   }
+  },
+  "loss.gap.outside_map": {
+   "label": "Outside the hazard map",
+   "detail": {
+    "what": "The location lies outside the area the {map} cover."
+   }
+  },
+  "loss.gap.no_curves_chosen": {
+   "label": "No damage curves chosen",
+   "detail": {
+    "what": "Your organisation has not chosen the damage curves for {peril} losses.",
+    "next": "Choose them in Settings → Methodology."
+   }
+  },
+  "loss.gap.curves_not_usable": {
+   "label": "Chosen curves not usable yet",
+   "detail": {
+    "what": "The damage curves chosen for {peril} do not yet match the hazard data the platform holds.",
+    "next": "Choose another family of curves in Settings → Methodology, or wait for the platform to support these."
+   }
+  },
+  "loss.gap.use_unknown": {
+   "label": "Building use not stated",
+   "detail": {
+    "what": "The building's use (residential, commercial or industrial) is not stated, and the asset type '{type}' does not settle it.",
+    "next": "State the building use in Your data."
+   }
+  },
+  "loss.gap.use_and_type_unknown": {
+   "label": "Building use not stated",
+   "detail": {
+    "what": "Neither the building's use nor the asset's type is stated.",
+    "next": "State the building use in Your data."
+   }
+  },
+  "loss.gap.country_missing": {
+   "label": "Country not stated",
+   "detail": {
+    "what": "The asset's country is not stated, and damage curves are chosen by country.{hint}",
+    "next": "State the country in Your data."
+   }
+  },
+  "loss.gap.country_group": {
+   "label": "Country is a group, not a country",
+   "detail": {
+    "what": "Your data states '{stated}', a group of countries; damage curves are chosen by country.{hint}",
+    "next": "State the asset's own country in Your data."
+   }
+  },
+  "loss.gap.no_curve": {
+   "label": "No curve for this use and country",
+   "detail": {
+    "what": "The chosen damage curves include no {use} curve for {country}.",
+    "why": "The publisher did not publish one for this region."
+   }
+  },
+  "loss.gap.no_building_value": {
+   "label": "Building value not stated",
+   "detail": {
+    "what": "The building's own value (land excluded) is not stated.",
+    "why": "A damage curve gives a share of the building's value; a market or appraised value includes the land, so it is never used instead.",
+    "next": "Add the building value in Your data."
+   }
+  },
+  "loss.gap.not_a_building": {
+   "label": "Not a building",
+   "detail": {
+    "what": "A holding is a share in a company, not a building, so no building damage curve applies to it."
+   }
+  },
+  "loss.gap.site_value_not_stated": {
+   "label": "Site value not stated",
+   "detail": {
+    "what": "The site's building value is not stated; its annual value is a flow, not what the building is worth.",
+    "next": "Add the building value in Your data."
+   }
+  },
+  "loss.gap.asset_value_not_stated": {
+   "label": "Asset value not stated",
+   "detail": {
+    "what": "The asset's value is not stated.",
+    "next": "Add it in Your data."
+   }
+  },
+  "loss.gap.no_damage_range": {
+   "label": "No damage range at this depth",
+   "detail": {
+    "what": "The damage curve publishes no range at a depth of {depth} m."
+   }
+  },
+  "loss.gap.no_projection_peril": {
+   "label": "No projection for this hazard",
+   "detail": {
+    "what": "No published projection of {peril} is available yet, so only today's figure exists."
+   }
+  },
+  "loss.gap.no_projection_scenario": {
+   "label": "No map for this scenario",
+   "detail": {
+    "what": "The flood projections the platform uses were not run for {scenario}.",
+    "why": "The publisher ran two warming pathways only."
+   }
+  },
+  "loss.gap.no_projection_year": {
+   "label": "No map for this year",
+   "detail": {
+    "what": "The flood projections the platform uses publish no map for {year}; their last period, 2060–2099, is offered as 2080."
+   }
+  },
+  "loss.protection.level": {
+   "label": "Defended to 1-in-{years} years",
+   "detail": {
+    "what": "Local flood defences here are designed for the 1-in-{years}-year river flood. Losses from more frequent floods are set to zero.",
+    "why": "Source: the JRC map of estimated flood-protection standards in Europe."
+   }
+  },
+  "loss.protection.not_read": {
+   "label": "Protection unknown",
+   "detail": {
+    "what": "The flood-protection map has not been read at this location yet; the loss shown is undefended.",
+    "next": "Run losses again — a run reads any new location first."
+   }
+  },
+  "loss.protection.no_value": {
+   "label": "Protection unknown",
+   "detail": {
+    "what": "The flood-protection map holds no value at this location; the loss shown is undefended."
+   }
+  },
+  "loss.protection.off_map": {
+   "label": "Protection unknown",
+   "detail": {
+    "what": "The location lies outside the flood-protection map (geographical Europe except Russia, Belarus, Ukraine and the Caucasus); the loss shown is undefended."
+   }
+  },
+  "loss.protection.not_projected": {
+   "label": "No defended projection",
+   "detail": {
+    "what": "Defences are not applied to future climates yet.",
+    "why": "The projections' publisher moves protection levels with the climate, using its own protection data — a method not yet decided."
+   }
+  },
+  "loss.caution.depth_may_be_overstated": {
+   "label": "Depth may be overstated",
+   "detail": {
+    "what": "The map's publisher flags this area: depths above 10 m in small channels may come from the model or the terrain data rather than a real flood.",
+    "next": "Use this figure with care."
+   }
+  }
+ },
+ "names": {
+  "peril": {
+   "flood": "river flood",
+   "storm": "tropical cyclone"
+  },
+  "scenario": {
+   "baseline": "Current policies",
+   "orderly_1_5c": "Orderly 1.5 °C",
+   "disorderly_2c": "Disorderly 2 °C",
+   "hot_house_3_5c": "Hot house 3.5 °C"
+  },
+  "family": {
+   "jrc_huizinga_2017": "JRC global damage curves (2017)",
+   "nfip_measured": "US flood claims curve (NFIP)",
+   "eberenz_2021_rmsf": "Published cyclone curves (Eberenz 2021, RMSF)",
+   "eberenz_2021_tdr": "Published cyclone curves (Eberenz 2021, TDR)"
+  },
+  "region": {
+   "united_states": "United States"
+  },
+  "standing": {
+   "published": "Tested",
+   "held": "Failed its test",
+   "untested": "Untested"
+  }
+ }
+}

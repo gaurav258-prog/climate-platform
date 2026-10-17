@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3090 table columns, 357 foreign keys, 89 unique constraints, 286 check constraints, 293 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 308 migration revisions in `core/db/migrations/versions/`, head `loss_prot_20261016`. Extensions present: plpgsql.
+The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3094 table columns, 357 foreign keys, 89 unique constraints, 287 check constraints, 293 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 309 migration revisions in `core/db/migrations/versions/`, head `loss_msg_20261017`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -28,7 +28,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Golden score layer & hazard data | 21 | 234 | 2 | 1 | 0 | 1 |
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
 | Models & validation | 9 | 118 | 4 | 1 | 1 | 3 |
-| Loss engine | 6 | 76 | 2 | 1 | 1 | 6 |
+| Loss engine | 6 | 80 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 383 | 12 | 13 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 22 | 245 | 20 | 14 | 1 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
@@ -2004,6 +2004,10 @@ Foreign keys to other domains:
 | `eal_defended_low_eur` | numeric(18,2) | yes |  |  |
 | `eal_defended_high_eur` | numeric(18,2) | yes |  |  |
 | `caution` | text | yes |  |  |
+| `gap_code` | character varying(80) | yes |  |  |
+| `gap_params` | jsonb | yes |  |  |
+| `protection_code` | character varying(60) | yes |  |  |
+| `caution_code` | character varying(60) | yes |  |  |
 
 - Primary key: (run_id, asset_kind, asset_id, peril)
 - Check `ck_loss_results_range`: `CHECK (((gap IS NOT NULL) OR ((eal_low_eur IS NOT NULL) AND (eal_high_eur IS NOT NULL) AND (eal_low_eur <= eal_eur) AND (eal_eur <= eal_high_eur))))`
@@ -2021,6 +2025,7 @@ Foreign keys to other domains:
 - Check `loss_results_eal_low_eur_check`: `CHECK ((eal_low_eur >= (0)::numeric))`
 - Check `loss_results_eal_same_source_today_eur_check`: `CHECK ((eal_same_source_today_eur >= (0)::numeric))`
 - Check `loss_results_exposed_value_eur_check`: `CHECK ((exposed_value_eur >= (0)::numeric))`
+- Check `loss_results_gap_code_with_gap`: `CHECK (((gap_code IS NULL) OR (gap IS NOT NULL)))`
 - Check `loss_results_occupancy_check`: `CHECK (((occupancy)::text = ANY ((ARRAY['residential'::character varying, 'commercial'::character varying, 'industrial'::character varying, 'transport'::character varying, 'infrastructure'::character varying, 'agriculture'::character varying])::text[])))`
 - Check `loss_results_protection_rp_years_check`: `CHECK ((protection_rp_years >= (1)::double precision))`
 - Check `loss_results_standing_check`: `CHECK (((standing)::text = ANY ((ARRAY['published'::character varying, 'held'::character varying, 'untested'::character varying])::text[])))`

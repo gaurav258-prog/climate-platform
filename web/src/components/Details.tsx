@@ -46,3 +46,22 @@ export function InfoButton({ details, label, compact, className }: {
 }
 
 export { isShort, textOf } from '../lib/brevity'
+
+// A server message (core/messages.py): its label for the screen and its structured detail for the pop-up.
+export type Message = { code?: string; label: string; detail?: { what?: string; why?: string; next?: string } | null }
+export const MESSAGE_HEADING = { what: 'What this means', why: 'Why', next: 'What you can do' } as const
+
+export function messageDetails(m: Message): Details {
+  const d = m.detail ?? {}
+  return { title: m.label, sections: (['what', 'why', 'next'] as const).filter(k => d[k]).map(k => ({ heading: MESSAGE_HEADING[k], body: d[k] })) }
+}
+
+// A message on the main screen: its short label, with the explanation one click away.
+export function MessageLine({ m, className }: { m: Message; className?: string }) {
+  return (
+    <span className={clsx('inline-flex items-center gap-1.5', className)}>
+      <span>{m.label}</span>
+      <InfoButton compact details={messageDetails(m)} />
+    </span>
+  )
+}

@@ -2,6 +2,7 @@
   "basis": "Hazard intensity layers in physical units by return period (E169). Each layer is a published dataset read as it is, or derived from a registered event set by a stated method; samples are stored per layer version in hazard_intensity_samples.",
   "layers": {
     "jrc_river_flood": {
+      "name": "JRC global river-flood maps",
       "peril": "flood",
       "metric": "water_depth",
       "unit": "m",
@@ -27,6 +28,7 @@
       "licence_status": "to verify against the JRC data catalogue entry before customer-facing use"
     },
     "storm_v4_wind": {
+      "name": "STORM tropical-cyclone wind maps",
       "peril": "storm",
       "metric": "max_sustained_wind_10min",
       "unit": "m/s",
@@ -52,6 +54,7 @@
       "domain_note": "STORM's basins run 'with lat boundaries set at 60 N/S' (SELECT_BASIN.py, line 92) with no extratropical transition, and its tracks reach Europe more often than observed ones (Madrid: 15% of simulated years within 400 km against 3 of 46 observed seasons, 2026-10-06): a loss is computed only where an adopted cyclone curve covers the country"
     },
     "jrc_flood_30m": {
+      "name": "30 m flood refinement",
       "peril": "flood",
       "metric": "water_depth",
       "unit": "m",
@@ -325,6 +328,7 @@
       }
     },
     "aqueduct_river_flood": {
+      "name": "WRI Aqueduct flood projections",
       "peril": "flood",
       "metric": "water_depth",
       "unit": "m",
@@ -490,6 +494,7 @@
       }
     },
     "jrc_river_flood_europe": {
+      "name": "JRC European river-flood maps",
       "peril": "flood",
       "metric": "water_depth",
       "unit": "m",
@@ -623,6 +628,7 @@
   },
   "protection_layers": {
     "jrc_flood_protection_europe": {
+      "name": "JRC flood-protection map",
       "peril": "flood",
       "metric": "design_return_period",
       "unit": "years",

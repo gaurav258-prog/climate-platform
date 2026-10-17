@@ -73,8 +73,9 @@ def test_every_missing_input_is_a_named_gap(session_rolled_back, monkeypatch):
     _asset(s, org)
     _flood_samples(s)
     r = _results(s, engine.run(s, org, "realestate")["run_id"])
-    assert r["flood"]["gap"] == "no flood damage-curve family adopted (stated method)" and r["flood"]["eal_eur"] is None
-    assert "has not been sampled" in r["storm"]["gap"] or "storm" in r["storm"]["gap"]
+    assert r["flood"]["gap_code"] == "loss.gap.no_curves_chosen" and r["flood"]["eal_eur"] is None
+    assert r["flood"]["gap"] == "No damage curves chosen" and r["flood"]["gap_params"] == {"peril": "river flood"}
+    assert r["storm"]["gap_code"] in ("loss.gap.not_read", "loss.gap.outside_map", "loss.gap.no_curves_chosen")
     s.execute(text("""UPDATE org_calc_settings SET interpretation = interpretation || '{"loss_curve_family_flood": "nfip_measured"}'
                       WHERE org_id = CAST(:o AS uuid)"""), {"o": org})
     _asset(s, org, occ=None, type="logistics", lat=LAT + 0.001)
@@ -85,12 +86,14 @@ def test_every_missing_input_is_a_named_gap(session_rolled_back, monkeypatch):
     _flood_samples(s, lat=LAT + 0.003)
     _asset(s, org, country="EU", lat=LAT + 0.004)
     _flood_samples(s, lat=LAT + 0.004)
-    gaps = {g for (g,) in s.execute(text("""SELECT gap FROM loss_results WHERE run_id = CAST(:r AS uuid) AND peril = 'flood'"""),
-                                    {"r": engine.run(s, org, "realestate")["run_id"]}).all()}
-    assert "no occupancy stated, and the asset type 'logistics' does not determine one" in gaps
-    assert "nfip_measured has no residential curve for ES" in gaps
-    assert "the building's own value is not stated (the property value includes the land)" in gaps
-    assert "the book states 'EU', which is not a country — a curve is chosen by country (its coordinates are in US)" in gaps
+    gaps = {(c, json.dumps(p, sort_keys=True)) for (c, p) in s.execute(text("""SELECT gap_code, gap_params FROM loss_results
+        WHERE run_id = CAST(:r AS uuid) AND peril = 'flood'"""), {"r": engine.run(s, org, "realestate")["run_id"]}).all()}
+    codes = {c for c, _p in gaps}
+    assert ("loss.gap.use_unknown", json.dumps({"type": "logistics"})) in gaps
+    assert ("loss.gap.no_curve", json.dumps({"country": "Spain", "use": "residential"})) in gaps
+    assert "loss.gap.no_building_value" in codes
+    assert ("loss.gap.country_group", json.dumps({"hint": " Its coordinates are in United States.", "stated": "EU"},
+                                                  sort_keys=True)) in gaps
 
 
 def test_a_us_home_on_a_flooded_cell_gets_a_range_with_its_standing(session_rolled_back):
@@ -175,7 +178,7 @@ def test_a_projection_reads_the_middle_model_and_the_same_sources_today(session_
     assert len(model_eal) == 5 and float(f["eal_eur"]) == sorted(model_eal.values())[2]      # the middle model
     assert float(f["eal_low_eur"]) <= min(model_eal.values()) and float(f["eal_high_eur"]) >= max(model_eal.values())
     assert float(f["eal_same_source_today_eur"]) < float(f["eal_eur"])                      # deeper water than today
-    assert r["storm"]["gap"] == "no published projection of storm intensity is registered"
+    assert r["storm"]["gap_code"] == "loss.gap.no_projection_peril" and r["storm"]["gap"] == "No projection for this hazard"
     run = s.execute(text("SELECT inputs FROM loss_runs WHERE run_id = CAST(:r AS uuid)"), {"r": out["run_id"]}).scalar()
     assert run["layers"]["flood"]["pathway"] == "rcp8p5" and run["layers"]["flood"]["period"] == "2050"
 
@@ -185,9 +188,9 @@ def test_a_scenario_or_horizon_the_source_does_not_publish_is_a_named_gap(sessio
     org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
     _asset(s, org)
     r = _results(s, engine.run(s, org, "realestate", "orderly_1_5c", "2050")["run_id"])["flood"]
-    assert "ran no RCP2.6" in r["gap"]
+    assert r["gap_code"] == "loss.gap.no_projection_scenario" and r["gap_params"] == {"scenario": "Orderly 1.5 °C"}
     r = _results(s, engine.run(s, org, "realestate", "disorderly_2c", "2100")["run_id"])["flood"]
-    assert "publishes no flood map for 2100" in r["gap"]
+    assert r["gap_code"] == "loss.gap.no_projection_year" and r["gap_params"] == {"year": "2100"}
     with pytest.raises(ValueError):
         engine.run(s, org, "realestate", "baseline", "2050")
     with pytest.raises(ValueError):

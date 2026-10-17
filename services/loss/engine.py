@@ -39,7 +39,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.loss import curves, protection, registry
+from services.loss import curves, gaps, protection, registry
 
 ENGINE_VERSION = "loss-v1"
 LAYERS = {"flood": "jrc_river_flood", "storm": "storm_v4_wind"}
@@ -107,24 +107,20 @@ def standing(family: dict, country: str, curve: Optional[dict] = None) -> str:
 
 
 # Where each book states the BUILDING's own value (land excluded) — what a building damage curve's share is taken of —
-# and, where it cannot, why not. A market, appraised or position value is never read as a building value.
+# and, where it cannot, the message saying why not. A market, appraised or position value is never read as one.
 _BUILDING_VALUE = {
-    "banking": ("LEFT JOIN ext_banking x ON x.entity_id = e.entity_id", "x.building_value_eur",
-                "the collateral building's own value is not stated (the appraised value includes the land)"),
-    "insurance": ("LEFT JOIN ext_insurance x ON x.entity_id = e.entity_id", "x.building_value_eur",
-                  "the policy states no building value (its insured value is not broken into buildings, contents and interruption)"),
-    "realestate": ("LEFT JOIN ext_realestate x ON x.entity_id = e.entity_id", "x.building_value_eur",
-                   "the building's own value is not stated (the property value includes the land)"),
-    "assetmgmt": ("", "NULL", "a holding is a share in a company, not a building: it has no building value"),
-    "insurer_investments": ("", "NULL", "a holding is a share in a company, not a building: it has no building value"),
+    "banking": ("LEFT JOIN ext_banking x ON x.entity_id = e.entity_id", "x.building_value_eur", "loss.gap.no_building_value"),
+    "insurance": ("LEFT JOIN ext_insurance x ON x.entity_id = e.entity_id", "x.building_value_eur", "loss.gap.no_building_value"),
+    "realestate": ("LEFT JOIN ext_realestate x ON x.entity_id = e.entity_id", "x.building_value_eur", "loss.gap.no_building_value"),
+    "assetmgmt": ("", "NULL", "loss.gap.not_a_building"),
+    "insurer_investments": ("", "NULL", "loss.gap.not_a_building"),
 }
 
 
 def _assets(session: Session, org_id: str, book: str) -> list[dict]:
     if book == "company_sites":
         return [{**dict(r), "asset_kind": "company_site", "value": None, "building_value": None,
-                 "no_building_value": "the site's building value is not stated (its annual value is a flow, not what the "
-                                      "building is worth)", "table": "sc_company_sites.site_type"}
+                 "no_building_value": "loss.gap.site_value_not_stated", "table": "sc_company_sites.site_type"}
                 for r in session.execute(text("""
                     SELECT site_id::text AS asset_id, latitude, longitude, country, occupancy, site_type AS asset_type
                     FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)"""), {"o": org_id}).mappings()]
@@ -139,16 +135,16 @@ def _assets(session: Session, org_id: str, book: str) -> list[dict]:
                 {"o": org_id, "b": book}).mappings()]
 
 
-def _value_for(asset: dict, family: dict) -> tuple[Optional[float], str]:
-    """(the value the family's ratio is a share of, or None; the reason when None)."""
+def _value_for(asset: dict, family: dict) -> tuple[Optional[float], Optional[str]]:
+    """(the value the family's ratio is a share of, or None; the message code of the reason when None)."""
     basis = family.get("damage_basis") or "building"
     if basis == "building":
         v = asset.get("building_value")
-        return (v, "") if v and v > 0 else (None, asset["no_building_value"])
+        return (v, None) if v and v > 0 else (None, asset["no_building_value"])
     if basis == "asset_value":
         v = asset.get("value")
-        return (v, "") if v and v > 0 else (None, "the asset's value is not stated")
-    return None, f"the family's damage basis '{basis}' is not one the books state"
+        return (v, None) if v and v > 0 else (None, "loss.gap.asset_value_not_stated")
+    return None, "loss.gap.curves_not_usable"
 
 
 @lru_cache(maxsize=1)
@@ -162,43 +158,31 @@ def _countries() -> frozenset[str]:
         s.close()
 
 
-def _country_gap(session: Session, asset: dict, country: str) -> str:
-    """Why the asset has no country a curve can be chosen by — with the country its coordinates fall in as a hint,
-    never as a substitute for what the book states."""
-    from services.intake.observations import _country_from_location
-    where = _country_from_location(session, asset)
-    hint = f" (its coordinates are in {where})" if where else ""
-    if not country:
-        return f"the asset's country is not stated{hint}"
-    return f"the book states '{country}', which is not a country — a curve is chosen by country{hint}"
-
-
 def _resolve(session: Session, asset: dict, peril: str, family_key: Optional[str], base: dict):
     """Steps 2–5: (base, None) with base['gap'] set, or (base, {family, curve, value, country})."""
     if not family_key:
-        return {**base, "gap": f"no {peril} damage-curve family adopted (stated method)"}, None
+        return {**base, **gaps.gap("loss.gap.no_curves_chosen", peril=gaps.peril_name(peril))}, None
     family = curves.families().get(family_key)
-    if family is None:
-        why = "; ".join(curves.refused().get(family_key, ["not registered"]))
-        return {**base, "gap": f"the adopted family {family_key} cannot be used: {why}"}, None
-    occ, why = registry.occupancy_of(asset.get("occupancy"), asset["table"], asset.get("asset_type"))
+    if family is None:             # registered but refused (curves.refused() says why, for the methods page)
+        return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}, None
+    occ, _why = registry.occupancy_of(asset.get("occupancy"), asset["table"], asset.get("asset_type"))
     if occ is None:
-        return {**base, "gap": why}, None
+        return {**base, **gaps.occupancy(asset.get("asset_type"))}, None
     base = {**base, "occupancy": occ}
     country = (asset.get("country") or "").strip().upper()
     if country not in _countries():
-        return {**base, "gap": _country_gap(session, asset, country)}, None
+        return {**base, **gaps.country(session, asset, country)}, None
     curve = curves.curve_for(family_key, occ, country)
     if curve is None:
-        return {**base, "gap": f"{family_key} has no {occ} curve for {country or 'an unknown country'}"}, None
+        return {**base, **gaps.gap("loss.gap.no_curve", use=occ, country=gaps.country_name(country))}, None
     base = {**base, "curve_key": curve["key"]}
     value, why = _value_for(asset, family)
     if value is None:
-        return {**base, "gap": why}, None
+        return {**base, **gaps.gap(why)}, None
     return {**base, "exposed_value_eur": value}, {"family": family, "curve": curve, "value": value, "country": country}
 
 
-def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tuple[Optional[dict], Optional[str]]:
+def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tuple[Optional[dict], Optional[dict]]:
     """Step 6 per return period: {rp: (low, central, high)}, or the gap that stopped it."""
     rows = {}
     for rp, r in sorted(s.items()):
@@ -211,7 +195,7 @@ def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tu
             try:
                 lo, hi = _band_at(curve, depth, central)
             except ValueError:
-                return None, f"{curve['key']} has no damage range at {depth:.2f} m"
+                return None, gaps.gap("loss.gap.no_damage_range", depth=f"{depth:.2f}")
             rows[rp] = (value * share * min(lo, central), value * share * central, value * share * max(hi, central))
         else:
             ratio = curves.ratio(curve["points"], float(r["value"] or 0.0))
@@ -224,14 +208,6 @@ def _summary(rows: dict) -> dict:
     return {"eal_eur": round(eal(central), 2), "eal_low_eur": round(eal(low), 2), "eal_high_eur": round(eal(high), 2),
             "loss_at_rp": {str(rp): {"low": round(low[rp], 2), "central": round(central[rp], 2), "high": round(high[rp], 2)}
                            for rp in sorted(rows)}}
-
-
-def _intensity_gap(s: dict, layer_key: str, version: str, what: str = "") -> Optional[str]:
-    if not s:
-        return f"{layer_key} {version}{what} has not been sampled at this location yet"
-    if any(r["status"] != "sampled" for r in s.values()):
-        return f"outside the coverage of {layer_key} {version}"
-    return None
 
 
 def replacement(peril: str, country: str) -> Optional[str]:
@@ -259,11 +235,11 @@ def _present_samples(session: Session, asset: dict, peril: str, lat: float, lon:
 
 def _defences(session: Session, lat: float, lon: float, rows: dict) -> dict:
     """Step 8: the defended figure beside the undefended one, or the reason there is none."""
-    rp, basis = protection.at(session, lat, lon)
+    rp, code = protection.at(session, lat, lon)
     if rp is None:
-        return {"protection_basis": basis}
+        return gaps.protection(code)
     low, central, high = ({k: v[i] for k, v in rows.items()} for i in range(3))
-    return {"protection_rp_years": rp, "protection_basis": basis,
+    return {"protection_rp_years": rp, **gaps.protection(code, rp),
             "eal_defended_eur": round(protection.defended_eal(central, rp), 2),
             "eal_defended_low_eur": round(protection.defended_eal(low, rp), 2),
             "eal_defended_high_eur": round(protection.defended_eal(high, rp), 2)}
@@ -273,37 +249,29 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     """One asset and peril through the decision tree, today's climate (no database writes)."""
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
     if asset.get("latitude") is None or asset.get("longitude") is None:
-        return {**base, "gap": "the asset has no location"}
+        return {**base, **gaps.gap("loss.gap.no_location")}
     lat, lon = float(asset["latitude"]), float(asset["longitude"])
     layer_key, version, s = _present_samples(session, asset, peril, lat, lon)
     if peril == "flood":
         base["flood_layer"] = layer_key
-    why = _intensity_gap(s, layer_key, version)
+    why = gaps.intensity(s, layer_key)
     if why:
-        return {**base, "gap": why}
+        return {**base, **why}
     base, ctx = _resolve(session, asset, peril, family_key, base)
     if ctx is None:
         return base
     rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
     if rows is None:
-        return {**base, "gap": why}
+        return {**base, **why}
     out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows)}
     if peril == "flood":
-        out.update(_defences(session, lat, lon, rows), caution=next((r["caution"] for r in s.values() if r["caution"]), None))
+        out.update(_defences(session, lat, lon, rows), **gaps.caution(any(r["caution"] for r in s.values())))
     return out
 
 
-def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[str]:
-    """Why a projected run has no figure for this peril, scenario and horizon — or None when the source serves it."""
-    if peril != "flood":
-        return f"no published projection of {peril} intensity is registered"
-    use = registry.layer(PROJECTED_FLOOD)["use"]
-    if use["scenario_map"].get(scenario) is None:
-        return (f"no published flood projection for {scenario}: the projection source (WRI Aqueduct Floods) ran no "
-                "RCP2.6, so a 1.5 °C pathway has no map")
-    if use["horizon_map"].get(horizon) is None:
-        return f"the projection source publishes no flood map for {horizon}: its last period is 2060–2099, offered as 2080"
-    return None
+def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[dict]:
+    """Why a projected run has no figure for this peril, scenario and horizon (a gap's fields) — or None."""
+    return gaps.projection(peril, scenario, horizon, registry.layer(PROJECTED_FLOOD)["use"])
 
 
 def assess_projected(session: Session, asset: dict, peril: str, family_key: Optional[str], scenario: str,
@@ -315,16 +283,16 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
     why = projection_gap(peril, scenario, horizon)
     if why:
-        return {**base, "gap": why}
+        return {**base, **why}
     if asset.get("latitude") is None or asset.get("longitude") is None:
-        return {**base, "gap": "the asset has no location"}
+        return {**base, **gaps.gap("loss.gap.no_location")}
     L = registry.layer(PROJECTED_FLOOD)
     lat, lon = float(asset["latitude"]), float(asset["longitude"])
     today_v = {"scenario": L["present"]["scenario"], "period": L["present"]["year"], "climate_model": L["present"]["model"]}
     today = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon, today_v)
-    why = _intensity_gap(today, PROJECTED_FLOOD, L["version"], " (present day)")
+    why = gaps.intensity(today, PROJECTED_FLOOD)
     if why:
-        return {**base, "gap": why}
+        return {**base, **why}
     base, ctx = _resolve(session, asset, peril, family_key, base)
     if ctx is None:
         return base
@@ -333,21 +301,21 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
     for m in L["models"]:
         s = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon,
                      {"scenario": pathway, "period": period, "climate_model": m})
-        why = _intensity_gap(s, PROJECTED_FLOOD, L["version"], f" ({pathway}, {m}, {period})")
+        why = gaps.intensity(s, PROJECTED_FLOOD)
         if why:
-            return {**base, "gap": why}
+            return {**base, **why}
         rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
         if rows is None:
-            return {**base, "gap": why}
+            return {**base, **why}
         per_model[m] = _summary(rows)
     today_rows, why = _rp_figures(ctx["curve"], ctx["value"], today, peril)
     if today_rows is None:
-        return {**base, "gap": why}
+        return {**base, **why}
     ranked = sorted(per_model.values(), key=lambda x: x["eal_eur"])
     middle = ranked[len(ranked) // 2]
     rps = sorted(middle["loss_at_rp"], key=int)
     return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]),
-            "flood_layer": PROJECTED_FLOOD, "protection_basis": _PROJECTED_DEFENCES,
+            "flood_layer": PROJECTED_FLOOD, **gaps.protection("loss.protection.not_projected"),
             "eal_eur": middle["eal_eur"],
             "eal_low_eur": min(x["eal_low_eur"] for x in per_model.values()),
             "eal_high_eur": max(x["eal_high_eur"] for x in per_model.values()),
@@ -356,10 +324,6 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
                                 "high": max(x["loss_at_rp"][rp]["high"] for x in per_model.values())} for rp in rps},
             "eal_same_source_today_eur": _summary(today_rows)["eal_eur"],
             "model_eal": {m: x["eal_eur"] for m, x in per_model.items()}}
-
-
-_PROJECTED_DEFENCES = ("no defended projection: the projection source moves the protection level with the climate, "
-                       "with its own protection data (Ward et al. 2020, section 5) — not decided")
 
 
 def run(session: Session, org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
@@ -422,15 +386,18 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
             INSERT INTO loss_results (run_id, asset_kind, asset_id, peril, exposed_value_eur, occupancy, curve_key, eal_eur,
                                       eal_low_eur, eal_high_eur, standing, loss_at_rp, gap, eal_same_source_today_eur,
                                       model_eal, flood_layer, protection_rp_years, protection_basis, eal_defended_eur,
-                                      eal_defended_low_eur, eal_defended_high_eur, caution)
+                                      eal_defended_low_eur, eal_defended_high_eur, caution, gap_code, gap_params,
+                                      protection_code, caution_code)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
                     :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
                     :eal_same_source_today_eur, CAST(:model_eal AS jsonb), :flood_layer, :protection_rp_years,
-                    :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution)"""),
+                    :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution,
+                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code)"""),
             [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
               "eal_same_source_today_eur": None, "flood_layer": None, "protection_rp_years": None,
               "protection_basis": None, "eal_defended_eur": None, "eal_defended_low_eur": None,
-              "eal_defended_high_eur": None, "caution": None, **r,
+              "eal_defended_high_eur": None, "caution": None, "gap_code": None, "protection_code": None,
+              "caution_code": None, **r, "gap_params": json.dumps(r["gap_params"]) if r.get("gap_params") else None,
               "loss_at_rp": json.dumps(r["loss_at_rp"]) if r.get("loss_at_rp") else None,
               "model_eal": json.dumps(r["model_eal"]) if r.get("model_eal") else None} for r in results])
     ep = _ep_points(session, run_id, results, settings)

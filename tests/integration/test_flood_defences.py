@@ -60,7 +60,7 @@ def test_a_protected_home_carries_both_figures(jrc):
     _protection(s, rp=150.0)
     f = _results(s, engine.run(s, org, "realestate")["run_id"])["flood"]
     assert f["gap"] is None and f["flood_layer"] == "jrc_river_flood" and f["protection_rp_years"] == 150.0
-    assert "1-in-150-year river flood" in f["protection_basis"]
+    assert f["protection_code"] == "loss.protection.level" and f["protection_basis"] == "Defended to 1-in-150 years"
     for band in ("low", "central", "high"):
         losses = {int(k): v[band] for k, v in f["loss_at_rp"].items()}
         col = {"low": "eal_defended_low_eur", "central": "eal_defended_eur", "high": "eal_defended_high_eur"}[band]
@@ -74,13 +74,13 @@ def test_unknown_protection_leaves_the_undefended_figure_labelled(jrc):
     _flood_samples(s, lat=LAT, lon=LON)
     f = _results(s, engine.run(s, org, "realestate")["run_id"])["flood"]
     assert f["eal_eur"] is not None and f["eal_defended_eur"] is None
-    assert f["protection_basis"].startswith("protection unknown: the protection map has not been sampled")
+    assert f["protection_code"] == "loss.protection.not_read" and f["protection_basis"] == "Protection unknown"
     _asset(s, org, country="DE", lat=LAT + 0.01, lon=LON)
     _flood_samples(s, lat=LAT + 0.01, lon=LON)
     _protection(s, status="outside_coverage", lat=LAT + 0.01)
-    bases = {r[0] for r in s.execute(text("""SELECT protection_basis FROM loss_results WHERE run_id = CAST(:r AS uuid)
+    codes = {r[0] for r in s.execute(text("""SELECT protection_code FROM loss_results WHERE run_id = CAST(:r AS uuid)
         AND peril = 'flood' AND eal_defended_eur IS NULL"""), {"r": engine.run(s, org, "realestate")["run_id"]}).all()}
-    assert any(b.startswith("protection unknown: outside the protection map") for b in bases)
+    assert "loss.protection.off_map" in codes
 
 
 def test_the_european_maps_serve_only_once_in_use_and_where_they_reach(jrc, monkeypatch):
@@ -92,7 +92,7 @@ def test_the_european_maps_serve_only_once_in_use_and_where_they_reach(jrc, monk
     europe_maps(monkeypatch, "in_use")
     f = _results(s, engine.run(s, org, "realestate")["run_id"])["flood"]
     assert f["flood_layer"] == "jrc_river_flood_europe" and len(f["loss_at_rp"]) == 9
-    assert f["caution"] == "the publisher's caution"
+    assert f["caution_code"] == "loss.caution.depth_may_be_overstated" and f["caution"] == "Depth may be overstated"
     _asset(s, org, country="DE", lat=LAT + 0.02, lon=LON)          # off the European maps: the global maps serve
     _flood_samples(s, lat=LAT + 0.02, lon=LON)
     _europe_samples(s, lat=LAT + 0.02, status="outside_coverage")
@@ -111,7 +111,7 @@ def test_a_projection_has_no_defended_figure(jrc):
     _aqueduct_samples(s, {today: 0.5, **{("rcp8p5", "2050", m): 1.0 for m in A["models"]}}, lat=LAT, lon=LON)
     f = _results(s, engine.run(s, org, "realestate", "hot_house_3_5c", "2050")["run_id"])["flood"]
     assert f["gap"] is None and f["eal_defended_eur"] is None and f["flood_layer"] == "aqueduct_river_flood"
-    assert f["protection_basis"].startswith("no defended projection")
+    assert f["protection_code"] == "loss.protection.not_projected" and f["protection_basis"] == "No defended projection"
 
 
 def test_a_defended_figure_above_the_undefended_one_is_refused(jrc):

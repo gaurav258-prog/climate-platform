@@ -2,7 +2,9 @@
 language. An AST scan of api/ and services/ counts, per file, the strings in two places a screen shows:
   display  a value under a display key of a response or record (gap, reason, note, message, title, basis, caution,
            hint, summary, label, description, detail, headline, why, review, notice)
-  error    the message of a raised exception — 146 routers pass str(e) straight to the screen
+  error    the message of a raised exception — routers pass str(e) straight to the screen
+  rawError an exception's own text handed to the screen ({"message": str(e)}, detail=str(e)) — the technical cause
+           belongs in the log; the screen gets a catalogue message (core/errors.py UserError)
 that carry internal language (a snake_case code, an E-number, a file or API path, engineering jargon). Counts are held
 per file in tests/ui_language_backend_baseline.json, the breaches when the standard came in; the guard
 (tests/unit/test_ui_language_backend.py) fails when a file has more, and when a fix leaves fewer (lower the baseline,
@@ -37,14 +39,28 @@ def _text(node: ast.AST) -> str | None:
     return None
 
 
+def _is_str_of_exception(v: ast.AST) -> bool:
+    return (isinstance(v, ast.Call) and isinstance(v.func, ast.Name) and v.func.id == "str" and len(v.args) == 1
+            and isinstance(v.args[0], ast.Name))
+
+
+KINDS = ("display", "error", "rawError")
+
+
 def scan(path: Path) -> dict[str, int]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    out = {"display": 0, "error": 0}
+    out = dict.fromkeys(KINDS, 0)
     for n in ast.walk(tree):
         if isinstance(n, ast.Dict):
             for k, v in zip(n.keys, n.values):
                 if isinstance(k, ast.Constant) and k.value in DISPLAY and (t := _text(v)) and INTERNAL.search(t):
                     out["display"] += 1
+                if isinstance(k, ast.Constant) and k.value in ("message", "detail") and _is_str_of_exception(v):
+                    out["rawError"] += 1
+        elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "HTTPException":
+            if any(kw.arg == "detail" and _is_str_of_exception(kw.value) for kw in n.keywords) or \
+                    (len(n.args) > 1 and _is_str_of_exception(n.args[1])):
+                out["rawError"] += 1
         elif isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) and n.exc.args:
             if (t := _text(n.exc.args[0])) and INTERNAL.search(t):
                 out["error"] += 1
@@ -71,4 +87,4 @@ if __name__ == "__main__":
     got = scan_all()
     if a.write:
         BASELINE.write_text(json.dumps(got, indent=1) + "\n", encoding="utf-8")
-    print(f"{len(got)} files — display {sum(c['display'] for c in got.values())}, error {sum(c['error'] for c in got.values())}")
+    print(f"{len(got)} files —", {k: sum(c[k] for c in got.values()) for k in KINDS})

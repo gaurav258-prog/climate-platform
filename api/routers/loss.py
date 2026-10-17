@@ -18,8 +18,9 @@ router = APIRouter(prefix="/v1/loss", tags=["Loss"])
 
 
 def _family_view(key: str, f: dict) -> dict:
+    from core import messages
     t = f.get("test") or {}
-    return {"family": key, "kind": f.get("kind", "published"), "peril": f["peril"], "metric": f["metric"], "unit": f["unit"],
+    return {"family": key, "name": messages.names().get("family", {}).get(key, key), "kind": f.get("kind", "published"), "peril": f["peril"], "metric": f["metric"], "unit": f["unit"],
             "damage_basis": f.get("damage_basis"), "source": f.get("source"), "licence": f.get("licence"),
             "curves": [{"key": c["key"], "occupancy": c["occupancy"], "region": c.get("region"),
                         "countries": c["countries"], "points": c["points"], "bands": c.get("bands"),
@@ -38,7 +39,7 @@ def families(session: DbSession, ctx: dict = Depends(require_permission("modules
     from services.loss import curves
     settings = get_calc_settings(session, ctx["org"]["org_id"])
     return {"families": [_family_view(k, f) for k, f in sorted(curves.families().items())],
-            "refused": [{"family": k, "reasons": v} for k, v in sorted(curves.refused().items())],
+            "refused": [{"family": k, "name": _family_name(k), "reasons": v} for k, v in sorted(curves.refused().items())],
             "adopted": {p: settings.get(f"loss_curve_family_{p}") for p in ("flood", "storm")},
             "dependence": {"flood": settings.get("loss_flood_dependence")},
             "headline": {"flood": settings.get("loss_flood_headline")}}
@@ -57,12 +58,12 @@ def layers(session: DbSession, ctx: dict = Depends(require_permission("modules.v
         SELECT layer_key, layer_version, count(*), count(*) FILTER (WHERE status = 'sampled'),
                count(*) FILTER (WHERE status = 'no_value'), count(*) FILTER (WHERE status = 'outside_coverage')
         FROM flood_protection_samples GROUP BY 1, 2""")).all()}
-    return {"protection_layers": [{"key": k, **{f: P.get(f) for f in ("peril", "metric", "unit", "version", "source",
+    return {"protection_layers": [{"key": k, **{f: P.get(f) for f in ("name", "peril", "metric", "unit", "version", "source",
                                                                         "citation", "resolution_m", "coverage", "licence",
                                                                         "applies_to", "reads_as")},
                                    "sampled": protected.get((k, P["version"]), {"places": 0})}
                                   for k, P in registry.protection_layers().items()],
-            "layers": [{"key": k, **{f: L.get(f) for f in ("peril", "metric", "unit", "version", "source", "resolution_m",
+            "layers": [{"key": k, **{f: L.get(f) for f in ("name", "peril", "metric", "unit", "version", "source", "resolution_m",
                                                           "return_periods", "coverage", "licence", "licence_status",
                                                           "status", "refines", "replaces", "coverage_countries",
                                                           "caution", "domain_note", "adoption")},
@@ -91,11 +92,13 @@ def start_run(body: RunRequest, ctx: dict = Depends(require_permission("reports.
 def projection(ctx: dict = Depends(require_permission("modules.view"))):
     from services.loss import engine, registry
     L = registry.layer(engine.PROJECTED_FLOOD)
-    cells = [{"scenario": sc, "horizon": h, "gap": engine.projection_gap("flood", sc, h)}
-             for sc in engine.SCENARIOS if sc != "baseline" for h in engine.HORIZONS if h != "current"]
+    def cell(sc: str, h: str) -> dict:
+        g = engine.projection_gap("flood", sc, h)
+        return {"scenario": sc, "horizon": h, "gap": g and _message(g["gap_code"], g["gap_params"])}
+    cells = [cell(sc, h) for sc in engine.SCENARIOS if sc != "baseline" for h in engine.HORIZONS if h != "current"]
     return {"source": L["source"], "citation": L["citation"], "licence": L["licence"], "periods": L["periods"],
             "models": L["models"], "use": L["use"], "present_day_check": L.get("present_day_check"), "flood": cells,
-            "storm": engine.projection_gap("storm", "hot_house_3_5c", "2050")}
+            "storm": _message("loss.gap.no_projection_peril", {"peril": "tropical cyclone"})}
 
 
 @router.get("/runs", summary="This org's loss runs, newest first")
@@ -123,6 +126,7 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                CAST(lr.eal_high_eur AS FLOAT) AS eal_high_eur, lr.standing, lr.loss_at_rp, lr.gap,
                CAST(lr.eal_same_source_today_eur AS FLOAT) AS eal_same_source_today_eur, lr.model_eal,
                lr.flood_layer, lr.protection_rp_years, lr.protection_basis, lr.caution,
+               lr.gap_code, lr.gap_params, lr.protection_code, lr.caution_code,
                CAST(lr.eal_defended_eur AS FLOAT) AS eal_defended_eur,
                CAST(lr.eal_defended_low_eur AS FLOAT) AS eal_defended_low_eur,
                CAST(lr.eal_defended_high_eur AS FLOAT) AS eal_defended_high_eur,
@@ -132,10 +136,16 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
         LEFT JOIN sc_company_sites cs ON lr.asset_kind = 'company_site' AND cs.site_id = lr.asset_id
         WHERE lr.run_id = CAST(:r AS uuid) ORDER BY lr.eal_eur DESC NULLS LAST, lr.peril"""), {"r": run_id}).mappings()]
     by_standing: dict[str, dict] = {}
-    gaps: dict[str, int] = {}
+    gaps: dict[str, dict] = {}
+    from services.loss import gaps as G
     for r in results:
+        _messages_of(r)
+        r["curve_name"] = _curve_name(r["curve_key"])
+        r["country_name"] = G.country_name(r["country"].strip()) if r.get("country") else None
         if r["gap"]:
-            gaps[r["gap"]] = gaps.get(r["gap"], 0) + 1
+            g = gaps.setdefault(r["gap_code"] or r["gap"], {"code": r["gap_code"], "reason": r["gap"],
+                                                             "detail": r["gap_message"]["detail"], "count": 0})
+            g["count"] += 1
             continue
         k = f"{r['peril']}:{r['standing']}"
         t = by_standing.setdefault(k, {"peril": r["peril"], "standing": r["standing"], "results": 0,
@@ -152,7 +162,8 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
             t["eal_undefended_same_results_eur"] = round(t["eal_undefended_same_results_eur"] + r["eal_eur"], 2)
             for f in ("eal_defended_low_eur", "eal_defended_eur", "eal_defended_high_eur"):
                 t[f] = round(t[f] + r[f], 2)
-        elif r["peril"] == "flood" and r["protection_basis"] and r["protection_basis"].startswith("protection unknown"):
+        elif r["peril"] == "flood" and (r["protection_code"] in _PROTECTION_UNKNOWN or
+                                        (r["protection_basis"] or "").startswith("protection unknown")):   # rows before codes
             t["protection_unknown_results"] += 1
             t["eal_protection_unknown_eur"] = round(t["eal_protection_unknown_eur"] + r["eal_eur"], 2)
         if r["eal_same_source_today_eur"] is not None:
@@ -167,5 +178,45 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                             "summed apart, undefended. "
                             "A projected run's figure is compared only with the same source's present day "
                             "(eal_same_source_today_eur), never with a today run's figure",
-            "gaps": [{"reason": k, "count": v} for k, v in sorted(gaps.items(), key=lambda kv: -kv[1])],
+            "gaps": sorted(gaps.values(), key=lambda g: -g["count"]),
             "results": results, "book_curve": ep}
+
+
+_PROTECTION_UNKNOWN = {"loss.protection.not_read", "loss.protection.no_value", "loss.protection.off_map"}
+
+
+def _message(code: str, params: Optional[dict] = None) -> dict:
+    """A message for the screen: its label and the detail behind its ⓘ (core/messages.py)."""
+    from core import messages
+    r = messages.render(code, **(params or {}))
+    return {"code": code, "label": r["label"], "detail": r["detail"]}
+
+
+def _messages_of(r: dict) -> None:
+    """A result's messages, rendered from their codes; a row recorded before codes keeps its own wording."""
+    r["gap_message"] = (_message(r["gap_code"], r["gap_params"]) if r.get("gap_code")
+                        else {"label": r["gap"], "detail": {"what": r["gap"]}} if r.get("gap") else None)
+    years = {"years": f"{r['protection_rp_years']:g}"} if r.get("protection_rp_years") else {}
+    r["protection_message"] = (_message(r["protection_code"], years) if r.get("protection_code")
+                               else {"label": r["protection_basis"], "detail": {"what": r["protection_basis"]}}
+                               if r.get("protection_basis") else None)
+    r["caution_message"] = (_message(r["caution_code"]) if r.get("caution_code")
+                            else {"label": "Publisher's caution", "detail": {"what": r["caution"]}} if r.get("caution") else None)
+
+
+def _family_name(key: Optional[str]) -> Optional[str]:
+    from core import messages
+    return messages.names().get("family", {}).get(key, key) if key else None
+
+
+def _curve_name(curve_key: Optional[str]) -> Optional[str]:
+    """'JRC global damage curves (2017) · residential · Europe' — the curve a figure was read off, in customer words."""
+    from core import messages
+    from services.loss import curves
+    if not curve_key:
+        return None
+    family = curve_key.split(":")[0]
+    c = next((c for c in (curves.families().get(family) or {}).get("curves", []) if c["key"] == curve_key), None)
+    region = (c or {}).get("region")
+    region = messages.names().get("region", {}).get(region, region)
+    return " · ".join(x for x in (_family_name(family), (c or {}).get("occupancy"), region) if x)

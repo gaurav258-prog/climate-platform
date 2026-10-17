@@ -93,21 +93,20 @@ def sample(session: Session, points: Optional[Iterable[tuple[float, float]]] = N
 
 
 def at(session: Session, lat: float, lon: float) -> tuple[Optional[float], str]:
-    """(design return period in years, or None; the basis shown with the figure)."""
+    """(design return period in years, or None; the message code of the basis shown with the figure —
+    data/reference/messages.en.json loss.protection.*)."""
     P = layer()
     r = session.execute(text("""
         SELECT status, design_rp_years FROM flood_protection_samples
         WHERE layer_key = :k AND layer_version = :v AND latitude = :la AND longitude = :lo"""),
         {"k": LAYER, "v": P["version"], "la": lat, "lo": lon}).mappings().first()
     if r is None:
-        return None, "protection unknown: the protection map has not been sampled at this location yet"
+        return None, "loss.protection.not_read"
     if r["status"] == "sampled":
-        return float(r["design_rp_years"]), (f"{LAYER} {P['version']}: defences designed for the "
-                                             f"1-in-{r['design_rp_years']:g}-year river flood")
+        return float(r["design_rp_years"]), "loss.protection.level"
     if r["status"] == "no_value":
-        return None, "protection unknown: the protection map holds no value at this location"
-    return None, ("protection unknown: outside the protection map (geographical Europe bar Russia, Belarus, Ukraine "
-                  "and the Caucasus)")
+        return None, "loss.protection.no_value"
+    return None, "loss.protection.off_map"
 
 
 def _area(points: list[tuple[float, float]], lo: float, hi: float) -> float:

@@ -25,6 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core.db.config import check_db_connection, init_db
+from core.errors import UserError
 
 # Routers are imported in guarded groups so a missing optional dependency (e.g. bs4 for the regulatory scraper) cannot
 # take down the whole API. A failed group is NEVER silent (E53): it is logged with its cause, recorded in
@@ -424,14 +425,18 @@ async def http_exception_handler(request, exc):
     )
 
 
+@app.exception_handler(UserError)
+async def user_error_handler(request, exc: UserError):
+    """An error in customer words (core/errors.py): the catalogue's label and detail; values to the log."""
+    logger.info(f"{exc.status} {exc.code} {exc.params}")
+    return JSONResponse(status_code=exc.status, content=exc.body())
+
+
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    """Catch-all exception handler"""
+    """Catch-all: the technical cause to the log, the customer's words to the screen."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error"}
-    )
+    return JSONResponse(status_code=500, content=UserError("error.unexpected").body())
 
 
 # ── Utility endpoints ─────────────────────────────────────────────────
