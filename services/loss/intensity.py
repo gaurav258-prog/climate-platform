@@ -1,7 +1,7 @@
 """Hazard intensity at asset locations (E171): each registered layer sampled once per location and layer version into
 hazard_intensity_samples, through the isolated raster reader.
 
-For the JRC river-flood layer, per return period:
+For the JRC river-flood layers (global, and the European maps with nine return periods), per return period:
   value          the depth at the point (m); a dry pixel reads 0, the depth at or below the layer's dry threshold too
   cell_fraction  the share of the location's H3 res-8 cell flooded (permanent water excluded)
   cell_mean      the mean depth over that flooded share
@@ -30,6 +30,19 @@ def asset_points(session: Session) -> list[tuple[float, float]]:
         SELECT DISTINCT latitude, longitude FROM portfolio_entities WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         UNION
         SELECT DISTINCT latitude, longitude FROM sc_company_sites WHERE latitude IS NOT NULL AND longitude IS NOT NULL""")).all()
+    return [(float(a), float(b)) for a, b in rows]
+
+
+def asset_points_in(session: Session, countries: Iterable[str]) -> list[tuple[float, float]]:
+    """Every distinct location of an asset or a company site whose stated country is one of `countries` — for a layer
+    that serves only those (registry.coverage_countries)."""
+    rows = session.execute(text("""
+        SELECT DISTINCT latitude, longitude FROM portfolio_entities
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND upper(trim(country)) = ANY(:c)
+        UNION
+        SELECT DISTINCT latitude, longitude FROM sc_company_sites
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND upper(trim(country)) = ANY(:c)"""),
+        {"c": sorted(countries)}).all()
     return [(float(a), float(b)) for a, b in rows]
 
 
@@ -135,12 +148,49 @@ def jrc_flood_rows(lat: float, lon: float, tiles=None) -> list[dict]:
     return out
 
 
+def jrc_europe_rows(lat: float, lon: float, _tiles=None) -> list[dict]:
+    """The rows for one location of the JRC European river-flood maps (no database): per return period, the point's
+    depth and the location's H3 res-8 cell statistics — read as the global maps are (permanent water excluded, depths at
+    or below the dry threshold dry) — and the publisher's caution where its spurious-depth mask touches the cell. Off the
+    maps: 'outside_coverage'. A failed read records nothing (the location is sampled again next run)."""
+    import h3
+
+    from ml.scoring.flood_jrc import cell_polygon
+    from services.geo import raster_sampler
+    L = registry.layer("jrc_river_flood_europe")
+    d = registry.ROOT / L["files"]["dir"]
+    cell = h3.latlng_to_cell(lat, lon, 8)
+    ring = list(cell_polygon(cell).exterior.coords)
+    base = {"layer_key": "jrc_river_flood_europe", "layer_version": L["version"], "latitude": lat, "longitude": lon,
+            "h3_cell": cell}
+    flagged = raster_sampler.zonal(str(d / L["files"]["caution"]), ring, above=0.5)
+    if flagged is None:
+        return [{**base, "rp_years": rp, "status": "outside_coverage", "value": None, "cell_fraction": None,
+                 "cell_mean": None} for rp in L["return_periods"]]
+    caution = L["caution"] if flagged["present"] else None
+    water = {"path": str(d / L["files"]["water"]), "value": 1}
+    out = []
+    for rp in L["return_periods"]:
+        path = str(d / L["files"]["pattern"].format(rp=rp))
+        z = raster_sampler.zonal(path, ring, above=L["dry_below"], exclude=water)
+        got = raster_sampler.sample(path, [(lon, lat)])
+        if z is None or got is None:
+            return []
+        v = got[0][0]
+        depth = 0.0 if (v != v or v < 0 or v <= L["dry_below"]) else float(v)
+        frac = z["present"] / z["inside"] if z["inside"] else None
+        mean = (z["sum"] / z["present"] if z["present"] else 0.0) if z["inside"] else None
+        out.append({**base, "rp_years": rp, "status": "sampled", "value": depth, "cell_fraction": frac,
+                    "cell_mean": mean, "caution": caution})
+    return out
+
+
 def _storm_rows(lat: float, lon: float, _tiles=None) -> list[dict]:
     from services.loss import storm_events
     return storm_events.rows(lat, lon)
 
 
-_SAMPLERS = {"jrc_river_flood": jrc_flood_rows, "storm_v4_wind": _storm_rows}
+_SAMPLERS = {"jrc_river_flood": jrc_flood_rows, "jrc_river_flood_europe": jrc_europe_rows, "storm_v4_wind": _storm_rows}
 
 
 def sample(session: Session, layer_key: str, points: Optional[Iterable[tuple[float, float]]] = None,
@@ -153,7 +203,10 @@ def sample(session: Session, layer_key: str, points: Optional[Iterable[tuple[flo
     if layer_key not in _SAMPLERS:
         raise registry.RegistryError(f"layer '{layer_key}' has no sampler yet")
     held = _held(session, layer_key, L["version"])
-    todo = [p for p in (points if points is not None else asset_points(session)) if p not in held]
+    if points is None:
+        points = (asset_points_in(session, registry.coverage_countries(layer_key)) if L.get("coverage_countries")
+                  else asset_points(session))
+    todo = [p for p in points if p not in held]
     counts = {"held": len(held), "sampled": 0, "outside": 0, "failed": 0}
     from ml.scoring import flood_jrc as F
     tiles = F.TileSet()
@@ -179,11 +232,33 @@ def _insert(session: Session, rows: list[dict]) -> None:
     if rows:
         session.execute(text("""
             INSERT INTO hazard_intensity_samples (layer_key, layer_version, latitude, longitude, h3_cell, rp_years, status,
-                                                  value, cell_fraction, cell_mean, scenario, period, climate_model)
+                                                  value, cell_fraction, cell_mean, scenario, period, climate_model, caution)
             VALUES (:layer_key, :layer_version, :latitude, :longitude, :h3_cell, :rp_years, :status, :value,
-                    :cell_fraction, :cell_mean, :scenario, :period, :climate_model)
+                    :cell_fraction, :cell_mean, :scenario, :period, :climate_model, :caution)
             ON CONFLICT (layer_key, layer_version, latitude, longitude, rp_years, scenario, period, climate_model)
-            DO NOTHING"""), [{**PRESENT, **r} for r in rows])
+            DO NOTHING"""), [{**PRESENT, "caution": None, **r} for r in rows])
+
+
+def prepare_book(session: Session, assets: list[dict], perils: Iterable[str]) -> dict:
+    """Sample, for one book's assets, every present-day layer its run will read and has not sampled yet — each peril's
+    global layer; the layer replacing it where in use, at the assets in its coverage countries; and, for flood, the
+    protection map — so a newly added asset gets its figure from the run itself, not after a separate sampling job.
+    Commits as it samples (the samples are reference data, append-only)."""
+    from services.loss import engine, protection
+    pts = sorted({(float(a["latitude"]), float(a["longitude"])) for a in assets
+                  if a.get("latitude") is not None and a.get("longitude") is not None})
+    out = {}
+    for peril in perils:
+        out[engine.LAYERS[peril]] = sample(session, engine.LAYERS[peril], pts)
+        for k, L in registry.layers().items():
+            if L.get("replaces") == engine.LAYERS[peril] and L.get("status") == "in_use":
+                cover = registry.coverage_countries(k)
+                out[k] = sample(session, k, sorted({(float(a["latitude"]), float(a["longitude"])) for a in assets
+                                                    if a.get("latitude") is not None and a.get("longitude") is not None
+                                                    and (a.get("country") or "").strip().upper() in cover}))
+        if peril == "flood":
+            out[protection.LAYER] = protection.sample(session, pts)
+    return out
 
 
 def sample_job(layer_key: str = "jrc_river_flood") -> dict:

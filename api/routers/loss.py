@@ -40,7 +40,8 @@ def families(session: DbSession, ctx: dict = Depends(require_permission("modules
     return {"families": [_family_view(k, f) for k, f in sorted(curves.families().items())],
             "refused": [{"family": k, "reasons": v} for k, v in sorted(curves.refused().items())],
             "adopted": {p: settings.get(f"loss_curve_family_{p}") for p in ("flood", "storm")},
-            "dependence": {"flood": settings.get("loss_flood_dependence")}}
+            "dependence": {"flood": settings.get("loss_flood_dependence")},
+            "headline": {"flood": settings.get("loss_flood_headline")}}
 
 
 @router.get("/layers", summary="Hazard intensity layers (physical units by return period) and how many places are sampled")
@@ -51,9 +52,20 @@ def layers(session: DbSession, ctx: dict = Depends(require_permission("modules.v
                count(DISTINCT (latitude, longitude)) FILTER (WHERE status = 'outside_coverage'),
                count(DISTINCT (scenario, period, climate_model))
         FROM hazard_intensity_samples GROUP BY 1, 2""")).all()}
-    return {"layers": [{"key": k, **{f: L.get(f) for f in ("peril", "metric", "unit", "version", "source", "resolution_m",
+    protected = {(r[0], r[1]): {"places": r[2], "with_a_level": r[3], "no_value": r[4], "outside_coverage": r[5]}
+                 for r in session.execute(text("""
+        SELECT layer_key, layer_version, count(*), count(*) FILTER (WHERE status = 'sampled'),
+               count(*) FILTER (WHERE status = 'no_value'), count(*) FILTER (WHERE status = 'outside_coverage')
+        FROM flood_protection_samples GROUP BY 1, 2""")).all()}
+    return {"protection_layers": [{"key": k, **{f: P.get(f) for f in ("peril", "metric", "unit", "version", "source",
+                                                                        "citation", "resolution_m", "coverage", "licence",
+                                                                        "applies_to", "reads_as")},
+                                   "sampled": protected.get((k, P["version"]), {"places": 0})}
+                                  for k, P in registry.protection_layers().items()],
+            "layers": [{"key": k, **{f: L.get(f) for f in ("peril", "metric", "unit", "version", "source", "resolution_m",
                                                           "return_periods", "coverage", "licence", "licence_status",
-                                                          "status", "refines", "domain_note", "adoption")},
+                                                          "status", "refines", "replaces", "coverage_countries",
+                                                          "caution", "domain_note", "adoption")},
                         "test": L.get("test"), "building_scale_test": L.get("building_scale_test"), "decision": L.get("decision"), "present_day_check": L.get("present_day_check"),
                         "use": L.get("use"), "sampled": counts.get((k, L["version"]), {"places": 0, "outside_coverage": 0})}
                        for k, L in registry.layers().items()]}
@@ -110,6 +122,10 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                lr.occupancy, lr.curve_key, CAST(lr.eal_eur AS FLOAT) AS eal_eur, CAST(lr.eal_low_eur AS FLOAT) AS eal_low_eur,
                CAST(lr.eal_high_eur AS FLOAT) AS eal_high_eur, lr.standing, lr.loss_at_rp, lr.gap,
                CAST(lr.eal_same_source_today_eur AS FLOAT) AS eal_same_source_today_eur, lr.model_eal,
+               lr.flood_layer, lr.protection_rp_years, lr.protection_basis, lr.caution,
+               CAST(lr.eal_defended_eur AS FLOAT) AS eal_defended_eur,
+               CAST(lr.eal_defended_low_eur AS FLOAT) AS eal_defended_low_eur,
+               CAST(lr.eal_defended_high_eur AS FLOAT) AS eal_defended_high_eur,
                COALESCE(pe.entity_name, cs.name) AS asset_name, COALESCE(pe.country, cs.country) AS country
         FROM loss_results lr
         LEFT JOIN portfolio_entities pe ON lr.asset_kind = 'portfolio_entity' AND pe.entity_id = lr.asset_id
@@ -124,10 +140,21 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
         k = f"{r['peril']}:{r['standing']}"
         t = by_standing.setdefault(k, {"peril": r["peril"], "standing": r["standing"], "results": 0,
                                        "eal_low_eur": 0.0, "eal_eur": 0.0, "eal_high_eur": 0.0,
-                                       "eal_same_source_today_eur": None})
+                                       "eal_same_source_today_eur": None, "defended_results": 0,
+                                       "eal_defended_low_eur": 0.0, "eal_defended_eur": 0.0, "eal_defended_high_eur": 0.0,
+                                       "eal_undefended_same_results_eur": 0.0, "protection_unknown_results": 0,
+                                       "eal_protection_unknown_eur": 0.0})
         t["results"] += 1
         for f in ("eal_low_eur", "eal_eur", "eal_high_eur"):
             t[f] = round(t[f] + (r[f] or 0.0), 2)
+        if r["eal_defended_eur"] is not None:
+            t["defended_results"] += 1
+            t["eal_undefended_same_results_eur"] = round(t["eal_undefended_same_results_eur"] + r["eal_eur"], 2)
+            for f in ("eal_defended_low_eur", "eal_defended_eur", "eal_defended_high_eur"):
+                t[f] = round(t[f] + r[f], 2)
+        elif r["peril"] == "flood" and r["protection_basis"] and r["protection_basis"].startswith("protection unknown"):
+            t["protection_unknown_results"] += 1
+            t["eal_protection_unknown_eur"] = round(t["eal_protection_unknown_eur"] + r["eal_eur"], 2)
         if r["eal_same_source_today_eur"] is not None:
             t["eal_same_source_today_eur"] = round((t["eal_same_source_today_eur"] or 0.0) + r["eal_same_source_today_eur"], 2)
     ep = [dict(r) for r in session.execute(text("""
@@ -135,6 +162,9 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
         WHERE run_id = CAST(:r AS uuid) ORDER BY peril, rp_years"""), {"r": run_id}).mappings()]
     return {"run": dict(run), "totals": sorted(by_standing.values(), key=lambda t: (t["peril"], t["standing"])),
             "totals_basis": "sums of per-asset figures within one standing; figures of different standing are never added. "
+                            "The defended sum covers only the results with a protection level (defended_results), "
+                            "beside the undefended sum of the same results; results whose protection is unknown are "
+                            "summed apart, undefended. "
                             "A projected run's figure is compared only with the same source's present day "
                             "(eal_same_source_today_eur), never with a today run's figure",
             "gaps": [{"reason": k, "count": v} for k, v in sorted(gaps.items(), key=lambda kv: -kv[1])],

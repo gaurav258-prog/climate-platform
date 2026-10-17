@@ -524,8 +524,101 @@
       "coverage_countries": "UN M49 Europe (150) less Russia, Belarus and Ukraine — the countries the JRC protection map covers",
       "licence": "CC BY 4.0 — 'Any copyright and/or sui generis right on the dataset is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) licence … Reuse is allowed provided appropriate credit is given and any changes are indicated' (copyright.txt held beside the data); README A02: 'no restrictions, free and open Copernicus product'",
       "replaces": "jrc_river_flood",
-      "status": "candidate",
-      "adoption": "the product owner's decision (2026-10-16): the nine return periods replace the global maps' three inside coverage_countries once the check registered in data/reference/loss_protocol.json 'europe_maps_check' does not refuse them"
+      "status": "in_use",
+      "adoption": "in use inside coverage_countries since 2026-10-16: the registered check did not refuse it (product owner's decision, 2026-10-16)",
+      "test": {
+        "protocol": "europe_maps_check",
+        "registered": "2026-10-16",
+        "run": "2026-10-16",
+        "rule": "the European maps replace the global maps inside coverage_countries unless they rank the observed floods worse: refused when the 95th percentile of the paired-bootstrap difference (European − global; 2,000 resamples of the nodes, seed 7) is below zero for the rank correlation OR for the AUC (observed share > 2%)",
+        "pooled": {
+          "global": {
+            "n": 144,
+            "rho": 0.6796,
+            "auc_share_gt_2pct": 0.8033
+          },
+          "europe": {
+            "n": 144,
+            "rho": 0.7339,
+            "auc_share_gt_2pct": 0.8413
+          }
+        },
+        "difference_europe_minus_global_90pct_interval": {
+          "rho": [
+            -0.004,
+            0.1137
+          ],
+          "auc": [
+            -0.0088,
+            0.0861
+          ],
+          "draws": 2000
+        },
+        "per_event": {
+          "2021 Rhine/Ahr": {
+            "global": {
+              "n": 27,
+              "rho": 0.1194,
+              "auc_share_gt_2pct": 0.28
+            },
+            "europe": {
+              "n": 27,
+              "rho": 0.4663,
+              "auc_share_gt_2pct": 0.62
+            }
+          },
+          "2024 Storm Boris": {
+            "global": {
+              "n": 49,
+              "rho": 0.7522,
+              "auc_share_gt_2pct": 0.7667
+            },
+            "europe": {
+              "n": 49,
+              "rho": 0.7728,
+              "auc_share_gt_2pct": 0.809
+            }
+          },
+          "2020 Storm Alex": {
+            "global": {
+              "n": 10,
+              "rho": -0.147,
+              "auc_share_gt_2pct": null
+            },
+            "europe": {
+              "n": 10,
+              "rho": 0.3818,
+              "auc_share_gt_2pct": null
+            }
+          },
+          "2023 Emilia-Romagna": {
+            "global": {
+              "n": 28,
+              "rho": 0.7007,
+              "auc_share_gt_2pct": 0.8021
+            },
+            "europe": {
+              "n": 28,
+              "rho": 0.7378,
+              "auc_share_gt_2pct": 0.8663
+            }
+          },
+          "2024 Valencia DANA": {
+            "global": {
+              "n": 26,
+              "rho": 0.7687,
+              "auc_share_gt_2pct": 0.8542
+            },
+            "europe": {
+              "n": 26,
+              "rho": 0.7873,
+              "auc_share_gt_2pct": 0.869
+            }
+          }
+        },
+        "nodes_without_both_maps": 0,
+        "passed": true
+      }
     }
   },
   "protection_layers": {

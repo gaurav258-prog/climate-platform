@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
+from pathlib import Path
 
 from services.loss import registry
 
@@ -102,10 +103,17 @@ def check_family(doc: dict) -> list[str]:
     return out
 
 
-@lru_cache(maxsize=None)
 def _load() -> tuple[dict[str, dict], dict[str, list[str]]]:
+    """The families as they are on disk now (E179): parsed once per version of the folder (every file's name and
+    modification time), so a recorded test reaches a long-running API or worker without a restart."""
+    files = sorted(DIR.glob("*.json")) if DIR.exists() else []
+    return _load_version(tuple((str(p), p.stat().st_mtime_ns) for p in files))
+
+
+@lru_cache(maxsize=4)
+def _load_version(version: tuple) -> tuple[dict[str, dict], dict[str, list[str]]]:
     sound, refused = {}, {}
-    for path in sorted(DIR.glob("*.json")) if DIR.exists() else []:
+    for path in (Path(f) for f, _m in version):
         doc = json.loads(path.read_text(encoding="utf-8"))
         problems = check_family(doc)
         if problems:
@@ -127,7 +135,7 @@ def refused() -> dict[str, list[str]]:
 
 
 def reload() -> None:
-    _load.cache_clear()
+    _load_version.cache_clear()
 
 
 def curve_for(family: str, occupancy: str, country: str) -> dict | None:

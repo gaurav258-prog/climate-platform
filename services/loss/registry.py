@@ -23,14 +23,24 @@ class RegistryError(ValueError):
     pass
 
 
-@lru_cache(maxsize=1)
+def _json(name: str) -> dict:
+    """A registry file as it is on disk now (E179): parsed once per version of the file, so a long-running API or
+    worker sees a change another process recorded (a check that put a layer into use) without a restart."""
+    p = REF / name
+    return _parsed(str(p), p.stat().st_mtime_ns)
+
+
+@lru_cache(maxsize=16)
+def _parsed(path: str, _version: int) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def layers() -> dict[str, dict]:
-    return json.loads((REF / "hazard_intensity_layers.json").read_text(encoding="utf-8"))["layers"]
+    return _json("hazard_intensity_layers.json")["layers"]
 
 
-@lru_cache(maxsize=1)
 def protection_layers() -> dict[str, dict]:
-    return json.loads((REF / "hazard_intensity_layers.json").read_text(encoding="utf-8")).get("protection_layers", {})
+    return _json("hazard_intensity_layers.json").get("protection_layers", {})
 
 
 def coverage_countries(layer_key: str) -> frozenset[str]:
@@ -45,14 +55,12 @@ def coverage_countries(layer_key: str) -> frozenset[str]:
     return frozenset(m49.countries("150")) - {"RU", "BY", "UA"}
 
 
-@lru_cache(maxsize=1)
 def event_sets() -> dict[str, dict]:
-    return json.loads((REF / "event_sets.json").read_text(encoding="utf-8"))["event_sets"]
+    return _json("event_sets.json")["event_sets"]
 
 
-@lru_cache(maxsize=1)
 def _occupancy() -> dict:
-    return json.loads((REF / "occupancy.json").read_text(encoding="utf-8"))
+    return _json("occupancy.json")
 
 
 def occupancy_classes() -> tuple[str, ...]:
@@ -112,7 +120,7 @@ def check() -> list[str]:
                 coverage_countries(k)
             except RegistryError as e:
                 out.append(str(e))
-    protocol = json.loads((REF / "loss_protocol.json").read_text(encoding="utf-8"))
+    protocol = _json("loss_protocol.json")
     for k, P in protection_layers().items():
         if P.get("unit") != "years" or P.get("metric") != "design_return_period":
             out.append(f"protection layer {k}: a protection standard is a design return period in years")

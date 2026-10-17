@@ -20,14 +20,20 @@ type Standing = 'published' | 'held' | 'untested'
 interface Curve { key: string; occupancy: string; region: string | null; countries: string[]; sd?: number[][] | null; spread?: string | null; test?: FamilyTest | null }
 interface FamilyTest { passed: boolean; band_coverage?: number; events_tested?: number; events_within_tolerance?: number; median_abs_error?: number; passed_band?: boolean; passed_event_total?: boolean; protocol?: string }
 interface Family { family: string; kind: 'published' | 'measured'; peril: string; metric: string; unit: string; damage_basis: string | null; source: { authors?: string; title?: string; year?: number; url?: string } | null; curves: Curve[]; test: FamilyTest | null; derivation: { claims_used?: number } | null; regions_basis?: string | null; absent?: string[] | null; not_carried?: Record<string, string> | null }
-interface Families { families: Family[]; refused: { family: string; reasons: string[] }[]; adopted: Record<string, string | null>; dependence: Record<string, string | null> }
-interface Layer { key: string; peril: string; metric: string; unit: string; version: string; source: string; resolution_m: number | null; return_periods: number[]; licence: string | null; licence_status: string | null; status: string | null; test: { passed: boolean; pooled?: { m90: { rho: number; auc_share_gt_2pct: number }; m30: { rho: number; auc_share_gt_2pct: number } } } | null; decision?: { date: string; outcome: string; basis: string } | null; present_day_check?: Projection['present_day_check'] | null; use?: { role: string; compared_with: string } | null; building_scale_test?: { verdict: string; csi_difference_90pct_interval: [number, number]; pooled: { pixels: number; m90: { csi: number }; m30: { csi: number } } } | null; sampled: { places: number; outside_coverage: number; maps?: number } }
+interface Families { families: Family[]; refused: { family: string; reasons: string[] }[]; adopted: Record<string, string | null>; dependence: Record<string, string | null>; headline: Record<string, 'defended' | 'undefended' | null> }
+interface Skill { rho: number; auc_share_gt_2pct: number }
+interface Layer { key: string; peril: string; metric: string; unit: string; version: string; source: string; resolution_m: number | null; return_periods: number[]; licence: string | null; licence_status: string | null; status: string | null; replaces?: string | null; coverage_countries?: string | null; caution?: string | null; test: { passed: boolean; pooled?: { m90?: Skill; m30?: Skill; global?: Skill; europe?: Skill } } | null; decision?: { date: string; outcome: string; basis: string } | null; present_day_check?: Projection['present_day_check'] | null; use?: { role: string; compared_with: string } | null; building_scale_test?: { verdict: string; csi_difference_90pct_interval: [number, number]; pooled: { pixels: number; m90: { csi: number }; m30: { csi: number } } } | null; sampled: { places: number; outside_coverage: number; maps?: number } }
+interface ProtectionLayer { key: string; version: string; source: string; resolution_m: number; coverage: string; licence: string; sampled: { places: number; with_a_level?: number; no_value?: number; outside_coverage?: number } }
 interface RunRow { run_id: string; book: string; scenario: string; time_horizon: string; as_of: string; n_assets: number; n_gaps: number; created_at: string; families_adopted: Record<string, string | null> }
 interface Projection { source: string; citation: string; licence: string; periods: Record<string, string>; models: string[]; flood: { scenario: string; horizon: string; gap: string | null }[]; storm: string | null; present_day_check?: { against_observed: { pooled: { aqueduct: { rho: number; auc_share_gt_2pct: number }; jrc: { rho: number; auc_share_gt_2pct: number } } }; agreement_at_assets: { agree_share: number; locations: number } } }
 interface Band { low: number; central: number; high: number }
-interface Result { asset_id: string; asset_name: string | null; country: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_key: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null; eal_same_source_today_eur: number | null; model_eal: Record<string, number> | null }
+interface Result { asset_id: string; asset_name: string | null; country: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_key: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null; eal_same_source_today_eur: number | null; model_eal: Record<string, number> | null; flood_layer: string | null; protection_rp_years: number | null; protection_basis: string | null; caution: string | null; eal_defended_eur: number | null; eal_defended_low_eur: number | null; eal_defended_high_eur: number | null }
 interface ProjectionInputs { key: string; pathway: string; period: string; models: string[] }
-interface RunDetail { run: RunRow & { inputs: { layers?: { flood?: ProjectionInputs | { key: string } } } }; totals: { peril: string; standing: Standing; results: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null }[]; gaps: { reason: string; count: number }[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[] }
+interface RunDetail { run: RunRow & { inputs: { layers?: { flood?: ProjectionInputs | { key: string } } } }; totals: Total[]; gaps: { reason: string; count: number }[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[] }
+
+interface Total { peril: string; standing: Standing; results: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null; defended_results: number; eal_defended_low_eur: number; eal_defended_eur: number; eal_defended_high_eur: number; eal_undefended_same_results_eur: number; protection_unknown_results: number; eal_protection_unknown_eur: number }
+const FLOOD_MAP: Record<string, string> = { jrc_river_flood: 'JRC global maps', jrc_river_flood_europe: 'JRC European maps', aqueduct_river_flood: 'WRI Aqueduct' }
+const LAYER_STATUS: Record<string, string> = { in_use: 'in use', candidate: 'candidate — not used', refused: 'refused — not used' }
 
 const BOOKS: Record<string, { key: string; label: string }[]> = {
   bank: [{ key: 'banking', label: 'Loan book' }],
@@ -60,7 +66,7 @@ export default function Loss() {
   const books = BOOKS[type] ?? []
   const canRun = (profile?.permissions ?? []).includes('reports.publish')
   const fams = useQuery({ queryKey: ['loss-families'], queryFn: () => api.get<Families>('/v1/loss/families') })
-  const layers = useQuery({ queryKey: ['loss-layers'], queryFn: () => api.get<{ layers: Layer[] }>('/v1/loss/layers') })
+  const layers = useQuery({ queryKey: ['loss-layers'], queryFn: () => api.get<{ layers: Layer[]; protection_layers: ProtectionLayer[] }>('/v1/loss/layers') })
   const proj = useQuery({ queryKey: ['loss-projection'], queryFn: () => api.get<Projection>('/v1/loss/projection') })
   const [book, setBook] = useState(books[0]?.key ?? '')
   const [scenario, setScenario] = useState('baseline')
@@ -124,10 +130,10 @@ export default function Loss() {
           </div>
         )}
         {projGap && <div className="text-[12px] text-[var(--color-warn)]">Not available: {projGap}.</div>}
-        {shown ? <RunView runId={shown} /> : books.length > 0 && !runs.isLoading &&
+        {shown ? <RunView runId={shown} headline={fams.data?.headline?.flood ?? null} /> : books.length > 0 && !runs.isLoading &&
           <div className="text-[12.5px] text-[var(--color-faint)]">No loss run yet for this book.</div>}
       </Card>
-      <LayersView layers={layers.data?.layers ?? []} />
+      <LayersView layers={layers.data?.layers ?? []} protection={layers.data?.protection_layers ?? []} />
     </div>
   )
 }
@@ -143,6 +149,7 @@ function Families({ q, loading }: { q?: Families; loading: boolean }) {
             <div className="text-[12px] text-[var(--color-mute)]">{PERIL[p]} · adopted</div>
             <div className="text-[14px] font-semibold text-[var(--color-ink)] mt-0.5">{q.adopted[p] ?? 'None — every loss for this peril is a named gap'}</div>
             {p === 'flood' && <div className="text-[11.5px] text-[var(--color-mute)] mt-1">Book exceedance curve: {q.dependence.flood ? `assets combined ${q.dependence.flood}` : 'not stated — no book curve, each asset stands alone'}</div>}
+            {p === 'flood' && <div className="text-[11.5px] text-[var(--color-mute)] mt-0.5">Leads with: {q.headline?.flood ? `the ${q.headline.flood} figure` : 'not stated — defended and undefended shown side by side'}</div>}
           </div>
         ))}
       </div>
@@ -190,7 +197,26 @@ function Families({ q, loading }: { q?: Families; loading: boolean }) {
   )
 }
 
-function RunView({ runId }: { runId: string }) {
+function FloodTotal({ t, headline }: { t: Total; headline: 'defended' | 'undefended' | null }) {
+  const lead = (k: 'defended' | 'undefended') => headline === k && <span className="mono text-[9.5px] ml-1.5 px-1.5 py-0.5 rounded-full border border-[var(--color-sky)] text-[var(--color-ink)]">leads</span>
+  return (
+    <div className="grid grid-cols-2 gap-3 mt-1.5">
+      <div>
+        <div className="text-[10.5px] text-[var(--color-mute)]">Undefended{lead('undefended')}</div>
+        <div className="display text-[18px] tabular-nums">{flow(t.eal_eur)}</div>
+        <div className="text-[10.5px] text-[var(--color-mute)] tabular-nums">{flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} assets</div>
+      </div>
+      <div>
+        <div className="text-[10.5px] text-[var(--color-mute)]">Defended{lead('defended')}</div>
+        <div className="display text-[18px] tabular-nums">{t.defended_results ? flow(t.eal_defended_eur) : '—'}</div>
+        <div className="text-[10.5px] text-[var(--color-mute)] tabular-nums">{t.defended_results ? `${flow(t.eal_defended_low_eur)} – ${flow(t.eal_defended_high_eur)} · ${t.defended_results} assets (undefended ${flow(t.eal_undefended_same_results_eur)})` : 'no protection level known'}</div>
+      </div>
+      {t.protection_unknown_results > 0 && <div className="col-span-2 text-[10.5px] text-[var(--color-warn)]">Protection unknown at {t.protection_unknown_results} asset{t.protection_unknown_results === 1 ? '' : 's'}: {flow(t.eal_protection_unknown_eur)} undefended, not in the defended sum.</div>}
+    </div>
+  )
+}
+
+function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'undefended' | null }) {
   const q = useQuery({ queryKey: ['loss-run', runId], queryFn: () => api.get<RunDetail>(`/v1/loss/runs/${runId}`) })
   const [peril, setPeril] = useState<'all' | string>('all')
   const rows = useMemo(() => (q.data?.results ?? []).filter(r => peril === 'all' || r.peril === peril), [q.data, peril])
@@ -217,10 +243,11 @@ function RunView({ runId }: { runId: string }) {
           <div className="text-[12px] font-semibold text-[var(--color-ink)] mb-2">Expected annual loss, by peril and standing — never added across standing</div>
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
             {d.totals.map(t => (
-              <div key={`${t.peril}:${t.standing}`} className="rounded-lg border border-[var(--color-line-2)] px-3.5 py-3">
+              <div key={`${t.peril}:${t.standing}`} className={`rounded-lg border border-[var(--color-line-2)] px-3.5 py-3 ${t.peril === 'flood' && !projected ? 'sm:col-span-2' : ''}`}>
                 <div className="flex items-center justify-between gap-2"><span className="text-[12px] text-[var(--color-ink)]">{PERIL[t.peril] ?? t.peril}</span><StandingChip s={t.standing} /></div>
+                {t.peril === 'flood' && !projected ? <FloodTotal t={t} headline={headline} /> : (<>
                 <div className="display text-[20px] tabular-nums mt-1.5">{flow(t.eal_eur)}</div>
-                <div className="text-[11px] text-[var(--color-mute)] mt-1 tabular-nums">range {flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} asset{t.results === 1 ? '' : 's'}</div>
+                <div className="text-[11px] text-[var(--color-mute)] mt-1 tabular-nums">range {flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} asset{t.results === 1 ? '' : 's'}</div></>)}
                 {t.eal_same_source_today_eur != null && <div className="text-[11px] text-[var(--color-mute)] mt-0.5 tabular-nums">same source today {flow(t.eal_same_source_today_eur)} · change {change(t.eal_eur, t.eal_same_source_today_eur)}</div>}
               </div>
             ))}
@@ -245,7 +272,8 @@ function RunView({ runId }: { runId: string }) {
             <thead><tr className="text-left text-[var(--color-mute)] border-b border-[var(--color-line)]">
               <th className="py-1.5 pr-3 font-medium">Asset</th><th className="pr-3 font-medium">Peril</th><th className="pr-3 font-medium text-right" title="The value the curve's ratio is taken of — for a building curve, the building's own value (land excluded) as your book states it">Building value</th>
               <th className="pr-3 font-medium">Use · curve</th><th className="pr-3 font-medium">Standing</th>
-              <th className="pr-3 font-medium text-right">Expected annual loss (range)</th>
+              <th className="pr-3 font-medium text-right">Expected annual loss (range){!projected && ' — undefended'}</th>
+              {!projected && <th className="pr-3 font-medium text-right" title="Losses from floods more frequent than the local protection level set to zero (JRC map of European protection standards)">Defended (protection level)</th>}
               {projected && <th className="pr-3 font-medium text-right" title="The same asset in the projection source's own present-day map — the only figure a projected loss is compared with">Same source today</th>}
               <th className="font-medium text-right">1-in-100 loss</th>
             </tr></thead>
@@ -255,10 +283,11 @@ function RunView({ runId }: { runId: string }) {
                   <td className="py-1.5 pr-3 text-[var(--color-ink)]">{r.asset_name ?? r.asset_id.slice(0, 8)}<span className="text-[var(--color-faint)]"> {r.country}</span></td>
                   <td className="pr-3">{PERIL[r.peril] ?? r.peril}</td>
                   <td className="pr-3 text-right">{r.exposed_value_eur ? balance(r.exposed_value_eur) : '—'}</td>
-                  {r.gap ? <td colSpan={projected ? 5 : 4} className="pr-3 text-[var(--color-warn)]">{r.gap}</td> : (<>
-                    <td className="pr-3 text-[var(--color-mute)]">{r.occupancy} · <span className="mono text-[10.5px]">{r.curve_key}</span></td>
+                  {r.gap ? <td colSpan={5} className="pr-3 text-[var(--color-warn)]">{r.gap}</td> : (<>
+                    <td className="pr-3 text-[var(--color-mute)]">{r.occupancy} · <span className="mono text-[10.5px]">{r.curve_key}</span>{r.flood_layer && <div className="text-[10.5px] text-[var(--color-faint)]">{FLOOD_MAP[r.flood_layer] ?? r.flood_layer}</div>}</td>
                     <td className="pr-3">{r.standing && <StandingChip s={r.standing} />}</td>
-                    <td className="pr-3 text-right">{flow(r.eal_eur)} <span className="text-[var(--color-faint)]">({flow(r.eal_low_eur)} – {flow(r.eal_high_eur)})</span></td>
+                    <td className="pr-3 text-right">{flow(r.eal_eur)} <span className="text-[var(--color-faint)]">({flow(r.eal_low_eur)} – {flow(r.eal_high_eur)})</span>{r.caution && <div className="text-[10.5px] text-[var(--color-warn)]" title={r.caution}>publisher's caution: depths here may be spurious</div>}</td>
+                    {!projected && <td className="pr-3 text-right" title={r.protection_basis ?? undefined}>{r.peril !== 'flood' ? '—' : r.eal_defended_eur != null ? <>{flow(r.eal_defended_eur)} <span className="text-[var(--color-faint)]">(1-in-{r.protection_rp_years})</span></> : <span className="text-[var(--color-warn)]">protection unknown</span>}</td>}
                     {projected && <td className="pr-3 text-right" title={r.model_eal ? Object.entries(r.model_eal).map(([m, v]) => `${m.replace(/^0+/, '')}: ${flow(v)}`).join('\n') : undefined}>{flow(r.eal_same_source_today_eur)} <span className="text-[var(--color-faint)]">{change(r.eal_eur, r.eal_same_source_today_eur)}</span></td>}
                     <td className="text-right">{r.loss_at_rp?.['100'] ? balance(r.loss_at_rp['100'].central) : '—'}</td>
                   </>)}
@@ -278,7 +307,7 @@ function RunView({ runId }: { runId: string }) {
   )
 }
 
-function LayersView({ layers }: { layers: Layer[] }) {
+function LayersView({ layers, protection }: { layers: Layer[]; protection: ProtectionLayer[] }) {
   if (!layers.length) return null
   return (
     <Card className="p-5">
@@ -289,13 +318,18 @@ function LayersView({ layers }: { layers: Layer[] }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-[var(--color-ink)]">{L.key}</span>
               <span className="mono text-[10.5px] text-[var(--color-mute)]">{L.version} · {L.metric} ({L.unit}){L.resolution_m ? ` · ${L.resolution_m} m` : ''} · 1-in-{L.return_periods.join(', ')} years</span>
-              {L.status && <span className="mono text-[10.5px] px-2 py-0.5 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)]">{L.status === 'in_use' ? 'in use' : 'candidate — not used'}</span>}
+              {L.status && <span className="mono text-[10.5px] px-2 py-0.5 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)]">{LAYER_STATUS[L.status] ?? L.status}</span>}
             </div>
             <div className="text-[var(--color-mute)] mt-0.5">{L.source}</div>
             <div className="text-[var(--color-mute)] mt-0.5">Sampled at {L.sampled.places.toLocaleString()} places{(L.sampled.maps ?? 1) > 1 ? ` on ${L.sampled.maps} maps` : ''}{L.sampled.outside_coverage ? ` (${L.sampled.outside_coverage.toLocaleString()} outside its coverage)` : ''} · licence: {L.licence ?? L.licence_status ?? 'not recorded'}</div>
-            {L.test?.pooled && (
+            {L.test?.pooled?.m30 && L.test.pooled.m90 && (
               <div className="text-[var(--color-ink)] mt-0.5">Test against observed flood extents (0.1° areas): rank correlation {L.test.pooled.m30.rho.toFixed(3)} vs {L.test.pooled.m90.rho.toFixed(3)} for the 90 m maps; AUC {L.test.pooled.m30.auc_share_gt_2pct.toFixed(3)} vs {L.test.pooled.m90.auc_share_gt_2pct.toFixed(3)}{L.status === 'in_use' ? ' — in use' : ' — not in use'}</div>
             )}
+            {L.replaces && <div className="text-[var(--color-ink)] mt-0.5">Replaces {FLOOD_MAP[L.replaces] ?? L.replaces} for assets in: {L.coverage_countries}{L.status !== 'in_use' && ' — once its check lets it into use'}.</div>}
+            {L.test?.pooled?.europe && L.test.pooled.global && (
+              <div className="text-[var(--color-ink)] mt-0.5">Check on six observed floods: rank correlation {L.test.pooled.europe.rho.toFixed(3)} vs {L.test.pooled.global.rho.toFixed(3)} for the global maps; AUC {L.test.pooled.europe.auc_share_gt_2pct.toFixed(3)} vs {L.test.pooled.global.auc_share_gt_2pct.toFixed(3)} — {L.test.passed ? 'not worse: in use' : 'worse: refused'}</div>
+            )}
+            {L.caution && <div className="text-[var(--color-mute)] mt-0.5">Publisher's caution: {L.caution}</div>}
             {L.use && <div className="text-[var(--color-ink)] mt-0.5"><span className="font-semibold">Use:</span> {L.use.role}; {L.use.compared_with}.</div>}
             {L.present_day_check && (
               <div className="text-[var(--color-ink)] mt-0.5">Present-day check on six observed floods: rank correlation {L.present_day_check.against_observed.pooled.aqueduct.rho.toFixed(2)} vs {L.present_day_check.against_observed.pooled.jrc.rho.toFixed(2)} for the JRC maps, AUC {L.present_day_check.against_observed.pooled.aqueduct.auc_share_gt_2pct.toFixed(2)} vs {L.present_day_check.against_observed.pooled.jrc.auc_share_gt_2pct.toFixed(2)}; agrees with the JRC maps on wet or dry at {(L.present_day_check.agreement_at_assets.agree_share * 100).toFixed(0)}% of {L.present_day_check.agreement_at_assets.locations.toLocaleString()} asset locations. Reported, not a gate: a future cannot be tested.</div>
@@ -309,6 +343,16 @@ function LayersView({ layers }: { layers: Layer[] }) {
           </div>
         ))}
       </div>
+      {protection.map(P => (
+        <div key={P.key} className="pt-2.5 mt-1 border-t border-[var(--color-line)] text-[12px]">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-[var(--color-ink)]">{P.key}</span>
+            <span className="mono text-[10.5px] text-[var(--color-mute)]">{P.version} · flood protection standard (design return period, years) · {P.resolution_m} m</span>
+          </div>
+          <div className="text-[var(--color-mute)] mt-0.5">{P.source}</div>
+          <div className="text-[var(--color-mute)] mt-0.5">Sampled at {P.sampled.places.toLocaleString()} places: {(P.sampled.with_a_level ?? 0).toLocaleString()} with a level, {(P.sampled.no_value ?? 0).toLocaleString()} where the map holds none, {(P.sampled.outside_coverage ?? 0).toLocaleString()} outside it · coverage: {P.coverage} · licence: {P.licence}</div>
+        </div>
+      ))}
       <div className="text-[11.5px] text-[var(--color-faint)] mt-2">Adopt a damage-curve family in <Link to="/admin" className="underline">Settings → Methodology</Link>.</div>
     </Card>
   )

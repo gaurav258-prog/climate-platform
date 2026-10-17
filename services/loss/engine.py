@@ -14,6 +14,13 @@ stopped it.
                           beyond it (more frequent events are not in the maps and are not counted — stated in the run)
   7  standing             the family's held-out test under data/reference/loss_protocol.json: passed → published,
                           failed → held (shown, never used), no test where the asset is → untested
+  8  defences (flood)     the published protection standard at the location (services.loss.protection; the product
+                          owner's decisions of 2026-10-16): the defended figure beside the undefended one — damage from
+                          floods more frequent than the design level set to 0 — or, off the protection map, the
+                          undefended figure labelled 'protection unknown'
+Which flood map serves an asset: a layer registered to replace the global maps (the JRC European maps, nine return
+periods) serves an asset in its coverage countries once its check let it into use; elsewhere, and where it does not
+reach the location, the global maps.
 The book's exceedance curve adds only published figures, on the basis the institution states (loss_flood_dependence);
 with none, the curve is a named gap.
 
@@ -32,7 +39,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.loss import curves, registry
+from services.loss import curves, protection, registry
 
 ENGINE_VERSION = "loss-v1"
 LAYERS = {"flood": "jrc_river_flood", "storm": "storm_v4_wind"}
@@ -49,7 +56,7 @@ def _samples(session: Session, layer_key: str, version: str, lat: float, lon: fl
              variant: Optional[dict] = None) -> dict[int, dict]:
     v = variant or PRESENT
     return {r["rp_years"]: dict(r) for r in session.execute(text("""
-        SELECT rp_years, status, value, cell_fraction, cell_mean FROM hazard_intensity_samples
+        SELECT rp_years, status, value, cell_fraction, cell_mean, caution FROM hazard_intensity_samples
         WHERE layer_key = :k AND layer_version = :v AND latitude = :la AND longitude = :lo
           AND scenario = :s AND period = :p AND climate_model = :m"""),
         {"k": layer_key, "v": version, "la": lat, "lo": lon, "s": v["scenario"], "p": v["period"],
@@ -227,15 +234,51 @@ def _intensity_gap(s: dict, layer_key: str, version: str, what: str = "") -> Opt
     return None
 
 
+def replacement(peril: str, country: str) -> Optional[str]:
+    """The layer in use that replaces the peril's global layer for an asset stated in `country`, or None."""
+    for k, L in registry.layers().items():
+        if (L.get("replaces") == LAYERS[peril] and L.get("status") == "in_use"
+                and country in registry.coverage_countries(k)):
+            return k
+    return None
+
+
+def _present_samples(session: Session, asset: dict, peril: str, lat: float, lon: float) -> tuple[str, str, dict]:
+    """(layer key, version, samples) of the map that serves this asset today: the replacing layer where it is in use
+    for the asset's country and reaches the location, else the peril's global layer."""
+    k = replacement(peril, (asset.get("country") or "").strip().upper())
+    if k:
+        L = registry.layer(k)
+        s = _samples(session, k, L["version"], lat, lon)
+        if not s or all(r["status"] == "sampled" for r in s.values()):
+            return k, L["version"], s
+    k = LAYERS[peril]
+    v = registry.layer(k)["version"]
+    return k, v, _samples(session, k, v, lat, lon)
+
+
+def _defences(session: Session, lat: float, lon: float, rows: dict) -> dict:
+    """Step 8: the defended figure beside the undefended one, or the reason there is none."""
+    rp, basis = protection.at(session, lat, lon)
+    if rp is None:
+        return {"protection_basis": basis}
+    low, central, high = ({k: v[i] for k, v in rows.items()} for i in range(3))
+    return {"protection_rp_years": rp, "protection_basis": basis,
+            "eal_defended_eur": round(protection.defended_eal(central, rp), 2),
+            "eal_defended_low_eur": round(protection.defended_eal(low, rp), 2),
+            "eal_defended_high_eur": round(protection.defended_eal(high, rp), 2)}
+
+
 def assess(session: Session, asset: dict, peril: str, family_key: Optional[str]) -> dict:
     """One asset and peril through the decision tree, today's climate (no database writes)."""
-    layer_key = LAYERS[peril]
-    L = registry.layer(layer_key)
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
     if asset.get("latitude") is None or asset.get("longitude") is None:
         return {**base, "gap": "the asset has no location"}
-    s = _samples(session, layer_key, L["version"], float(asset["latitude"]), float(asset["longitude"]))
-    why = _intensity_gap(s, layer_key, L["version"])
+    lat, lon = float(asset["latitude"]), float(asset["longitude"])
+    layer_key, version, s = _present_samples(session, asset, peril, lat, lon)
+    if peril == "flood":
+        base["flood_layer"] = layer_key
+    why = _intensity_gap(s, layer_key, version)
     if why:
         return {**base, "gap": why}
     base, ctx = _resolve(session, asset, peril, family_key, base)
@@ -244,7 +287,10 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
     if rows is None:
         return {**base, "gap": why}
-    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows)}
+    out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows)}
+    if peril == "flood":
+        out.update(_defences(session, lat, lon, rows), caution=next((r["caution"] for r in s.values() if r["caution"]), None))
+    return out
 
 
 def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[str]:
@@ -301,6 +347,7 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
     middle = ranked[len(ranked) // 2]
     rps = sorted(middle["loss_at_rp"], key=int)
     return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]),
+            "flood_layer": PROJECTED_FLOOD, "protection_basis": _PROJECTED_DEFENCES,
             "eal_eur": middle["eal_eur"],
             "eal_low_eur": min(x["eal_low_eur"] for x in per_model.values()),
             "eal_high_eur": max(x["eal_high_eur"] for x in per_model.values()),
@@ -309,6 +356,10 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
                                 "high": max(x["loss_at_rp"][rp]["high"] for x in per_model.values())} for rp in rps},
             "eal_same_source_today_eur": _summary(today_rows)["eal_eur"],
             "model_eal": {m: x["eal_eur"] for m, x in per_model.items()}}
+
+
+_PROJECTED_DEFENCES = ("no defended projection: the projection source moves the protection level with the climate, "
+                       "with its own protection data (Ward et al. 2020, section 5) — not decided")
 
 
 def run(session: Session, org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
@@ -332,15 +383,24 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                  else assess(session, a, peril, adopted[peril]))
             results.append({**r, "asset_kind": a["asset_kind"], "asset_id": a["asset_id"]})
     gapped = {a["asset_id"] for a in assets} - {r["asset_id"] for r in results if r["gap"] is None}
+    protocol = json.loads((registry.REF / "loss_protocol.json").read_text())
     inputs = {
-        "layers": ({p: {"key": k, "version": registry.layer(k)["version"]} for p, k in LAYERS.items()} if not projected
+        "layers": ({p: {"key": k, "version": registry.layer(k)["version"],
+                        "replaced_by": [{"key": r, "version": registry.layer(r)["version"],
+                                         "status": registry.layer(r)["status"],
+                                         "countries": registry.layer(r)["coverage_countries"]}
+                                        for r, L in registry.layers().items() if L.get("replaces") == k]}
+                    for p, k in LAYERS.items()} if not projected
                    else {"flood": _projection_inputs(scenario, horizon), "storm": None}),
+        "flood_protection": None if projected else {
+            "layer": protection.LAYER, "version": protection.layer()["version"], "rule": protocol["flood_protection"]},
+        "flood_headline": settings.get("loss_flood_headline"),
         "families_adopted": adopted,
         "families": {k: {"kind": f.get("kind", "published"), "source_sha256": f["source"]["sha256"],
                          "test_passed": (f.get("test") or {}).get("passed")} for k, f in curves.families().items()
                      if k in adopted.values()},
         "families_refused": curves.refused(),
-        "protocol": json.loads((registry.REF / "loss_protocol.json").read_text())["protocol"],
+        "protocol": protocol["protocol"],
         "value_basis": "a family's ratio is taken of the value its damage basis names: 'building' — the building's own "
                        "value, land excluded, as the book states it (never a market, appraised or position value); "
                        "'asset_value' — the asset's stated value",
@@ -361,12 +421,16 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
         session.execute(text("""
             INSERT INTO loss_results (run_id, asset_kind, asset_id, peril, exposed_value_eur, occupancy, curve_key, eal_eur,
                                       eal_low_eur, eal_high_eur, standing, loss_at_rp, gap, eal_same_source_today_eur,
-                                      model_eal)
+                                      model_eal, flood_layer, protection_rp_years, protection_basis, eal_defended_eur,
+                                      eal_defended_low_eur, eal_defended_high_eur, caution)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
                     :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
-                    :eal_same_source_today_eur, CAST(:model_eal AS jsonb))"""),
+                    :eal_same_source_today_eur, CAST(:model_eal AS jsonb), :flood_layer, :protection_rp_years,
+                    :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution)"""),
             [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
-              "eal_same_source_today_eur": None, **r,
+              "eal_same_source_today_eur": None, "flood_layer": None, "protection_rp_years": None,
+              "protection_basis": None, "eal_defended_eur": None, "eal_defended_low_eur": None,
+              "eal_defended_high_eur": None, "caution": None, **r,
               "loss_at_rp": json.dumps(r["loss_at_rp"]) if r.get("loss_at_rp") else None,
               "model_eal": json.dumps(r["model_eal"]) if r.get("model_eal") else None} for r in results])
     ep = _ep_points(session, run_id, results, settings)
@@ -407,9 +471,17 @@ def _gap_summary(results: list[dict]) -> dict[str, int]:
 
 def run_job(org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
             created_by: Optional[str] = None) -> dict:
-    """The background job (services.tasks.jobs 'loss.run'): its own session, committed."""
+    """The background job (services.tasks.jobs 'loss.run'): its own session, committed. A run of today's climate first
+    samples whatever its book's locations are missing (services.loss.intensity.prepare_book) for the perils with an
+    adopted curve family."""
     from core.db.session import get_session
     with get_session() as session:
+        if scenario == "baseline" and book in BOOKS:
+            from services.calc_settings import get_calc_settings
+            from services.loss.intensity import prepare_book
+            settings = get_calc_settings(session, org_id)
+            prepare_book(session, _assets(session, org_id, book),
+                         [p for p in LAYERS if settings.get(f"loss_curve_family_{p}")])
         out = run(session, org_id, book, scenario, horizon, created_by)
         session.commit()
     return out

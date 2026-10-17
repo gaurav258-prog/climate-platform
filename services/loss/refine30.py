@@ -304,7 +304,6 @@ def record_building_scale(result: dict) -> None:
     doc = json.loads(LAYERS_FILE.read_text(encoding="utf-8"))
     doc["layers"][LAYER_KEY]["building_scale_test"] = result
     LAYERS_FILE.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    registry.layers.cache_clear()
 
 
 def record(result: dict) -> None:
@@ -327,4 +326,3 @@ def record(result: dict) -> None:
     if "decision" in kept:                        # the product owner's recorded decision stands over a re-run
         doc["layers"][LAYER_KEY]["adoption"] = f"decided {kept['decision']['date']}: {kept['decision']['outcome']}"
     LAYERS_FILE.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    registry.layers.cache_clear()

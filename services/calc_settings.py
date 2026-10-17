@@ -156,6 +156,18 @@ INTERPRETATION_SCHEMA: dict = {
                        "named gap; each asset's figures stand regardless.",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
+    # Flood defences (product owner's decisions, 2026-10-16): both figures are always shown; the institution states
+    # which one leads — the one its reporting carries.
+    "loss_flood_headline": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": ["defended", "undefended"],
+        "label": "Which flood loss leads: defended or undefended",
+        "description": "Each flood loss is shown twice: undefended (the flood maps as published, with no dikes or walls) "
+                       "and defended (losses from floods more frequent than the local protection level set to zero, "
+                       "from the JRC map of European protection standards). Choose which one your reporting leads with. "
+                       "Where the protection level is unknown, only the undefended figure exists and is labelled so. "
+                       "Not set, both are shown and neither leads.",
+        "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
+    },
     "climate_var_dependence": {
         "frameworks": ["sfdr_pai"],
         "default": None, "kind": "enum", "allowed": ["independent", "additive", "max"],

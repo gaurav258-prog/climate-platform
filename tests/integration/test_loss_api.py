@@ -40,6 +40,17 @@ def test_layers_are_listed_with_what_is_sampled(api):
     if "jrc_flood_30m" in layers:                                   # a refinement shows both of its tests and its status
         r = layers["jrc_flood_30m"]
         assert r["status"] in ("candidate", "in_use") and "test" in r and "building_scale_test" in r
+    eu = layers["jrc_river_flood_europe"]                           # a replacement names what and where it replaces
+    assert eu["replaces"] == "jrc_river_flood" and eu["status"] in ("candidate", "in_use", "refused")
+    assert eu["coverage_countries"] and len(eu["return_periods"]) == 9
+
+
+def test_the_protection_map_is_listed_with_what_it_holds(api):
+    h = _login(api, *ADMIN)
+    got = api.get("/v1/loss/layers", headers=h).json()["protection_layers"]
+    P = {p["key"]: p for p in got}["jrc_flood_protection_europe"]
+    assert P["unit"] == "years" and P["metric"] == "design_return_period" and P["licence"].startswith("CC BY 4.0")
+    assert set(P["sampled"]) >= {"places"}
 
 
 def test_a_run_lists_gaps_by_reason_and_never_adds_across_standing(api):

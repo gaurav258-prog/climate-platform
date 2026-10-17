@@ -27,6 +27,7 @@ JOBS: dict[str, str] = {
     "calibration.refresh_weather": "services.calibration.pipeline:refresh_weather",
     "loss.sample_intensity": "services.loss.intensity:sample_job",
     "loss.run": "services.loss.engine:run_job",
+    "loss.sample_protection": "services.loss.protection:sample_job",
 }
 
 

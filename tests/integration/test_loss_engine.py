@@ -50,13 +50,23 @@ def _flood_samples(s, lat=LAT, lon=LON, share=0.5, depth=1.0):
                           ON CONFLICT DO NOTHING"""), {"la": lat, "lo": lon, "rp": rp, "f": share * k, "m": depth * k})
 
 
+def europe_maps(monkeypatch, status: str) -> None:
+    """Pin the JRC European maps' status for a test: whether they serve European assets is the registry's state, which
+    their check changes (services.loss.europe_check) — a test states which one it assumes."""
+    from services.loss import registry
+    L = {**registry.layers()}
+    L["jrc_river_flood_europe"] = {**L["jrc_river_flood_europe"], "status": status}
+    monkeypatch.setattr(registry, "layers", lambda: L)
+
+
 def _results(s, run_id) -> dict:
     return {r["peril"]: dict(r) for r in s.execute(text(
         "SELECT * FROM loss_results WHERE run_id = CAST(:r AS uuid)"), {"r": run_id}).mappings()}
 
 
-def test_every_missing_input_is_a_named_gap(session_rolled_back):
+def test_every_missing_input_is_a_named_gap(session_rolled_back, monkeypatch):
     s = session_rolled_back
+    europe_maps(monkeypatch, "candidate")              # the Spanish asset below reads the global maps
     if "nfip_measured" not in curves.families():
         pytest.skip("the measured family is not built on this machine")
     org = _org(s, {})
@@ -184,11 +194,12 @@ def test_a_scenario_or_horizon_the_source_does_not_publish_is_a_named_gap(sessio
         engine.run(s, org, "realestate", "hot_house_3_5c", "current")
 
 
-def test_a_european_home_on_the_jrc_curve_is_untested_and_a_us_home_held(session_rolled_back):
+def test_a_european_home_on_the_jrc_curve_is_untested_and_a_us_home_held(session_rolled_back, monkeypatch):
     """Product owner's decisions (2026-10-07): the JRC curves cover the UN M49 region's countries; Europe publishes no
     spread, so its figure has no range; a curve tested on its own carries that test's standing, every other is
     untested."""
     s = session_rolled_back
+    europe_maps(monkeypatch, "candidate")              # the German home reads the global maps
     fam = curves.families().get("jrc_huizinga_2017")
     if fam is None:
         pytest.skip("the JRC family is not built on this machine")

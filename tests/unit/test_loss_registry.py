@@ -46,3 +46,43 @@ def test_a_layer_must_be_registered():
     assert registry.layer("jrc_river_flood")["unit"] == "m"
     with pytest.raises(registry.RegistryError):
         registry.layer("no_such_layer")
+
+
+def test_a_registry_change_reaches_a_running_process(tmp_path, monkeypatch):
+    """E179: the Loss page kept showing the European maps as a candidate after their check put them in use — the API
+    had parsed the registry once for its whole life. A registry file is now re-read whenever it changes on disk."""
+    import json
+    import os
+    import shutil
+    for name in ("hazard_intensity_layers.json", "event_sets.json", "occupancy.json", "loss_protocol.json"):
+        shutil.copy(registry.REF / name, tmp_path / name)
+    monkeypatch.setattr(registry, "REF", tmp_path)
+    assert registry.layer("jrc_river_flood")["version"] == registry.layers()["jrc_river_flood"]["version"]
+    f = tmp_path / "hazard_intensity_layers.json"
+    doc = json.loads(f.read_text())
+    doc["layers"]["jrc_river_flood"]["version"] = "changed-by-another-process"
+    f.write_text(json.dumps(doc))
+    st = f.stat()
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))      # a later version of the file, whatever the clock
+    assert registry.layer("jrc_river_flood")["version"] == "changed-by-another-process"
+
+
+def test_a_recorded_curve_test_reaches_a_running_process(tmp_path, monkeypatch):
+    import json
+    import os
+    import shutil
+
+    from services.loss import curves
+    for p in curves.DIR.glob("*.json"):
+        shutil.copy(p, tmp_path / p.name)
+    monkeypatch.setattr(curves, "DIR", tmp_path)
+    before = set(curves.families()) | set(curves.refused())
+    if not before:
+        pytest.skip("no curve family is built on this machine")
+    name = sorted(tmp_path.glob("*.json"))[0]
+    doc = json.loads(name.read_text())
+    doc["family"] = doc["family"] + "_renamed"
+    name.write_text(json.dumps(doc))
+    st = name.stat()
+    os.utime(name, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
+    assert set(curves.families()) | set(curves.refused()) != before

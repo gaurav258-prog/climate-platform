@@ -112,4 +112,3 @@ def record(result: dict) -> None:
     doc = json.loads(f.read_text(encoding="utf-8"))
     doc["layers"][LAYER]["present_day_check"] = result
     f.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    registry.layers.cache_clear()
