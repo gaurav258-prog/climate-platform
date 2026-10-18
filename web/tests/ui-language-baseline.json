@@ -3,642 +3,798 @@
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/AssetDrawer.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 5,
-  "apiProse": 0
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/BankCounterparties.tsx": {
   "internal": 1,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/BoardPack.tsx": {
   "internal": 1,
-  "raw": 3,
+  "raw": 6,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/ClientRates.tsx": {
   "internal": 3,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/ControlRegister.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
+ },
+ "src/components/DisclosureFlags.tsx": {
+  "internal": 0,
+  "raw": 1,
+  "monoProse": 0,
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/DropFolders.tsx": {
   "internal": 1,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/EetPanel.tsx": {
   "internal": 0,
-  "raw": 2,
+  "raw": 4,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/ExpectedLossCard.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/FactConflicts.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/FilingCockpit.tsx": {
   "internal": 2,
   "raw": 3,
   "monoProse": 3,
-  "apiProse": 3
+  "apiProse": 4,
+  "figure": 0
  },
  "src/components/FilingCoverage.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/FilingForm.tsx": {
   "internal": 1,
   "raw": 0,
   "monoProse": 5,
-  "apiProse": 4
+  "apiProse": 4,
+  "figure": 0
  },
  "src/components/FilingFx.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/FilingLineage.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 4,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/FilingPreflight.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 9,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/FilingRetention.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 3,
+  "figure": 0
  },
  "src/components/FilingRun.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 3
+  "apiProse": 3,
+  "figure": 0
  },
  "src/components/FilingVariance.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/FundOnboard.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/FundPositions.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 3,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/GlRecon.tsx": {
   "internal": 4,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/GrcFollowups.tsx": {
   "internal": 0,
-  "raw": 3,
+  "raw": 4,
   "monoProse": 4,
-  "apiProse": 1
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/HexMap.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/InsurerDocuments.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/IntakeControls.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 4,
+  "figure": 0
  },
  "src/components/KriTemplateRows.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/Lineage.tsx": {
   "internal": 2,
   "raw": 2,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
+ },
+ "src/components/LineageGraph.tsx": {
+  "internal": 0,
+  "raw": 1,
+  "monoProse": 0,
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/MappingEditor.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/MethodParameters.tsx": {
   "internal": 1,
   "raw": 2,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/ProvidedData.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/RealizedExposure.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 3,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/RegNotifications.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/RegulatoryLineage.tsx": {
   "internal": 0,
-  "raw": 5,
+  "raw": 6,
   "monoProse": 0,
-  "apiProse": 3
+  "apiProse": 3,
+  "figure": 0
  },
  "src/components/Remittance.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 7,
-  "apiProse": 0
+  "apiProse": 1,
+  "figure": 0
+ },
+ "src/components/SfdrDocument.tsx": {
+  "internal": 0,
+  "raw": 1,
+  "monoProse": 0,
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/SfdrDocumentItems.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/SiteMap.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/SpecRegister.tsx": {
   "internal": 0,
   "raw": 6,
   "monoProse": 2,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/StageStrip.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/SupplyOutlook.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/T5Lineage.tsx": {
   "internal": 1,
   "raw": 1,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/Toaster.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/ValidatedUpload.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 3,
-  "apiProse": 1
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/WorldCrop.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
+ },
+ "src/components/esrs/EsrsComparatives.tsx": {
+  "internal": 0,
+  "raw": 0,
+  "monoProse": 0,
+  "apiProse": 1,
+  "figure": 0
  },
  "src/components/esrs/EsrsFigures.tsx": {
   "internal": 0,
   "raw": 2,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/esrs/EsrsItems.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/esrs/EsrsUndertaking.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 1
+  "apiProse": 2,
+  "figure": 0
  },
  "src/components/eudr/Declaration.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 2,
   "monoProse": 0,
-  "apiProse": 3
+  "apiProse": 4,
+  "figure": 0
  },
  "src/components/eudr/EudrForms.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/components/eudr/Shipment.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 3,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 4,
+  "figure": 0
  },
  "src/components/eudr/TradeRecord.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 2,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 4,
+  "figure": 0
+ },
+ "src/components/sfdr/PaiStatement.tsx": {
+  "internal": 0,
+  "raw": 1,
+  "monoProse": 0,
+  "apiProse": 1,
+  "figure": 0
  },
  "src/content/docs.ts": {
-  "internal": 7,
+  "internal": 4,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Activate.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Admin.tsx": {
   "internal": 3,
-  "raw": 4,
+  "raw": 5,
   "monoProse": 9,
-  "apiProse": 2
+  "apiProse": 3,
+  "figure": 0
  },
  "src/pages/Analytics.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 4,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Approvals.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 1,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/Assurance.tsx": {
   "internal": 2,
   "raw": 2,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Audit.tsx": {
   "internal": 1,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Billing.tsx": {
   "internal": 0,
-  "raw": 1,
+  "raw": 2,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Calendar.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Calibrations.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/pages/Cogs.tsx": {
   "internal": 0,
-  "raw": 1,
+  "raw": 2,
   "monoProse": 3,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Contracts.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Coverage.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 4,
-  "apiProse": 7
+  "apiProse": 7,
+  "figure": 0
+ },
+ "src/pages/CropCoverage.tsx": {
+  "internal": 0,
+  "raw": 0,
+  "monoProse": 0,
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/DataDictionary.tsx": {
   "internal": 3,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/DataHub.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Decisions.tsx": {
   "internal": 0,
-  "raw": 1,
+  "raw": 2,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/DetailView.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/Disclosure.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 3,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Docs.tsx": {
   "internal": 0,
   "raw": 2,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/EntityFile.tsx": {
   "internal": 2,
-  "raw": 2,
+  "raw": 3,
   "monoProse": 3,
-  "apiProse": 0
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/EsrsStatement.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 1,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
+ },
+ "src/pages/Eudr.tsx": {
+  "internal": 0,
+  "raw": 2,
+  "monoProse": 0,
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Exceptions.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/FundDetail.tsx": {
   "internal": 0,
-  "raw": 1,
+  "raw": 2,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Funds.tsx": {
   "internal": 1,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Home.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Horizon.tsx": {
   "internal": 2,
   "raw": 2,
   "monoProse": 9,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/IntakeReview.tsx": {
   "internal": 0,
   "raw": 2,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Kri.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 8,
-  "apiProse": 3
+  "apiProse": 7,
+  "figure": 0
  },
  "src/pages/Login.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/ModelRisk.tsx": {
   "internal": 0,
-  "raw": 3,
+  "raw": 8,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 4,
+  "figure": 0
  },
  "src/pages/ModelValidation.tsx": {
   "internal": 1,
-  "raw": 3,
+  "raw": 5,
   "monoProse": 7,
-  "apiProse": 3
+  "apiProse": 3,
+  "figure": 0
  },
  "src/pages/Onboarding.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/Oversight.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 3,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/Platform.tsx": {
   "internal": 2,
   "raw": 1,
   "monoProse": 2,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Portfolio.tsx": {
   "internal": 3,
-  "raw": 1,
+  "raw": 2,
   "monoProse": 16,
-  "apiProse": 5
+  "apiProse": 5,
+  "figure": 0
  },
  "src/pages/PriorFilings.tsx": {
   "internal": 1,
   "raw": 0,
   "monoProse": 3,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/RegChanges.tsx": {
   "internal": 1,
   "raw": 1,
   "monoProse": 7,
-  "apiProse": 4
+  "apiProse": 5,
+  "figure": 0
  },
  "src/pages/RegPipeline.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 0,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/pages/Remit.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/RiskMap.tsx": {
   "internal": 2,
   "raw": 0,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/SingleSignOn.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 3,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Solvency.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 1,
   "monoProse": 4,
-  "apiProse": 1
+  "apiProse": 2,
+  "figure": 0
  },
  "src/pages/Supervised.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/SupervisorAnalytics.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
-  "apiProse": 3
+  "apiProse": 3,
+  "figure": 0
  },
  "src/pages/SupervisorBenchmark.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 1,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/SupervisorLens.tsx": {
   "internal": 0,
-  "raw": 1,
+  "raw": 2,
   "monoProse": 5,
-  "apiProse": 5
+  "apiProse": 6,
+  "figure": 0
  },
  "src/pages/SupervisorMandates.tsx": {
   "internal": 0,
-  "raw": 2,
+  "raw": 3,
   "monoProse": 6,
-  "apiProse": 2
+  "apiProse": 2,
+  "figure": 0
  },
  "src/pages/SupervisorMap.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/SupervisorPlausibility.tsx": {
   "internal": 0,
   "raw": 2,
   "monoProse": 6,
-  "apiProse": 3
+  "apiProse": 3,
+  "figure": 0
  },
  "src/pages/SupervisorRequests.tsx": {
   "internal": 0,
-  "raw": 2,
+  "raw": 5,
   "monoProse": 6,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/Support.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 2,
   "monoProse": 1,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/Tasks.tsx": {
   "internal": 0,
-  "raw": 0,
+  "raw": 1,
   "monoProse": 1,
-  "apiProse": 2
+  "apiProse": 3,
+  "figure": 0
  },
  "src/pages/ThirdParties.tsx": {
   "internal": 0,
   "raw": 2,
   "monoProse": 0,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/TrackRecord.tsx": {
   "internal": 2,
   "raw": 2,
   "monoProse": 2,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  },
  "src/pages/Transmission.tsx": {
   "internal": 1,
   "raw": 1,
   "monoProse": 2,
-  "apiProse": 0
+  "apiProse": 0,
+  "figure": 0
  },
  "src/pages/UnderwritingReview.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 4,
-  "apiProse": 1
+  "apiProse": 1,
+  "figure": 0
  }
 }
