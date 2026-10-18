@@ -12,6 +12,8 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+
 # hazards answerable on demand for any address (volcanic: GVP global catalogue + radial physics, SCREENING)
 ON_DEMAND_HAZARDS = ["flood", "wildfire", "drought", "storm", "seismic", "heat_acute", "soil_water",
                      "coastal_flood", "subsidence", "volcanic", "cold_wave"]
@@ -53,56 +55,138 @@ def _scope_claims() -> dict:
     return out
 
 
-def eu_taxonomy_coverage() -> dict:
-    """Our coverage of the EU Taxonomy's 28 physical climate hazards, each stamped with a maturity tier.
+# ── The Coverage page's three views, to the UI standard (2026-10-16) ──────────────────────────────────────────────
+# Every word they serve is the message catalogue's (coverage.* in data/reference/messages.en.json); the registries'
+# engineers' notes (core/hazard_taxonomy internal_note, core/hazard_regions evidence and ledger, the projection and
+# limitation records) stay on the server. tests/unit/test_coverage_view.py holds the served text to customer language
+# and every number it states to the registries' record.
+TIER_ORDER = ("calibrated", "by_nature", "screening", "reference", "roadmap")
+REGION_STATUSES = ("validated", "mixed", "fails", "untested")
+# the projection modes, as the screen lists them: carried by climate models first, flat by design last
+MODE_ORDER = ("cmip6_band", "cmip6_environment", "ar6_slr_band", "projection_channel", "parametric_cc",
+              "parametric_warming", "parametric_warming_inverse", "variability", "susceptibility_flat", "geophysical_flat")
+_MODE_CODE = {"cmip6_band": "models_band", "cmip6_environment": "models_environment", "ar6_slr_band": "sea_level_band"}
 
-    Pure — derived from the canonical registry in `core.hazard_taxonomy` (no DB). This is the completeness
-    scoreboard a supervisor / auditor scores climate-risk coverage against: the 28 grouped by family, plus the
-    honest counts, plus the channels we carry BEYOND the list (seismic/volcanic/pollution). Coverage ≠
-    calibration — the tier on each hazard says which claim we're making.
+
+def _gates() -> dict:
+    """The validation bars the words quote, from the pre-registered gates (never typed into the words)."""
+    from core import validation_gates as G
+    return {"bar": f"{G.RANK_GATE_SPEARMAN:.2f}", "r2": f"{G.REGRESSION_GATE_R2:.2f}",
+            "min": G.GLOBAL_CLAIM_MIN_REGIONS, "n": len(G.MACRO_REGIONS)}
+
+
+def _msg(code: str, **params) -> dict:
+    """A catalogue message as the screen needs it: its label and its detail."""
+    r = messages.render(code, **params)
+    return {"label": r["label"], "detail": r["detail"]}
+
+
+def mode_message(mode: str) -> dict:
+    return _msg(f"coverage.mode.{_MODE_CODE.get(mode, mode)}")
+
+
+def _projection_item(it: dict) -> dict:
+    return {"channel": it["hazard"], "label": messages.name("coverage.channel", it["hazard"]),
+            "projects": it["projects"], "band": it["band"], "mode": it["mode"], "mode_message": mode_message(it["mode"]),
+            "message": _msg(f"coverage.projection.{it['hazard']}", **it["params"])}
+
+
+def _projections() -> dict[str, dict]:
+    from ml.scoring.projection_coverage import projection_coverage
+    return {it["hazard"]: _projection_item(it) for it in projection_coverage()["items"]}
+
+
+def _scope(hazard_id: str) -> dict:
+    """Where a validated hazard was judged, region by region; its claim is derived, never typed in."""
+    from core import validation_gates as G
+    from core.hazard_regions import REGIONAL_EVIDENCE, scope_claim
+    status = {e.region: e.status for e in REGIONAL_EVIDENCE.get(hazard_id, ())}
+    claim = scope_claim(hazard_id)
+    return {"claim": claim, "message": _msg(f"coverage.scope.{claim}", **_gates()),
+            "regions": [{"region": r, "status": status.get(r, "untested"),
+                         "message": _msg(f"coverage.region.{hazard_id}.{r}", **_gates()) if r in status else None}
+                        for r in G.MACRO_REGIONS]}
+
+
+def _hazard(h, projections: dict[str, dict]) -> dict:
+    from core.hazard_taxonomy import MaturityTier, screening_status
+    st = screening_status(h.id, h.tier)
+    d = {"id": h.id, "name": h.name, "label": messages.name("coverage.hazard", h.id), "family": h.family.value,
+         "nature": h.nature, "tier": h.tier.value, "phase": h.phase, "internal": [c.value for c in h.internal],
+         "message": _msg(f"coverage.hazard.{h.id}", **_gates()),
+         "indicator": _msg(f"coverage.indicator.{st}") if st else None,
+         "projection": [projections.get(c.value) or {"channel": c.value, "label": messages.name("coverage.channel", c.value),
+                                                     "projects": False, "band": False, "mode": None, "mode_message": None,
+                                                     "message": _msg("coverage.projection.none")}
+                        for c in h.internal]}
+    if h.tier is MaturityTier.CALIBRATED:
+        d["scope"] = _scope(h.id)                  # WHERE it is validated — the tier alone would read as unbounded
+    return d
+
+
+def eu_taxonomy_coverage() -> dict:
+    """Our coverage of the EU Taxonomy's 28 physical climate hazards (Regulation 2021/2139, Appendix A), each stamped
+    with a maturity tier, for the screen.
+
+    Pure — derived from the canonical registry in `core.hazard_taxonomy` (no DB): the 28 grouped by family, the honest
+    counts, and the channels we carry beyond the list (seismic, volcanic, pollution). Coverage ≠ calibration — the tier
+    on each hazard says which claim we're making. Each hazard carries its words, where it is validated and how it is
+    carried to future years.
     """
-    from core.hazard_regions import regional_view
+    from core import validation_gates as G
     from core.hazard_taxonomy import (
         EXTRA_CHANNELS,
         HazardFamily,
         coverage_summary,
         eu_hazards_by_family,
-        screening_status,
     )
 
-    def _ser(h) -> dict:
-        d = {
-            "id": h.id, "name": h.name, "family": h.family.value, "nature": h.nature,
-            "tier": h.tier.value, "phase": h.phase, "source": h.source,
-            "internal": [c.value for c in h.internal],
-            "status": screening_status(h.id, h.tier),      # indicator only: tested_negative | no_target_yet (ledger fact, not shown as a verdict)
-        }
-        if h.tier.value == "calibrated":
-            d["scope"] = regional_view(h.id)               # WHERE it is validated — the tier alone would read as unbounded
-        return d
-
     grouped = eu_hazards_by_family()
-    family_labels = {
-        "temperature": "Temperature-related", "wind": "Wind-related",
-        "water": "Water-related", "solid_mass": "Solid-mass-related",
-    }
+    proj = _projections()
     return {
-        "reference": "EU Taxonomy Climate Delegated Act (2021/2139), Appendix A",
-        "summary": {**coverage_summary(), "scope_claims": _scope_claims()},
-        "families": [
-            {"family": f.value, "label": family_labels[f.value],
-             "hazards": [_ser(h) for h in grouped[f.value]]}
-            for f in HazardFamily
-        ],
-        "extra_channels": [_ser(h) for h in EXTRA_CHANNELS],
-        "tiers": [
-            {"tier": "calibrated", "label": "Validated", "note": "passed an independent backtest against observed outcomes — publishes scores, may headline and carry a figure"},
-            {"tier": "by_nature", "label": "Reference context", "note": "a projection of the future, a descriptive statistic or an observation product — nothing to test against; context only, never a headline"},
-            {"tier": "screening", "label": "Indicator", "note": "an authoritative published layer used for screening; not validated — never a headline, never a figure. Backtest results, where run, are in the note and on the validation ledger"},
-            {"tier": "reference", "label": "Reference layer", "note": "zone / inventory layer — an exposure state, no climate projection"},
-            {"tier": "roadmap", "label": "Roadmap", "note": "planned channel, not built yet"},
-        ],
-        "note": "coverage ≠ calibration; a channel moves up a tier only when it earns it (see model validation)",
+        "counts": {**coverage_summary(), "scope_claims": _scope_claims()},
+        "tiers": [{"tier": t, **_msg(f"coverage.tier.{t}")} for t in TIER_ORDER],
+        "families": [{"family": f.value, "label": messages.name("coverage.family", f.value),
+                      "hazards": [_hazard(h, proj) for h in grouped[f.value]]} for f in HazardFamily],
+        "extra_label": messages.name("coverage.family", "beyond"),
+        "extra_channels": [_hazard(h, proj) for h in EXTRA_CHANNELS],
+        "regions": [{"region": r, "label": messages.name("coverage.region", r)} for r in G.MACRO_REGIONS],
+        "region_statuses": [{"status": s, "label": messages.name("coverage.region_status", s)} for s in REGION_STATUSES],
+    }
+
+
+def projection_view() -> dict:
+    """How each hazard is carried to 2030, 2050 and 2100, for the screen: one row per scored channel, grouped by mode."""
+    from core.hazard_taxonomy import EU_TAXONOMY, EXTRA_CHANNELS
+    from ml.scoring.projection_coverage import HORIZONS, SCENARIOS, projection_coverage
+
+    reg = projection_coverage()
+    hazard_of = {c.value: h.id for h in (*EU_TAXONOMY, *EXTRA_CHANNELS) for c in h.internal}
+    items = [{**_projection_item(it), "hazard_id": hazard_of.get(it["hazard"])} for it in reg["items"]]
+    modes = [*MODE_ORDER, *sorted({it["mode"] for it in items} - set(MODE_ORDER))]
+    return {
+        "scenarios": [{"key": s, "label": messages.name("scenario", s)} for s in SCENARIOS],
+        "horizons": HORIZONS,
+        "counts": {"hazards": reg["n_hazards"], "projected": reg["n_projected"], "flat": reg["n_flat_by_design"],
+                   "band": reg["n_with_band"]},
+        "modes": [{"mode": m, "message": mode_message(m), "projects": rows[0]["projects"], "channels": [i["channel"] for i in rows]}
+                  for m in modes if (rows := [i for i in items if i["mode"] == m])],
+        "items": items,
+    }
+
+
+def limitations_view() -> dict:
+    """What the engine deliberately does not model yet, for the screen: each limitation's words, status and area."""
+    from ml.scoring.model_limitations import STATUSES, model_limitations
+
+    reg = model_limitations()
+    return {
+        "counts": reg["counts"],
+        "statuses": [{"status": s, **_msg(f"coverage.status.{s}")} for s in STATUSES],
+        "items": [{"id": it["id"], "status": it["status"], "area": messages.name("coverage.area", it["id"]),
+                   "message": _msg(f"coverage.limitation.{it['id']}", **_gates()),
+                   "today": _msg(f"coverage.limitation.{it['id']}.today")}
+                  for it in reg["items"]],
     }
 
 

@@ -214,6 +214,978 @@
     "next": "Download the template, fill in its columns and try again."
    }
   },
+  "coverage.tier.calibrated": {
+   "label": "Validated",
+   "detail": {
+    "what": "Passed a test against observed outcomes it was not built from. Its scores may lead a headline and carry a figure."
+   }
+  },
+  "coverage.tier.screening": {
+   "label": "Indicator",
+   "detail": {
+    "what": "A published, authoritative layer used to screen. It is not validated, so it never leads a headline and never carries a figure. Where it was tested, the result is in its details."
+   }
+  },
+  "coverage.tier.by_nature": {
+   "label": "Reference context",
+   "detail": {
+    "what": "A projection of the future, a climate statistic or an observation: there is nothing observed to test it against. Context only; it never leads a headline."
+   }
+  },
+  "coverage.tier.reference": {
+   "label": "Reference layer",
+   "detail": {
+    "what": "A map of zones or an inventory: where a hazard is, with no climate projection."
+   }
+  },
+  "coverage.tier.roadmap": {
+   "label": "Planned",
+   "detail": {
+    "what": "A hazard on our plan that is not covered yet."
+   }
+  },
+  "coverage.indicator.tested_negative": {
+   "label": "Tested, stays an indicator",
+   "detail": {
+    "what": "It was tested against an independent observed record and did not reach the bar to be validated. The result is under How it was tested."
+   }
+  },
+  "coverage.indicator.no_target_yet": {
+   "label": "Not tested yet",
+   "detail": {
+    "what": "No observed record to test it against has been found at scale yet."
+   }
+  },
+  "coverage.scope.global": {
+   "label": "Validated globally",
+   "detail": {
+    "what": "Validated in at least {min} of the {n} world regions, including at least one of Latin America and the Caribbean, Africa or Asia."
+   }
+  },
+  "coverage.scope.pooled_global": {
+   "label": "Validated on a worldwide sample",
+   "detail": {
+    "what": "Validated on a sample spread across the world. Results for each region are not reported yet, so no region is shown as validated on its own."
+   }
+  },
+  "coverage.scope.multi_region": {
+   "label": "Validated in several regions",
+   "detail": {
+    "what": "Validated in two or more world regions, or in one with mixed results in others. Not a worldwide claim."
+   }
+  },
+  "coverage.scope.regional": {
+   "label": "Validated in one region",
+   "detail": {
+    "what": "Validated in a single world region. Elsewhere it is untested or does not hold."
+   }
+  },
+  "coverage.scope.none": {
+   "label": "No region validated",
+   "detail": {
+    "what": "No world region is validated yet."
+   }
+  },
+  "coverage.hazard.heat_wave": {
+   "label": "ERA5 climate reanalysis, crop heat scale",
+   "detail": {
+    "what": "How hot a place runs for crops: where its temperature sits in the crop's heat-stress band, and how unusually hot the year is against the 1991–2020 normal. Read from the ERA5 climate reanalysis.",
+    "why": "Checked against observed cocoa production in West Africa (FAO and ICCO), a record independent of the climate data: over 34 years, rank agreement 0.60.",
+    "next": "Validated for cocoa only. Bordeaux wine grapes showed no heat signal (0.01). A crop heat-stress scale, not a measure of heat damage to buildings."
+   }
+  },
+  "coverage.hazard.heat_stress": {
+   "label": "NASA POWER daily maximum temperatures",
+   "detail": {
+    "what": "The number of days a year above 30 °C, counted from 30 years of daily maximum temperatures (NASA POWER).",
+    "why": "Checked against hot days counted at 248 weather stations in Europe and the United States (NOAA GHCN-Daily, 1991–2020), which the data source does not use: rank agreement 0.92.",
+    "next": "Africa has no weather station with enough complete years to test, and Latin America has 3, so neither is validated. Stations sit mostly at airports. It counts hot days; it is not a damage estimate."
+   }
+  },
+  "coverage.hazard.cold_wave_frost": {
+   "label": "NASA POWER daily minimum temperatures",
+   "detail": {
+    "what": "Two scores. Cold wave: how far the 1-in-10-year coldest night falls below the point where pipes freeze and below the cold a building was designed for, from 30 years of daily minimum temperatures (NASA POWER). Frost: the coldest night of the coldest month, on a crop scale.",
+    "why": "The cold-wave score was checked against the coldest nights at 248 weather stations in Europe and the United States (NOAA GHCN-Daily, 1991–2020): rank agreement 0.89.",
+    "next": "The frost score is a crop scale and is not used as a building hazard. Africa has no weather station with enough complete years to test, and Latin America has 3, so neither is validated. Stations sit mostly at airports."
+   }
+  },
+  "coverage.hazard.wildfire": {
+   "label": "Copernicus fire weather and satellite burn history",
+   "detail": {
+    "what": "How often fire weather reaches extreme danger (Copernicus Fire Weather Index, 2006–2020), weighted by the share of land that can burn, plus the burn history seen by satellite (ESA Climate Change Initiative, 2001–2019). A fixed, published formula.",
+    "why": "Checked on the official European burn record (EFFIS, 41,000 burn scars) for 2022–2024, later than every input: it finds burned places with a hit rate of 0.76 and ranks burned area with rank agreement 0.37, just above the {bar} bar. Gridded burned-area records also pass in Africa, Asia, Latin America and Oceania.",
+    "next": "Most of the skill comes from past burn history, which overlaps the test record; fire weather and fuel alone reach 0.68 and 0.22. In North America gridded burned area passes but fire-perimeter records fall just short. A same-day fire-weather version did not pass (0.44) and is not used."
+   }
+  },
+  "coverage.hazard.changing_temperature": {
+   "label": "CMIP6 climate-model ensemble",
+   "detail": {
+    "what": "How much a place warms under a climate scenario, against today's climate, from the average of the CMIP6 climate models.",
+    "why": "It is a projection of the future, so there is no observed outcome to test it against.",
+    "next": "Shown only under a future scenario and year; it has no value for today. Context only: it never leads a headline."
+   }
+  },
+  "coverage.hazard.temperature_variability": {
+   "label": "Monthly climate normals, 1991–2020",
+   "detail": {
+    "what": "How far apart the warmest and coldest months lie, and how much the year-to-year values spread, from the 1991–2020 monthly climate normals.",
+    "why": "It describes the climate rather than a damage, so testing it against weather stations would prove nothing.",
+    "next": "Context only: it never leads a headline."
+   }
+  },
+  "coverage.hazard.permafrost_thaw": {
+   "label": "Permafrost probability map (Obu et al., 2019)",
+   "detail": {
+    "what": "The probability that the ground at a place is permafrost, from the published 1 km northern-hemisphere permafrost map (Obu et al., 2019).",
+    "why": "Checked against ground temperatures measured in 229 boreholes of the Global Terrestrial Network for Permafrost, never used to build the map: rank agreement 0.82, well above the {bar} bar.",
+    "next": "Northern hemisphere only, from 25° north; Central Asia and Tibet have 12 boreholes, too few to judge. It shows where permafrost is, not the damage from its thaw."
+   }
+  },
+  "coverage.hazard.cyclone": {
+   "label": "IBTrACS tropical-storm tracks since 1981",
+   "detail": {
+    "what": "The 1-in-10-year wind speed at a place from tropical cyclones, modelled from every storm track recorded since 1981 in IBTrACS, the international best-track archive.",
+    "why": "Rebuilt from the storm seasons before a test window and checked on the storms that came after: rank agreement 0.78 to 0.88 across five windows of at least 10 seasons.",
+    "next": "A test of wind strength, not of damage: observed wind damage and insured losses are not tested yet. The score and the test come from the same track archive, split in time. Europe's sample is thin (30 places)."
+   }
+  },
+  "coverage.hazard.storm": {
+   "label": "ERA5 wind-gust climate",
+   "detail": {
+    "what": "How strong the yearly peak wind gusts are at a place, from the ERA5 climate reanalysis: the European winter windstorms, blizzards and dust storms that tropical-cyclone models miss.",
+    "why": "Checked against peak gusts measured at 92 weather stations (NOAA): rank agreement 0.57 overall, 0.79 in Europe (34 stations) and 0.38 in North America (58 stations, a narrow pass).",
+    "next": "It ranks places by gust hazard; it is not a loss model. Against NOAA's reported gusts it reaches 0.26, and against US damaging-event counts 0.05, so no euro figure is published for it."
+   }
+  },
+  "coverage.hazard.changing_wind": {
+   "label": "CMIP6 climate-model ensemble",
+   "detail": {
+    "what": "How much near-surface wind speed changes at a place under a climate scenario, from the average of the CMIP6 climate models. A rise and a fall both count.",
+    "why": "It is a projection of the future, so there is no observed outcome to test it against.",
+    "next": "Shown only under a future scenario and year. Context only: it never leads a headline."
+   }
+  },
+  "coverage.hazard.tornado": {
+   "label": "ERA5 storm instability and wind shear",
+   "detail": {
+    "what": "How often the air above a place has the instability and wind shear that breed tornadoes, large hail and damaging winds, from a published severe-storm index (Taszarek, 2021) on the ERA5 climate reanalysis.",
+    "why": "Checked against 70,000 tornadoes recorded by NOAA's Storm Prediction Center: it finds them with a hit rate of 0.73 (0.74 for the stronger ones). Rebuilt from earlier years, it reaches 0.82 on later ones.",
+    "next": "It describes the storm environment, not damage: it does not rank US counties by reported damage (0.09)."
+   }
+  },
+  "coverage.hazard.drought": {
+   "label": "SPEI drought index",
+   "detail": {
+    "what": "How much drier than normal a place is, from the SPEI drought index: rainfall set against the water that evaporation takes.",
+    "why": "Checked against observed crop-production shocks (FAO) over 34 years in 21 crop regions. It holds for rain-fed winter cereals and tree crops in dry climates: Australian wheat (0.64), North African wheat (0.47 to 0.67), West and Central Asian wheat (0.40 to 0.57) and central Spain (0.56).",
+    "next": "Not a general drought score: it does not hold for humid, irrigated or summer crops, such as the US Corn Belt, Brazil, Argentina, Indian rice and cane, Nigeria and South Africa."
+   }
+  },
+  "coverage.hazard.flood": {
+   "label": "JRC global river-flood maps (Copernicus)",
+   "detail": {
+    "what": "The share of a place inside the 1-in-100-year river floodplain, and the damage expected at its average flood depth, from the JRC global river-flood maps (Copernicus Emergency Management Service, 90 m, seven return periods).",
+    "why": "Checked on the flood extents Copernicus mapped in six floods from 2019 to 2024, none of which the maps were built from: rank agreement 0.68 across 144 mapped places, hit rate 0.80. River floods are found well (hit rate 0.77 to 0.85); the Ahr flash flood was not (0.28).",
+    "next": "River flooding only: surface-water, flash and groundwater floods are not covered, and coastal flooding is its own hazard. The maps assume no flood defences. It does not rank US places by flood-insurance claims (0.08): a hazard score, not a loss model."
+   }
+  },
+  "coverage.hazard.water_stress": {
+   "label": "ERA5-Land root-zone soil moisture",
+   "detail": {
+    "what": "How dry the soil around plant roots normally is at a place, compared with other land, from the ERA5-Land climate reanalysis.",
+    "why": "Checked against the loss of water stored on land seen by NASA's GRACE satellites from 2002 to 2026, at 3,124 places: rank agreement 0.08, so it stays an indicator.",
+    "next": "Observed water loss is driven by groundwater pumping, reservoirs and snow, which a soil-dryness score does not model."
+   }
+  },
+  "coverage.hazard.sea_level_rise": {
+   "label": "Tide gauges and IPCC sea-level rise",
+   "detail": {
+    "what": "How high a site stands above the 1-in-10-year extreme sea level observed at the nearest tide gauge (GESLA-3, 1,864 gauges, 1979–2020), with the sea-level rise the IPCC Sixth Assessment projects and its likely range.",
+    "why": "The extreme level rebuilt from gauge years up to 2010 ranks the peaks the same gauges recorded from 2011 to 2020 with rank agreement 0.92 (810 gauges). At US gauges, the score ranks the peaks observed from 2014 to 2023 at 0.41 (218 gauges).",
+    "next": "A test of extreme still-water levels, not of flood depth or damage. Sites with no gauge within 250 km are not scored. The gauge network is densest in Europe and North America."
+   }
+  },
+  "coverage.hazard.heavy_precipitation": {
+   "label": "Monthly rainfall normals, 1991–2020",
+   "detail": {
+    "what": "How much rain falls in a place's wettest month, and how much that month varies from year to year, from the 1991–2020 monthly climate normals.",
+    "why": "Checked against the largest one-day rainfall of each year at 248 weather stations (NOAA GHCN-Daily): rank agreement 0.69, with 0.70 in the United States and 0.42 in Europe.",
+    "next": "Africa has no weather station with enough complete years to test, and Latin America has 3, so neither is validated. Stations sit mostly at airports."
+   }
+  },
+  "coverage.hazard.saline_intrusion": {
+   "label": "Coastal elevation and IPCC sea-level rise",
+   "detail": {
+    "what": "How low and how close to the coast a place lies, raised by the sea-level rise the IPCC projects.",
+    "why": "Checked against the salinity measured in coastal groundwater at 3,400 monitoring points (Thorslund and van Vliet, 2020): rank agreement 0.10, so it stays an indicator.",
+    "next": "Real salinity depends on the rock, on pumping and on the nearest source of salt water, which elevation and distance to the coast do not capture."
+   }
+  },
+  "coverage.hazard.changing_precipitation": {
+   "label": "CMIP6 climate-model ensemble",
+   "detail": {
+    "what": "How much a place's rainfall changes under a climate scenario, from the average of the CMIP6 climate models. Drying and wetting both count.",
+    "why": "It is a projection of the future, so there is no observed outcome to test it against.",
+    "next": "Shown only under a future scenario and year. Context only: it never leads a headline."
+   }
+  },
+  "coverage.hazard.precipitation_variability": {
+   "label": "Monthly rainfall normals, 1991–2020",
+   "detail": {
+    "what": "How unevenly rain falls through the year, and how much it varies from year to year, from the 1991–2020 monthly climate normals.",
+    "why": "It describes the climate rather than a damage, so testing it would prove nothing.",
+    "next": "Context only: it never leads a headline."
+   }
+  },
+  "coverage.hazard.ocean_acidification": {
+   "label": "OceanSODA-ETHZ surface-ocean acidity",
+   "detail": {
+    "what": "How acidic the surface ocean is near a coastal or marine site, from the OceanSODA-ETHZ global record of ocean pH.",
+    "why": "It is already an observation, so there is nothing separate to test it against.",
+    "next": "For aquaculture, fisheries and other marine exposure only; it does not apply to inland sites or to buildings."
+   }
+  },
+  "coverage.hazard.glacial_lake_outburst": {
+   "label": "GIGLak global glacial-lake inventory",
+   "detail": {
+    "what": "Whether a site lies within reach of a mapped glacial lake, scaled by the lake's size, from a global inventory of 117,000 glacial lakes (GIGLak).",
+    "why": "Outbursts happen at the mapped lakes themselves, so a test of nearness against past outbursts would be circular. It is a reference layer, like volcano and earthquake zones.",
+    "next": "A nearness screen, not a model of where flood water flows: it includes places near a lake but not downstream of it."
+   }
+  },
+  "coverage.hazard.landslide": {
+   "label": "NASA landslide susceptibility map (LHASA)",
+   "detail": {
+    "what": "How prone the ground at a place is to landslides, from slope and geology, using NASA's global landslide susceptibility map (LHASA).",
+    "why": "Checked against 9,500 landslides in NASA's Global Landslide Catalog: hit rate 0.95, and places rated high or above see 11 times more landslides.",
+    "next": "NASA used the same catalogue to develop the map, so this repeats the map's published accuracy rather than a fresh test."
+   }
+  },
+  "coverage.hazard.subsidence": {
+   "label": "Copernicus European Ground Motion Service",
+   "detail": {
+    "what": "How fast the ground is sinking, measured by satellite radar (Copernicus European Ground Motion Service, 2020–2024, 100 m), on a scale of 0 to 20 mm a year. Outside its coverage a published susceptibility class (Herrera, 2021) is shown as an indicator.",
+    "why": "The sinking rate fitted on 2020–2021 ranks the rate the same 200,000 places showed in 2022–2024 with rank agreement 0.85.",
+    "next": "Measured ground motion exists for Europe only. Elsewhere the susceptibility class stays an indicator (0.21 and 0.10 in tests) and never leads a headline. A test of measured motion, not of damage."
+   }
+  },
+  "coverage.hazard.coastal_erosion": {
+   "label": "JRC shoreline-retreat projections",
+   "detail": {
+    "what": "How far the shoreline is projected to retreat at a place under each scenario and year (JRC, Vousdoukas et al., 2020).",
+    "why": "Checked against the shoreline change seen by satellite from 1984 to 2016 at 11,252 places on 67 coasts: the 2050 score ranks observed erosion at 0.36.",
+    "next": "The projection was built partly from the same shoreline trends, so this shows consistency rather than independent skill; it stays an indicator."
+   }
+  },
+  "coverage.hazard.soil_erosion": {
+   "label": "GloSEM global soil-erosion model",
+   "detail": {
+    "what": "How much soil water erosion moves off cropland each year, in tonnes per hectare, from the GloSEM global model (about 100 m).",
+    "why": "Checked against sediment measured in 204 European river catchments (0.09) and 670 reservoirs worldwide (0.08). Allowing for how much eroded soil reaches the outlet moves these only to 0.11 and 0.12, so it stays an indicator.",
+    "next": "The model gives erosion at a point, while the measurements cover whole catchments."
+   }
+  },
+  "coverage.hazard.soil_degradation": {
+   "label": "UN land-degradation indicator (Trends.Earth)",
+   "detail": {
+    "what": "Whether land is degraded under the UN Sustainable Development Goal indicator 15.3.1 (land cover, productivity and soil carbon), read from the Trends.Earth map.",
+    "why": "Checked against an independent 30 m land-productivity map (Li et al., 2025) at 4,000 points around the Mediterranean: rank agreement −0.17, the wrong direction, so it stays an indicator.",
+    "next": "Tested on two Mediterranean areas only."
+   }
+  },
+  "coverage.hazard.avalanche": {
+   "label": "Terrain slope and a snow-climate estimate",
+   "detail": {
+    "what": "Whether slopes at a place are steep enough for avalanches to start, weighted by an estimate of snow climate from elevation and latitude.",
+    "why": "Checked against 4,367 avalanche start zones recorded in the Swiss Alps (SLF, 1970/71 to 2023/24): hit rate 0.67, rank agreement 0.29. Within high alpine terrain, from 1,500 m, the hit rate is 0.52, no better than chance.",
+    "next": "It separates mountains from lowlands and nothing more. Tested in Switzerland only."
+   }
+  },
+  "coverage.hazard.solifluction": {
+   "label": "Permafrost map and terrain slope",
+   "detail": {
+    "what": "Whether a place has both permafrost (Obu et al., 2019) and the gentle slopes on which frozen, waterlogged soil creeps downhill.",
+    "why": "No observed record of soil creep exists at scale to test it against yet.",
+    "next": "A susceptibility flag, not a model of movement. It applies only where there is permafrost."
+   }
+  },
+  "coverage.hazard.seismic": {
+   "label": "USGS and EMSC earthquake catalogues",
+   "detail": {
+    "what": "The shaking a place has felt from recorded earthquakes, estimated from their size and distance (USGS and EMSC catalogues, with the Bakun–Wentworth intensity relation).",
+    "why": "A consistency check only (rank agreement 0.81 near the source, hit rate 0.96): the score is built from the same catalogue it is checked against. An independent test is pending.",
+    "next": "Earthquakes do not respond to climate; the score is the same in every scenario."
+   }
+  },
+  "coverage.hazard.volcanic": {
+   "label": "Smithsonian global volcano catalogue",
+   "detail": {
+    "what": "How exposed a place is to a volcano's near-vent hazards and ash fall, from the Smithsonian Global Volcanism Program catalogue: about 1,200 volcanoes and the size of their recorded eruptions.",
+    "why": "Eruptions are too rare for a test at the level of a single place, so it stays an indicator.",
+    "next": "Hazard zones are circles around the volcano, with no wind or terrain. Where the catalogue records no eruption size, a moderate one (VEI 3) is assumed. No euro figure is published for it."
+   }
+  },
+  "coverage.hazard.pollution": {
+   "label": "Air quality against WHO guideline levels",
+   "detail": {
+    "what": "How far air pollution exceeds the World Health Organization's 2021 air-quality guideline levels.",
+    "why": "No observed outcome record to test it against has been set up yet.",
+    "next": "Its coverage is limited."
+   }
+  },
+  "coverage.region.heat_wave.africa": {
+   "label": "Tracks West African cocoa harvests",
+   "detail": {
+    "what": "Over 34 years, rank agreement 0.60 with observed cocoa production. Cocoa only."
+   }
+  },
+  "coverage.region.heat_wave.europe": {
+   "label": "No signal in Bordeaux wine harvests",
+   "detail": {
+    "what": "Over 34 years, rank agreement 0.01 with wine-grape yields: no heat signal."
+   }
+  },
+  "coverage.region.heat_stress.europe": {
+   "label": "115 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.85 with the hot days counted at 115 weather stations."
+   }
+  },
+  "coverage.region.heat_stress.north_america": {
+   "label": "133 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.91 with the hot days counted at 133 weather stations."
+   }
+  },
+  "coverage.region.heat_stress.asia": {
+   "label": "48 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.93 with the days above 30 °C at 48 weather stations."
+   }
+  },
+  "coverage.region.heat_stress.oceania": {
+   "label": "114 weather stations, mostly Australia",
+   "detail": {
+    "what": "Rank agreement 0.73 at 114 weather stations, mostly in Australia."
+   }
+  },
+  "coverage.region.cold_wave_frost.europe": {
+   "label": "115 weather stations",
+   "detail": {
+    "what": "The cold-wave score: rank agreement 0.89 with the coldest nights at 115 weather stations."
+   }
+  },
+  "coverage.region.cold_wave_frost.north_america": {
+   "label": "133 weather stations",
+   "detail": {
+    "what": "The cold-wave score: rank agreement 0.86 at 133 weather stations."
+   }
+  },
+  "coverage.region.cold_wave_frost.asia": {
+   "label": "48 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.82 with the 1-in-10-year coldest night at 48 weather stations. Oceania has too little variation to judge."
+   }
+  },
+  "coverage.region.wildfire.europe": {
+   "label": "Official European burn record",
+   "detail": {
+    "what": "On the 2022–2024 EFFIS record, hit rate 0.76 and rank agreement 0.37; on gridded burned area (GFED5), 0.76 across 5,853 places."
+   }
+  },
+  "coverage.region.wildfire.africa": {
+   "label": "Gridded burned area, later years",
+   "detail": {
+    "what": "Burned area in 2021–2022, held out: rank agreement 0.67 (GFED5) and 0.77 (FireCCI) across 7,045 places."
+   }
+  },
+  "coverage.region.wildfire.asia": {
+   "label": "Gridded burned area, later years",
+   "detail": {
+    "what": "Rank agreement 0.48 (GFED5) and 0.43 (FireCCI) across 19,045 places."
+   }
+  },
+  "coverage.region.wildfire.latin_america_caribbean": {
+   "label": "Gridded burned area, later years",
+   "detail": {
+    "what": "Rank agreement 0.53 (GFED5) and 0.57 (FireCCI) across 7,146 places."
+   }
+  },
+  "coverage.region.wildfire.oceania": {
+   "label": "Gridded burned area, later years",
+   "detail": {
+    "what": "Rank agreement 0.42 (GFED5) and 0.54 (FireCCI) across 3,126 places."
+   }
+  },
+  "coverage.region.wildfire.north_america": {
+   "label": "Perimeter records fall short",
+   "detail": {
+    "what": "Gridded burned area passes (rank agreement 0.54 across 11,630 places), but fire-perimeter records fall short: US 0.33, NIFC 0.18, Canada 0.33."
+   }
+  },
+  "coverage.region.tornado.north_america": {
+   "label": "Later years, 23,331 places",
+   "detail": {
+    "what": "Rebuilt from earlier years and checked on later ones: rank agreement 0.51, hit rate 0.82, across 23,331 places."
+   }
+  },
+  "coverage.region.drought.oceania": {
+   "label": "Australian wheat",
+   "detail": {
+    "what": "Rank agreement 0.64 with Australian wheat production over 34 years."
+   }
+  },
+  "coverage.region.drought.europe": {
+   "label": "Central Spain and olives, not sugar beet",
+   "detail": {
+    "what": "Holds for central Spain (0.56) and olives (0.36); not for sugar beet (−0.27)."
+   }
+  },
+  "coverage.region.drought.africa": {
+   "label": "North African wheat holds",
+   "detail": {
+    "what": "Holds for wheat in Algeria, Morocco and Tunisia (0.47 to 0.67); not for sorghum in Nigeria (0.18) or maize in South Africa (0.15)."
+   }
+  },
+  "coverage.region.drought.asia": {
+   "label": "West and Central Asian wheat holds",
+   "detail": {
+    "what": "Holds for wheat in Iran, Kazakhstan, Syria and Turkey (0.40 to 0.57); not for rice (0.19) or sugar cane (−0.01) in India."
+   }
+  },
+  "coverage.region.drought.north_america": {
+   "label": "Corn Belt and prairies do not hold",
+   "detail": {
+    "what": "US Corn Belt −0.06; Canadian prairies 0.22."
+   }
+  },
+  "coverage.region.drought.latin_america_caribbean": {
+   "label": "Argentina and Brazil do not hold",
+   "detail": {
+    "what": "Argentine wheat 0.09; Brazilian coffee −0.43 and soy −0.22."
+   }
+  },
+  "coverage.region.flood.europe": {
+   "label": "Copernicus flood extents hold",
+   "detail": {
+    "what": "Six observed floods, 2019–2024: rank agreement 0.68 and hit rate 0.80 at 144 mapped places. The coarser global flood record does not hold here (0.285 at 800 places)."
+   }
+  },
+  "coverage.region.flood.latin_america_caribbean": {
+   "label": "Global flood record holds on rank",
+   "detail": {
+    "what": "Global Flood Database, 2000–2018: rank agreement 0.41 and hit rate 0.77 at 800 places."
+   }
+  },
+  "coverage.region.flood.oceania": {
+   "label": "Holds narrowly",
+   "detail": {
+    "what": "Global Flood Database: rank agreement 0.354 and hit rate 0.82 at 800 places."
+   }
+  },
+  "coverage.region.flood.north_america": {
+   "label": "Just under the bar",
+   "detail": {
+    "what": "Global Flood Database: rank agreement 0.33 at 800 places, just under the {bar} bar."
+   }
+  },
+  "coverage.region.flood.africa": {
+   "label": "Finds floods, ranks them poorly",
+   "detail": {
+    "what": "Global Flood Database: hit rate 0.78 but rank agreement 0.31 at 800 places."
+   }
+  },
+  "coverage.region.flood.asia": {
+   "label": "Does not hold",
+   "detail": {
+    "what": "Global Flood Database: rank agreement 0.25 at 800 places."
+   }
+  },
+  "coverage.region.sea_level_rise.north_america": {
+   "label": "218 US tide gauges",
+   "detail": {
+    "what": "The score ranks the peaks observed at 218 NOAA tide gauges with rank agreement 0.41."
+   }
+  },
+  "coverage.region.heavy_precipitation.europe": {
+   "label": "115 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.42 at 115 weather stations."
+   }
+  },
+  "coverage.region.heavy_precipitation.north_america": {
+   "label": "133 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.70 at 133 weather stations."
+   }
+  },
+  "coverage.region.heavy_precipitation.asia": {
+   "label": "48 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.88 with the yearly largest one-day rainfall at 48 weather stations."
+   }
+  },
+  "coverage.region.heavy_precipitation.oceania": {
+   "label": "114 weather stations, mostly Australia",
+   "detail": {
+    "what": "Rank agreement 0.84 at 114 weather stations, mostly in Australia."
+   }
+  },
+  "coverage.region.subsidence.europe": {
+   "label": "Satellite radar, 200,000 places",
+   "detail": {
+    "what": "Measured sinking, held out in time: rank agreement 0.85 across 200,000 places."
+   }
+  },
+  "coverage.region.subsidence.north_america": {
+   "label": "Indicator only",
+   "detail": {
+    "what": "The susceptibility class reaches 0.22 at 4,834 places: an indicator only."
+   }
+  },
+  "coverage.region.cyclone.asia": {
+   "label": "Later storm seasons, 748 places",
+   "detail": {
+    "what": "Storm seasons from 2003, held out: rank agreement 0.74 at 748 places."
+   }
+  },
+  "coverage.region.cyclone.oceania": {
+   "label": "Later storm seasons, 642 places",
+   "detail": {
+    "what": "Rank agreement 0.56 at 642 places."
+   }
+  },
+  "coverage.region.cyclone.latin_america_caribbean": {
+   "label": "Later storm seasons, 445 places",
+   "detail": {
+    "what": "Rank agreement 0.62 at 445 places, and 0.77 at 5,973 places for the stored score."
+   }
+  },
+  "coverage.region.cyclone.north_america": {
+   "label": "Later storm seasons, 268 places",
+   "detail": {
+    "what": "Rank agreement 0.75 at 268 places."
+   }
+  },
+  "coverage.region.cyclone.africa": {
+   "label": "Later storm seasons, 229 places",
+   "detail": {
+    "what": "Rank agreement 0.53 at 229 places."
+   }
+  },
+  "coverage.region.cyclone.europe": {
+   "label": "Thin sample, 30 places",
+   "detail": {
+    "what": "Rank agreement 0.70 at 30 places; Europe mostly sees the remnants of tropical storms."
+   }
+  },
+  "coverage.region.storm.europe": {
+   "label": "34 weather stations",
+   "detail": {
+    "what": "Rank agreement 0.79 with the measured peak gusts at 34 stations. There are no stations in Germany, the Netherlands or Denmark."
+   }
+  },
+  "coverage.region.storm.north_america": {
+   "label": "58 weather stations, a narrow pass",
+   "detail": {
+    "what": "Rank agreement 0.38 at 58 stations; against NOAA's reported gusts 0.26, under the bar."
+   }
+  },
+  "coverage.region.permafrost_thaw.europe": {
+   "label": "Boreholes in Europe and the Arctic",
+   "detail": {
+    "what": "Rank agreement 0.82 across all 229 boreholes, and 0.58 at the 38 in Europe and the Arctic Atlantic."
+   }
+  },
+  "coverage.region.permafrost_thaw.north_america": {
+   "label": "30 boreholes",
+   "detail": {
+    "what": "Rank agreement 0.76 at 30 boreholes in the United States and Canada."
+   }
+  },
+  "coverage.region.permafrost_thaw.asia": {
+   "label": "190 boreholes in Russia",
+   "detail": {
+    "what": "Rank agreement 0.85 at 190 boreholes in Russia and Siberia. Tibet has 12, too few to judge."
+   }
+  },
+  "coverage.mode.models_band": {
+   "label": "Climate models, with their spread",
+   "detail": {
+    "what": "Each place's own warming and rainfall change from the CMIP6 climate models, with the spread across models carried as a band."
+   }
+  },
+  "coverage.mode.models_environment": {
+   "label": "Climate models, storm conditions",
+   "detail": {
+    "what": "Each place's warming from the CMIP6 climate models changes the storm environment, with the spread across models as a band. How often storms occur, and how large they are, is not projected."
+   }
+  },
+  "coverage.mode.sea_level_band": {
+   "label": "IPCC sea-level rise, with its likely range",
+   "detail": {
+    "what": "The sea-level rise the IPCC Sixth Assessment projects for each scenario and year, with its likely range carried as a band."
+   }
+  },
+  "coverage.mode.projection_channel": {
+   "label": "The projected change itself",
+   "detail": {
+    "what": "The score is the projected change itself, so it only has meaning under a future scenario."
+   }
+  },
+  "coverage.mode.parametric_cc": {
+   "label": "Heavier rain for each degree of warming",
+   "detail": {
+    "what": "Extreme rainfall grows by a fixed share for each degree of warming in the scenario."
+   }
+  },
+  "coverage.mode.parametric_warming": {
+   "label": "A stated shift for each degree",
+   "detail": {
+    "what": "The score moves by a stated amount for each degree of warming in the scenario."
+   }
+  },
+  "coverage.mode.parametric_warming_inverse": {
+   "label": "Falls as the climate warms",
+   "detail": {
+    "what": "Warming raises the coldest nights, so the score falls by a stated amount for each degree of warming."
+   }
+  },
+  "coverage.mode.variability": {
+   "label": "Swings widen as the climate warms",
+   "detail": {
+    "what": "Year-to-year variability widens by a stated amount for each degree of warming."
+   }
+  },
+  "coverage.mode.susceptibility_flat": {
+   "label": "Today's state, held in every scenario",
+   "detail": {
+    "what": "A map of the ground or of today's climate: a predisposition, not a forecast. It is the same in every scenario, by design."
+   }
+  },
+  "coverage.mode.geophysical_flat": {
+   "label": "No climate response",
+   "detail": {
+    "what": "Earthquakes and volcanoes do not respond to climate: the score is the same in every scenario, by design."
+   }
+  },
+  "coverage.projection.flood": {
+   "label": "Extreme rainfall up {rate} per °C",
+   "detail": {
+    "what": "River-flood hazard rises with extreme rainfall, which intensifies by about {rate} for each degree of local warming, from each place's warming in the CMIP6 climate models.",
+    "why": "Clausius–Clapeyron scaling of extreme rainfall (IPCC Sixth Assessment, Working Group I, chapter 11).",
+    "next": "Changes in average rainfall and coastal flooding are left out; they are separate mechanisms."
+   }
+  },
+  "coverage.projection.storm": {
+   "label": "Cyclone strength up {rate} per °C",
+   "detail": {
+    "what": "Tropical-cyclone strength rises about {rate} for each degree of local warming. The severity is scaled; the number of storms is not.",
+    "why": "IPCC Sixth Assessment, Working Group I, chapter 11: peak intensity, and the share of the strongest storms, rise with warming."
+   }
+  },
+  "coverage.projection.windstorm": {
+   "label": "Held at today's gust climate",
+   "detail": {
+    "what": "The peak-gust climate is today's exposure and does not change by scenario here.",
+    "why": "ERA5 climate reanalysis, 10 m wind gusts, 1991–2020."
+   }
+  },
+  "coverage.projection.wildfire": {
+   "label": "Fire weather up {rate} per °C",
+   "detail": {
+    "what": "Fire weather worsens about {rate} for each degree of local warming, plus a term for drying, from the CMIP6 climate models.",
+    "why": "IPCC Sixth Assessment, Working Group I, chapters 11 and 12."
+   }
+  },
+  "coverage.projection.coastal_flood": {
+   "label": "Freeboard against projected sea-level rise",
+   "detail": {
+    "what": "A site's height above extreme sea level shrinks as the sea rises, using the IPCC sea-level rise and its likely range, plus the regional term from ocean currents and heat.",
+    "why": "IPCC Sixth Assessment, Working Group I, chapter 9: sea-level rise against 1995–2014.",
+    "next": "Two smaller regional terms, and the sinking of the land where no measured rate exists, are follow-ons; see Model limitations."
+   }
+  },
+  "coverage.projection.heavy_precip": {
+   "label": "Wettest month up {rate} per °C",
+   "detail": {
+    "what": "The wettest month's rainfall intensifies by about {rate} for each degree of warming in the scenario.",
+    "why": "Clausius–Clapeyron scaling (IPCC Sixth Assessment, Working Group I, chapter 11)."
+   }
+  },
+  "coverage.projection.cold_wave": {
+   "label": "Fewer damaging cold waves as it warms",
+   "detail": {
+    "what": "Warming raises the 1-in-10-year coldest night, so fewer cold waves reach the cold that damages buildings.",
+    "why": "IPCC Sixth Assessment, Working Group I, chapter 11: cold extremes decline with warming. NASA POWER daily minimum temperatures, 1991–2020."
+   }
+  },
+  "coverage.projection.frost": {
+   "label": "Fewer frosts as it warms",
+   "detail": {
+    "what": "Warming raises the coldest night, so frost becomes less frequent.",
+    "why": "IPCC Sixth Assessment, Working Group I, chapter 11: frost days decline with warming."
+   }
+  },
+  "coverage.projection.heat_acute": {
+   "label": "Crop heat stress rises per °C",
+   "detail": {
+    "what": "How often heat reaches the crop stress level rises with the scenario's warming, by a stated amount per degree.",
+    "why": "The warming of each NGFS scenario, applied per degree."
+   }
+  },
+  "coverage.projection.heat_chronic": {
+   "label": "Hot days rise per °C",
+   "detail": {
+    "what": "The number of hot days rises with the scenario's warming, by a stated amount per degree.",
+    "why": "The warming of each NGFS scenario, applied per degree."
+   }
+  },
+  "coverage.projection.drought": {
+   "label": "Drier for each degree of warming",
+   "detail": {
+    "what": "Warming raises evaporation, so drought rises by a stated drying amount for each degree.",
+    "why": "The warming of each NGFS scenario, applied per degree."
+   }
+  },
+  "coverage.projection.soil_water": {
+   "label": "Root zone drier for each degree",
+   "detail": {
+    "what": "Warming dries the root zone, through more evaporation and less snow carried over, by a stated amount per degree.",
+    "why": "The warming of each NGFS scenario, applied per degree."
+   }
+  },
+  "coverage.projection.temp_variability": {
+   "label": "Temperature swings widen with warming",
+   "detail": {
+    "what": "Year-to-year temperature variability widens by a stated amount as the climate warms.",
+    "why": "A stated widening for each degree of warming."
+   }
+  },
+  "coverage.projection.precip_variability": {
+   "label": "Rainfall swings widen with warming",
+   "detail": {
+    "what": "Year-to-year rainfall variability widens by a stated amount as the climate warms.",
+    "why": "A stated widening for each degree of warming."
+   }
+  },
+  "coverage.projection.changing_temp": {
+   "label": "The projected warming itself",
+   "detail": {
+    "what": "The score is the projected warming against today, so it has meaning only under a future scenario.",
+    "why": "CMIP6 climate-model ensemble."
+   }
+  },
+  "coverage.projection.changing_precip": {
+   "label": "The projected rainfall change itself",
+   "detail": {
+    "what": "The score is the projected change in rainfall against today, so it has meaning only under a future scenario.",
+    "why": "CMIP6 climate-model ensemble."
+   }
+  },
+  "coverage.projection.changing_wind": {
+   "label": "The projected wind change itself",
+   "detail": {
+    "what": "The score is the projected change in near-surface wind speed against today, so it has meaning only under a future scenario.",
+    "why": "CMIP6 climate-model ensemble."
+   }
+  },
+  "coverage.projection.subsidence": {
+   "label": "Held at today's ground state",
+   "detail": {
+    "what": "Ground sinking, and the susceptibility to it, are today's state; they do not change by scenario.",
+    "why": "Measured ground motion where it exists; elsewhere a published susceptibility class (Herrera-García et al., 2021)."
+   }
+  },
+  "coverage.projection.coastal_erosion": {
+   "label": "Shoreline retreat by scenario and year",
+   "detail": {
+    "what": "Projected shoreline retreat grows with the sea-level rise of each scenario and year.",
+    "why": "JRC shoreline-retreat projections (Vousdoukas et al., 2020)."
+   }
+  },
+  "coverage.projection.permafrost": {
+   "label": "Held at today's permafrost state",
+   "detail": {
+    "what": "Permafrost probability is today's state of the ground; it does not change by scenario.",
+    "why": "Permafrost probability map (Obu et al., 2019, 1 km)."
+   }
+  },
+  "coverage.projection.soil_erosion": {
+   "label": "Held at today's erosion rate",
+   "detail": {
+    "what": "Today's mapped soil-loss rate; it does not change by scenario here.",
+    "why": "GloSEM global soil-erosion model."
+   }
+  },
+  "coverage.projection.saline_intrusion": {
+   "label": "Rises with projected sea level",
+   "detail": {
+    "what": "Susceptibility to salt water in coastal aquifers rises with the IPCC sea-level rise of each scenario and year.",
+    "why": "Coastal elevation and distance to the coast, raised by IPCC sea-level rise."
+   }
+  },
+  "coverage.projection.glacial_lake_outburst": {
+   "label": "Held at today's glacial lakes",
+   "detail": {
+    "what": "Nearness to a mapped glacial lake is today's exposure; it does not change by scenario here.",
+    "why": "GIGLak glacial-lake inventory.",
+    "next": "Warming grows glacial lakes; carrying that forward is a follow-on."
+   }
+  },
+  "coverage.projection.ocean_acidification": {
+   "label": "Held at today's ocean acidity",
+   "detail": {
+    "what": "Surface-ocean acidity is read as today's state, for marine sites only.",
+    "why": "OceanSODA-ETHZ surface-ocean pH record."
+   }
+  },
+  "coverage.projection.avalanche": {
+   "label": "Held at today's terrain",
+   "detail": {
+    "what": "Slope and snow climate are today's predisposition; they do not change by scenario.",
+    "why": "Terrain slope and a snow-climate estimate."
+   }
+  },
+  "coverage.projection.solifluction": {
+   "label": "Held at today's ground state",
+   "detail": {
+    "what": "Permafrost on gentle slopes is today's state; it does not change by scenario.",
+    "why": "Permafrost probability and terrain slope."
+   }
+  },
+  "coverage.projection.soil_degradation": {
+   "label": "Held at today's land state",
+   "detail": {
+    "what": "The degraded-land status is today's mapped state; it does not change by scenario.",
+    "why": "UN land-degradation indicator 15.3.1 (Trends.Earth)."
+   }
+  },
+  "coverage.projection.severe_convective": {
+   "label": "Storm instability up {low} to {high} per °C",
+   "detail": {
+    "what": "Warming from the CMIP6 climate models raises the instability of the air by about {low} to {high} per degree, which moves the storm index by its square root, with wind shear held at today's level. It is read through the same NOAA tornado record the score is tested on.",
+    "why": "Romps (2016); IPCC Sixth Assessment, Working Group I, sections 11.7.3.5 and 12.4.5.3: instability rises with high confidence, and Europe is more likely than not to see more frequent severe-storm environments.",
+    "next": "Not projected: how often hail, tornadoes and damaging winds occur, beyond what the changed environment implies; the size of hailstones; wind shear and the air's resistance to storms, held at today's level. Places already at the top of the scale cannot rise further."
+   }
+  },
+  "coverage.projection.seismic": {
+   "label": "No climate response",
+   "detail": {
+    "what": "Earthquake hazard does not respond to climate; it is the same in every scenario.",
+    "why": "Geophysical: not attributable to climate."
+   }
+  },
+  "coverage.projection.volcanic": {
+   "label": "No climate response",
+   "detail": {
+    "what": "Volcanic hazard does not respond to climate; it is the same in every scenario.",
+    "why": "Geophysical: not attributable to climate."
+   }
+  },
+  "coverage.projection.landslide": {
+   "label": "Held at today's terrain",
+   "detail": {
+    "what": "Landslide susceptibility, from slope, geology and roads, does not change by scenario.",
+    "why": "NASA global landslide susceptibility map (LHASA).",
+    "next": "Rainfall that triggers landslides is a follow-on."
+   }
+  },
+  "coverage.projection.none": {
+   "label": "No forward projection declared",
+   "detail": {
+    "what": "No way of carrying this hazard to future years is declared yet, so it is shown for today only."
+   }
+  },
+  "coverage.status.tested_rejected": {
+   "label": "Tested and set aside",
+   "detail": {
+    "what": "We tested it against observed data and it did not hold, so it is not used: using it would create a signal that is not there."
+   }
+  },
+  "coverage.status.deferred_needs_data": {
+   "label": "Waiting for a data source",
+   "detail": {
+    "what": "It can be built, but only with an authoritative data source we do not yet hold. The source is named."
+   }
+  },
+  "coverage.status.disclosed_scope": {
+   "label": "Scope boundary",
+   "detail": {
+    "what": "A boundary set on purpose, stated so that a figure is never read for more than it is."
+   }
+  },
+  "coverage.limitation.water_management": {
+   "label": "Irrigation does not explain yields better than rain",
+   "detail": {
+    "what": "Water stress is scored from rainfall-based drought and soil moisture, not from the reservoirs farmers irrigate from. We tested whether stored basin water explains an irrigated crop's yield better than rainfall does; it does not.",
+    "why": "On Spanish river basins, each year left out in turn: stored water explained none of the change in sugar-beet yields in the Duero (−0.12, with the wrong sign: fuller reservoirs, lower yields), nor of rice in the Guadalquivir (0.00). Re-tested twice, with the same result.",
+    "next": "A water-management record (basin allocations, canal deliveries or a global irrigation dataset) that explains at least {r2} of yields on years it was not fitted to, over the same years as the drought score."
+   }
+  },
+  "coverage.limitation.water_management.today": {
+   "label": "Irrigated plots shown as an upper bound",
+   "detail": {
+    "what": "An irrigated plot's drought score is shown as an upper bound, and its euro figure is left unchanged. No buffer is invented."
+   }
+  },
+  "coverage.limitation.regional_sea_level": {
+   "label": "Regional sea-level rise is partly applied",
+   "detail": {
+    "what": "Coastal flood projections use the IPCC global-mean sea-level rise plus its largest regional term, from ocean currents and heat, so local sea level differs from the global mean. Two smaller regional terms, the pull of melting ice sheets and the slow rebound of land after the ice age, are not applied place by place yet.",
+    "why": "With the ocean term, the US East coast and north-west Europe read about 0.1 m above the global mean, as the IPCC Sixth Assessment documents there.",
+    "next": "The full IPCC regional sea-level dataset (about 9 GB, which also carries land motion) for the two remaining terms."
+   }
+  },
+  "coverage.limitation.regional_sea_level.today": {
+   "label": "Global mean used for the remaining terms",
+   "detail": {
+    "what": "The ocean term is applied and disclosed; the two other terms use the global-mean rise until the full dataset is read in."
+   }
+  },
+  "coverage.limitation.land_subsidence": {
+   "label": "Coastal land sinking needs a measured rate",
+   "detail": {
+    "what": "Coastal exposure is sea-level rise plus the local sinking of the land. In several large deltas, such as Jakarta, the US Gulf coast and parts of the North Sea coast, the land sinks faster than the sea rises. The coastal height check subtracts each place's sinking up to the year shown, where a measured rate exists.",
+    "why": "The coastal score subtracts the sinking rate times the years to the horizon. No rate has been loaded yet, so the term counts as zero.",
+    "next": "Copernicus European Ground Motion Service rates for EU coasts, or a global satellite land-motion product."
+   }
+  },
+  "coverage.limitation.land_subsidence.today": {
+   "label": "No rate yet, so sinking counts as zero",
+   "detail": {
+    "what": "The model handles sinking; with no rate the term is zero, which understates exposure where the land sinks. Disclosed, never assumed."
+   }
+  },
+  "coverage.limitation.financial_euro_basis": {
+   "label": "Financial euros rest on your stated method",
+   "detail": {
+    "what": "The agricultural crop euro figure is validated: a regression on observed yields that must explain at least {r2} on years it was not fitted to. Hazard scores are validated for ranking places only, and every test against observed losses failed. So financial euro figures (haircut, damage ratio, event frequency, loadings) are computed only from the values your institution states for the year and a second person attests. The platform supplies none.",
+    "why": "Every money figure is checked against the register of stated values, and a number in a money calculation that is not registered is refused.",
+    "next": "An observed loss record for each peril, for example realised loss rates by hazard, that would let a platform damage model pass a test against losses, as the crop models do. Until then, your institution's method is the basis."
+   }
+  },
+  "coverage.limitation.financial_euro_basis.today": {
+   "label": "A value not stated leaves the figure missing",
+   "detail": {
+    "what": "Every money figure records the stated values it used. A value not stated leaves the figure missing, and a filing with a missing figure cannot be submitted."
+   }
+  },
+  "coverage.limitation.flood_mechanism_scope": {
+   "label": "Flood projection scales extreme rainfall only",
+   "detail": {
+    "what": "The forward flood projection scales the hazard by how much heavier extreme rainfall becomes with warming, about 7% per °C. Changes in average rainfall, and coastal or combined flooding, are left out on purpose: they are separate mechanisms.",
+    "why": "IPCC Sixth Assessment, Working Group I, chapter 11.",
+    "next": "Add the average-rainfall term and the combined coastal and surface-water effect, each cited and with a band."
+   }
+  },
+  "coverage.limitation.flood_mechanism_scope.today": {
+   "label": "Extreme-rainfall scaling, with a model band",
+   "detail": {
+    "what": "Extreme rainfall is the main flood driver, and it is applied with a real band across the CMIP6 climate models."
+   }
+  },
   "loss.gap.no_location": {
    "label": "No location",
    "detail": {
@@ -892,6 +1864,101 @@
   }
  },
  "names": {
+  "coverage.family": {
+   "temperature": "Temperature",
+   "wind": "Wind",
+   "water": "Water",
+   "solid_mass": "Solid mass",
+   "beyond": "Beyond the EU list"
+  },
+  "coverage.hazard": {
+   "heat_wave": "Heat wave",
+   "heat_stress": "Heat stress",
+   "cold_wave_frost": "Cold wave and frost",
+   "wildfire": "Wildfire",
+   "changing_temperature": "Changing temperature",
+   "temperature_variability": "Temperature variability",
+   "permafrost_thaw": "Permafrost thaw",
+   "cyclone": "Cyclone",
+   "storm": "Storm",
+   "changing_wind": "Changing wind",
+   "tornado": "Tornado",
+   "drought": "Drought",
+   "flood": "Flood",
+   "water_stress": "Water stress",
+   "sea_level_rise": "Sea-level rise",
+   "heavy_precipitation": "Heavy rainfall",
+   "saline_intrusion": "Saline intrusion",
+   "changing_precipitation": "Changing rainfall",
+   "precipitation_variability": "Rainfall variability",
+   "ocean_acidification": "Ocean acidification",
+   "glacial_lake_outburst": "Glacial-lake outburst",
+   "landslide": "Landslide",
+   "subsidence": "Subsidence",
+   "coastal_erosion": "Coastal erosion",
+   "soil_erosion": "Soil erosion",
+   "soil_degradation": "Soil degradation",
+   "avalanche": "Avalanche",
+   "solifluction": "Solifluction",
+   "seismic": "Earthquake",
+   "volcanic": "Volcanic",
+   "pollution": "Air pollution"
+  },
+  "coverage.channel": {
+   "flood": "River flood",
+   "storm": "Tropical cyclone",
+   "windstorm": "Windstorm",
+   "wildfire": "Wildfire",
+   "coastal_flood": "Sea-level rise",
+   "heavy_precip": "Heavy rainfall",
+   "cold_wave": "Cold wave",
+   "frost": "Frost",
+   "heat_acute": "Heat wave",
+   "heat_chronic": "Heat stress",
+   "drought": "Drought",
+   "soil_water": "Water stress",
+   "temp_variability": "Temperature variability",
+   "precip_variability": "Rainfall variability",
+   "changing_temp": "Changing temperature",
+   "changing_precip": "Changing rainfall",
+   "changing_wind": "Changing wind",
+   "subsidence": "Subsidence",
+   "coastal_erosion": "Coastal erosion",
+   "permafrost": "Permafrost",
+   "soil_erosion": "Soil erosion",
+   "saline_intrusion": "Saline intrusion",
+   "glacial_lake_outburst": "Glacial-lake outburst",
+   "ocean_acidification": "Ocean acidification",
+   "avalanche": "Avalanche",
+   "solifluction": "Solifluction",
+   "soil_degradation": "Soil degradation",
+   "severe_convective": "Tornado and hail",
+   "seismic": "Earthquake",
+   "volcanic": "Volcanic",
+   "landslide": "Landslide",
+   "pollution": "Air pollution"
+  },
+  "coverage.region": {
+   "europe": "Europe",
+   "north_america": "North America",
+   "latin_america_caribbean": "Latin America and Caribbean",
+   "africa": "Africa",
+   "asia": "Asia",
+   "oceania": "Oceania"
+  },
+  "coverage.region_status": {
+   "validated": "Validated",
+   "mixed": "Mixed results",
+   "fails": "Not validated",
+   "untested": "Not tested"
+  },
+  "coverage.area": {
+   "water_management": "Agriculture · water",
+   "regional_sea_level": "Coastal · sea-level rise",
+   "land_subsidence": "Coastal · land motion",
+   "financial_euro_basis": "Financial · damage basis",
+   "flood_mechanism_scope": "Flood · projection"
+  },
   "peril": {
    "flood": "river flood",
    "storm": "tropical cyclone"

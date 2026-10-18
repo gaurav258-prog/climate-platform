@@ -73,7 +73,7 @@ def hazard_coverage(hazards: list[str]) -> list[dict]:
         out.append({
             "hazard_type": hz,
             # `model_basis` is the hazard registry's own statement of what the model reads and how it was validated
-            "eu_taxonomy_hazards": [{"id": h.id, "name": h.name, "model_basis": h.source} for h in eu],
+            "eu_taxonomy_hazards": [{"id": h.id, "name": h.name, "model_basis": h.internal_note} for h in eu],
             "nature": eu[0].nature,
             "tier": tier,
             "tier_label": labels.get(tier) if tier else ", ".join(sorted(labels.get(t, t) for t in tiers)),

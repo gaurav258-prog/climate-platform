@@ -17,8 +17,9 @@ def data_dictionary(session: DbSession, ctx: dict = Depends(require_permission("
 @router.get("/hazard-coverage", summary="Coverage of the EU Taxonomy's 28 physical climate hazards, by maturity tier")
 def hazard_coverage(ctx: dict = Depends(require_permission("modules.view"))):
     """The completeness scoreboard: our channels mapped onto the EU Taxonomy's 28 hazards, each stamped with a
-    maturity tier (calibrated / screening / reference / roadmap). Static registry — no tenant data — so it needs
-    only view access. Coverage ≠ calibration; the tier says which claim we're making."""
+    maturity tier (calibrated / screening / reference / roadmap), where it is validated and how it is carried forward,
+    in the message catalogue's words. Static registry — no tenant data — so it needs only view access. Coverage ≠
+    calibration; the tier says which claim we're making."""
     from services.intelligence.coverage import eu_taxonomy_coverage
     return eu_taxonomy_coverage()
 
@@ -27,19 +28,20 @@ def hazard_coverage(ctx: dict = Depends(require_permission("modules.view"))):
 def projection_coverage(ctx: dict = Depends(require_permission("modules.view"))):
     """The forward-projection posture per hazard: the cited mechanism (CMIP6 / Clausius–Clapeyron / AR6 sea-level
     rise / parametric per-°C shift), whether it carries a model-disagreement band, and any disclosed follow-on
-    gap. Geophysical perils and terrain susceptibility are flat BY DESIGN, stated as a choice. Static registry —
-    view access only."""
-    from ml.scoring.projection_coverage import projection_coverage as _pc
-    return _pc()
+    gap, in the message catalogue's words. Geophysical perils and terrain susceptibility are flat BY DESIGN, stated as
+    a choice. Static registry — view access only."""
+    from services.intelligence.coverage import projection_view
+    return projection_view()
 
 
 @router.get("/model-limitations", summary="What the engine deliberately does not model yet — evidence + unlock feed")
 def model_limitations(ctx: dict = Depends(require_permission("modules.view"))):
     """The disclosed-limitations registry: each deliberately-bounded gap as a tracked decision — tested &
     rejected (with the numbers), deferred pending a named authoritative feed, or a stated scope boundary. The
-    honest counterpart to the coverage and projection maps. Static registry — view access only."""
-    from ml.scoring.model_limitations import model_limitations as _ml
-    return _ml()
+    honest counterpart to the coverage and projection maps, in the message catalogue's words. Static registry — view
+    access only."""
+    from services.intelligence.coverage import limitations_view
+    return limitations_view()
 
 
 @router.get("/labels", summary="Customer words for the platform's codes — one catalogue for the server and every screen")

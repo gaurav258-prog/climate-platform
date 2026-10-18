@@ -58,6 +58,6 @@ def test_coverage_api_carries_scope_for_calibrated_hazards_only():
     hazards = [h for f in cov["families"] for h in f["hazards"]]
     for h in hazards:
         assert ("scope" in h) == (h["tier"] == "calibrated")
-    claims = cov["summary"]["scope_claims"]
-    assert sum(claims.values()) == cov["summary"]["by_tier"]["calibrated"]
+    claims = cov["counts"]["scope_claims"]
+    assert sum(claims.values()) == cov["counts"]["by_tier"]["calibrated"]
     assert set(claims) == {"global", "pooled_global", "multi_region", "regional", "none"}

@@ -59,7 +59,8 @@ def test_api_serialization_shape():
     assert len(cov["extra_channels"]) == len(EXTRA_CHANNELS) == 3
     # each serialized hazard carries the load-bearing fields
     first = cov["families"][0]["hazards"][0]
-    assert {"id", "name", "family", "nature", "tier", "phase", "source", "internal"} <= set(first)
+    assert {"id", "name", "label", "family", "nature", "tier", "phase", "message", "internal"} <= set(first)
+    assert "internal_note" not in first                        # the engineers' record stays on the server
 
 
 def test_by_nature_tier_is_context_only():
@@ -75,7 +76,7 @@ def test_by_nature_tier_is_context_only():
     assert {h.id for h in by_nature} == {"changing_temperature", "temperature_variability", "changing_wind",
                                          "changing_precipitation", "precipitation_variability", "ocean_acidification"}
     for h in by_nature:
-        assert h.id not in CALIBRATED_VALIDATION and h.source.startswith("By nature:")
+        assert h.id not in CALIBRATED_VALIDATION and h.internal_note.startswith("By nature:")
         for ch in h.internal:
             assert not is_headline_eligible(ch.value, "buildings"), h.id
     # a screening hazard states whether it was tested and failed or still lacks a target; other tiers carry no status

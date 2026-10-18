@@ -10,6 +10,10 @@ and the extreme-precip rate from `heavy_precip_climatology.CC_PER_C`, the convec
 `severe_convective_projection` (its cited reference file), so the map cannot drift from the engine.
 A `flat` posture is a deliberate, honest choice (a geophysical hazard has no climate response; a terrain
 susceptibility is not a triggering nowcast), never an omission — stated as such so a reviewer sees the reasoning.
+
+`mechanism`, `basis` and `gaps` are the engineers' record and are not sent to a screen (UI standard, 2026-10-16): the
+screen's words are the message catalogue's coverage.projection.<hazard>, filled with `params` — values computed here
+from the engine's own constants, so the words cannot drift from the engine either.
 """
 from __future__ import annotations
 
@@ -40,10 +44,14 @@ _MODE_LABEL = {
 }
 
 
-def _entry(hazard, mode, mechanism, basis, band=False, gaps=None):
+def _entry(hazard, mode, mechanism, basis, band=False, gaps=None, params=None):
     projects = mode not in ("geophysical_flat", "susceptibility_flat")
     return {"hazard": hazard, "projects": projects, "mode": mode, "mode_label": _MODE_LABEL[mode],
-            "mechanism": mechanism, "basis": basis, "band": band, "gaps": gaps or []}
+            "mechanism": mechanism, "basis": basis, "band": band, "gaps": gaps or [], "params": params or {}}
+
+
+def _pct(rate: float) -> str:
+    return f"{rate * 100:.0f}%"
 
 
 def projection_coverage() -> dict:
@@ -52,19 +60,21 @@ def projection_coverage() -> dict:
     sc_lo, _, sc_hi = cape_rates()
     items = [
         _entry("flood", "cmip6_band", f"extreme-rainfall intensity ~{fl.per_c*100:.0f}%/°C of local warming",
-               fl.basis, band=True, gaps=["mean-precip and coastal terms deliberately excluded (separate mechanisms)"]),
+               fl.basis, band=True, gaps=["mean-precip and coastal terms deliberately excluded (separate mechanisms)"],
+               params={"rate": _pct(fl.per_c)}),
         _entry("storm", "cmip6_band", f"peak intensity ~{st.per_c*100:.0f}%/°C; severity scaled, not counts",
-               st.basis, band=True),
+               st.basis, band=True, params={"rate": _pct(st.per_c)}),
         _entry("windstorm", "susceptibility_flat", "ERA5 gust climatology is a standing extreme-wind field "
                "(extratropical windstorm), sampled as present exposure — not scenario-varying here",
                "ERA5 instantaneous-10m-wind-gust climatology (1991-2020)"),
         _entry("wildfire", "cmip6_band", f"fire weather ~{wf.per_c*100:.0f}%/°C warming plus a drying term",
-               wf.basis, band=True),
+               wf.basis, band=True, params={"rate": _pct(wf.per_c)}),
         _entry("coastal_flood", "ar6_slr_band", "freeboard vs projected global-mean sea-level rise",
                "IPCC AR6 WG1 Ch.9/SPM global-mean SLR vs 1995–2014", band=True,
-               gaps=["regional SLR variation + local land subsidence are disclosed follow-ons (v1 = global-mean)"]),
+               gaps=["ocean-dynamic regional offset (CMIP6 zos) applied since sea-level v2; the ice-fingerprint + GIA terms "
+                     "and the land-subsidence rate feed are pending (model_limitations: regional_sea_level, land_subsidence)"]),
         _entry("heavy_precip", "parametric_cc", f"extreme-precip total intensified by (1+{CC_PER_C:.2f})^ΔT",
-               "Clausius–Clapeyron ~7%/°C (IPCC AR6 WG1 Ch.11)"),
+               "Clausius–Clapeyron ~7%/°C (IPCC AR6 WG1 Ch.11)", params={"rate": _pct(CC_PER_C)}),
         _entry("cold_wave", "parametric_warming_inverse", "warming raises the 1-in-10 coldest night → fewer building-damaging cold waves",
                "IPCC AR6 WG1 Ch.11 (cold-extreme decline with warming); NASA POWER daily Tmin 1991–2020"),
         _entry("frost", "parametric_warming_inverse", "warming raises the coldest night → fewer frost events",
@@ -112,7 +122,7 @@ def projection_coverage() -> dict:
                "square root (shear held); read through the same NOAA SPC anchor",
                "Romps (2016) CAPE ~6–7%/K; IPCC AR6 WG1 §11.7.3.5 (CAPE increase: high confidence) and §12.4.5.3 "
                "(Europe: more frequent severe-convection environments, more likely than not under RCP8.5)",
-               band=True, gaps=convective_reference()["not_projected"]),
+               band=True, gaps=convective_reference()["not_projected"], params={"low": _pct(sc_lo), "high": _pct(sc_hi)}),
         _entry("seismic", "geophysical_flat", "earthquake hazard has no climate-scenario response",
                "geophysical — not climate-attributable"),
         _entry("volcanic", "geophysical_flat", "volcanic hazard has no climate-scenario response",

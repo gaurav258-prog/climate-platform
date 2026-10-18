@@ -13,16 +13,15 @@ of three kinds:
 
 A limitation leaving this registry means it was either closed (built + validated) or re-tested and still held —
 never quietly dropped.
+
+The texts below are the engineers' record (file paths, versions, test numbers) and are not sent to a screen (UI
+standard, 2026-10-16): the screen's words are the message catalogue's coverage.limitation.<id> and
+coverage.limitation.<id>.today (services/intelligence/coverage.py), whose numbers must all be in this record.
 """
 from __future__ import annotations
 
 MODEL_LIMITATIONS_VERSION = "limits-v1"
-
-_STATUS_LABEL = {
-    "tested_rejected": "Tested & rejected — not wired (would fabricate signal)",
-    "deferred_needs_data": "Deferred — buildable only with an authoritative feed we don't yet hold",
-    "disclosed_scope": "Disclosed scope boundary — a mechanism left out by design",
-}
+STATUSES = ("tested_rejected", "deferred_needs_data", "disclosed_scope")
 
 _LIMITATIONS = [
     {
@@ -111,20 +110,10 @@ _LIMITATIONS = [
 
 def model_limitations() -> dict:
     """The disclosed-limitations registry — a static, auditable list (no tenant data)."""
-    by_status: dict = {}
-    for lim in _LIMITATIONS:
-        by_status[lim["status"]] = by_status.get(lim["status"], 0) + 1
-    items = [{**lim, "status_label": _STATUS_LABEL[lim["status"]]} for lim in _LIMITATIONS]
+    items = [dict(lim) for lim in _LIMITATIONS]
     return {
         "version": MODEL_LIMITATIONS_VERSION,
         "n_limitations": len(items),
-        "counts": {"tested_rejected": by_status.get("tested_rejected", 0),
-                   "deferred_needs_data": by_status.get("deferred_needs_data", 0),
-                   "disclosed_scope": by_status.get("disclosed_scope", 0)},
-        "statuses": [{"status": k, "label": v} for k, v in _STATUS_LABEL.items()],
+        "counts": {st: sum(1 for it in items if it["status"] == st) for st in STATUSES},
         "items": items,
-        "note": ("What the engine deliberately does not model yet, and why. A tested-rejected item was measured "
-                 "against the honesty gate and left out rather than fabricated; a deferred item names the "
-                 "authoritative feed that would close it; a scope item is a boundary stated so a number is never "
-                 "read for more than it is."),
     }

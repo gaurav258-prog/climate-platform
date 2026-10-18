@@ -19,6 +19,11 @@ always showing which tier each one sits at — a channel only moves up a tier wh
 
 Phases (P1–P4) come from the coverage roadmap (docs/board/path_to_28.html) and order the ROADMAP rows by
 relevance × data-feasibility, not by calendar.
+
+Each row's `internal_note` is the engineers' record — sources, model versions, test numbers — and is never sent to a
+screen (UI standard, 2026-10-16). The screen's words are the message catalogue's coverage.hazard.<id> (served by
+services/intelligence/coverage.py); every number those words state must be in this record or in core/hazard_regions.py
+(tests/unit/test_coverage_view.py). Where a hazard is validated is stated once, in core/hazard_regions.py.
 """
 from __future__ import annotations
 
@@ -63,7 +68,7 @@ class EUHazard:
     nature: str                       # "acute" | "chronic" (per Appendix A)
     tier: MaturityTier
     phase: str                        # "now" (live) | "p1".."p4" (roadmap phase)
-    source: str                       # short data-source / status note (honest)
+    internal_note: str                # the engineers' record: sources, versions, test numbers — never sent to a screen
     internal: tuple[HazardType, ...] = field(default_factory=tuple)  # our channel(s) serving it
 
 
@@ -80,16 +85,17 @@ H = HazardType
 # ── The 28, verbatim from Appendix A, in its four families ───────────────────────────────────────────────
 EU_TAXONOMY: tuple[EUHazard, ...] = (
     # Temperature-related (7)
-    EUHazard("heat_wave", T, "Heat wave", A, CAL, "now", "agricultural heat channel (West Africa cocoa, rank correlation 0.60)", (H.HEAT_ACUTE,)),
+    EUHazard("heat_wave", T, "Heat wave", A, CAL, "now", "agricultural heat channel (West Africa cocoa, rank correlation 0.60): crop heat-stress band (cocoa ~25 → ~31 °C) + "
+             "anomaly vs the 1991–2020 normal (ml/scoring/heat_climatology.py)", (H.HEAT_ACUTE,)),
     EUHazard("heat_stress", T, "Heat stress", C, CAL, "now", "observed days ≥ 30 °C from 30 years of daily maxima (NASA POWER); station-validated", (H.HEAT_CHRONIC,)),
-    EUHazard("cold_wave_frost", T, "Cold wave / frost", A, CAL, "now", "cold wave: 1-in-10 coldest night vs building thresholds (NASA POWER daily minima), station-validated; frost: global crop-frost baseline (crop scale, screening)", (H.COLD_WAVE, H.FROST)),
+    EUHazard("cold_wave_frost", T, "Cold wave / frost", A, CAL, "now", "cold wave: 1-in-10 coldest night vs building thresholds (NASA POWER daily minima, 30 years 1991–2020), station-validated; frost: global crop-frost baseline (crop scale, screening)", (H.COLD_WAVE, H.FROST)),
     EUHazard("wildfire", T, "Wildfire", A, CAL, "now",
              "Wildfire hazard climatology: Copernicus CEMS/ECMWF Fire Weather "
              "Index extreme-danger days 2006-2020 × burnable-land fraction + C3S ESA-CCI observed burn history 2001-2019, "
              "fixed disclosed formula. Validated on the INDEPENDENT official EFFIS burn record 2022-2024 held out in time "
              "(41k scars, Europe): occurrence AUC 0.76 (2.2× High+ lift), magnitude ρ 0.37 — meets the 0.35 minimum, narrowly; "
              "the fire-weather×fuel term alone is AUC 0.68 / ρ 0.22 (below gate), burn history carries most of the skill "
-             "(that term is not fully independent of the validation record, disclosed). Validated in Europe; elsewhere the same layer is a screening indicator. A same-day fire-weather variant did not pass the same test (AUC 0.44) and is not used for scoring.", (H.WILDFIRE,)),
+             "(that term is not fully independent of the validation record, disclosed). Where it is validated: core/hazard_regions.py. A same-day fire-weather variant did not pass the same test (AUC 0.44) and is not used for scoring.", (H.WILDFIRE,)),
     EUHazard("changing_temperature", T, "Changing temperature", C, BN, "now",
              "By nature: a projection of future warming; there is no observation of the future to backtest against. CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
     EUHazard("temperature_variability", T, "Temperature variability", C, BN, "now",
@@ -109,7 +115,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, CAL, "now",
              "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
              "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
-             "Xynthia). Distinct channel from Cyclone. Calibrated for RANKING in Europe and North America only (2026-09-21): the production "
+             "Xynthia). Distinct channel from Cyclone. Calibrated for RANKING (2026-09-21; where: core/hazard_regions.py): the production "
              "score ranks 92 NOAA ISD anemometer stations by their median annual-maximum gust, rank correlation 0.57 pooled "
              "(Europe 0.79, n=34; North America 0.38, n=58, marginal), under a design fixed before the run. Against NOAA's reported "
              "gusts (zone-level estimates) it reaches 0.26, below the 0.35 gate; against US damaging-event counts 0.05 — a hazard "
@@ -122,7 +128,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "tornadoes: ranking AUC 0.73 (EF2+ 0.74), US validation region; environment index, also covers large hail / damaging wind", (H.SEVERE_CONVECTIVE,)),
 
     # Water-related (10)
-    EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-region SPEI drought-index validation", (H.DROUGHT,)),
+    EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-region SPEI drought-index validation (21 crop-regions, passes in 9)", (H.DROUGHT,)),
     EUHazard("flood", WA, "Flood (coastal / fluvial / pluvial / groundwater)", A, CAL, "now",
              "River flood from the Copernicus EMS / JRC global flood hazard maps v2.1.2 (LISFLOOD-FP, 90 m, seven return periods): "
              "share of the cell in the 1-in-100-year floodplain × the Huizinga (2017) depth–damage fraction at its mean depth, with "
@@ -223,7 +229,7 @@ EXTRA_CHANNELS: tuple[EUHazard, ...] = (
              "defaults (VEI-3 assumed when GVP records none). Radially symmetric (no wind/topography); eruption "
              "recency reported, not weighted. Eruptions are too rare for a location-level occurrence backtest → "
              "classified Screening; no euro figure is published for this hazard.", (H.VOLCANIC,)),
-    EUHazard("pollution", WA, "Pollution / air quality", C, SCR, "now", "air-quality screening channel; coverage disclosed as limited", (H.POLLUTION,)),
+    EUHazard("pollution", WA, "Pollution / air quality", C, SCR, "now", "air-quality screening channel (WHO Global Air Quality Guidelines, 2021); coverage disclosed as limited", (H.POLLUTION,)),
 )
 
 
