@@ -1,12 +1,16 @@
 """E147: the demo never carries invented data for a real named company — no demo organisation holds data of its own
 (emissions, ESG metrics, Taxonomy KPIs, voluntary PAI values, confirmations) about an issuer that is not one of the
-fictional demo issuers (LEI beginning 'DEMO'), and no demo fund holds a real company's security. Reads the database
-as it is (the demo seeds), changes nothing."""
+fictional demo issuers (LEI beginning 'DEMO'), and no demo fund holds a real company's security. E197: no demo asset,
+its region or a demo counterparty is named with a map-grid code or a type code. Reads the database as it is (the demo
+seeds), changes nothing."""
 from __future__ import annotations
+
+import re
 
 import pytest
 from sqlalchemy import text
 
+from core.messages import INTERNAL
 from services.issuer_client_data import issuers_with_own_data
 
 pytestmark = pytest.mark.integration
@@ -29,3 +33,19 @@ def test_no_demo_fund_holds_a_real_company(session_rolled_back):
         JOIN issuers i ON i.issuer_id = sec.issuer_id
         WHERE o.name LIKE '%(demo)%' AND i.lei NOT LIKE 'DEMO%' LIMIT 5""")).scalars().all()
     assert not held, held
+
+
+GRID = re.compile(r"\bhex [0-9a-f]{4,}|\b8[0-9a-f]{14}\b")      # an H3 cell code, whole or shortened
+
+
+def test_no_demo_name_carries_a_grid_code_or_a_type_code(session_rolled_back):
+    s = session_rolled_back
+    names = s.execute(text("""
+        SELECT o.name || ': ' || x FROM portfolio_entities e JOIN organizations o ON o.org_id = e.org_id,
+               LATERAL (VALUES (e.entity_name), (e.region)) v(x)
+        WHERE o.name LIKE '%(demo)' AND x IS NOT NULL
+        UNION ALL
+        SELECT o.name || ': ' || c.counterparty_name FROM bank_counterparties c JOIN organizations o ON o.org_id = c.org_id
+        WHERE o.name LIKE '%(demo)' AND c.counterparty_name IS NOT NULL""")).scalars().all()
+    bad = [n for n in names if GRID.search(n.split(": ", 1)[1]) or INTERNAL.search(n.split(": ", 1)[1])]
+    assert names and not bad, bad[:8]

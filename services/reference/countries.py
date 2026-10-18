@@ -14,8 +14,10 @@ guessed. (A bare 'Congo' is kept: in CLDR, as in ISO 3166, it is the Republic of
 from __future__ import annotations
 
 import json
+import time
 import urllib.request
 from datetime import date
+from functools import lru_cache
 from typing import Optional
 
 from sqlalchemy import text
@@ -125,3 +127,36 @@ def refresh(session: Session) -> dict:
 def lookup(session: Session) -> dict[str, str]:
     """normalised written form → alpha-2 (empty until the reference is loaded)."""
     return {r[0]: r[1] for r in session.execute(text("SELECT name_norm, iso2 FROM ref_country_names")).all()}
+
+
+NAMES_TTL_S = 300   # a CLDR release reaches every running process within five minutes, with no restart (E179)
+
+
+@lru_cache(maxsize=2)
+def _names(_bucket: int) -> dict[str, str]:
+    from core.db.config import SessionLocal
+    s = SessionLocal()
+    try:
+        rows = s.execute(text("SELECT iso2, iso3, name_en FROM ref_countries")).all()
+    finally:
+        s.close()
+    out = {}
+    for iso2, iso3, name in rows:
+        out[iso2.strip()] = name
+        if iso3:
+            out[iso3.strip()] = name
+    return out
+
+
+def country_name(code: Optional[str]) -> Optional[str]:
+    """A country's customer name (CLDR English, the one country reference) by ISO 3166 alpha-2 or alpha-3 code; None
+    when the reference does not hold the code, or cannot be read (no database: an offline tool, the unit tests) — the
+    caller then uses its own published name, never the code."""
+    if not code:
+        return None
+    from sqlalchemy.exc import OperationalError
+    try:
+        names = _names(int(time.monotonic() // NAMES_TTL_S))
+    except OperationalError:                     # not cached: the names return as soon as the database does
+        return None
+    return names.get(code.strip().upper())

@@ -5,10 +5,8 @@ keeps the code and its values (gap_code, gap_params; protection_code; caution_co
 its detail, and groups results by code."""
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Any, Optional
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core import messages
@@ -28,18 +26,9 @@ def map_name(layer_key: str) -> str:
     return registry.layer(layer_key)["name"]
 
 
-@lru_cache(maxsize=1)
-def _country_names() -> dict[str, str]:
-    from core.db.config import SessionLocal
-    s = SessionLocal()
-    try:
-        return {r[0].strip(): r[1] for r in s.execute(text("SELECT iso2, name_en FROM ref_countries")).all()}
-    finally:
-        s.close()
-
-
 def country_name(iso2: str) -> str:
-    return _country_names().get(iso2, iso2)
+    from services.reference.countries import country_name as _name
+    return _name(iso2) or iso2
 
 
 def intensity(samples: dict, layer_key: str) -> Optional[dict]:

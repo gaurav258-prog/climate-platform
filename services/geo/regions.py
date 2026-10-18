@@ -33,21 +33,32 @@ def _index():
     for f in feats:
         p = f["properties"]
         geoms.append(shape(f["geometry"]))
-        meta.append({"key": p["NUTS_ID"], "name": p["NUTS_NAME"], "country": p["CNTR_CODE"], "geometry": f["geometry"]})
+        meta.append({"key": p["NUTS_ID"], "name": p["NUTS_NAME"], "place": p["NUTS_NAME"], "country": p["CNTR_CODE"],
+                     "geometry": f["geometry"]})
     for g in geoms:
         shapely.prepare(g)
     return STRtree(geoms), geoms, meta
 
 
+def _degrees(lat: float, lon: float) -> str:
+    return f"{abs(lat):.1f}°{'N' if lat >= 0 else 'S'} {abs(lon):.1f}°{'E' if lon >= 0 else 'W'}"
+
+
 def _hex_region(cell: str) -> dict:
-    """The H3 cell as a GeoJSON region — clipped to land by the one cell service (services.geo.cells)."""
-    from services.geo.cells import cell_shape
+    """The H3 cell as a GeoJSON region — clipped to land by the one cell service (services.geo.cells). Named for a
+    customer: its country and its centre ('Malaysia · 3.1°N 101.7°E'), or 'Offshore' where it touches no land — never
+    its grid code, which stays the key."""
+    from services.geo.cells import cell_shape, country_label
     c = cell_shape(cell)
-    return {"key": cell, "name": f"hex {cell[:6]}…", "country": c["country"], "kind": "h3", "geometry": c["geometry"]}
+    place = country_label(c["country"]) or "Offshore"
+    return {"key": cell, "name": f"{place} · {_degrees(*h3.cell_to_latlng(cell))}", "place": place,
+            "country": c["country"], "kind": "h3", "geometry": c["geometry"]}
 
 
 def region_for(lat: float, lon: float) -> dict:
-    """→ {key, name, country, kind: 'nuts3'|'h3', geometry (GeoJSON)}. Never None: outside NUTS → H3 hexagon."""
+    """→ {key, name, place, country, kind: 'nuts3'|'h3', geometry (GeoJSON)}. Never None: outside NUTS → H3 hexagon.
+    `name` is the region's customer name; `place` the short name an asset in it is called by (the NUTS-3 region, or
+    the hexagon's country)."""
     idx = _index()
     if idx is not None:
         from shapely.geometry import Point

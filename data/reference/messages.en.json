@@ -915,6 +915,11 @@
    "published": "Tested",
    "held": "Failed its test",
    "untested": "Untested"
+  },
+  "asset_type": {
+   "residential_real_estate": "residential property",
+   "commercial_real_estate": "commercial property",
+   "light_industrial": "light industrial"
   }
  }
 }

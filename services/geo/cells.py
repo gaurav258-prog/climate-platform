@@ -114,19 +114,29 @@ def land_available() -> bool:
 
 
 @lru_cache(maxsize=1)
-def _iso3_by_code() -> dict[str, str]:
-    """The land layer's own country code → its ISO 3166 alpha-3 code, from the same file (GISCO writes EL for Greece and
-    UK for the United Kingdom; ISO says GRC / GBR). Disputed areas (sovereignty unsettled) carry no ISO code."""
+def _country_props() -> dict[str, dict]:
+    """The land layer's own country code → its properties, from the same file."""
     if not COUNTRIES_PATH.exists():
         return {}
     with gzip.open(COUNTRIES_PATH, "rt") as f:
-        feats = json.load(f)["features"]
-    out = {}
-    for x in feats:
-        p = x["properties"]
-        if p.get("SVRG_UN") != "Sovereignty unsettled" and len(p.get("ISO3_CODE") or "") == 3:
-            out[p["CNTR_ID"]] = p["ISO3_CODE"]
-    return out
+        return {x["properties"]["CNTR_ID"]: x["properties"] for x in json.load(f)["features"]}
+
+
+@lru_cache(maxsize=1)
+def _iso3_by_code() -> dict[str, str]:
+    """The land layer's own country code → its ISO 3166 alpha-3 code, from the same file (GISCO writes EL for Greece and
+    UK for the United Kingdom; ISO says GRC / GBR). Disputed areas (sovereignty unsettled) carry no ISO code."""
+    return {code: p["ISO3_CODE"] for code, p in _country_props().items()
+            if p.get("SVRG_UN") != "Sovereignty unsettled" and len(p.get("ISO3_CODE") or "") == 3}
+
+
+def country_label(code: Optional[str]) -> Optional[str]:
+    """The customer name of a land-layer country code: the platform's country reference by its ISO code; an area with
+    no ISO code (sovereignty unsettled) by the land layer's own English name. None for no code."""
+    if not code:
+        return None
+    from services.reference.countries import country_name
+    return country_name(_iso3_by_code().get(code)) or (_country_props().get(code) or {}).get("NAME_ENGL")
 
 
 def iso3_of(lat: float, lon: float) -> Optional[str]:

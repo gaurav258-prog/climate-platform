@@ -42,3 +42,20 @@ def test_hexagons_are_clipped_to_land_and_named_by_country():
     assert abs(shape(inland["geometry"]).area - Polygon([(lon, lat) for lat, lon in h3.cell_to_boundary(inland["key"])]).area) < 1e-9
     offshore = region_for(30.0, -40.0)                      # mid-Atlantic: no land → whole hexagon, no country
     assert offshore["country"] is None and shape(offshore["geometry"]).geom_type == "Polygon"
+
+
+@pytest.mark.skipif(not COUNTRIES_PATH.exists(), reason="country boundaries not fetched")
+def test_a_hexagon_is_named_by_its_country_and_centre_never_its_grid_code():
+    kl = region_for(3.1, 101.7)                             # Kuala Lumpur: outside the EU, so a hexagon
+    assert kl["kind"] == "h3" and kl["place"] == "Malaysia"
+    assert kl["name"].startswith("Malaysia · ") and kl["name"].endswith("°E") and "°N " in kl["name"]
+    assert kl["key"][:6] not in kl["name"] and "hex" not in kl["name"]
+    assert region_for(-2.2, -79.9)["name"].endswith("°S 79.8°W")  # south and west say so
+    sea = region_for(30.0, -40.0)
+    assert sea["place"] == "Offshore" and sea["name"].startswith("Offshore · ")
+
+
+@needs_nuts
+def test_a_nuts3_region_is_its_own_place():
+    nue = region_for(49.45, 11.08)
+    assert nue["place"] == nue["name"] and nue["name"].startswith("Nürnberg")

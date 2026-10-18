@@ -6,8 +6,8 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.232 |
-| Last updated | 2026-10-16 |
+| Version | 2.233 |
+| Last updated | 2026-10-18 |
 | Package version (pyproject.toml) | 0.1.0 |
 
 **Maintenance rule:** whenever a hazard type, service, data source, schema table, or auth
@@ -44,7 +44,7 @@ dedicated `docs/*_METHODOLOGY.md` files, linked in §11), brand/visual identity 
 |---|---|---|
 | API | `api/` | FastAPI REST service — auth (API keys + JWT), RBAC enforcement, scoring/data endpoints, admin console |
 | Ingestion | `services/ingestion/` | Satellite/reanalysis adapters (NASA FIRMS, Copernicus Sentinel-1/3, ERA5, GloFAS, EMSC) and pipeline orchestration |
-| Supervisor map | `api/routers/supervisor.py` (`/map`, `/sites`), `services/geo/` | Regulator sees exposure of its supervised population as a REGIONAL heat map (NUTS-3 from Eurostat GISCO 2021 inside the EU, H3 res-4 hexagons elsewhere — the unit filings use). Individual sites only for an entity that granted site-level access (`/v1/me/supervisors/{id}/site-access`, org-admin, audited on both sides) |
+| Supervisor map | `api/routers/supervisor.py` (`/map`, `/sites`), `services/geo/` | Regulator sees exposure of its supervised population as a REGIONAL heat map (NUTS-3 from Eurostat GISCO 2021 inside the EU, H3 res-4 hexagons elsewhere — the unit filings use; a hexagon is named by its country and centre, e.g. 'Malaysia · 2.9°N 101.6°E', never its grid code). Individual sites only for an entity that granted site-level access (`/v1/me/supervisors/{id}/site-access`, org-admin, audited on both sides) |
 | Supervision (regulator module) | `api/routers/supervisor.py`, `api/routers/supervisory_access.py`, `services/supervision/` (`profiles`, `assignments`, `intake`, `lens`, `projection`, `workflow`, `engagement`) | Profile-driven supervisory workspace: population workflow, Tier-2 intake → shadow book → independent lens, analytics, per-person visibility (assignments), requests & findings tracked to closure on a thread both organisations read |
 | Scoring | `ml/scoring/` | Physics-based (volcanic, seismic, storm) and ML-based (flood, wildfire, heat, drought, pollution) hazard scorers |
 | Features | `ml/features/` | Feature engineering per hazard for the ML scorers |
@@ -207,6 +207,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-18 | 2.233 | **Demo asset names in customer words (E197).** Outside the EU a map region is named by its country and centre ('Malaysia · 2.9°N 101.6°E', or 'Offshore'), never its grid code; country names come from the platform's one country list (the map file's own English name where the database cannot be read). The demo seed names an asset by its place (NUTS-3 region, or country), its type in customer words ('residential property', not the type code) and its number. 514 existing demo assets, 139 of their regions and the 226 demo bank counterparties named after them were renamed (scripts/fix_demo_asset_names.py, under the gate lock). The loss engine's country names now read the same lookup, refreshed every five minutes instead of once per process. |
 | 2026-10-17 | 2.232 | **Agriculture › Data sources rebuilt to the UI standard (E195, E196).** One visual flow: what goes in (your sourcing plots; our five source groups and how current each is), what is scored (your plots by risk band for drought, heat, soil water and frost, live readings marked), and the euros (volume at risk on spend with a tested crop model; the spend whose euro is withheld) — all from one new read, GET /v1/supply/foundation. Sources, method steps and what every score keeps sit under 'About our data'. The price-pressure and seasonal-arrears cards lose column names and code-font notes; their reasons are catalogue messages (agri.data.*), arrears gain a classification bar, upload refusals name the row and reason. The headline no longer counts score rows as places, and figures typed into the page are gone. |
 | 2026-10-17 | 2.231 | **Platform › Reference data rebuilt to the UI standard (E193).** Each reviewed source is a tile with its status; each release a change bar and a three-step stepper (received → proposed → applied), opening a side panel that charts what the file changes — by crop, the largest revisions, the rows set aside (each reason one click away). The file's record and all definitions are in pop-ups. Everything the server says here is a catalogue message (reference.release.*, 41 codes); places shown by name. |
 | 2026-10-17 | 2.230 | **Supervisor intake rebuilt to the UI standard (E187–E190).** Three visuals lead: the template on file, a ring for the share of granular data placed on the map (located / not located), a ring for locations with complete projections; an 'On file' grid per financial year. An upload shows a valid-versus-problems bar; column matching, the stated basis and the rows with problems open in drawers. 'Shadow book' and field ids are gone ('your granular data'); server text is catalogue messages (supervision.intake.*); the stated scenario and year are picked from a list and the period is a canonical financial year. |

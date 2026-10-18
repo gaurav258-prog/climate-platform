@@ -20,6 +20,7 @@ import h3
 from sqlalchemy import text
 
 from api.security import hash_password
+from core import messages
 from core.db.session import get_session
 from core.types import score_to_bucket
 from services.geo.regions import region_for
@@ -60,8 +61,21 @@ def rid(*parts) -> str:
     return str(uuid.uuid5(NS, ":".join(str(p) for p in parts)))
 
 
-def scored_pool(s) -> dict[str, list[tuple[str, float, float, str]]]:
-    """country → [(cell, lat, lon, region name)] of cells with ≥ 15 hazards at baseline/today."""
+def type_words(entity_type: str | None) -> str:
+    """An asset type as a name shows it: its customer name where the type is a code ('residential_real_estate' →
+    'residential property'), the type as written otherwise, 'asset' when none is stated."""
+    if not entity_type:
+        return "asset"
+    return messages.name("asset_type", entity_type) if "_" in entity_type else entity_type
+
+
+def asset_name(place: str, entity_type: str | None, n: int) -> str:
+    """A demo asset's name: where it is (its NUTS-3 region, or its country outside the EU), its type, its number."""
+    return f"{place} {type_words(entity_type)} {n}"
+
+
+def scored_pool(s) -> dict[str, list[tuple[str, float, float, str, str]]]:
+    """country → [(cell, lat, lon, region name, place)] of cells with ≥ 15 hazards at baseline/today."""
     rows = s.execute(text("""SELECT h3_cell FROM canonical_scores WHERE score_lane = 'standing' AND valid_to IS NULL
                              AND scenario = 'baseline' AND time_horizon = 'current' GROUP BY 1 HAVING count(DISTINCT hazard_type) >= 15""")).scalars().all()
     pool: dict[str, list] = {}
@@ -69,11 +83,11 @@ def scored_pool(s) -> dict[str, list[tuple[str, float, float, str]]]:
         lat, lon = h3.cell_to_latlng(c)
         r = region_for(lat, lon)
         country = r["country"] if r["kind"] == "nuts3" else (r["country"] or "XX")
-        pool.setdefault(country, []).append((c, lat, lon, r["name"]))
+        pool.setdefault(country, []).append((c, lat, lon, r["name"], r["place"]))
     return pool
 
 
-def pick_cells(pool, home: str, n: int, rng: random.Random) -> list[tuple[str, float, float, str, str]]:
+def pick_cells(pool, home: str, n: int, rng: random.Random) -> list[tuple[str, float, float, str, str, str]]:
     home_cells = pool.get(home) or pool["ES"]
     iberia = pool["ES"] + pool.get("PT", [])
     everything = [x for xs in pool.values() for x in xs]
@@ -82,7 +96,7 @@ def pick_cells(pool, home: str, n: int, rng: random.Random) -> list[tuple[str, f
         u = rng.random()
         src, cc = (home_cells, home) if u < 0.55 else (iberia, "ES") if u < 0.8 else (everything, None)
         c = rng.choice(src)
-        out.append((c[0], c[1], c[2], c[3], cc or next((k for k, v in pool.items() if c in v), "XX")))
+        out.append((c[0], c[1], c[2], c[3], c[4], cc or next((k for k, v in pool.items() if c in v), "XX")))
     return out
 
 
@@ -122,7 +136,7 @@ def clone_financial_book(s, template_org: str, org_id: str, name: str, home: str
     ext_i = [dict(r) for r in s.execute(text("SELECT * FROM ext_insurance WHERE entity_id IN (SELECT entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid))"), {"o": template_org}).mappings().all()]
     ext_r = [dict(r) for r in s.execute(text("SELECT * FROM ext_realestate WHERE entity_id IN (SELECT entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid))"), {"o": template_org}).mappings().all()]
     ext_b_list = list(ext_b.values())
-    for i, (cell, lat, lon, region, cc) in enumerate(cells):
+    for i, (cell, lat, lon, region, place, cc) in enumerate(cells):
         t = rows[i % len(rows)]
         eid = rid("pe", org_id, i)
         value = float(t["primary_value_eur"] or 1e6) * size * rng.uniform(0.6, 1.5)
@@ -130,7 +144,7 @@ def clone_financial_book(s, template_org: str, org_id: str, name: str, home: str
         s.execute(text("""INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, sector, nace_code, latitude, longitude, h3_cell, country, region,
                               primary_value_eur, construction_type, year_built, number_of_stories, source, location_precision, created_at, updated_at)
                           VALUES (CAST(:id AS uuid), CAST(:o AS uuid), :v, :n, :et, :sec, :nace, :lat, :lon, :h3, :c, :r, :val, :ct, :yb, :ns, 'own', NULL, now(), now())"""),
-                  {"id": eid, "o": org_id, "v": t["vertical"], "n": f"{region} {t['entity_type'] or 'asset'} {i + 1}", "et": t["entity_type"], "sec": t["sector"], "nace": t["nace_code"],
+                  {"id": eid, "o": org_id, "v": t["vertical"], "n": asset_name(place, t["entity_type"], i + 1), "et": t["entity_type"], "sec": t["sector"], "nace": t["nace_code"],
                    "lat": lat2, "lon": lon2, "h3": cell, "c": cc, "r": region, "val": round(value, 2), "ct": t["construction_type"], "yb": t["year_built"], "ns": t["number_of_stories"]})
         if t["vertical"] == "banking" and ext_b_list:
             x = ext_b_list[i % len(ext_b_list)]
