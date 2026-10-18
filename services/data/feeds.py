@@ -396,19 +396,20 @@ def basis_freshness_at(session: Session) -> dict:
 
 
 def record_refresh(session: Session, feed_key: str, actor_user_id: str | None,
-                   note: str | None = None, status: str = "refreshed") -> dict:
+                   note: str | None = None, status: str = "refreshed", cause: str | None = None) -> dict:
     """Append a refresh event to the log. actor_user_id=None means the SYSTEM (scheduled auto-refresh);
-    a user id means a manual override. status is 'refreshed' or 'failed'. This records that the scheduled
+    a user id means a manual override. status is 'refreshed' or 'failed'; a failure carries its cause —
+    'source_unreachable' (the provider's side) or 'adapter_fault' (ours). This records that the scheduled
     ingestion ran — the heavy data pull is the adapter's job (honest boundary, unchanged)."""
     if feed_key not in _BY_KEY:
         raise ValueError(f"unknown feed '{feed_key}'")
     row = session.execute(text("""
-        INSERT INTO feed_refresh_log (feed_key, status, note, actor_user_id)
-        VALUES (:k, :s, :n, :u) RETURNING refresh_id, created_at
-    """), {"k": feed_key, "s": status, "n": note, "u": actor_user_id}).mappings().first()
+        INSERT INTO feed_refresh_log (feed_key, status, note, actor_user_id, cause)
+        VALUES (:k, :s, :n, :u, :c) RETURNING refresh_id, created_at
+    """), {"k": feed_key, "s": status, "n": note, "u": actor_user_id, "c": cause}).mappings().first()
     session.commit()
-    return {"feed_key": feed_key, "refresh_id": str(row["refresh_id"]), "status": status,
-            "created_at": row["created_at"].isoformat(),
+    return {"feed_key": feed_key, "refresh_id": str(row["refresh_id"]), "status": status, "cause": cause,
+            "note": note, "created_at": row["created_at"].isoformat(),
             "invalidates_basis": _BY_KEY[feed_key]["invalidates_basis"]}
 
 
@@ -516,16 +517,52 @@ def refresh_one(session: Session, feed_key: str, actor_user_id: str | None = Non
         who = "manual override" if actor_user_id else "scheduled ingestion"
         return record_refresh(session, feed_key, actor_user_id, note=f"auto-refresh ({who})", status="refreshed")
     except Exception as e:  # a real adapter failure must surface, not silently pass
-        return record_refresh(session, feed_key, actor_user_id, note=f"refresh failed: {_failure(e)}"[:400], status="failed")
+        out = source_unreachable(e)
+        return record_refresh(session, feed_key, actor_user_id, note=f"refresh failed: {_failure(e, out)}"[:400],
+                              status="failed", cause="source_unreachable" if out else "adapter_fault")
 
 
-def _failure(e: Exception) -> str:
-    """A failure as the monitor states it: the source being out of reach (a dropped connection, a timeout) is said so,
-    so it is never mistaken for a fault in our adapter — and an adapter fault is never hidden as an outage."""
+class SourceUnreachable(RuntimeError):
+    """An adapter's statement that its provider could not be reached, or kept answering with an outage, after the
+    adapter's own retries — the provider's side, not a fault in our code. Raise it `from` the last error."""
+
+
+# RFC 9110 §15.6.3-15.6.5: 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout — the server, or a gateway in
+# front of it, says it cannot serve now. Any other status (a 4xx, a 500) may be our request and stays an adapter fault.
+OUTAGE_STATUS = frozenset({502, 503, 504})
+
+
+def source_unreachable(e: BaseException) -> bool:
+    """True when a refresh failed on the provider's side: the provider could not be reached (a dropped or refused
+    connection, a timeout, a network error), answered 502/503/504, or an adapter said so (SourceUnreachable). Read
+    from the error and the errors it was raised from — explicitly (`raise … from e`), or in place of one (`from None`).
+    An error that merely arose while another was being handled is not read through, so a fault in our adapter is never
+    hidden as an outage."""
+    import urllib.error
+
     import requests
-    if isinstance(e, (ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout)):
-        return f"source unreachable ({type(e).__name__}): {e}"
-    return str(e)
+    seen: set[int] = set()
+    x: BaseException | None = e
+    while x is not None and id(x) not in seen:
+        seen.add(id(x))
+        if isinstance(x, (SourceUnreachable, ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout)):
+            return True
+        if isinstance(x, requests.HTTPError):
+            if x.response is not None and x.response.status_code in OUTAGE_STATUS:
+                return True
+        elif isinstance(x, urllib.error.HTTPError):
+            if x.code in OUTAGE_STATUS:
+                return True
+        elif isinstance(x, urllib.error.URLError):
+            return True
+        x = x.__cause__ or (x.__context__ if x.__suppress_context__ else None)
+    return False
+
+
+def _failure(e: Exception, unreachable: bool) -> str:
+    """A failure as the monitor states it: the source being out of reach is said so, so it is never mistaken for a
+    fault in our adapter — and an adapter fault is never hidden as an outage."""
+    return f"source unreachable ({type(e).__name__}): {e}" if unreachable else str(e)
 
 
 # One scheduled refresh at a time on a database, and never during a test run (E178): Celery beat and the API's fallback

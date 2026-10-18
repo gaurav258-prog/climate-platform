@@ -17,20 +17,12 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.data import feeds
 
-# A feed whose hook calls a live third-party endpoint (GVP WFS, World Bank, EU agri-food) can legitimately
-# fail from a real, transient outage/block on THEIR side even after our own retry-with-backoff (see
-# scripts/fetch_gvp_catalogue.py) — that is a live-network integration test hitting the real internet, not a
-# bug in this codebase. record_refresh() already captures exactly this: the failure note names the network
-# exception. Recognize that specific, already-handled shape and don't hard-fail the test on it — but still
-# hard-fail on anything else, since a status of 'failed' for a reason that ISN'T "their server is
-# unreachable" (a KeyError, a bad URL, a parsing bug…) is a real regression this test must catch.
-_NETWORK_UNREACHABLE_MARKERS = ("ConnectionError", "ConnectionAborted", "RemoteDisconnected", "Timeout",
-                                "unreachable", "Connection aborted", "Max retries exceeded",
-                                "upstream unavailable")   # a provider that kept refusing after our retries (imf_fx)
-
-
-def _is_network_unreachable(note: str | None) -> bool:
-    return bool(note) and any(m in note for m in _NETWORK_UNREACHABLE_MARKERS)
+# A feed whose hook calls a live third-party endpoint (GVP WFS, World Bank, EU agri-food, Copernicus) can
+# legitimately fail from a real outage on THEIR side even after our own retries — a live-network integration test
+# hitting the real internet, not a bug in this codebase. The refresh records why it failed (E215): cause
+# 'source_unreachable' when the error says the provider could not be reached or answered 502/503/504
+# (services.data.feeds.source_unreachable), 'adapter_fault' otherwise. Only the provider's side is tolerated here;
+# any other failure (a KeyError, a bad URL, a parsing bug, a missing key) is a real regression this test must catch.
 
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -56,10 +48,6 @@ def test_scheduler_refreshes_only_auto_feeds():
     before = _checkout_state()
     with get_session() as s:
         done = feeds.run_scheduled_refreshes(s, force=True)
-        notes = {r["feed_key"]: r["note"] for r in s.execute(text(
-            "SELECT DISTINCT ON (feed_key) feed_key, note FROM feed_refresh_log "
-            "WHERE feed_key = ANY(:ks) ORDER BY feed_key, created_at DESC"),
-            {"ks": [d["feed_key"] for d in done]}).mappings().all()}
     keys = {d["feed_key"] for d in done}
     # every auto feed refreshed…
     auto = {f["key"] for f in feeds.FEEDS if f["auto_refresh"]}
@@ -67,9 +55,8 @@ def test_scheduler_refreshes_only_auto_feeds():
     # …and no on-demand / planned / estimated feed was auto-refreshed (they don't self-refresh)
     not_auto = {f["key"] for f in feeds.FEEDS if not f["auto_refresh"]}
     assert not (keys & not_auto), "a non-auto feed was auto-refreshed — it should be on-demand/planned only"
-    real_failures = [d for d in done if d["status"] != "refreshed"
-                     and not _is_network_unreachable(notes.get(d["feed_key"]))]
-    assert not real_failures, f"non-network refresh failure(s), a real regression: {real_failures}"
+    real_failures = [d for d in done if d["status"] != "refreshed" and d["cause"] != "source_unreachable"]
+    assert not real_failures, f"refresh failure(s) on our side, a real regression: {real_failures}"
     # E114: a refresh lands its files under the gitignored live root (core/live_data.py), never on a tracked path
     after = _checkout_state()
     if before is not None:
@@ -84,7 +71,7 @@ def test_failed_auto_refresh_is_recorded_and_surfaces_as_a_control():
         feeds.register_refresh_hook(key, lambda s: (_ for _ in ()).throw(RuntimeError("FIRMS 503")))
         with get_session() as s:
             r = feeds.refresh_one(s, key)
-            assert r["status"] == "failed"
+            assert r["status"] == "failed" and r["cause"] == "adapter_fault"   # a message saying 503 is not an answer
             overdue = feeds.overdue_basis_feeds(s)
             assert any(f["key"] == key and f["status"] == "failed" for f in overdue), \
                 "a failed automated refresh of a basis feed must surface as a pre-filing control"
@@ -93,6 +80,33 @@ def test_failed_auto_refresh_is_recorded_and_surfaces_as_a_control():
         with get_session() as s:            # reset to a clean 'refreshed' state
             feeds.refresh_one(s, key)
             assert [f for f in feeds.feed_freshness(s) if f["key"] == key][0]["status"] != "failed"
+
+
+@pytest.mark.integration
+def test_a_providers_outage_is_recorded_as_theirs_and_still_surfaces_as_a_control():
+    """E215: Copernicus answering '502 Bad Gateway' is the provider's side — recorded with cause source_unreachable and
+    said so in the note — yet the basis is still not refreshed, so the pre-filing control still shows it."""
+    import requests
+    key = "fire_thermal"
+
+    def outage(_s):
+        r = requests.Response()
+        r.status_code = 502
+        raise requests.HTTPError("502 Server Error: Bad Gateway for url: https://example.invalid", response=r)
+    try:
+        feeds.register_refresh_hook(key, outage)
+        with get_session() as s:
+            r = feeds.refresh_one(s, key)
+            assert r["status"] == "failed" and r["cause"] == "source_unreachable"
+            assert r["note"].startswith("refresh failed: source unreachable (HTTPError)")
+            row = s.execute(text("SELECT cause FROM feed_refresh_log WHERE refresh_id = CAST(:i AS uuid)"),
+                            {"i": r["refresh_id"]}).scalar()
+            assert row == "source_unreachable"
+            assert any(f["key"] == key and f["status"] == "failed" for f in feeds.overdue_basis_feeds(s))
+    finally:
+        feeds._REFRESH_HOOKS.pop(key, None)
+        with get_session() as s:
+            assert feeds.refresh_one(s, key)["cause"] is None          # a success carries no cause
 
 
 @pytest.mark.integration

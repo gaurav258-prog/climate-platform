@@ -66,7 +66,8 @@ def _wfs_all(type_name: str, timeout: int = 180) -> list[dict]:
             last_err = e
             if attempt < _RETRY_ATTEMPTS - 1:
                 time.sleep(_RETRY_BACKOFF_S[attempt])
-    raise RuntimeError(f"GVP WFS unreachable for {type_name} after {_RETRY_ATTEMPTS} attempts: {last_err}")
+    from services.data.feeds import SourceUnreachable
+    raise SourceUnreachable(f"GVP WFS unreachable for {type_name} after {_RETRY_ATTEMPTS} attempts: {last_err}") from last_err
 
 
 def _vei(p: dict) -> float | None:

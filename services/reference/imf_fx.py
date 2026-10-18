@@ -26,6 +26,8 @@ from typing import Iterable, Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.data.feeds import SourceUnreachable
+
 API = "https://api.imf.org/external/sdmx/2.1/data/IMF.STA,ER,4.0.1/.XDC_EUR.EOP_RT+PA_RT.M"
 FIRST_PERIOD = "2010-01"
 _BASIS = {"EOP_RT": "month_end", "PA_RT": "period_average"}
@@ -33,6 +35,10 @@ _BASIS = {"EOP_RT": "month_end", "PA_RT": "period_average"}
 
 class ImfFxError(RuntimeError):
     pass
+
+
+class ImfFxUnavailable(ImfFxError, SourceUnreachable):
+    """The IMF gateway kept refusing after every retry: its side, not ours."""
 
 
 # The IMF gateway answers an anonymous request intermittently with 401/429 or a 5xx — the same request succeeds moments
@@ -60,7 +66,7 @@ def _get(start: str, sleep=None) -> bytes:
             last = e
         if attempt < _ATTEMPTS - 1:
             sleep(2 ** attempt)
-    raise ImfFxError(f"upstream unavailable: api.imf.org refused {_ATTEMPTS} attempts ({last})")
+    raise ImfFxUnavailable(f"upstream unavailable: api.imf.org refused {_ATTEMPTS} attempts ({last})") from last
 
 
 def _month_end(period: str) -> Optional[date]:
