@@ -1861,6 +1861,44 @@
    "detail": {
     "what": "A note of at least 10 characters is needed. It is kept in the audit record."
    }
+  },
+  "validation.record.consistent": {
+   "label": "Consistent with the record",
+   "detail": {
+    "what": "Places scored higher recorded more {events}: the ranking agreement between score and count is {rho}, and the count rises from one score band to the next.",
+    "why": "A score that orders places the way the observed record does is faithful to that record."
+   }
+  },
+  "validation.record.not_rising": {
+   "label": "Needs a look",
+   "detail": {
+    "what": "The ranking agreement between the score and the count of {events} is {rho}, but the count does not rise from one score band to the next."
+   }
+  },
+  "validation.record.weak": {
+   "label": "Needs a look",
+   "detail": {
+    "what": "The ranking agreement between the score and the count of {events} is {rho}, below the {floor} this check requires."
+   }
+  },
+  "validation.record.no_spread": {
+   "label": "Too little spread to test",
+   "detail": {
+    "what": "The scores or the counts of {events} barely vary, so their ranking agreement cannot be measured."
+   }
+  },
+  "validation.record.no_catalogue": {
+   "label": "No event record for this hazard",
+   "detail": {
+    "what": "This check runs only for the hazards whose observed event catalogue the platform holds: earthquakes and tropical cyclones."
+   }
+  },
+  "validation.record.no_data": {
+   "label": "No scores or events on file",
+   "detail": {
+    "what": "No current scores or no observed events are on file for this hazard, so the check cannot run.",
+    "next": "It runs once both are loaded."
+   }
   }
  },
  "names": {
@@ -1961,7 +1999,8 @@
   },
   "peril": {
    "flood": "river flood",
-   "storm": "tropical cyclone"
+   "storm": "tropical cyclone",
+   "seismic": "earthquake"
   },
   "scenario": {
    "baseline": "Current policies",
@@ -1987,6 +2026,10 @@
    "residential_real_estate": "residential property",
    "commercial_real_estate": "commercial property",
    "light_industrial": "light industrial"
+  },
+  "event_record": {
+   "seismic": "USGS earthquake catalogue (magnitude 5 and above)",
+   "storm": "IBTrACS tropical-cyclone best tracks"
   }
  }
 }

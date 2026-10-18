@@ -36,6 +36,12 @@ def _iso(v):
     return v.isoformat() if hasattr(v, "isoformat") else v
 
 
+def _not_validated_why(reg) -> str:
+    from core import messages
+    why = messages.render(f"coverage.hazard.{reg.id}")["detail"].get("why")
+    return why or messages.render(f"coverage.tier.{reg.tier.value}")["detail"]["what"]
+
+
 # ── cards ───────────────────────────────────────────────────────────────────────────────────────────────────
 def _score_cards(session) -> list[dict]:
     from ml.validation.fidelity import fidelity
@@ -50,9 +56,9 @@ def _score_cards(session) -> list[dict]:
     for e in session.execute(text("SELECT model_id::text AS model_id, from_status, to_status, actor, reason, r2_oos, created_at FROM model_status_event ORDER BY seq")).mappings().all():
         events.setdefault(e["model_id"], []).append({"from": e["from_status"], "to": e["to_status"], "actor": e["actor"], "reason": e["reason"], "r2_oos": float(e["r2_oos"]) if e["r2_oos"] is not None else None, "at": _iso(e["created_at"])})
     # hazard-level evidence: the validation ledger's latest run per hazard (when no run is linked to the model
-    # version) and the honest coverage map (event-catalogue backtests, economic validation, what is still pending)
-    from services.intelligence.model_validation import validation_coverage
-    cov = {i["hazard"]: i for i in validation_coverage(session)["items"]}
+    # version), and the hazard register's tier (core/hazard_taxonomy.py) — the one source of what each hazard may claim
+    from core.hazard_taxonomy import MaturityTier
+    from services.intelligence.model_validation import hazard_for_channel
     by_hazard = {}
     for v in session.execute(text("""SELECT DISTINCT ON (hazard_type) hazard_type, kind, method, target_source, n_samples, skill_grade, passed_gate, metrics, created_at
                                      FROM validation_run ORDER BY hazard_type, (COALESCE(metrics->>'applicable', 'true') = 'true') DESC, created_at DESC""")).mappings().all():
@@ -67,7 +73,7 @@ def _score_cards(session) -> list[dict]:
         r2 = float(r["r2_oos"]) if r["r2_oos"] is not None else None
         auc = float(r["validation_auc"]) if r["validation_auc"] is not None else None
         hv = by_hazard.get(hz)
-        cv = cov.get(hz)
+        reg = hazard_for_channel(hz)
         if skill:
             m = skill.get("metrics") or {}
             fid = fidelity(skill["kind"], r2_oos=m.get("r2_oos", r2), spearman=m.get("spearman"), auc=m.get("auc", auc))
@@ -77,20 +83,12 @@ def _score_cards(session) -> list[dict]:
             fid = fidelity(hv["kind"], r2_oos=m.get("r2_oos", r2), spearman=m.get("spearman"), auc=m.get("auc", auc))
             validation = {"level": "hazard", "kind": hv["kind"], "method": hv["method"], "target": hv["target_source"], "n_samples": hv["n_samples"], "skill_grade": hv["skill_grade"],
                           "passed_gate": bool(hv["passed_gate"]), "metrics": m, "at": _iso(hv["created_at"]), "note": "Evidence recorded at hazard level, not linked to this model version."}
-        elif cv and cv["status"] == "validated":
-            sp = None
-            if "Spearman" in (cv.get("detail") or ""):
-                try:
-                    sp = float(cv["detail"].split("Spearman")[-1].strip().split()[0])
-                except ValueError:
-                    sp = None
-            fid = fidelity("rank", spearman=sp, auc=auc) if sp is not None else (fidelity("regression", r2_oos=r2) if r2 is not None else None)
-            validation = {"level": "hazard", "kind": "rank" if sp is not None else "regression", "method": cv["method"], "detail": cv.get("detail"), "strength": cv.get("strength"),
-                          "passed_gate": None, "note": "Backtest recorded in the model-validation surface at hazard level."}
         else:
             fid = fidelity("regression", r2_oos=r2) if r2 is not None else None
             validation = None
-        pending = (cv or {}).get("needed") if (cv and cv["status"] != "validated") else None
+        # a hazard the register does not hold as validated carries the catalogue's account of why, in customer words
+        # (coverage.hazard.<id>, the Coverage page's); the register's own note is the engineers' and stays off screen
+        pending = _not_validated_why(reg) if reg is not None and reg.tier is not MaturityTier.CALIBRATED else None
         tier = "calibrated" if (r2 is not None and r2 >= PUBLISH_GATE_R2) else ("screening" if r["is_active"] or r["lifecycle_status"] == "approved" else "candidate")
         claim = ("Publishes a euro figure: out-of-sample r² meets the 0.40 gate." if tier == "calibrated" else
                  "Screening signal only: no euro figure is published on this model." if tier == "screening" else "Not in use: candidate or challenger under evaluation.")
