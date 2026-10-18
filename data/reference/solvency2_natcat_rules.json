@@ -235,7 +235,7 @@
    "subject": "United Kingdom",
    "declared_by": "Tellumen",
    "switch": "sii_natcat_uk_other_regions",
-   "reading": "The United Kingdom is a region of Annexes V (windstorm) and VII (flood) but, since it left the Union, not listed in Annex XIII. Read literally, a UK risk would bear both the regional charge and the premium-based charge for regions outside Annex XIII. Default ('region_only'): the regional charge only, since the Annex specifies a factor for the region; 'region_and_premium' applies the literal reading."
+   "reading": "The United Kingdom is a region of Annexes V (windstorm) and VII (flood) but, since it left the Union, not listed in Annex XIII. Read literally, a UK risk would bear both the regional charge and the premium-based charge for regions outside Annex XIII. By default the regional charge only, since the Annex specifies a factor for the region; the organisation can choose the literal reading instead (a governed setting)."
   },
   {
    "subject": "Outermost regions",
@@ -258,7 +258,7 @@
   {
    "subject": "Order of the reinsurance",
    "declared_by": "Tellumen",
-   "reading": "The attested quota share cedes a share of every loss; the catastrophe excess of loss protects the retained part, per event (the structure the undertaking states: 'Reinsurance in force' in the insurer_solvency catalog). An illustrative programme is never used in the standard formula: without an attested treaty the charge after mitigation equals the charge before it."
+   "reading": "The attested quota share cedes a share of every loss; the catastrophe excess of loss protects the retained part, per event (the structure the undertaking states under 'Reinsurance in force' in its Solvency II values). An illustrative programme is never used in the standard formula: without an attested treaty the charge after mitigation equals the charge before it."
   },
   {
    "subject": "Reinstatements (Art. 126(2))",

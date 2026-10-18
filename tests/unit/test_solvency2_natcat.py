@@ -72,13 +72,14 @@ def test_a_risk_without_a_zone_groups_the_region_under_art_90b():
     r = _ws([{"country": "DE", "postal_code": "01067", "sum_insured_eur": 100e6},
              {"country": "DE", "sum_insured_eur": 100e6}])["regions"][0]
     assert (r["method"], r["specified_gross_loss_eur"], r["before_eur"]) == ("grouped_art90b", 406000, 487200)
-    assert "50 %" in r["method_reason"]
+    assert r["method_message"]["code"] == "solvency.method.grouped_postcode" and r["method_message"]["params"] == {"share": 50}
+    assert "50 %" in r["method_reason"]                                # the filing's words are the message's
 
 
 def test_zone_labels_that_cannot_be_matched_are_always_grouped():
     v = T.version(D24)
     r = peril_scr([{"country": "SI", "postal_code": "5000", "sum_insured_eur": 1e8}], "earthquake", v=v)["regions"][0]
-    assert r["method"] == "grouped_art90b" and "labels" in r["method_reason"]
+    assert r["method"] == "grouped_art90b" and r["method_message"]["code"] == "solvency.method.grouped_labels"
 
 
 def test_subsidence_before_2027_is_france_residential_on_the_zones():
@@ -95,6 +96,10 @@ def test_other_regions_are_charged_on_attested_premiums_and_never_on_zero():
     pols = [{"country": "US", "sum_insured_eur": 1e9}]
     missing = _ws(pols)
     assert missing["other_regions"]["status"] == "missing_input" and not missing["complete"]
+    need = missing["missing"]
+    assert [(m["code"], m["params"]["peril"], m["uncharged_eur"]) for m in need] == [
+        ("solvency.missing.premiums_outside", "Windstorm", 1_000_000_000)]
+    assert missing["other_regions"]["message"]["code"] == "solvency.missing.premiums_outside"
     got = _ws(pols, other_inputs={"windstorm": {"by_region": {15: 5e6, 18: 5e6, 1: 2e6}}})
     assert (got["other_regions"]["div"], got["other_regions"]["before_eur"], got["complete"]) == (0.5, 15_750_000, True)
     assert diversification({1: 2e6, 2: 3e6}) == 1.0                  # nothing in regions 5-18: no diversification
@@ -163,3 +168,21 @@ def test_every_zone_table_and_postal_map_is_whole(when):
                        for i in zs for j in zs), (peril, region)
             spec = (ix.get(peril) or {}).get(region) or {}
             assert set(spec.get("map", {}).values()) <= zs or spec.get("basis") in ("admin_unit", "not_postal"), (peril, region)
+
+
+def test_each_missing_input_is_named_once_in_customer_words():
+    """The screen shows one line per input the formula still needs (UI standard): a property with no country is one
+    input of the book, not one per peril; each line is a catalogue message, and the filing reads the same words."""
+    from core.messages import INTERNAL
+    pols = [{"country": "US", "sum_insured_eur": 1e9}, {"sum_insured_eur": 5e6}, {"country": "DE", "sum_insured_eur": 1e8}]
+    sf = natcat_scr(pols, ref_date=D24)
+    codes = [m["code"] for m in sf["missing"]]
+    assert codes.count("solvency.missing.no_country") == 1 and sf["missing"][0]["uncharged_eur"] == 5_000_000
+    assert sorted(m["params"]["peril"] for m in sf["missing"][1:]) == ["Earthquake", "Flood", "Hail", "Windstorm"]
+    assert len(sf["incomplete"]) == len(sf["missing"]) and not sf["complete"]
+    for m in sf["missing"]:
+        assert m["label"] in sf["incomplete"][sf["missing"].index(m)]
+        assert not INTERNAL.search(m["label"]) and m["detail"]["what"]
+    for p in sf["perils"].values():
+        for r in p["regions"]:
+            assert r["method_message"]["code"].startswith("solvency.method.") and r["method_reason"] == r["method_message"]["detail"]["what"]

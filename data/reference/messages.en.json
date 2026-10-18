@@ -1348,6 +1348,135 @@
     "next": "Use this figure with care."
    }
   },
+  "solvency.missing.premiums_outside": {
+   "label": "{peril}: premiums for other countries not stated",
+   "detail": {
+    "what": "You insure {peril_lower} risks in countries outside the EU, Andorra, Iceland, Liechtenstein, Monaco, Norway, San Marino, Switzerland and the Vatican. The standard formula charges them on the premiums you earn there, region by region. Those premiums are not stated, so these risks carry no {peril_lower} charge yet.",
+    "why": "Delegated Regulation (EU) 2015/35 charges risks outside the countries of its Annex XIII on premiums (Articles 121(8) to 124(9)), and template S.27.01.01 reports those premiums by the regions of Annex III. The charge is never computed on a premium of zero.",
+    "next": "State the premiums for each region under Your data → Add and provide data (Solvency II) and have them attested."
+   }
+  },
+  "solvency.missing.no_country": {
+   "label": "Insured value with no country",
+   "detail": {
+    "what": "This sum insured has no country, so it is placed in no region and carries no charge.",
+    "next": "Add the country of these properties to your Statement of Values."
+   }
+  },
+  "solvency.method.exact": {
+   "label": "Exact zones",
+   "detail": {
+    "what": "Each risk is placed in its zone from its postal code (Annex IX), weighted by the zone's risk weight (Annex X) and combined with the zone correlations (Annexes XXII to XXVI)."
+   }
+  },
+  "solvency.method.grouped_postcode": {
+   "label": "Upper bound: postal codes missing",
+   "detail": {
+    "what": "{share} % of the sum insured in this region has no postal code that places it in a zone. As Article 90b allows, all the region's zones are grouped and charged at their highest risk weight. The figure is an upper bound.",
+    "next": "Add postal codes to your Statement of Values for the exact zone-by-zone figure."
+   }
+  },
+  "solvency.method.grouped_labels": {
+   "label": "Upper bound: zones grouped",
+   "detail": {
+    "what": "The zone correlations for this region cannot be matched to its zones from the text of the Regulation. All its zones are therefore grouped and charged at their highest risk weight (Article 90b). The figure is an upper bound."
+   }
+  },
+  "solvency.method.single_zone": {
+   "label": "One zone",
+   "detail": {
+    "what": "Annex IX makes this region a single zone and Annex X gives it no risk weight, so the region is charged as one zone with a risk weight of 1."
+   }
+  },
+  "solvency.other.computed": {
+   "label": "Charged on your premiums",
+   "detail": {
+    "what": "Risks in countries outside the list of Annex XIII are charged on the {premium} of premiums you state for them: the peril's factor × (0.5 × the diversification of the premiums by region + 0.5) × the premiums.",
+    "why": "Delegated Regulation (EU) 2015/35, Articles 121(8) to 124(9) and Annex III."
+   }
+  },
+  "solvency.other.not_calculated": {
+   "label": "No method in the Regulation",
+   "detail": {
+    "what": "Article 125(1), as replaced by Delegated Regulation (EU) 2026/269, names a subsidence charge for risks outside Annex XIII but gives no way to calculate it. No amount is computed; the exposure is shown."
+   }
+  },
+  "solvency.reinsurance.not_attested": {
+   "label": "No reinsurance treaty attested",
+   "detail": {
+    "what": "No reinsurance treaty is attested for the reporting period. The modelled loss cannot be shown net of reinsurance, and the standard formula takes no risk mitigation.",
+    "next": "State the treaty terms under Your data → Add and provide data (Solvency II) and have them attested."
+   }
+  },
+  "solvency.incurred.none": {
+   "label": "No incurred losses submitted yet",
+   "detail": {
+    "what": "No actual catastrophe losses have been submitted for any reporting period. They come from your own claims records, which the platform cannot see.",
+    "next": "Add them with Add incurred loss. Each submission is kept; a later one for the same period and peril adds to it."
+   }
+  },
+  "solvency.incurred.no_region": {
+   "label": "{n} of {of} losses have no region",
+   "detail": {
+    "what": "These losses count in the totals and the bars by peril, but not in the bars by region.",
+    "why": "The SASB insurance standard (FN-IN-450a.2), to which IFRS S2 points, asks for losses by geographic segment.",
+    "next": "Give the region when you add a loss."
+   }
+  },
+  "solvency.incurred.no_modelled_flag": {
+   "label": "{n} of {of} losses not marked modelled",
+   "detail": {
+    "what": "These losses are not marked as a modelled or a non-modelled catastrophe. They count in the totals and the bars by peril, but not in the modelled split.",
+    "why": "The SASB insurance standard (FN-IN-450a.2), to which IFRS S2 points, asks for losses from modelled and non-modelled catastrophes separately.",
+    "next": "Say whether the catastrophe was modelled when you add a loss."
+   }
+  },
+  "solvency.incurred.comparison": {
+   "label": "Actual and modelled figures do not reconcile",
+   "detail": {
+    "what": "Incurred losses are actual claims for a past period (IFRS S2 paragraph 16(a)). The expected yearly loss, the modelled 1-in-200 loss and the standard-formula capital look forward (paragraph 16(c) and (d)).",
+    "why": "A model gives the whole range of possible years; a period's claims are one year that happened. The two do not add up or reconcile.",
+    "next": "Follow them side by side over the years: that shows how well the models track what happens."
+   }
+  },
+  "solvency.incurred.error.peril": {
+   "status": 422,
+   "label": "Choose a peril from the list",
+   "detail": {
+    "what": "The peril you sent is not one the platform scores."
+   }
+  },
+  "solvency.incurred.error.period_order": {
+   "status": 422,
+   "label": "The period ends before it starts",
+   "detail": {
+    "what": "The end of the period is before its start.",
+    "next": "Correct the two dates."
+   }
+  },
+  "solvency.incurred.error.period_open": {
+   "status": 422,
+   "label": "The period has not ended yet",
+   "detail": {
+    "what": "The period you chose ends on {end}. Incurred losses are reported for a period that has ended.",
+    "next": "Choose a period that has ended."
+   }
+  },
+  "solvency.incurred.error.net_above_gross": {
+   "status": 422,
+   "label": "The net loss is larger than the gross",
+   "detail": {
+    "what": "The loss after reinsurance cannot be larger than the loss before it."
+   }
+  },
+  "solvency.incurred.error.not_converted": {
+   "status": 422,
+   "label": "The losses could not be converted to euros",
+   "detail": {
+    "what": "There is no exchange rate the platform can use for {currency} from {start} to {end}, or your organisation's own rate for it is outside its tolerance.",
+    "next": "Check the currency and the period, or review your exchange rates."
+   }
+  },
   "supervision.respondent.access": {
    "label": "What your supervisor can see",
    "detail": {

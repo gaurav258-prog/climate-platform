@@ -153,7 +153,7 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
             assert payload["_specs"]["sii_qrt_natcat"]["version"] == "its_2023_894"
             assert 0 < sf["natcat_scr_eur"] < sf["natcat_scr_before_mitigation_eur"]
             es = next(g for g in sf["perils"]["windstorm"]["regions"] if g["region"] == "ES")
-            assert es["method"] == "grouped_art90b" and "no Annex IX zone" in es["method_reason"]
+            assert es["method"] == "grouped_art90b" and es["method_message"]["code"] == "solvency.method.grouped_postcode"
             assert {x["key"] for x in payload["_provided_attested"]} >= {f"provided.{k}" for k in stated}
             found = {f["rule"]: f for f in api.get(f"/v1/filings/{fid}/validation", headers=maker).json()["findings"]}
             assert found["standard_formula_complete"]["passed"] and found["mitigation_never_adds"]["passed"]

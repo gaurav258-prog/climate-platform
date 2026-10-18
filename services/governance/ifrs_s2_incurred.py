@@ -25,6 +25,10 @@ industry-based guidance points to SASB FN-IN-450a.2, which requires insurance-cl
 (a) modelled vs non-modelled catastrophes, (b) event type (already carried as `peril`), and (c) geographic
 segment — both gross and net of reinsurance (already carried). `region` and `modelled` are optional,
 customer-supplied, same honesty discipline as everything else here — never inferred when absent.
+
+What the summary says to a screen is a message of the catalogue (core/messages.py, codes solvency.incurred.*; UI
+standard 2026-10-16): nothing supplied yet (message), the records without a region or a modelled flag (region_coverage,
+modelled_coverage) and how the actual and modelled figures compare (comparison).
 """
 from __future__ import annotations
 
@@ -32,6 +36,8 @@ import json
 from collections import defaultdict
 
 from sqlalchemy import text
+
+from core import messages
 
 REGULATION = "IFRS S2 Climate-related Disclosures, paragraph 16(a) — current-period financial effects"
 
@@ -93,9 +99,7 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
             "framework": "ifrs_s2_incurred_losses",
             "regulation": REGULATION,
             "status": "not_yet_supplied",
-            "note": ("No actual incurred NatCat losses have been submitted for any reporting period yet. This "
-                     "is customer-supplied data — the insurer's own claims/financial records — which the "
-                     "platform cannot compute or observe itself. Submit via POST /v1/insurance/incurred-losses."),
+            "message": messages.render("solvency.incurred.none"),
             "by_peril": [], "by_period": [], "records": [],
             "modeled": modeled,
         }
@@ -190,17 +194,14 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
         "status": "supplied",
         "n_records": len(rows),
         # SASB FN-IN-450a.2 disaggregation (via IFRS S2 ¶29): geography and modelled/non-modelled. Empty
-        # lists + an honest coverage note when records exist but didn't supply these — never a fabricated
+        # lists + an honest coverage message when records exist but didn't supply these — never a fabricated
         # "Unknown" bucket standing in for a real classification.
         "by_region": region_rows,
         "by_modelled": modelled_rows,
-        "region_coverage_note": None if n_with_region == len(rows) else
-            f"{len(rows) - n_with_region} of {len(rows)} record(s) have no geographic segment supplied "
-            "(SASB FN-IN-450a.2 asks for this disaggregation) — shown only in the peril/period totals above.",
-        "modelled_coverage_note": None if n_with_modelled == len(rows) else
-            f"{len(rows) - n_with_modelled} of {len(rows)} record(s) have no modelled/non-modelled flag "
-            "supplied (SASB FN-IN-450a.2 asks for this disaggregation) — shown only in the peril/period "
-            "totals above.",
+        "region_coverage": None if n_with_region == len(rows) else
+            messages.render("solvency.incurred.no_region", n=len(rows) - n_with_region, of=len(rows)),
+        "modelled_coverage": None if n_with_modelled == len(rows) else
+            messages.render("solvency.incurred.no_modelled_flag", n=len(rows) - n_with_modelled, of=len(rows)),
         "total_gross_incurred_loss_eur": round(total_gross),
         "total_net_incurred_loss_eur": round(total_net) if any_net else None,
         "by_peril": peril_rows,
@@ -208,12 +209,6 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
         "records": rows,
         "modeled": modeled,
     }
-    if modeled is not None:
-        result["comparison_note"] = (
-            "Actual incurred losses (¶16(a), customer-supplied, backward-looking) shown alongside the "
-            "platform's modelled/anticipated figures (¶16(c)-(d): expected annual loss, the modelled 1-in-200 loss "
-            "and the standard-formula NatCat SCR — forward-looking). The two are not directly additive or reconciling: "
-            "incurred losses are actual claims for a stated past period; EAL/SCR are model outputs drawn from "
-            "the full simulated hazard × return-period distribution. Comparing them over time is itself a "
-            "useful calibration signal for the modelled figures.")
+    if modeled is not None:          # actual (¶16(a)) beside anticipated (¶16(c)-(d)): they do not reconcile, by design
+        result["comparison"] = messages.render("solvency.incurred.comparison")
     return result

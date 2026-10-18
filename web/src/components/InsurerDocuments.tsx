@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { FileText } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card, SectionHead } from './ui'
+import { Button, Card, SectionHead } from './ui'
+import { InfoButton } from './Details'
+import { StatusChip } from './StatusChip'
 import { DocumentItems, type DocItem } from './SfdrDocumentItems'
 import FilingPreflight from './FilingPreflight'
 
@@ -19,9 +21,10 @@ interface Doc {
 }
 interface Ent { entity_id: string; name: string; kind: string }
 const DOCS = [
-  { k: 'insurer_orsa_climate', label: 'ORSA climate (Art. 45a)' },
-  { k: 'insurer_recovery_stress', label: 'Recovery plan stress (IRRD Art. 5)' },
+  { k: 'insurer_orsa_climate', label: 'ORSA climate analysis' },
+  { k: 'insurer_recovery_stress', label: 'Recovery plan stress' },
 ] as const
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
 export default function InsurerDocuments() {
   const qc = useQueryClient()
@@ -49,31 +52,35 @@ export default function InsurerDocuments() {
     <Card className="p-0 overflow-hidden">
       <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <SectionHead icon={FileText} hint={d ? d.citation : undefined}>Solvency II documents</SectionHead>
-          {d && <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">
-            {missing ? `${missing} to answer` : 'every item computed or answered'} · period ending {d.period_end} · rules in force on {planned}</div>}
+          <div className="flex items-center gap-2">
+            <SectionHead icon={FileText}>Solvency II documents</SectionHead>
+            {d && <InfoButton compact details={{ title: d.title, sections: [{ heading: 'Legal basis', body: d.citation }] }} />}
+          </div>
+          {d && <div className="flex flex-wrap items-center gap-2 mt-1 text-[12px] text-[var(--color-faint)]">
+            <StatusChip label={missing ? `${missing} to answer` : 'All answered'} tone={missing ? 'warn' : 'good'} />
+            <span>Period ending {day(d.period_end)} · rules in force on {planned ? day(planned) : '—'}</span></div>}
         </div>
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
           <div className="flex rounded border border-[var(--color-line-2)] overflow-hidden">
             {DOCS.map(x => (
               <button key={x.k} onClick={() => setDoc(x.k)} aria-pressed={doc === x.k}
-                className={`mono text-[11px] px-2.5 py-1 ${doc === x.k ? 'bg-[var(--color-line-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{x.label}</button>
+                className={`text-[12px] px-2.5 py-1 ${doc === x.k ? 'bg-[var(--color-line-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{x.label}</button>
             ))}
           </div>
           <select aria-label="Undertaking or group" value={entity} onChange={e => setEntity(e.target.value)}
-            className="mono text-[11px] bg-transparent border border-[var(--color-line-2)] rounded px-2 py-1">
+            className="text-[12px] bg-transparent border border-[var(--color-line-2)] rounded px-2 py-1">
             <option value="">Whole organisation</option>
             {(ents.data?.entities ?? []).map(e => <option key={e.entity_id} value={e.entity_id}>{e.kind === 'group' ? `Group — ${e.name}` : e.name}</option>)}
           </select>
-          <label className="mono text-[11px] text-[var(--color-mute)] flex items-center gap-1.5">
-            {doc === 'insurer_orsa_climate' ? 'concluded on' : 'submitted on'}
+          <label className="text-[12px] text-[var(--color-mute)] flex items-center gap-1.5">
+            {doc === 'insurer_orsa_climate' ? 'Concluded on' : 'Submitted on'}
             <input type="date" value={when} min={d?.spec.applies.from} onChange={e => setWhen(e.target.value)}
               className="bg-transparent border border-[var(--color-line-2)] rounded px-1.5 py-0.5" />
           </label>
-          {d && <button onClick={() => setFiling(true)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">prepare filing</button>}
+          {d && <Button variant="ghost" onClick={() => setFiling(true)}>Prepare filing</Button>}
         </div>
       </div>
-      {q.isLoading && <div className="px-5 py-6 text-[12.5px] text-[var(--color-faint)]">running the scenarios…</div>}
+      {q.isLoading && <div className="px-5 py-6 text-[12.5px] text-[var(--color-faint)]">Running the scenarios…</div>}
       {q.isError && <div className="px-5 py-6 text-[12.5px] text-[var(--color-mute)]">{apiMessage(q.error, 'This document is not available.')}</div>}
       {d && <DocumentItems items={d.items} onAnswer={answer} />}
       {filing && <FilingPreflight framework={doc} entity={entity || undefined} disclosureDate={planned || undefined}

@@ -69,7 +69,7 @@ def test_modeled_figures_shown_alongside_actual_when_passed():
         modeled = {"total_expected_annual_loss_eur": 800_000, "standard_formula_natcat_scr_eur": 5_000_000}
         summary = I.incurred_loss_summary(s, IBERIA, modeled=modeled)
         assert summary["modeled"] == modeled
-        assert "comparison_note" in summary
+        assert summary["comparison"]["code"] == "solvency.incurred.comparison"
         s.rollback()
 
 

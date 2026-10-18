@@ -13,6 +13,7 @@ def test_not_yet_supplied_when_no_records():
     assert r["status"] == "not_yet_supplied"
     assert r["by_peril"] == [] and r["by_period"] == []
     assert "IFRS S2" in r["regulation"] and "16(a)" in r["regulation"]
+    assert r["message"]["code"] == "solvency.incurred.none"          # the screen's words come from the catalogue
 
 
 def test_not_yet_supplied_is_never_a_silent_zero():
@@ -62,7 +63,7 @@ def test_modeled_figures_surfaced_alongside_when_provided():
     modeled = {"total_expected_annual_loss_eur": 900_000, "standard_formula_natcat_scr_eur": 12_000_000}
     r = summarize_incurred_losses(rows, modeled=modeled)
     assert r["modeled"] == modeled
-    assert "comparison_note" in r
+    assert r["comparison"]["code"] == "solvency.incurred.comparison"
 
 
 def test_modeled_key_present_even_when_none_so_the_section_is_never_dropped():
@@ -85,13 +86,13 @@ def test_region_and_modelled_disaggregation_per_sasb_fn_in_450a2():
     assert modelled_row["gross_incurred_loss_eur"] == 3_000_000
     non_modelled_row = next(g for g in r["by_modelled"] if g["modelled"] == "non_modelled")
     assert non_modelled_row["gross_incurred_loss_eur"] == 500_000
-    assert r["region_coverage_note"] is None       # all 3 records supplied a region
-    assert r["modelled_coverage_note"] is None     # all 3 records supplied the flag
+    assert r["region_coverage"] is None            # all 3 records supplied a region
+    assert r["modelled_coverage"] is None          # all 3 records supplied the flag
 
 
 def test_region_and_modelled_are_honest_gaps_not_fabricated_when_absent():
     rows = [_row("flood", "2025-01-01", "2025-12-31", 1_000_000)]   # no region/modelled supplied
     r = summarize_incurred_losses(rows)
     assert r["by_region"] == [] and r["by_modelled"] == []
-    assert r["region_coverage_note"] is not None and "1 of 1" in r["region_coverage_note"]
-    assert r["modelled_coverage_note"] is not None and "1 of 1" in r["modelled_coverage_note"]
+    assert r["region_coverage"]["code"] == "solvency.incurred.no_region" and r["region_coverage"]["label"].startswith("1 of 1")
+    assert r["modelled_coverage"]["code"] == "solvency.incurred.no_modelled_flag" and r["modelled_coverage"]["params"] == {"n": 1, "of": 1}

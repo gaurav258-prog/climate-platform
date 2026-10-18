@@ -99,11 +99,6 @@
   "error": 0,
   "rawError": 2
  },
- "api/routers/insurance.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
  "api/routers/insurer_documents.py": {
   "display": 0,
   "error": 0,
@@ -319,11 +314,6 @@
   "error": 0,
   "rawError": 0
  },
- "services/governance/ifrs_s2_incurred.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/kri.py": {
   "display": 1,
   "error": 0,
@@ -371,7 +361,7 @@
  },
  "services/governance/solvency2_natcat.py": {
   "display": 1,
-  "error": 1,
+  "error": 0,
   "rawError": 0
  },
  "services/governance/sso.py": {

@@ -19,17 +19,26 @@ platform declares where the text leaves a point open. Per peril, as the Articles
 
 Every figure is given before and after risk mitigation, as S.27.01.01 asks. Only an attested treaty mitigates: the
 platform's illustrative reinsurance programme is never used for a regulatory figure.
+
+What a screen shows is a message of the catalogue (core/messages.py, codes solvency.*; UI standard 2026-10-16): each
+region's method (method_message), each input the formula still needs (missing: one message per input, with the sum
+insured it leaves uncharged) and the status of the other regions (message). The strings beside them (method_reason,
+incomplete) are the same messages' words, for the filing form, the export and the annex.
 """
 from __future__ import annotations
 
 import math
 from datetime import date
 
+from core import messages
 from services.governance import solvency2_natcat_tables as T
 from services.reference.iso_country import to_iso2
 
 REGULATION = "Commission Delegated Regulation (EU) 2015/35, Arts 90b, 119-126; S.27.01.01 (ITS (EU) 2023/894)"
 UK_READINGS = ("region_only", "region_and_premium")
+PERIL_LABEL = {"windstorm": "Windstorm", "earthquake": "Earthquake", "flood": "Flood", "hail": "Hail",
+               "subsidence": "Subsidence"}
+NO_COUNTRY = "solvency.missing.no_country"
 
 
 def _sum_insured(pol: dict, peril: str, motor: dict) -> float:
@@ -80,27 +89,36 @@ def _scenario(peril: str, loss: float, treaty: dict | None) -> dict:
 
 
 def _specified_loss(v: dict, peril: str, region: str, q: float, zones_si: dict,
-                    unzoned: float) -> tuple[float, str, str, float]:
-    """(L_r, method, why, Σ WSI before diversification between zones) — exact zonal, the Art. 90b grouping of all the
-    region's zones, or a one-zone region."""
+                    unzoned: float) -> tuple[float, str, dict, float]:
+    """(L_r, method, why — a catalogue message, Σ WSI before diversification between zones) — exact zonal, the
+    Art. 90b grouping of all the region's zones, or a one-zone region."""
     si = sum(zones_si.values()) + unzoned
     zt = T.zonal(v, peril, region)
     if zt is None:
-        return q * si, "single_zone", T.reading("Single-zone regions"), q * si
+        return q * si, "single_zone", messages.render("solvency.method.single_zone"), q * si
     table = zt["zones"]
     unknown = sum(s for z, s in zones_si.items() if z not in table)
     if not zt.get("labels_verified", False):
-        why = "the region's zone-correlation labels cannot be matched to Annex IX from the text"
+        why = messages.render("solvency.method.grouped_labels")
     elif unzoned or unknown:
-        why = f"{round(100 * (unzoned + unknown) / si)} % of the sum insured has no Annex IX zone (postal code)"
+        why = messages.render("solvency.method.grouped_postcode", share=round(100 * (unzoned + unknown) / si))
     else:
         corr = zt["correlation"]
         wsi = {z: q * table[z]["w"] * s for z, s in zones_si.items()}
         var = sum(corr[i][j] * wsi[i] * wsi[j] for i in wsi for j in wsi)
-        return (math.sqrt(max(var, 0.0)), "exact_zonal", "Annex IX zones, Annex X weights, zone correlations",
-                sum(wsi.values()))
+        return math.sqrt(max(var, 0.0)), "exact_zonal", messages.render("solvency.method.exact"), sum(wsi.values())
     w_max = max(z["w"] for z in table.values())
     return q * w_max * si, "grouped_art90b", why, q * w_max * si
+
+
+def _missing(code: str, uncharged_eur: float, **params) -> dict:
+    """An input the formula still needs: its message and the sum insured it leaves without a charge."""
+    return {**messages.render(code, **params), "uncharged_eur": round(uncharged_eur)}
+
+
+def _incomplete_line(m: dict) -> str:
+    """A missing input in words, for the filing form, the export and the annex (amounts there are stated in EUR)."""
+    return f"{m['label']} — EUR {m['uncharged_eur']:,} of sum insured not charged"
 
 
 def diversification(premium_by_region: dict[int, float]) -> float:
@@ -190,11 +208,9 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
                      "charge_factor": round(loss / si, 6) if si else None, "scenario": s["scenario"],
                      "before_eur": round(s["before"]), "mitigation_eur": round(s["mitigation"]),
                      "reinstatement_eur": round(s["reinstatement"]), "after_eur": round(s["after"]),
-                     "method": method, "method_reason": why})
+                     "method": method, "method_reason": why["detail"]["what"], "method_message": why})
 
-    incomplete, other = [], None
-    if unlocated:
-        incomplete.append(f"{round(unlocated)} EUR of sum insured has no country and is not placed")
+    missing, other = [], None
     # the premium-based charge follows the premiums the undertaking states for contracts covering risks outside Annex
     # XIII (Arts 121(8)-(9) …): charged whenever they are stated; exposure there without them makes the peril incomplete
     by_region = {int(k): float(v) for k, v in (((other_inputs or {}).get(peril) or {}).get("by_region") or {}).items()
@@ -204,11 +220,14 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
         if peril == "subsidence":
             other["status"] = "not_calculated"
             other["reason"] = T.reading("Subsidence outside Annex XIII (from 2027)")
+            other["message"] = messages.render("solvency.other.not_calculated")
         else:
             if not by_region:
                 other["status"] = "missing_input"
-                incomplete.append(f"{peril}: exposure outside Annex XIII needs the premiums to be earned by Annex III "
-                                  "region (S.27.01.01) — not stated")
+                name = PERIL_LABEL[peril]
+                missing.append(_missing("solvency.missing.premiums_outside", other_si, peril=name,
+                                        peril_lower=name.lower()))
+                other["message"] = missing[-1]
             else:
                 p, div = sum(by_region.values()), diversification(by_region)
                 f = T.rules()["other_regions"]["factor"][peril]
@@ -216,7 +235,10 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
                 rec, rp, after = _treaty_after([loss], treaty)
                 other.update({"status": "computed", "premium_eur": round(p), "premium_by_region": by_region,
                               "div": round(div, 6), "factor": f, "before_eur": round(loss), "mitigation_eur": round(rec),
-                              "reinstatement_eur": round(rp), "after_eur": round(after)})
+                              "reinstatement_eur": round(rp), "after_eur": round(after),
+                              "message": messages.render("solvency.other.computed", premium=f"EUR {round(p):,}")})
+    if unlocated:                       # placed in no region of any peril: named once for the book (natcat_scr)
+        missing.append(_missing(NO_COUNTRY, unlocated))
     ob = (other or {}).get("before_eur") or 0.0
     oa = (other or {}).get("after_eur") or 0.0
     total_b = _aggregate(table, before_r, ob) if (before_r or ob) else 0.0
@@ -233,8 +255,16 @@ def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None 
         "residential_not_stated": residential_unknown if peril == "subsidence" else None,
         # subsidence reports its zones before diversification between them (S.27.01.01 R1950-R1970)
         "before_zone_diversification": _zones_undiversified(peril, undiversified, treaty) if peril == "subsidence" else None,
-        "complete": not incomplete, "incomplete": incomplete,
+        "complete": not missing, "missing": missing, "incomplete": [_incomplete_line(m) for m in missing],
     }
+
+
+def _book_missing(policies: list[dict], perils: dict) -> list[dict]:
+    """Every input the formula still needs, each named once: the properties with no country (their sum insured), then
+    each peril's own."""
+    unplaced = sum((p.get("sum_insured_eur") or 0) for p in policies if not to_iso2(p.get("country")))
+    own = [m for r in perils.values() for m in r.get("missing", []) if m["code"] != NO_COUNTRY]
+    return ([_missing(NO_COUNTRY, unplaced)] if unplaced else []) + own
 
 
 def natcat_scr(policies: list[dict], *, ref_date: date | None = None, treaty: dict | None = None,
@@ -245,7 +275,7 @@ def natcat_scr(policies: list[dict], *, ref_date: date | None = None, treaty: di
     {Annex III region number: premium}}} attested for risks outside Annex XIII (S.27.01.01 premium cells); uk_reading:
     the governed switch sii_natcat_uk_other_regions."""
     if uk_reading not in UK_READINGS:
-        raise ValueError(f"uk_reading must be one of {UK_READINGS}")
+        raise ValueError(f"the United Kingdom reading must be one of {UK_READINGS}")
     v = T.version(ref_date)
     if treaty_basis != "attested":
         treaty = None
@@ -259,11 +289,13 @@ def natcat_scr(policies: list[dict], *, ref_date: date | None = None, treaty: di
     applied += ["Order of the reinsurance", "Reinstatements (Art. 126(2))"] if treaty else []
     applied += ["Residential cover (subsidence)"] if (perils["subsidence"].get("residential_not_stated") or 0) else []
     applied += ["United Kingdom"] if any(r["region"] == "UK" for p in on.values() for r in p["regions"]) else []
+    book = _book_missing(policies, perils)
     return {
         "available": bool(on), "basis": "solvency_ii_standard_formula", "template": "S.27.01.01",
         "regulation": REGULATION, "version": v["id"], "version_name": v["name"], "version_source": v["source"],
         "reference_date": (ref_date or date.today()).isoformat(),
         "treaty_basis": "attested" if treaty else "none",
+        "treaty_message": None if treaty else messages.render("solvency.reinsurance.not_attested"),
         "natcat_scr_before_mitigation_eur": round(before), "natcat_scr_eur": round(after),
         "diversification_between_perils_before_eur": round(sum(r["before_eur"] for r in on.values()) - before),
         "diversification_between_perils_after_eur": round(sum(r["after_eur"] for r in on.values()) - after),
@@ -271,14 +303,11 @@ def natcat_scr(policies: list[dict], *, ref_date: date | None = None, treaty: di
         "perils": perils,
         "simplification_art_90b": "grouped_art90b" in methods,
         "complete": all(r.get("complete", True) for r in perils.values()),
-        "incomplete": [x for r in perils.values() for x in r.get("incomplete", [])],
+        "missing": book, "incomplete": [_incomplete_line(m) for m in book],
         "uk_reading": uk_reading,
         "readings": [{"subject": s, "reading": T.reading(s)} for s in applied],
     }
 
-
-PERIL_LABEL = {"windstorm": "Windstorm", "earthquake": "Earthquake", "flood": "Flood", "hail": "Hail",
-               "subsidence": "Subsidence"}
 
 
 def lines(sf: dict) -> list[dict]:

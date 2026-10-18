@@ -17,6 +17,7 @@ as every other hazard-projected book here.
 """
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from typing import Annotated, Optional
@@ -29,6 +30,8 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
 from core.types import HAZARD_VALUES
 from ml.scoring.cat_accumulation import catastrophe_accumulation
 from ml.scoring.insurance_pricing import price_perils
@@ -55,6 +58,7 @@ from services.portfolio_engine import (
 from services.scoring.combined_var import combined_climate_var
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/insurance", tags=["Insurance"])
 
 DEMO_ORG = "22222222-2222-4222-8222-222222222222"  # Iberia Mutual (demo)
@@ -194,11 +198,22 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str, sf_inp
     }
 
 
+def _one_in_200(cat: dict) -> dict | None:
+    """The 1-in-200 (99.5 %) annual loss gross and net of the treaty, from the one simulation — the Solvency II
+    basis, so the three figures a screen shows side by side always add up: gross − reinsurance = net."""
+    gross = (cat.get("aep_eur") or {}).get("rp_200")
+    net = ((cat.get("net_of_reinsurance") or {}).get("net_aep_eur") or {}).get("rp_200")
+    if gross is None or net is None:
+        return None
+    return {"gross_eur": round(gross), "reinsurance_eur": round(gross - net), "net_eur": round(net)}
+
+
 def _reinsurance_from_cat(cat: dict, program: dict | None, scenario: str, horizon: str) -> dict:
     """Gross-vs-net retention derived from a cat distribution already run WITH the reinsurance program (a gap without
     an attested programme)."""
     if program is None:
-        return {"available": False, "reason": "gap", "gap": "no reinsurance treaty attested for the period"}
+        return {"available": False, "reason": "gap", "gap": "no reinsurance treaty attested for the period",
+                "message": messages.render("solvency.reinsurance.not_attested")}
     if not cat or not cat.get("available"):
         return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book."),
                 **({"gap": cat.get("gap")} if (cat or {}).get("gap") else {})}
@@ -207,6 +222,7 @@ def _reinsurance_from_cat(cat: dict, program: dict | None, scenario: str, horizo
         "pml_return_period": cat.get("pml_return_period"),
         "gross_pml_eur": cat.get("pml_eur"),
         "gross_oep_1_in_200_eur": (cat.get("oep_eur") or {}).get("rp_200"),
+        "one_in_200": _one_in_200(cat),
         "gross_mean_annual_loss_eur": cat.get("mean_annual_loss_eur"),
         "program": program, "net": cat.get("net_of_reinsurance"),
     }
@@ -439,13 +455,15 @@ def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: Curre
     fabricated. A second submission for the same period+peril is additive (e.g. a claims-development update),
     not an overwrite, so restated history stays visible in the ledger."""
     if "pricing.approve" not in ctx["permissions"]:
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+        raise UserError("error.forbidden")
     if body.peril not in HAZARD_VALUES:
-        raise HTTPException(status_code=400, detail=f"Unrecognised peril. Choose one of: {', '.join(HAZARD_VALUES)}")
+        raise UserError("solvency.incurred.error.peril")
     if body.period_end < body.period_start:
-        raise HTTPException(status_code=400, detail="period_end must not be before period_start")
+        raise UserError("solvency.incurred.error.period_order")
+    if body.period_end > date.today():                 # a loss is incurred over a period that has ended
+        raise UserError("solvency.incurred.error.period_open", end=body.period_end.isoformat())
     if body.net_incurred_loss_eur is not None and body.net_incurred_loss_eur > body.gross_incurred_loss_eur:
-        raise HTTPException(status_code=400, detail="net_incurred_loss_eur cannot exceed gross_incurred_loss_eur")
+        raise UserError("solvency.incurred.error.net_above_gross")
 
     org_id = ctx["org"]["org_id"]
     from services.intake.money import MoneyError, convert_amount, source_record
@@ -457,7 +475,9 @@ def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: Curre
             conv["net_incurred_loss_eur"] = convert_amount(session, body.net_incurred_loss_eur, body.currency, body.period_end, org_id=org_id,
                                                        flow=True, period=period, label="net incurred loss")
     except MoneyError as e:
-        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
+        logger.info("incurred loss not converted: %s", e)
+        raise UserError("solvency.incurred.error.not_converted", currency=body.currency.upper(),
+                        start=body.period_start.isoformat(), end=body.period_end.isoformat()) from e
     res = submit_incurred_loss(session, org_id, body.period_start, body.period_end, body.peril,
                                conv["gross_incurred_loss_eur"]["eur"],
                                conv["net_incurred_loss_eur"]["eur"] if "net_incurred_loss_eur" in conv else None, body.source,
