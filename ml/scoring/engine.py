@@ -303,7 +303,7 @@ def _resolve_model_version(hazard_type: str, requested: str) -> str:
             row = s.execute(text("""
                 SELECT model_version FROM model_registry
                 WHERE hazard_type = :h
-                ORDER BY is_active DESC, created_at DESC
+                ORDER BY is_active DESC, seq DESC
                 LIMIT 1
             """), {"h": hazard_type}).first()
         return row[0] if row else requested

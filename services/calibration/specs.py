@@ -28,7 +28,7 @@ def ledger_source(session: Session, commodity: str, origin: str, driver: str) ->
     r = session.execute(text("""
         SELECT run_id::text, notes FROM validation_run
         WHERE method = 'loo_cv' AND scope = :scope AND hazard_type = :hz AND notes LIKE '%Production source%'
-        ORDER BY created_at DESC LIMIT 1"""), {"scope": f"{commodity}/{origin}", "hz": f"crop_{driver}"}).mappings().first()
+        ORDER BY seq DESC LIMIT 1"""), {"scope": f"{commodity}/{origin}", "hz": f"crop_{driver}"}).mappings().first()
     m = _SOURCE.search(r["notes"]) if r else None
     if not m:
         raise SpecError(f"{commodity}/{origin} {driver}: the audit ledger records no production source — a recipe "

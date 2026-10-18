@@ -180,7 +180,7 @@ def list_runs(session: Session, hazard: Optional[str] = None, limit: int = 50) -
         SELECT run_id::text, model_id::text, hazard_type, scope, horizon, kind, method, target_source,
                n_samples, metrics, skill_grade, passed_gate, gate, code_version, data_vintage, created_at
         FROM validation_run {"WHERE hazard_type = :h" if hazard else ""}
-        ORDER BY created_at DESC LIMIT :lim
+        ORDER BY seq DESC LIMIT :lim
     """), ({"h": hazard, "lim": limit} if hazard else {"lim": limit})).mappings().all()
     return [dict(r) for r in rows]
 
@@ -189,7 +189,7 @@ def latest_skill_for_model(session: Session, model_id: str) -> Optional[dict]:
     """The most recent validation run for a registered model — the number governance/gating should read."""
     row = session.execute(text("""
         SELECT metrics, skill_grade, passed_gate, kind, created_at FROM validation_run
-        WHERE model_id = CAST(:m AS uuid) ORDER BY created_at DESC LIMIT 1
+        WHERE model_id = CAST(:m AS uuid) ORDER BY seq DESC LIMIT 1
     """), {"m": model_id}).mappings().first()
     return dict(row) if row else None
 

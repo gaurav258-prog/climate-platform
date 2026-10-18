@@ -685,7 +685,7 @@ def load_oos_challengers(session) -> dict:
                (metrics->>'champion_r2_oos')::float AS champion_r2_oos
         FROM validation_run
         WHERE method = 'loo_cv_challenger' AND scope LIKE '%/%'
-        ORDER BY scope, hazard_type, created_at DESC
+        ORDER BY scope, hazard_type, seq DESC
     """)).mappings().all():
         name, _, orig = r["scope"].partition("/")
         cp = r["corroborates_publish"]

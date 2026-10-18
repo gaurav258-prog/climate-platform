@@ -61,3 +61,44 @@ def test_the_second_own_rate_in_one_transaction_is_the_live_one(session_rolled_b
     assert client_fx.resolve(s, BANK_ORG, "XAU", date(2026, 6, 30))["units_per_eur"] == pytest.approx(1.20)
     live = [r for r in client_fx.latest_rates(s, BANK_ORG, limit=10_000) if r["ccy"] == "XAU"]
     assert [r["units_per_eur"] for r in live] == [pytest.approx(1.20)]
+
+
+# The write-once tables, from the schema itself: a row-level trigger that refuses both UPDATE and DELETE (tgtype bits:
+# 1 row, 2 before, 8 delete, 16 update).
+WRITE_ONCE = """
+    SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid
+    WHERE NOT t.tgisinternal AND c.relnamespace = 'public'::regnamespace AND (t.tgtype & 3) = 3
+      AND p.prosrc ~* 'RAISE\\s+EXCEPTION'
+    GROUP BY c.relname HAVING bool_or((t.tgtype & 8) <> 0) AND bool_or((t.tgtype & 16) <> 0)"""
+
+
+def test_a_write_once_table_read_for_its_latest_row_is_a_history_read_by_its_sequence(session_rolled_back):
+    """E216: validation_run is write-once, yet four readers took its latest run by created_at — the history list is kept
+    by hand, and nobody had added it. The write-once tables come from the schema, so a new one is caught the first time
+    code takes its latest row by a timestamp; once listed, tests/unit/test_history_order.py holds it to its sequence."""
+    from tests.unit.test_history_order import HISTORY, latest_by_time
+    tables = set(session_rolled_back.execute(text(WRITE_ONCE)).scalars())
+    assert {"validation_run", "regulatory_filing_event", "site_period_values"} <= tables
+    bad = [f"{where}: {t} ORDER BY {o}" for t, where, o in latest_by_time(tables) if t not in HISTORY]
+    assert not bad, f"add these to HISTORY (with a seq column) and read them by seq: {bad}"
+
+
+def test_every_listed_history_carries_a_sequence(session_rolled_back):
+    from tests.unit.test_history_order import HISTORY
+    with_seq = set(session_rolled_back.execute(text("""
+        SELECT table_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND (is_identity = 'YES' OR column_default LIKE 'nextval(%')""")).scalars())
+    assert not [t for t in HISTORY if t not in with_seq]
+
+
+def test_the_latest_validation_run_is_the_last_written_even_in_one_transaction(session_rolled_back):
+    """Two runs for one model recorded in one transaction share created_at; the second is the latest."""
+    from services.validation.engine import latest_skill_for_model
+    s = session_rolled_back
+    mid = s.execute(text("SELECT model_id::text FROM model_registry LIMIT 1")).scalar()
+    for grade in ("weak", "strong"):
+        s.execute(text("""INSERT INTO validation_run (run_id, model_id, hazard_type, kind, method, target_source, n_samples,
+                                                      metrics, skill_grade, passed_gate, created_at)
+                          VALUES (gen_random_uuid(), CAST(:m AS uuid), 'probe', 'rank', 'in_sample', 'probe', 9, '{}', :g,
+                                  false, '2099-01-01T00:00:00Z')"""), {"m": mid, "g": grade})
+    assert latest_skill_for_model(s, mid)["skill_grade"] == "strong"

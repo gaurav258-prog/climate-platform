@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3095 table columns, 357 foreign keys, 89 unique constraints, 289 check constraints, 293 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 310 migration revisions in `core/db/migrations/versions/`, head `feed_cause_20261018`. Extensions present: plpgsql.
+The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3096 table columns, 357 foreign keys, 90 unique constraints, 289 check constraints, 294 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 311 migration revisions in `core/db/migrations/versions/`, head `validation_run_seq_20261018`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -27,7 +27,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Tenants, onboarding & commercial | 13 | 147 | 10 | 0 | 3 | 0 |
 | Golden score layer & hazard data | 21 | 234 | 2 | 1 | 0 | 1 |
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
-| Models & validation | 9 | 118 | 4 | 1 | 1 | 3 |
+| Models & validation | 9 | 119 | 4 | 1 | 1 | 3 |
 | Loss engine | 6 | 80 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 383 | 12 | 13 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 22 | 245 | 20 | 14 | 1 | 1 |
@@ -1820,8 +1820,10 @@ Foreign keys to other domains:
 | `data_vintage` | character varying(60) | yes |  |  |
 | `created_by` | character varying(255) | yes |  |  |
 | `created_at` | timestamp with time zone | no | `now()` |  |
+| `seq` | bigint | no |  | unique; identity (always) |
 
 - Index: `CREATE INDEX ix_validation_run_hazard ON public.validation_run USING btree (hazard_type, created_at)`
+- Index: `CREATE INDEX ix_validation_run_hazard_seq ON public.validation_run USING btree (hazard_type, seq DESC)`
 - Trigger `trg_validation_run_immutable`: BEFORE DELETE OR UPDATE for each row → `public.prevent_validation_mutation`
 
 #### `validation_sample`
