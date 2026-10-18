@@ -20,6 +20,8 @@ import os
 from datetime import date
 from functools import lru_cache
 
+from core import messages
+
 FAMILY = "sii_climate"
 DOCUMENT = "orsa_climate"
 _REF = os.path.join("data", "reference", "orsa_climate_scenarios.json")
@@ -174,6 +176,21 @@ def _eur(v) -> str:
     return "—" if v is None else f"€{v:,.0f}"
 
 
+def _scenario(code: str) -> str:
+    """A scenario as the document names it: the platform's one scenario name (the screens use it too); today's run is
+    the current climate."""
+    return "Current climate" if code == "today" else messages.name("scenario", code)
+
+
+def _horizon(code: str) -> str:
+    return "Today" if code == "current" else code
+
+
+def _peril(code: str) -> str:
+    """A peril as the document names it — the platform's hazard name, never its key."""
+    return "Unclassified peril" if code == "unknown" else messages.name("hazard", code)
+
+
 def computed_value(item_id: str, orsa: dict) -> dict | None:
     """The value of a computed item, in the document's answer shapes (text, or a table with its own columns)."""
     if not orsa:
@@ -193,10 +210,10 @@ def computed_value(item_id: str, orsa: dict) -> dict | None:
         pct = m['largest_sum_insured_at_high_hazard_pct']
         parts = [f"Sum insured {_eur(m['sum_insured_eur'])}; largest share at or above the undertaking's stated level of "
                  f"material physical risk for one insured peril: "
-                 + (f"{pct}%." if pct is not None else "not determinable — the level (method.at_risk_level) is not stated.")]
+                 + (f"{pct}%." if pct is not None else "not determinable — the undertaking's at-risk threshold is not yet stated.")]
         if w and w["change_net_1_in_200_eur"]:
             parts.append(f"Largest modelled change in the net 1-in-200 annual loss: {_eur(w['change_net_1_in_200_eur'])} "
-                         f"({w['scenario']}, {w['horizon']})"
+                         f"({_scenario(w['scenario'])}, {_horizon(w['horizon'])})"
                          + (f" — {w['change_net_1_in_200_pct_of_own_funds']}% of eligible own funds." if cap["eligible_own_funds_scr"] else
                             " — own funds not yet attested."))
         elif w:
@@ -204,16 +221,18 @@ def computed_value(item_id: str, orsa: dict) -> dict | None:
         t = orsa.get("largest_zone_event")
         if t:
             sc, hz = orsa.get("above_2c_last_horizon") or ["", ""]
-            head = f"The largest single accumulation event is {t['hazard']} in {t['region']} ({_eur(t['event_loss_eur'])})"
+            under = f"{_scenario(sc)} {_horizon(hz)}" if sc else ""
+            peril = _peril(t["hazard"])
+            head = f"The largest single accumulation event is {peril} in {t['region']} ({_eur(t['event_loss_eur'])})"
             if not t["projected"]:
-                parts.append(head + f"; the platform holds {t['hazard']} at today's level (no climate projection on record), "
+                parts.append(head + f"; the platform holds {peril} at today's level (no climate projection on record), "
                              "so the scenarios do not move it — its climate change is not in these figures.")
             elif t.get("event_loss_above_2c_eur") == t["event_loss_eur"]:
-                parts.append(head + f"; {t['hazard']} is projected, but this zone's event is the same under {sc} {hz} — "
+                parts.append(head + f"; {peril} is projected, but this zone's event is the same under {under} — "
                              "the change in the tail comes from other zones.")
             else:
-                parts.append(head + f", {_eur(t.get('event_loss_above_2c_eur'))} under {sc} {hz}.")
-        flat = [p["hazard"] for p in orsa.get("perils") or [] if not p["projected"]]
+                parts.append(head + f", {_eur(t.get('event_loss_above_2c_eur'))} under {under}.")
+        flat = [_peril(p["hazard"]) for p in orsa.get("perils") or [] if not p["projected"]]
         if flat:
             parts.append("Perils held at today's level: " + ", ".join(flat) + ".")
         return {"text": " ".join(parts)}
@@ -224,10 +243,11 @@ def computed_value(item_id: str, orsa: dict) -> dict | None:
                 ("change_net_1_in_200_pct_of_own_funds", "Change, % of own funds"), ("scr_ratio_pct", "SCR ratio (%)")]
         today = {"scenario": "today", "horizon": "current", **orsa["today"], "scr_ratio_pct": orsa["capital"]["scr_ratio_pct"]}
         sc, hz = orsa.get("above_2c_last_horizon") or ["", ""]
-        by_peril = "; ".join(f"{p['hazard']} {_eur(p['expected_annual_loss_today_eur'])} → {_eur(p['expected_annual_loss_above_2c_eur'])}"
+        by_peril = "; ".join(f"{_peril(p['hazard'])} {_eur(p['expected_annual_loss_today_eur'])} → {_eur(p['expected_annual_loss_above_2c_eur'])}"
                              + ("" if p["projected"] else " (held at today's level)") for p in orsa.get("perils") or [])
         return {"table": {"columns": [{"id": k, "label": v} for k, v in cols],
-                          "rows": [{k: r.get(k) for k, _ in cols} for r in [today, *orsa["runs"]]],
+                          "rows": [{**{k: r.get(k) for k, _ in cols}, "scenario": _scenario(r["scenario"]),
+                                    "horizon": _horizon(r["horizon"])} for r in [today, *orsa["runs"]]],
                           "note": next(x["reading"] for x in orsa["readings"] if x["subject"] == "Capital impact")
-                          + f" Expected annual loss by peril, today → {sc} {hz}: {by_peril}."}}
+                          + f" Expected annual loss by peril, today → {_scenario(sc)} {_horizon(hz)}: {by_peril}."}}
     return None

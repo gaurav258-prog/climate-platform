@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from './ui'
+import { HEADING, InfoButton } from './Details'
 
 // One SFDR product template (RTS 2022/1288 Annexes II–V) rendered item by item, in the order the regulation prints
 // it: headings, questions, tick-boxes with their blanks, charts, tables, margin definitions. Every item comes from
@@ -48,12 +49,12 @@ function Value({ it, items }: { it: DocItem; items: DocItem[] }) {
   if (v == null) return it.needs ? <div className="text-[11px] text-[var(--color-warn)] mt-1">Needed: {it.needs}</div> : null
   if (v.graph) return <Graph v={v} />
   if (v.table) return (   // a computed table that carries its own columns (an ORSA impact analysis, a recovery-plan stress)
-    <div className="overflow-x-auto mt-1">
+    <div className="overflow-x-auto mt-1 flex items-start gap-2">
       <table className="text-[11.5px] tabular-nums">
         <thead><tr className="text-[var(--color-faint)]">{v.table.columns.map((c: any) => <th key={c.id} className="text-left pr-4 font-normal">{c.label}</th>)}</tr></thead>
-        <tbody>{v.table.rows.map((r: any, i: number) => <tr key={i}>{v.table.columns.map((c: any) => <td key={c.id} className="pr-4">{typeof r[c.id] === 'number' ? r[c.id].toLocaleString() : (r[c.id] ?? '—')}</td>)}</tr>)}</tbody>
+        <tbody>{v.table.rows.map((r: any, i: number) => <tr key={i}>{v.table.columns.map((c: any) => <td key={c.id} className="pr-4 whitespace-nowrap">{typeof r[c.id] === 'number' ? r[c.id].toLocaleString() : (r[c.id] ?? '—')}</td>)}</tr>)}</tbody>
       </table>
-      {v.table.note && <div className="text-[10.5px] text-[var(--color-faint)] mt-1 max-w-3xl">{v.table.note}</div>}
+      {v.table.note && <InfoButton compact details={{ title: it.label || 'This table', sections: [{ heading: HEADING.read, body: v.table.note }] }} />}
     </div>
   )
   if (v.rows) {
@@ -147,12 +148,13 @@ export function DocumentItems({ items, onAnswer }: { items: DocItem[]; onAnswer?
                 {it.kind === 'choice' && it.value?.percent != null && <span className="mono text-[var(--color-ink)]"> — {it.value.percent}%</span>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {it.note && <InfoButton compact details={{ title: it.label || 'This item', sections: [{ heading: HEADING.read, body: it.note }] }} />}
                 <Badge it={it} />
                 {canEdit && <button onClick={() => setEditing(it.id)} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline">{it.status === 'missing' ? 'answer' : 'edit'}</button>}
               </div>
             </div>
             {it.instruction && <div className="text-[10.5px] italic text-[var(--color-faint)] mt-0.5">{it.instruction}</div>}
-            {it.note && <div className="text-[10.5px] text-[var(--color-faint)] mt-0.5">{it.note}</div>}
+
             {editing === it.id && onAnswer
               ? <Editor it={it} items={items} onCancel={() => setEditing(null)} onSave={async v => { await onAnswer(it.id, v); setEditing(null) }} />
               : it.kind !== 'choice' && <Value it={it} items={items} />}
