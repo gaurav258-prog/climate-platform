@@ -7,6 +7,7 @@ with pricing.approve; audited). With neither, the climate-adjusted value is a na
 """
 from __future__ import annotations
 
+from core import messages
 from ml.scoring.damage_function import DAMAGE_FUNCTION_VERSION, valuation_haircut
 
 VAR_QUANTILES = (50, 95, 99)       # the median and the two tail quantiles the VaR reports
@@ -32,7 +33,7 @@ def valuation_block(method, bucket: str | None, value_eur: float | None, overrid
     discounted = None if effective is None or value_eur is None else (value_eur or 0) * (1 - effective / 100.0)
     gap = None
     if effective is None and hazard is not None and score is not None:
-        gap = f"method.valuation_haircut ({hazard}/{bucket}) not stated"
+        gap = f"not stated: method.valuation_haircut ({hazard}/{bucket})"   # the one gap format (services.money.params)
     return {
         "recommended_discount_pct": recommended,
         "effective_discount_pct": effective,
@@ -121,7 +122,6 @@ def value_loss_band(method, assets: list[dict]) -> dict:
         "expected_value_loss_eur": round(point), "loss_low_eur": round(low), "loss_high_eur": round(high),
         "band_pct": round(100 * (high - low) / point, 1) if point else None,
         "ci_coverage_pct": round(100 * banded_value / at_risk_value, 1) if at_risk_value else 0,
-        "method": "each asset's stated valuation haircut read at the band of its score and of the ends of the score's "
-                  "confidence interval; overrides carried fixed (no band)",
+        "method_message": messages.render("portfolio.value_loss.basis"),
         "damage_function_version": DAMAGE_FUNCTION_VERSION,
     }

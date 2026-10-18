@@ -1899,6 +1899,134 @@
     "what": "No current scores or no observed events are on file for this hazard, so the check cannot run.",
     "next": "It runs once both are loaded."
    }
+  },
+  "portfolio.forward.basis": {
+   "label": "Highest hazard score against your at-risk level",
+   "detail": {
+    "what": "An asset counts as at risk when its highest hazard score is {level} or more, the at-risk level your organisation states. Each figure adds up the value of those assets, today and in 2030, 2050 and 2100 under the chosen climate scenario. The range runs from the climate models' low projection to their high one. The movers are the assets whose score rises most by the last year, weighted by their value.",
+    "why": "Only hazards scored for the likelihood or strength of damaging conditions count. Live readings of today's conditions, crop-only scales and ground-susceptibility classes are context and never count."
+   }
+  },
+  "portfolio.forward.runway": {
+   "label": "Material new exposure by {year}",
+   "detail": {
+    "what": "By {year}, the value of assets that newly reach your at-risk level is {share}% of the book or more, the materiality your organisation states. It is the first year this happens under the chosen scenario."
+   }
+  },
+  "portfolio.forward.no_runway": {
+   "label": "No material new exposure by 2100",
+   "detail": {
+    "what": "In no year up to 2100 does the value of assets newly reaching your at-risk level come to {share}% of the book, the materiality your organisation states."
+   }
+  },
+  "portfolio.expected_loss.basis": {
+   "label": "Expected loss on your stated method",
+   "detail": {
+    "what": "For each loan: the outstanding balance × your stated yearly chance of a damaging event × your stated damage ratio, for the loan's main hazard at its score band. The lifetime figure adds this up year by year until the loan matures, using the maturity on your loan tape.",
+    "why": "It is the expected loss of collateral value, not a credit loss under Basel or IFRS 9: it has no probability of default and is not discounted."
+   }
+  },
+  "portfolio.expected_loss.no_maturity": {
+   "label": "Maturity missing for {n} loans",
+   "detail": {
+    "what": "These loans have no maturity on the loan tape, so they have no lifetime expected loss, and the book's lifetime total is not shown.",
+    "next": "Add each loan's remaining maturity to the loan tape and import it again."
+   }
+  },
+  "portfolio.concentration.basis": {
+   "label": "Value at risk by region and hazard",
+   "detail": {
+    "what": "Each holding's climate value at risk (its value less its climate-adjusted value) is added up by region and by the hazard that leads its score. A common-shock cluster is the holdings that share one leading hazard in one region: a single event would hit them together.",
+    "why": "The effective number of regions is how many equal, independent bets the book behaves like: one divided by the sum of each region's squared share of value. Hazards are counted the same way. Clusters follow from shared hazard and place; no correlation model is fitted. Holdings not yet scored are counted in the coverage and never treated as safe."
+   }
+  },
+  "portfolio.concentration.region": {
+   "label": "{pct}% of the book in {region}",
+   "detail": {
+    "what": "One region holds more than {limit}% of the book's value, so one regional event reaches a large part of it."
+   }
+  },
+  "portfolio.concentration.hazard": {
+   "label": "{pct}% of scored value led by {hazard}",
+   "detail": {
+    "what": "One hazard leads the score of more than {limit}% of the scored value, so the book's climate risk depends heavily on it."
+   }
+  },
+  "portfolio.concentration.diversification": {
+   "label": "Only {n} effective regions",
+   "detail": {
+    "what": "The book behaves like fewer than {limit} equal, independent regional bets, so one regional event moves much of it."
+   }
+  },
+  "portfolio.stranding.collateral": {
+   "label": "Your brown discount by energy grade",
+   "detail": {
+    "what": "Your stated brown discount for each energy-performance (EPC) grade lowers the value of the property securing each real-estate loan. That raises the loan-to-value ratio. Any part of a loan the lowered collateral no longer covers is shown as exposure uncovered.",
+    "why": "Loans without an EPC grade, a collateral value or an outstanding balance are counted as not assessed. They are never given a figure."
+   }
+  },
+  "portfolio.stranding.energy": {
+   "label": "Your brown discount and retrofit cost by grade",
+   "detail": {
+    "what": "Your stated brown discount for each energy-performance (EPC) grade gives each property's value at risk. Your stated retrofit cost for the grade gives the spend that removes the risk.",
+    "why": "Properties without an EPC grade or a value are counted as not assessed. They are never given a figure."
+   }
+  },
+  "portfolio.catastrophe.basis": {
+   "label": "Shared events across each hazard and region",
+   "detail": {
+    "what": "A simulation of many years of events. Each event strikes one hazard in one region at that zone's yearly rate, and every insured location in the zone takes its loss from the same event. Each location's expected loss stays as your stated damage ratios and event chances set it.",
+    "why": "Locations in one zone move together; different zones are independent. This is how the simulation defines dependence. It is not a fitted vendor catastrophe model, nor an approved internal model."
+   }
+  },
+  "portfolio.catastrophe.no_return_period": {
+   "label": "Needs your probable-maximum-loss return period",
+   "detail": {
+    "what": "The probable maximum loss is read at a return period your organisation chooses, and none is set.",
+    "next": "Set the return period in your calculation settings."
+   }
+  },
+  "portfolio.reinsurance.basis": {
+   "label": "Ceded event by event",
+   "detail": {
+    "what": "Net is the gross loss after ceding, event by event: the quota share takes its part of every loss, and the catastrophe excess-of-loss layer recovers on each zone event, in the yearly total and in the largest event.",
+    "why": "Reinstatements are taken as unlimited. Their premiums, and any aggregate treaty, are not modelled."
+   }
+  },
+  "portfolio.combined_var.basis": {
+   "label": "Physical and transition in one simulation",
+   "detail": {
+    "what": "One simulation per holding over both drivers, on the stated method. Physical: its climate discount, varied across its score's confidence interval or the stated uncertainty. Transition: the stated stranded share for its sector, scenario and year, varied within the stated uncertainty. The two are combined {dependence}.",
+    "why": "Each holding can lose at most its value once."
+   }
+  },
+  "portfolio.combined_var.no_dependence": {
+   "label": "Needs how physical and transition risks combine",
+   "detail": {
+    "what": "The combined figure needs your organisation's choice of how a holding's physical and transition losses combine, and none is set.",
+    "next": "Choose it in your calculation settings."
+   }
+  },
+  "portfolio.transition.basis": {
+   "label": "Your carbon price and stranded share by sector",
+   "detail": {
+    "what": "For each loan, the transition expected loss is the outstanding balance × your stated stranded share for the borrower's sector under the scenario and year. The transition score is the larger of two: the carbon cost at your stated carbon price as a share of revenue, and that stranded share.",
+    "why": "Financed emissions here are the borrower's gross scope 1 and 2 emissions, as reported or, where none are reported, estimated from sector averages (EXIOBASE) and marked as estimated. The figure attributed to your loans (PCAF) is on the risk indicators page."
+   }
+  },
+  "portfolio.resilience.basis": {
+   "label": "Your adaptation effectiveness and retrofit cost",
+   "detail": {
+    "what": "Each property's physical loss is its value × your discount for physical risk. The loss avoided is that loss × your stated adaptation effectiveness for the hazard. The spend is the value × your stated retrofit cost share for the hazard's score band.",
+    "why": "Whether the spend counts as EU Taxonomy climate-adaptation capex is decided by the Taxonomy's own criteria, not here."
+   }
+  },
+  "portfolio.value_loss.basis": {
+   "label": "Your haircut across each score's range",
+   "detail": {
+    "what": "Each asset's stated valuation haircut is read at its score's band, and at the bands of the low and high ends of the score's confidence interval. The figure and its range add these up across the book.",
+    "why": "An analyst override is carried as it stands, without a range. An asset whose score has no confidence interval adds the same amount to both ends."
+   }
   }
  },
  "names": {
@@ -2030,6 +2158,45 @@
   "event_record": {
    "seismic": "USGS earthquake catalogue (magnitude 5 and above)",
    "storm": "IBTrACS tropical-cyclone best tracks"
+  },
+  "hazard": {
+   "flood": "Flooding (rivers & heavy rain)",
+   "coastal_flood": "Sea-level rise & coastal flooding",
+   "storm": "Storms & high winds",
+   "wildfire": "Wildfire",
+   "drought": "Drought",
+   "heat_acute": "Extreme heat (heatwaves)",
+   "heat_chronic": "Rising average heat",
+   "seismic": "Earthquake",
+   "volcanic": "Volcanic activity",
+   "pollution": "Air pollution",
+   "frost": "Frost (crop scale)",
+   "cold_wave": "Cold wave (extreme cold for buildings)",
+   "soil_water": "Soil-water stress",
+   "heavy_precip": "Heavy rainfall (extreme downpours)",
+   "landslide": "Landslides & slope failure",
+   "temp_variability": "Temperature swings (seasonal variability)",
+   "precip_variability": "Erratic rainfall (variability)",
+   "changing_temp": "Warming trend (projected)",
+   "changing_precip": "Shifting rainfall (projected)",
+   "changing_wind": "Shifting wind patterns (projected)",
+   "subsidence": "Land subsidence (ground sinking)",
+   "coastal_erosion": "Coastal erosion (shoreline retreat)",
+   "permafrost": "Permafrost thaw",
+   "soil_erosion": "Soil erosion",
+   "saline_intrusion": "Saltwater intrusion (coastal aquifers)",
+   "glacial_lake_outburst": "Glacial-lake outburst flood",
+   "ocean_acidification": "Ocean acidification (marine)",
+   "avalanche": "Avalanche",
+   "solifluction": "Solifluction (periglacial soil creep)",
+   "soil_degradation": "Soil degradation",
+   "severe_convective": "Severe convective storm (tornado / hail)",
+   "windstorm": "Windstorm"
+  },
+  "dependence": {
+   "independent": "as independent risks, 1 − (1 − physical) × (1 − transition)",
+   "additive": "by adding them, up to the holding's whole value",
+   "max": "by taking the larger of the two"
   }
  }
 }

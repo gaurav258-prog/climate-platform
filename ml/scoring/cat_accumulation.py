@@ -30,6 +30,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from core import messages
+
 RETURN_PERIODS = (10, 50, 100, 200, 250)      # the reported ladder; 200 = the 99.5 % one-year level (Directive 2009/138/EC Art. 101(3))
 SIMULATED_YEARS = 30000                        # simulated years per run (a setting of the computation, seeded)
 RECONCILE_TOLERANCE = 0.05                     # the simulated mean is checked to lie within 5 % of the sum of expected losses
@@ -156,12 +158,10 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
         "pml_return_period": pml_return_period,
         "tail_to_mean_multiple": (round(rp(annual, pml_return_period) / mean_annual, 1)
                                   if mean_annual and pml_return_period else None),
-        **({} if pml_return_period else {"pml_gap": "not stated: the PML return period (calculation settings — pml_return_period)"}),
-        "method": ("common-shock Monte-Carlo on the undertaking's stated damage ratios and event probabilities: a "
-                   "(peril, region) zone event fires at the zone's occurrence rate; policies realise their scenario loss "
-                   "conditional on that shared event, preserving each policy's marginal expected loss. Dependence by "
-                   "definition: perfect within a zone, independent across zones. Not a fitted vendor catastrophe model, "
-                   "nor an approved internal model."),
+        **({} if pml_return_period else {"pml_gap": "not stated: the PML return period (calculation settings — pml_return_period)",
+                                         "pml_gap_message": messages.render("portfolio.catastrophe.no_return_period")}),
+        # common-shock Monte-Carlo on the stated damage ratios and event probabilities; dependence by definition
+        "method_message": messages.render("portfolio.catastrophe.basis"),
     }
 
     # ── Net of reinsurance ── every zone event netted as it occurs (above): the quota share on every loss, the
@@ -179,8 +179,6 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
             "net_mean_annual_loss_eur": round(float(net_annual.mean())),
             "ceded_pml_eur": round(gross_pml - net_pml) if gross_pml is not None and net_pml is not None else None,
             "cession_ratio_pct": round(100 * (1 - net_pml / gross_pml), 1) if gross_pml and net_pml is not None else None,
-            "note": ("Net = gross after ceding, event by event: the quota share on every loss, the per-occurrence "
-                     "cat excess of loss on each zone event (aggregate and largest-event views). Reinstatements are "
-                     "taken as unlimited; their premiums and any aggregate treaty are not modelled."),
+            "basis_message": messages.render("portfolio.reinsurance.basis"),
         }
     return out

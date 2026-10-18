@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from core import messages
 from ml.scoring.damage_function import band
 from ml.scoring.valuation_discount import effective_haircut
 from services.intelligence.adaptation import actions_for
@@ -73,7 +74,5 @@ def resilience_capex_plan(method, properties: list[dict]) -> dict:
                               "n": v["n"]} for k, v in by_hazard.items()], key=lambda x: -x["avoided_loss_eur"]),
         "recommended_measures": actions_for(sorted(by_hazard))[:6],
         "top_properties": rows[:8],
-        "method": ("Physical loss = value × the owner's discount for physical risk; avoided loss = that × the owner's "
-                   "stated adaptation effectiveness for the peril; resilience capex = value × the owner's stated retrofit "
-                   "capex share for the hazard band (method parameters, attested)."),
+        "method_message": messages.render("portfolio.resilience.basis"),
     }

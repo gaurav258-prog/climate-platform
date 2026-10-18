@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from core import messages
+
 # EPC grades best → worst (the certificate's own scale)
 EPC_ORDER = ["A", "B", "C", "D", "E", "F", "G"]
 EPC_RANK = {g: i for i, g in enumerate(EPC_ORDER)}
@@ -109,10 +111,7 @@ def bank_collateral_stranding_rollup(method, loans: list[dict]) -> dict:
         "ltv_uplift_pp": round(stress - orig, 1) if orig is not None and stress is not None else None,
         "exposure_discounted_eur": round(below),
         "pct_exposure_discounted": round(100 * below / exposure, 1) if exposure else None,
-        "note": ("Transition risk on the bank's real-estate collateral: the institution's stated brown discount per EPC "
-                 "grade erodes the collateral, lifting the effective LTV; the loan value the stressed collateral no "
-                 "longer covers is at risk (an LGD driver). Loans without an EPC, a collateral value or an outstanding "
-                 "balance are counted as not assessed, never given a number."),
+        "basis_message": messages.render("portfolio.stranding.collateral"),
     }
 
 
@@ -137,6 +136,5 @@ def stranding_rollup(method, properties: list[dict]) -> dict:
         "value_at_stranding_risk_eur": round(sum(r["value_at_risk_eur"] for _, r in disc)),
         "retrofit_capex_to_derisk_eur": round(sum(r["retrofit_capex_eur"] for _, r in disc)),
         "pct_assessed_value_discounted": round(100 * value_disc / total_value, 1) if total_value else None,
-        "note": ("Energy-performance stranding on the institution's stated brown discount and retrofit capex per EPC "
-                 "grade. Properties without an EPC or a value are counted as not assessed, never given a number."),
+        "basis_message": messages.render("portfolio.stranding.energy"),
     }

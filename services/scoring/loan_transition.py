@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from core import messages
 from ml.scoring.epc_stranding import bank_collateral_stranding_rollup, loan_collateral_stranding
 from ml.scoring.transition_risk import transition_block
 from services.reference.emissions_estimation import estimate_emissions
@@ -141,8 +142,5 @@ def loan_transition_overlay(method, assets: list[dict], scenario: str, horizon: 
         "score_coverage_pct": round(100 * scored_out / total_out, 1) if total_out else None,
         "by_sector": sectors[:12],
         "top_exposures": top[:8],
-        "method": ("Financed emissions = counterparty gross scope 1+2 (reported, or the EXIOBASE sector-intensity "
-                   "estimate, flagged) — not PCAF-attributed (see the Financed-emissions KRI for that). Transition "
-                   "expected loss = outstanding × the institution's stated stranded share for the counterparty's NACE "
-                   "division under the scenario and horizon; the carbon cost uses its stated carbon price."),
+        "method_message": messages.render("portfolio.transition.basis"),
     }

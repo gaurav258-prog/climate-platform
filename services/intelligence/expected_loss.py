@@ -17,6 +17,7 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages
 from ml.scoring.damage_function import damage_ratio, event_probability
 from services.intelligence.horizon import NOW_YEAR, label_year, lerp
 
@@ -120,8 +121,8 @@ def bank_expected_loss(session, org_id: str, scenario: str, *, method) -> dict:
             "el_pct_of_ead": round(100 * life / ead, 2) if life is not None and ead else None,
         })
     assets.sort(key=lambda a: -(a["lifetime_el_eur"] or 0))
-    gaps = [g for g in (method.gap_text(),
-                        f"residual maturity not on the loan tape for {no_tenor} loan(s) — no lifetime EL for them" if no_tenor else None) if g]
+    maturity = messages.render("portfolio.expected_loss.no_maturity", n=no_tenor) if no_tenor else None
+    gaps = [g for g in (method.gap_text(), maturity and maturity["label"]) if g]
     annual = None if annual_gap else round(tot_annual, 2)
     lifetime = None if life_gap else round(tot_life, 2)
     return {
@@ -131,9 +132,7 @@ def bank_expected_loss(session, org_id: str, scenario: str, *, method) -> dict:
         "lifetime_el_bps": round(BPS * lifetime / tot_ead, 1) if lifetime is not None and tot_ead else None,
         "n_assets": len(assets), "maturity_missing": no_tenor, "assets": assets,
         **({"gap": "; ".join(gaps)} if gaps else {}),
-        "basis": ("Physical climate expected loss = outstanding balance × the bank's stated annual probability of a "
-                  "damaging event × its stated damage ratio, for the loan's headline peril at the band of its score "
-                  "(method parameters, attested). Lifetime EL sums the annual EL over each loan's remaining life from "
-                  "the loan tape. A collateral-impairment expectation, NOT a Basel / IFRS 9 credit ECL (no PD). "
-                  "Undiscounted. " + EL_VERSION + "."),
+        **({"maturity_message": maturity} if maturity else {}),
+        # how the figures are made, in customer words for the screen's pop-up (core/messages.py)
+        "basis_message": messages.render("portfolio.expected_loss.basis"),
     }

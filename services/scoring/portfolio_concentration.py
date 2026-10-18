@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from core import messages
+
 _TOP_REGION_CONC_PCT = 25.0     # a single region above this share flags a geographic concentration
 _TOP_HAZARD_CONC_PCT = 40.0     # a single hazard above this share flags a peril concentration
 _LOW_DIVERSIFICATION_N = 5.0    # fewer than this many effective independent bets flags low diversification
@@ -26,6 +28,14 @@ def _hhi_and_effective(shares: list[float]) -> tuple[float, float]:
     """Herfindahl-Hirschman index over value shares (0-1) and the effective number of independent units (1/HHI)."""
     hhi = sum(s * s for s in shares)
     return round(hhi, 4), (round(1.0 / hhi, 1) if hhi else None)
+
+
+def _not_stated(scored: list[dict]) -> str:
+    """The method choices the holdings' climate-adjusted values still need, as their own valuations name them — one
+    'not stated: …' list, so a screen names each choice in customer words (web/src/lib/methodGap.ts)."""
+    needs = {n.strip() for h in scored for g in [(h.get("climate_var") or {}).get("gap") or ""]
+             for part in g.split(";") for n in part.strip().removeprefix("not stated:").split(",") if n.strip()}
+    return "not stated: " + ", ".join(sorted(needs))
 
 
 def portfolio_concentration(holdings: list[dict]) -> dict:
@@ -80,13 +90,17 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
     top_hazard = hazards[0] if hazards else None
     top_cluster = cluster_list[0] if cluster_list else None
 
+    # each concentration found, as a catalogue message in customer words (a hazard by its name, never its key)
     flags = []
     if top_region and top_region["pct_of_book"] > _TOP_REGION_CONC_PCT:
-        flags.append(f"Geographic concentration: {top_region['pct_of_book']}% of the book in {top_region['region']}")
+        flags.append(messages.render("portfolio.concentration.region", pct=f"{top_region['pct_of_book']:g}",
+                                     region=top_region["region"], limit=f"{_TOP_REGION_CONC_PCT:g}"))
     if top_hazard and top_hazard["pct_of_scored"] > _TOP_HAZARD_CONC_PCT:
-        flags.append(f"Peril concentration: {top_hazard['pct_of_scored']}% of scored value led by {top_hazard['hazard']}")
+        flags.append(messages.render("portfolio.concentration.hazard", pct=f"{top_hazard['pct_of_scored']:g}",
+                                     hazard=messages.name("hazard", top_hazard["hazard"]), limit=f"{_TOP_HAZARD_CONC_PCT:g}"))
     if eff_regions is not None and eff_regions < _LOW_DIVERSIFICATION_N:
-        flags.append(f"Low diversification: only {eff_regions} effective independent regions")
+        flags.append(messages.render("portfolio.concentration.diversification", n=f"{eff_regions:g}",
+                                     limit=f"{_LOW_DIVERSIFICATION_N:g}"))
 
     if not known:
         for row in (*regions, *hazards, *cluster_list):
@@ -95,7 +109,7 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
         "available": True,
         "total_value_eur": round(total_value),
         "total_climate_var_eur": round(total_var) if known else None,
-        **({} if known else {"gap": "the climate VaR needs the manager's stated valuation haircuts (method.valuation_haircut)"}),
+        **({} if known else {"gap": _not_stated(scored)}),
         "n_scored": len(scored), "n_unscored": n_unscored,
         "coverage_pct": round(100 * len(scored) / len(holdings), 1) if holdings else 0.0,
         "region_hhi": region_hhi, "effective_regions": eff_regions,
@@ -109,10 +123,5 @@ def portfolio_concentration(holdings: list[dict]) -> dict:
         "by_hazard": hazards,
         "clusters": cluster_list[:8],   # the decision list — largest common-shock exposures to hedge / trim / diversify
         "flags": flags,
-        "method": ("Concentration decomposes the portfolio's modelled climate VaR (position value − climate-"
-                   "discounted value) by region and by headline hazard. HHI is the Herfindahl index over value "
-                   "shares; effective count = 1/HHI (the number of equally-weighted independent bets the book "
-                   "behaves like). A common-shock cluster is one headline hazard in one region — positions a "
-                   "single event hits together. Structural definition, not a fitted correlation matrix; unscored "
-                   "holdings are reported as coverage, never assumed safe."),
+        "method_message": messages.render("portfolio.concentration.basis"),
     }

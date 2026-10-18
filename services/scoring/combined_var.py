@@ -13,6 +13,7 @@ more than once. Deterministic seed (audit T2). A gap — never a partial figure 
 """
 from __future__ import annotations
 
+from core import messages
 from ml.scoring.valuation_discount import VAR_QUANTILES, effective_haircut
 
 
@@ -45,8 +46,8 @@ def combined_climate_var(method, holdings: list[dict], org_id: str, scenario: st
     if not priced:
         return {"available": False, "reason": "no_scored_positions"}
     if dependence is None:          # the manager's own choice of how physical and transition losses combine (E69)
-        return {"available": False, "reason": "gap",
-                "gap": "not stated: the physical × transition dependence (calculation settings — climate_var_dependence)"}
+        gap = messages.render("portfolio.combined_var.no_dependence")
+        return {"available": False, "reason": "gap", "gap": gap["label"], "gap_message": gap}
     rel_p, rel_t = method.get("method.var_relative_uncertainty"), method.get("method.transition_var_relative_uncertainty")
     rows = []
     for h in priced:
@@ -82,8 +83,6 @@ def combined_climate_var(method, holdings: list[dict], org_id: str, scenario: st
         "physical_expected_eur": round(phys_exp), "transition_expected_eur": round(trans_exp),
         "combined_expected_eur": round(comb_exp),
         "combined_pct_of_book": round(100 * comb_exp / total, 2) if total else None,
-        "method": ("one Monte-Carlo per holding over both drivers on the manager's stated method: physical (its discount, "
-                   "sampled across its score's confidence interval or its stated uncertainty) and transition (its stated "
-                   "stranded share for the division, scenario and horizon, sampled within its stated uncertainty); "
-                   f"combined as '{dependence}'."),
+        # one Monte-Carlo per holding over both drivers, combined per the dependence switch
+        "method_message": messages.render("portfolio.combined_var.basis", dependence=messages.name("dependence", dependence)),
     }

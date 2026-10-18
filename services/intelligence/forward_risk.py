@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from sqlalchemy import text
 
+from core import messages
+
 HORIZONS = ["2030", "2050", "2100"]
 
 
@@ -105,7 +107,10 @@ def forward_risk(session, org_id: str, vertical: str, scenario: str, method) -> 
         "scenario": scenario, "vertical": vertical, "book_eur": round(book, 2),
         "at_risk_threshold": at_risk, "entities": len(ent),
         "trajectory": trajectory, "movers": movers, "runway": runway,
-        **({"runway_gap": "not stated: method.runway_materiality"} if materiality is None else {"runway_materiality": materiality}),
-        "basis": f"worst priceable hazard per asset vs the stated at-risk level (score ≥ {at_risk:g}); band = CMIP6/AR6 "
-                 "across-model disagreement; heat_acute excluded from the headline.",
+        **({"runway_gap": "not stated: method.runway_materiality"} if materiality is None else {
+            "runway_materiality": materiality,
+            "runway_message": messages.render("portfolio.forward.runway" if runway else "portfolio.forward.no_runway",
+                                              year=runway, share=f"{100 * materiality:g}")}),
+        # how the figures are made, in customer words for the screen's pop-up (core/messages.py)
+        "basis_message": messages.render("portfolio.forward.basis", level=f"{at_risk:g}"),
     }

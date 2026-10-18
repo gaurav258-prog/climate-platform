@@ -444,11 +444,6 @@
   "error": 1,
   "rawError": 0
  },
- "services/intelligence/forward_risk.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "services/intelligence/realized_exposure.py": {
   "display": 3,
   "error": 0,
@@ -560,7 +555,7 @@
   "rawError": 0
  },
  "services/scoring/combined_var.py": {
-  "display": 2,
+  "display": 1,
   "error": 0,
   "rawError": 0
  },
@@ -570,7 +565,7 @@
   "rawError": 0
  },
  "services/scoring/portfolio_concentration.py": {
-  "display": 2,
+  "display": 1,
   "error": 0,
   "rawError": 0
  },
