@@ -372,6 +372,10 @@ def _intake_spec(session, reg: str, subject_org_id: str) -> dict:
     return {"config": cfg, "sector_type": t, "intake": sec["intake"]}
 
 
+def _entity_name(session, org_id: str) -> Optional[str]:
+    return session.execute(text("SELECT name FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).scalar()
+
+
 @router.get("/intake/{org_id}", summary="Intake status for one supervised entity: spec, shadow book, submissions")
 def intake_status(org_id: str, session: DbSession, ctx: Supervisor):
     from services.supervision.intake import shadow_status
@@ -492,15 +496,17 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
     spec = _intake_spec(session, reg, org_id)
     sub_spec = spec["intake"]["submission"]
     sub = load_submission(session, reg, org_id, sub_spec["framework"], sub_spec["template"], period_label)
+    name = _entity_name(session, org_id)
     if not sub:
-        return {"status": "no_submission", "message": "No template has been submitted for this entity yet. Upload one on the Intake screen.", "tier": None}
+        return {"status": "no_submission", "entity_name": name, "message": messages.render("supervision.lens.no_template"), "tier": None}
     cfg = spec["config"]
     out = build_lens(session, reg, org_id, sub, scenario or cfg["default_scenario"], horizon or cfg["default_horizon"],
                      spec["intake"]["granular"]["precision_label"])
     if not out["available"]:
-        return {"status": "gap", "message": out["gap"], "tier": None}
+        return {"status": "gap", "entity_name": name, "gap": out["gap"], "tier": None}   # the authority's own level, named (MethodGap)
+    out["entity_name"] = name
     if out["shadow_book"]["n_rows"] == 0:
-        out["status"] = "no_shadow_book"; out["message"] = "No granular data has been imported yet, so the rebuilt template is empty and every cell is unmatched."
+        out["status"] = "no_shadow_book"; out["message"] = messages.render("supervision.lens.no_granular_data")
     else:
         out["status"] = "ok"
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.lens.access", target_type="organization",
@@ -623,6 +629,7 @@ def population_workflow(session: DbSession, ctx: Supervisor):
 def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx: Supervisor,
               scenario: Optional[str] = None, horizon: Optional[str] = None):
     from core.types import score_to_bucket
+    from services.supervision.cell_labels import named
     from services.supervision.intake import load_submission
     from services.supervision.lens import cell_key
     from services.supervision.lens_build import _geo, _sector, rebuilt_cells
@@ -639,7 +646,7 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
     level = authority_level(session, reg)
     if level is None:
         from services.supervision.levels import GAP_AUTHORITY
-        return {"cell": {"geography": geography.upper(), "sector": sector.upper(), "key": key}, "scenario": sc, "horizon": hz,
+        return {"cell": named({"geography": geography.upper(), "sector": sector.upper(), "key": key}), "scenario": sc, "horizon": hz,
                 "gap": GAP_AUTHORITY}
     reb, pts = rebuilt_cells(session, reg, org_id, sc, hz, level)
     rows = []
@@ -667,14 +674,12 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
         "n_rows": len(rows), "n_located": sum(1 for r in rows if r["lat"] is not None),
         "n_sensitive": sum(1 for r in rows if r["counts_as_sensitive"]),
         "at_risk_level": level,
-        "rule": f"A row counts as sensitive to physical risk when its headline hazard score is at or above your stated at-risk "
-                f"level ({level:g}). The rebuilt share is sensitive value ÷ located value; unlocated rows cannot be judged and "
-                "are shown separately.",
+        "rule": messages.render("supervision.lens.cell_rule", level=f"{level:g}"),
     }
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.lens.cell.access", target_type="organization",
                 target_id=org_id, detail={"regulator_org_id": reg, "cell": key, "n_rows": len(rows)})
     session.commit()
-    return {"cell": {"geography": geography.upper(), "sector": sector.upper(), "key": key}, "scenario": sc, "horizon": hz,
+    return {"cell": named({"geography": geography.upper(), "sector": sector.upper(), "key": key}), "scenario": sc, "horizon": hz,
             "submitted": ({**submitted, "period_label": sub["period_label"], "source_file": sub.get("source_file"), "basis": sub.get("basis")} if submitted else None),
             "rebuilt": {"rows": rows, **arithmetic}}
 
@@ -866,7 +871,13 @@ def end_scope(supervision_id: str, session: DbSession, ctx: Supervisor):
     return {"ok": True}
 
 
-# ── Tier 1: plausibility of the submitted template, no granular data needed ────────────────────────────────
+# ── Tier 1 (the quick check): plausibility of the submitted template, no granular data needed ─────────────────
+def _basis_words(scenario: str, horizon: str) -> str:
+    """'Disorderly 2 °C · 2030' — a basis in the catalogue's names, for a message's values."""
+    named = messages.names().get("scenario", {}).get(scenario) or "a scenario the platform does not hold"   # asked for in the address
+    return f"{named} · {'today' if horizon == 'current' else horizon}"
+
+
 @router.get("/entity/{org_id}/plausibility", summary="Tier-1 plausibility band of the submitted template against the geography priors")
 def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
     from services.supervision.geo_prior import bases_available
@@ -878,8 +889,10 @@ def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenar
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     ss = _intake_spec(session, reg, org_id)["intake"]["submission"]
     sub = load_submission(session, reg, org_id, ss["framework"], ss["template"])
+    name = _entity_name(session, org_id)
     if not sub:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No submitted template on file for this entity — ingest it first."})
+        return {"entity_org_id": org_id, "entity_name": name, "status": "no_submission",
+                "message": messages.render("supervision.plausibility.no_template")}
     cfg = _config(session, reg)
     basis = sub.get("basis") or {}
     stated = bool(basis.get("scenario") and basis.get("horizon"))
@@ -888,22 +901,21 @@ def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenar
     available = bases_available(session)
     if (sc, hz) not in available and available:
         fallback = (cfg["default_scenario"], cfg["default_horizon"]) if (cfg["default_scenario"], cfg["default_horizon"]) in available else available[0]
-        basis_note = f"No reference at {sc} · {hz}; judged at {fallback[0]} · {fallback[1]} instead."
+        basis_note = messages.render("supervision.plausibility.basis.fallback", wanted=_basis_words(sc, hz), used=_basis_words(*fallback))
         sc, hz = fallback
     else:
-        basis_note = ("Judged at the basis the entity stated." if stated and not (scenario or horizon) else "Judged at the basis shown.")
+        basis_note = messages.render("supervision.plausibility.basis." + ("chosen" if scenario or horizon else "stated" if stated else "default"))
     level, level_from = entity_level(session, org_id, sub)
     if level is None:
-        from services.supervision.levels import GAP_ENTITY
-        return {"entity_org_id": org_id, "period_label": sub.get("period_label"), "status": "gap", "gap": GAP_ENTITY,
-                "scenario": sc, "horizon": hz, "template": ss}
+        return {"entity_org_id": org_id, "entity_name": name, "period_label": sub.get("period_label"), "status": "gap",
+                "message": messages.render("supervision.plausibility.entity_level_missing"), "scenario": sc, "horizon": hz, "template": ss}
     result = assess_entity(session, reg, org_id, sub["cells"], sc, hz, level)
     result["at_risk_level_from"] = level_from
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.plausibility.access", target_type="organization",
                 target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz,
                                          "exposure_measure": result["exposure_measure"]["label"], "prior": result["exposure_measure"]["prior"]})
     session.commit()
-    return {"entity_org_id": org_id, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
+    return {"entity_org_id": org_id, "entity_name": name, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
             "stated_basis": basis if stated else None, "scenario": sc, "horizon": hz, "basis_note": basis_note,
             "bases_available": [{"scenario": a, "horizon": b} for a, b in available], "template": ss, **result}
 

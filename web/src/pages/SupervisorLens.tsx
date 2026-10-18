@@ -1,171 +1,172 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { api } from '../lib/api'
-import { bucketLabel, hazardLabel, horizonLabel, scenarioLabel } from '../lib/hazards'
-import { Card, PageHeader, StatGrid } from '../components/ui'
+import { Scale, Split } from 'lucide-react'
+import { api, apiMessage } from '../lib/api'
 import { money } from '../lib/money'
-import { pressable } from '../lib/pressable'
+import { Card, PageHeader, SectionHead, StatGrid } from '../components/ui'
+import { HBar } from '../components/Charts'
+import { Dialog } from '../components/Dialog'
+import { StatusChip } from '../components/StatusChip'
+import { HEADING, InfoButton, MessageLine, type Message } from '../components/Details'
 import MethodGap from '../components/MethodGap'
+import { BackToEntity, CheckSwitch, FULL, TWO_CHECKS, basisText, cellName, type Named } from './supervisorAnalysis/checks'
+import { CellDrawer, PART, PARTS, signed, type Part } from './supervisorAnalysis/LensCell'
 
-// The independent lens: the submitted template beside the same template rebuilt from the shadow book, cell by
-// cell, with every gap split into scope / basis / scoring / unmatched (they add up exactly). A flag is a question.
-interface Cell { key: string; geography: string; sector: string; submitted_gross: number | null; submitted_sensitive: number | null
+// The full rebuild (the independent lens), to the UI standard (2026-10-16): the entity's filed template beside the
+// same template rebuilt from the supervisor's own granular data. The main screen is the totals, the filed-versus-rebuilt
+// bars per cell and the causes of the difference; a cell's rows and arithmetic open in a side drawer, every
+// explanation one click away in the server's catalogue words.
+export interface Cell extends Named {
+  key: string; geography: string; sector: string; submitted_gross: number | null; submitted_sensitive: number | null
   rebuilt_gross: number | null; rebuilt_sensitive: number | null; submitted_share_pct: number | null; rebuilt_share_pct: number | null
-  coverage_pct: number | null; gap: { scope: number; coverage: number; basis: number; scoring: number; unmatched: number }; flag: string; reason: string }
-interface Lens { status: string; at_risk_level?: { regulator: number; entity: number | null; entity_from: string | null; gap?: string }; message?: string; tier: number | null; precision: string; period_label: string; n_cells: number; n_flagged: number
-  totals: { submitted: number; rebuilt: number; scope: number; coverage: number; basis: number; scoring: number; unmatched: number }; total_gap: number
-  regulator_basis: { scenario: string; horizon: string }; bank_basis: { scenario: string; horizon: string; stated: boolean; method_note: string | null; separable: boolean; note: string | null }
-  shadow_book: { n_rows: number; n_located: number; n_scored: number; location_precision: Record<string, number> }; cells: Cell[] }
-const PART: Record<string, { label: string; color: string }> = {
-  scope: { label: 'scope', color: '#7F77DD' }, coverage: { label: 'unlocated (unverifiable)', color: '#B4B2A9' }, basis: { label: 'basis', color: '#1D9E75' }, scoring: { label: 'scoring', color: '#D85A30' }, unmatched: { label: 'unmatched', color: '#888780' } }
-
-function GapBar({ gap }: { gap: Cell['gap'] }) {
-  const parts = Object.entries(gap).filter(([, v]) => v !== 0)
-  const tot = parts.reduce((a, [, v]) => a + Math.abs(v), 0)
-  if (!tot) return <span className="mono text-[11px] text-[var(--color-faint)]">no gap</span>
-  return (
-    <div className="flex h-2.5 w-full rounded overflow-hidden bg-[var(--color-bg-2)]" title={parts.map(([k, v]) => `${PART[k].label} ${money(v, 'EUR')}`).join(' · ')}>
-      {parts.map(([k, v]) => <div key={k} style={{ width: `${100 * Math.abs(v) / tot}%`, background: PART[k].color }} />)}
-    </div>)
+  coverage_pct: number | null; gap: Record<Part, number>; flag: 'ok' | 'question'; reason: Message | null
 }
+export interface Lens {
+  status: 'ok' | 'no_shadow_book' | 'gap' | 'no_submission'; entity_name: string | null; gap?: string; message?: Message | null
+  precision: string; period_label: string; n_cells: number; n_flagged: number; flag_pp: number
+  totals: Record<'submitted' | 'rebuilt' | Part, number>; total_gap: number
+  regulator_basis: { scenario: string; horizon: string }
+  bank_basis: { scenario: string; horizon: string; stated: boolean; method_note: string | null; message: Message | null }
+  at_risk_level: { regulator: number; entity: number | null; message: Message | null }
+  shadow_book: { n_rows: number; n_located: number; n_scored: number }; cells: Cell[]
+}
+
+const ABOUT = [
+  { heading: HEADING.shows, body: 'The template the entity filed, cell by cell, beside the same template rebuilt from your granular data with the platform’s hazard scores, at your scenario, year and at-risk threshold.' },
+  { heading: HEADING.read, body: 'Each difference between the rebuilt and the filed amount is split into its causes: a different exposure, exposure that could not be located, a different basis, a different risk assessment, or a cell on one side only. The parts add up to the whole difference. A marked cell is a question for the entity, not a finding.' },
+  TWO_CHECKS,
+  { heading: HEADING.sources, body: 'The template, as filed. Your granular data, located by the region code, postcode or coordinates each row carries. Hazard scores from the platform’s engine, the same one the entity’s own workspace uses.' },
+  { heading: HEADING.limits, body: 'Locations are resolved to a region (NUTS-3), not to an address. A row without a usable location cannot be scored: it is counted and shown apart, never placed at a country’s centre.' },
+]
+const TOP = 12
 
 export default function SupervisorLens() {
   const { orgId = '' } = useParams()
   const q = useQuery({ queryKey: ['sup-lens', orgId], queryFn: () => api.get<Lens>(`/v1/supervisor/entity/${orgId}/lens`) })
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<Cell | null>(null)
+  const [part, setPart] = useState<Part | null>(null)
+  const [all, setAll] = useState(false)
   const d = q.data
-  if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">rebuilding the template independently…</div>
-  if (!d) return <div className="h-[60vh] grid place-items-center text-[var(--color-bad)] text-sm">Could not open the lens.</div>
-  if (d.status === 'gap') return (
-    <div className="fadeup space-y-4"><Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
-      <MethodGap gap={d.message ?? ''} what="Independent lens" /></div>)
+  if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">Rebuilding the template…</div>
+  const header = (
+    <PageHeader eyebrow={FULL} title={d?.entity_name ?? 'Supervised entity'} lead="Filed figures against the same template rebuilt from your granular data."
+      about={ABOUT} actions={<CheckSwitch orgId={orgId} current="full" />}>
+      {d?.status === 'ok' || d?.status === 'no_shadow_book' ? <Basis d={d} /> : null}
+    </PageHeader>)
+  if (!d) return <Shell orgId={orgId} header={header}><Card className="p-6 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'The full rebuild could not be opened.')}</Card></Shell>
+  if (d.status === 'gap') return <Shell orgId={orgId} header={header}><MethodGap gap={d.gap} what={FULL} /></Shell>
   if (d.status === 'no_submission') return (
-    <div className="fadeup space-y-4"><Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
-      <Card className="p-6 text-[13px] text-[var(--color-mute)]">{d.message} <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Go to intake →</Link></Card></div>)
-  const t = d.totals
-  return (
-    <div className="fadeup space-y-6">
-      <Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
-      <PageHeader eyebrow={`Independent lens · Tier ${d.tier} · ${d.precision}`} title={`Submitted vs rebuilt · ${d.period_label}`}
-        lead={`Your basis ${scenarioLabel(d.regulator_basis.scenario)} · ${horizonLabel(d.regulator_basis.horizon)}${d.bank_basis.stated ? `; the entity states ${scenarioLabel(d.bank_basis.scenario)} · ${horizonLabel(d.bank_basis.horizon)}` : '; the entity stated no basis'}. Rebuilt from ${d.shadow_book.n_rows.toLocaleString()} granular rows, ${d.shadow_book.n_located.toLocaleString()} region-located, ${d.shadow_book.n_scored.toLocaleString()} scored. A flag is a question, not a finding.`} />
-      {d.status === 'no_shadow_book' && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">{d.message}</Card>}
-      {d.bank_basis.note && <Card className="p-4 text-[12.5px] text-[var(--color-mute)]">Basis: {d.bank_basis.note}.</Card>}
-      {d.at_risk_level && <div className="mono text-[10.5px] text-[var(--color-faint)]">Sensitive = headline at or above the at-risk level — yours <b className="text-[var(--color-mute)]">{d.at_risk_level.regulator}</b> for the rebuilt figure; the entity's {d.at_risk_level.entity != null ? <b className="text-[var(--color-mute)]">{d.at_risk_level.entity}</b> : 'not stated'} for its own basis{d.at_risk_level.gap ? ` — ${d.at_risk_level.gap}` : ''}.</div>}
-      <StatGrid cols={4} items={[
-        { label: 'Sensitive · submitted', value: money(t.submitted, 'EUR') },
-        { label: 'Sensitive · rebuilt', value: money(t.rebuilt, 'EUR'), sub: `gap ${money(d.total_gap, 'EUR')}` },
-        { label: 'Cells flagged', value: `${d.n_flagged} / ${d.n_cells}`, accent: d.n_flagged ? 'var(--color-warn)' : 'var(--color-good)', sub: '≥ 10 pp share difference or unmatched' },
-        { label: 'Gap by reason', value: `${Math.round(100 * Math.abs(t.scoring) / Math.max(1, Math.abs(t.scope) + Math.abs(t.coverage) + Math.abs(t.basis) + Math.abs(t.scoring) + Math.abs(t.unmatched)))}% scoring`, sub: `scope ${money(t.scope, 'EUR')} · unlocated ${money(t.coverage, 'EUR')} · basis ${money(t.basis, 'EUR')} · unmatched ${money(t.unmatched, 'EUR')}` },
-      ]} />
-      <Card className="p-5">
-        <div className="flex items-center gap-4 mb-3 mono text-[10.5px] text-[var(--color-faint)]">
-          {Object.entries(PART).map(([k, p]) => <span key={k} className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: p.color }} />{p.label}</span>)}
-          <span>· share = sensitive ÷ gross · coverage = rows with a resolved region</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table w-full text-[12px]">
-            <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-              <th className="">Cell</th><th className="num">Submitted gross</th><th className="num">Submitted share</th>
-              <th className="num">Rebuilt gross</th><th className="num">Rebuilt share</th><th className="num">Coverage</th>
-              <th className="w-40">Gap split</th><th className="">Why it differs</th></tr></thead>
-            <tbody>{d.cells.map(c => (<>
-              <tr key={c.key} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === c.key ? 'bg-[var(--color-bg-2)]' : ''}`} {...pressable(() => setOpen(open === c.key ? null : c.key), { row: true, expanded: open === c.key })}>
-                <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === c.key ? 'rotate-90' : ''}`} />{c.geography} · {c.sector}</td>
-                <td className="num mono text-[var(--color-mute)]">{money(c.submitted_gross, 'EUR')}</td>
-                <td className="num mono text-[var(--color-mute)]">{c.submitted_share_pct != null ? `${c.submitted_share_pct}%` : '—'}</td>
-                <td className="num mono text-[var(--color-mute)]">{money(c.rebuilt_gross, 'EUR')}</td>
-                <td className="num mono" style={{ color: c.flag === 'question' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{c.rebuilt_share_pct != null ? `${c.rebuilt_share_pct}%` : '—'}</td>
-                <td className="num mono text-[var(--color-faint)]">{c.coverage_pct != null ? `${c.coverage_pct}%` : '—'}</td>
-                <td><GapBar gap={c.gap} /></td>
-                <td className="text-[11.5px] text-[var(--color-mute)]">{c.flag === 'question' ? <>{c.reason} <Link onClick={e => e.stopPropagation()} to={`/supervisor/requests?new=1&entity=${orgId}&kind=information_request&geography=${encodeURIComponent(c.geography)}&sector=${encodeURIComponent(c.sector)}&title=${encodeURIComponent(`${c.geography} · ${c.sector}: ${c.reason}`)}`} className="text-[var(--color-sky)] hover:underline whitespace-nowrap">raise with the entity →</Link></> : <span className="text-[var(--color-faint)]">within tolerance</span>}</td>
-              </tr>
-              {open === c.key && <tr key={c.key + '-drill'}><td colSpan={8} className="p-0"><CellDrill orgId={orgId} geography={c.geography} sector={c.sector} /></td></tr>}
-            </>))}</tbody>
-          </table>
-        </div>
+    <Shell orgId={orgId} header={header}>
+      <Card className="p-6 flex flex-wrap items-center gap-4 text-[13.5px]">
+        {d.message && <MessageLine m={d.message} className="text-[var(--color-ink)]" />}
+        <Link to={`/supervised/${orgId}/intake`} className="text-[12.5px] text-[var(--color-sky)] hover:underline">Open Intake</Link>
       </Card>
+    </Shell>)
+  const t = d.totals
+  const notices = [d.status === 'no_shadow_book' ? d.message : null, d.bank_basis.message, d.at_risk_level.message].filter((m): m is Message => !!m)
+  const cells = all ? d.cells : d.cells.slice(0, TOP)
+  const scale = Math.max(1, ...d.cells.map(c => Math.max(c.submitted_sensitive ?? 0, c.rebuilt_sensitive ?? 0)))
+  const parts = PARTS.filter(p => t[p]).map(p => ({ label: PART[p].label, value: t[p], color: PART[p].color }))
+  return (
+    <Shell orgId={orgId} header={header}>
+      {notices.length > 0 && (
+        <Card className="px-4 py-3 space-y-1.5 border-[var(--color-warn)]/40">
+          {notices.map(m => <div key={m.code} className="flex flex-wrap items-center gap-3 text-[12.5px] text-[var(--color-warn)]">
+            <MessageLine m={m} />
+            {m.code !== 'supervision.lens.entity_level_missing' && <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Open Intake</Link>}
+          </div>)}
+        </Card>)}
+      <StatGrid cols={4} items={[
+        { label: 'Filed as sensitive', value: money(t.submitted, 'EUR'), sub: d.period_label },
+        { label: 'Rebuilt as sensitive', value: money(t.rebuilt, 'EUR'), sub: `${d.shadow_book.n_rows.toLocaleString()} rows of your data` },
+        { label: 'Difference', value: signed(d.total_gap), sub: t.submitted ? `${d.total_gap >= 0 ? '+' : '−'}${Math.abs(Math.round(100 * d.total_gap / t.submitted))}% of the filed amount` : undefined, accent: d.total_gap ? 'var(--color-warn)' : undefined },
+        { label: 'Cells to raise', value: `${d.n_flagged} of ${d.n_cells}`, accent: d.n_flagged ? 'var(--color-warn)' : 'var(--color-good)' },
+      ]} />
+      <div className="grid gap-6 lg:grid-cols-[3fr_2fr] items-start">
+        <Card className="p-5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
+            <SectionHead icon={Scale}>Filed against rebuilt</SectionHead>
+            <InfoButton compact details={{ title: 'Filed against rebuilt', sections: [
+              { heading: HEADING.read, body: `Each row is one cell of the template: the amount the entity filed as sensitive to physical risk, and the amount rebuilt from your granular data. A cell is marked when the two shares differ by ${d.flag_pp} percentage points or more, or when it appears on one side only. Select a cell for its rows and arithmetic.` },
+            ] }} />
+            <span className="ml-auto inline-flex items-center gap-3 text-[11.5px] text-[var(--color-mute)]">
+              <Swatch color="var(--color-slate)" label="Filed" /><Swatch color="var(--color-sky)" label="Rebuilt" />
+            </span>
+          </div>
+          <div className="space-y-1">
+            {cells.map(c => <CellRow key={c.key} c={c} scale={scale} onOpen={() => setOpen(c)} />)}
+          </div>
+          {d.cells.length > TOP && (
+            <button type="button" onClick={() => setAll(!all)} className="mt-3 text-[12px] text-[var(--color-sky)] hover:underline">
+              {all ? `Show the ${TOP} largest differences` : `Show all ${d.cells.length} cells`}
+            </button>)}
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <SectionHead icon={Split}>Why the figures differ</SectionHead>
+            <InfoButton compact details={{ title: 'Why the figures differ', sections: [
+              { heading: HEADING.read, body: 'How much of the difference between the rebuilt and the filed amount comes from each cause, across all cells. The parts add up to the whole difference. A positive amount means the rebuild finds more sensitive exposure than the entity filed. Select a cause for what it means and where it weighs most.' },
+            ] }} />
+          </div>
+          {parts.length ? <HBar data={parts} format={signed} labelWidth="w-44" onBar={i => setPart(PARTS.filter(p => t[p])[i])} />
+            : <div className="text-[12.5px] text-[var(--color-faint)] py-6 text-center">The rebuilt and the filed amounts agree.</div>}
+        </Card>
+      </div>
+      {part && <PartDialog part={part} cells={d.cells} onClose={() => setPart(null)} onCell={c => { setPart(null); setOpen(c) }} />}
+      {open && <CellDrawer orgId={orgId} cell={open} lens={d} onClose={() => setOpen(null)} />}
+    </Shell>
+  )
+}
+
+function Shell({ orgId, header, children }: { orgId: string; header: React.ReactNode; children: React.ReactNode }) {
+  return <div className="fadeup space-y-6"><BackToEntity orgId={orgId} />{header}{children}</div>
+}
+
+const Swatch = ({ color, label }: { color: string; label: string }) => <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />{label}</span>
+
+// The basis each side is read at: yours (the rebuild) and the one the entity states (its template).
+function Basis({ d }: { d: Lens }) {
+  const lvl = d.at_risk_level
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      <StatusChip tone="neutral" label={`Your basis · ${basisText(d.regulator_basis.scenario, d.regulator_basis.horizon)} · threshold ${lvl.regulator}`} />
+      <StatusChip tone={d.bank_basis.stated && lvl.entity != null ? 'neutral' : 'warn'}
+        label={`Entity’s basis · ${d.bank_basis.stated ? basisText(d.bank_basis.scenario, d.bank_basis.horizon) : 'not stated'} · threshold ${lvl.entity ?? 'not stated'}`} />
     </div>
   )
 }
 
-
-// ── Drill-down: the submitted figure, every granular row behind the rebuilt one, the arithmetic, and per row
-//    the hazard scores at its location. Nothing here is summarised away — this is the data set behind the number.
-interface CellRow { instrument_id: string | null; name: string; outstanding_eur: number; collateral_country: string | null; region: string | null
-  location_precision: string | null; lat: number | null; lon: number | null; nace_code: string | null; headline_hazard: string | null; headline_score: number | null; bucket: string | null; counts_as_sensitive: boolean }
-interface CellResp { cell: { geography: string; sector: string }; scenario: string; horizon: string
-  submitted: { gross_carrying_amount_eur: number; sensitive_physical_eur: number; period_label: string; source_file: string | null; basis?: { scenario?: string; horizon?: string; method_note?: string } } | null
-  rebuilt: { rows: CellRow[]; submitted_share_pct: number | null; rebuilt_share_pct: number | null; located_value_eur: number; unlocated_value_eur: number; n_rows: number; n_located: number; n_sensitive: number; rule: string } }
-interface Lookup { hazards: { hazard_type: string; status: string; risk_score: number | null; risk_bucket: string | null; reason?: string | null }[] }
-
-function CellDrill({ orgId, geography, sector }: { orgId: string; geography: string; sector: string }) {
-  const q = useQuery({ queryKey: ['sup-lens-cell', orgId, geography, sector], queryFn: () => api.get<CellResp>(`/v1/supervisor/entity/${orgId}/lens/cell?geography=${encodeURIComponent(geography)}&sector=${encodeURIComponent(sector)}`) })
-  const [row, setRow] = useState<CellRow | null>(null)
-  const d = q.data
-  if (q.isLoading) return <div className="p-4 text-[12px] text-[var(--color-faint)]">opening the rows behind this cell…</div>
-  if (!d) return <div className="p-4 text-[12px] text-[var(--color-bad)]">Could not open this cell.</div>
-  const r = d.rebuilt
+function CellRow({ c, scale, onOpen }: { c: Cell; scale: number; onOpen: () => void }) {
+  const w = (v: number | null) => `${v ? Math.max(0.8, (v / scale) * 100) : 0}%`
+  const name = cellName(c)
   return (
-    <div className="p-4 border-t border-[var(--color-line)] bg-[var(--color-bg-2)] grid lg:grid-cols-[280px_1fr] gap-5">
-      <div className="space-y-3">
-        <div>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">As submitted by the entity</div>
-          {d.submitted ? (
-            <div className="text-[12.5px] text-[var(--color-ink)] space-y-0.5">
-              <div>Gross carrying amount <b>{money(d.submitted.gross_carrying_amount_eur, 'EUR')}</b></div>
-              <div>Of which sensitive <b>{money(d.submitted.sensitive_physical_eur, 'EUR')}</b> · {r.submitted_share_pct}%</div>
-              <div className="mono text-[10.5px] text-[var(--color-faint)]">{d.submitted.period_label}{d.submitted.source_file ? ` · ${d.submitted.source_file}` : ''}{d.submitted.basis?.scenario ? ` · stated ${scenarioLabel(d.submitted.basis.scenario)} · ${horizonLabel(d.submitted.basis.horizon)}` : ''}</div>
-              {d.submitted.basis?.method_note && <div className="text-[11px] text-[var(--color-mute)] italic">“{d.submitted.basis.method_note}”</div>}
-            </div>) : <div className="text-[12px] text-[var(--color-faint)]">Not present in the submitted template.</div>}
-        </div>
-        <div>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">As rebuilt from your granular data · {scenarioLabel(d.scenario)} · {horizonLabel(d.horizon)}</div>
-          <div className="text-[12.5px] text-[var(--color-ink)] space-y-0.5">
-            <div>{r.n_rows} rows · {r.n_located} located · {r.n_sensitive} count as sensitive</div>
-            <div>Located value <b>{money(r.located_value_eur, 'EUR')}</b> · unlocated <b>{money(r.unlocated_value_eur, 'EUR')}</b></div>
-            <div>Rebuilt share <b>{r.rebuilt_share_pct != null ? `${r.rebuilt_share_pct}%` : '—'}</b> (sensitive ÷ located)</div>
-          </div>
-          <div className="text-[11px] text-[var(--color-mute)] mt-1">{r.rule}</div>
-        </div>
-      </div>
-      <div className="min-w-0">
-        <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">The rows · click one for the hazard scores at its location</div>
-        <div className="overflow-x-auto max-h-[360px] overflow-y-auto border border-[var(--color-line)] rounded-lg">
-          <table className="data-table w-full text-[11.5px]">
-            <thead className="sticky top-0 bg-[var(--color-panel)]"><tr className="text-[var(--color-faint)] mono text-[9.5px] uppercase tracking-wide text-left">
-              <th className="py-1.5 px-2">Instrument</th><th className="pr-2">Counterparty</th><th className="pr-2 text-right">Outstanding</th>
-              <th className="pr-2">Collateral region</th><th className="pr-2">Precision</th><th className="pr-2">Headline hazard</th><th className="pr-2 text-right">Score</th><th className="pr-2">Sensitive</th></tr></thead>
-            <tbody>{r.rows.map((x, i) => (
-              <tr key={i} {...pressable(x.lat != null && (() => setRow(row === x ? null : x)), { row: true, expanded: row === x })} className={`border-t border-[var(--color-line)] ${x.lat != null ? 'cursor-pointer hover:bg-[var(--color-panel)]' : 'opacity-60'} ${row === x ? 'bg-[var(--color-panel)]' : ''}`}>
-                <td className="py-1 px-2 mono text-[var(--color-mute)]">{x.instrument_id ?? '—'}</td>
-                <td className="pr-2 text-[var(--color-ink)]">{x.name}</td>
-                <td className="pr-2 text-right mono">{money(x.outstanding_eur, 'EUR')}</td>
-                <td className="pr-2 text-[var(--color-mute)]">{x.region ?? (x.collateral_country ? `${x.collateral_country} (country only)` : '—')}</td>
-                <td className="pr-2 mono text-[10.5px] text-[var(--color-faint)]">{x.location_precision === 'unlocated' ? 'unlocated' : x.location_precision?.replace('→', ' → ') ?? '—'}</td>
-                <td className="pr-2 text-[var(--color-mute)]">{x.headline_hazard ? hazardLabel(x.headline_hazard) : '—'}</td>
-                <td className="pr-2 text-right mono" style={{ color: x.counts_as_sensitive ? 'var(--color-bad)' : 'var(--color-mute)' }}>{x.headline_score != null ? `${Math.round(x.headline_score)} · ${bucketLabel(x.bucket)}` : '—'}</td>
-                <td className="pr-2">{x.counts_as_sensitive ? <span className="mono text-[10px] text-[var(--color-bad)]">yes</span> : x.lat == null ? <span className="mono text-[10px] text-[var(--color-faint)]">unverifiable</span> : <span className="mono text-[10px] text-[var(--color-faint)]">no</span>}</td>
-              </tr>))}</tbody>
-          </table>
-        </div>
-        {row && row.lat != null && <RowHazards row={row} />}
-      </div>
-    </div>)
+    <button type="button" onClick={onOpen} aria-label={`${name}: open its rows`}
+      className="w-full grid grid-cols-[minmax(0,11rem)_1fr_auto] sm:grid-cols-[minmax(0,14rem)_1fr_auto] items-center gap-3 px-2 py-1.5 rounded-md text-left hover:bg-[var(--color-panel-2)] transition">
+      <span className="text-[12.5px] text-[var(--color-ink)] truncate" title={name}>{name}</span>
+      <span className="space-y-[3px]" title={`Filed ${money(c.submitted_sensitive, 'EUR')} · rebuilt ${money(c.rebuilt_sensitive, 'EUR')}`}>
+        <span className="block h-2 rounded-full bg-[var(--color-panel-2)]"><span className="block h-full rounded-full bg-[var(--color-slate)]" style={{ width: w(c.submitted_sensitive) }} /></span>
+        <span className="block h-2 rounded-full bg-[var(--color-panel-2)]"><span className="block h-full rounded-full bg-[var(--color-sky)]" style={{ width: w(c.rebuilt_sensitive) }} /></span>
+      </span>
+      <span className="justify-self-end">{c.flag === 'question' && c.reason ? <StatusChip tone="warn" label={c.reason.label} /> : null}</span>
+    </button>
+  )
 }
 
-function RowHazards({ row }: { row: CellRow }) {
-  const q = useQuery({ queryKey: ['lookup', row.lat, row.lon], queryFn: () => api.get<Lookup>(`/v1/lookup/score?lat=${row.lat}&lon=${row.lon}`) })
-  const hz = (q.data?.hazards ?? []).filter(h => h.risk_score != null).sort((a, b) => (b.risk_score ?? 0) - (a.risk_score ?? 0))
+function PartDialog({ part, cells, onClose, onCell }: { part: Part; cells: Cell[]; onClose: () => void; onCell: (c: Cell) => void }) {
+  const top = cells.filter(c => c.gap[part]).sort((a, b) => Math.abs(b.gap[part]) - Math.abs(a.gap[part])).slice(0, 6)
   return (
-    <div className="mt-3 p-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)]">
-      <div className="text-[12px] text-[var(--color-ink)] mb-1"><b>{row.name}</b> · {row.region ?? row.collateral_country} · location resolved at {row.location_precision === 'nuts3' ? 'NUTS-3 region level' : row.location_precision === 'postcode→nuts3' ? 'postcode → NUTS-3 region level' : row.location_precision} — every hazard scored at that point:</div>
-      {q.isLoading ? <div className="text-[11.5px] text-[var(--color-faint)]">scoring…</div> : (
-        <div className="flex flex-wrap gap-1.5">{hz.map(h => (
-          <span key={h.hazard_type} className="mono text-[10.5px] px-1.5 py-0.5 rounded border border-[var(--color-line)]" style={{ color: (h.risk_bucket === 'H' || h.risk_bucket === 'VH') ? 'var(--color-bad)' : 'var(--color-mute)' }}>
-            {hazardLabel(h.hazard_type)} {Math.round(h.risk_score ?? 0)} · {bucketLabel(h.risk_bucket)}</span>))}
-          {hz.length === 0 && <span className="text-[11.5px] text-[var(--color-faint)]">no scores yet at this location</span>}</div>)}
-      <div className="mono text-[10px] text-[var(--color-faint)] mt-1">headline = highest of these (today's basis); the cell's sensitivity uses the headline under the lens basis</div>
-    </div>)
+    <Dialog title={PART[part].label} onClose={onClose} className="max-w-xl">
+      <p className="text-[13.5px] leading-relaxed text-[var(--color-ink)] m-0">{PART[part].what}</p>
+      {top.length > 0 && <>
+        <h4 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--color-mute)] mt-5 mb-2">Where it weighs most</h4>
+        <div className="space-y-1">
+          {top.map(c => (
+            <button key={c.key} type="button" onClick={() => onCell(c)} className="w-full flex items-center justify-between gap-3 px-2 py-1.5 rounded-md text-left text-[12.5px] hover:bg-[var(--color-panel-2)]">
+              <span className="truncate text-[var(--color-ink)]">{cellName(c)}</span><span className="tabular-nums text-[var(--color-mute)]">{signed(c.gap[part])}</span>
+            </button>))}
+        </div>
+      </>}
+    </Dialog>
+  )
 }

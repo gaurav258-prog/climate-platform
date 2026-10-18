@@ -1716,6 +1716,205 @@
     "next": "Fill it in your file, or match the field to another column."
    }
   },
+  "supervision.lens.no_template": {
+   "label": "No template on file yet",
+   "detail": {
+    "what": "The entity has not submitted a template, so there is nothing to compare with the rebuild.",
+    "next": "Upload the template on the Intake screen, or wait for the entity to submit it through its portal."
+   }
+  },
+  "supervision.lens.no_granular_data": {
+   "label": "No granular data imported yet",
+   "detail": {
+    "what": "The rebuilt template stays empty until you import your granular data for this entity, so every cell shows on the entity's side only.",
+    "next": "Import your granular data on the Intake screen."
+   }
+  },
+  "supervision.lens.basis_not_separated": {
+   "label": "Effect of the basis not yet separated",
+   "detail": {
+    "what": "The entity states a different scenario, year or at-risk threshold from yours. Scenario projections cover {done} of {total} locations in your granular data, so the effect of the different basis is still counted as a different risk assessment.",
+    "next": "Run the scenario projections on the Intake screen."
+   }
+  },
+  "supervision.lens.entity_level_missing": {
+   "label": "Entity's at-risk threshold not stated",
+   "detail": {
+    "what": "The entity has not stated the at-risk threshold its template was computed on, in its submission or in its methodology on the platform.",
+    "why": "Its figures are rebuilt at your threshold only, so part of a different risk assessment may be a different definition.",
+    "next": "Ask the entity to state its threshold with its next submission."
+   }
+  },
+  "supervision.lens.cell_rule": {
+   "label": "How the rebuilt figure is made",
+   "detail": {
+    "what": "A row of your granular data counts as sensitive to physical risk when the highest hazard score at its location is at or above your at-risk threshold ({level}). The rebuilt share is the sensitive value divided by the located value.",
+    "why": "A row without a location cannot be scored, so it is shown apart and never counted either way."
+   }
+  },
+  "supervision.lens.reason.scope": {
+   "label": "Different exposure",
+   "detail": {
+    "what": "The amount the entity reports for this cell differs from what your granular data holds for it.",
+    "next": "Ask the entity how it built the cell's exposure."
+   }
+  },
+  "supervision.lens.reason.basis": {
+   "label": "Different basis",
+   "detail": {
+    "what": "The entity's stated scenario, year or at-risk threshold differs from yours, and that moves the sensitive amount most."
+   }
+  },
+  "supervision.lens.reason.scoring": {
+   "label": "Different risk assessment",
+   "detail": {
+    "what": "At the same exposure and basis, the entity's share of exposure sensitive to physical risk differs from the share rebuilt from the platform's hazard scores.",
+    "next": "Ask the entity how it assessed the exposure in this cell."
+   }
+  },
+  "supervision.lens.reason.not_located": {
+   "label": "No exposure could be located",
+   "detail": {
+    "what": "None of this cell's exposure in your granular data has a usable location, so the entity's figure cannot be checked."
+   }
+  },
+  "supervision.lens.reason.no_granular": {
+   "label": "Not in your granular data",
+   "detail": {
+    "what": "The entity reports this geography and sector, but your granular data holds no rows for it."
+   }
+  },
+  "supervision.lens.reason.not_in_template": {
+   "label": "Not in the submitted template",
+   "detail": {
+    "what": "Your granular data holds exposure in this geography and sector, but the entity's template has no row for it."
+   }
+  },
+  "supervision.plausibility.no_template": {
+   "label": "No template on file yet",
+   "detail": {
+    "what": "The entity has not submitted a template, so there is nothing to check.",
+    "next": "Upload the template on the Intake screen, or wait for the entity to submit it through its portal."
+   }
+  },
+  "supervision.plausibility.entity_level_missing": {
+   "label": "Entity's at-risk threshold not stated",
+   "detail": {
+    "what": "The entity has not stated the at-risk threshold its template was computed on, in its submission or in its methodology on the platform.",
+    "why": "Its share of sensitive exposure cannot be judged on a definition it did not state.",
+    "next": "Ask the entity to state its threshold with its next submission."
+   }
+  },
+  "supervision.plausibility.rule.land": {
+   "label": "How a cell is judged",
+   "detail": {
+    "what": "A cell is within range when the entity's share of {measure} sensitive to physical risk lies inside the typical range for its country: the middle half of its regions (25th to 75th percentile), each region's share being its land at or above the entity's at-risk threshold ({level}).",
+    "why": "The range comes from the platform's own hazard scores of the land in each region, every scored area counting once. It depends on location only: the sector does not move it.",
+    "next": "A cell without {measure}, or a country with too few scored regions, is not judged. Raise a cell outside the range with the entity."
+   }
+  },
+  "supervision.plausibility.rule.population": {
+   "label": "How a cell is judged",
+   "detail": {
+    "what": "A cell is within range when the entity's share of {measure} sensitive to physical risk lies inside the typical range for its country: the middle half of its regions (25th to 75th percentile), each region's share being its {measure} at or above the entity's at-risk threshold ({level}).",
+    "why": "The range comes from the {measure} of the other {entities} supervised entities of the sector, each located point weighted by its amount; the entity under review is left out. It depends on location only: the sector does not move it.",
+    "next": "A cell without {measure}, or a country with too few scored regions, is not judged. Raise a cell outside the range with the entity."
+   }
+  },
+  "supervision.plausibility.basis.stated": {
+   "label": "Judged at the entity's stated basis",
+   "detail": {
+    "what": "The template is judged at the scenario and year the entity states with its submission."
+   }
+  },
+  "supervision.plausibility.basis.chosen": {
+   "label": "Judged at the basis you chose",
+   "detail": {
+    "what": "The template is judged at the scenario and year selected here, which may differ from the ones the entity states."
+   }
+  },
+  "supervision.plausibility.basis.default": {
+   "label": "Judged at your default basis",
+   "detail": {
+    "what": "The entity states no scenario and year with its submission, so the template is judged at your supervision profile's default."
+   }
+  },
+  "supervision.plausibility.basis.fallback": {
+   "label": "Judged at another basis",
+   "detail": {
+    "what": "There is no regional range at {wanted}, so the template is judged at {used} instead.",
+    "next": "Choose another scenario and year above."
+   }
+  },
+  "supervision.plausibility.reason.within": {
+   "label": "Within the regional range",
+   "detail": {
+    "what": "The filed share, {share}, lies inside the typical range for the country's regions ({low} to {high})."
+   }
+  },
+  "supervision.plausibility.reason.above": {
+   "label": "Above the regional range",
+   "detail": {
+    "what": "The filed share, {share}, lies above the typical range for the country's regions ({low} to {high}).",
+    "why": "Either the entity's exposure sits in the country's riskiest regions, or its sensitivity is overstated.",
+    "next": "Raise it with the entity to find out which."
+   }
+  },
+  "supervision.plausibility.reason.below": {
+   "label": "Below the regional range",
+   "detail": {
+    "what": "The filed share, {share}, lies below the typical range for the country's regions ({low} to {high}).",
+    "why": "Either the entity's exposure avoids the country's most exposed regions, or its sensitivity is understated.",
+    "next": "Raise it with the entity to find out which."
+   }
+  },
+  "supervision.plausibility.reason.no_measure": {
+   "label": "No amount filed",
+   "detail": {
+    "what": "The cell has no {measure}, so its share cannot be judged."
+   }
+  },
+  "supervision.plausibility.reason.no_reference": {
+   "label": "Too few scored regions",
+   "detail": {
+    "what": "The country has too few scored regions to form a range, so the cell is not judged. Nothing is estimated in its place."
+   }
+  },
+  "supervision.plausibility.trend": {
+   "label": "Across years",
+   "detail": {
+    "what": "The entity's own filed share of sensitive exposure for each year on file, and each cell's change since the year before. Each year's quick check is judged at the basis stated for that year.",
+    "why": "With one year on file there is no trend yet; nothing is extrapolated."
+   }
+  },
+  "supervision.analytics.scenario_shift": {
+   "label": "How the scenario chart is built",
+   "detail": {
+    "what": "Each line is the share of the population's exposure at or above your at-risk threshold, at each year, under each scenario. Today and current policies show present-day hazard.",
+    "why": "Under the three warming scenarios, flooding, storms (tropical cyclones) and wildfire move with local climate-model projections (CMIP6); the other hazards move with each model's own response to the scenario, or stay as today where a hazard does not change with the climate."
+   }
+  },
+  "supervision.analytics.anchor_fewer": {
+   "label": "Read on {n} of {total} hazards",
+   "detail": {
+    "what": "At this scenario and year, {n} of the {total} hazards scored today carry a score on the population's locations.",
+    "why": "The at-risk share here counts fewer sources of risk than today's, and the chart is not adjusted for that."
+   }
+  },
+  "supervision.analytics.trend": {
+   "label": "Filed share, latest year against the year before",
+   "detail": {
+    "what": "Each entity's share of sensitive exposure as filed in its template, for its latest year on file and the year before.",
+    "why": "An entity with one year on file shows no change; nothing is extrapolated."
+   }
+  },
+  "supervision.analytics.timeliness": {
+   "label": "Filings against their due dates",
+   "detail": {
+    "what": "Each filing the entities owe, against the due date in their obligations calendar, and how long after the year end its template reached your intake.",
+    "why": "A filing counts as filed when its record in the entity's workspace reached a filed status. The date is that record's last change, not a receipt stamp from your authority."
+   }
+  },
   "reference.release.source.faostat": {
    "label": "FAOSTAT crop production",
    "detail": {

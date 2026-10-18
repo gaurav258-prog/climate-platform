@@ -1,137 +1,136 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { api } from '../lib/api'
-import { hazardLabel, horizonLabel, scenarioLabel } from '../lib/hazards'
-import { Card, PageHeader, StatGrid } from '../components/ui'
+import { Ruler } from 'lucide-react'
+import { api, apiMessage } from '../lib/api'
 import { money } from '../lib/money'
 import { pressable } from '../lib/pressable'
-import MethodGap from '../components/MethodGap'
+import { SCENARIO_LABEL, horizonLabel } from '../lib/hazards'
+import { Card, PageHeader, SectionHead, StatGrid } from '../components/ui'
+import { StatusChip } from '../components/StatusChip'
+import { HEADING, InfoButton, MessageLine, messageDetails, type Message } from '../components/Details'
+import { BackToEntity, CheckSwitch, QUICK, RaiseLink, TWO_CHECKS, cellName, pct } from './supervisorAnalysis/checks'
+import { BandBar, CellDialog, VERDICT, type Row, type Verdict } from './supervisorAnalysis/RangeCell'
+import { AcrossYears, type Trend } from './supervisorAnalysis/AcrossYears'
 
-// Tier 1: the submitted template judged against what the platform's own hazard layers say about each geography —
-// no granular data needed. A cell is plausible when its sensitive share sits inside the spread of that share across
-// the geography's regions. The band is location-only and says so. No reference → no verdict, never a guess.
-interface Band { p10: number; p25: number; p50: number; p75: number; p90: number; share_sensitive_pct: number; n_cells: number; n_regions: number; hazard_mix: Record<string, number>; built_at: string; at_risk_level: number | null }
-interface Row { key: string; geography: string; sector: string; gross_carrying_amount_eur: number | null; sensitive_physical_eur: number | null; submitted_share_pct: number | null
-  band: Band | null; verdict: 'plausible' | 'above_band' | 'below_band' | 'no_reference'; verdict_label: string; reason: string }
-interface TrendResp { periods: { period_label: string; received_at: string; gross_eur: number; sensitive_eur: number; share_pct: number | null; basis: { scenario: string; horizon: string; stated: boolean }; tier1_counts: Record<string, number> | null }[]
-  cells: { key: string; geography: string; sector: string; share_pct: Record<string, number | null>; gross_eur: Record<string, number>; change_pp: number | null; moved: boolean; in_periods: string[] }[]
-  labels: string[]; latest: string | null; previous: string | null; change_pp: number | null; n_moved: number; note: string }
-interface ExposureMeasure { cell_field: string; label: string; prior: string; prior_label: string; n_cells_without_measure: number }
-interface Resp { entity_org_id: string; period_label: string | null; source_file: string | null; stated_basis: { scenario: string; horizon: string } | null
-  status?: 'gap'; gap?: string; at_risk_level?: number; at_risk_level_from?: 'submission' | 'entity_method' 
-  scenario: string; horizon: string; basis_note: string; bases_available: { scenario: string; horizon: string }[]
-  rows: Row[]; counts: Record<Row['verdict'], number>; n_cells: number; coverage_value_pct: number | null; rule: string; exposure_measure: ExposureMeasure }
-const VC: Record<Row['verdict'], string> = { plausible: 'var(--color-good)', above_band: 'var(--color-warn)', below_band: 'var(--color-warn)', no_reference: 'var(--color-faint)' }
-
-function BandBar({ r }: { r: Row }) {
-  if (!r.band) return <span className="mono text-[10.5px] text-[var(--color-faint)]">no reference</span>
-  const b = r.band; const x = (v: number) => `${Math.max(0, Math.min(100, v))}%`
-  return (
-    <div className="relative h-4 w-40 rounded bg-[var(--color-bg-2)]" title={`regional spread p10 ${b.p10}% · median ${b.p50}% · p90 ${b.p90}% · ${b.n_regions} regions · ${b.n_cells.toLocaleString()} scored cells`}>
-      <div className="absolute top-0 h-full rounded bg-[var(--color-sky)]/12" style={{ left: x(b.p10), width: `${Math.max(1, b.p90 - b.p10)}%` }} />
-      <div className="absolute top-0 h-full rounded bg-[var(--color-sky)]/35" style={{ left: x(b.p25), width: `${Math.max(1, b.p75 - b.p25)}%` }} />
-      <div className="absolute top-0 h-full w-px bg-[var(--color-sky)]" style={{ left: x(b.p50) }} />
-      {r.submitted_share_pct != null && <div className="absolute top-[2px] h-3 w-[3px] rounded-sm" style={{ left: x(r.submitted_share_pct), background: VC[r.verdict] }} />}
-    </div>
-  )
+// The quick check (the plausibility band), to the UI standard (2026-10-16): the entity's filed template judged with no
+// granular data at all — each cell's share of sensitive exposure against the typical range for its country's regions.
+// The main screen is the counts, one range bar per cell and a slope chart across years; the method, the percentiles
+// and a cell's reference open one click away, in the server's catalogue words.
+interface Resp {
+  entity_name: string | null; period_label: string | null; status?: 'gap' | 'no_submission'; message?: Message
+  scenario: string; horizon: string; basis_note: Message; bases_available: { scenario: string; horizon: string }[]
+  at_risk_level: number; at_risk_level_from: 'submission' | 'entity_method'
+  rows: Row[]; counts: Record<Verdict, number>; n_cells: number; coverage_value_pct: number | null; rule: Message
+  exposure_measure: { label: string; n_cells_without_measure: number }
 }
+
+const ABOUT = [
+  { heading: HEADING.shows, body: 'Each cell of the template the entity filed — its share of exposure sensitive to physical risk — against the typical range of that share across its country’s regions, read from the platform’s hazard scores at the same basis and threshold.' },
+  { heading: HEADING.read, body: 'A share inside the range is within range. Above or below it is a question for the entity, not a finding: its exposure may sit in the riskiest or the safest regions, or its sensitivity may be overstated or understated.' },
+  TWO_CHECKS,
+  { heading: HEADING.sources, body: 'The template, as filed. The platform’s hazard scores of the land in each region of the country.' },
+  { heading: HEADING.limits, body: 'The range depends on location only: the sector does not move it. A country with too few scored regions gets no range, and its cells are not judged; nothing is estimated in their place.' },
+]
+const FILTERS: (Verdict | 'all')[] = ['all', 'above_band', 'below_band', 'plausible', 'no_reference']
 
 export default function SupervisorPlausibility() {
   const { orgId = '' } = useParams()
   const [params, setParams] = useSearchParams()
-  const sc = params.get('scenario') ?? ''; const hz = params.get('horizon') ?? ''
-  const q = useQuery({ queryKey: ['sup-plausibility', orgId, sc, hz], queryFn: () => api.get<Resp>(`/v1/supervisor/entity/${orgId}/plausibility${sc || hz ? `?${new URLSearchParams({ ...(sc ? { scenario: sc } : {}), ...(hz ? { horizon: hz } : {}) })}` : ''}`) })
-  const [open, setOpen] = useState<string | null>(null)
-  const tr = useQuery({ queryKey: ['sup-trend-entity', orgId], queryFn: () => api.get<TrendResp>(`/v1/supervisor/entity/${orgId}/trend`) })
-  const gap = q.data?.status === 'gap' ? q.data.gap : undefined
-  const d = gap ? undefined : q.data
+  const sc = params.get('scenario') ?? '', hz = params.get('horizon') ?? ''
+  const q = useQuery({
+    queryKey: ['sup-plausibility', orgId, sc, hz], retry: false,
+    queryFn: () => api.get<Resp>(`/v1/supervisor/entity/${orgId}/plausibility${sc || hz ? `?${new URLSearchParams({ ...(sc ? { scenario: sc } : {}), ...(hz ? { horizon: hz } : {}) })}` : ''}`),
+  })
+  const tr = useQuery({ queryKey: ['sup-trend-entity', orgId], queryFn: () => api.get<Trend>(`/v1/supervisor/entity/${orgId}/trend`) })
+  const [filter, setFilter] = useState<Verdict | 'all'>('all')
+  const [open, setOpen] = useState<Row | null>(null)
+  const d = q.data
+  const rows = useMemo(() => (d?.rows ?? []).filter(r => filter === 'all' || r.verdict === filter), [d, filter])
   const setBasis = (s: string, h: string) => { const p = new URLSearchParams(params); p.set('scenario', s); p.set('horizon', h); setParams(p) }
+  const header = (
+    <PageHeader eyebrow={QUICK} title={d?.entity_name ?? 'Supervised entity'} lead="Each filed cell against the typical range for its country’s regions."
+      about={ABOUT} actions={<CheckSwitch orgId={orgId} current="quick" />}>
+      {d && !d.status && (
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {d.period_label && <StatusChip tone="neutral" label={d.period_label} />}
+          <StatusChip tone="neutral" label={`Measured on ${d.exposure_measure.label.toLowerCase()}`} />
+          <StatusChip tone="neutral" label={`Entity’s threshold ${d.at_risk_level} · ${d.at_risk_level_from === 'submission' ? 'stated with its template' : 'from its methodology'}`} />
+        </div>)}
+    </PageHeader>)
+  if (q.isLoading) return <Shell orgId={orgId} header={header}><div className="py-10 text-center text-[var(--color-faint)] text-sm">Checking each cell against its region…</div></Shell>
+  if (!d) return <Shell orgId={orgId} header={header}><Card className="p-6 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'The quick check could not be opened.')}</Card></Shell>
+  if (d.status === 'no_submission') return (
+    <Shell orgId={orgId} header={header}>
+      <Card className="p-6 flex flex-wrap items-center gap-4 text-[13.5px]">
+        {d.message && <MessageLine m={d.message} className="text-[var(--color-ink)]" />}
+        <Link to={`/supervised/${orgId}/intake`} className="text-[12.5px] text-[var(--color-sky)] hover:underline">Open Intake</Link>
+      </Card>
+    </Shell>)
+  if (d.status === 'gap') return <Shell orgId={orgId} header={header}><Card className="p-5 text-[13px] text-[var(--color-warn)]">{d.message && <MessageLine m={d.message} />}</Card></Shell>
+  const c = d.counts
+  const scenarios = [...new Set(d.bases_available.map(b => b.scenario))], horizons = [...new Set(d.bases_available.map(b => b.horizon))]
+  const select = 'rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]'
   return (
-    <div className="fadeup space-y-6">
-      <Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
-      <PageHeader eyebrow="Plausibility band · Tier 1 · template only" title={d ? `Submitted template · ${d.period_label ?? ''}` : 'Submitted template'}
-        lead={d ? `${d.basis_note} Basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}${d.stated_basis ? ` (entity stated ${scenarioLabel(d.stated_basis.scenario)} · ${horizonLabel(d.stated_basis.horizon)})` : ''}. Each cell's sensitive share of ${d.exposure_measure.label.toLowerCase()} is judged against the spread of that share across the geography's regions, from ${d.exposure_measure.prior_label}. A verdict outside the band is a question for the entity, not a finding.` : 'Judging each submitted cell against the geography priors…'} />
-      {d && <div className="mono text-[10.5px] text-[var(--color-faint)] -mt-4">Exposure measure: <b className="text-[var(--color-mute)]">{d.exposure_measure.label}</b> · reference: {d.exposure_measure.prior_label}{d.exposure_measure.n_cells_without_measure > 0 ? ` · ${d.exposure_measure.n_cells_without_measure} cell(s) excluded (no ${d.exposure_measure.label.toLowerCase()} submitted)` : ''}</div>}
-      {d?.at_risk_level != null && <div className="mono text-[10.5px] text-[var(--color-faint)] -mt-3">Sensitive = headline at or above the entity's at-risk level <b className="text-[var(--color-mute)]">{d.at_risk_level}</b> ({d.at_risk_level_from === 'submission' ? 'stated with its submission' : 'its stated method on the platform'}) — the reference is read at the same level.</div>}
-      {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">judging each cell against its geography…</div>
-        : gap ? <MethodGap gap={gap} what="Plausibility band" />
-        : !d ? <Card className="p-5 text-[13px] text-[var(--color-mute)]">No submitted template on file for this entity yet. <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Ingest it →</Link></Card> : (<>
-        <StatGrid cols={4} items={[
-          { label: 'Plausible', value: String(d.counts.plausible), sub: `of ${d.n_cells} cells`, accent: 'var(--color-good)' },
-          { label: 'High for the geography', value: String(d.counts.above_band), sub: 'sensitivity above the regional spread', accent: d.counts.above_band ? 'var(--color-warn)' : undefined },
-          { label: 'Low for the geography', value: String(d.counts.below_band), sub: 'sensitivity below the regional spread', accent: d.counts.below_band ? 'var(--color-warn)' : undefined },
-          { label: 'No reference', value: String(d.counts.no_reference), sub: d.coverage_value_pct != null ? `${d.coverage_value_pct}% of ${d.exposure_measure.label.toLowerCase()} judged` : 'not enough scored land' },
-        ]} />
-        <Card className="p-5">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="text-[12px] text-[var(--color-mute)]">Basis</span>
-            {d.bases_available.map(b => <button key={b.scenario + b.horizon} onClick={() => setBasis(b.scenario, b.horizon)} className={`mono text-[10.5px] px-2 py-1 rounded border ${b.scenario === d.scenario && b.horizon === d.horizon ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line)] text-[var(--color-mute)]'}`}>{scenarioLabel(b.scenario)} · {horizonLabel(b.horizon)}</button>)}
-            <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">band = p25–p75 of the regional share (faint: p10–p90) · marker = submitted share · line = median</span>
+    <Shell orgId={orgId} header={header}>
+      <div className="flex flex-wrap items-center gap-3">
+        <select value={d.scenario} onChange={e => setBasis(e.target.value, d.horizon)} aria-label="Scenario" className={select}>
+          {scenarios.map(s => <option key={s} value={s}>{SCENARIO_LABEL[s] ?? 'Scenario'}</option>)}
+        </select>
+        <select value={d.horizon} onChange={e => setBasis(d.scenario, e.target.value)} aria-label="Year" className={select}>
+          {horizons.map(h => <option key={h} value={h}>{horizonLabel(h)}</option>)}
+        </select>
+        <span className="text-[12.5px] text-[var(--color-mute)]"><MessageLine m={d.basis_note} /></span>
+      </div>
+      <StatGrid cols={4} items={[
+        { label: VERDICT.above_band.label, value: String(c.above_band), sub: `of ${d.n_cells} cells`, accent: c.above_band ? VERDICT.above_band.color : undefined },
+        { label: VERDICT.below_band.label, value: String(c.below_band), sub: `of ${d.n_cells} cells`, accent: c.below_band ? VERDICT.below_band.color : undefined },
+        { label: VERDICT.plausible.label, value: String(c.plausible), sub: `of ${d.n_cells} cells`, accent: VERDICT.plausible.color },
+        { label: VERDICT.no_reference.label, value: String(c.no_reference), sub: d.coverage_value_pct != null ? `${pct(d.coverage_value_pct)} of the amount judged` : undefined },
+      ]} />
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
+          <SectionHead icon={Ruler}>Each cell against its regional range</SectionHead>
+          <InfoButton compact details={{ title: 'Each cell against its regional range', sections: [
+            { heading: HEADING.read, body: 'The bar is the range of the share across the country’s regions: the darker part is the typical range, the middle half of the regions (25th to 75th percentile); the lighter part the wider range (10th to 90th); the thin line the middle region (median). The marker is the share the entity filed, coloured by the result. Select a cell for its reference.' },
+            ...messageDetails(d.rule).sections,
+          ] }} />
+          <div className="ml-auto flex flex-wrap gap-1">
+            {FILTERS.map(f => (
+              <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
+                className={`px-2.5 py-1 text-[11.5px] rounded-full border ${filter === f ? 'border-[var(--color-sky)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)]'}`}>
+                {f === 'all' ? `All ${d.n_cells}` : `${VERDICT[f].label} ${c[f]}`}
+              </button>))}
           </div>
-          <div className="overflow-x-auto">
-            <table className="data-table w-full text-[12px]">
-              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th className="">Cell</th><th className="num">{d.exposure_measure.label}</th><th className="num">Submitted share</th>
-                <th className="">Regional spread</th><th className="">Verdict</th><th className="">Why</th></tr></thead>
-              <tbody>{d.rows.map(r => (<>
-                <tr key={r.key} {...pressable(() => setOpen(open === r.key ? null : r.key), { row: true, expanded: open === r.key })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === r.key ? 'bg-[var(--color-bg-2)]' : ''}`}>
-                  <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === r.key ? 'rotate-90' : ''}`} />{r.geography} · {r.sector}</td>
-                  <td className="num mono text-[var(--color-mute)]">{money(r.gross_carrying_amount_eur, 'EUR')}</td>
-                  <td className="num mono" style={{ color: VC[r.verdict] }}>{r.submitted_share_pct != null ? `${r.submitted_share_pct}%` : '—'}</td>
-                  <td><BandBar r={r} /></td>
-                  <td><span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: VC[r.verdict], background: `color-mix(in oklab, ${VC[r.verdict]} 15%, transparent)` }}>{r.verdict_label}</span></td>
-                  <td className="text-[11.5px] text-[var(--color-mute)]">{r.reason}{(r.verdict === 'above_band' || r.verdict === 'below_band') && <> <Link onClick={e => e.stopPropagation()} to={`/supervisor/requests?new=1&entity=${orgId}&kind=information_request&geography=${encodeURIComponent(r.geography)}&sector=${encodeURIComponent(r.sector)}&title=${encodeURIComponent(`${r.geography} · ${r.sector}: ${r.verdict_label} — ${r.reason}`)}`} className="text-[var(--color-sky)] hover:underline whitespace-nowrap">raise with the entity →</Link></>}</td>
-                </tr>
-                {open === r.key && (
-                  <tr key={r.key + '-d'}><td colSpan={6} className="p-0"><div className="px-6 py-3 bg-[var(--color-bg-2)] text-[12px] text-[var(--color-mute)] grid md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">As submitted by the entity</div>
-                      {d.exposure_measure.label} <b className="text-[var(--color-ink)]">{money(r.gross_carrying_amount_eur, 'EUR')}</b> · of which sensitive <b className="text-[var(--color-ink)]">{money(r.sensitive_physical_eur, 'EUR')}</b>{r.submitted_share_pct != null ? ` · ${r.submitted_share_pct}%` : ''}
-                      <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.period_label} · {d.source_file ?? 'submitted template'}</div>
-                    </div>
-                    <div>
-                      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">What the geography's own hazard layers say · {scenarioLabel(d.scenario)} · {horizonLabel(d.horizon)}</div>
-                      {r.band ? (<>
-                        {r.band.share_sensitive_pct}% of {r.band.n_cells.toLocaleString()} scored land cells in {r.geography} sit at or above {r.band.at_risk_level}; across its {r.band.n_regions} regions that share runs from {r.band.p10}% (p10) through {r.band.p25}%–{r.band.p75}% (the band) around a median of {r.band.p50}% to {r.band.p90}% (p90).
-                        {Object.keys(r.band.hazard_mix).length > 0 && <div className="mt-1">Behind the sensitive cells: {Object.entries(r.band.hazard_mix).map(([h, n]) => `${hazardLabel(h)} ${n.toLocaleString()}`).join(' · ')}</div>}
-                        <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">priors built {r.band.built_at.slice(0, 10)} · location-only: the sector does not move the band</div>
-                      </>) : 'Not enough scored land in this geography to form a band — no verdict is given.'}
-                    </div>
-                  </div></td></tr>)}
-              </>))}</tbody>
-            </table>
-          </div>
-          <div className="mt-3 text-[11.5px] text-[var(--color-faint)]">{d.rule}</div>
-        </Card>
-        {tr.data && tr.data.periods.length > 0 && (
-          <Card className="p-5">
-            <div className="text-[14px] font-semibold mb-1">Across periods · {tr.data.labels.join(' → ')}</div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-3">{tr.data.note}</div>
-            <div className="flex flex-wrap gap-4 mb-3">
-              {tr.data.periods.map(p => (
-                <div key={p.period_label} className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
-                  <div className="mono text-[10.5px] text-[var(--color-faint)]">{p.period_label} · received {p.received_at.slice(0, 10)} · {scenarioLabel(p.basis.scenario)} · {horizonLabel(p.basis.horizon)}{p.basis.stated ? '' : ' (no basis stated)'}</div>
-                  <div className="text-[var(--color-ink)]">{money(p.gross_eur, 'EUR')} gross · sensitive share <b>{p.share_pct != null ? `${p.share_pct}%` : '—'}</b></div>
-                  {p.tier1_counts && <div className="mono text-[10.5px] text-[var(--color-faint)]">Tier 1: {p.tier1_counts.plausible} plausible · {p.tier1_counts.above_band} high · {p.tier1_counts.below_band} low · {p.tier1_counts.no_reference} no reference</div>}
-                </div>))}
-              {tr.data.change_pp != null && <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]"><div className="mono text-[10.5px] text-[var(--color-faint)]">change {tr.data.previous} → {tr.data.latest}</div><div className="text-[var(--color-ink)]"><b style={{ color: Math.abs(tr.data.change_pp) > 10 ? 'var(--color-warn)' : 'var(--color-ink)' }}>{tr.data.change_pp > 0 ? '+' : ''}{tr.data.change_pp} pp</b> · {tr.data.n_moved} cells moved more than 10 pp</div></div>}
-            </div>
-            {tr.data.labels.length >= 2 && (
-              <div className="overflow-x-auto">
-                <table className="data-table w-full text-[12px]">
-                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="">Cell</th>{tr.data.labels.map(l => <th key={l} className="num">{l}</th>)}<th className="num">Change</th></tr></thead>
-                  <tbody>{tr.data.cells.slice(0, 40).map(c => (
-                    <tr key={c.key} className="border-t border-[var(--color-line)]">
-                      <td className="text-[var(--color-ink)] whitespace-nowrap">{c.geography} · {c.sector}</td>
-                      {tr.data!.labels.map(l => <td key={l} className="pr-3 text-right mono text-[var(--color-mute)]">{c.share_pct[l] != null ? `${c.share_pct[l]}%` : <span className="text-[var(--color-faint)]">not in template</span>}</td>)}
-                      <td className="num mono" style={{ color: c.moved ? 'var(--color-warn)' : 'var(--color-faint)' }}>{c.change_pp != null ? `${c.change_pp > 0 ? '+' : ''}${c.change_pp} pp` : '—'}</td>
-                    </tr>))}</tbody>
-                </table>
-              </div>)}
-          </Card>)}
-      </>)}
-    </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px] tabular-nums">
+            <thead><tr className="text-left text-[var(--color-mute)] border-b border-[var(--color-line)]">
+              <th className="py-1.5 pr-3 font-medium">Cell</th><th className="pr-3 font-medium text-right">{d.exposure_measure.label}</th>
+              <th className="pr-3 font-medium text-right">Filed share</th><th className="pr-3 font-medium">Regional range</th><th className="pr-3 font-medium">Result</th><th />
+            </tr></thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.key} {...pressable(() => setOpen(r), { row: true })} className="border-b border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel-2)]">
+                  <td className="py-1.5 pr-3 text-[var(--color-ink)] max-w-[16rem] truncate" title={cellName(r)}>{cellName(r)}</td>
+                  <td className="pr-3 text-right text-[var(--color-mute)]">{money(r.exposure_eur, 'EUR')}</td>
+                  <td className="pr-3 text-right" style={{ color: VERDICT[r.verdict].color }}>{pct(r.submitted_share_pct)}</td>
+                  <td className="pr-3"><BandBar r={r} /></td>
+                  <td className="pr-3"><StatusChip tone={VERDICT[r.verdict].tone} label={r.verdict_label} /></td>
+                  <td className="text-right">{(r.verdict === 'above_band' || r.verdict === 'below_band') && <RaiseLink orgId={orgId} cell={r} why={r.reason.label} short />}</td>
+                </tr>))}
+            </tbody>
+          </table>
+          {rows.length === 0 && <div className="text-[12.5px] text-[var(--color-faint)] py-6 text-center">No cells with this result.</div>}
+        </div>
+      </Card>
+      {tr.data && tr.data.periods.length > 0 && <AcrossYears t={tr.data} />}
+      {open && <CellDialog r={open} orgId={orgId} measure={d.exposure_measure.label} onClose={() => setOpen(null)} />}
+    </Shell>
   )
 }
+
+function Shell({ orgId, header, children }: { orgId: string; header: React.ReactNode; children: React.ReactNode }) {
+  return <div className="fadeup space-y-6"><BackToEntity orgId={orgId} />{header}{children}</div>
+}
+

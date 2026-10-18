@@ -135,8 +135,8 @@ def country_label(code: Optional[str]) -> Optional[str]:
     no ISO code (sovereignty unsettled) by the land layer's own English name. None for no code."""
     if not code:
         return None
-    from services.reference.countries import country_name
-    return country_name(_iso3_by_code().get(code)) or (_country_props().get(code) or {}).get("NAME_ENGL")
+    from services.reference.countries import english_name
+    return english_name(_iso3_by_code().get(code)) or (_country_props().get(code) or {}).get("NAME_ENGL")
 
 
 def iso3_of(lat: float, lon: float) -> Optional[str]:

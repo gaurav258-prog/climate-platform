@@ -27,8 +27,8 @@ def map_name(layer_key: str) -> str:
 
 
 def country_name(iso2: str) -> str:
-    from services.reference.countries import country_name as _name
-    return _name(iso2) or iso2
+    from services.reference.countries import english_name
+    return english_name(iso2) or iso2
 
 
 def intensity(samples: dict, layer_key: str) -> Optional[dict]:

@@ -15,6 +15,9 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages
+from services.supervision.cell_labels import named
+
 FILED = ("submitted", "accepted", "approved", "attested", "released")
 MOVE_PP = 10.0    # a cell's share moving more than this between periods is worth a look
 
@@ -44,7 +47,7 @@ def pivot_cells(periods: list[dict]) -> list[dict]:
     rows: dict[str, dict] = {}
     for p in periods:
         for key, c in (p["cells"] or {}).items():
-            r = rows.setdefault(key, {"key": key, "geography": c.get("geography"), "sector": c.get("sector"), "share_pct": {}, "gross_eur": {}})
+            r = rows.setdefault(key, {"key": key, **named({"geography": c.get("geography"), "sector": c.get("sector")}), "share_pct": {}, "gross_eur": {}})
             g = float(c.get("gross_carrying_amount_eur") or 0)
             r["gross_eur"][p["period_label"]] = round(g)
             r["share_pct"][p["period_label"]] = round(100.0 * float(c.get("sensitive_physical_eur") or 0) / g, 1) if g else None
@@ -84,9 +87,7 @@ def entity_trend(session, regulator_org_id: str, subject_org_id: str, spec: dict
     return {"periods": periods, "cells": cells, "labels": [p["period_label"] for p in periods],
             "latest": latest["period_label"] if latest else None, "previous": prev["period_label"] if prev else None,
             "change_pp": (round(latest["share_pct"] - prev["share_pct"], 1) if latest and prev and latest["share_pct"] is not None and prev["share_pct"] is not None else None),
-            "n_moved": sum(1 for c in cells if c["moved"]),
-            "note": "Shares are the entity's own submitted figures per period; the Tier-1 verdicts are judged at each period's stated basis. "
-                    "One period on file means no trend yet — nothing is extrapolated."}
+            "n_moved": sum(1 for c in cells if c["moved"]), "move_pp": MOVE_PP, "note": messages.render("supervision.plausibility.trend")}
 
 
 def population_trend(session, regulator_org_id: str, entities: list[dict], cfg: dict) -> dict:
@@ -106,7 +107,7 @@ def population_trend(session, regulator_org_id: str, entities: list[dict], cfg: 
                      "change_pp": (round(latest[1] - prev[1], 1) if latest[1] is not None and prev[1] is not None else None)})
     rows.sort(key=lambda r: -(abs(r["change_pp"]) if r["change_pp"] is not None else -1))
     return {"entities": rows, "n_with_trend": sum(1 for r in rows if r["change_pp"] is not None),
-            "note": "Sensitive share of the submitted template, latest period against the previous one. Entities with one period on file show no change."}
+            "note": messages.render("supervision.analytics.trend")}
 
 
 def classify(due: Optional[date], filed_at: Optional[date], today: Optional[date] = None) -> tuple[str, Optional[int]]:
@@ -165,8 +166,7 @@ def timeliness(session, regulator_org_id: str, entities: list[dict], cfg: dict) 
     rows.sort(key=lambda r: (order.get(r["state"], 9), -(r["days"] or 0)))
     summary = {k: sum(1 for r in rows if r["state"] == k) for k in order}
     return {"rows": rows, "summary": summary, "as_of": datetime.now(timezone.utc).date().isoformat(),
-            "note": "A filing counts as released when its record reached a filed status in the entity's workspace; the moment shown is that record's "
-                    "last change, not a receipt stamp from the authority. Due dates come from the entity's obligations calendar."}
+            "note": messages.render("supervision.analytics.timeliness")}
 
 
 def anchor_coverage(session, entities: list[dict]) -> dict:
@@ -181,8 +181,9 @@ def anchor_coverage(session, entities: list[dict]) -> dict:
           AND c.h3_cell IN (SELECT DISTINCT h3_cell FROM portfolio_entities WHERE org_id = ANY(CAST(:ids AS uuid[])) AND h3_cell IS NOT NULL)
         GROUP BY 1, 2
     """), {"ids": ids}).mappings().all()
-    today = next((r["n"] for r in rows if r["scenario"] == "baseline" and r["time_horizon"] == "current"), 0)
-    return {"anchors": [{"scenario": r["scenario"], "horizon": r["time_horizon"], "hazards": int(r["n"]), "hazard_list": sorted(r["hazards"])} for r in rows],
-            "hazards_today": int(today),
-            "note": "Number of hazards carrying a standing score at each scenario × horizon on the population's cells. Anchors with fewer hazards than today "
-                    "are read on fewer channels — the chart says so rather than pretending the anchors are alike."}
+    today = int(next((r["n"] for r in rows if r["scenario"] == "baseline" and r["time_horizon"] == "current"), 0))
+    # an anchor read on fewer hazards than today counts fewer sources of risk: it says so, in the reader's words
+    return {"anchors": [{"scenario": r["scenario"], "horizon": r["time_horizon"], "hazards": int(r["n"]), "hazard_list": sorted(r["hazards"]),
+                         "message": (messages.render("supervision.analytics.anchor_fewer", n=int(r["n"]), total=today)
+                                     if int(r["n"]) < today else None)} for r in rows],
+            "hazards_today": today}

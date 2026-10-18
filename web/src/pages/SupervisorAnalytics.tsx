@@ -5,29 +5,38 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceL
 import { api } from '../lib/api'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
-import { SCENARIO_LABEL } from '../lib/hazards'
+import { SCENARIO_LABEL, hazardLabel, horizonLabel } from '../lib/hazards'
 import { balance } from '../lib/money'
 import { pressable } from '../lib/pressable'
+import { HEADING, InfoButton, MessageLine, messageDetails, type DetailSection, type Message } from '../components/Details'
 import MethodGap from '../components/MethodGap'
+import { Timeliness, type TimelinessResp } from './supervisorAnalysis/Timeliness'
 
-// The horizontal risk analyst's workbench. Every chart is an engine figure under one basis; precision is
-// labelled; projections say which part of the at-risk value actually moves with the scenario.
-interface TrendResp { entities: { org_id: string; name: string; periods: string[]; latest_period: string | null; latest_share_pct: number | null; previous_period: string | null; previous_share_pct: number | null; change_pp: number | null }[]; n_with_trend: number; note: string }
-interface TimelinessResp { rows: { org_id: string; name: string; framework_label: string; period_label: string; due_date: string | null; status: string | null; filed_at: string | null; state: string; days: number | null; intake_received_at: string | null; intake_lag_days: number | null }[]; summary: Record<string, number>; as_of: string; note: string }
-const STATE_LABEL: Record<string, string> = { outstanding_overdue: 'Outstanding · overdue', filed_late: 'Filed late', not_yet_due: 'Not yet due', filed_on_time: 'Filed on time', filed: 'Filed', no_due_date: 'No due date on record' }
-const STATE_COLOR: Record<string, string> = { outstanding_overdue: 'var(--color-bad)', filed_late: 'var(--color-warn)', not_yet_due: 'var(--color-mute)', filed_on_time: 'var(--color-good)', filed: 'var(--color-good)', no_due_date: 'var(--color-faint)' }
+// The horizontal risk analyst's workbench, to the UI standard (2026-10-16): charts first — where the population's
+// exposure sits, how it shifts by scenario, which hazards lead it, how filings and filed shares move — with each
+// chart's method one click away in the server's catalogue words.
+interface TrendResp { entities: { org_id: string; name: string; latest_period: string | null; latest_share_pct: number | null; previous_period: string | null; previous_share_pct: number | null; change_pp: number | null }[]; note: Message }
 interface Region { key: string; name: string; country: string | null; kind: string; value_eur: number; n_sites: number; max_score: number | null; worst_hazard: string | null; entities: string[] }
-interface Resp { scenario: string; horizon: string; profile_id: string; n_entities: number; n_assets: number; precision: string; at_risk_level: number | null; gap?: string
+interface Anchor { scenario: string; horizon: string; hazards: number; hazard_list: string[]; message: Message | null }
+interface Resp { scenario: string; horizon: string; n_entities: number; n_assets: number; precision: string; at_risk_level: number | null; gap?: string
   concentration: { total_value_eur: number; unlocated_value_eur: number; n_regions: number; top10_share_pct: number | null; by_region: Region[]
     curve: { rank: number; cum_share_pct: number }[]; by_hazard: { hazard: string; value_eur: number; high_value_eur: number | null; n: number }[] }
-  scenario_shift: { scenarios: string[]; horizons: string[]; note: string
+  scenario_shift: { scenarios: string[]; horizons: string[]; note: Message
     cells: { scenario: string; horizon: string; value_eur: number | null; high_risk_value_eur: number | null; high_risk_share_pct: number | null; projected_share_of_high_pct: number | null }[] }
-  anchor_coverage: { anchors: { scenario: string; horizon: string; hazards: number; hazard_list: string[] }[]; hazards_today: number; note: string }
+  anchor_coverage: { anchors: Anchor[]; hazards_today: number }
   distribution: Record<string, { label: string; n_entities: number; metrics: { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
     distribution: { n: number; median?: number }; entities: { org_id: string; name: string; value: number | null; flag: string }[] }[] }> }
-const SCEN_LABEL = SCENARIO_LABEL
 const SCEN_COLOR: Record<string, string> = { baseline: '#888780', orderly_1_5c: '#1D9E75', disorderly_2c: '#EF9F27', hot_house_3_5c: '#E24B4A' }
 const FLAGC: Record<string, string> = { act: '#E24B4A', watch: '#EF9F27', ok: '#639922', na: '#B4B2A9' }
+const scen = (s: string) => SCENARIO_LABEL[s] ?? 'Scenario'
+const hazard = (h: string) => h === 'unscored' ? 'Not scored' : hazardLabel(h)
+
+const ABOUT = [
+  { heading: HEADING.shows, body: 'Your supervised population as one book: where its exposure sits by region and by hazard, how the share at or above your at-risk threshold shifts by scenario and year, how each entity’s filed share moves, whether filings arrive on time, and where each entity sits against your supervision profile’s expectations.' },
+  { heading: HEADING.read, body: 'Every chart reads the same scenario and year, chosen above, and your own at-risk threshold, so entities are compared on one definition. Select a region, an entity or a filing to open it.' },
+  { heading: HEADING.sources, body: 'The entities’ own portfolios on the platform, located to the point, and the platform’s hazard scores. Filed shares come from the templates on file; timeliness from the entities’ obligations calendars and filing records.' },
+  { heading: HEADING.limits, body: 'Exposure without a location is counted in the total and shown apart, never placed on the map. Nothing is estimated where data is missing.' },
+]
 
 function downloadCsv(name: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return
@@ -37,10 +46,21 @@ function downloadCsv(name: string, rows: Record<string, unknown>[]) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `${name}.csv`; a.click(); URL.revokeObjectURL(a.href)
 }
 function CsvBtn({ name, rows }: { name: string; rows: Record<string, unknown>[] }) {
-  return <button onClick={() => downloadCsv(name, rows)} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-sky)]" title="Download this chart's data as CSV">CSV ↓</button>
+  return <button onClick={() => downloadCsv(name, rows)} className="text-[11.5px] text-[var(--color-faint)] hover:text-[var(--color-sky)]" title="Download this chart’s data as CSV">CSV ↓</button>
 }
 
-function TreeTile(p: { x?: number; y?: number; width?: number; height?: number; name?: string; max_score?: number | null; value?: number; key?: string; regionKey?: string; onOpen?: (key: string) => void }) {
+// A chart card: its title, the ⓘ with how to read it, and its CSV.
+function ChartHead({ title, sections, csv }: { title: string; sections: DetailSection[]; csv?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="text-[14px] font-semibold">{title}</div>
+      <InfoButton compact details={{ title, sections }} />
+      <span className="ml-auto">{csv}</span>
+    </div>
+  )
+}
+
+function TreeTile(p: { x?: number; y?: number; width?: number; height?: number; name?: string; max_score?: number | null; value?: number; regionKey?: string; onOpen?: (key: string) => void }) {
   const { x = 0, y = 0, width = 0, height = 0, name = '', max_score = null, value = 0, regionKey = '', onOpen } = p
   if (width < 4 || height < 4) return null
   return (
@@ -58,42 +78,45 @@ export default function SupervisorAnalytics() {
   const tq = useQuery({ queryKey: ['sup-trend'], queryFn: () => api.get<TrendResp>('/v1/supervisor/trend') })
   const tl = useQuery({ queryKey: ['sup-timeliness'], queryFn: () => api.get<TimelinessResp>('/v1/supervisor/timeliness') })
   const d = q.data
-  const cov = useMemo(() => d?.anchor_coverage.anchors.find(a => a.scenario === scenario && a.horizon === horizon) ?? null, [d, scenario, horizon])
+  const anchor = useMemo(() => d?.anchor_coverage.anchors.find(a => a.scenario === scenario && a.horizon === horizon) ?? null, [d, scenario, horizon])
   const tree = useMemo(() => (d?.concentration.by_region ?? []).slice(0, 40).map(r => ({ name: r.name, size: r.value_eur, value: r.value_eur, max_score: r.max_score, regionKey: r.key })), [d])
   const shift = useMemo(() => {
     if (!d) return []
     return d.scenario_shift.horizons.map(h => {
-      const row: Record<string, number | string | null> = { horizon: h === 'current' ? 'today' : h }
-      for (const s of d.scenario_shift.scenarios) { const c = d.scenario_shift.cells.find(x => x.scenario === s && x.horizon === h); row[s] = c?.high_risk_share_pct ?? null; row[s + '_proj'] = c?.projected_share_of_high_pct ?? null }
+      const row: Record<string, number | string | null> = { horizon: horizonLabel(h) }
+      for (const s of d.scenario_shift.scenarios) row[s] = d.scenario_shift.cells.find(x => x.scenario === s && x.horizon === h)?.high_risk_share_pct ?? null
       return row
     })
   }, [d])
+  const projected = d?.scenario_shift.cells.find(c => c.scenario === scenario && c.horizon === horizon)?.projected_share_of_high_pct ?? null
+  const select = 'ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none'
   return (
     <div className="fadeup space-y-6">
-      <PageHeader eyebrow={`Analytics${d ? ` · ${d.precision}` : ''}`} title="The population, analysed"
-        lead="Concentration, scenario shift and the distribution of your metrics across entities — engine figures under one basis, precision labelled, projections with the part that actually moves." />
+      <PageHeader eyebrow="Analytics" title="Your population" lead="Where your population’s exposure sits, and how it shifts by scenario." about={ABOUT} />
       {d?.gap && <MethodGap gap={d.gap} what="At-risk analytics" />}
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-[12px] text-[var(--color-mute)]">Scenario
-          <select value={scenario} onChange={e => setScenario(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
-            {Object.entries(SCEN_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        <label className="text-[12px] text-[var(--color-mute)]">Horizon
-          <select value={horizon} onChange={e => setHorizon(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
-            {['current', '2030', '2050', '2100'].map(h => <option key={h} value={h}>{h === 'current' ? 'today' : h}</option>)}</select></label>
-        {d && <span className="mono text-[11px] text-[var(--color-faint)]">{d.n_entities} entities · {d.n_assets.toLocaleString()} assets · {balance(d.concentration.total_value_eur)}</span>}
+          <select value={scenario} onChange={e => setScenario(e.target.value)} className={select}>
+            {Object.entries(SCENARIO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+        <label className="text-[12px] text-[var(--color-mute)]">Year
+          <select value={horizon} onChange={e => setHorizon(e.target.value)} className={select}>
+            {['current', '2030', '2050', '2100'].map(h => <option key={h} value={h}>{horizonLabel(h)}</option>)}</select></label>
+        {d && <span className="text-[12px] text-[var(--color-faint)] tabular-nums">{d.n_entities} entities · {d.n_assets.toLocaleString()} assets · {balance(d.concentration.total_value_eur)}</span>}
+        {anchor?.message && <span className="text-[12px] text-[var(--color-warn)]"><MessageLine m={anchor.message} /></span>}
       </div>
-      {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">computing across the population…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load analytics.</div> : (<>
+      {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">Computing across the population…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">The analytics could not be loaded.</div> : (<>
         <StatGrid cols={4} items={[
-          { label: 'Regions with exposure', value: String(d.concentration.n_regions), sub: 'NUTS-3 · hexagons outside EU' },
-          { label: 'Top-10 regions hold', value: d.concentration.top10_share_pct != null ? `${d.concentration.top10_share_pct}%` : '—', sub: 'of located exposure', accent: (d.concentration.top10_share_pct ?? 0) > 50 ? 'var(--color-warn)' : undefined },
+          { label: 'Regions with exposure', value: String(d.concentration.n_regions), sub: 'with located exposure' },
+          { label: 'Top 10 regions hold', value: d.concentration.top10_share_pct != null ? `${d.concentration.top10_share_pct}%` : '—', sub: 'of located exposure', accent: (d.concentration.top10_share_pct ?? 0) > 50 ? 'var(--color-warn)' : undefined },
           { label: 'Largest region', value: d.concentration.by_region[0] ? balance(d.concentration.by_region[0].value_eur) : '—', sub: d.concentration.by_region[0]?.name ?? '' },
-          { label: 'Unlocated exposure', value: balance(d.concentration.unlocated_value_eur), sub: 'no coordinates — not on the map' },
+          { label: 'Exposure without a location', value: balance(d.concentration.unlocated_value_eur), sub: 'not on the map' },
         ]} />
 
         <div className="grid lg:grid-cols-[3fr_2fr] gap-6">
           <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Concentration by region</div><CsvBtn name="concentration_by_region" rows={d.concentration.by_region.map(r => ({ region: r.key, name: r.name, country: r.country, kind: r.kind, value_eur: r.value_eur, n_sites: r.n_sites, max_score: r.max_score, worst_hazard: r.worst_hazard }))} /></div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">tile = exposure, colour = worst headline score in the region · click a tile to open the map on that region</div>
+            <ChartHead title="Concentration by region" csv={<CsvBtn name="concentration_by_region" rows={d.concentration.by_region.map(r => ({ region: r.key, name: r.name, country: r.country, kind: r.kind, value_eur: r.value_eur, n_sites: r.n_sites, max_score: r.max_score, worst_hazard: r.worst_hazard }))} />}
+              sections={[{ heading: HEADING.read, body: 'Each tile is a region; its size is the exposure there, its colour the highest hazard score in the region. The 40 largest regions are shown. Select a tile to open the map on that region.' },
+                { heading: HEADING.limits, body: `Regions are NUTS-3 in Europe and map cells elsewhere. Precision: ${d.precision}.` }]} />
             <div style={{ height: 340 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <Treemap data={tree} dataKey="size" nameKey="name" content={<TreeTile onOpen={(k) => nav(`/supervisor/map?region=${encodeURIComponent(k)}`)} />} isAnimationActive={false} />
@@ -101,15 +124,15 @@ export default function SupervisorAnalytics() {
             </div>
           </Card>
           <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Concentration curve</div><CsvBtn name="concentration_curve" rows={d.concentration.curve} /></div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">cumulative share of exposure by region rank — the steeper, the more concentrated</div>
+            <ChartHead title="Concentration curve" csv={<CsvBtn name="concentration_curve" rows={d.concentration.curve} />}
+              sections={[{ heading: HEADING.read, body: 'The share of all located exposure held by the largest regions, adding one region at a time. The steeper the curve, the more concentrated the population. The dashed line marks the ten largest.' }]} />
             <div style={{ height: 340 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={d.concentration.curve} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" />
-                  <XAxis dataKey="rank" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} label={{ value: 'regions, by size', position: 'insideBottom', offset: -2, fontSize: 11, fill: 'var(--color-faint)' }} />
+                  <XAxis dataKey="rank" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} label={{ value: 'regions, largest first', position: 'insideBottom', offset: -2, fontSize: 11, fill: 'var(--color-faint)' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--color-faint)' }} unit="%" />
-                  <Tooltip formatter={(v) => [`${v}%`, 'cumulative share']} labelFormatter={(l) => `top ${l} regions`} />
+                  <Tooltip formatter={(v) => [`${v}%`, 'Share of exposure']} labelFormatter={(l) => `Largest ${l} regions`} />
                   <ReferenceLine x={10} stroke="var(--color-warn)" strokeDasharray="4 3" label={{ value: 'top 10', fontSize: 10, fill: 'var(--color-warn)' }} />
                   <Line type="monotone" dataKey="cum_share_pct" stroke="var(--color-sky)" strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
@@ -120,43 +143,36 @@ export default function SupervisorAnalytics() {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Scenario shift · share of exposure at risk (your stated level)</div><CsvBtn name="scenario_shift" rows={d.scenario_shift.cells} /></div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{d.scenario_shift.note}</div>
-            <div style={{ height: 300 }}>
+            <ChartHead title="Scenario shift" csv={<CsvBtn name="scenario_shift" rows={d.scenario_shift.cells} />}
+              sections={[...messageDetails(d.scenario_shift.note).sections, {
+                heading: 'Hazards scored', body: d.scenario_shift.scenarios.map(s => `${scen(s)}: ${d.scenario_shift.horizons.map(h => {
+                  const a = d.anchor_coverage.anchors.find(x => x.scenario === s && x.horizon === h)
+                  return `${horizonLabel(h)} ${a?.hazards ?? 0} of ${d.anchor_coverage.hazards_today}`
+                }).join(', ')}`).join('. ') + '.' }]} />
+            {d.at_risk_level == null ? <div className="h-[280px] grid place-items-center text-[12.5px] text-[var(--color-faint)]">Needs your at-risk threshold</div> : <div style={{ height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={shift} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" />
                   <XAxis dataKey="horizon" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--color-faint)' }} unit="%" />
-                  <Tooltip formatter={(v, n) => [`${v}%`, SCEN_LABEL[String(n)] ?? String(n)]} />
-                  <Legend formatter={(v) => SCEN_LABEL[v] ?? v} wrapperStyle={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v, n) => [`${v}%`, scen(String(n))]} />
+                  <Legend formatter={(v) => scen(String(v))} wrapperStyle={{ fontSize: 11 }} />
                   {d.scenario_shift.scenarios.map(s => <Line key={s} type="monotone" dataKey={s} stroke={SCEN_COLOR[s]} strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />)}
                 </LineChart>
               </ResponsiveContainer>
-            </div>
-            <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">of the at-risk value under {SCEN_LABEL[scenario]} · {horizon === 'current' ? 'today' : horizon}: {d.scenario_shift.cells.find(c => c.scenario === scenario && c.horizon === horizon)?.projected_share_of_high_pct ?? '—'}% is headlined by a CMIP6-projected hazard (flood / storm / wildfire); the rest by climatology channels with their own anchors</div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5" title={d.anchor_coverage.note}>
-              <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mr-1">hazards scored per anchor</span>
-              {d.scenario_shift.scenarios.flatMap(s => d.scenario_shift.horizons.map(h => {
-                const a = d.anchor_coverage.anchors.find(x => x.scenario === s && x.horizon === h); const n = a?.hazards ?? 0; const full = n >= d.anchor_coverage.hazards_today
-                const sel = s === scenario && h === horizon
-                return <span key={s + h} title={`${SCEN_LABEL[s]} · ${h === 'current' ? 'today' : h}: ${n} of ${d.anchor_coverage.hazards_today} hazards scored today${a ? ' — ' + a.hazard_list.join(', ') : ''}`}
-                  className={`mono text-[10px] px-1.5 py-0.5 rounded border ${sel ? 'border-[var(--color-sky)]' : 'border-[var(--color-line)]'}`}
-                  style={{ color: full ? 'var(--color-good)' : n === 0 ? 'var(--color-faint)' : 'var(--color-warn)' }}>{h === 'current' ? 'today' : h} · {SCEN_LABEL[s].split(' ')[0]} {n}/{d.anchor_coverage.hazards_today}</span>
-              }))}
-              {cov && cov.hazards < d.anchor_coverage.hazards_today && <span className="text-[11px] text-[var(--color-warn)] ml-1">this anchor is read on {cov.hazards} of {d.anchor_coverage.hazards_today} hazards — fewer channels than today</span>}
-            </div>
+            </div>}
+            {projected != null && <Projected share={projected} />}
           </Card>
           <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Exposure by headline hazard</div><CsvBtn name="exposure_by_hazard" rows={d.concentration.by_hazard} /></div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">value whose biggest threat is each hazard · darker = at or above your stated level</div>
+            <ChartHead title="Exposure by leading hazard" csv={<CsvBtn name="exposure_by_hazard" rows={d.concentration.by_hazard} />}
+              sections={[{ heading: HEADING.read, body: 'The exposure whose highest-scoring hazard is each one. The red bar is the part at or above your at-risk threshold.' }]} />
             <div style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={d.concentration.by_hazard.slice(0, 10).map(h => ({ ...h, label: h.hazard.replace(/_/g, ' ') }))} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
+                <BarChart data={d.concentration.by_hazard.slice(0, 10).map(h => ({ ...h, label: hazard(h.hazard) }))} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
                   <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} tickFormatter={(v) => balance(Number(v))} />
-                  <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
-                  <Tooltip formatter={(v, n) => [balance(Number(v)), n === 'high_value_eur' ? 'at risk (your level)' : 'exposure']} />
+                  <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
+                  <Tooltip formatter={(v, n) => [balance(Number(v)), n === 'high_value_eur' ? 'At or above your threshold' : 'Exposure']} />
                   <Bar dataKey="value_eur" fill="#85B7EB" isAnimationActive={false} />
                   <Bar dataKey="high_value_eur" fill="#E24B4A" isAnimationActive={false} />
                 </BarChart>
@@ -167,55 +183,34 @@ export default function SupervisorAnalytics() {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Trend · submitted sensitive share, latest vs previous period</div>{tq.data && <CsvBtn name="trend" rows={tq.data.entities} />}</div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{tq.data?.note}</div>
-            {!tq.data ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : tq.data.entities.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No submitted templates on file yet.</div> : (
+            <ChartHead title="Filed share, latest year against the year before" csv={tq.data && <CsvBtn name="trend" rows={tq.data.entities} />}
+              sections={tq.data ? [...messageDetails(tq.data.note).sections, { heading: HEADING.read, body: 'Select an entity’s bar to open its file.' }] : []} />
+            {!tq.data ? <div className="text-[12px] text-[var(--color-faint)]">Loading…</div> : tq.data.entities.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No templates on file yet.</div> : (
               <div style={{ height: Math.max(120, 36 * tq.data.entities.length + 40) }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={tq.data.entities.map(e => ({ name: e.name, previous: e.previous_share_pct, latest: e.latest_share_pct, pl: e.previous_period, ll: e.latest_period, org_id: e.org_id }))} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+                  <BarChart data={tq.data.entities.map(e => ({ name: e.name, previous: e.previous_share_pct, latest: e.latest_share_pct, pl: e.previous_period, ll: e.latest_period, change: e.change_pp, org_id: e.org_id }))} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} />
                     <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
-                    <Tooltip formatter={(v, n, p) => [`${v ?? '—'}%`, n === 'previous' ? `previous (${p.payload.pl ?? '—'})` : `latest (${p.payload.ll ?? '—'})`]} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="previous" fill="#8290a8" isAnimationActive={false} style={{ cursor: 'pointer' }}
-                      onClick={(bar) => { const org = (bar as { org_id?: string; payload?: { org_id?: string } }).org_id ?? (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }} />
-                    <Bar dataKey="latest" fill="#38bdf8" isAnimationActive={false} style={{ cursor: 'pointer' }}
-                      onClick={(bar) => { const org = (bar as { org_id?: string; payload?: { org_id?: string } }).org_id ?? (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }} />
+                    <Tooltip formatter={(v, n, p) => [`${v ?? '—'}%`, n === 'previous' ? `Year before (${p.payload.pl ?? '—'})` : `Latest (${p.payload.ll ?? '—'})${p.payload.change != null ? ` · ${p.payload.change > 0 ? '+' : ''}${p.payload.change} pts` : ''}`]} />
+                    <Legend formatter={(v) => v === 'previous' ? 'Year before' : 'Latest year'} wrapperStyle={{ fontSize: 11 }} />
+                    {(['previous', 'latest'] as const).map(k => <Bar key={k} dataKey={k} fill={k === 'previous' ? '#8290a8' : '#38bdf8'} isAnimationActive={false} style={{ cursor: 'pointer' }}
+                      onClick={(bar) => { const org = (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }} />)}
                   </BarChart>
                 </ResponsiveContainer>
               </div>)}
-            {tq.data && tq.data.entities.some(e => e.change_pp != null) && <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{tq.data.entities.filter(e => e.change_pp != null).map(e => `${e.name}: ${e.change_pp! > 0 ? '+' : ''}${e.change_pp} pp`).join(' · ')}</div>}
           </Card>
-          <Card className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Timeliness · expected filings against their due dates</div>{tl.data && <CsvBtn name="timeliness" rows={tl.data.rows} />}</div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{tl.data?.note}</div>
-            {!tl.data ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : tl.data.rows.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No obligations or filings on record for the population.</div> : (<>
-              <div className="flex flex-wrap gap-1.5 mb-2">{Object.entries(tl.data.summary).filter(([, n]) => n).map(([k, n]) => <span key={k} className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-2)]" style={{ color: STATE_COLOR[k] }}>{STATE_LABEL[k]} {n}</span>)}</div>
-              <div className="overflow-x-auto max-h-[300px]">
-                <table className="data-table w-full text-[12px]">
-                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="">Entity</th><th className="">Filing</th><th className="">Period</th><th className="">Due</th><th className="">State</th><th className="num">Days</th><th className="num">Reached intake</th></tr></thead>
-                  <tbody>{tl.data.rows.map((r, i) => (
-                    <tr key={i} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)]" {...pressable(() => nav(`/supervised/${r.org_id}`), { row: true })}>
-                      <td className="text-[var(--color-ink)] whitespace-nowrap hover:text-[var(--color-sky)] hover:underline">{r.name}</td><td className="text-[var(--color-mute)]">{r.framework_label}</td>
-                      <td className="mono text-[11px] text-[var(--color-faint)]">{r.period_label}</td><td className="mono text-[11px] text-[var(--color-faint)]">{r.due_date ?? '—'}</td>
-                      <td className="pr-3" style={{ color: STATE_COLOR[r.state] }}>{STATE_LABEL[r.state]}</td>
-                      <td className="num mono" style={{ color: STATE_COLOR[r.state] }}>{r.days ?? '—'}</td>
-                      <td className="num mono text-[11px] text-[var(--color-faint)]">{r.intake_lag_days != null ? `+${r.intake_lag_days} d after period end` : '—'}</td>
-                    </tr>))}</tbody>
-                </table>
-              </div></>)}
-          </Card>
+          <Timeliness data={tl.data} csv={tl.data && <CsvBtn name="timeliness" rows={tl.data.rows} />} />
         </div>
 
         {Object.entries(d.distribution).map(([sec, s]) => (
           <Card key={sec} className="p-5">
-            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Distribution · {s.label}</div><CsvBtn name={`distribution_${sec}`} rows={s.metrics.flatMap(m => m.entities.map(e => ({ metric: m.id, entity: e.name, value: e.value, flag: e.flag })))} /></div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-3">each entity against your profile's expectations — amber watch, red act; the dashed line is the peer median · click a bar to open the entity file</div>
+            <ChartHead title={`Against your expectations · ${s.label}`} csv={<CsvBtn name={`distribution_${sec}`} rows={s.metrics.flatMap(m => m.entities.map(e => ({ metric: m.id, entity: e.name, value: e.value, flag: e.flag })))} />}
+              sections={[{ heading: HEADING.read, body: 'Each entity against the expectations your supervision profile sets for its sector: amber when it passes the watch level, red when it passes the act level. The dashed line is the middle entity (median). Select a bar to open the entity’s file.' }]} />
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
               {s.metrics.filter(m => m.direction !== 'neutral').map(m => (
                 <div key={m.id}>
-                  <div className="text-[12px] text-[var(--color-ink)] mb-1">{m.label} <span className="mono text-[10px] text-[var(--color-faint)]">{m.watch_above != null ? `watch >${m.watch_above}` : m.watch_below != null ? `watch <${m.watch_below}` : ''}{m.act_above != null ? ` · act >${m.act_above}` : ''}</span></div>
+                  <div className="text-[12px] text-[var(--color-ink)] mb-1">{m.label} <span className="text-[11px] text-[var(--color-faint)]">{m.watch_above != null ? `watch above ${m.watch_above}` : m.watch_below != null ? `watch below ${m.watch_below}` : ''}{m.act_above != null ? ` · act above ${m.act_above}` : ''}</span></div>
                   <div style={{ height: 40 + 22 * Math.max(1, m.entities.length) }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={m.entities.map(e => ({ name: e.name.replace(' (demo)', ''), value: e.value ?? 0, flag: e.flag, org_id: e.org_id }))} layout="vertical" margin={{ top: 2, right: 16, left: 4, bottom: 0 }} style={{ cursor: 'pointer' }}>
@@ -226,7 +221,7 @@ export default function SupervisorAnalytics() {
                         {m.watch_above != null && <ReferenceLine x={m.watch_above} stroke="#EF9F27" />}
                         {m.act_above != null && <ReferenceLine x={m.act_above} stroke="#E24B4A" />}
                         {m.watch_below != null && <ReferenceLine x={m.watch_below} stroke="#EF9F27" />}
-                        <Bar dataKey="value" isAnimationActive={false} onClick={(bar) => { const org = (bar as { org_id?: string; payload?: { org_id?: string } }).org_id ?? (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }}>
+                        <Bar dataKey="value" isAnimationActive={false} onClick={(bar) => { const org = (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }}>
                           {m.entities.map((e, i) => <Cell key={i} fill={FLAGC[e.flag]} className="dist-bar" />)}</Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -235,6 +230,21 @@ export default function SupervisorAnalytics() {
             </div>
           </Card>))}
       </>)}
+    </div>
+  )
+}
+
+// How much of the at-risk value at the chosen scenario and year is led by a hazard the climate projections move.
+function Projected({ share }: { share: number }) {
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div className="flex h-2.5 gap-[2px] rounded-full overflow-hidden bg-[var(--color-panel-2)]" role="img" aria-label={`${share}% led by a projected hazard`}>
+        <div style={{ width: `${share}%`, background: 'var(--color-sky)' }} /><div style={{ width: `${100 - share}%`, background: 'var(--color-slate)' }} />
+      </div>
+      <div className="flex flex-wrap gap-x-4 text-[11.5px] text-[var(--color-mute)] tabular-nums">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-sky)]" />{share}% of the value at risk led by flooding, storms or wildfire</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-slate)]" />{Math.round((100 - share) * 10) / 10}% by other hazards</span>
+      </div>
     </div>
   )
 }

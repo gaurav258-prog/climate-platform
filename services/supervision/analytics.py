@@ -13,6 +13,7 @@ from collections import defaultdict
 
 from sqlalchemy import text
 
+from core import messages
 from services.geo.org_assets import org_asset_points
 from services.geo.regions import aggregate_by_region
 from services.supervision.benchmark import benchmark
@@ -117,8 +118,7 @@ def scenario_shift(session, entities: list[dict], level: float | None) -> dict:
                         "projected_share_of_high_pct": (round(100.0 * high_proj / high, 1) if high else None),
                         "scored": r is not None})
     return {"scenarios": SCENARIOS, "horizons": HORIZONS, "cells": out, "at_risk_level": level,
-            "note": "Baseline and today reflect present-day hazard; the three scenario pathways apply local CMIP6 projected change "
-                    "for flood, storm and wildfire, and each model's own scenario response for the remaining hazards"}
+            "note": messages.render("supervision.analytics.scenario_shift")}
 
 
 def distribution(session, cfg: dict, entities: list[dict], scenario: str, horizon: str, level: float | None) -> dict:

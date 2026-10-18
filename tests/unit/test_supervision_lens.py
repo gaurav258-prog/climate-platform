@@ -30,7 +30,7 @@ def test_gap_split_adds_up_and_flags_the_dominant_reason():
     es = by[cell_key("ES", "C")]
     assert sum(es["gap"].values()) == es["rebuilt_sensitive"] - es["submitted_sensitive"] == 85
     assert es["gap"]["scope"] == 5 and es["gap"]["scoring"] == 80 and es["gap"]["basis"] == 0 and es["gap"]["coverage"] == 0
-    assert es["flag"] == "question" and "sensitivity share" in es["reason"]
+    assert es["flag"] == "question" and es["reason"]["code"] == "supervision.lens.reason.scoring"   # a catalogue message
     assert by[cell_key("FR", "C")]["gap"]["unmatched"] == -20 and by[cell_key("DE", "C")]["gap"]["unmatched"] == 50
     assert out["n_flagged"] == 3 and out["total_gap"] == out["totals"]["rebuilt"] - out["totals"]["submitted"]
 
@@ -54,6 +54,7 @@ def test_unlocated_exposure_is_unverifiable_not_a_scoring_gap():
     c = compare(submitted, rebuilt)["cells"][0]
     assert c["rebuilt_share_pct"] == 100.0 and c["coverage_pct"] == 50
     assert c["gap"]["coverage"] == -50 and c["gap"]["scoring"] == 50 and sum(c["gap"].values()) == 0
-    assert "50% of this exposure located" in c["reason"]
+    assert c["reason"]["code"] == "supervision.lens.reason.scoring"      # how much is located is the cell's coverage_pct
     none_located = compare(submitted, rebuild_cells([{"value_eur": 200, "score": None, "lat": None, "country": "ES", "nace": "C"}], lambda p: p["country"], lambda p: p["nace"], LEVEL))["cells"][0]
-    assert none_located["flag"] == "question" and "cannot be verified" in none_located["reason"] and none_located["gap"]["coverage"] == -100
+    assert none_located["flag"] == "question" and none_located["reason"]["code"] == "supervision.lens.reason.not_located"
+    assert none_located["gap"]["coverage"] == -100

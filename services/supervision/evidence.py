@@ -25,6 +25,14 @@ def _eur(v) -> str:
     return money(float(v), "EUR") if v is not None else "—"
 
 
+def _said(m: Optional[dict], parts: tuple[str, ...] = ("what",)) -> str:
+    """A catalogue message (core/messages.py) as the pack's prose: the sentences of its detail, else its label."""
+    if not m:
+        return ""
+    d = m.get("detail") or {}
+    return " ".join(d[p] for p in parts if d.get(p)) or m.get("label", "")
+
+
 # ── assembly ────────────────────────────────────────────────────────────────────────────────────────────────
 def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, scope_row: Optional[dict],
              submissions: Optional[dict], intake: Optional[dict], scenario: str, horizon: str) -> dict:
@@ -65,9 +73,10 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
             pl = assess_entity(session, reg_id, org_id, sub["cells"], sc1, hz1, level)
             c["plausibility"] = {"available": True, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
                                  "scenario": sc1, "horizon": hz1, "counts": pl["counts"], "n_cells": pl["n_cells"],
-                                 "coverage_value_pct": pl["coverage_value_pct"], "rule": pl["rule"], "exposure_measure": pl["exposure_measure"],
-                                 "cells": [{k: r[k] for k in ("geography", "sector", "gross_carrying_amount_eur", "submitted_share_pct", "verdict_label", "reason")}
-                                           for r in pl["rows"] if r["verdict"] != "plausible"][:60]}
+                                 "coverage_value_pct": pl["coverage_value_pct"], "rule": _said(pl["rule"], ("what", "why", "next")),
+                                 "exposure_measure": pl["exposure_measure"],
+                                 "cells": [{**{k: r[k] for k in ("geography", "sector", "gross_carrying_amount_eur", "submitted_share_pct", "verdict_label")},
+                                            "reason": _said(r["reason"])} for r in pl["rows"] if r["verdict"] != "plausible"][:60]}
         except Exception as e:
             c["plausibility"] = {"available": False, "reason": f"Could not judge the template: {e}"}
     else:
@@ -82,8 +91,8 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
     elif L is not None:
         c["lens"] = {"available": True, "totals": L["totals"], "total_gap": L["total_gap"], "n_flagged": L["n_flagged"], "n_cells": len(L["cells"]),
                      "shadow_book": {"n_rows": shadow.get("n_rows"), "n_located": shadow.get("n_located"), "n_scored": shadow.get("n_scored")},
-                     "flagged": [{k: x.get(k) for k in ("geography", "sector", "submitted_gross", "submitted_share_pct", "rebuilt_share_pct", "coverage_pct", "reason")}
-                                 for x in L["cells"] if x.get("flag") == "question"][:60]}
+                     "flagged": [{**{k: x.get(k) for k in ("geography", "sector", "submitted_gross", "submitted_share_pct", "rebuilt_share_pct", "coverage_pct")},
+                                  "reason": _said(x.get("reason"))} for x in L["cells"] if x.get("flag") == "question"][:60]}
         c["projections"] = projection_coverage(session, shadow_cells(session, reg_id, org_id))
     else:
         c["lens"] = {"available": False, "reason": "No granular data on file — the independent lens needs the supervisor's own granular rows (Tier 2)."}

@@ -6,7 +6,8 @@ from services.supervision.plausibility import ABOVE, BELOW, NO_REF, PLAUSIBLE, j
 def test_verdicts_follow_the_regional_spread():
     prior = {"p25": 0.20, "p75": 0.60}
     assert judge(0.40, prior)[0] == PLAUSIBLE
-    assert judge(0.75, prior)[0] == ABOVE and "above" in judge(0.75, prior)[1]
+    assert judge(0.75, prior)[0] == ABOVE and judge(0.75, prior)[1]["code"] == "supervision.plausibility.reason.above"
+    assert judge(0.75, prior)[1]["params"] == {"share": "75%", "low": "20%", "high": "60%"}
     assert judge(0.05, prior)[0] == BELOW
     assert judge(0.20, prior)[0] == PLAUSIBLE and judge(0.60, prior)[0] == PLAUSIBLE   # edges inclusive
 

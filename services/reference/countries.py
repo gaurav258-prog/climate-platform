@@ -24,7 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest.fields import norm_token
-from services.reference.iso_country import GROUPINGS, ISO_ALPHA2
+from services.reference.iso_country import GROUPINGS, ISO_ALPHA2, to_iso2
 
 CLDR_VERSION = "48.0.0"   # latest stable; bump on each CLDR release (e.g. 48 carries Bulgaria's euro from 2026-01-01)
 _BASE = f"https://raw.githubusercontent.com/unicode-org/cldr-json/{CLDR_VERSION}/cldr-json"
@@ -133,7 +133,7 @@ NAMES_TTL_S = 300   # a CLDR release reaches every running process within five m
 
 
 @lru_cache(maxsize=2)
-def _names(_bucket: int) -> dict[str, str]:
+def _english(_bucket: int) -> dict[str, str]:
     from core.db.config import SessionLocal
     s = SessionLocal()
     try:
@@ -148,15 +148,17 @@ def _names(_bucket: int) -> dict[str, str]:
     return out
 
 
-def country_name(code: Optional[str]) -> Optional[str]:
-    """A country's customer name (CLDR English, the one country reference) by ISO 3166 alpha-2 or alpha-3 code; None
-    when the reference does not hold the code, or cannot be read (no database: an offline tool, the unit tests) — the
-    caller then uses its own published name, never the code."""
-    if not code:
+def english_name(code: Optional[str]) -> Optional[str]:
+    """A country's (or a grouping's, 'EU') English name — CLDR, the one country reference — for a code written as ISO
+    3166 alpha-2 or alpha-3 or as the EU writes it ('EL', 'UK'). None for a code the reference does not hold (the caller
+    names it as unrecognised, never guesses), or when the reference cannot be read (no database: an offline tool, the
+    unit tests — the caller then uses its own published name, never the code)."""
+    iso = to_iso2(code)
+    if not iso:
         return None
     from sqlalchemy.exc import OperationalError
     try:
-        names = _names(int(time.monotonic() // NAMES_TTL_S))
+        names = _english(int(time.monotonic() // NAMES_TTL_S))
     except OperationalError:                     # not cached: the names return as soon as the database does
         return None
-    return names.get(code.strip().upper())
+    return names.get(iso)

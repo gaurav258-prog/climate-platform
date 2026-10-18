@@ -15,11 +15,14 @@ Identities (ratios over LOCATED value; reb_gross = located + unlocated):
   scope = sub_ratio·(reb_gross − sub_gross); coverage = −sub_ratio·unlocated;
   basis = (ratio_reg − ratio_bank)·located; scoring = (ratio_bank − sub_ratio)·located
   → scope + coverage + basis + scoring = total.
-Nothing here judges the bank; a flag is a question. Every result carries the precision of the rebuild.
+Nothing here judges the bank; a flag is a question, its reason a catalogue message (supervision.lens.reason.*). Every
+result carries the precision of the rebuild.
 """
 from __future__ import annotations
 
 from typing import Iterable, Optional
+
+from core import messages
 
 FLAG_PCT_POINTS = 10.0     # sensitivity-share gap (percentage points) beyond which a cell is flagged
 
@@ -78,7 +81,7 @@ def compare(submitted: dict[str, dict], rebuilt_reg: dict[str, dict], rebuilt_ba
                "submitted_share_pct": (round(100 * _ratio(s), 1) if _ratio(s) is not None else None),
                "rebuilt_share_pct": (round(100 * _ratio(r), 1) if _ratio(r) is not None else None),
                "coverage_pct": (round(100.0 * r.get("located_value_eur", r["gross_carrying_amount_eur"]) / r["gross_carrying_amount_eur"], 0) if r and r["gross_carrying_amount_eur"] else None),
-               "gap": {"scope": 0.0, "coverage": 0.0, "basis": 0.0, "scoring": 0.0, "unmatched": 0.0}, "flag": "ok", "reason": ""}
+               "gap": {"scope": 0.0, "coverage": 0.0, "basis": 0.0, "scoring": 0.0, "unmatched": 0.0}, "flag": "ok", "reason": None}
         if s and r:
             sub_ratio, ratio_reg = _ratio(s) or 0.0, _ratio(r) or 0.0
             ratio_bank = _ratio(rb) if rb else ratio_reg
@@ -92,23 +95,19 @@ def compare(submitted: dict[str, dict], rebuilt_reg: dict[str, dict], rebuilt_ba
             row["gap"] = {"scope": round(sub_ratio * (reb_gross - sub_gross)), "coverage": round(-sub_ratio * unlocated),
                           "basis": round((ratio_reg - ratio_bank) * located), "scoring": round((ratio_bank - sub_ratio) * located), "unmatched": 0.0}
             if located <= 0:
-                row["flag"] = "question"; row["reason"] = "None of this exposure could be located, so it cannot be verified."
+                row["flag"] = "question"; row["reason"] = messages.render("supervision.lens.reason.not_located")
             else:
                 share_gap = 100 * (ratio_reg - sub_ratio)
                 if abs(share_gap) >= FLAG_PCT_POINTS:
-                    row["flag"] = "question"
+                    row["flag"] = "question"     # the part of the gap that weighs most names the reason; coverage_pct says how much is located
                     dom = max(("scope", "basis", "scoring"), key=lambda g: abs(row["gap"][g]))
-                    row["reason"] = {"scope": "Reported exposure differs from the granular data.",
-                                     "basis": "The entity's stated scenario, horizon or at-risk level differs from yours.",
-                                     "scoring": "The sensitivity share differs at the same exposure and basis."}[dom]
-                    if unlocated > 0:
-                        row["reason"] += f" ({int(round(100 * located / reb_gross))}% of this exposure located.)"
+                    row["reason"] = messages.render(f"supervision.lens.reason.{dom}")
             tot["submitted"] += s["sensitive_physical_eur"]; tot["rebuilt"] += r["sensitive_physical_eur"]
         elif s and not r:
-            row["gap"]["unmatched"] = -float(s["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = "No granular data for this geography and sector."
+            row["gap"]["unmatched"] = -float(s["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = messages.render("supervision.lens.reason.no_granular")
             tot["submitted"] += s["sensitive_physical_eur"]
         else:
-            row["gap"]["unmatched"] = float(r["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = "Not present in the submitted template."
+            row["gap"]["unmatched"] = float(r["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = messages.render("supervision.lens.reason.not_in_template")
             tot["rebuilt"] += r["sensitive_physical_eur"]
         for g in tot:
             if g in row["gap"]:
@@ -116,6 +115,6 @@ def compare(submitted: dict[str, dict], rebuilt_reg: dict[str, dict], rebuilt_ba
         rows.append(row)
     rows.sort(key=lambda x: -abs(sum(x["gap"].values())))
     tot = {k: round(v) for k, v in tot.items()}
-    return {"precision": precision, "basis_separable": basis_separable, "n_cells": len(rows),
+    return {"precision": precision, "basis_separable": basis_separable, "n_cells": len(rows), "flag_pp": FLAG_PCT_POINTS,
             "n_flagged": sum(1 for x in rows if x["flag"] == "question"),
             "totals": tot, "total_gap": round(tot["rebuilt"] - tot["submitted"]), "cells": rows}

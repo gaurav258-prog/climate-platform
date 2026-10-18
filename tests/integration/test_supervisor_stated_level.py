@@ -38,7 +38,7 @@ def test_the_authoritys_views_are_a_gap_until_it_states_its_level_then_read_at_i
     assert before["at_risk_level"] is None and "method.at_risk_level" in before["gap"]
     assert all(e["value"] is None for e in _money_metric(before)["entities"])
     lens = api.get(f"/v1/supervisor/entity/{MERIDIAN}/lens", headers=h).json()
-    assert lens["status"] == "gap" and "method.at_risk_level" in lens["message"]
+    assert lens["status"] == "gap" and "method.at_risk_level" in lens["gap"]     # named for MethodGap, which links to where it is stated
 
     state_method(s, SUPERVISOR, _period_end(s, SUPERVISOR), {("method.at_risk_level", None): 50.0})
     at_50 = api.get("/v1/supervisor/benchmark", headers=h).json()
@@ -71,14 +71,15 @@ def test_the_plausibility_band_reads_the_template_at_the_entitys_own_level(api):
     h = _login(api, "admin@supervisor.demo", "Demo!admin1")
     s = api.s
     r = api.get(f"/v1/supervisor/entity/{MERIDIAN}/plausibility", headers=h)
-    if r.status_code == 404:
-        pytest.skip("no submitted template for the demo bank")
     body = r.json()
+    if body.get("status") == "no_submission":
+        pytest.skip("no submitted template for the demo bank")
     if body.get("status") == "gap":                               # the submission carries no level, nor does the bank's method
-        assert "at-risk level" in body["gap"]
+        assert body["message"]["code"] == "supervision.plausibility.entity_level_missing"
         state_method(s, MERIDIAN, _period_end(s, MERIDIAN), {("method.at_risk_level", None): 60.0})
         body = api.get(f"/v1/supervisor/entity/{MERIDIAN}/plausibility", headers=h).json()
         assert body["at_risk_level"] == 60.0 and body["at_risk_level_from"] == "entity_method"
-    assert body["at_risk_level"] is not None and "at or above the entity's at-risk level" in body["rule"]
+    assert body["at_risk_level"] is not None and body["rule"]["code"].startswith("supervision.plausibility.rule.")
+    assert body["rule"]["params"]["level"] == f"{body['at_risk_level']:g}"
     banded = [row["band"] for row in body["rows"] if row["band"]]
     assert all(b["at_risk_level"] == body["at_risk_level"] for b in banded)

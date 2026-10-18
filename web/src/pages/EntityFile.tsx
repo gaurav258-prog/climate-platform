@@ -57,9 +57,9 @@ export default function EntityFile() {
         <div className="flex gap-4 text-[12px] mt-3">
           {d.has_intake ? <>
             <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake →</Link>
-            <Link to={`/supervised/${orgId}/plausibility`} className="text-[var(--color-sky)] hover:underline">Plausibility band (Tier 1) →</Link>
-            <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Independent lens (Tier 2) →</Link>
-          </> : <span className="text-[var(--color-faint)]">No granular intake template is configured for this sector under your profile — the plausibility band and independent lens apply once one is.</span>}
+            <Link to={`/supervised/${orgId}/plausibility`} className="text-[var(--color-sky)] hover:underline">Quick check →</Link>
+            <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Full rebuild →</Link>
+          </> : <span className="text-[var(--color-faint)]">Your supervision profile sets no intake template for this sector, so the quick check and the full rebuild do not apply yet.</span>}
         </div>
       </Card>
       {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}

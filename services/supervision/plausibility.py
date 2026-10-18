@@ -9,18 +9,21 @@ exposure prior (services.supervision.exposure_prior — the same share over the 
 of the sector, weighted by the measure, the entity under review excluded). A submitted share inside the spread is
 plausible; above it is high for the geography; below it is low. The band is location-only — sector does not move
 it — and says so. No figure is invented: a cell without the measure, or a geography without enough reference, gets
-'no reference', never a guess; the output states the measure and the prior it used.
+'no reference', never a guess; the output states the measure and the prior it used. Every reason and the rule itself
+are catalogue messages (supervision.plausibility.*), in the reader's words.
 """
 from __future__ import annotations
 
 from typing import Optional
 
+from core import messages
 from services.reference.iso_country import ISO_TO_EU as _ISO_TO_EU  # one alias table (iso_country)
+from services.supervision.cell_labels import named
 from services.supervision.exposure_prior import POPULATION, PRIOR_LABEL, SCORED_LAND
 from services.supervision.geo_prior import prior_for
 
 PLAUSIBLE, ABOVE, BELOW, NO_REF = "plausible", "above_band", "below_band", "no_reference"
-LABEL = {PLAUSIBLE: "Plausible", ABOVE: "High for the geography", BELOW: "Low for the geography", NO_REF: "No reference"}
+LABEL = {PLAUSIBLE: "Within range", ABOVE: "Above range", BELOW: "Below range", NO_REF: "Not judged"}
 GEO_ALIAS = {**_ISO_TO_EU, "UK": "UK"}   # template codes → GISCO codes
 DEFAULT_FIELD = "gross_carrying_amount_eur"
 
@@ -56,21 +59,18 @@ def share_of(cell: dict, measure: dict) -> Optional[float]:
     return max(0.0, min(1.0, float(cell.get("sensitive_physical_eur") or 0) / g))
 
 
-def judge(share: Optional[float], prior: Optional[dict], measure_label: str = "gross carrying amount") -> tuple[str, str]:
-    """→ (verdict, reason). Pure: the whole rule is here. Band = interquartile spread of the regional share."""
+def judge(share: Optional[float], prior: Optional[dict], measure_label: str = "gross carrying amount") -> tuple[str, dict]:
+    """→ (verdict, reason as a catalogue message). Pure: the whole rule is here. Band = interquartile spread of the
+    regional share."""
     if share is None:
-        return NO_REF, f"No {measure_label.lower()} in this cell."
+        return NO_REF, messages.render("supervision.plausibility.reason.no_measure", measure=measure_label.lower())
     if not prior or prior.get("p25") is None or prior.get("p75") is None:
-        return NO_REF, "Not enough reference in this geography to form a band."
+        return NO_REF, messages.render("supervision.plausibility.reason.no_reference")
     lo, hi = float(prior["p25"]), float(prior["p75"])
     pct = lambda x: f"{round(100 * x)}%"  # noqa: E731
-    if share > hi:
-        return ABOVE, (f"Submitted share {pct(share)} sits above the geography's regional spread ({pct(lo)}–{pct(hi)}): "
-                       "either the book is concentrated in its riskiest areas, or the sensitivity is overstated.")
-    if share < lo:
-        return BELOW, (f"Submitted share {pct(share)} sits below the geography's regional spread ({pct(lo)}–{pct(hi)}): "
-                       "either the book avoids the exposed areas, or the sensitivity is understated.")
-    return PLAUSIBLE, f"Submitted share {pct(share)} sits inside the geography's regional spread ({pct(lo)}–{pct(hi)})."
+    verdict = ABOVE if share > hi else BELOW if share < lo else PLAUSIBLE
+    code = {ABOVE: "above", BELOW: "below", PLAUSIBLE: "within"}[verdict]
+    return verdict, messages.render(f"supervision.plausibility.reason.{code}", share=pct(share), low=pct(lo), high=pct(hi))
 
 
 def _band(prior: Optional[dict]) -> Optional[dict]:
@@ -99,7 +99,7 @@ def assess(session, cells: dict[str, dict], scenario: str, horizon: str, level: 
         share = share_of(c, m)
         verdict, reason = judge(share, prior, label)
         exposure = c.get(field)
-        rows.append({"key": key, "geography": c.get("geography"), "sector": c.get("sector"),
+        rows.append({"key": key, **named({"geography": c.get("geography"), "sector": c.get("sector")}),
                      "exposure_eur": exposure, "gross_carrying_amount_eur": c.get("gross_carrying_amount_eur"),
                      "sensitive_physical_eur": c.get("sensitive_physical_eur"),
                      "submitted_share_pct": round(100 * share, 1) if share is not None else None,
@@ -113,17 +113,13 @@ def assess(session, cells: dict[str, dict], scenario: str, horizon: str, level: 
     ref = {"prior": m["prior"], "prior_label": m["prior_label"]}
     if m["prior"] == POPULATION:
         ref.update({k: (population or {}).get(k) for k in ("n_entities", "n_points", "n_used", "n_without_measure", "n_unlocated", "n_unscored")})
-        how = (f"computed from the {label.lower()} of the other {ref['n_entities'] or 0} supervised entities of the sector under this "
-               f"authority, each located point weighted by its {label.lower()} (the entity under review excluded)")
+        rule = messages.render("supervision.plausibility.rule.population", measure=label.lower(), level=f"{level:g}",
+                               entities=ref["n_entities"] or 0)
     else:
-        how = "computed from the platform's own scored land at the same basis, every scored cell counting once"
+        rule = messages.render("supervision.plausibility.rule.land", measure=label.lower(), level=f"{level:g}")
     return {"rows": rows, "counts": counts, "n_cells": len(rows), "at_risk_level": level,
             "exposure_measure": {"cell_field": field, "label": label, "n_cells_without_measure": n_missing, **ref},
-            "coverage_value_pct": round(100 * total_judged / total, 1) if total else None,
-            "rule": f"A cell is plausible when its submitted sensitive share of {label.lower()} sits inside the interquartile spread (p25–p75) "
-                    f"of the share at or above the entity's at-risk level ({level:g}) across the geography's regions, {how}. "
-                    f"The band is location-only: sector does not move it. "
-                    f"A cell without {label.lower()}, or a geography without enough reference, gets no verdict."}
+            "coverage_value_pct": round(100 * total_judged / total, 1) if total else None, "rule": rule}
 
 
 def assess_entity(session, reg_org_id: str, subject_org_id: str, cells: dict[str, dict], scenario: str, horizon: str,

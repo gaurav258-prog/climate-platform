@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from typing import Optional
 
+from core import messages
 from services.geo.org_assets import org_asset_points
 from services.governance.pillar3_templates import _section
+from services.supervision.cell_labels import named
 from services.supervision.lens import compare, rebuild_cells
 
 
@@ -28,7 +30,7 @@ def build_lens(session, regulator_org_id: str, subject_org_id: str, submission: 
     """submission = supervisor_submissions row (basis + cells). Rebuild at the regulator's basis (its scenario, horizon
     and stated at-risk level) and, where the bank's differs, at the bank's too — that is what separates the 'basis'
     term. Without the regulator's own level there is no rebuilt figure: {"available": False, "gap": …}."""
-    from services.supervision.levels import GAP_AUTHORITY, GAP_ENTITY, authority_level, entity_level
+    from services.supervision.levels import GAP_AUTHORITY, authority_level, entity_level
     reg_level = authority_level(session, regulator_org_id)
     if reg_level is None:
         return {"available": False, "gap": GAP_AUTHORITY}
@@ -52,17 +54,16 @@ def build_lens(session, regulator_org_id: str, subject_org_id: str, submission: 
     out = compare(submission["cells"], reg_cells, bank_cells if separable else None, precision=precision_label,
                   basis_separable=separable)
     out["available"] = True
+    out["cells"] = [named(c) for c in out["cells"]]
     out["at_risk_level"] = {"regulator": reg_level, "entity": ent_level, "entity_from": ent_level_from,
-                            **({"gap": GAP_ENTITY + " — the scoring term may include a difference of definition"}
-                               if ent_level is None else {})}
+                            "message": messages.render("supervision.lens.entity_level_missing") if ent_level is None else None}
     out["projection_coverage"] = cov
     out.update({"period_label": submission["period_label"], "regulator_basis": {"scenario": reg_scenario, "horizon": reg_horizon},
                 "bank_basis": {"scenario": bank_sc, "horizon": bank_hz, "stated": bool(basis.get("scenario") or basis.get("horizon")),
                                "method_note": basis.get("method_note"),
                                "separable": (bank_cells is None) or separable,
-                               "note": (None if separable else
-                                        f"scenario projections cover {cov.get('cells_complete', 0)} of {cov.get('cells', 0)} locations — run the projections "
-                                        "on the intake screen; until then the basis effect cannot be separated from scoring")},
+                               "message": (None if separable else messages.render(
+                                   "supervision.lens.basis_not_separated", done=cov.get("cells_complete", 0), total=cov.get("cells", 0)))},
                 "shadow_book": {"n_rows": len(pts), "n_located": n_loc, "n_scored": sum(1 for p in pts if p.get("score") is not None),
                                 "location_precision": prec},
                 "tier": 2})

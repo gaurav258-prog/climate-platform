@@ -183,10 +183,13 @@ def save_submission(session, *, regulator_org_id: str, subject_org_id: str, fram
 
 def load_submission(session, regulator_org_id: str, subject_org_id: str, framework: str, template: str,
                     period_label: Optional[str] = None) -> Optional[dict]:
+    """The template on file for a year — without one, the latest financial year (labels are canonical 'FY2025', so
+    they sort by year), never the latest upload: a backfilled earlier year is not the entity's current template.
+    Within a year the latest upload is the one in use."""
     row = session.execute(text(f"""
         SELECT period_label, basis, cells, n_cells, source_file, created_at FROM supervisor_submissions
         WHERE regulator_org_id = CAST(:r AS uuid) AND subject_org_id = CAST(:s AS uuid) AND framework = :fw AND template = :tp
-        {"AND period_label = :p" if period_label else ""} ORDER BY created_at DESC LIMIT 1
+        {"AND period_label = :p" if period_label else ""} ORDER BY period_label DESC, created_at DESC LIMIT 1
     """), {"r": regulator_org_id, "s": subject_org_id, "fw": framework, "tp": template, "p": period_label}).mappings().first()
     return dict(row) if row else None
 
