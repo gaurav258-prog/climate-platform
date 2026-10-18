@@ -135,7 +135,7 @@ Only decisions whose record names the product owner (or "the user") are listed.
 | 2026-10-07 | Datasets approved: Aqueduct riverine maps ("93 files, about 8.5 GB") and the JRC flood curves ("about 6 MB") | `data/reference/supply_datasets.json` |
 | 2026-10-07 | The demo books state their buildings (building use and building value) | change log 2.222 |
 | 2026-10-16 | The UI standard for every screen, built and to be built: customer language only; as little text as possible on the main screen, detail in a drill-down pop-up; as much visual representation as possible (section 6) | `data/reference/ui_standard.json`; [DESIGN_BRIEF.md](DESIGN_BRIEF.md) §1 |
-| 2026-10-18 | Legal citations sit one click away: an article, annex, regulation or template number, or a standard's metric code, goes in the drill-down pop-up and in filings and exports, never on the main screen; category names customers use stay ('Article 8 fund', Pillar 3, SFDR) — "Pop-up only", the product owner's answer to the screen-guard session (section 6) | `data/reference/ui_standard.json` (`legal_citations`); [ENGINEERING_PROCESS.md](ENGINEERING_PROCESS.md) E-next |
+| 2026-10-18 | Legal citations sit one click away: an article, annex, regulation or template number, or a standard's metric code, goes in the drill-down pop-up and in filings and exports, never on the main screen; category names customers use stay ('Article 8 fund', Pillar 3, SFDR) — "Pop-up only", the product owner's answer to the screen-guard session (section 6) | `data/reference/ui_standard.json` (`legal_citations`); [ENGINEERING_PROCESS.md](ENGINEERING_PROCESS.md) E199 |
 
 ## 6. Non-functional requirements, as recorded
 

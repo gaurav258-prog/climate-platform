@@ -82,8 +82,8 @@ test('each fixed value says why, and is one the check would flag without it', ()
   }
 })
 
-// E-next: a dotted code on screen, and the items of a list printed through .join().
-test('a dotted code on screen is internal language (E-next)', () => {
+// E199: a dotted code on screen, and the items of a list printed through .join().
+test('a dotted code on screen is internal language (E199)', () => {
   // The old catastrophe-capital page and the asset drawer: a permission key in the code font.
   assert.equal(page('return <p>Submitting needs the <span className="mono">pricing.approve</span> permission.</p>').internal, 1)
   assert.equal(page("return <Hint hint='emit risk.decision.approved to your registered endpoints' />").internal, 1)
@@ -105,7 +105,7 @@ test('each name that is not a code says why, and its example has the shape of on
   }
 })
 
-test('a server list joined on screen is read item by item (E-next)', () => {
+test('a server list joined on screen is read item by item (E199)', () => {
   // The old catastrophe-capital line: what the standard formula still needs, server sentences joined inline.
   assert.equal(page("return <p><b>Incomplete.</b> {s.incomplete?.join(' ')}</p>").apiProse, 1)
   assert.equal(page("return <span>{x.roles.join(', ')}</span>").raw, 1)                               // roles → role
@@ -134,8 +134,8 @@ test('each field kept as customer words says what it holds, and its file still p
   assert.equal(page("return <span>{x.tier}</span>").raw, 1)                                           // only in its own file
 })
 
-// E-next, the product owner's decision of 2026-10-18: a legal citation sits one click away, not on the main screen.
-test('a legal citation on the main screen is counted (E-next)', () => {
+// E199, the product owner's decision of 2026-10-18: a legal citation sits one click away, not on the main screen.
+test('a legal citation on the main screen is counted (E199)', () => {
   // The old catastrophe-capital page: template and regulation numbers in its section hints, an article in a sentence.
   assert.equal(page('return <SectionHead hint="S.27.01.01 · before and after risk mitigation">Capital by peril</SectionHead>').citation, 1)
   assert.equal(page("return <SectionHead hint={x.version_name ?? 'Del. Reg. 2015/35'}>Standard formula</SectionHead>").citation, 1)

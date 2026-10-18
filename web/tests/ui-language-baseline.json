@@ -71,14 +71,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/ExpectedLossCard.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 2,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/FactConflicts.tsx": {
   "internal": 0,
   "raw": 0,
@@ -206,14 +198,6 @@
   "apiProse": 0,
   "figure": 0,
   "citation": 0
- },
- "src/components/InsurerDocuments.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 2
  },
  "src/components/IntakeControls.tsx": {
   "internal": 0,
@@ -551,14 +535,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/Coverage.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 4,
-  "apiProse": 7,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/CropCoverage.tsx": {
   "internal": 0,
   "raw": 0,
@@ -711,14 +687,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/ModelValidation.tsx": {
-  "internal": 1,
-  "raw": 5,
-  "monoProse": 7,
-  "apiProse": 3,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/Onboarding.tsx": {
   "internal": 0,
   "raw": 0,
@@ -740,14 +708,6 @@
   "raw": 2,
   "monoProse": 2,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/Portfolio.tsx": {
-  "internal": 3,
-  "raw": 2,
-  "monoProse": 16,
-  "apiProse": 5,
   "figure": 0,
   "citation": 0
  },
@@ -799,14 +759,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/Solvency.tsx": {
-  "internal": 1,
-  "raw": 1,
-  "monoProse": 4,
-  "apiProse": 3,
-  "figure": 0,
-  "citation": 7
- },
  "src/pages/Supervised.tsx": {
   "internal": 0,
   "raw": 1,
@@ -815,27 +767,11 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/SupervisorAnalytics.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 2,
-  "apiProse": 3,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/SupervisorBenchmark.tsx": {
   "internal": 0,
   "raw": 2,
   "monoProse": 1,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/SupervisorLens.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 5,
-  "apiProse": 6,
   "figure": 0,
   "citation": 0
  },
@@ -852,14 +788,6 @@
   "raw": 1,
   "monoProse": 1,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/SupervisorPlausibility.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 6,
-  "apiProse": 3,
   "figure": 0,
   "citation": 0
  },

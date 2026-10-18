@@ -3,8 +3,8 @@
 // it puts on screen — JSX text and expressions, display props (title, label, lead, hint, sub, …), toast messages.
 // An expression is read through to everything it can show: string literals, every part of a template string, both
 // branches of ?:, both sides of ?? || and +, the right of && — and the fields it prints, alone or inside ${…} (E196),
-// or as the items of a list it joins ({sf.incomplete?.join(' ')}, [a.region, a.status].filter(Boolean).join(' · ')) (E-next):
-//   internal   internal language: a snake_case or dotted code (pricing.approve, E-next), an E-number, a file path, an API
+// or as the items of a list it joins ({sf.incomplete?.join(' ')}, [a.region, a.status].filter(Boolean).join(' · ')) (E199):
+//   internal   internal language: a snake_case or dotted code (pricing.approve, E199), an E-number, a file path, an API
 //              path, engineering jargon
 //   raw        a code rendered as-is: {x.status}, `${f.framework} · ${f.template}` … straight onto the screen
 //   monoProse  a sentence set in the code font (an element whose class has `mono` holding four words or more)
@@ -12,7 +12,7 @@
 //   figure     a figure typed into a headline value instead of read from data: '51.4M', '~0.7 km²', '1998–2026' in
 //              Stat big, StatCard / HeroMetric value or a StatGrid item's value (E196); fixed values in FIXED below
 //   citation   a legal citation on the main screen — an article, annex, regulation, template number or standard code
-//              ('Art. 90b', 'Del. Reg. 2015/35', 'S.27.01.01') — it belongs one click away (CITATION below) (E-next)
+//              ('Art. 90b', 'Del. Reg. 2015/35', 'S.27.01.01') — it belongs one click away (CITATION below) (E199)
 // Counts are held per file in ui-language-baseline.json — the breaches the product had when the standard came in.
 // The guard (uiLanguage.test.ts) fails when a file has more than its baseline, and when a fix leaves it with fewer
 // (lower the baseline, so it only ever goes down):  node tests/uiLanguage.ts --write
@@ -186,7 +186,7 @@ function onScreen(e: ts.Node | undefined, out: Shown = { texts: [], fields: [], 
   return out
 }
 
-// The items of a list that .join() prints (E-next): a list field ({sf.incomplete?.join(' ')}), each item of an array
+// The items of a list that .join() prints (E199): a list field ({sf.incomplete?.join(' ')}), each item of an array
 // literal ([a.region, a.status]), what a .map(r => …) returns, through .filter / .slice / .concat / ?? / ?: — a .map
 // with a named function (hazardLabel) renders its items. A list field counts by what it holds (reasons → reason).
 const method = (e: ts.CallExpression) => ts.isPropertyAccessExpression(e.expression) ? e.expression.name.text : null
