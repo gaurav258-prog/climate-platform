@@ -341,7 +341,7 @@ Runs in order and stops at the first failure ([ENGINEERING_PROCESS.md §2](ENGIN
 5. project documents match the code (BACKEND_SCHEMA, TECHNICAL_REQUIREMENTS, APP_FLOW, DESIGN_BRIEF)
 6. web build
 7. web unit tests
-8. data folders the tests read (E194: a worktree links the main checkout's git-ignored data)
+8. data folders and .env the tests read (E194: a worktree links the main checkout's git-ignored data and .env)
 9. test suite (+ demo-data guard)
 10. running code
 

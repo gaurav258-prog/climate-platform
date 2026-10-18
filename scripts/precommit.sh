@@ -37,16 +37,23 @@ step "web unit tests"
 (cd web && npm test >/tmp/precommit-web-test.log 2>&1) || { tail -30 /tmp/precommit-web-test.log; exit 1; }
 echo ok
 
-step "data folders the tests read (E194: a worktree links the main checkout's git-ignored data)"
+step "data folders and .env the tests read (E194: a worktree links the main checkout's git-ignored data and .env)"
 main_root="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
 if [ "$main_root" != "$(pwd -P)" ]; then
+  lacks=""
   missing=""
   for d in "$main_root"/data/*/; do n="$(basename "$d")"; [ -e "data/$n" ] || missing="$missing $n"; done
   if [ -n "$missing" ]; then
     echo "this worktree lacks git-ignored data folders the main checkout holds:$missing"
     echo "link them (untracked, never staged):  for n in$missing; do ln -s \"$main_root/data/\$n\" \"data/\$n\"; done"
-    exit 1
+    lacks=1
   fi
+  if [ -e "$main_root/.env" ] && [ ! -e .env ]; then    # core/config.py reads its keys (NASS_API_KEY, ...) from .env
+    echo "this worktree lacks the git-ignored .env the main checkout holds"
+    echo "link it (untracked, never staged):  ln -s \"$main_root/.env\" .env"
+    lacks=1
+  fi
+  [ -z "$lacks" ] || exit 1
 fi
 echo ok
 
