@@ -29,6 +29,14 @@
       "title": "Visual first",
       "rule": "As much visual representation as possible on the main UI.",
       "examples": ["charts", "maps", "chips", "gauges", "diagrams"]
+    },
+    {
+      "id": "legal_citations",
+      "title": "Legal citations one click away",
+      "rule": "The main screen says it in plain words; an article, annex, regulation or template number, or a standard's metric code, sits in the drill-down pop-up (Dialog or Drawer) and in filings and exports. Names customers use as categories stay on screen.",
+      "examples": ["'Art. 90b', 'Del. Reg. 2015/35' and 'S.27.01.01' in the pop-up", "an 'Article 8 fund', Pillar 3, SFDR and Solvency II on screen"],
+      "date": "2026-10-18",
+      "recorded_from": "the product owner's answer of 2026-10-18 to the screen-guard session's question"
     }
   ],
   "known_breaches": [

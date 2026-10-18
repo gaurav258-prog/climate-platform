@@ -174,7 +174,8 @@ def test_the_ui_standard_governs_the_design_brief():
     import json
     std = json.loads((ROOT / design.STANDARD).read_text(encoding="utf-8"))
     assert std["stated_by"] and std["date"] and std["applies_to"]
-    assert {r["id"] for r in std["rules"]} == {"customer_language", "minimal_text", "visual_first"}
+    assert {r["id"] for r in std["rules"]} == {"customer_language", "minimal_text", "visual_first", "legal_citations"}
+    assert all(r["date"] > std["date"] and r["recorded_from"] for r in std["rules"] if "date" in r)   # a later rule says when
     md = design.render()
     first = md.index("## 1. The standard every screen must meet (governing)")
     assert first < md.index("## 2. ") and all(f"**{r['title']}.**" in md for r in std["rules"])

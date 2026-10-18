@@ -13,6 +13,8 @@ Stated by the product owner on 2026-10-16; it applies to everything built and ev
 2. **Little text on the main screen; detail on demand.** As little text as possible on the main UI; further detail in a drill-down pop-up (Dialog or Drawer) with professionally written, structured text.
 3. **Visual first.** As much visual representation as possible on the main UI.
    For example: charts, maps, chips, gauges, diagrams.
+4. **Legal citations one click away.** The main screen says it in plain words; an article, annex, regulation or template number, or a standard's metric code, sits in the drill-down pop-up (Dialog or Drawer) and in filings and exports. Names customers use as categories stay on screen. (Stated on 2026-10-18.)
+   For example: 'Art. 90b', 'Del. Reg. 2015/35' and 'S.27.01.01' in the pop-up, an 'Article 8 fund', Pillar 3, SFDR and Solvency II on screen.
 
 The drill-down pop-ups are the shared `Dialog` and `Drawer` (section 7); the visual building blocks in use today are listed in sections 7 and 9.
 

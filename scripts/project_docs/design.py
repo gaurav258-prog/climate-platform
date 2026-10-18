@@ -87,7 +87,7 @@ def ui_standard(std: dict) -> list[str]:
            f"Stated by the {std['stated_by']} on {std['date']}; it applies to {std['applies_to']}. Recorded in "
            f"`{STANDARD}` ({std['recorded_from']}).", ""]
     for k, r in enumerate(std["rules"], 1):
-        out.append(f"{k}. **{r['title']}.** {r['rule']}")
+        out.append(f"{k}. **{r['title']}.** {r['rule']}" + (f" (Stated on {r['date']}.)" if r.get("date") else ""))
         if r.get("not_on_screen"):
             out.append("   Never on screen: " + "; ".join(r["not_on_screen"]) + ".")
         if r.get("examples"):
