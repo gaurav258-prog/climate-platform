@@ -311,14 +311,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/SpecRegister.tsx": {
-  "internal": 0,
-  "raw": 6,
-  "monoProse": 2,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/StageStrip.tsx": {
   "internal": 0,
   "raw": 0,
@@ -708,22 +700,6 @@
   "raw": 0,
   "monoProse": 3,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/RegChanges.tsx": {
-  "internal": 1,
-  "raw": 1,
-  "monoProse": 7,
-  "apiProse": 5,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/RegPipeline.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 0,
-  "apiProse": 2,
   "figure": 0,
   "citation": 0
  },

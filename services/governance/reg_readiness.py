@@ -11,9 +11,12 @@ from sqlalchemy.orm import Session
 
 
 def _plot_cov(session: Session, org_id: str, cond: str) -> tuple[int, int]:
+    # the plots the regulation covers: those of an EUDR-covered commodity (the same plots its scope counts,
+    # services/governance/reg_impact.py) — a wheat or olive plot needs no geolocation or legality evidence under it
     r = session.execute(text(f"""
         SELECT count(*) AS t, count(*) FILTER (WHERE {cond}) AS h
-        FROM sc_sourcing_plots WHERE org_id = :o
+        FROM sc_sourcing_plots
+        WHERE org_id = :o AND commodity_id IN (SELECT commodity_id FROM sc_commodities WHERE eudr_covered)
     """), {"o": org_id}).mappings().first()
     return int(r["h"] or 0), int(r["t"] or 0)
 
@@ -44,18 +47,15 @@ _CHECKERS = {
 
 
 def field_readiness(session: Session, org_id: str, key: str | None) -> dict:
-    """{status: have|partial|needed, detail: 'h/t' or None} for one required field, from the client's own data."""
+    """{status: have|partial|needed, held, total} for one required field, from the client's own data. held and total are
+    None when the client's data cannot confirm it (a field we do not read, or a read that failed): it is listed as
+    needed, never guessed as held."""
     checker = _CHECKERS.get(key or "")
     if checker is None:
-        return {"status": "needed", "detail": None}
+        return {"status": "needed", "held": None, "total": None}
     try:
         held, total = checker(session, org_id)
     except Exception:
-        return {"status": "needed", "detail": None}
-    if total == 0:
-        return {"status": "needed", "detail": "none on file"}
-    if held >= total:
-        return {"status": "have", "detail": f"{held}/{total}"}
-    if held > 0:
-        return {"status": "partial", "detail": f"{held}/{total}"}
-    return {"status": "needed", "detail": f"0/{total}"}
+        return {"status": "needed", "held": None, "total": None}
+    status = "needed" if total == 0 or held == 0 else "have" if held >= total else "partial"
+    return {"status": status, "held": held, "total": total}

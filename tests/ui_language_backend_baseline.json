@@ -154,20 +154,10 @@
   "error": 0,
   "rawError": 0
  },
- "api/routers/reg_changes.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
- },
  "api/routers/reg_tasks.py": {
   "display": 0,
   "error": 0,
   "rawError": 10
- },
- "api/routers/regspec.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
  },
  "api/routers/remittance.py": {
   "display": 0,

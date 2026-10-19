@@ -234,6 +234,27 @@ def families_for(report_type: str) -> list[str]:
     return list(json.loads(_USAGE.read_text())["report_types"].get(report_type, []))
 
 
+def report_types_of(family: str) -> list[str]:
+    """The report types a specification family governs (data/reference/regspec_usage.json), in the file's order."""
+    return [rt for rt, fams in json.loads(_USAGE.read_text())["report_types"].items() if family in fams]
+
+
+def family_name(family: str) -> str:
+    """A specification family's name in customer words: its own official name, else the official names (or filing
+    labels) of the report types it governs, joined. Never the family key."""
+    from services.governance.filings import FRAMEWORKS
+    from services.governance.reg_reference import REFERENCE
+    own = (REFERENCE.get(family) or {}).get("official_name")
+    if own:
+        return own
+    names = [(REFERENCE.get(rt) or {}).get("official_name") or (FRAMEWORKS.get(rt) or {}).get("label")
+             for rt in report_types_of(family)]
+    names = list(dict.fromkeys(n for n in names if n))
+    if not names:
+        raise SpecError(f"no name for the specification family {family}: list the report types it governs")
+    return " · ".join(names)
+
+
 def embeds_previous_period(report_type: str) -> str | None:
     """The key a filing of this report type freezes its book under, when it carries the previous period's book (its
     templates print T-1 / N-1); None otherwise."""

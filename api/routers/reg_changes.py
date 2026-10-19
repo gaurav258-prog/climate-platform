@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 import services.governance.reg_changes as C
 from api.deps import DbSession, require_permission
+from api.routers.regspec import reader
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/reg-changes", tags=["Regulatory changes"])
 
@@ -27,12 +29,12 @@ class Advance(BaseModel):
     stage: str
 
 
-@router.get("/board", summary="Change register grouped by stage")
-def board(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+@router.get("/board", summary="Change register grouped by stage (report users, and the platform operator whose page it is)")
+def board(session: DbSession, ctx: dict = Depends(reader)):
     return C.board(session, ctx["org"]["org_id"])
 
 
-@router.get("/outlook", summary="Regulatory outlook (customer view) — what's in force today, and what's changing when + any data you'll need")
+@router.get("/outlook", summary="Regulatory outlook (customer view) — what's in force today, what's changing and when, and the data you'll need; explanations as catalogue messages")
 def outlook(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.reg_outlook import outlook as _outlook
     return _outlook(ctx["org"].get("type"), session, ctx["org"]["org_id"])
@@ -49,7 +51,7 @@ def signals(session: DbSession, ctx: dict = Depends(require_permission("reports.
     from services.governance.filings import FRAMEWORKS
     from services.regulatory_monitoring.early_signals import for_org
     org_type = ctx["org"]["type"]
-    fws = [fw for fw, m in FRAMEWORKS.items() if org_type in (m.get("sectors") or ())]
+    fws = [fw for fw, m in FRAMEWORKS.items() if org_type in (m.get("sectors") or ()) and not m.get("retired")]
     if org_type == "manufacturer":
         fws.append("eudr_dds")
     return for_org(session, ctx["org"]["org_id"], fws)
@@ -83,7 +85,7 @@ def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_p
                                owner=body.owner, impact=body.impact, effective_date=body.effective_date,
                                org_scoped=True)
     except C.ChangeError as e:
-        raise HTTPException(409, {"error": "change_error", "message": str(e)})
+        raise UserError(e.code) from e
 
 
 @router.post("/{change_id}/advance", summary="Move a change to another stage")
@@ -92,7 +94,7 @@ def advance(change_id: str, body: Advance, session: DbSession,
     try:
         return C.advance(session, ctx["org"]["org_id"], change_id, body.stage)
     except C.ChangeError as e:
-        raise HTTPException(409, {"error": "change_error", "message": str(e)})
+        raise UserError(e.code) from e
 
 
 @router.get("/impact", summary="Detected changes to your frameworks and what each touches: switches, KRIs, template, mandates")

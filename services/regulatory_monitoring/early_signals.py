@@ -145,14 +145,21 @@ def for_org(session: Session, org_id: str, frameworks: list[str], limit: int = 3
           AND (s.frameworks && CAST(:f AS text[]) OR (s.jurisdiction <> 'EU' AND 'climate_disclosure' = ANY(s.topics)))
         ORDER BY s.published_at DESC NULLS LAST LIMIT :n
     """), {"j": list(js), "f": frameworks, "n": limit}).mappings().all()
+    from core import messages
+    from services.reference.countries import english_name
     names = {s["key"]: s["authority"] for s in reference()["sources"]}
     labels = {t["key"]: t["label"] for t in reference()["topics"]}
-    return {"signals": [{**dict(r), "source": names.get(r["source_key"], r["source_key"]),
-                         "topics": [labels.get(t, t) for t in r["topics"]],
+    places = [english_name(j) or j for j in sorted(js)]
+
+    def standing(r) -> dict:
+        return (messages.render("regchange.signal.confirmed", title=r["confirmed_title"]) if r["status"] == "register_confirmed"
+                else messages.render("regchange.signal.unconfirmed"))
+    return {"signals": [{**dict(r), "authority": names.get(r["source_key"], r["source_key"]),
+                         "jurisdiction_name": english_name(r["jurisdiction"]) or r["jurisdiction"],
+                         "topics": [labels.get(t, t) for t in r["topics"]], "standing": standing(r),
                          "published_at": r["published_at"].isoformat() if r["published_at"] else None} for r in rows],
-            "jurisdictions": sorted(js),
-            "note": "Early signals are unconfirmed: they never move a date, a deadline or a filing. One the official EU register "
-                    "later records is marked confirmed."}
+            "jurisdictions": sorted(js), "places": places,
+            "message": messages.render("regchange.signals.about", places=", ".join(places))}
 
 
 def dismiss(session: Session, signal_id: str) -> None:

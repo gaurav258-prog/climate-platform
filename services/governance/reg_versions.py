@@ -30,7 +30,10 @@ def versions(session: Session, org_type: str | None) -> dict:
     """Per applicable framework, the version lineage (base + amendments) with live effective-date milestones."""
     from sqlalchemy import text
 
+    from core import messages
+    from core.messages import name
     from services.governance.filings import FRAMEWORKS
+    from services.governance.reg_outlook import _day
     from services.governance.reg_reference import REFERENCE
     from services.regulatory_monitoring.eurlex_detector import FRAMEWORK_CELEX
 
@@ -38,7 +41,7 @@ def versions(session: Session, org_type: str | None) -> dict:
              session.execute(text("SELECT celex, signal, checked_at FROM reg_source_snapshot")).mappings()}
 
     # frameworks this sector files, plus EUDR for agri (filed via the disclosure page, not in FRAMEWORKS)
-    applicable = [fw for fw, meta in FRAMEWORKS.items() if org_type in (meta.get("sectors") or ())]
+    applicable = [fw for fw, meta in FRAMEWORKS.items() if org_type in (meta.get("sectors") or ()) and not meta.get("retired")]
     if org_type == "manufacturer" and "eudr_dds" not in applicable:
         applicable.append("eudr_dds")
 
@@ -57,18 +60,20 @@ def versions(session: Session, org_type: str | None) -> dict:
             rels = _relations(session, [cx])
             acts.append({
                 "replaced_by": [{"celex": r["related_celex"], "title": short_title(r["title"], r["related_celex"]),
-                                 "relation": r["relation"], "since": min(r["entry_into_force"]) if r["entry_into_force"] else None}
+                                 "relation": r["relation"], "relation_label": name("regchange.relation", r["relation"]),
+                                 "since": min(r["entry_into_force"]) if r["entry_into_force"] else None}
                                 for r in rels if r["relation"] != "amends"],
                 "amendments": sorted(({"celex": r["related_celex"], "title": short_title(r["title"], r["related_celex"]),
                                        "since": min(r["entry_into_force"]) if r["entry_into_force"] else None}
                                       for r in rels if r["relation"] == "amends"), key=lambda a: a["since"] or "", reverse=True),
                 "ends": (sig.get("end_of_validity") if sig.get("end_of_validity") not in (None, _NO_END) else None),
-                "celex": cx, "title": am["title"], "role": am["role"],
+                "celex": cx, "title": am["title"], "role": am["role"], "role_label": name("regchange.act_role", am["role"]),
                 "in_force": bool(sig.get("in_force")),
                 "in_force_since": m["in_force_since"], "next_effective": m["next_effective"],
                 "future": m["future"],
                 "url": f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{cx}",
                 "live": bool(sig),
+                "not_read": None if sig else messages.render("regchange.version.not_read"),
             })
         if not acts:
             continue
@@ -87,7 +92,9 @@ def versions(session: Session, org_type: str | None) -> dict:
             "checked_at": checked,
         })
     out.sort(key=lambda x: x["name"] or "")
-    return {"frameworks": out, "checked_at": next((f["checked_at"] for f in out if f["checked_at"]), None),
+    checked_at = next((f["checked_at"] for f in out if f["checked_at"]), None)
+    return {"frameworks": out, "checked_at": checked_at,
+            "checked": messages.render("regchange.version.checked", checked=_day(checked_at)) if checked_at else None,
             "summary": {"n": len(out), "n_upcoming": sum(1 for f in out if f["upcoming_effective"])}}
 
 

@@ -13,7 +13,10 @@ STAGES = ["identified", "analysis", "scheduled", "in_dev", "testing", "released"
 
 
 class ChangeError(ValueError):
-    pass
+    """A refused change: the English cause for the log, and the catalogue code the screen shows (core/errors.py)."""
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
 
 
 def _row(r) -> dict:
@@ -42,9 +45,9 @@ def create_change(session: Session, org_id: str, actor: str, *, title: str, fram
     """Register a change. Org-scoped by default — a tenant endpoint never creates a platform-wide (NULL) row
     (those are seeded by the platform), so a tenant can't inject into the global feed."""
     if not (title or "").strip():
-        raise ChangeError("a change needs a title")
+        raise ChangeError("a change needs a title", "regchange.error.title")
     if owner not in ("platform", "tenant"):
-        raise ChangeError("owner must be platform or tenant")
+        raise ChangeError("owner must be platform or tenant", "regchange.error.owner")
     cid = session.execute(text("""
         INSERT INTO regulatory_change (org_id, title, framework, summary, citation, owner, impact,
                                        effective_date, created_by)
@@ -67,10 +70,10 @@ def advance(session: Session, org_id: str, change_id: str, stage: str) -> dict:
     """Advance a change's stage. Tenant-scoped: only the org's OWN changes — platform-wide (NULL) rows are
     read-only to a tenant, and another org's change is invisible."""
     if stage not in STAGES:
-        raise ChangeError(f"unknown stage '{stage}'")
+        raise ChangeError(f"unknown stage '{stage}'", "regchange.error.stage")
     r = session.execute(text(
         "UPDATE regulatory_change SET stage=:s WHERE change_id=:c AND org_id=:o RETURNING change_id"),
         {"s": stage, "c": change_id, "o": org_id}).first()
     if not r:
-        raise ChangeError("change not found, or it is a platform-managed change you can't modify")
+        raise ChangeError("change not found, or it is a platform-managed change you can't modify", "regchange.error.not_yours")
     return get_change(session, org_id, change_id)

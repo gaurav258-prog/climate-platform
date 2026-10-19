@@ -108,10 +108,26 @@ def sweep_all(session: Session) -> dict:
 
 
 def list_alerts(session: Session, org_id: str) -> list[dict]:
+    """The alerts raised for this org, newest first. Each is told now, not as raised: the days to its date are counted
+    today and its words come from the message catalogue (`title` keeps the text the task and e-mail were sent with)."""
+    from datetime import date
+
+    from core import messages
+    from services.governance.reg_outlook import _day, _name
     rows = session.execute(text("""
         SELECT alert_key, framework, kind, title, effective_date, task_id, raised_at
         FROM reg_alert WHERE org_id=:o ORDER BY raised_at DESC LIMIT 50"""), {"o": org_id}).mappings().all()
-    return [{"alert_key": r["alert_key"], "framework": r["framework"], "kind": r["kind"], "title": r["title"],
-             "effective_date": r["effective_date"].isoformat() if r["effective_date"] else None,
-             "task_id": str(r["task_id"]) if r["task_id"] else None,
-             "raised_at": r["raised_at"].date().isoformat() if r["raised_at"] else None} for r in rows]
+    out = []
+    for r in rows:
+        day = r["effective_date"]
+        days = (day - date.today()).days if day else None
+        code = ("regchange.alert.detected" if r["kind"] == "detected" else
+                "regchange.alert.in_force" if days is not None and days < 0 else "regchange.alert.deadline")
+        raised = r["raised_at"].date().isoformat() if r["raised_at"] else None
+        name = _name(r["framework"]) or r["framework"]
+        out.append({"alert_key": r["alert_key"], "framework": r["framework"], "name": name, "kind": r["kind"],
+                    "title": r["title"], "effective_date": day.isoformat() if day else None, "days": days,
+                    "message": messages.render(code, name=name, date=_day(day.isoformat() if day else None),
+                                               raised=_day(raised), window=ALERT_WINDOW_DAYS),
+                    "task_id": str(r["task_id"]) if r["task_id"] else None, "raised_at": raised})
+    return out

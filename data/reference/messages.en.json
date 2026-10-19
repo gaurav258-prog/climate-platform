@@ -2551,6 +2551,265 @@
    "detail": {
     "what": "The oldest request was raised on {raised}. Tellumen marks an approval as overdue {sla} days after it is raised, so it has been overdue since {due}."
    }
+  },
+  "regchange.phase.in_force": {
+   "label": "In force",
+   "detail": {
+    "what": "This change took effect on {date}. It stays listed so you can check you are ready for it."
+   }
+  },
+  "regchange.phase.dated": {
+   "label": "Date confirmed",
+   "detail": {
+    "what": "This change takes effect on {date}. The date is fixed in the act that makes the change."
+   }
+  },
+  "regchange.phase.undated": {
+   "label": "Date not set",
+   "detail": {
+    "what": "The regulator has not fixed a date for this change. We do not estimate one: the date appears here once the act sets it."
+   }
+  },
+  "regchange.date.verified": {
+   "label": "Checked against the EU register",
+   "detail": {
+    "what": "The date matches the official EU register (EUR-Lex), last checked on {checked}."
+   }
+  },
+  "regchange.date.moved": {
+   "label": "Date updated from the EU register",
+   "detail": {
+    "what": "The official EU register gives {date}, which differs from the date we held before. The register's date is the one shown and used for your deadline."
+   }
+  },
+  "regchange.detected.replaced": {
+   "label": "A new act replaces it",
+   "detail": {
+    "what": "{act} replaces the act {name} is filed under.",
+    "why": "The official EU register (EUR-Lex) recorded it and we spotted it on {detected}. Our regulatory team is reviewing what it changes.",
+    "next": "Nothing changes in your filings until that review is done. Its outcome appears here."
+   }
+  },
+  "regchange.detected.amended": {
+   "label": "A new act amends it",
+   "detail": {
+    "what": "{act} amends the act {name} is filed under.",
+    "why": "The official EU register (EUR-Lex) recorded it and we spotted it on {detected}. Our regulatory team is reviewing what it changes.",
+    "next": "Nothing changes in your filings until that review is done. Its outcome appears here."
+   }
+  },
+  "regchange.detected.dates": {
+   "label": "Its legal dates changed",
+   "detail": {
+    "what": "The official EU register now lists different dates for when the act {name} is filed under applies.",
+    "why": "The official EU register (EUR-Lex) recorded it and we spotted it on {detected}. Our regulatory team is reviewing what it changes.",
+    "next": "Nothing changes in your filings until that review is done. Its outcome appears here."
+   }
+  },
+  "regchange.draft.templates": {
+   "label": "Draft templates, not adopted yet",
+   "detail": {
+    "what": "A final draft of new templates for {name}. Against the version in force it adds {added} templates, removes {removed} and changes {changed}.",
+    "why": "A draft can still change before it is adopted.",
+    "next": "The data you will need follows on adoption. Nothing changes in your filings until then."
+   }
+  },
+  "regchange.draft.wording": {
+   "label": "Draft wording changes, not adopted yet",
+   "detail": {
+    "what": "A final draft for {name} that changes wording or references only: the templates stay as they are.",
+    "why": "A draft can still change before it is adopted.",
+    "next": "The data you will need follows on adoption. Nothing changes in your filings until then."
+   }
+  },
+  "regchange.data.none": {
+   "label": "No new data needed",
+   "detail": {
+    "what": "This change is computed from the data you already provide. Nothing new is asked of you."
+   }
+  },
+  "regchange.field.have": {
+   "label": "You hold this",
+   "detail": {
+    "what": "Your data holds this for every record it applies to: {held} of {total}."
+   }
+  },
+  "regchange.field.partial": {
+   "label": "Partly held",
+   "detail": {
+    "what": "Your data holds this for {held} of {total} records. The rest are still to provide."
+   }
+  },
+  "regchange.field.missing": {
+   "label": "To provide",
+   "detail": {
+    "what": "Your data does not hold this yet: {held} of {total} records.",
+    "next": "Provide it before the change takes effect."
+   }
+  },
+  "regchange.field.none_on_file": {
+   "label": "To provide",
+   "detail": {
+    "what": "There are no records on file that this applies to yet.",
+    "next": "Provide it before the change takes effect."
+   }
+  },
+  "regchange.field.not_read": {
+   "label": "To provide",
+   "detail": {
+    "what": "We cannot confirm this from your data, so it is listed for you to provide.",
+    "next": "Provide it before the change takes effect."
+   }
+  },
+  "regchange.signals.about": {
+   "label": "Unconfirmed until the EU register records it",
+   "detail": {
+    "what": "News that concerns the regulations you file, from regulators' own feeds (the EBA, ESMA, the UK FCA and the US SEC) and the press, for {places}.",
+    "why": "News often comes before the official register records a change.",
+    "next": "An early signal never moves a date, a deadline or a filing. One the EU register later records is marked confirmed."
+   }
+  },
+  "regchange.signal.unconfirmed": {
+   "label": "Unconfirmed",
+   "detail": {
+    "what": "Not yet recorded in the official EU register. It changes nothing in your dates or filings."
+   }
+  },
+  "regchange.signal.confirmed": {
+   "label": "Confirmed by the register",
+   "detail": {
+    "what": "The official EU register has since recorded a change for this regulation: {title}."
+   }
+  },
+  "regchange.alert.deadline": {
+   "label": "Deadline approaching",
+   "detail": {
+    "what": "{name} takes effect on {date}.",
+    "why": "An alert is raised once, when a date comes within {window} days. This one was raised on {raised}.",
+    "next": "Plan the work on your Tasks board."
+   }
+  },
+  "regchange.alert.in_force": {
+   "label": "Now in force",
+   "detail": {
+    "what": "{name} took effect on {date}.",
+    "why": "The alert was raised on {raised}, when the date came within {window} days."
+   }
+  },
+  "regchange.alert.detected": {
+   "label": "New change detected",
+   "detail": {
+    "what": "The official EU register recorded a change to an act {name} is filed under.",
+    "why": "Raised on {raised}, when the change was spotted.",
+    "next": "See it under Coming changes and on your Tasks board."
+   }
+  },
+  "regchange.version.checked": {
+   "label": "Dates from the EU register",
+   "detail": {
+    "what": "Each act's dates and the acts that amend or replace it are read from the official EU register (EUR-Lex), last checked on {checked}."
+   }
+  },
+  "regchange.version.not_read": {
+   "label": "Not read from the register yet",
+   "detail": {
+    "what": "We track this act, but the official EU register has not been read for it yet, so its dates are not shown."
+   }
+  },
+  "regchange.error.title": {
+   "status": 409,
+   "label": "A change needs a title",
+   "detail": {
+    "what": "Give the change a short title before adding it."
+   }
+  },
+  "regchange.error.owner": {
+   "status": 409,
+   "label": "Unknown owner",
+   "detail": {
+    "what": "A change is owned by the platform or by your organisation."
+   }
+  },
+  "regchange.error.stage": {
+   "status": 409,
+   "label": "Unknown stage",
+   "detail": {
+    "what": "A change moves through these stages: identified, analysis, scheduled, in development, testing and released."
+   }
+  },
+  "regchange.error.not_yours": {
+   "status": 409,
+   "label": "You cannot move this change",
+   "detail": {
+    "what": "It is managed by the platform, or it is not your organisation's. Only your own changes can be moved."
+   }
+  },
+  "regchange.spec.error.not_found": {
+   "status": 404,
+   "label": "Specification not found",
+   "detail": {
+    "what": "There is no template specification of that regulation and version."
+   }
+  },
+  "regchange.spec.error.role": {
+   "status": 409,
+   "label": "Unknown sign-off role",
+   "detail": {
+    "what": "A specification is signed by a regulatory reviewer and by an engineer."
+   }
+  },
+  "regchange.spec.error.changed": {
+   "status": 409,
+   "label": "The file changed since you reviewed it",
+   "detail": {
+    "what": "The specification was edited after you opened it, so your sign-off would not match its content.",
+    "next": "Reload the page and review the current version."
+   }
+  },
+  "regchange.spec.error.checks": {
+   "status": 409,
+   "label": "The rule file fails its checks",
+   "detail": {
+    "what": "The rule file fails {n} of its automatic checks.",
+    "next": "The engineering sign-off can be given once every check passes."
+   }
+  },
+  "regchange.spec.error.not_covered": {
+   "status": 409,
+   "label": "The templates are not fully covered",
+   "detail": {
+    "what": "{n} rows, columns or items of this specification are not mapped in the platform, or are mapped but no longer in it.",
+    "next": "The engineering sign-off can be given once every one is covered."
+   }
+  },
+  "regchange.spec.error.already_signed": {
+   "status": 409,
+   "label": "Already signed in this role",
+   "detail": {
+    "what": "This version already carries a sign-off as {role}."
+   }
+  },
+  "regchange.spec.error.sole_first": {
+   "status": 409,
+   "label": "Sign the first role yourself first",
+   "detail": {
+    "what": "Declaring yourself the only reviewer is for signing the second role after you signed the first."
+   }
+  },
+  "regchange.spec.error.same_person": {
+   "status": 409,
+   "label": "A different person must sign",
+   "detail": {
+    "what": "The two sign-offs must be by two different people.",
+    "next": "If you are the only reviewer, tick the declaration: the record then says it is not a four-eyes review."
+   }
+  },
+  "regchange.spec.checks_failing": {
+   "label": "Rule checks do not pass yet",
+   "detail": {
+    "what": "The rule file fails {n} of its automatic checks: a quote not found word for word in the official texts, a reference its regime does not hold, a declared reading without its wording, or a group report without a rule.",
+    "next": "The engineering sign-off is refused until every check passes."
+   }
   }
  },
  "names": {
@@ -2794,6 +3053,30 @@
    "fund": "Fund",
    "division": "Division",
    "branch": "Branch"
+  },
+  "regchange.relation": {
+   "amends": "Amended by",
+   "repeals": "Replaced by",
+   "implicitly_repeals": "Replaced in whole or in part by"
+  },
+  "regchange.act_role": {
+   "base": "Tracked act",
+   "amendment": "Amending act"
+  },
+  "regchange.role": {
+   "regulatory": "Regulatory reviewer",
+   "engineering": "Engineer"
+  },
+  "regchange.basis": {
+   "disclosure_date": "The date the disclosure is made",
+   "period_end": "The reporting date",
+   "financial_year_start": "The start of the financial year"
+  },
+  "regchange.diff": {
+   "template change": "Templates change",
+   "wording": "Wording only",
+   "references only": "References only",
+   "no impact": "No change to the templates"
   }
  }
 }
