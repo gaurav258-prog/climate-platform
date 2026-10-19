@@ -1,208 +1,136 @@
 import { useParams, Link } from 'react-router-dom'
-import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react'
-import { api, download } from '../lib/api'
-import { toast } from '../lib/toast'
-import { useAuth } from '../lib/auth'
-import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronLeft, MapPin, ShieldCheck, Users } from 'lucide-react'
+import { api } from '../lib/api'
+import { Card, PageHeader, SectionHead, StatGrid } from '../components/ui'
+import { StatusChip } from '../components/StatusChip'
+import { HBar } from '../components/Charts'
+import { MessageLine, type Message } from '../components/Details'
 import { severityHex } from '../components/SiteMap'
 import StageStrip, { type Step } from '../components/StageStrip'
-import { frameworkLabel, horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
-import { RemitDialog, RemittancesIssued } from '../components/Remittance'
+import { hazardLabel, statusLabel } from '../lib/hazards'
 import { balance } from '../lib/money'
+import { RemittancesIssued } from '../components/Remittance'
+import { FULL, QUICK } from './supervisorAnalysis/checks'
+import { aboutOf, day, shows } from './supervisorDesk/common'
+import { EvidencePacks, TransmissionsReceived } from './supervisorDesk/EntityRecords'
 
-// The entity file — what a line supervisor opens: identity, submissions, exposure (regional), peer position,
-// what the entity lets me see, and my own access trail on it. Every field is computed by the same engine the
-// entity's own pages use, under the regulator's basis (or one passed in), so the two sides never disagree.
-interface Fw { framework: string; label: string; state: 'filed' | 'in_progress' | 'none'; status: string | null; period_label: string | null }
-interface Pos { id: string; label: string; unit: string; direction?: string; value: number | null; flag: string; percentile: number | null
+// The entity file (UI standard, 2026-10-16) — what a line supervisor opens: where the entity is in the process and its
+// checks, four figures, its filings as chips, its position among peers as range bars, where its book sits and what
+// threatens it as bars, and its records (transmissions, evidence packs, onward shares). Every figure is the entity's own
+// engine result at the authority's basis; opening the file is written to the entity's audit trail.
+interface Fw { framework: string; label: string; state: 'filed' | 'in_progress' | 'none'; state_label: string | null; status: string | null; period_label: string | null }
+interface Pos { id: string; label: string; unit: string; value: number | null; flag: string; flag_label: string | null; percentile: number | null
   distribution: { n: number; min?: number; p25?: number; median?: number; p75?: number; max?: number } }
 interface FileResp {
-  entity: { org_id: string; name: string; type: string; country: string; lei: string | null; legal_name: string | null }
-  in_profile: boolean; has_intake?: boolean; sector: { label: string; book_noun: string; frameworks: string[]; region_unit: string } | null
-  scenario: string; horizon: string
+  entity: { org_id: string; name: string; sector_label: string | null; country_name: string | null; lei: string | null; legal_name: string | null }
+  in_profile: boolean; has_intake?: boolean; sector: { label: string; book_noun: string } | null; notes: Message[]; about: Message
   submissions: { frameworks: Fw[]; filed: number; expected: number } | null
   book: { n_assets: number; value_eur: number; n_regions: number
-    top_regions: { key: string; name: string; country: string | null; kind: string; n_sites: number; value_eur: number; max_score: number | null; worst_hazard: string | null }[]
+    top_regions: { key: string; name: string; country_name: string | null; kind_label: string | null; n_sites: number; value_eur: number; max_score: number | null; worst_hazard: string | null }[]
     hazards: { hazard: string; n: number; value_eur: number }[] }
   peer_position: Pos[]; peers_in_sector: number | null; site_access: boolean
-  my_recent_accesses: { action: string; at: string; detail: Record<string, unknown> }[]
+  my_recent_accesses: { label: string; at: string }[]
 }
-const fmt = (p: Pos, v: number | null | undefined) => v == null ? '—' : p.unit === 'eur' ? balance(v) : `${v}%`
-const FLAG: Record<string, { label: string; color: string }> = {
-  act: { label: 'Act', color: 'var(--color-bad)' }, watch: { label: 'Watch', color: 'var(--color-warn)' },
-  ok: { label: 'Within expectation', color: 'var(--color-good)' }, na: { label: 'n/a', color: 'var(--color-faint)' } }
-const CHIP: Record<Fw['state'], string> = { filed: 'bg-[var(--color-good)]/15 text-[var(--color-good)]', in_progress: 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]', none: 'bg-[var(--color-bg-2)] text-[var(--color-faint)]' }
+const STATE_TONE: Record<Fw['state'], 'good' | 'warn' | 'neutral'> = { filed: 'good', in_progress: 'warn', none: 'neutral' }
+const FLAG_COLOR: Record<string, string> = { act: 'var(--color-bad)', watch: 'var(--color-warn)', ok: 'var(--color-good)', na: 'var(--color-faint)' }
+const FLAG_TONE: Record<string, 'bad' | 'warn' | 'good' | 'neutral'> = { act: 'bad', watch: 'warn', ok: 'good', na: 'neutral' }
+const fig = (p: Pos, v: number | null | undefined) => v == null ? '—' : p.unit === 'eur' ? balance(v) : `${v}%`
+const hazardName = (h: string | null) => !h || h === 'unscored' ? 'Not scored' : hazardLabel(h)
+
+// One measure among peers: the range across peers, the middle half shaded, the median a tick, this entity a marker.
+function PeerBar({ p }: { p: Pos }) {
+  const ds = p.distribution
+  if (ds.n <= 1 || ds.min == null || ds.max == null) return <span className="text-[11.5px] text-[var(--color-faint)]">No peers yet</span>
+  const span = ds.max - ds.min || 1, x = (v: number) => `${Math.max(0, Math.min(100, ((v - ds.min!) / span) * 100))}%`
+  return (
+    <div className="relative h-5 w-full rounded bg-[var(--color-panel-2)]" role="img" title={`Peers ${fig(p, ds.min)} to ${fig(p, ds.max)} · median ${fig(p, ds.median)}`}
+      aria-label={`This entity ${fig(p, p.value)}; peers ${fig(p, ds.min)} to ${fig(p, ds.max)}, median ${fig(p, ds.median)}`}>
+      {ds.p25 != null && ds.p75 != null && <div className="absolute top-0 h-full rounded bg-[var(--color-sky)]/25" style={{ left: x(ds.p25), width: `calc(${x(ds.p75)} - ${x(ds.p25)})` }} />}
+      {ds.median != null && <div className="absolute top-0 h-full w-px bg-[var(--color-sky)]" style={{ left: x(ds.median) }} />}
+      {p.value != null && <div className="absolute top-[2px] h-4 w-[4px] rounded-sm -translate-x-1/2" style={{ left: x(p.value), background: FLAG_COLOR[p.flag] ?? 'var(--color-ink)' }} />}
+    </div>
+  )
+}
 
 export default function EntityFile() {
   const { orgId = '' } = useParams()
   const q = useQuery({ queryKey: ['entity-file', orgId], queryFn: () => api.get<FileResp>(`/v1/supervisor/entity/${orgId}/file`) })
-  const wf = useQuery({ queryKey: ['supervisor-workflow'], queryFn: () => api.get<{ entities: { org_id: string; steps: Step[]; stage: string; next: { label: string; to: string } }[] }>('/v1/supervisor/population/workflow') })
+  const wf = useQuery({ queryKey: ['supervisor-workflow'], queryFn: () => api.get<{ entities: { org_id: string; steps: Step[]; next: { label: string; to: string } }[] }>('/v1/supervisor/population/workflow') })
   const mine = wf.data?.entities.find(e => e.org_id === orgId)
   const d = q.data
-  if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">opening the entity file…</div>
-  if (!d) return <div className="h-[60vh] grid place-items-center text-[var(--color-bad)] text-sm">Could not open this entity — it may be outside your supervised population.</div>
+  if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">Opening the entity file…</div>
+  if (!d) return <div className="h-[60vh] grid place-items-center text-[var(--color-bad)] text-sm">This entity is not in your supervised population.</div>
   const sub = d.submissions
+  const link = 'inline-flex items-center rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12.5px] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition'
   return (
     <div className="fadeup space-y-6">
       <Link to="/supervised" className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Supervised population</Link>
-      <PageHeader eyebrow={`Entity file · ${d.sector?.label ?? d.entity.type} · ${d.entity.country}`} title={d.entity.name}
-        lead={`${d.entity.legal_name ?? ''}${d.entity.lei ? ` · LEI ${d.entity.lei}` : ''} — basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}. Every figure is the entity's own engine result; opening this file is written to the entity's audit trail.`} />
-      <Card className="p-4">
+      <PageHeader eyebrow={[d.entity.sector_label, d.entity.country_name].filter(Boolean).join(' · ')} title={d.entity.name}
+        about={[...(d.entity.legal_name || d.entity.lei ? [shows(`${d.entity.legal_name ?? d.entity.name}${d.entity.lei ? ` · LEI ${d.entity.lei}` : ''}`)] : []), ...aboutOf(d.about)]} />
+      <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          {mine ? <StageStrip steps={mine.steps} /> : <span className="text-[12px] text-[var(--color-faint)]">assessing this entity's position in the process…</span>}
+          {mine ? <StageStrip steps={mine.steps} /> : <span className="text-[12px] text-[var(--color-faint)]">Reading where this entity is in the process…</span>}
           {mine && <Link to={mine.next.to} className="text-[12.5px] font-medium text-[var(--color-sky)] hover:underline whitespace-nowrap">Next: {mine.next.label} →</Link>}
         </div>
-        <div className="flex gap-4 text-[12px] mt-3">
-          {d.has_intake ? <>
-            <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake →</Link>
-            <Link to={`/supervised/${orgId}/plausibility`} className="text-[var(--color-sky)] hover:underline">Quick check →</Link>
-            <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Full rebuild →</Link>
-          </> : <span className="text-[var(--color-faint)]">Your supervision profile sets no intake template for this sector, so the quick check and the full rebuild do not apply yet.</span>}
+        <div className="flex flex-wrap items-center gap-2">
+          {d.has_intake && <>
+            <Link to={`/supervised/${orgId}/intake`} className={link}>Intake</Link>
+            <Link to={`/supervised/${orgId}/plausibility`} className={link}>{QUICK}</Link>
+            <Link to={`/supervised/${orgId}/lens`} className={link}>{FULL}</Link></>}
+          {d.notes.map(m => <MessageLine key={m.code} m={m} className="text-[12.5px] text-[var(--color-warn)]" />)}
         </div>
       </Card>
-      {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}
 
       <StatGrid cols={4} items={[
-        { label: d.sector?.book_noun ?? 'assets', value: d.book.n_assets.toLocaleString(), sub: balance(d.book.value_eur) },
-        { label: 'Submissions', value: sub ? `${sub.filed}/${sub.expected}` : '—', sub: 'framework-periods filed' },
-        { label: 'Regions with exposure', value: String(d.book.n_regions), sub: d.sector?.region_unit === 'nuts3' ? 'NUTS-3 · hexagons outside EU' : '' },
-        { label: 'Site-level access', value: d.site_access ? 'Granted' : 'Not granted', accent: d.site_access ? 'var(--color-good)' : 'var(--color-faint)', sub: d.site_access ? 'individual sites visible' : 'regional aggregates only' },
+        { label: d.sector?.book_noun ? d.sector.book_noun[0].toUpperCase() + d.sector.book_noun.slice(1) : 'Assets', value: d.book.n_assets.toLocaleString(), sub: balance(d.book.value_eur) },
+        { label: 'Filings on record', value: sub ? `${sub.filed} of ${sub.expected}` : '—', sub: 'expected for the year' },
+        { label: 'Regions with exposure', value: String(d.book.n_regions), sub: 'regions and grid cells' },
+        { label: 'Site-level access', value: d.site_access ? 'Granted' : 'Not granted', accent: d.site_access ? 'var(--color-good)' : undefined, sub: d.site_access ? 'individual sites visible' : 'regional figures only' },
       ]} />
 
-      {sub && (
-        <Card className="p-5">
-          <div className="text-[14px] font-semibold mb-2">Submissions</div>
-          <div className="flex flex-wrap gap-2">
-            {sub.frameworks.map(f => <span key={f.framework} className={`mono text-[10.5px] px-2 py-1 rounded ${CHIP[f.state]}`}
-              title={f.status ? `${statusLabel(f.status)}${f.period_label ? ' · ' + f.period_label : ''}` : 'no filing on record'}>{f.label}: {f.state === 'filed' ? 'Filed' : f.state === 'in_progress' ? 'In progress' : 'Not filed'}</span>)}
-          </div>
-        </Card>
-      )}
+      {sub && sub.frameworks.length > 0 && <Card className="p-5">
+        <SectionHead icon={ShieldCheck}>Filings</SectionHead>
+        <div className="flex flex-wrap gap-2 mt-3">{sub.frameworks.map(f => (
+          <span key={f.framework} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-line)] px-2.5 py-1.5 text-[12.5px]"
+            title={f.status ? `${statusLabel(f.status)}${f.period_label ? ` · ${f.period_label}` : ''}` : undefined}>
+            <span className="text-[var(--color-ink)]">{f.label}</span><StatusChip label={f.state_label ?? undefined} value={f.state} tone={STATE_TONE[f.state]} /></span>))}</div>
+      </Card>}
 
-      {d.peer_position.length > 0 && (
-        <Card className="p-5">
-          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-            <div className="text-[14px] font-semibold">Peer position</div>
-            <div className="mono text-[11px] text-[var(--color-faint)]">among {d.peers_in_sector} supervised {d.sector?.label.toLowerCase()} · thresholds are your profile's expectations</div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px]">
-              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th className="font-normal py-2 pr-3">Metric</th><th className="font-normal pr-3 text-right">This entity</th><th className="font-normal pr-3 text-right">Peer median</th>
-                <th className="font-normal pr-3 text-right">Peer range</th><th className="font-normal pr-3 text-right">Percentile</th><th className="font-normal">Flag</th></tr></thead>
-              <tbody>{d.peer_position.map(p => (
-                <tr key={p.id} className="border-t border-[var(--color-line)]">
-                  <td className="py-2 pr-3 text-[var(--color-ink)]">{p.label}</td>
-                  <td className="pr-3 text-right mono">{fmt(p, p.value)}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{fmt(p, p.distribution.median)}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-faint)]">{p.distribution.n > 1 ? `${fmt(p, p.distribution.min)} – ${fmt(p, p.distribution.max)}` : 'no peers yet'}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{p.percentile != null && p.distribution.n > 1 ? `${p.percentile}th` : '—'}</td>
-                  <td><span className="mono text-[11px]" style={{ color: FLAG[p.flag].color }}>{FLAG[p.flag].label}</span></td>
-                </tr>))}</tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {d.peer_position.length > 0 && <Card className="p-5">
+        <SectionHead icon={Users} hint={d.peers_in_sector ? `among ${d.peers_in_sector} ${d.sector?.label.toLowerCase() ?? 'peers'}` : undefined}>Peer position</SectionHead>
+        <div className="mt-3 divide-y divide-[var(--color-line)]">{d.peer_position.map(p => (
+          <div key={p.id} className="py-2.5 grid sm:grid-cols-[14rem_1fr_7rem_8rem] items-center gap-x-4 gap-y-1.5 text-[12.5px]">
+            <span className="text-[var(--color-ink)]">{p.label}</span>
+            <PeerBar p={p} />
+            <span className="tabular-nums text-right text-[var(--color-ink)]">{fig(p, p.value)}{p.percentile != null && p.distribution.n > 1 ? <span className="text-[var(--color-faint)]"> · {p.percentile}th</span> : null}</span>
+            <span className="sm:text-right"><StatusChip label={p.flag_label ?? undefined} tone={FLAG_TONE[p.flag] ?? 'neutral'} /></span>
+          </div>))}</div>
+      </Card>}
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="p-5">
-          <div className="text-[14px] font-semibold mb-2">Where the book sits <span className="mono text-[10.5px] text-[var(--color-faint)] font-normal">· top regions</span></div>
-          <div className="divide-y divide-[var(--color-line)]">{d.book.top_regions.map(r => (
-            <div key={r.key} className="py-1.5 flex items-center justify-between gap-3 text-[12.5px]">
-              <span className="min-w-0 truncate text-[var(--color-ink)]">{r.name}{r.country ? <span className="text-[var(--color-faint)]"> · {r.country}</span> : null}{r.kind === 'h3' ? <span className="mono text-[10px] text-[var(--color-faint)]"> grid cell</span> : null}</span>
-              <span className="mono text-[11.5px] text-[var(--color-mute)] shrink-0">{r.n_sites} · {balance(r.value_eur)}</span>
-              <span className="mono text-[11.5px] shrink-0 w-24 text-right" style={{ color: severityHex(r.max_score) }}>{r.max_score != null ? `${Math.round(r.max_score)}/100 · ${(r.worst_hazard ?? '').replace(/_/g, ' ')}` : 'unscored'}</span>
-            </div>))}</div>
+          <SectionHead icon={MapPin} hint="largest regions by value">Where the book sits</SectionHead>
+          <div className="mt-3"><HBar labelWidth="w-40" format={balance} data={d.book.top_regions.map(r => ({
+            label: r.country_name && !r.name.includes(r.country_name) ? `${r.name} · ${r.country_name}` : r.name,
+            value: r.value_eur, color: severityHex(r.max_score),
+            sub: r.max_score != null ? `${Math.round(r.max_score)} · ${hazardName(r.worst_hazard)}` : 'Not scored' }))} /></div>
         </Card>
         <Card className="p-5">
-          <div className="text-[14px] font-semibold mb-2">Headline hazards <span className="mono text-[10.5px] text-[var(--color-faint)] font-normal">· value whose biggest threat is each hazard</span></div>
-          <div className="divide-y divide-[var(--color-line)]">{d.book.hazards.map(h => (
-            <div key={h.hazard} className="py-1.5 flex items-center justify-between text-[12.5px]">
-              <span className="text-[var(--color-ink)]">{h.hazard.replace(/_/g, ' ')}</span>
-              <span className="mono text-[11.5px] text-[var(--color-mute)]">{h.n} · {balance(h.value_eur)}</span>
-            </div>))}</div>
+          <SectionHead hint="value by its biggest threat">Headline hazards</SectionHead>
+          <div className="mt-3"><HBar labelWidth="w-40" format={balance} data={d.book.hazards.map(h => ({ label: hazardName(h.hazard), value: h.value_eur, sub: `${h.n} assets` }))} /></div>
         </Card>
       </div>
 
       <Card className="p-5">
-        <div className="text-[14px] font-semibold mb-2">My recent access to this entity <span className="mono text-[10.5px] text-[var(--color-faint)] font-normal">· visible to the entity too</span></div>
-        <div className="divide-y divide-[var(--color-line)]">{d.my_recent_accesses.map((a, i) => (
-          <div key={i} className="py-1.5 flex items-center justify-between mono text-[11px]"><span className="text-[var(--color-mute)]">{a.action}</span><span className="text-[var(--color-faint)]">{a.at.slice(0, 16).replace('T', ' ')}</span></div>))}</div>
+        <SectionHead hint="the entity sees it too">Your recent access</SectionHead>
+        <ol className="mt-3 space-y-1.5 list-none p-0 m-0">{d.my_recent_accesses.map((a, i) => (
+          <li key={i} className="flex items-center gap-3 text-[12.5px]"><span className="w-2 h-2 rounded-full bg-[var(--color-sky)]/60 shrink-0" />
+            <span className="text-[var(--color-ink)] mr-auto">{a.label}</span><span className="text-[var(--color-faint)] tabular-nums">{day(a.at)}</span></li>))}</ol>
       </Card>
       <TransmissionsReceived orgId={orgId} />
       <EvidencePacks orgId={orgId} />
       <RemittancesIssued orgId={orgId} />
     </div>
-  )
-}
-
-// ── Evidence packs — immutable, versioned case files (PDF + canonical JSON, hashed) ─────────────────────────
-interface Pack { pack_id: string; version: number; basis: { scenario: string; horizon: string }; sha256: string; pdf_bytes: number; note: string | null; generated_at: string; generated_by: string | null }
-function EvidencePacks({ orgId }: { orgId: string }) {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const can = (profile?.permissions ?? []).includes('supervisor.evidence.export')
-  const canRemit = (profile?.permissions ?? []).includes('supervisor.remit')
-  const [remit, setRemit] = useState<Pack | null>(null)
-  const q = useQuery({ queryKey: ['evidence-packs', orgId], enabled: can, queryFn: () => api.get<{ packs: Pack[] }>(`/v1/supervisor/entity/${orgId}/evidence-packs`) })
-  const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState('')
-  if (!can) return null
-  const generate = async () => {
-    setBusy(true)
-    try { const p = await api.post<Pack>(`/v1/supervisor/entity/${orgId}/evidence-packs`, { note: note || null }); setNote(''); toast.success(`Evidence pack v${p.version} generated (${(p.pdf_bytes / 1024).toFixed(0)} kB).`); await qc.invalidateQueries({ queryKey: ['evidence-packs', orgId] }) }
-    catch (e) { toast.error((e as Error).message || 'Could not generate the pack.') } finally { setBusy(false) }
-  }
-  const packs = q.data?.packs ?? []
-  return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-        <div>
-          <div className="text-[13px] font-medium text-[var(--color-ink)]">Evidence packs</div>
-          <div className="text-[11.5px] text-[var(--color-mute)]">The case file for this entity: supervision, submissions, plausibility band or independent lens, exposure, peer position, requests and findings with their threads, and your access trail. Each generation is an immutable version with its content hash.</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note for this version (optional)" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] w-56" />
-          <Button onClick={generate} disabled={busy}>{busy ? 'Generating…' : 'Generate evidence pack'}</Button>
-        </div>
-      </div>
-      {packs.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">No pack generated yet.</div> : (
-        <div className="divide-y divide-[var(--color-line)]">
-          {packs.map(p => (
-            <div key={p.pack_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
-              <span className="mono text-[11px] text-[var(--color-ink)] w-10">v{p.version}</span>
-              <span className="text-[var(--color-mute)]">{p.generated_at.slice(0, 16).replace('T', ' ')} · {p.generated_by ?? '—'} · {p.basis.scenario} · {p.basis.horizon}{p.note ? ` · ${p.note}` : ''}</span>
-              <span className="mono text-[10px] text-[var(--color-faint)]" title={p.sha256}>sha256 {p.sha256.slice(0, 12)}… · {(p.pdf_bytes / 1024).toFixed(0)} kB</span>
-              <span className="ml-auto flex gap-3">
-                <button onClick={() => download(`/v1/supervisor/entity/${orgId}/evidence-packs/${p.pack_id}.pdf`, `evidence-pack-v${p.version}.pdf`)} className="text-[var(--color-sky)] hover:underline">PDF ↓</button>
-                <button onClick={() => download(`/v1/supervisor/entity/${orgId}/evidence-packs/${p.pack_id}.json`, `evidence-pack-v${p.version}.json`)} className="text-[var(--color-sky)] hover:underline">JSON ↓</button>
-                {canRemit && <button onClick={() => setRemit(p)} className="text-[var(--color-sky)] hover:underline">Remit →</button>}
-              </span>
-            </div>))}
-        </div>)}
-      {remit && <RemitDialog orgId={orgId} packId={remit.pack_id} packVersion={remit.version} onClose={() => setRemit(null)} />}
-    </Card>
-  )
-}
-
-// ── Transmissions received through the Tellumen channel, with the receipts this authority issued ────────────
-interface Tx { transmission_id: string; framework: string; period_label: string; format: string; status: string; receipt_ref: string | null; receipt_at: string | null; payload_sha256: string | null; created_at: string; created_by: string | null }
-function TransmissionsReceived({ orgId }: { orgId: string }) {
-  const q = useQuery({ queryKey: ['entity-transmissions', orgId], queryFn: () => api.get<{ transmissions: Tx[] }>(`/v1/supervisor/entity/${orgId}/transmissions`) })
-  const rows = q.data?.transmissions ?? []
-  if (rows.length === 0) return null
-  return (
-    <Card className="p-5">
-      <div className="text-[13px] font-medium text-[var(--color-ink)] mb-1">Transmissions received</div>
-      <div className="text-[11.5px] text-[var(--color-mute)] mb-2">Filings the entity sent through the Tellumen channel; each carries the receipt reference your authority issued and the hash of what was received.</div>
-      <div className="divide-y divide-[var(--color-line)]">{rows.map(t => (
-        <div key={t.transmission_id} className="py-1.5 flex items-center gap-3 flex-wrap text-[12.5px]">
-          <span className="text-[var(--color-ink)]">{frameworkLabel(t.framework)} <span className="mono text-[10.5px] text-[var(--color-faint)]">{t.period_label} · {t.format}</span></span>
-          <span className="mono text-[11px] text-[var(--color-good)]">receipt {t.receipt_ref ?? '—'}{t.receipt_at ? ` · ${t.receipt_at.slice(0, 16).replace('T', ' ')}` : ''}</span>
-          <span className="mono text-[10px] text-[var(--color-faint)] ml-auto" title={t.payload_sha256 ?? ''}>sha256 {t.payload_sha256?.slice(0, 12)}… · by {t.created_by ?? '—'}</span>
-        </div>))}</div>
-    </Card>
   )
 }

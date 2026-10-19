@@ -279,14 +279,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/Remittance.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 7,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/SfdrDocument.tsx": {
   "internal": 0,
   "raw": 1,
@@ -583,14 +575,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/EntityFile.tsx": {
-  "internal": 2,
-  "raw": 3,
-  "monoProse": 3,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/EsrsStatement.tsx": {
   "internal": 0,
   "raw": 1,
@@ -743,27 +727,11 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/SupervisorMandates.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 6,
-  "apiProse": 2,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/SupervisorMap.tsx": {
   "internal": 0,
   "raw": 1,
   "monoProse": 1,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/SupervisorRequests.tsx": {
-  "internal": 0,
-  "raw": 5,
-  "monoProse": 6,
-  "apiProse": 1,
   "figure": 0,
   "citation": 0
  },

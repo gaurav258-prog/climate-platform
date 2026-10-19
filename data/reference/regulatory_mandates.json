@@ -131,7 +131,7 @@
       ],
       "binding": true,
       "title": "Pillar 3 disclosure of ESG risks",
-      "short": "Pillar 3 ESG (CRR Art. 449a)",
+      "short": "Pillar 3 ESG",
       "act": {
         "name": "Regulation (EU) No 575/2013 (CRR), Article 449a, as amended by Regulation (EU) 2024/1623 (CRR3)",
         "celex": "32013R0575",
@@ -311,8 +311,8 @@
         "insurer"
       ],
       "binding": true,
-      "title": "Solvency II quantitative reporting — natural catastrophe risk (S.27.01.01)",
-      "short": "Solvency II S.27.01.01",
+      "title": "Solvency II quantitative reporting — natural catastrophe risk",
+      "short": "Solvency II nat-cat",
       "act": {
         "name": "Directive 2009/138/EC (Solvency II) · Delegated Regulation (EU) 2015/35 · ITS (EU) 2023/894 (reporting templates)",
         "celex": "32009L0138",
@@ -392,7 +392,7 @@
         "insurer"
       ],
       "binding": true,
-      "title": "Climate change scenario analysis in the ORSA (Art. 45a)",
+      "title": "Climate change scenario analysis in the ORSA",
       "short": "ORSA climate scenarios",
       "act": {
         "name": "Directive 2009/138/EC Art. 45a, as inserted by Directive (EU) 2025/2 · Delegated Regulation (EU) 2015/35 Art. 312(1)(b)",
@@ -462,7 +462,7 @@
       ],
       "binding": true,
       "title": "SFDR principal adverse impacts statement",
-      "short": "SFDR PAI (Art. 4)",
+      "short": "SFDR adverse impacts",
       "act": {
         "name": "Regulation (EU) 2019/2088 (SFDR), Article 4 · Delegated Regulation (EU) 2022/1288 (RTS), Annex I",
         "celex": "32019R2088",
@@ -727,7 +727,7 @@
       ],
       "binding": true,
       "title": "EUDR due diligence statement",
-      "short": "EUDR (Reg. 2023/1115)",
+      "short": "EUDR due diligence",
       "act": {
         "name": "Regulation (EU) 2023/1115 (Deforestation Regulation) · application-date amendment (EU) 2024/3234",
         "celex": "32023R1115",
@@ -794,7 +794,7 @@
         "insurer"
       ],
       "binding": true,
-      "title": "Pre-emptive recovery plan — stress scenarios and capital indicators (IRRD Art. 5)",
+      "title": "Pre-emptive recovery plan — stress scenarios and capital indicators",
       "short": "IRRD pre-emptive recovery plan",
       "act": {
         "name": "Directive (EU) 2025/1 (Insurance Recovery and Resolution Directive) Art. 5",

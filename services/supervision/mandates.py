@@ -19,6 +19,8 @@ from typing import Any, Optional
 
 from sqlalchemy import text
 
+from core import messages
+
 REGISTRY_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "regulatory_mandates.json"
 APPLIES, NOT_APPLICABLE, CANNOT = "applies", "not_applicable", "cannot_determine"
 STATUS_LABEL = {APPLIES: "Applies", NOT_APPLICABLE: "Does not apply", CANNOT: "Cannot determine"}
@@ -208,13 +210,10 @@ def effective(m: dict, setting: Optional[dict]) -> dict:
     """The mandate as this authority applies it: registry entry + its overrides (criteria thresholds, due rule)."""
     e = deepcopy(m)
     ov = (setting or {}).get("overrides") or {}
-    for c in e["criteria"].get("all_of", []):
+    # an adapted threshold is flagged with the catalogue's words, never appended to the criterion's own label
+    for c in [*e["criteria"].get("all_of", []), *(c for t in e["criteria"].get("tiers", []) for c in t["all_of"])]:
         if c["attribute"] in ov.get("thresholds", {}):
-            c["value"] = ov["thresholds"][c["attribute"]]; c["label"] += " (adapted by the authority)"
-    for t in e["criteria"].get("tiers", []):
-        for c in t["all_of"]:
-            if c["attribute"] in ov.get("thresholds", {}):
-                c["value"] = ov["thresholds"][c["attribute"]]; c["label"] += " (adapted by the authority)"
+            c["value"] = ov["thresholds"][c["attribute"]]; c["adapted"] = messages.render("supervision.desk.mandates.adapted")
     if ov.get("due"):
         e["deliverable"]["due"] = {**e["deliverable"]["due"], **ov["due"], "label": ov["due"].get("label") or e["deliverable"]["due"].get("label")}
     e["enabled"] = (setting or {}).get("enabled", True)
@@ -251,13 +250,33 @@ def registry_view(session, reg_org_id: str, cfg: dict) -> dict:
                     "latest_acknowledged": bool(acks.get((m["id"], latest))) if latest else True,
                     "detection": detection(session, m.get("detection_celex") or []),
                     "setting": st.get(m["id"])})
+    names = messages.names()
+    for x in out:
+        x["sector_labels"] = [_sector_label(s) for s in x["sectors"]]
+        x["deliverable"]["frequency_label"] = names.get("frequency", {}).get(x["deliverable"].get("frequency"))
     return {"registry_version": registry()["version"], "attributes": registry()["attributes"], "mandates": out,
             "n_unacknowledged": sum(1 for x in out if not x["latest_acknowledged"]),
-            "note": "Excerpts are curated digests of the cited article; the linked act on EUR-Lex is authoritative. Criteria read the "
-                    "entity's attributes; a missing attribute gives 'cannot determine', never a guess."}
+            "note": messages.render("supervision.desk.mandates.note")}
+
+
+def _value_label(attribute: str, value, english_name) -> Optional[str]:
+    """An attribute whose value is a code, in words: the sector's name, the country's name."""
+    if attribute == "sector" and value:
+        return _sector_label(value)
+    if attribute == "jurisdiction" and value:
+        return english_name(value)
+    return None
+
+
+def _sector_label(org_type: str) -> str:
+    """A sector's customer name from the supervision profiles ('bank' → 'Credit institutions')."""
+    from services.supervision.profiles import sector_label
+    return sector_label(org_type) or org_type.replace("_", " ").capitalize()
 
 
 def population_view(session, reg_org_id: str, entities: list[dict], cfg: dict, period_end: date) -> dict:
+    from services.reference.countries import english_name
+    src = messages.names().get("attribute_source", {})
     st = settings(session, reg_org_id)
     ms = [effective(m, st.get(m["id"])) for m in mandates_for(list(cfg["sectors"].keys()))]
     ms = [m for m in ms if m["enabled"]]
@@ -272,9 +291,12 @@ def population_view(session, reg_org_id: str, entities: list[dict], cfg: dict, p
             d = ev.pop("due")
             cells.append({"mandate_id": m["id"], "short": m["short"], "framework": m["deliverable"].get("framework"), "binding": m["binding"],
                           **ev, "status_label": STATUS_LABEL[ev["status"]], "due_date": d.isoformat() if d else None,
-                          "channel": m["deliverable"]["channel"], "direction": m["deliverable"]["direction"]})
+                          "channel": m["deliverable"]["channel"], "direction": m["deliverable"]["direction"],
+                          "tier_frequency_label": messages.names().get("frequency", {}).get((ev.get("tier") or {}).get("frequency"))})
         rows.append({"org_id": e["org_id"], "name": e["name"], "type": e["type"], "country": e.get("country"),
-                     "attributes": {k: v for k, v in attrs.items()}, "mandates": cells,
+                     "sector_label": _sector_label(e["type"]), "country_name": english_name(e.get("country")) if e.get("country") else None,
+                     "attributes": {k: v | {"source_label": src.get(v.get("source")), "value_label": _value_label(k, v.get("value"), english_name)}
+                                    for k, v in attrs.items()}, "mandates": cells,
                      "n_applies": sum(1 for c in cells if c["status"] == APPLIES), "n_cannot": sum(1 for c in cells if c["status"] == CANNOT),
                      "missing": sorted({a for c in cells for a in c["missing"]})})
     return {"period_end": period_end.isoformat(), "mandates": [{"id": m["id"], "short": m["short"], "title": m["title"], "sectors": m["sectors"]} for m in ms],

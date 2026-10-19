@@ -18,13 +18,21 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages
+from core.errors import UserError
 from services.supervision.correspondence import legal_basis_for, next_reference
-from services.supervision.evidence import SECTIONS, canonical_json, get_pack, render_pdf
+from services.supervision.evidence import (
+    SECTIONS,
+    canonical_json,
+    get_pack,
+    render_pdf,
+    section_title,
+)
 from services.supervision.mandates import registry
 
 
-class RemittanceError(ValueError):
-    pass
+class RemittanceError(UserError):
+    """A remittance refused in customer words: a catalogue code (supervision.desk.remit.*) with its values."""
 
 
 def config() -> dict:
@@ -65,30 +73,30 @@ def create(session, *, regulator_org_id: str, regulator_name: str, pack_id: str,
     cfg = config()
     now = datetime.now(timezone.utc)
     if recipient_kind not in cfg["recipient_kinds"]:
-        raise RemittanceError(f"Recipient kind must be one of: {', '.join(cfg['recipient_kinds'])}.")
+        raise RemittanceError("supervision.desk.remit.kind")
     if not (recipient_name or "").strip():
-        raise RemittanceError("Name the recipient.")
+        raise RemittanceError("supervision.desk.remit.no_name")
     if not (purpose or "").strip():
-        raise RemittanceError("State the purpose of the remittance.")
+        raise RemittanceError("supervision.desk.remit.no_purpose")
     if not recipient_email and not recipient_org_id:
-        raise RemittanceError("Give the recipient's e-mail, or choose a supervisory body on Tellumen.")
+        raise RemittanceError("supervision.desk.remit.no_recipient")
     days = int(expires_in_days or cfg["default_expiry_days"])
     if days < 1 or days > int(cfg["max_expiry_days"]):
-        raise RemittanceError(f"Expiry must be between 1 and {cfg['max_expiry_days']} days.")
+        raise RemittanceError("supervision.desk.remit.expiry", max=cfg["max_expiry_days"])
     secs = [s for s in (sections or SECTIONS) if s in SECTIONS]
     if not secs:
-        raise RemittanceError("Include at least one section.")
+        raise RemittanceError("supervision.desk.remit.no_sections")
     if max_downloads is not None and max_downloads < 1:
-        raise RemittanceError("The download limit must be at least 1.")
+        raise RemittanceError("supervision.desk.remit.download_limit")
     pack = get_pack(session, regulator_org_id, pack_id)
     if not pack:
-        raise RemittanceError("No such evidence pack.")
+        raise UserError("error.not_found")
     if recipient_org_id:
         ok = session.execute(text("SELECT 1 FROM organizations WHERE org_id = CAST(:o AS uuid) AND type = 'regulator'"), {"o": recipient_org_id}).scalar()
         if not ok:
-            raise RemittanceError("The in-product recipient must be a supervisory body on Tellumen.")
+            raise RemittanceError("supervision.desk.remit.not_a_body")
         if recipient_org_id == regulator_org_id:
-            raise RemittanceError("A remittance goes to another body, not to your own.")
+            raise RemittanceError("supervision.desk.remit.own_body")
 
     ref = next_reference(session, regulator_org_id, "remittance", now)
     powers = legal_basis_for(session, regulator_org_id, pack["supervised_org_id"], None)
@@ -125,7 +133,7 @@ def create(session, *, regulator_org_id: str, regulator_name: str, pack_id: str,
 
     from services.notifications.mailer import queue_email
     body = (f"{regulator_name} has remitted a supervisory case file on {ent} to you ({rk_label}).\n\nReference: {ref}\nPurpose: {purpose.strip()}\n"
-            f"Legal basis: {basis['ref']}\nSections: {', '.join(secs)}\nExpires: {expires.date().isoformat()}"
+            f"Legal basis: {basis['ref']}\nSections: {', '.join(section_title(s) for s in secs)}\nExpires: {expires.date().isoformat()}"
             f"{(' · at most ' + str(max_downloads) + ' downloads') if max_downloads else ''}\n\nOpen it here: {link}\n\n{cfg['notice']}")
     if recipient_email:
         queue_email(session, org_id=regulator_org_id, to_email=recipient_email, subject=f"{regulator_name}: case file on {ent} remitted · {ref}", html=None,
@@ -172,6 +180,7 @@ def _shape(r, *, for_entity: bool = False) -> dict:
     d = dict(r)
     d["status"] = status_of(d)
     d["recipient_kind_label"] = config()["recipient_kinds"].get(d["recipient_kind"], d["recipient_kind"])
+    d["section_labels"] = [section_title(s) for s in d.get("sections") or []]
     for k in ("expires_at", "created_at", "revoked_at"):
         d[k] = d[k].isoformat() if d.get(k) else None
     if for_entity:
@@ -203,7 +212,9 @@ def access_log(session, regulator_org_id: str, remittance_id: str) -> list[dict]
                                    LEFT JOIN users u ON u.user_id = a.actor_user_id LEFT JOIN organizations o ON o.org_id = a.actor_org_id
                                    WHERE a.remittance_id = CAST(:i AS uuid) AND r.regulator_org_id = CAST(:r AS uuid) ORDER BY a.at DESC"""),
                            {"i": remittance_id, "r": regulator_org_id}).mappings().all()
-    return [dict(r) | {"at": r["at"].isoformat()} for r in rows]
+    names = messages.names()
+    return [dict(r) | {"at": r["at"].isoformat(), "action_label": names.get("recipient_access", {}).get(r["action"]),
+                       "outcome_label": names.get("access_outcome", {}).get(r["outcome"])} for r in rows]
 
 
 # ── access ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -237,7 +248,7 @@ def open_remittance(session, *, token: Optional[str] = None, remittance_id: Opti
 def download(session, *, fmt: str, token: Optional[str] = None, remittance_id: Optional[str] = None, recipient_org_id: Optional[str] = None, who: dict) -> tuple[str, Optional[bytes], dict]:
     """→ (status, bytes-or-None, meta). Counts the download only when it is served."""
     if fmt not in ("pdf", "json"):
-        raise RemittanceError("Format must be pdf or json.")
+        raise RemittanceError("supervision.desk.remit.format")
     r = _by_token(session, token) if token else _by_recipient(session, remittance_id, recipient_org_id)
     if not r:
         return "unknown", None, {}

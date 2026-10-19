@@ -14,6 +14,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages as catalogue  # `messages` below is this module's thread reader
+from core.errors import UserError
 from services.supervision.profiles import registry
 
 SUPERVISOR, ENTITY = "supervisor", "entity"
@@ -68,8 +70,14 @@ def _fmt(r) -> dict:
     d["source"] = d["source"] if isinstance(d.get("source"), dict) else (json.loads(d["source"]) if d.get("source") else None)
     d["kind_label"] = (kinds().get(d["kind"]) or {}).get("label", d["kind"])
     d["automatic"] = d.get("raised_by") is None
-    d["raised_by"] = d.get("raised_by") or "Automatic — on the authority's published deadline"
+    d["raised_by"] = d.get("raised_by") or catalogue.label("supervision.desk.request.automatic")
     d["status_label"] = status_label(d["status"])
+    d["severity_label"] = catalogue.names().get("severity", {}).get(d["severity"]) if d.get("severity") else None
+    if d.get("source") and d["source"].get("type"):
+        d["source"]["label"] = catalogue.names().get("request_source", {}).get(d["source"]["type"])
+        if d["source"]["type"] == "lens_cell":          # the cell in customer words beside its codes ('Spain · Manufacturing')
+            from services.supervision.cell_labels import named
+            d["source"] = named(d["source"])
     d["overdue"] = bool(d["due_date"] and d["status"] != (kinds().get(d["kind"]) or {}).get("closed") and date.fromisoformat(d["due_date"]) < date.today())
     return d
 
@@ -163,9 +171,11 @@ def create(session, *, regulator_org_id: str, supervised_org_id: str, kind: str,
     """raised_by None = raised automatically by the platform on the authority's published deadline (shown as such)."""
     k = kinds().get(kind)
     if not k:
-        raise ValueError(f"unknown request kind {kind!r}")
+        raise UserError("supervision.desk.request.unknown_kind")
     if k["severities"] and severity not in k["severities"]:
-        raise ValueError(f"{k['label']} needs a severity: {', '.join(k['severities'])}")
+        sev = catalogue.names().get("severity", {})
+        raise UserError("supervision.desk.request.needs_severity", kind=k["label"].lower(),
+                        severities=", ".join(sev.get(s, s).lower() for s in k["severities"]))
     due = due_date or (date.today() + timedelta(days=int(k["default_due_days"]))).isoformat()
     rid = session.execute(text("""
         INSERT INTO supervision_request (regulator_org_id, supervised_org_id, kind, title, body, status, severity, due_date, source, raised_by)

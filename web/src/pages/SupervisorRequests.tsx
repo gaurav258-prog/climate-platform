@@ -1,244 +1,94 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, download } from '../lib/api'
-import { toast } from '../lib/toast'
+import { MessageSquare, Plus } from 'lucide-react'
+import { api } from '../lib/api'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { StatusChip } from '../components/StatusChip'
+import type { Message } from '../components/Details'
 import { pressable } from '../lib/pressable'
+import { Failed, Loading, Segmented, aboutOf, day, field } from './supervisorDesk/common'
+import { RequestDrawer, SEV_TONE, statusTone } from './supervisorDesk/RequestThread'
+import { NewRequestDialog } from './supervisorDesk/NewRequest'
+import { ServiceLevels } from './supervisorDesk/ServiceLevels'
+import { AuthorityCalendar } from './supervisorDesk/AuthorityCalendar'
 
-// Requests & findings: the supervisor's engagement with an entity, tracked to closure on one thread both sides
-// read. Kinds and status flows come from the supervision profile; the page never assumes a flow.
-interface Req { request_id: string; supervised_org_id: string; entity: string; regulator: string; kind: string; kind_label: string; title: string; body: string | null
-  status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string; updated_at: string; raised_by: string | null
-  source: { type?: string; geography?: string; sector?: string; stage?: string; period_label?: string } | null; n_messages?: number; automatic?: boolean
-  reference?: string | null; legal_basis?: { ref: string; act?: string; url?: string | null; text?: string; kind?: string } | null; response_days?: number | null; signatory?: string | null; has_letter?: boolean; issued_at?: string | null; receipt_at?: string | null; receipt_by?: string | null }
-interface Msg { message_id: string; side: 'supervisor' | 'entity'; body: string | null; status_to: string | null; status_label: string | null; created_at: string; author: string | null }
-interface Detail extends Req { messages: Msg[]; can_set: { key: string; label: string }[] }
-interface ListResp { requests: Req[]; entities: { org_id: string; name: string }[]
-  kinds: Record<string, { label: string; statuses: { key: string; label: string }[]; supervisor_sets: string[]; severities: string[] }>
-  summary: { open: number; overdue: number; findings_open: number } }
-interface Stat { n: number; median: number | null; p90: number | null; max: number | null }
-interface SlaAuth { org_id: string; authority: string; n: number; n_open: number; n_closed: number; time_to_acknowledge_hours: Stat; time_to_respond_hours: Stat; time_to_close_hours: Stat
-  responded_on_time: { n: number; on_time: number; rate: number | null }; awaiting_acknowledgement: { n: number; oldest_days: number | null }; awaiting_response: { n: number }
-  overdue: { n: number; ageing: Record<string, number>; oldest_days: number | null; total_days: number }; by_kind: (SlaAuth & { kind: string; label: string })[]; by_entity: (SlaAuth & { supervised_org_id: string; label: string })[] }
-interface SlaResp { as_of: string; authorities: SlaAuth[]; definitions: Record<string, string | string[]>; note: string }
-interface CalEv { date: string | null; title: string; sub: string; status: string; overdue: boolean; mandate_id: string; mandate_title: string; framework: string | null; channel_id: string | null; channel_kind: string | null
-  due_rule: string | null; n_applicable: number; n_filed: number; n_cannot: number; entities: { org_id: string; name: string; filed: boolean }[]; authority?: string }
-interface CalResp { period_label: string; period_end: string; today: string; authorities: { authority: string; events: CalEv[]; n_deliverables: number; n_applicable: number; n_filed: number; n_overdue: number; next_due: string | null }[]
-  events: CalEv[]; upcoming: CalEv[]; undated: CalEv[]; note: string }
-const hrs = (h: number | null | undefined) => h == null ? '—' : h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${h.toFixed(1)} h` : `${(h / 24).toFixed(1)} d`
-const SEV: Record<string, string> = { low: 'var(--color-mute)', medium: 'var(--color-warn)', high: 'var(--color-bad)' }
+// Requests & findings (UI standard, 2026-10-16): the supervisor's engagement with each entity, tracked to closure on one
+// thread both sides read. Figures and service levels first, the list with chips; a request opens in a side drawer, a new
+// one in a dialog. The calendar by authority is the second view. Kinds and status flows come from the supervision profile.
+export interface Req {
+  request_id: string; supervised_org_id: string; entity: string; regulator: string; kind: string; kind_label: string; title: string; body: string | null
+  status: string; status_label: string; severity: string | null; severity_label: string | null; due_date: string | null; overdue: boolean
+  raised_at: string; raised_by: string | null; automatic?: boolean; n_messages?: number; reference?: string | null
+  source: { type?: string; label?: string | null; geography?: string; sector?: string; geography_label?: string; sector_label?: string } | null
+}
+export interface Kind { label: string; statuses: { key: string; label: string }[]; supervisor_sets: string[]; severities: string[]; severity_labels: Record<string, string> }
+export interface ListResp {
+  requests: Req[]; entities: { org_id: string; name: string }[]; kinds: Record<string, Kind>; about: Message
+  summary: { open: number; overdue: number; findings_open: number }
+}
+type Show = 'open' | 'closed' | 'all'
 
 export default function SupervisorRequests() {
   const [params, setParams] = useSearchParams()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['supervisor-requests'], queryFn: () => api.get<ListResp>('/v1/supervisor/requests') })
   const [sel, setSel] = useState<string | null>(null)
-  const [creating, setCreating] = useState(params.get('new') === '1')
+  const creating = params.get('new') === '1'
   const view = params.get('view') === 'calendar' ? 'calendar' : 'requests'
-  const fEntity = params.get('entity') ?? ''; const fKind = params.get('kind') ?? ''; const fStatus = params.get('status') ?? ''
-  const setF = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); p.delete('new'); setParams(p) }
+  const fEntity = params.get('entity') ?? '', fKind = params.get('kind') ?? ''
+  const show = (params.get('show') as Show | null) ?? 'open'
+  const setF = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p) }
   const d = q.data
-  const rows = useMemo(() => (d?.requests ?? []).filter(r => (!fEntity || r.supervised_org_id === fEntity) && (!fKind || r.kind === fKind) && (!fStatus || (fStatus === 'open' ? r.status !== 'closed' : r.status === fStatus))), [d, fEntity, fKind, fStatus])
-  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['supervisor-requests'] }), qc.invalidateQueries({ queryKey: ['supervisor-workflow'] })])
-  useEffect(() => { if (params.get('new') === '1') setCreating(true) }, [params])
+  const rows = useMemo(() => (d?.requests ?? []).filter(r => (!fEntity || r.supervised_org_id === fEntity) && (!fKind || r.kind === fKind)
+    && (show === 'all' || (show === 'closed') === (r.status === 'closed'))), [d, fEntity, fKind, show])
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['supervisor-requests'] }), qc.invalidateQueries({ queryKey: ['supervisor-workflow'] }),
+    qc.invalidateQueries({ queryKey: ['supervisor-sla'] })])
+  const closeNew = () => { const p = new URLSearchParams(params); for (const k of ['new', 'title', 'body', 'geography', 'sector']) p.delete(k); setParams(p) }
   return (
     <div className="fadeup space-y-6">
-      <PageHeader eyebrow="Requests & findings" title="Engage and follow up"
-        lead="Information requests, site-access requests and findings you raise with an entity. Each one is a thread both sides read: the entity responds and reports remediation in its own workspace, you close. Every step is recorded in both organisations' audit trails."
-        actions={<Button onClick={() => setCreating(true)}>New request or finding</Button>} />
-      <div className="flex flex-wrap gap-2">
-        {[['requests', 'Requests & SLA'], ['calendar', 'Calendar by authority']].map(([k, l]) => (
-          <button key={k} onClick={() => setF('view', k === 'requests' ? '' : k)} className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${view === k ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{l}</button>))}
-      </div>
-      {view === 'calendar' ? <AuthorityCalendar /> : q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load requests.</div> : (<>
+      <PageHeader eyebrow="Requests & findings" title="Engage and follow up" lead="Raise, follow and close with each entity." about={aboutOf(d?.about)}
+        actions={<Button onClick={() => setF('new', '1')}><Plus size={15} />New request or finding</Button>} />
+      <Segmented label="View" value={view} onChange={v => setF('view', v === 'requests' ? '' : v)} options={[['requests', 'Requests'], ['calendar', 'Calendar by authority']]} />
+      {view === 'calendar' ? <AuthorityCalendar /> : q.isLoading ? <Loading what="the requests" /> : !d ? <Failed what="the requests" /> : (<>
         <StatGrid cols={3} items={[
-          { label: 'Open', value: String(d.summary.open), sub: 'awaiting the entity or your closure', accent: d.summary.open ? 'var(--color-warn)' : undefined },
+          { label: 'Open', value: String(d.summary.open), sub: 'awaiting the entity or you', accent: d.summary.open ? 'var(--color-warn)' : undefined },
           { label: 'Overdue', value: String(d.summary.overdue), sub: 'past their due date', accent: d.summary.overdue ? 'var(--color-bad)' : undefined },
           { label: 'Findings open', value: String(d.summary.findings_open), sub: 'remediation not yet closed' },
         ]} />
-        <SlaStrip />
-        {creating && <NewRequest d={d} params={params} onDone={async (id) => { setCreating(false); setF('new', ''); await refresh(); if (id) setSel(id) }} onCancel={() => { setCreating(false); setF('new', '') }} />}
-        <Card className="p-5">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <select value={fEntity} onChange={e => setF('entity', e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none">
+        <ServiceLevels />
+        <Card className="p-5 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select aria-label="Entity" value={fEntity} onChange={e => setF('entity', e.target.value)} className={field}>
               <option value="">All entities</option>{d.entities.map(e => <option key={e.org_id} value={e.org_id}>{e.name}</option>)}</select>
-            <select value={fKind} onChange={e => setF('kind', e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none">
+            <select aria-label="Kind" value={fKind} onChange={e => setF('kind', e.target.value)} className={field}>
               <option value="">All kinds</option>{Object.entries(d.kinds).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
-            <select value={fStatus} onChange={e => setF('status', e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none">
-              <option value="">Any status</option><option value="open">Not closed</option>
-              {Array.from(new Map(Object.values(d.kinds).flatMap(k => k.statuses).map(s => [s.key, s])).values()).map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select>
-            <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">{rows.length} of {d.requests.length}</span>
+            <span className="ml-auto"><Segmented label="Show" value={show} onChange={v => setF('show', v === 'open' ? '' : v)}
+              options={[['open', 'Open'], ['closed', 'Closed'], ['all', 'All']]} /></span>
           </div>
           <div className="overflow-x-auto">
             <table className="data-table w-full text-[12.5px]">
-              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th>Reference</th><th>Entity</th><th>Kind</th><th>Title</th><th>Severity</th>
-                <th className="">Status</th><th className="">Due</th><th className="num">Thread</th></tr></thead>
+              <thead><tr className="text-left"><th>Reference</th><th>Entity</th><th>Request</th><th>Severity</th><th>Status</th><th>Due</th><th className="num">Thread</th></tr></thead>
               <tbody>{rows.map(r => (
-                <tr key={r.request_id} {...pressable(() => setSel(sel === r.request_id ? null : r.request_id), { row: true, expanded: sel === r.request_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${sel === r.request_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
-                  <td className="mono text-[11px] text-[var(--color-mute)] whitespace-nowrap">{r.reference ?? '—'}</td>
+                <tr key={r.request_id} {...pressable(() => setSel(r.request_id), { row: true })} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)]">
+                  <td className="tabular-nums text-[var(--color-mute)] whitespace-nowrap">{r.reference ?? '—'}</td>
                   <td className="text-[var(--color-ink)] whitespace-nowrap">{r.entity}</td>
-                  <td className="text-[var(--color-mute)] whitespace-nowrap">{r.kind_label}</td>
-                  <td className="text-[var(--color-ink)]">{r.title}{r.source?.type === 'lens_cell' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">lens · {r.source.geography} · {r.source.sector}</span>}{r.source?.type === 'deadline' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">automatic · {r.source.stage} · {r.source.period_label}</span>}{r.source?.type === 'mandate_attributes' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">attributes for the mandate criteria</span>}</td>
-                  <td className="mono text-[11px]" style={{ color: SEV[r.severity ?? ''] ?? 'var(--color-faint)' }}>{r.severity ?? '—'}</td>
-                  <td><span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span></td>
-                  <td className="mono text-[11px]" style={{ color: r.overdue ? 'var(--color-bad)' : 'var(--color-mute)' }}>{r.due_date ?? '—'}{r.overdue ? ' · overdue' : ''}</td>
-                  <td className="num mono text-[var(--color-faint)]">{r.n_messages ?? '—'}</td>
+                  <td className="min-w-[16rem]">
+                    <span className="block text-[var(--color-ink)]">{r.title}</span>
+                    <span className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[11.5px] text-[var(--color-faint)]">{r.kind_label}
+                      {r.source?.label && <StatusChip label={r.source.label} tone="neutral" />}</span>
+                  </td>
+                  <td>{r.severity_label ? <StatusChip label={r.severity_label} tone={SEV_TONE[r.severity ?? ''] ?? 'neutral'} /> : <span className="text-[var(--color-faint)]">—</span>}</td>
+                  <td><StatusChip label={r.status_label} tone={statusTone(r.status)} /></td>
+                  <td className="whitespace-nowrap tabular-nums">{r.overdue ? <StatusChip label={`Overdue · ${day(r.due_date)}`} tone="bad" /> : <span className="text-[var(--color-mute)]">{day(r.due_date)}</span>}</td>
+                  <td className="num text-[var(--color-faint)]"><span className="inline-flex items-center gap-1"><MessageSquare size={12} />{r.n_messages ?? 0}</span></td>
                 </tr>))}</tbody>
             </table>
-            {rows.length === 0 && <div className="py-8 text-center text-[13px] text-[var(--color-faint)]">{d.requests.length ? 'Nothing matches these filters.' : 'Nothing raised yet. Start from a flagged cell on an entity\'s independent lens, or raise one here.'}</div>}
+            {rows.length === 0 && <div className="py-8 text-center text-[13px] text-[var(--color-faint)]">{d.requests.length ? 'Nothing matches these filters.' : 'Nothing raised yet.'}</div>}
           </div>
         </Card>
-        {sel && <Thread id={sel} onChange={refresh} onClose={() => setSel(null)} />}
-      </>)}
-    </div>
-  )
-}
-
-function NewRequest({ d, params, onDone, onCancel }: { d: ListResp; params: URLSearchParams; onDone: (id: string | null) => void; onCancel: () => void }) {
-  const [entity, setEntity] = useState(params.get('entity') ?? d.entities[0]?.org_id ?? '')
-  const [kind, setKind] = useState(params.get('kind') ?? 'information_request')
-  const [title, setTitle] = useState(params.get('title') ?? '')
-  const [body, setBody] = useState(params.get('body') ?? '')
-  const [severity, setSeverity] = useState('')
-  const [due, setDue] = useState('')
-  const [busy, setBusy] = useState(false)
-  const k = d.kinds[kind]
-  const source = params.get('geography') ? { type: 'lens_cell', geography: params.get('geography'), sector: params.get('sector') } : undefined
-  const submit = async () => {
-    if (!title.trim()) { toast.error('Give the request a title.'); return }
-    if (k?.severities.length && !severity) { toast.error('Choose a severity for the finding.'); return }
-    setBusy(true)
-    try {
-      const r = await api.post<Req>('/v1/supervisor/requests', { supervised_org_id: entity, kind, title, body: body || null, severity: severity || null, due_date: due || null, source })
-      toast.success(`${r.kind_label} raised with ${r.entity}. The entity has a task and an e-mail.`); onDone(r.request_id)
-    } catch (e) { toast.error((e as Error).message || 'Could not raise it.') } finally { setBusy(false) }
-  }
-  const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
-  return (
-    <Card className="p-5">
-      <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-3">New request or finding{source ? ` · from lens cell ${source.geography} · ${source.sector}` : ''}</div>
-      <div className="grid md:grid-cols-3 gap-3 mb-3">
-        <label className="text-[12px] text-[var(--color-mute)]">Entity<select value={entity} onChange={e => setEntity(e.target.value)} className={inp + ' mt-1'}>{d.entities.map(e => <option key={e.org_id} value={e.org_id}>{e.name}</option>)}</select></label>
-        <label className="text-[12px] text-[var(--color-mute)]">Kind<select value={kind} onChange={e => setKind(e.target.value)} className={inp + ' mt-1'}>{Object.entries(d.kinds).map(([kk, v]) => <option key={kk} value={kk}>{v.label}</option>)}</select></label>
-        <label className="text-[12px] text-[var(--color-mute)]">Due date<input type="date" value={due} onChange={e => setDue(e.target.value)} className={inp + ' mt-1'} /></label>
-      </div>
-      <label className="block text-[12px] text-[var(--color-mute)] mb-3">Title<input value={title} onChange={e => setTitle(e.target.value)} className={inp + ' mt-1'} placeholder="What you need from the entity, in one line" /></label>
-      <label className="block text-[12px] text-[var(--color-mute)] mb-3">Detail<textarea value={body} onChange={e => setBody(e.target.value)} rows={3} className={inp + ' mt-1'} placeholder="What you observed, what you expect, by when." /></label>
-      {k?.severities.length ? <div className="flex items-center gap-2 mb-3 text-[12px] text-[var(--color-mute)]">Severity {k.severities.map(s => <button key={s} onClick={() => setSeverity(s)} className={`mono text-[11px] px-2 py-1 rounded border ${severity === s ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line)]'}`}>{s}</button>)}</div> : null}
-      <div className="flex gap-2"><Button onClick={submit} disabled={busy}>{busy ? 'Raising…' : 'Raise with the entity'}</Button><Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button></div>
-    </Card>
-  )
-}
-
-function Thread({ id, onChange, onClose }: { id: string; onChange: () => Promise<unknown>; onClose: () => void }) {
-  const q = useQuery({ queryKey: ['supervisor-request', id], queryFn: () => api.get<Detail>(`/v1/supervisor/requests/${id}`) })
-  const [body, setBody] = useState(''); const [busy, setBusy] = useState(false)
-  const qc = useQueryClient()
-  const d = q.data
-  if (!d) return null
-  const send = async (status_to?: string) => {
-    setBusy(true)
-    try { await api.post(`/v1/supervisor/requests/${id}/messages`, { body: body || null, status_to: status_to ?? null }); setBody(''); await qc.invalidateQueries({ queryKey: ['supervisor-request', id] }); await onChange() }
-    catch (e) { toast.error((e as Error).message || 'Could not update.') } finally { setBusy(false) }
-  }
-  return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div>
-          <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)]">{d.reference ? `${d.reference} · ` : ''}{d.kind_label} · {d.entity} · issued {d.raised_at.slice(0, 10)} · due {d.due_date ?? '—'}</div>
-          <div className="display text-lg text-[var(--color-ink)]">{d.title}</div>
-          {d.legal_basis && <div className="text-[12px] text-[var(--color-mute)] mt-1">Legal basis: <span className="text-[var(--color-ink)]">{d.legal_basis.ref}</span>{d.legal_basis.url && <a href={d.legal_basis.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">act ↗</a>}{d.response_days ? ` · response period ${d.response_days} days` : ''}</div>}
-          <div className="text-[12px] text-[var(--color-mute)]">Signed: {d.signatory ?? '—'}{d.has_letter && <> · <button onClick={() => download(`/v1/supervisor/requests/${d.request_id}/letter.pdf`, `${d.reference ?? 'letter'}.pdf`)} className="text-[var(--color-sky)] hover:underline">Letter (PDF) ↓</button></>}{d.receipt_at ? <span className="text-[var(--color-good)]"> · receipt acknowledged {d.receipt_at.slice(0, 10)} by {d.receipt_by ?? 'the entity'}</span> : <span className="text-[var(--color-faint)]"> · receipt not yet acknowledged</span>}</div>
-          {d.source?.type === 'lens_cell' && <Link to={`/supervised/${d.supervised_org_id}/lens`} className="text-[12px] text-[var(--color-sky)] hover:underline">Open the lens cell {d.source.geography} · {d.source.sector} →</Link>}
-        </div>
-        <button onClick={onClose} className="mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-ink)]">close</button>
-      </div>
-      <div className="space-y-2 mb-4">
-        {d.messages.map(m => (
-          <div key={m.message_id} className={`rounded-lg px-3 py-2 text-[12.5px] ${m.side === 'entity' ? 'bg-[var(--color-panel-2)] ml-8' : 'bg-[var(--color-bg-2)] mr-8'}`}>
-            <div className="mono text-[10px] text-[var(--color-faint)] mb-0.5">{m.side === 'entity' ? d.entity : d.regulator} · {m.author ?? '—'} · {m.created_at.slice(0, 16).replace('T', ' ')}{m.status_to ? ` · set to ${m.status_label}` : ''}</div>
-            {m.body && <div className="text-[var(--color-ink)] whitespace-pre-wrap">{m.body}</div>}
-          </div>))}
-      </div>
-      <textarea value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="Add to the thread…" className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] mb-2" />
-      <div className="flex flex-wrap gap-2 items-center">
-        <Button variant="ghost" onClick={() => send()} disabled={busy || !body.trim()}>Send</Button>
-        {d.can_set.map(s => <Button key={s.key} onClick={() => send(s.key)} disabled={busy}>{s.key === 'closed' ? 'Close' : s.key === 'open' ? 'Reopen' : `Set ${s.label}`}</Button>)}
-        <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">status: {d.status_label}{d.overdue ? ' · overdue' : ''}</span>
-      </div>
-    </Card>
-  )
-}
-
-// SLA strip: computed only from the timestamps the thread recorded (issued / receipt / first entity status step / closed / due).
-function SlaStrip() {
-  const q = useQuery({ queryKey: ['supervisor-sla'], queryFn: () => api.get<SlaResp>('/v1/supervisor/engagement/sla') })
-  const a = q.data?.authorities[0]
-  if (!a) return null
-  const ag = a.overdue.ageing
-  const ageing = Object.entries(ag).filter(([, n]) => n > 0).map(([b, n]) => `${b} d: ${n}`).join(' · ')
-  return (
-    <Card className="p-5">
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)]">Service levels · {a.authority} · as of {q.data?.as_of}</div>
-        <span className="mono text-[10.5px] text-[var(--color-faint)]">{a.n} requests · {a.n_open} open</span>
-      </div>
-      <StatGrid cols={4} items={[
-        { label: 'Median time to acknowledge', value: hrs(a.time_to_acknowledge_hours.median), sub: `receipt of the letter · n=${a.time_to_acknowledge_hours.n} · p90 ${hrs(a.time_to_acknowledge_hours.p90)}`, title: String(q.data?.definitions.time_to_acknowledge_hours) },
-        { label: 'Median time to respond', value: hrs(a.time_to_respond_hours.median), sub: `first entity status step · n=${a.time_to_respond_hours.n} · on time ${a.responded_on_time.rate == null ? '—' : Math.round(a.responded_on_time.rate * 100) + '%'}`, title: String(q.data?.definitions.time_to_respond_hours) },
-        { label: 'Overdue', value: String(a.overdue.n), sub: a.overdue.n ? `ageing ${ageing} · oldest ${a.overdue.oldest_days} d` : 'nothing past its due date', accent: a.overdue.n ? 'var(--color-bad)' : undefined },
-        { label: 'Awaiting acknowledgement', value: String(a.awaiting_acknowledgement.n), sub: a.awaiting_acknowledgement.oldest_days != null ? `oldest ${a.awaiting_acknowledgement.oldest_days} d · ${a.awaiting_response.n} awaiting a response` : `${a.awaiting_response.n} awaiting a response`, accent: a.awaiting_acknowledgement.n ? 'var(--color-warn)' : undefined },
-      ]} />
-      {a.by_kind.length > 1 && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-[var(--color-mute)]">
-        {a.by_kind.map(k => <span key={k.kind}><span className="text-[var(--color-ink)]">{k.label}</span> · {k.n} · respond {hrs(k.time_to_respond_hours.median)} · overdue {k.overdue.n}</span>)}
-      </div>}
-    </Card>
-  )
-}
-
-// Calendar by authority: which deliverables the population owes to which authority, by when, from the mandate registry and each entity's applicability.
-function AuthorityCalendar() {
-  const [period, setPeriod] = useState(`FY${new Date().getFullYear() - 1}`)
-  const q = useQuery({ queryKey: ['supervisor-authority-calendar', period], queryFn: () => api.get<CalResp>(`/v1/supervisor/obligations/calendar?period_label=${period}`) })
-  const [open, setOpen] = useState<string | null>(null)
-  const d = q.data
-  const inp = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none'
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="text-[12px] text-[var(--color-mute)]">Period <select value={period} onChange={e => setPeriod(e.target.value)} className={inp + ' ml-1'}>{[0, 1, 2].map(i => { const y = new Date().getFullYear() - i; return <option key={y} value={`FY${y}`}>FY{y}</option> })}</select></label>
-        {d && <span className="mono text-[10.5px] text-[var(--color-faint)]">{d.authorities.length} authorities · {d.events.length} dated deliverables · next {d.upcoming[0]?.date ?? '—'}</span>}
-      </div>
-      {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load the calendar.</div> : (<>
-        {d.authorities.map(g => (
-          <Card key={g.authority} className="p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-              <div className="display text-lg text-[var(--color-ink)]">{g.authority}</div>
-              <div className="mono text-[10.5px] text-[var(--color-faint)]">{g.n_deliverables} deliverable{g.n_deliverables === 1 ? '' : 's'} · {g.n_filed}/{g.n_applicable} entity filings received{g.n_overdue ? <span className="text-[var(--color-bad)]"> · {g.n_overdue} past due</span> : null}{g.next_due ? ` · next due ${g.next_due}` : ''}</div>
-            </div>
-            <div className="overflow-x-auto"><table className="data-table w-full text-[12.5px]">
-              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th>Due</th><th>Deliverable</th><th>Channel · rule</th><th>Date from</th><th className="num">Applies</th><th className="num">Filed</th><th className="num">Cannot determine</th></tr></thead>
-              <tbody>{g.events.map(e => (<>
-                <tr key={e.mandate_id} {...pressable(() => setOpen(open === e.mandate_id ? null : e.mandate_id), { row: true, expanded: open === e.mandate_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.mandate_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
-                  <td className="mono text-[11px] whitespace-nowrap" style={{ color: e.overdue ? 'var(--color-bad)' : 'var(--color-ink)' }}>{e.date}{e.overdue ? ' · past due' : ''}</td>
-                  <td className="text-[var(--color-ink)]">{e.title}<div className="text-[11px] text-[var(--color-faint)]">{e.mandate_title}</div></td>
-                  <td className="text-[var(--color-mute)] text-[11.5px]">{e.sub}{e.due_rule ? <div className="text-[var(--color-faint)]">{e.due_rule}</div> : null}</td>
-                  <td><span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${e.status === 'published' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : e.status === 'draft' ? 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]' : 'bg-[var(--color-panel-2)] text-[var(--color-mute)]'}`}>{e.status === 'registry' ? "act's rule" : e.status}</span></td>
-                  <td className="num mono">{e.n_applicable}</td><td className="num mono" style={{ color: e.n_filed < e.n_applicable ? 'var(--color-warn)' : 'var(--color-good)' }}>{e.n_filed}</td><td className="num mono text-[var(--color-faint)]">{e.n_cannot || '—'}</td>
-                </tr>
-                {open === e.mandate_id && <tr key={e.mandate_id + '-x'} className="bg-[var(--color-bg-2)]"><td colSpan={7} className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">{e.entities.length === 0 ? <span className="text-[12px] text-[var(--color-faint)]">No entity in your population to which this applies for {period}.</span> : e.entities.map(x => (
-                    <Link key={x.org_id} to={`/supervised/${x.org_id}`} className={`mono text-[11px] px-2 py-0.5 rounded border ${x.filed ? 'border-[var(--color-good)]/40 text-[var(--color-good)]' : 'border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{x.name}{x.filed ? ' ✓' : ''}</Link>))}</div>
-                </td></tr>}
-              </>))}</tbody>
-            </table></div>
-          </Card>))}
-        {d.authorities.length === 0 && <Card className="p-5 text-[13px] text-[var(--color-faint)]">No dated deliverable for {period} in your profile's mandates.</Card>}
-        {d.undated.length > 0 && <Card className="p-5"><div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Per-event mandates (no calendar date)</div>
-          {d.undated.map(e => <div key={e.mandate_id} className="text-[12.5px] text-[var(--color-mute)]"><span className="text-[var(--color-ink)]">{e.title}</span> → {e.authority} · {e.n_applicable} entities · {e.due_rule ?? 'on each event'}</div>)}</Card>}
-        <div className="text-[11.5px] text-[var(--color-faint)]">{d.note}</div>
+        {sel && <RequestDrawer id={sel} onChange={refresh} onClose={() => setSel(null)} />}
+        {creating && <NewRequestDialog d={d} params={params} onClose={closeNew} onDone={async id => { closeNew(); await refresh(); if (id) setSel(id) }} />}
       </>)}
     </div>
   )

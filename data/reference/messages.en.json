@@ -2810,6 +2810,331 @@
     "what": "The rule file fails {n} of its automatic checks: a quote not found word for word in the official texts, a reference its regime does not hold, a declared reading without its wording, or a group report without a rule.",
     "next": "The engineering sign-off is refused until every check passes."
    }
+  },
+  "supervision.desk.request.automatic": {
+   "label": "Automatic follow-up",
+   "detail": {
+    "what": "Raised by the platform on a deadline you published: a reminder before the due date, or an overdue notice after it, to each applicable entity that has not released the filing."
+   }
+  },
+  "supervision.desk.request.unknown_kind": {
+   "status": 422,
+   "label": "Choose a kind of request",
+   "detail": {
+    "what": "The kind chosen is not one your supervision profile defines.",
+    "next": "Choose an information request, a site-access request or a finding."
+   }
+  },
+  "supervision.desk.request.needs_severity": {
+   "status": 422,
+   "label": "Choose a severity for the finding",
+   "detail": {
+    "what": "A {kind} carries a severity: {severities}.",
+    "next": "Choose one before raising it."
+   }
+  },
+  "supervision.desk.request.empty": {
+   "status": 422,
+   "label": "Write a message or choose a status",
+   "detail": {
+    "what": "An entry on the thread needs a message, a new status, or both."
+   }
+  },
+  "supervision.desk.request.about": {
+   "label": "How requests and findings work",
+   "detail": {
+    "what": "Information requests, site-access requests and findings you raise with an entity. Each is one thread that you and the entity both read: the entity replies and reports its remediation in its own workspace, and you close it.",
+    "why": "The entity receives a formal letter with its reference, legal basis and response period, a task on its own board and an e-mail. Every step is recorded on both organisations' audit trails."
+   }
+  },
+  "supervision.desk.sla.note": {
+   "label": "How service levels are measured",
+   "detail": {
+    "what": "Every figure is computed from the times each thread recorded: the letter's issue, the entity's acknowledgement of receipt, its first reply or status step, and your closure.",
+    "why": "A request missing one of these times is left out of that measure; the number of requests measured is shown with each figure."
+   }
+  },
+  "supervision.desk.sla.acknowledge": {
+   "label": "Time to acknowledge",
+   "detail": {
+    "what": "From the letter's issue to the entity's formal acknowledgement of receipt. For a request raised before letters were issued, the time runs from the day it was raised."
+   }
+  },
+  "supervision.desk.sla.respond": {
+   "label": "Time to respond",
+   "detail": {
+    "what": "From the letter's issue to the entity's first status step on the thread: responded, or remediation planned."
+   }
+  },
+  "supervision.desk.sla.close": {
+   "label": "Time to close",
+   "detail": {
+    "what": "From the letter's issue to your closure of the thread."
+   }
+  },
+  "supervision.desk.sla.on_time": {
+   "label": "Replied on time",
+   "detail": {
+    "what": "Of the requests the entity has replied to that carry a due date, the share replied to on or before that date."
+   }
+  },
+  "supervision.desk.sla.overdue": {
+   "label": "Overdue",
+   "detail": {
+    "what": "Open requests whose due date has passed, grouped by how many days late they are."
+   }
+  },
+  "supervision.desk.calendar.note": {
+   "label": "How the calendar is built",
+   "detail": {
+    "what": "Each deliverable is due to the authority named on its transmission channel. Its date is your own deadline for the period where you have drafted or published one; otherwise it is the date the act's rule gives.",
+    "why": "Whether a deliverable applies is judged for each entity from its regulatory attributes. Deliverables that fall due on an event rather than on a date are listed apart."
+   }
+  },
+  "supervision.desk.calendar.no_authority": {
+   "label": "Authority not named",
+   "detail": {
+    "what": "The transmission channel of this deliverable does not name the authority that receives it."
+   }
+  },
+  "supervision.desk.mandates.note": {
+   "label": "How the registry is read",
+   "detail": {
+    "what": "Each excerpt is a curated digest of the cited article; the act itself, linked with each mandate, is authoritative.",
+    "why": "Criteria are judged on each entity's regulatory attributes. A missing attribute gives 'cannot determine', never a guess."
+   }
+  },
+  "supervision.desk.mandates.adapted": {
+   "label": "Adapted by your authority",
+   "detail": {
+    "what": "Your authority has set this criterion's threshold itself, in place of the act's value."
+   }
+  },
+  "supervision.desk.mandates.unknown_attributes": {
+   "status": 422,
+   "label": "Choose the attributes to ask for",
+   "detail": {
+    "what": "Ask the entity for one or more of the attributes the mandate criteria read.",
+    "next": "Ask from an entity's row on Who is regulated."
+   }
+  },
+  "supervision.desk.deadlines.note": {
+   "label": "How deadlines are followed up",
+   "detail": {
+    "what": "Publishing writes the date onto each applicable entity's own obligations calendar and tells the entity. Each day, every applicable entity that has not released the filing receives an information request: a reminder from {before} days before the due date, and an overdue notice from day {after} after it, each sent once.",
+    "why": "Entities whose applicability cannot be determined are not chased until their regulatory attributes are known."
+   }
+  },
+  "supervision.desk.deadlines.no_calendar_rule": {
+   "status": 422,
+   "label": "The act sets no single date",
+   "detail": {
+    "what": "This obligation runs from an event, such as the conclusion of the ORSA, or its date depends on each undertaking, such as whether it is a listed issuer.",
+    "next": "Set the deadline's date yourself."
+   }
+  },
+  "supervision.desk.deadlines.bad_date": {
+   "status": 422,
+   "label": "Enter a calendar date",
+   "detail": {
+    "what": "A deadline's date is a day of the calendar, such as 30 April 2027."
+   }
+  },
+  "supervision.desk.period_invalid": {
+   "status": 422,
+   "label": "Enter a financial year",
+   "detail": {
+    "what": "'{period}' is not a financial year. The supervisory calendar is annual.",
+    "next": "Enter a year such as FY2026."
+   }
+  },
+  "supervision.desk.file.outside_profile": {
+   "label": "Outside your supervision profile",
+   "detail": {
+    "what": "This entity's sector is not in your supervision profile, so its exposure is shown but it is not compared with peers."
+   }
+  },
+  "supervision.desk.file.no_intake": {
+   "label": "No template set up for this sector",
+   "detail": {
+    "what": "Your supervision profile sets no template for this sector, so the quick check and the full rebuild do not apply yet.",
+    "next": "Add a template for the sector to your supervision profile."
+   }
+  },
+  "supervision.desk.file.peer_level_missing": {
+   "label": "Your at-risk threshold is not stated",
+   "detail": {
+    "what": "Peer figures count an exposure as sensitive at your authority's own at-risk threshold, which is not stated, so the figures that need it are left empty.",
+    "next": "State your at-risk threshold under Methodology."
+   }
+  },
+  "supervision.desk.file.audited": {
+   "label": "Opening this file is recorded",
+   "detail": {
+    "what": "Every figure is the entity's own engine result, read at your basis: {basis}.",
+    "why": "Opening the file is written to the entity's audit trail, which the entity can see."
+   }
+  },
+  "supervision.desk.pack.about": {
+   "label": "What an evidence pack holds",
+   "detail": {
+    "what": "The case file on this entity: supervision details, submissions, the quick check and the full rebuild, exposure by region, peer position, requests and findings with their threads, and your access trail.",
+    "why": "Each generation is a new version that never changes afterwards; its content fingerprint lets anyone check that a copy is unaltered."
+   }
+  },
+  "supervision.desk.pack.version": {
+   "label": "Version {n}",
+   "detail": {
+    "what": "Each generation of the evidence pack is a new version, numbered in order; a version never changes after it is generated."
+   }
+  },
+  "supervision.desk.pack.method.engine": {
+   "label": "The engine",
+   "detail": {
+    "what": "The figures come from the same physical-risk engine the entity uses in its own workspace. An exposure's headline hazard is its highest score among the hazards whose scale measures intensity for its kind of asset; the day's live readings, susceptibility classes and variability percentiles do not count. An exposure counts as sensitive when its headline score is at or above the stated at-risk threshold: the entity's own threshold for its template, your threshold for the rebuilt figure and the peer benchmark."
+   }
+  },
+  "supervision.desk.pack.method.quick": {
+   "label": "Quick check",
+   "detail": {
+    "what": "Each filed cell's share of sensitive exposure is set against the spread of that share across the regions of the cell's country (the middle half, from the 25th to the 75th percentile), read from the platform's standing hazard scores at the same basis. It needs locations only."
+   }
+  },
+  "supervision.desk.pack.method.full": {
+   "label": "Full rebuild",
+   "detail": {
+    "what": "The filed template is rebuilt from your own granular data, and each difference is split by cause: different exposure, coverage, basis, risk assessment, and rows on one side only. A marked cell is a question for the entity, not a finding."
+   }
+  },
+  "supervision.desk.pack.method.regions": {
+   "label": "Regions",
+   "detail": {
+    "what": "Inside the EU, figures are summed by NUTS-3 region (Eurostat GISCO, 2021); elsewhere by hexagonal grid cells clipped to land (GISCO countries, 2020). No figure in the pack is estimated where data is missing; such cells say so."
+   }
+  },
+  "supervision.desk.pack.exposure": {
+   "label": "Figures by region",
+   "detail": {
+    "what": "Exposure is summed by region: NUTS-3 regions inside the EU, hexagonal grid cells clipped to land elsewhere. Individual sites appear only where the entity granted site-level access."
+   }
+  },
+  "supervision.desk.pack.not_judged": {
+   "label": "The template could not be judged",
+   "detail": {
+    "what": "The quick check could not judge this template at its stated basis.",
+    "next": "Open the quick check to see why."
+   }
+  },
+  "supervision.desk.pack.authority_level_missing": {
+   "label": "Your at-risk threshold is not stated",
+   "detail": {
+    "what": "The full rebuild counts an exposure as sensitive at your authority's own at-risk threshold, which is not stated.",
+    "next": "State it under Methodology, then generate a new version of the pack."
+   }
+  },
+  "supervision.desk.pack.no_benchmark": {
+   "label": "No peer benchmark",
+   "detail": {
+    "what": "There is no peer benchmark for this entity's sector under your supervision profile at this basis."
+   }
+  },
+  "supervision.desk.remit.about": {
+   "label": "How a governed share works",
+   "detail": {
+    "what": "The recipient receives a copy limited to the sections you choose, watermarked and valid until its expiry date, under a link you can revoke at any time.",
+    "why": "Every view and download is recorded, and the entity sees the share on its own audit trail."
+   }
+  },
+  "supervision.desk.remit.kind": {
+   "status": 422,
+   "label": "Choose the kind of recipient",
+   "detail": {
+    "what": "The recipient must be one of the kinds listed: another authority, a supervisory college, a committee, a resolution authority, an auditor or another authorised recipient."
+   }
+  },
+  "supervision.desk.remit.no_name": {
+   "status": 422,
+   "label": "Name the recipient",
+   "detail": {
+    "what": "The recipient's name is printed on the watermark and recorded on both audit trails."
+   }
+  },
+  "supervision.desk.remit.no_purpose": {
+   "status": 422,
+   "label": "State the purpose",
+   "detail": {
+    "what": "A governed share states why the recipient needs the case file; the entity sees the purpose."
+   }
+  },
+  "supervision.desk.remit.no_recipient": {
+   "status": 422,
+   "label": "Give an e-mail or a supervisory body",
+   "detail": {
+    "what": "The link goes to the recipient's e-mail address, or to a supervisory body that works on Tellumen."
+   }
+  },
+  "supervision.desk.remit.expiry": {
+   "status": 422,
+   "label": "Choose an expiry within the limit",
+   "detail": {
+    "what": "A share expires after 1 to {max} days."
+   }
+  },
+  "supervision.desk.remit.no_sections": {
+   "status": 422,
+   "label": "Include at least one section",
+   "detail": {
+    "what": "A share carries at least one section of the case file besides the entity's identity."
+   }
+  },
+  "supervision.desk.remit.download_limit": {
+   "status": 422,
+   "label": "The download limit starts at one",
+   "detail": {
+    "what": "Leave the limit empty for no limit, or allow at least one download."
+   }
+  },
+  "supervision.desk.remit.not_a_body": {
+   "status": 422,
+   "label": "Choose a supervisory body",
+   "detail": {
+    "what": "A share inside Tellumen goes to a supervisory body that works on Tellumen."
+   }
+  },
+  "supervision.desk.remit.own_body": {
+   "status": 422,
+   "label": "Choose another body",
+   "detail": {
+    "what": "A case file is shared with another body, not with your own authority."
+   }
+  },
+  "supervision.desk.remit.format": {
+   "status": 422,
+   "label": "Choose the document or the data",
+   "detail": {
+    "what": "A shared case file downloads as a PDF document or as its data file."
+   }
+  },
+  "supervision.desk.remit.expired": {
+   "status": 410,
+   "label": "This share has expired",
+   "detail": {
+    "what": "The issuing authority's share of this case file has passed its expiry date."
+   }
+  },
+  "supervision.desk.remit.revoked": {
+   "status": 410,
+   "label": "This share was revoked",
+   "detail": {
+    "what": "The issuing authority has revoked this share of the case file."
+   }
+  },
+  "supervision.desk.remit.exhausted": {
+   "status": 410,
+   "label": "Download limit reached",
+   "detail": {
+    "what": "This share of the case file has been downloaded as many times as the issuing authority allowed."
+   }
   }
  },
  "names": {
@@ -3077,6 +3402,114 @@
    "wording": "Wording only",
    "references only": "References only",
    "no impact": "No change to the templates"
+  },
+  "case_file_section": {
+   "identity": "Entity identity",
+   "supervision": "Supervision details",
+   "submissions": "Submissions on record",
+   "plausibility": "Quick check",
+   "lens": "Full rebuild",
+   "projections": "Projections",
+   "exposure": "Exposure by region",
+   "peer_position": "Peer position",
+   "engagement": "Requests and findings",
+   "access_trail": "Access trail",
+   "method": "Method and basis"
+  },
+  "request_source": {
+   "lens_cell": "From the full rebuild",
+   "deadline": "Automatic follow-up",
+   "mandate_attributes": "Regulatory attributes"
+  },
+  "follow_up_stage": {
+   "reminder": "Reminder",
+   "overdue": "Overdue notice"
+  },
+  "deadline_status": {
+   "registry": "The act's rule",
+   "draft": "Draft",
+   "published": "Published"
+  },
+  "due_source": {
+   "registry": "The act's rule",
+   "set": "Set by your authority",
+   "registry_changed": "The act's earlier rule"
+  },
+  "severity": {
+   "low": "Low",
+   "medium": "Medium",
+   "high": "High"
+  },
+  "frequency": {
+   "annual": "Annual",
+   "semiannual": "Half-yearly",
+   "adhoc": "On each event",
+   "at least every two years": "At least every two years"
+  },
+  "region_kind": {
+   "nuts3": "Region",
+   "h3": "Grid cell"
+  },
+  "attribute_source": {
+   "organisation record": "Organisation record",
+   "entity": "Stated by the entity"
+  },
+  "filing_state": {
+   "filed": "Filed",
+   "in_progress": "In progress",
+   "none": "Not filed"
+  },
+  "peer_flag": {
+   "act": "Act",
+   "watch": "Watch",
+   "ok": "Within expectation",
+   "na": "Not judged"
+  },
+  "thread_side": {
+   "supervisor": "Authority",
+   "entity": "Entity"
+  },
+  "recipient_access": {
+   "view": "Opened",
+   "download_pdf": "Downloaded the document",
+   "download_json": "Downloaded the data"
+  },
+  "access_outcome": {
+   "ok": "Served",
+   "revoked": "Refused: revoked",
+   "expired": "Refused: expired",
+   "exhausted": "Refused: download limit reached"
+  },
+  "supervisory_action": {
+   "supervisor.access": "Opened the entity's filings",
+   "supervisor.file.access": "Opened the entity file",
+   "supervisor.lens.access": "Opened the full rebuild",
+   "supervisor.lens.cell.access": "Opened a cell of the full rebuild",
+   "supervisor.plausibility.access": "Opened the quick check",
+   "supervisor.sites.access": "Viewed individual sites",
+   "supervisor.request.raised": "Raised a request or finding",
+   "supervisor.request.status": "Changed a request's status",
+   "supervisor.request.message": "Wrote on a request thread",
+   "supervisor.request.receipt": "Receipt of a letter acknowledged",
+   "supervisor.evidence.generated": "Generated an evidence pack",
+   "supervisor.evidence.downloaded": "Downloaded an evidence pack",
+   "supervisor.evidence.remitted": "Shared a case file onward",
+   "supervisor.evidence.remittance_downloaded": "A shared case file was downloaded",
+   "supervisor.evidence.remittance_revoked": "Revoked a shared case file",
+   "supervisor.intake.submission": "Imported the filed template",
+   "supervisor.intake.granular": "Imported granular data",
+   "supervisor.intake.project": "Ran the scenario projections",
+   "supervisor.site_access.granted": "Site-level access granted",
+   "supervisor.site_access.revoked": "Site-level access withdrawn",
+   "supervisor.profile.updated": "Changed the supervision profile",
+   "supervisor.export.population": "Exported the population workbook",
+   "supervisor.deadline.set": "Set a deadline",
+   "supervisor.deadline.published": "Published a deadline",
+   "supervisor.deadlines.generated": "Drafted deadlines",
+   "supervisor.deadlines.swept": "Ran the deadline follow-up",
+   "supervisor.mandate.setting": "Adapted a mandate",
+   "supervisor.mandate.version_acknowledged": "Acknowledged a version of an act",
+   "other": "Other supervisory activity"
   }
  }
 }

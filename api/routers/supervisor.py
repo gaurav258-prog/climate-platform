@@ -36,12 +36,8 @@ FILED = ("submitted", "accepted", "approved", "attested", "released")
 def require_supervisor(ctx: CurrentUser) -> dict:
     """403 unless the caller's organization is a regulator/supervisor AND the user holds the base supervisory
     permission. Finer rights (sites, benchmark, entity file …) are checked per endpoint via `_need`."""
-    if (ctx.get("org") or {}).get("type") != "regulator":
-        raise HTTPException(status_code=403,
-                            detail={"error": "forbidden", "message": "Regulator/supervisor access only."})
-    if "supervisor.population.view" not in (ctx.get("permissions") or []):
-        raise HTTPException(status_code=403, detail={"error": "forbidden",
-                            "message": "Your role has no supervisory permissions (supervisor.population.view)."})
+    if (ctx.get("org") or {}).get("type") != "regulator" or "supervisor.population.view" not in (ctx.get("permissions") or []):
+        raise UserError("error.forbidden")
     return ctx
 
 
@@ -53,14 +49,14 @@ def _period(period_label: Optional[str]) -> str:
     from services.supervision.deadlines import canonical_period
     try:
         return canonical_period(period_label or str(_date.today().year - 1))[0]
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid_period", "message": str(e)}) from None
+    except ValueError:
+        raise UserError("supervision.desk.period_invalid", period=period_label) from None
 
 
 def _need(ctx: dict, code: str) -> None:
     """Per-endpoint RBAC check — the codes come from the supervision-profile role templates."""
     if code not in (ctx.get("permissions") or []):
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": f"Missing permission {code}."})
+        raise UserError("error.forbidden")       # the permission's own key goes to no screen
 
 
 Supervisor = Annotated[dict, Depends(require_supervisor)]
@@ -200,7 +196,7 @@ def exposure_map(session: DbSession, ctx: Supervisor, entity: Optional[str] = No
     ents = _supervised(session, ctx)
     if entity and entity != "all":
         if not _in_scope(session, ctx, entity):
-            raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+            raise UserError("error.not_found")
         ents = [e for e in ents if e["org_id"] == entity]
     points: list[dict] = []
     per_entity = []
@@ -224,7 +220,7 @@ def entity_sites(entity: str, session: DbSession, ctx: Supervisor, scenario: str
     from services.geo.org_assets import org_asset_points
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, entity):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     if not _site_access(session, reg, entity):
         raise HTTPException(status_code=403, detail={"error": "site_access_not_granted",
                             "message": "This entity has not granted site-level access to its supervisor. Regional aggregates remain available."})
@@ -319,7 +315,7 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
     from services.supervision.profiles import sector_config
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     cfg = _config(session, reg)
     sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
     org = session.execute(text("SELECT org_id::text AS org_id, name, type, country, lei, legal_name FROM organizations WHERE org_id = CAST(:o AS uuid)"),
@@ -343,15 +339,32 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.file.access",
                 target_type="organization", target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz})
     session.commit()
-    return {"entity": dict(org), "in_profile": sector_config(cfg, org["type"]) is not None,
-            "has_intake": bool((sector_config(cfg, org["type"]) or {}).get("intake")),
-            "sector": sector_config(cfg, org["type"]), "scenario": sc, "horizon": hz,
+    from services.reference.countries import english_name
+    from services.supervision.profiles import sector_label
+    names = messages.names()
+    sec = sector_config(cfg, org["type"])
+    acts = names.get("supervisory_action", {})
+    states = names.get("filing_state", {})
+    if submissions:
+        submissions = {**submissions, "frameworks": [f | {"state_label": states.get(f["state"])} for f in submissions["frameworks"]]}
+    notes = [m for m in (None if sec else messages.render("supervision.desk.file.outside_profile"),
+                         None if (sec or {}).get("intake") or not sec else messages.render("supervision.desk.file.no_intake"),
+                         messages.render("supervision.desk.file.peer_level_missing") if sec and bench.get("gap") else None) if m]
+    return {"entity": dict(org) | {"sector_label": sector_label(org["type"]), "country_name": english_name(org["country"])},
+            "in_profile": sec is not None, "has_intake": bool((sec or {}).get("intake")),
+            "sector": sec, "scenario": sc, "horizon": hz, "notes": notes,
+            "about": messages.render("supervision.desk.file.audited", basis=_basis_words(sc, hz)),
             "submissions": submissions, "book": {"n_assets": len(pts), "value_eur": round(sum(p["value_eur"] for p in pts)),
-                                                 "n_regions": len(regions), "top_regions": [{k: v for k, v in r.items() if k != "geometry"} for r in regions[:8]],
+                                                 "n_regions": len(regions),
+                                                 "top_regions": [{k: v for k, v in r.items() if k != "geometry"}
+                                                                 | {"kind_label": names.get("region_kind", {}).get(r.get("kind")), "country_name": english_name(r.get("country"))}
+                                                                 for r in regions[:8]],
                                                  "hazards": sorted(hazards.values(), key=lambda h: -h["value_eur"])},
-            "peer_position": entity_position(bench, org_id), "peers_in_sector": bench["sectors"].get(org["type"], {}).get("n_entities"),
+            "peer_position": [p | {"flag_label": names.get("peer_flag", {}).get(p.get("flag"))} for p in entity_position(bench, org_id)],
+            "peers_in_sector": bench["sectors"].get(org["type"], {}).get("n_entities"),
             "site_access": _site_access(session, reg, org_id),
-            "my_recent_accesses": [{"action": a["action"], "at": a["created_at"].isoformat(), "detail": a["detail"]} for a in accesses]}
+            "my_recent_accesses": [{"action": a["action"], "label": acts.get(a["action"]) or acts.get("other"), "at": a["created_at"].isoformat(), "detail": a["detail"]}
+                                   for a in accesses]}
 
 
 # ── Tier-2 intake + the independent lens ────────────────────────────────────────────────────────────────
@@ -492,7 +505,7 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     spec = _intake_spec(session, reg, org_id)
     sub_spec = spec["intake"]["submission"]
     sub = load_submission(session, reg, org_id, sub_spec["framework"], sub_spec["template"], period_label)
@@ -636,7 +649,7 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     spec = _intake_spec(session, reg, org_id)
     cfg = spec["config"]; sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
     ss = spec["intake"]["submission"]
@@ -708,11 +721,11 @@ def put_assignment(body: AssignBody, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.assignments.manage")
     reg = ctx["org"]["org_id"]
     if not any(e["org_id"] == body.supervised_org_id for e in _org_scope(session, reg)):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Entity is not in your supervised population."})
+        raise UserError("error.not_found")
     cap = (body.capacity or "lead").strip()[:40]
     aid = assign(session, reg, body.supervised_org_id, body.user_id, ctx["user"]["id"], cap)
     if aid is None:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Person is not in your organisation."})
+        raise UserError("error.not_found")
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.assignment.set",
                 target_type="organization", target_id=body.supervised_org_id,
                 detail={"user_id": body.user_id, "capacity": cap})
@@ -726,7 +739,7 @@ def delete_assignment(assignment_id: str, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.assignments.manage")
     reg = ctx["org"]["org_id"]
     if not revoke(session, reg, assignment_id, ctx["user"]["id"]):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active assignment."})
+        raise UserError("error.not_found")
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.assignment.end",
                 target_type="supervision_assignment", target_id=assignment_id, detail={})
     session.commit()
@@ -759,14 +772,16 @@ def list_requests(session: DbSession, ctx: Supervisor, status: Optional[str] = N
     from services.supervision.engagement import kinds, status_label
     from services.supervision.engagement import list_requests as _list
     if not ({"supervisor.requests.manage", "supervisor.findings.manage"} & set(ctx.get("permissions") or [])):
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission supervisor.requests.manage."})
+        raise UserError("error.forbidden")
     reg = ctx["org"]["org_id"]
     ents = _supervised(session, ctx)
     rows = _list(session, regulator_org_id=reg, supervised_org_ids=[e["org_id"] for e in ents], status=status, kind=kind,
                  supervised_org_id=entity)
-    return {"requests": rows, "entities": ents,
+    sev = messages.names().get("severity", {})
+    return {"requests": rows, "entities": ents, "about": messages.render("supervision.desk.request.about"),
             "kinds": {k: {"label": v["label"], "statuses": [{"key": st, "label": status_label(st)} for st in v["statuses"]],
-                          "supervisor_sets": v["supervisor_sets"], "severities": v["severities"]} for k, v in kinds().items()},
+                          "supervisor_sets": v["supervisor_sets"], "severities": v["severities"],
+                          "severity_labels": {s: sev.get(s, s) for s in v["severities"]}} for k, v in kinds().items()},
             "summary": {"open": sum(1 for r in rows if r["status"] != "closed"), "overdue": sum(1 for r in rows if r["overdue"]),
                         "findings_open": sum(1 for r in rows if r["kind"] == "finding" and r["status"] != "closed")}}
 
@@ -777,12 +792,9 @@ def create_request(body: RequestCreate, session: DbSession, ctx: Supervisor):
     _need_engage(ctx, body.kind)
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, body.supervised_org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Entity is not in your view."})
-    try:
-        req = create(session, regulator_org_id=reg, supervised_org_id=body.supervised_org_id, kind=body.kind, title=body.title,
-                     body=body.body, raised_by=ctx["user"]["id"], severity=body.severity, due_date=body.due_date, source=body.source)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+        raise UserError("error.not_found")
+    req = create(session, regulator_org_id=reg, supervised_org_id=body.supervised_org_id, kind=body.kind, title=body.title,
+                 body=body.body, raised_by=ctx["user"]["id"], severity=body.severity, due_date=body.due_date, source=body.source)
     for audited in (reg, body.supervised_org_id):
         write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervisor.request.raised",
                     target_type="supervision_request", target_id=req["request_id"],
@@ -796,7 +808,7 @@ def get_request(request_id: str, session: DbSession, ctx: Supervisor):
     from services.supervision.engagement import allowed_next, get, status_label
     req = get(session, request_id, regulator_org_id=ctx["org"]["org_id"])
     if not req or not _in_scope(session, ctx, req["supervised_org_id"]):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request in your view."})
+        raise UserError("error.not_found")
     _need_engage(ctx, req["kind"])
     req["can_set"] = [{"key": st, "label": status_label(st)} for st in allowed_next(req["kind"], "supervisor") if st != req["status"]]
     return req
@@ -807,14 +819,16 @@ def post_request_message(request_id: str, body: RequestMessage, session: DbSessi
     from services.supervision.engagement import add_message, get
     req = get(session, request_id, regulator_org_id=ctx["org"]["org_id"])
     if not req or not _in_scope(session, ctx, req["supervised_org_id"]):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request in your view."})
+        raise UserError("error.not_found")
     _need_engage(ctx, req["kind"])
     if not (body.body or "").strip() and not body.status_to:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Write a message or choose a status."})
+        raise UserError("supervision.desk.request.empty")
     try:
         out = add_message(session, request_id, side="supervisor", author_id=ctx["user"]["id"], body=body.body, status_to=body.status_to)
     except PermissionError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+        from services.supervision.engagement import status_label
+        raise UserError("supervision.respondent.status_not_allowed", kind=req["kind_label"].lower(),
+                        from_status=status_label(req["status"]), to_status=status_label(body.status_to)) from e
     action = "supervisor.request.status" if body.status_to else "supervisor.request.message"
     for audited in (ctx["org"]["org_id"], req["supervised_org_id"]):
         write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action=action, target_type="supervision_request",
@@ -845,7 +859,7 @@ def add_scope(body: ScopeAdd, session: DbSession, ctx: Supervisor):
     try:
         row = add(session, reg, body.supervised_org_id, body.jurisdiction, ctx["user"]["id"], _config(session, reg))
     except KeyError:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such entity."})
+        raise UserError("error.not_found")
     except ValueError as e:
         raise HTTPException(status_code=422, detail={"error": "outside_profile", "message": str(e)})
     for audited in (reg, body.supervised_org_id):
@@ -863,7 +877,7 @@ def end_scope(supervision_id: str, session: DbSession, ctx: Supervisor):
     reg = ctx["org"]["org_id"]
     ent = end(session, reg, supervision_id, ctx["user"]["id"])
     if not ent:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
+        raise UserError("error.not_found")
     for audited in (reg, ent):
         write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.ended",
                     target_type="supervision_scope", target_id=supervision_id, detail={"regulator_org_id": reg, "supervised_org_id": ent})
@@ -886,7 +900,7 @@ def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenar
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     ss = _intake_spec(session, reg, org_id)["intake"]["submission"]
     sub = load_submission(session, reg, org_id, ss["framework"], ss["template"])
     name = _entity_name(session, org_id)
@@ -937,8 +951,10 @@ def list_evidence_packs(org_id: str, session: DbSession, ctx: Supervisor):
     from services.supervision.evidence import list_packs
     _need(ctx, "supervisor.evidence.export")
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
-    return {"packs": list_packs(session, ctx["org"]["org_id"], org_id)}
+        raise UserError("error.not_found")
+    packs = [p | {"label": messages.label("supervision.desk.pack.version", n=p["version"]), "basis_label": _basis_words(p["basis"].get("scenario"), p["basis"].get("horizon"))}
+             for p in list_packs(session, ctx["org"]["org_id"], org_id)]
+    return {"packs": packs, "about": messages.render("supervision.desk.pack.about")}
 
 
 @router.post("/entity/{org_id}/evidence-packs", status_code=201, summary="Generate a new evidence pack (case file) for this entity")
@@ -948,7 +964,7 @@ def create_evidence_pack(org_id: str, body: PackCreate, session: DbSession, ctx:
     _need(ctx, "supervisor.evidence.export")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     cfg = _config(session, reg)
     sc, hz = body.scenario or cfg["default_scenario"], body.horizon or cfg["default_horizon"]
     org = session.execute(text("SELECT org_id::text AS org_id, name, type, country, lei, legal_name FROM organizations WHERE org_id = CAST(:o AS uuid)"),
@@ -964,7 +980,7 @@ def create_evidence_pack(org_id: str, body: PackCreate, session: DbSession, ctx:
                     target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "pack_id": pack["pack_id"],
                                               "version": pack["version"], "sha256": pack["sha256"], "scenario": sc, "horizon": hz})
     session.commit()
-    return pack
+    return pack | {"label": messages.label("supervision.desk.pack.version", n=pack["version"])}
 
 
 @router.get("/entity/{org_id}/evidence-packs/{pack_id}.{fmt}", summary="Download one evidence pack as PDF or its canonical JSON")
@@ -975,10 +991,10 @@ def download_evidence_pack(org_id: str, pack_id: str, fmt: str, session: DbSessi
     _need(ctx, "supervisor.evidence.export")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     p = get_pack(session, reg, pack_id)
     if not p or p["supervised_org_id"] != org_id:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such evidence pack."})
+        raise UserError("error.not_found")
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.evidence.downloaded", target_type="supervision_evidence_pack",
                 target_id=pack_id, detail={"regulator_org_id": reg, "format": fmt, "version": p["version"]})
     session.commit()
@@ -987,7 +1003,7 @@ def download_evidence_pack(org_id: str, pack_id: str, fmt: str, session: DbSessi
         return Response(content=bytes(p["pdf"]), media_type="application/pdf", headers={"Content-Disposition": attachment(f"{stem}.pdf")})
     if fmt == "json":
         return Response(content=canonical_json(p["content"]), media_type="application/json", headers={"Content-Disposition": attachment(f"{stem}.json")})
-    raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Format must be pdf or json."})
+    raise UserError("supervision.desk.remit.format")
 
 
 @router.get("/export/population.xlsx", summary="Export the supervised population's analyses as one workbook")
@@ -1022,7 +1038,7 @@ def entity_trend_view(org_id: str, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     cfg = _config(session, reg)
     spec = _intake_spec(session, reg, org_id)["intake"]
     return {"entity_org_id": org_id, **entity_trend(session, reg, org_id, spec, cfg["default_scenario"], cfg["default_horizon"])}
@@ -1073,7 +1089,7 @@ def put_mandate_setting(mandate_id: str, body: MandateSetting, session: DbSessio
     from services.supervision.mandates import mandate
     _need(ctx, "supervisor.mandates.manage")
     if not mandate(mandate_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such mandate in the registry."})
+        raise UserError("error.not_found")
     reg = ctx["org"]["org_id"]
     cur = session.execute(text("SELECT enabled, overrides FROM supervisor_mandate_setting WHERE regulator_org_id = CAST(:r AS uuid) AND mandate_id = :m"),
                           {"r": reg, "m": mandate_id}).mappings().first()
@@ -1100,7 +1116,7 @@ def ack_mandate_version(mandate_id: str, version: str, body: VersionAck, session
     _need(ctx, "supervisor.mandates.manage")
     m = mandate(mandate_id)
     if not m or version not in {v["version"] for v in m["versions"]}:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such mandate version."})
+        raise UserError("error.not_found")
     reg = ctx["org"]["org_id"]
     session.execute(text("""INSERT INTO supervisor_mandate_version_ack (regulator_org_id, mandate_id, version, acknowledged_by, note)
                             VALUES (CAST(:r AS uuid), :m, :v, CAST(:u AS uuid), :n) ON CONFLICT DO NOTHING"""),
@@ -1128,11 +1144,11 @@ def ask_attributes(body: AttributeAsk, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.requests.manage")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, body.supervised_org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Entity is not in your view."})
+        raise UserError("error.not_found")
     attrs = registry()["attributes"]
     unknown = [a for a in body.attributes if a not in attrs]
     if unknown or not body.attributes:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": f"Unknown attributes: {', '.join(unknown) or 'none given'}."})
+        raise UserError("supervision.desk.mandates.unknown_attributes")
     labels = "; ".join(attrs[a]["label"] for a in body.attributes)
     req = create(session, regulator_org_id=reg, supervised_org_id=body.supervised_org_id, kind="information_request",
                  title="Regulatory attributes needed to determine which mandates apply",
@@ -1178,11 +1194,12 @@ def set_deadline(deadline_id: str, body: DeadlineSet, session: DbSession, ctx: S
     _need(ctx, "supervisor.deadlines.manage")
     reg = ctx["org"]["org_id"]
     try:
-        out = set_due(session, reg, deadline_id, _date.fromisoformat(body.due_date) if body.due_date else None, body.note, ctx["user"]["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "no_calendar_rule", "message": str(e)})
+        due = _date.fromisoformat(body.due_date) if body.due_date else None
+    except ValueError:
+        raise UserError("supervision.desk.deadlines.bad_date") from None
+    out = set_due(session, reg, deadline_id, due, body.note, ctx["user"]["id"])     # a rule without a date refuses in words
     if not out:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such deadline."})
+        raise UserError("error.not_found")
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadline.set", target_type="supervision_deadline", target_id=deadline_id, detail=out | {"note": body.note})
     session.commit()
     return out
@@ -1195,7 +1212,7 @@ def publish_deadline(deadline_id: str, session: DbSession, ctx: Supervisor):
     reg = ctx["org"]["org_id"]
     out = publish(session, reg, deadline_id, ctx["user"]["id"], _config(session, reg))
     if out is None:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such deadline."})
+        raise UserError("error.not_found")
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadline.published", target_type="supervision_deadline", target_id=deadline_id, detail=out)
     session.commit()
     return out
@@ -1256,7 +1273,7 @@ def invite_entity_contact(supervision_id: str, body: ContactInvite, session: DbS
     ent = session.execute(text("SELECT supervised_org_id::text FROM supervision_scope WHERE supervision_id = CAST(:s AS uuid) AND regulator_org_id = CAST(:r AS uuid) AND active"),
                           {"s": supervision_id, "r": reg}).scalar()
     if not ent:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
+        raise UserError("error.not_found")
     try:
         out = invite_contact(session, regulator_org_id=reg, supervised_org_id=ent, email=body.email, full_name=body.full_name, by_user_id=ctx["user"]["id"])
     except ValueError as e:
@@ -1277,7 +1294,7 @@ def entity_contacts(supervision_id: str, session: DbSession, ctx: Supervisor):
     ent = session.execute(text("SELECT supervised_org_id::text FROM supervision_scope WHERE supervision_id = CAST(:s AS uuid) AND regulator_org_id = CAST(:r AS uuid) AND active"),
                           {"s": supervision_id, "r": reg}).scalar()
     if not ent:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
+        raise UserError("error.not_found")
     return {"contacts": [{k: v for k, v in c.items() if k != "user_id"} for c in contacts(session, ent)]}
 
 
@@ -1289,10 +1306,10 @@ def request_letter(request_id: str, session: DbSession, ctx: Supervisor):
     from services.supervision.engagement import get
     req = get(session, request_id, regulator_org_id=ctx["org"]["org_id"])
     if not req or not _in_scope(session, ctx, req["supervised_org_id"]):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request in your view."})
+        raise UserError("error.not_found")
     L = letter(session, request_id, regulator_org_id=ctx["org"]["org_id"])
     if not L:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No letter on this request."})
+        raise UserError("error.not_found")
     return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": attachment(f"{L["reference"]}.pdf")})
 
 
@@ -1301,5 +1318,5 @@ def entity_transmissions(org_id: str, session: DbSession, ctx: Supervisor):
     from services.transmission.service import received_by
     _need(ctx, "supervisor.entity.view")
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     return {"transmissions": received_by(session, ctx["org"]["org_id"], org_id)}

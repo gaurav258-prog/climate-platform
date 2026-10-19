@@ -15,6 +15,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages
+from core.errors import UserError
 from services.supervision.mandates import (
     APPLIES,
     due_date,
@@ -29,6 +31,11 @@ from services.supervision.mandates import (
 
 FILED = ("submitted", "accepted", "approved", "attested", "released")
 DEFAULT_REMINDERS = {"before_due_days": 14, "after_due_days": 1}
+
+
+def _day(d: date) -> str:
+    """'15 May 2026' — a date as a letter writes it."""
+    return f"{d.day} {d:%B %Y}"
 
 
 def reminders() -> dict:
@@ -92,13 +99,23 @@ def list_deadlines(session, reg_org_id: str, period_label: Optional[str] = None)
         WHERE d.regulator_org_id = CAST(:r AS uuid) {'AND d.period_label = :pl' if period_label else ''}
         ORDER BY d.period_label DESC, d.due_date
     """), {"r": reg_org_id, "pl": period_label}).mappings().all()
+    names = messages.names()
     out = []
     for r in rows:
         m = mandate(r["mandate_id"]) or {}
+        # The act's own date for the period — None where its rule runs from an event (the ORSA's conclusion) or turns on a
+        # fact about each undertaking (the CSRD publication rule): a deadline drafted while the rule still fixed a date
+        # outlives a later change of rule, and its row must still read (it once failed the whole calendar).
+        rule_due = due_date(m, r["period_end"]) if m else None
         out.append(dict(r) | {"period_end": r["period_end"].isoformat(), "due_date": r["due_date"].isoformat(),
                               "published_at": r["published_at"].isoformat() if r["published_at"] else None,
                               "short": m.get("short", r["mandate_id"]), "title": m.get("title"), "registry_rule": (m.get("deliverable") or {}).get("due", {}).get("label"),
-                              "registry_due": (due_date(m, r["period_end"]).isoformat() if m else None)})
+                              "registry_due": rule_due.isoformat() if rule_due else None,
+                              "registry_message": None if rule_due else messages.render("supervision.desk.deadlines.no_calendar_rule"),
+                              "status_label": names.get("deadline_status", {}).get(r["status"]),
+                              # drafted from the act's rule, which has since changed: the date is the earlier rule's, said so
+                              "due_source_label": names.get("due_source", {}).get(
+                                  "registry_changed" if r["due_source"] == "registry" and rule_due != r["due_date"] else r["due_source"])})
     return out
 
 
@@ -109,9 +126,8 @@ def set_due(session, reg_org_id: str, deadline_id: str, due: Optional[date], not
         return None
     if due is None:   # back to the act's rule
         due, src = due_date(mandate(row["mandate_id"]), row["period_end"]), "registry"
-        if due is None:
-            raise ValueError("the act fixes no single calendar date for this obligation (it runs from an event, e.g. the ORSA's "
-                             "conclusion, or depends on each undertaking, e.g. whether it is an issuer): its deadline must be set")
+        if due is None:     # the act fixes no single calendar date: it runs from an event or depends on each undertaking
+            raise UserError("supervision.desk.deadlines.no_calendar_rule")
     else:
         src = "set"
     session.execute(text("""UPDATE supervision_deadline SET due_date = :d, due_source = :s, note = COALESCE(:n, note), updated_at = now()
@@ -227,8 +243,8 @@ def sweep(session, reg_org_id: Optional[str] = None, today: Optional[date] = Non
                 if already:
                     continue
                 days = (due - today).days
-                title = (f"{d['short']} {d['period_label']}: due {d['due_date']} — not yet received" if stage == "reminder"
-                         else f"{d['short']} {d['period_label']}: overdue since {d['due_date']}")
+                title = (f"{d['short']} {d['period_label']}: due {_day(due)}, not yet received" if stage == "reminder"
+                         else f"{d['short']} {d['period_label']}: overdue since {_day(due)}")
                 body = (f"{reg_name} has not received your {d['title']} for {d['period_label']}. The deadline is {d['due_date']} ({days} days). "
                         f"Please release it through your filing workspace, or tell us on this thread if it will be late."
                         if stage == "reminder" else
@@ -244,7 +260,8 @@ def sweep(session, reg_org_id: Optional[str] = None, today: Optional[date] = Non
                                             VALUES (CAST(:o AS uuid), NULL, 'supervisor.request.raised', 'supervision_request', :t, CAST(:dt AS jsonb))"""),
                                     {"o": audited, "t": req["request_id"], "dt": __import__("json").dumps({"kind": "information_request", "title": title, "regulator_org_id": reg,
                                                                                                              "supervised_org_id": e["org_id"], "automatic": True, "stage": stage})})
-                raised.append({"regulator": reg_name, "entity": e["name"], "stage": stage, "deadline": d["short"], "period": d["period_label"], "request_id": req["request_id"]})
+                raised.append({"regulator": reg_name, "entity": e["name"], "stage": stage, "stage_label": messages.names().get("follow_up_stage", {}).get(stage),
+                               "deadline": d["short"], "period": d["period_label"], "request_id": req["request_id"]})
         session.commit()
     return {"as_of": today.isoformat(), "raised": raised, "n": len(raised)}
 
@@ -261,10 +278,9 @@ def status_view(session, reg_org_id: str, cfg: dict, period_label: str) -> dict:
         out.append({**d, "n_applicable": len(app), "n_cannot": sum(1 for e in ents if e["status"] != APPLIES and e["missing"]), "n_filed": len(filed),
                     "outstanding": [{"org_id": e["org_id"], "name": e["name"], "reminded": e["org_id"] in rem, "overdue_notified": e["org_id"] in ovd}
                                     for e in app if e["org_id"] not in {f["org_id"] for f in filed}]})
-    return {"period_label": period_label, "deadlines": out, "reminders": reminders(),
-            "note": "Publishing writes the date onto each applicable entity's own obligations calendar and tells the entity. The daily sweep raises "
-                    "an information request for every applicable entity that has not released the filing — a reminder before the due date, an overdue "
-                    "notice after it — each once. Entities whose applicability cannot be determined are not chased until their attributes are known."}
+    r = reminders()
+    return {"period_label": period_label, "deadlines": out, "reminders": r,
+            "note": messages.render("supervision.desk.deadlines.note", before=r["before_due_days"], after=r["after_due_days"])}
 
 
 def sweep_all() -> dict:

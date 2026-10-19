@@ -18,6 +18,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages
+
 AGEING_BUCKETS = (("1-7", 1, 7), ("8-30", 8, 30), ("31-90", 31, 90), ("90+", 91, None))
 
 
@@ -107,12 +109,13 @@ def sla_view(session, regulator_org_id: str, supervised_org_ids: list[str], toda
     return {"as_of": today.isoformat(),
             "authorities": [{"org_id": regulator_org_id, "authority": name, **compute(rows, today),
                              "by_kind": by_group(rows, "kind", today), "by_entity": by_group(rows, "supervised_org_id", today)}],
-            "definitions": {"time_to_acknowledge_hours": "receipt_at − issued_at (falls back to raised_at): the entity's formal receipt of the letter",
-                            "time_to_respond_hours": "responded_at − issued_at: the entity's first status step on the thread (responded / remediation planned)",
-                            "time_to_close_hours": "closed_at − issued_at: the supervisor's closure",
-                            "overdue": "open requests whose due date has passed, aged in days since the due date",
-                            "ageing_buckets": [b[0] for b in AGEING_BUCKETS]},
-            "note": "Every figure is computed from timestamps the thread recorded; a request without a timestamp is outside that sample (n shown)."}
+            "definitions": {"time_to_acknowledge_hours": messages.render("supervision.desk.sla.acknowledge"),
+                            "time_to_respond_hours": messages.render("supervision.desk.sla.respond"),
+                            "time_to_close_hours": messages.render("supervision.desk.sla.close"),
+                            "responded_on_time": messages.render("supervision.desk.sla.on_time"),
+                            "overdue": messages.render("supervision.desk.sla.overdue")},
+            "ageing_buckets": [b[0] for b in AGEING_BUCKETS],
+            "note": messages.render("supervision.desk.sla.note")}
 
 
 # ── the obligations calendar, per receiving authority ───────────────────────────────────────────────────────
@@ -134,6 +137,7 @@ def authority_calendar(session, reg_org_id: str, cfg: dict, period_label: str, t
     today = today or date.today()
     period_label, pe = canonical_period(period_label)
     reg = registry()
+    names = messages.names()
     st = settings(session, reg_org_id)
     set_by_mandate = {d["mandate_id"]: d for d in list_deadlines(session, reg_org_id, period_label)}
     groups: dict[str, dict] = {}
@@ -143,15 +147,19 @@ def authority_calendar(session, reg_org_id: str, cfg: dict, period_label: str, t
         if not e["enabled"]:
             continue
         ch = reg["channels"].get(e["deliverable"].get("channel_id")) or {}
-        authority = ch.get("authority") or "Authority not named on the channel"
+        authority = ch.get("authority") or messages.label("supervision.desk.calendar.no_authority")
         ents = applicable_entities(session, reg_org_id, cfg, m["id"], pe)
         app = [x for x in ents if x["status"] == APPLIES]
         fw = e["deliverable"].get("framework")
         filed = [x for x in app if fw and _filed(session, x["org_id"], fw, period_label)]
         own = set_by_mandate.get(m["id"])
         due = date.fromisoformat(own["due_date"]) if own else due_date(e, pe)
-        ev = {"date": due.isoformat() if due else None, "kind": "obligation", "title": m["short"], "sub": f"{period_label} · {e['deliverable'].get('frequency', 'annual')} · {ch.get('label', e['deliverable'].get('channel'))}",
-              "ref_id": own["deadline_id"] if own else None, "status": own["status"] if own else "registry", "overdue": bool(due and due < today and len(filed) < len(app)), "criticality": None,
+        freq = e["deliverable"].get("frequency", "annual")
+        status = own["status"] if own else "registry"
+        ev = {"date": due.isoformat() if due else None, "kind": "obligation", "title": m["short"], "period": period_label,
+              "frequency": freq, "frequency_label": names.get("frequency", {}).get(freq), "channel_label": ch.get("label") or e["deliverable"].get("channel"),
+              "ref_id": own["deadline_id"] if own else None, "status": status, "status_label": names.get("deadline_status", {}).get(status),
+              "overdue": bool(due and due < today and len(filed) < len(app)), "criticality": None,
               "mandate_id": m["id"], "mandate_title": m["title"], "framework": fw, "channel_id": e["deliverable"].get("channel_id"), "channel_kind": ch.get("kind"),
               "due_rule": (e["deliverable"].get("due") or {}).get("label"), "n_applicable": len(app), "n_filed": len(filed), "n_cannot": sum(1 for x in ents if x["status"] != APPLIES and x["missing"]),
               "entities": [{"org_id": x["org_id"], "name": x["name"], "filed": x["org_id"] in {f["org_id"] for f in filed}} for x in app]}
@@ -167,6 +175,4 @@ def authority_calendar(session, reg_org_id: str, cfg: dict, period_label: str, t
     events = sorted((ev | {"authority": g["authority"]} for g in auths for ev in g["events"]), key=lambda x: x["date"])
     return {"period_label": period_label, "period_end": pe.isoformat(), "today": today.isoformat(), "authorities": auths, "events": events,
             "upcoming": [e for e in events if e["date"] >= today.isoformat()][:12], "undated": undated,
-            "note": "Each deliverable is due to the authority named on its transmission channel in the mandate registry. The date is your own drafted or "
-                    "published deadline for the period where you have one, otherwise the act's rule as you apply it. Applicability is judged per entity from "
-                    "its regulatory attributes; per-event mandates (no calendar date) are listed separately."}
+            "note": messages.render("supervision.desk.calendar.note")}

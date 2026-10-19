@@ -6,9 +6,9 @@ integration smoke test; here we lock the two pure invariants that must never reg
   2. Only submitted-or-beyond statuses count as visible to a regulator (drafts/rejected never shown).
 """
 import pytest
-from fastapi import HTTPException
 
 from api.routers.supervisor import FILED, require_supervisor
+from core.errors import UserError
 
 
 def _ctx(org_type: str) -> dict:
@@ -21,16 +21,17 @@ def test_regulator_passes_the_gate():
 
 
 def test_regulator_without_supervisory_permission_is_forbidden():
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(UserError) as e:
         require_supervisor(_ctx("regulator"))      # right org type, no supervisory role
-    assert e.value.status_code == 403 and "supervisor.population.view" in str(e.value.detail)
+    assert e.value.status == 403 and e.value.code == "error.forbidden"
+    assert "supervisor.population.view" not in str(e.value.body())     # a permission's key reaches no screen (UI standard)
 
 
 @pytest.mark.parametrize("t", ["bank", "insurer", "asset_manager", "reit", "manufacturer", "", None])
 def test_non_regulator_is_forbidden(t):
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(UserError) as e:
         require_supervisor(_ctx(t))
-    assert e.value.status_code == 403
+    assert e.value.status == 403
 
 
 def test_only_filed_statuses_are_visible():

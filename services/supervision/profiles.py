@@ -52,6 +52,11 @@ def resolve(profile_id: Optional[str] = None, overrides: Optional[dict] = None) 
             "default_horizon": ov.get("default_horizon") or prof["default_horizon"]}
 
 
+def sector_label(org_type: Optional[str]) -> Optional[str]:
+    """A sector's customer name ('bank' → 'Credit institutions') from the profiles' sector list, inside a profile or not."""
+    return (registry()["sectors"].get(org_type or "") or {}).get("label")
+
+
 def sector_config(cfg: dict, org_type: str) -> Optional[dict]:
     """Expectations for a supervised entity of this type under the regulator's profile, None if out of profile."""
     return cfg["sectors"].get(org_type)

@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from api.deps import DbSession
 from api.routers.supervisor import Supervisor, _config, _period, _supervised
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/supervisor", tags=["Regulator portal"])
 
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/v1/supervisor", tags=["Regulator portal"])
 def engagement_sla(session: DbSession, ctx: Supervisor):
     from services.supervision.sla import sla_view
     if not ({"supervisor.requests.manage", "supervisor.findings.manage"} & set(ctx.get("permissions") or [])):
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission supervisor.requests.manage."})
+        raise UserError("error.forbidden")
     ents = _supervised(session, ctx)
     return sla_view(session, ctx["org"]["org_id"], [e["org_id"] for e in ents])
 

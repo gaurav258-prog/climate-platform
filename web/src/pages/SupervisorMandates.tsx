@@ -1,282 +1,127 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, ExternalLink } from 'lucide-react'
-import { api } from '../lib/api'
+import { Check, CircleHelp, Minus, Send } from 'lucide-react'
+import { api, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { frameworkLabel } from '../lib/hazards'
-import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { money } from '../lib/money'
+import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { StatusChip } from '../components/StatusChip'
+import { CloseButton } from '../components/Dialog'
+import { Drawer } from '../components/Drawer'
+import { HEADING, InfoButton } from '../components/Details'
 import { pressable } from '../lib/pressable'
+import { Facts, Failed, Loading, Segmented, day, shows } from './supervisorDesk/common'
+import { MandateRegistry } from './supervisorDesk/MandateRegistry'
+import { Deadlines } from './supervisorDesk/Deadlines'
 
-// The regulatory mandate registry: which regulation, which article (curated excerpt + the official act), who it applies
-// to (criteria over entity attributes), what must be delivered, through which channel and by when, and the version
-// history of the act with change detection. Then the population: for every supervised entity, applies / does not
-// apply / cannot determine — with what is missing and a way to ask the entity for it.
-interface Cond { attribute: string; op: string; value: unknown; label: string }
-interface Version { version: string; effective_from: string; summary: string; celex: string | null; acknowledged: { at: string; by: string | null; note: string | null } | null }
-interface Mandate { id: string; sectors: string[]; binding: boolean; title: string; short: string; enabled: boolean
-  act: { name: string; celex: string | null; url: string; form?: { name: string; celex: string | null; url: string } }
-  article: { ref: string; excerpt: string; version_date: string }
-  criteria: { all_of: Cond[]; tiers?: { label: string; all_of: Cond[]; frequency?: string }[]; scope?: { source: string; label: string } }
-  deliverable: { framework: string | null; what: string; format: string; channel: string; direction: string; due: { label: string }; frequency: string }
-  versions: Version[]; latest_version: string | null; latest_acknowledged: boolean
-  detection: { checked_at: string | null; watched?: string[]; changes: { change_id: string; celex: string; title: string; status: string; url: string | null; detected_at: string; effective_date: string | null }[] }
-  setting: { enabled: boolean; overrides: { thresholds?: Record<string, number>; due?: Record<string, unknown> }; note: string | null } | null }
-interface RegResp { registry_version: string; attributes: Record<string, { label: string; type: string; unit?: string; source?: string }>; mandates: Mandate[]; n_unacknowledged: number; note: string }
-interface Cell { mandate_id: string; short: string; framework: string | null; binding: boolean; status: 'applies' | 'not_applicable' | 'cannot_determine'; status_label: string
-  missing: string[]; failed: string[]; tier: { label: string; frequency?: string } | null; checks: { label: string; attribute: string; result: boolean | null; tier?: string }[]; due_date: string | null; channel: string; direction: string }
-interface PopResp { period_end: string; mandates: { id: string; short: string; title: string; sectors: string[] }[]
-  entities: { org_id: string; name: string; type: string; country: string | null; attributes: Record<string, { value: unknown; source: string; as_of: string | null }>; mandates: Cell[]; n_applies: number; n_cannot: number; missing: string[] }[]
+// Mandates and who they apply to (UI standard, 2026-10-16): the registry as cards (each act's text in its drawer), the
+// population as a matrix of entity × mandate with the result as a chip (an entity's attributes and checks in its
+// drawer), and the authority's deadlines. Criteria are configuration in the mandate registry; never a guess.
+interface Check { label: string; attribute: string; result: boolean | null; tier?: string }
+interface Cell { mandate_id: string; short: string; status: 'applies' | 'not_applicable' | 'cannot_determine'; status_label: string
+  missing: string[]; tier: { label: string } | null; tier_frequency_label: string | null; checks: Check[]; due_date: string | null }
+interface Ent { org_id: string; name: string; sector_label: string; country_name: string | null; mandates: Cell[]; n_applies: number; missing: string[]
+  attributes: Record<string, { value: unknown; value_label: string | null; source_label: string | null; as_of: string | null }> }
+interface PopResp { period_end: string; mandates: { id: string; short: string; title: string }[]; entities: Ent[]
   attributes: Record<string, { label: string; type: string; unit?: string }>; summary: { entities: number; cannot_determine: number; attributes_missing: number } }
-const SC: Record<Cell['status'], string> = { applies: 'var(--color-good)', not_applicable: 'var(--color-faint)', cannot_determine: 'var(--color-warn)' }
-const fmtVal = (v: unknown, unit?: string) => v == null ? '—' : typeof v === 'boolean' ? (v ? 'yes' : 'no') : typeof v === 'number' ? (unit === 'eur' ? money(v, 'EUR') : v.toLocaleString()) : String(v)
-const condText = (c: Cond) => c.label
+type Tab = 'registry' | 'population' | 'deadlines'
+
+const TONE: Record<Cell['status'], 'good' | 'warn' | 'neutral'> = { applies: 'good', cannot_determine: 'warn', not_applicable: 'neutral' }
+const value = (v: unknown, unit?: string) => v == null ? '—' : typeof v === 'boolean' ? (v ? 'Yes' : 'No')
+  : typeof v === 'number' ? (unit === 'eur' ? money(v, 'EUR') : v.toLocaleString()) : String(v)
+const usePopulation = () => useQuery({ queryKey: ['sup-pop-mandates'], queryFn: () => api.get<PopResp>('/v1/supervisor/population/mandates') })
 
 export default function SupervisorMandates() {
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'population' ? 'population' : params.get('tab') === 'deadlines' ? 'deadlines' : 'registry'
-  const setTab = (t: string) => { const p = new URLSearchParams(params); p.set('tab', t); setParams(p) }
+  const t = params.get('tab')
+  const tab: Tab = t === 'population' || t === 'deadlines' ? t : 'registry'
+  const pop = usePopulation()
+  const applicability = useMemo(() => (pop.data?.entities ?? []).flatMap(e => e.mandates.map(c => ({ mandate_id: c.mandate_id, status: c.status }))), [pop.data])
   return (
     <div className="fadeup space-y-6">
-      <PageHeader eyebrow="Regulations" title="Mandates and who they apply to"
-        lead="The article, who it applies to, what must be delivered and by when — then your population against those criteria." />
-      <div className="flex gap-2">
-        {[['registry', 'Registry'], ['population', 'Who is regulated'], ['deadlines', 'Deadlines']].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === k ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{l}</button>))}
-      </div>
-      {tab === 'registry' ? <Registry /> : tab === 'population' ? <Population /> : <Deadlines />}
+      <PageHeader eyebrow="Regulations" title="Mandates and who they apply to" lead="Each act, who it applies to, and by when."
+        about={[shows('The regulations your authority works under: the article, who it applies to, what must be delivered, through which channel and by when; then each entity in your population against those criteria, and your filing deadlines.')]} />
+      <Segmented label="View" value={tab} onChange={k => { const p = new URLSearchParams(params); p.set('tab', k); setParams(p) }}
+        options={[['registry', 'Registry'], ['population', 'Who is regulated'], ['deadlines', 'Deadlines']]} />
+      {tab === 'registry' ? <MandateRegistry applicability={applicability} /> : tab === 'population' ? <Population /> : <Deadlines />}
     </div>
   )
 }
 
-function Registry() {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const can = (profile?.permissions ?? []).includes('supervisor.mandates.manage')
-  const q = useQuery({ queryKey: ['sup-mandates'], queryFn: () => api.get<RegResp>('/v1/supervisor/mandates') })
-  const [sel, setSel] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const d = q.data
-  if (!d) return <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading the registry…</div>
-  const m = d.mandates.find(x => x.id === sel) ?? d.mandates[0]
-  const ack = async (v: string) => { setBusy(true); try { await api.post(`/v1/supervisor/mandates/${m.id}/versions/${v}/acknowledge`, {}); await qc.invalidateQueries({ queryKey: ['sup-mandates'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
-  const toggle = async () => { setBusy(true); try { await api.put(`/v1/supervisor/mandates/${m.id}`, { enabled: !m.enabled }); await qc.invalidateQueries({ queryKey: ['sup-mandates'] }); await qc.invalidateQueries({ queryKey: ['sup-pop-mandates'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
-  const pendingChanges = d.mandates.reduce((a, x) => a + x.detection.changes.filter(c => c.status !== 'reviewed').length, 0)
-  const Tile = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3.5 py-3">
-      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">{label}</div>
-      <div className="text-[12.5px] text-[var(--color-ink)] leading-relaxed">{children}</div>
-    </div>)
-  return (<>
-    <StatGrid cols={3} items={[
-      { label: 'Mandates in your profile', value: String(d.mandates.length), sub: `${d.mandates.filter(x => x.binding).length} binding · ${d.mandates.filter(x => !x.binding).length} guidance` },
-      { label: 'Versions to acknowledge', value: String(d.n_unacknowledged), sub: 'act versions not yet reviewed by your authority', accent: d.n_unacknowledged ? 'var(--color-warn)' : undefined },
-      { label: 'Changes detected', value: String(pendingChanges), sub: 'flagged by the EUR-Lex watch, awaiting review', accent: pendingChanges ? 'var(--color-warn)' : undefined },
-    ]} />
-    <div className="grid lg:grid-cols-[300px_1fr] gap-5 items-start">
-      <Card className="p-2">
-        {d.mandates.map(x => (
-          <button key={x.id} onClick={() => setSel(x.id)} className={`w-full text-left rounded-lg px-3 py-2.5 transition ${m.id === x.id ? 'bg-[var(--color-bg-2)] border border-[var(--color-sky)]/40' : 'border border-transparent hover:bg-[var(--color-bg-2)]'}`}>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] text-[var(--color-ink)] font-medium leading-tight">{x.short}</span>
-              {!x.latest_acknowledged && <span className="ml-auto w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--color-warn)' }} title="a version to acknowledge" />}
-            </div>
-            <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5 truncate">{x.article.ref}</div>
-            <div className="flex gap-1.5 mt-1.5">
-              <span className={`mono text-[9px] uppercase px-1.5 py-0.5 rounded ${x.binding ? 'bg-[var(--color-sky)]/15 text-[var(--color-sky)]' : 'bg-[var(--color-panel)] text-[var(--color-faint)]'}`}>{x.binding ? 'binding' : 'guidance'}</span>
-              {!x.enabled && <span className="mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-bad)]/15 text-[var(--color-bad)]">disabled</span>}
-              <span className="mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-panel)] text-[var(--color-faint)]">{x.deliverable.direction === 'push' ? 'entity submits' : 'on request'}</span>
-            </div>
-          </button>))}
-      </Card>
-      <Card className="p-6 space-y-6">
-        <div>
-          <div className="mono text-[10.5px] uppercase tracking-[0.2em] text-[var(--color-blue)] mb-1">{m.sectors.map(sc => sc.replace(/_/g, ' ')).join(' · ')}</div>
-          <h2 className="display text-[22px] leading-tight text-[var(--color-ink)]">{m.title}</h2>
-          <div className="text-[12.5px] text-[var(--color-mute)] mt-1">{m.act.name}</div>
-        </div>
-        <section>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">The article · {m.article.ref}</div>
-          <blockquote className="border-l-2 border-[var(--color-sky)] pl-4 text-[14px] text-[var(--color-ink)] leading-relaxed">{m.article.excerpt}</blockquote>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
-            <a href={m.act.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Read the act on EUR-Lex <ExternalLink size={11} /></a>
-            {m.act.form && <a href={m.act.form.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Official form <ExternalLink size={11} /></a>}
-            <span className="mono text-[10.5px] text-[var(--color-faint)]">curated digest · text as of {m.article.version_date} · the act is authoritative</span>
-          </div>
-        </section>
-        <section>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Who it applies to</div>
-          <div className="flex flex-wrap gap-2">
-            {m.criteria.all_of.map((c, i) => <span key={i} className="rounded-full border border-[var(--color-line-2)] px-3 py-1 text-[12px] text-[var(--color-ink)]">{condText(c)}</span>)}
-            {/* judged per undertaking and year from its own stated facts, not from the organisation's attributes */}
-            {m.criteria.scope && <span className="rounded-full border border-[var(--color-line-2)] px-3 py-1 text-[12px] text-[var(--color-ink)]">{m.criteria.scope.label}</span>}
-          </div>
-          {m.criteria.tiers && m.criteria.tiers.length > 0 && (
-            <div className="grid sm:grid-cols-2 gap-2 mt-2">{m.criteria.tiers.map((t, i) => (
-              <div key={i} className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]"><div className="text-[var(--color-ink)]">{t.label}</div>
-                <div className="text-[var(--color-mute)] mt-0.5">{t.all_of.length ? t.all_of.map(condText).join(' · ') : 'all others'}{t.frequency ? <span className="mono text-[10px] text-[var(--color-faint)]"> · {t.frequency}</span> : null}</div></div>))}</div>)}
-        </section>
-        <section>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">What must be delivered</div>
-          <div className="grid sm:grid-cols-2 gap-2.5">
-            <Tile label="Deliverable">{m.deliverable.what}</Tile>
-            <Tile label="Format">{m.deliverable.format}</Tile>
-            <Tile label={m.deliverable.direction === 'push' ? 'Channel · the entity submits' : 'Channel · the supervisor requests'}>{m.deliverable.channel}</Tile>
-            <Tile label="Deadline">{m.deliverable.due.label}<span className="mono text-[10.5px] text-[var(--color-faint)]"> · {m.deliverable.frequency}</span></Tile>
-          </div>
-        </section>
-        <section>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Versions of the act</div>
-          <ol className="relative border-l border-[var(--color-line-2)] ml-2 space-y-3">
-            {m.versions.map(v => (
-              <li key={v.version} className="pl-4">
-                <span className="absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full" style={{ background: v.acknowledged ? 'var(--color-good)' : 'var(--color-warn)' }} />
-                <div className="flex items-start gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[240px] text-[12.5px]">
-                    <span className="mono text-[10.5px] text-[var(--color-faint)]">{v.version} · from {v.effective_from}</span>
-                    <div className="text-[var(--color-ink)]">{v.summary}</div>
-                    <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5">{v.celex ? <a href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${v.celex}`} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">CELEX {v.celex}</a> : null}{v.acknowledged ? ` · acknowledged ${v.acknowledged.at.slice(0, 10)} by ${v.acknowledged.by ?? '—'}` : ' · not yet acknowledged by your authority'}</div>
-                  </div>
-                  {!v.acknowledged && can && <Button variant="ghost" disabled={busy} onClick={() => ack(v.version)}>Acknowledge</Button>}
-                </div>
-              </li>))}
-          </ol>
-        </section>
-        <section className="flex items-start justify-between gap-4 flex-wrap border-t border-[var(--color-line)] pt-4">
-          <div className="text-[12px] text-[var(--color-mute)]">
-            <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mr-2">EUR-Lex watch</span>
-            {m.detection.checked_at ? `acts ${(m.detection.watched ?? []).join(', ')} checked ${m.detection.checked_at.slice(0, 10)}` : m.act.celex ? 'not yet checked by the daily scan' : 'no EU act to watch for this guidance'}
-            {m.detection.changes.map(c => <div key={c.change_id} className="text-[var(--color-warn)] mt-1">Detected {c.detected_at.slice(0, 10)} on CELEX {c.celex}: {c.title} · {c.status}{c.url ? <a href={c.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">source</a> : null}</div>)}
-          </div>
-          {can && <Button variant="ghost" disabled={busy} onClick={toggle}>{m.enabled ? 'Disable for my authority' : 'Enable for my authority'}</Button>}
-        </section>
-      </Card>
-    </div>
-  </>)
-}
-
 function Population() {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const canAsk = (profile?.permissions ?? []).includes('supervisor.requests.manage')
-  const q = useQuery({ queryKey: ['sup-pop-mandates'], queryFn: () => api.get<PopResp>('/v1/supervisor/population/mandates') })
-  const [open, setOpen] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
+  const q = usePopulation()
+  const [sel, setSel] = useState<string | null>(null)
   const d = q.data
-  const cols = useMemo(() => d?.mandates ?? [], [d])
-  if (!d) return <div className="py-10 text-center text-[var(--color-faint)] text-sm">judging each entity against the criteria…</div>
-  const ask = async (org_id: string, attributes: string[]) => {
-    setBusy(org_id)
-    try { await api.post('/v1/supervisor/population/mandates/ask', { supervised_org_id: org_id, attributes }); toast.success('Asked the entity for the missing attributes (an information request on its thread).'); await qc.invalidateQueries({ queryKey: ['supervisor-requests'] }) }
-    catch (e) { toast.error((e as Error).message) } finally { setBusy(null) }
-  }
+  if (q.isLoading) return <Loading what="who is regulated" />
+  if (!d) return <Failed what="who is regulated" />
+  const e = d.entities.find(x => x.org_id === sel)
   return (<>
     <StatGrid cols={3} items={[
-      { label: 'Entities judged', value: String(d.summary.entities), sub: `for period ending ${d.period_end}` },
-      { label: 'Cannot determine', value: String(d.summary.cannot_determine), sub: 'entities with an attribute missing', accent: d.summary.cannot_determine ? 'var(--color-warn)' : undefined },
-      { label: 'Attributes to ask for', value: String(d.summary.attributes_missing), sub: 'one click raises the request' },
+      { label: 'Entities judged', value: String(d.summary.entities), sub: `year ending ${day(d.period_end)}` },
+      { label: 'Cannot be determined', value: String(d.summary.cannot_determine), sub: 'an attribute is missing', accent: d.summary.cannot_determine ? 'var(--color-warn)' : undefined },
+      { label: 'Attributes to ask for', value: String(d.summary.attributes_missing), sub: 'one request per entity' },
     ]} />
     <Card className="p-5">
-      <div className="text-[11.5px] text-[var(--color-mute)] mb-3">Each cell is the criteria of one mandate evaluated on the entity's attributes. Green applies, grey does not apply, amber cannot be determined until the entity confirms what is missing. Click an entity for the checks and its attributes.</div>
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <StatusChip label="Applies" tone="good" /><StatusChip label="Cannot be determined" tone="warn" /><StatusChip label="Does not apply" tone="neutral" />
+        <InfoButton compact className="ml-1" details={{ title: 'How to read it', sections: [{ heading: HEADING.read,
+          body: "Each cell is one mandate's criteria judged on the entity's regulatory attributes. Where an attribute is missing the result cannot be determined until the entity states it; an entity opens its attributes and every check." }] }} />
+      </div>
       <div className="overflow-x-auto">
-        <table className="data-table w-full text-[12px]">
-          <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-            <th>Entity</th>{cols.map(m => <th key={m.id} className="text-center" title={m.title}>{m.short}</th>)}<th className="num">Applies</th><th>Missing</th></tr></thead>
-          <tbody>{d.entities.map(e => (<>
-            <tr key={e.org_id} {...pressable(() => setOpen(open === e.org_id ? null : e.org_id), { row: true, expanded: open === e.org_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.org_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
-              <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === e.org_id ? 'rotate-90' : ''}`} /><Link to={`/supervised/${e.org_id}`} onClick={ev => ev.stopPropagation()} className="hover:text-[var(--color-sky)] hover:underline">{e.name}</Link><span className="mono text-[10px] text-[var(--color-faint)] ml-2">{e.type.replace(/_/g, ' ')} · {e.country ?? ''}</span></td>
-              {cols.map(m => { const c = e.mandates.find(x => x.mandate_id === m.id); return (
-                <td key={m.id} className="text-center">{c ? <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded" style={{ color: SC[c.status], background: `color-mix(in oklab, ${SC[c.status]} 14%, transparent)` }} title={c.tier ? c.tier.label : c.failed.join('; ') || c.missing.join(', ')}>{c.status === 'applies' ? (c.tier?.frequency ?? 'applies') : c.status === 'cannot_determine' ? 'unknown' : 'n/a'}</span> : <span className="text-[var(--color-faint)]">·</span>}</td>) })}
-              <td className="num mono text-[var(--color-mute)]">{e.n_applies}</td>
-              <td className="text-[11.5px]">{e.missing.length ? <span className="text-[var(--color-warn)]">{e.missing.map(a => d.attributes[a]?.label ?? a).join(', ')}{canAsk && <> · <button disabled={busy === e.org_id} onClick={ev => { ev.stopPropagation(); ask(e.org_id, e.missing) }} className="text-[var(--color-sky)] hover:underline">ask the entity →</button></>}</span> : <span className="text-[var(--color-faint)]">—</span>}</td>
-            </tr>
-            {open === e.org_id && (
-              <tr key={e.org_id + '-d'}><td colSpan={cols.length + 3} className="p-0"><div className="px-6 py-3 bg-[var(--color-bg-2)] grid lg:grid-cols-2 gap-4 text-[12px]">
-                <div>
-                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">The entity's attributes</div>
-                  <div className="divide-y divide-[var(--color-line)]">{Object.entries(d.attributes).map(([k, def]) => { const a = e.attributes[k]; return (
-                    <div key={k} className="py-1 flex justify-between gap-3"><span className="text-[var(--color-mute)]">{def.label}</span><span className={a ? 'text-[var(--color-ink)]' : 'text-[var(--color-warn)]'}>{a ? fmtVal(a.value, def.unit) : 'not stated'}{a?.source ? <span className="mono text-[10px] text-[var(--color-faint)]"> · {a.source}{a.as_of ? ` · ${a.as_of}` : ''}</span> : null}</span></div>) })}</div>
-                </div>
-                <div>
-                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">The checks, mandate by mandate</div>
-                  {e.mandates.map(c => (
-                    <div key={c.mandate_id} className="mb-2">
-                      <div className="text-[var(--color-ink)]">{c.short} · <span style={{ color: SC[c.status] }}>{c.status_label}</span>{c.tier ? ` · ${c.tier.label}` : ''}{c.due_date ? <span className="mono text-[10.5px] text-[var(--color-faint)]"> · due {c.due_date}</span> : null}</div>
-                      <ul className="ml-4 list-disc text-[var(--color-mute)]">{c.checks.map((k, i) => <li key={i} style={{ color: k.result === false ? 'var(--color-faint)' : k.result == null ? 'var(--color-warn)' : undefined }}>{k.label}: {k.result == null ? 'not stated' : k.result ? 'met' : 'not met'}{k.tier ? ` (${k.tier})` : ''}</li>)}</ul>
-                      <div className="mono text-[10.5px] text-[var(--color-faint)]">{c.direction === 'push' ? 'entity submits' : 'supervisor requests'} · {c.channel}</div>
-                    </div>))}
-                </div>
-              </div></td></tr>)}
-          </>))}</tbody>
+        <table className="data-table w-full text-[12.5px]">
+          <thead><tr className="text-left"><th>Entity</th>{d.mandates.map(m => <th key={m.id} className="text-center" title={m.title}>{m.short}</th>)}<th>Missing</th></tr></thead>
+          <tbody>{d.entities.map(x => (
+            <tr key={x.org_id} {...pressable(() => setSel(x.org_id), { row: true })} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)]">
+              <td className="whitespace-nowrap"><span className="block text-[var(--color-ink)]">{x.name}</span>
+                <span className="block text-[11px] text-[var(--color-faint)]">{x.sector_label}{x.country_name ? ` · ${x.country_name}` : ''}</span></td>
+              {d.mandates.map(m => { const c = x.mandates.find(y => y.mandate_id === m.id); return (
+                <td key={m.id} className="text-center">{c ? <StatusChip tone={TONE[c.status]}
+                  label={c.status === 'applies' ? (c.tier_frequency_label ?? 'Applies') : c.status === 'cannot_determine' ? 'Unknown' : 'No'} /> : <span className="text-[var(--color-faint)]">·</span>}</td>) })}
+              <td>{x.missing.length ? <StatusChip label={`${x.missing.length} to ask`} tone="warn" /> : <span className="text-[var(--color-faint)]">—</span>}</td>
+            </tr>))}</tbody>
         </table>
       </div>
     </Card>
+    {e && <EntityDrawer e={e} d={d} onClose={() => setSel(null)} />}
   </>)
 }
 
-// ── Deadlines: the authority's calendar for a period, published onto each applicable entity's own calendar ─────
-interface Deadline { deadline_id: string; mandate_id: string; short: string; title: string | null; framework: string; period_label: string; period_end: string; due_date: string; due_source: string
-  registry_due: string | null; registry_rule: string | null; note: string | null; status: 'draft' | 'published'; published_at: string | null; published_by: string | null
-  n_applicable: number; n_cannot: number; n_filed: number; n_reminders: number; n_overdue: number; outstanding: { org_id: string; name: string; reminded: boolean; overdue_notified: boolean }[] }
-interface DlResp { period_label: string; deadlines: Deadline[]; reminders: { before_due_days: number; after_due_days: number }; note: string }
-function Deadlines() {
+function EntityDrawer({ e, d, onClose }: { e: Ent; d: PopResp; onClose: () => void }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
-  const can = (profile?.permissions ?? []).includes('supervisor.deadlines.manage')
-  const [period, setPeriod] = useState(`FY${new Date().getFullYear() - 1}`)
-  const q = useQuery({ queryKey: ['sup-deadlines', period], queryFn: () => api.get<DlResp>(`/v1/supervisor/deadlines?period_label=${period}`) })
+  const canAsk = (profile?.permissions ?? []).includes('supervisor.requests.manage')
   const [busy, setBusy] = useState(false)
-  const [edit, setEdit] = useState<Record<string, string>>({})
-  const [open, setOpen] = useState<string | null>(null)
-  const [swept, setSwept] = useState<{ n: number; raised: { entity: string; stage: string; deadline: string }[] } | null>(null)
-  const d = q.data
-  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['sup-deadlines', period] }), qc.invalidateQueries({ queryKey: ['sup-timeliness'] }), qc.invalidateQueries({ queryKey: ['supervisor-requests'] })])
-  const run = async (fn: () => Promise<unknown>, ok?: string) => { setBusy(true); try { await fn(); if (ok) toast.success(ok); await refresh() } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
-  return (<>
-    <div className="flex flex-wrap items-center gap-3">
-      <label className="text-[12px] text-[var(--color-mute)]">Period
-        <select value={period} onChange={e => setPeriod(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
-          {[0, 1, 2].map(i => { const y = new Date().getFullYear() - i; return <option key={y} value={`FY${y}`}>FY{y}</option> })}</select></label>
-      {can && <Button variant="ghost" disabled={busy} onClick={() => run(() => api.post(`/v1/supervisor/deadlines/generate?period_label=${period}`, {}), `Deadlines for ${period} drafted from the registry.`)}>Draft from the registry</Button>}
-      {can && <Button variant="ghost" disabled={busy} onClick={() => run(async () => { const r = await api.post<{ n: number; raised: { entity: string; stage: string; deadline: string }[] }>('/v1/supervisor/deadlines/sweep', {}); setSwept(r) })}>Run follow-up now</Button>}
-      {d && <span className="mono text-[10.5px] text-[var(--color-faint)]">reminder {d.reminders.before_due_days} days before · overdue notice {d.reminders.after_due_days} day after</span>}
-    </div>
-    {swept && <Card className="p-4 text-[12.5px]"><b className="text-[var(--color-ink)]">Follow-up run:</b> {swept.n === 0 ? 'nothing new to raise — every applicable entity has filed or was already notified.' : swept.raised.map(r => `${r.entity}: ${r.stage} for ${r.deadline}`).join(' · ')}</Card>}
-    {!d ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading the calendar…</div> : (
-      <Card className="p-5">
-        <div className="text-[11.5px] text-[var(--color-mute)] mb-3">{d.note}</div>
-        {d.deadlines.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">No deadlines drafted for {period} yet. Draft them from the registry, adapt any date, then publish.</div> : (
-          <div className="overflow-x-auto">
-            <table className="data-table w-full text-[12.5px]">
-              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th>Mandate</th><th>Act's rule</th><th>Due date</th><th>Status</th><th className="num">Applies</th><th className="num">Filed</th><th className="num">Outstanding</th><th className="num">Reminded</th><th className="num">Overdue notices</th><th></th></tr></thead>
-              <tbody>{d.deadlines.map(x => (<>
-                <tr key={x.deadline_id} {...pressable(() => setOpen(open === x.deadline_id ? null : x.deadline_id), { row: true, expanded: open === x.deadline_id })} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === x.deadline_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
-                  <td className="text-[var(--color-ink)]"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === x.deadline_id ? 'rotate-90' : ''}`} />{x.short}<div className="mono text-[10px] text-[var(--color-faint)]">{frameworkLabel(x.framework)}</div></td>
-                  <td className="text-[11.5px] text-[var(--color-mute)]">{x.registry_rule}<div className="mono text-[10px] text-[var(--color-faint)]">→ {x.registry_due}</div></td>
-                  <td onClick={e => e.stopPropagation()}>{can ? <span className="flex items-center gap-1.5"><input type="date" value={edit[x.deadline_id] ?? x.due_date} onChange={e => setEdit(f => ({ ...f, [x.deadline_id]: e.target.value }))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 mono text-[11px]" />
-                    {edit[x.deadline_id] && edit[x.deadline_id] !== x.due_date && <button disabled={busy} onClick={() => run(() => api.put(`/v1/supervisor/deadlines/${x.deadline_id}`, { due_date: edit[x.deadline_id] }), 'Deadline set.')} className="text-[var(--color-sky)] hover:underline text-[11.5px]">set</button>}
-                    {x.due_source === 'set' && <button disabled={busy} onClick={() => run(() => api.put(`/v1/supervisor/deadlines/${x.deadline_id}`, { due_date: null }), 'Back to the act\'s rule.')} className="mono text-[10px] text-[var(--color-faint)] hover:text-[var(--color-sky)]">reset</button>}</span> : <span className="mono">{x.due_date}</span>}
-                    <div className="mono text-[10px] text-[var(--color-faint)]">{x.due_source === 'set' ? 'set by your authority' : "the act's rule"}</div></td>
-                  <td>{x.status === 'published' ? <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-good)]/15 text-[var(--color-good)]" title={`published ${x.published_at?.slice(0, 16)} by ${x.published_by ?? '—'}`}>published</span> : <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-warn)]/15 text-[var(--color-warn)]">draft</span>}</td>
-                  <td className="num mono text-[var(--color-mute)]">{x.n_applicable}{x.n_cannot ? <span className="text-[var(--color-warn)]" title="entities whose applicability cannot be determined"> +{x.n_cannot}?</span> : null}</td>
-                  <td className="num mono text-[var(--color-good)]">{x.n_filed}</td>
-                  <td className="num mono" style={{ color: x.outstanding.length ? 'var(--color-warn)' : 'var(--color-mute)' }}>{x.outstanding.length}</td>
-                  <td className="num mono text-[var(--color-mute)]">{x.n_reminders}</td>
-                  <td className="num mono text-[var(--color-mute)]">{x.n_overdue}</td>
-                  <td onClick={e => e.stopPropagation()}>{can && x.status === 'draft' && <Button variant="ghost" disabled={busy} onClick={() => run(() => api.post(`/v1/supervisor/deadlines/${x.deadline_id}/publish`, {}), 'Published: the date is on every applicable entity\'s calendar and the entities have been told.')}>Publish</Button>}</td>
-                </tr>
-                {open === x.deadline_id && (
-                  <tr key={x.deadline_id + '-d'}><td colSpan={10} className="p-0"><div className="px-6 py-3 bg-[var(--color-bg-2)] text-[12px]">
-                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Outstanding entities · {x.title}</div>
-                    {x.outstanding.length === 0 ? <span className="text-[var(--color-faint)]">Every applicable entity has released this filing.</span> : (
-                      <div className="flex flex-wrap gap-2">{x.outstanding.map(o => <span key={o.org_id} className="rounded-md bg-[var(--color-panel)] px-2 py-1"><Link to={`/supervised/${o.org_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline">{o.name}</Link><span className="mono text-[10px] text-[var(--color-faint)] ml-1.5">{o.overdue_notified ? 'overdue notice sent' : o.reminded ? 'reminded' : x.status === 'published' ? 'not yet notified' : 'not published'}</span></span>)}</div>)}
-                  </div></td></tr>)}
-              </>))}</tbody>
-            </table>
-          </div>)}
-      </Card>)}
-  </>)
+  const ask = async () => {
+    setBusy(true)
+    try { await api.post('/v1/supervisor/population/mandates/ask', { supervised_org_id: e.org_id, attributes: e.missing }); toast.success(`Asked ${e.name} for the missing attributes.`); await qc.invalidateQueries({ queryKey: ['supervisor-requests'] }) }
+    catch (err) { toast.error(apiMessage(err, 'Could not send the request.')) } finally { setBusy(false) }
+  }
+  const icon = (r: boolean | null) => r == null ? <CircleHelp size={13} className="text-[var(--color-warn)] shrink-0" /> : r ? <Check size={13} className="text-[var(--color-good)] shrink-0" /> : <Minus size={13} className="text-[var(--color-faint)] shrink-0" />
+  return (
+    <Drawer label={e.name} onClose={onClose} className="w-full max-w-xl h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0"><div className="text-[12px] text-[var(--color-mute)]">{e.sector_label}{e.country_name ? ` · ${e.country_name}` : ''}</div>
+          <Link to={`/supervised/${e.org_id}`} className="text-[16px] font-semibold text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline">{e.name}</Link></div>
+        <CloseButton onClick={onClose} />
+      </div>
+      {e.missing.length > 0 && <div className="flex items-center gap-3 flex-wrap mb-5 text-[12.5px]">
+        <StatusChip label={`${e.missing.length} attributes missing`} tone="warn" />
+        {canAsk && <Button disabled={busy} onClick={ask}><Send size={14} />Ask the entity</Button>}</div>}
+      <div className="text-[12px] text-[var(--color-mute)] mb-2">Mandate by mandate</div>
+      <div className="space-y-3 mb-6">{e.mandates.map(c => (
+        <div key={c.mandate_id} className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2.5">
+          <div className="flex items-center gap-2 flex-wrap text-[12.5px]"><span className="text-[var(--color-ink)] font-medium mr-auto">{c.short}</span>
+            <StatusChip label={c.status_label} tone={TONE[c.status]} />{c.tier && <StatusChip label={c.tier.label} tone="neutral" />}
+            {c.due_date && <span className="text-[11.5px] text-[var(--color-faint)]">due {day(c.due_date)}</span>}</div>
+          <ul className="mt-1.5 space-y-1 list-none p-0 m-0">{c.checks.map((k, i) => (
+            <li key={i} className="flex items-start gap-1.5 text-[12px] text-[var(--color-mute)]">{icon(k.result)}<span>{k.label}{k.tier ? <span className="text-[var(--color-faint)]"> · {k.tier}</span> : null}</span></li>))}</ul>
+        </div>))}</div>
+      <div className="text-[12px] text-[var(--color-mute)] mb-2">Its regulatory attributes</div>
+      <Facts rows={Object.entries(d.attributes).map(([k, def]) => { const a = e.attributes[k]; return [def.label, a
+        ? <span>{a.value_label ?? value(a.value, def.unit)}<span className="text-[var(--color-faint)]">{a.source_label ? ` · ${a.source_label}` : ''}{a.as_of ? ` · ${day(a.as_of)}` : ''}</span></span>
+        : <span className="text-[var(--color-warn)]">Not stated</span>] as [string, React.ReactNode] })} />
+    </Drawer>
+  )
 }

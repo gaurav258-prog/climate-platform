@@ -8,15 +8,18 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, attachment
 from api.routers.supervisor import Supervisor, _in_scope, _need
+from core import messages
 from core.config import settings
+from core.errors import UserError
 from services.supervision import remittance as R
+from services.supervision.evidence import section_title
 
 router = APIRouter(tags=["Supervisor"])
 
@@ -54,21 +57,19 @@ def remit_config(session: DbSession, ctx: Supervisor):
                              {"o": ctx["org"]["org_id"]}).mappings().all()
     cfg = R.config()
     return {"recipient_kinds": cfg["recipient_kinds"], "default_expiry_days": cfg["default_expiry_days"], "max_expiry_days": cfg["max_expiry_days"],
-            "default_max_downloads": cfg["default_max_downloads"], "sections": R.SECTIONS, "bodies_on_tellumen": [dict(b) for b in bodies], "notice": cfg["notice"]}
+            "default_max_downloads": cfg["default_max_downloads"], "sections": R.SECTIONS, "section_labels": {s: section_title(s) for s in R.SECTIONS},
+            "bodies_on_tellumen": [dict(b) for b in bodies], "notice": cfg["notice"], "about": messages.render("supervision.desk.remit.about")}
 
 
 @router.post("/v1/supervisor/entity/{org_id}/evidence-packs/{pack_id}/remit", status_code=201, summary="Remit this evidence pack onward under a governed share")
 def remit_pack(org_id: str, pack_id: str, body: RemitCreate, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.remit")
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
-    try:
-        out = R.create(session, regulator_org_id=ctx["org"]["org_id"], regulator_name=ctx["org"].get("name") or "", pack_id=pack_id, recipient_kind=body.recipient_kind,
-                       recipient_name=body.recipient_name, recipient_email=body.recipient_email, recipient_org_id=body.recipient_org_id, purpose=body.purpose,
-                       legal_basis_text=body.legal_basis, sections=body.sections, expires_in_days=body.expires_in_days, max_downloads=body.max_downloads,
-                       actor=ctx["user"], link_base=settings.APP_BASE_URL)
-    except R.RemittanceError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+        raise UserError("error.not_found")
+    out = R.create(session, regulator_org_id=ctx["org"]["org_id"], regulator_name=ctx["org"].get("name") or "", pack_id=pack_id, recipient_kind=body.recipient_kind,
+                   recipient_name=body.recipient_name, recipient_email=body.recipient_email, recipient_org_id=body.recipient_org_id, purpose=body.purpose,
+                   legal_basis_text=body.legal_basis, sections=body.sections, expires_in_days=body.expires_in_days, max_downloads=body.max_downloads,
+                   actor=ctx["user"], link_base=settings.APP_BASE_URL)      # a refusal is a catalogue code (R.RemittanceError)
     session.commit()
     return out
 
@@ -77,7 +78,7 @@ def remit_pack(org_id: str, pack_id: str, body: RemitCreate, session: DbSession,
 def entity_remittances(org_id: str, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.evidence.export")
     if not _in_scope(session, ctx, org_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        raise UserError("error.not_found")
     return {"remittances": R.list_for_regulator(session, ctx["org"]["org_id"], org_id)}
 
 
@@ -95,7 +96,7 @@ class Revoke(BaseModel):
 def revoke_remittance(remittance_id: str, body: Revoke, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.remit")
     if not R.revoke(session, regulator_org_id=ctx["org"]["org_id"], remittance_id=remittance_id, actor=ctx["user"], reason=body.reason):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active remittance."})
+        raise UserError("error.not_found")
     session.commit()
     return {"ok": True}
 
@@ -114,15 +115,9 @@ def received(session: DbSession, ctx: Supervisor):
 @router.get("/v1/supervisor/remittances/received/{remittance_id}.{fmt}", summary="Download a remittance received in-product (logged, counted)")
 # declared before the plain open route: "{id}.pdf" would otherwise be read as an id
 def received_download(remittance_id: str, fmt: str, request: Request, session: DbSession, ctx: Supervisor):
-    try:
-        status, data, d = R.download(session, fmt=fmt, remittance_id=remittance_id, recipient_org_id=ctx["org"]["org_id"], who=_who(request, ctx))
-    except R.RemittanceError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    status, data, d = R.download(session, fmt=fmt, remittance_id=remittance_id, recipient_org_id=ctx["org"]["org_id"], who=_who(request, ctx))
     session.commit()
-    if status == "unknown":
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such remittance."})
-    if status != "ok":
-        raise HTTPException(status_code=410, detail={"error": status, "message": _GONE[status]})
+    _served(status)
     return _file(fmt, data, d)
 
 
@@ -130,7 +125,7 @@ def received_download(remittance_id: str, fmt: str, request: Request, session: D
 def received_open(remittance_id: str, request: Request, session: DbSession, ctx: Supervisor):
     d = R.open_remittance(session, remittance_id=remittance_id, recipient_org_id=ctx["org"]["org_id"], who=_who(request, ctx))
     if not d:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such remittance."})
+        raise UserError("error.not_found")
     session.commit()
     return d
 
@@ -145,28 +140,30 @@ def my_remittances(session: DbSession, ctx: CurrentUser):
 
 
 # ── recipient (bearer link) ─────────────────────────────────────────────────────────────────────────────────
-_GONE = {"expired": "This remittance has expired.", "revoked": "This remittance was revoked by the issuing authority.",
-         "exhausted": "This remittance has reached its download limit."}
+_GONE = {"expired": "supervision.desk.remit.expired", "revoked": "supervision.desk.remit.revoked", "exhausted": "supervision.desk.remit.exhausted"}
+
+
+def _served(status: str) -> None:
+    """A download that was not served, in customer words: unknown → not found; expired, revoked, exhausted → gone (410).
+    The refused access is already logged (R.download records it before answering)."""
+    if status == "unknown":
+        raise UserError("error.not_found")
+    if status != "ok":
+        raise UserError(_GONE[status])
 
 
 @router.get("/v1/remit/{token}", summary="Open a remitted case file by its link (no login; every access is logged)")
 def open_by_token(token: str, request: Request, session: DbSession):
     d = R.open_remittance(session, token=token, who=_who(request))
     if not d:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "This link is not a remittance we know."})
+        raise UserError("error.not_found")
     session.commit()
     return d
 
 
 @router.get("/v1/remit/{token}/download.{fmt}", summary="Download the remitted document (watermarked PDF or scoped JSON)")
 def download_by_token(token: str, fmt: str, request: Request, session: DbSession):
-    try:
-        status, data, d = R.download(session, fmt=fmt, token=token, who=_who(request))
-    except R.RemittanceError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    status, data, d = R.download(session, fmt=fmt, token=token, who=_who(request))
     session.commit()
-    if status == "unknown":
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "This link is not a remittance we know."})
-    if status != "ok":
-        raise HTTPException(status_code=410, detail={"error": status, "message": _GONE[status]})
+    _served(status)
     return _file(fmt, data, d)

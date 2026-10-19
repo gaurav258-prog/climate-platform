@@ -10,10 +10,15 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
+
+from core import messages
+
+log = logging.getLogger(__name__)
 
 SECTIONS = ["identity", "supervision", "submissions", "plausibility", "lens", "projections", "exposure",
             "peer_position", "engagement", "access_trail", "method"]
@@ -25,12 +30,51 @@ def _eur(v) -> str:
     return money(float(v), "EUR") if v is not None else "—"
 
 
-def _said(m: Optional[dict], parts: tuple[str, ...] = ("what",)) -> str:
-    """A catalogue message (core/messages.py) as the pack's prose: the sentences of its detail, else its label."""
+def _said(m, parts: tuple[str, ...] = ("what",)) -> str:
+    """A catalogue message (core/messages.py) as the pack's prose: the sentences of its detail, else its label. A pack
+    generated before its reasons were messages holds them as text, printed as recorded."""
     if not m:
         return ""
+    if isinstance(m, str):
+        return m
     d = m.get("detail") or {}
     return " ".join(d[p] for p in parts if d.get(p)) or m.get("label", "")
+
+
+def _msg(code: str, **params) -> dict:
+    r = messages.render(code, **params)
+    return {"code": r["code"], "label": r["label"], "detail": r["detail"]}
+
+
+# Customer words for the codes a pack holds (the catalogue's names). A pack's content keeps the codes as generated —
+# it is hashed and never changes — and every rendering, the supervisor's copy and a remittance alike, names them.
+def _name(kind: str, key, default: Optional[str] = None) -> str:
+    got = messages.names().get(kind, {}).get(key) if key is not None else None
+    return got or default or ("—" if key is None else str(key))
+
+
+def section_title(key: str) -> str:
+    """A case-file section's name: 'Quick check', 'Full rebuild' … (one list with the remittance screens)."""
+    return _name("case_file_section", key)
+
+
+def _basis(scenario: Optional[str], horizon: Optional[str]) -> str:
+    sc = _name("scenario", scenario, "the stated scenario")
+    return f"{sc} · {'today' if horizon in (None, 'current') else horizon}"
+
+
+def _cell(r: dict) -> str:
+    return f"{r.get('geography_label') or r.get('geography')} · {r.get('sector_label') or r.get('sector')}"
+
+
+def _country(code: Optional[str]) -> str:
+    from services.reference.countries import english_name
+    return (english_name(code) if code else None) or (code or "—")
+
+
+def _sector(org_type: Optional[str]) -> str:
+    from services.supervision.profiles import sector_label
+    return sector_label(org_type) or (org_type or "—")
 
 
 # ── assembly ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -65,37 +109,42 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
     if sub:
         basis = sub.get("basis") or {}
         sc1, hz1 = (basis.get("scenario") or scenario), (basis.get("horizon") or horizon)
-        from services.supervision.levels import GAP_ENTITY, entity_level
+        from services.supervision.levels import entity_level
         level, _ = entity_level(session, org_id, sub)
-        try:
-            if level is None:
-                raise ValueError(GAP_ENTITY)
-            pl = assess_entity(session, reg_id, org_id, sub["cells"], sc1, hz1, level)
-            c["plausibility"] = {"available": True, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
-                                 "scenario": sc1, "horizon": hz1, "counts": pl["counts"], "n_cells": pl["n_cells"],
-                                 "coverage_value_pct": pl["coverage_value_pct"], "rule": _said(pl["rule"], ("what", "why", "next")),
-                                 "exposure_measure": pl["exposure_measure"],
-                                 "cells": [{**{k: r[k] for k in ("geography", "sector", "gross_carrying_amount_eur", "submitted_share_pct", "verdict_label")},
-                                            "reason": _said(r["reason"])} for r in pl["rows"] if r["verdict"] != "plausible"][:60]}
-        except Exception as e:
-            c["plausibility"] = {"available": False, "reason": f"Could not judge the template: {e}"}
+        if level is None:
+            c["plausibility"] = {"available": False, "reason": _msg("supervision.plausibility.entity_level_missing")}
+        else:
+            try:
+                pl = assess_entity(session, reg_id, org_id, sub["cells"], sc1, hz1, level)
+                c["plausibility"] = {"available": True, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
+                                     "scenario": sc1, "horizon": hz1, "counts": pl["counts"], "n_cells": pl["n_cells"],
+                                     "coverage_value_pct": pl["coverage_value_pct"], "rule": _said(pl["rule"], ("what", "why", "next")),
+                                     "exposure_measure": pl["exposure_measure"],
+                                     "cells": [{**{k: r.get(k) for k in ("geography", "sector", "geography_label", "sector_label", "gross_carrying_amount_eur",
+                                                                         "submitted_share_pct", "verdict_label")},
+                                                "reason": _said(r["reason"])} for r in pl["rows"] if r["verdict"] != "plausible"][:60]}
+            except Exception:
+                log.exception("evidence pack: the quick check could not judge the template of %s", org_id)
+                c["plausibility"] = {"available": False, "reason": _msg("supervision.desk.pack.not_judged")}
     else:
-        c["plausibility"] = {"available": False, "reason": "No submitted template on file for this entity under this supervisory body."}
+        c["plausibility"] = {"available": False, "reason": _msg("supervision.plausibility.no_template" if intake else "supervision.desk.file.no_intake")}
 
     shadow = shadow_status(session, reg_id, org_id)["shadow_book"] if intake else {"n_rows": 0}
     L = build_lens(session, reg_id, org_id, sub, scenario, horizon, intake["granular"]["precision_label"]) \
         if sub and shadow.get("n_rows") else None
-    if L is not None and not L["available"]:
-        c["lens"] = {"available": False, "reason": L["gap"]}
+    if L is not None and not L["available"]:          # the authority's own at-risk threshold is not stated
+        c["lens"] = {"available": False, "reason": _msg("supervision.desk.pack.authority_level_missing")}
         c["projections"] = {"available": False}
     elif L is not None:
         c["lens"] = {"available": True, "totals": L["totals"], "total_gap": L["total_gap"], "n_flagged": L["n_flagged"], "n_cells": len(L["cells"]),
                      "shadow_book": {"n_rows": shadow.get("n_rows"), "n_located": shadow.get("n_located"), "n_scored": shadow.get("n_scored")},
-                     "flagged": [{**{k: x.get(k) for k in ("geography", "sector", "submitted_gross", "submitted_share_pct", "rebuilt_share_pct", "coverage_pct")},
+                     "flagged": [{**{k: x.get(k) for k in ("geography", "sector", "geography_label", "sector_label", "submitted_gross", "submitted_share_pct",
+                                                            "rebuilt_share_pct", "coverage_pct")},
                                   "reason": _said(x.get("reason"))} for x in L["cells"] if x.get("flag") == "question"][:60]}
         c["projections"] = projection_coverage(session, shadow_cells(session, reg_id, org_id))
     else:
-        c["lens"] = {"available": False, "reason": "No granular data on file — the independent lens needs the supervisor's own granular rows (Tier 2)."}
+        c["lens"] = {"available": False, "reason": _msg("supervision.desk.file.no_intake" if not intake else
+                                                         "supervision.lens.no_template" if not sub else "supervision.lens.no_granular_data")}
         c["projections"] = {"available": False}
 
     pts = org_asset_points(session, org_id, scenario, horizon)
@@ -107,7 +156,7 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
     c["exposure"] = {"n_assets": len(pts), "value_eur": round(sum(float(p["value_eur"] or 0) for p in pts)), "n_regions": len(regions),
                      "top_regions": [{k: r.get(k) for k in ("key", "name", "country", "kind", "n_sites", "value_eur", "max_score", "worst_hazard")} for r in regions[:10]],
                      "hazards": sorted(({**h, "value_eur": round(h["value_eur"])} for h in hz_mix.values()), key=lambda h: -h["value_eur"]),
-                     "note": "Regional aggregates (NUTS-3 in the EU, land-clipped hexagons elsewhere); individual sites only where the entity granted access."}
+                     "note": _msg("supervision.desk.pack.exposure")}
 
     ents = session.execute(text("""SELECT o.org_id::text AS org_id, o.name, o.type, o.country FROM supervision_scope ss JOIN organizations o ON o.org_id = ss.supervised_org_id
                                    WHERE ss.regulator_org_id = CAST(:r AS uuid) AND ss.active"""), {"r": reg_id}).mappings().all()
@@ -116,8 +165,9 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
         bench = benchmark(session, cfg, [dict(e) for e in ents], scenario, horizon, authority_level(session, reg_id))
         c["peer_position"] = {"peers_in_sector": bench["sectors"].get(entity["type"], {}).get("n_entities"),
                               "metrics": [{k: m.get(k) for k in ("id", "label", "unit", "value", "flag", "percentile", "distribution")} for m in entity_position(bench, org_id)]}
-    except Exception as e:
-        c["peer_position"] = {"metrics": [], "reason": str(e)}
+    except Exception:
+        log.exception("evidence pack: no peer benchmark for %s", org_id)
+        c["peer_position"] = {"metrics": [], "reason": _msg("supervision.desk.pack.no_benchmark")}
 
     reqs = list_requests(session, regulator_org_id=reg_id, supervised_org_id=org_id)
     c["engagement"] = {"n": len(reqs), "n_open": sum(1 for r in reqs if r["status"] != "closed"),
@@ -129,11 +179,7 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
                                     WHERE a.org_id = CAST(:o AS uuid) AND a.action LIKE 'supervisor.%' AND (a.detail->>'regulator_org_id') = :r
                                     ORDER BY a.seq DESC LIMIT 100"""), {"o": org_id, "r": reg_id}).mappings().all()
     c["access_trail"] = [{"action": t["action"], "at": t["created_at"].isoformat(), "by": t["full_name"]} for t in trail]
-    c["method"] = {"engine": "Tellumen physical-risk engine — the same engine the entity's own workspace uses; headline hazard = max score across hazards (heat_acute excluded); "
-                             "sensitive = headline at or above the stated at-risk level — the entity's for its own template (Tier 1), the authority's for the rebuilt figure and the peer benchmark.",
-                   "tier_1": "Plausibility band: each submitted cell's sensitive share against the interquartile spread of that share across the geography's regions, from the platform's standing scores at the same basis. Location-only.",
-                   "tier_2": "Independent lens: the submitted template rebuilt from the supervisor's own granular rows; gaps split into scope, coverage, basis, scoring and unmatched. A flag is a question, not a finding.",
-                   "data": "Regional units: Eurostat GISCO NUTS-3 (2021) in the EU; land-clipped H3 cells elsewhere (GISCO countries 2020). No figure in this pack is estimated where data is missing — such cells say so."}
+    c["method"] = {"messages": [_msg(f"supervision.desk.pack.method.{k}") for k in ("engine", "quick", "full", "regions")]}
     return c
 
 
@@ -184,7 +230,8 @@ def render_pdf(c: dict, *, sections: Optional[list[str]] = None, watermark: Opti
 
     x = []
     pk = c["pack"]
-    x += [Paragraph(pk["title"], H1), Paragraph(f"{pk['regulator']} · profile {pk['profile']} · basis {pk['basis']['scenario']} · {pk['basis']['horizon']} · "
+    ent_name, reg_name = c["identity"]["name"], pk["regulator"]
+    x += [Paragraph(pk["title"], H1), Paragraph(f"{reg_name} · {pk['profile']} · read at {_basis(pk['basis'].get('scenario'), pk['basis'].get('horizon'))} · "
                                                 f"generated {pk['generated_at'][:16].replace('T', ' ')} UTC by {pk['generated_by']}", S)]
     if notice:
         x += [Spacer(1, 4), Paragraph(notice, W)]
@@ -194,105 +241,127 @@ def render_pdf(c: dict, *, sections: Optional[list[str]] = None, watermark: Opti
     if {"identity", "supervision"} <= included:
         i, sv = c["identity"], c["supervision"]
         x += [Paragraph("1. Entity and supervision", H2),
-              table([["Field", "Value"], ["Name", i["name"]], ["Legal name", i.get("legal_name")], ["LEI", i.get("lei")], ["Sector", i["type"]], ["Country", i["country"]],
-                     ["Jurisdiction", sv["jurisdiction"]], ["Supervised since", (sv["since"] or "")[:10]], ["Acknowledged by the entity", (sv["acknowledged_at"] or "not yet")[:10]],
-                     ["Site-level access", "granted" if sv["site_access"] else "regional aggregates only"]], [60 * mm, 110 * mm])]
+              table([["Field", "Value"], ["Name", i["name"]], ["Legal name", i.get("legal_name")], ["LEI", i.get("lei")], ["Sector", _sector(i["type"])],
+                     ["Country", _country(i["country"])], ["Jurisdiction", sv["jurisdiction"]], ["Supervised since", (sv["since"] or "")[:10]],
+                     ["Acknowledged by the entity", (sv["acknowledged_at"] or "not yet")[:10]],
+                     ["Site-level access", "granted" if sv["site_access"] else "regional figures only"]], [60 * mm, 110 * mm])]
     else:
         i = c["identity"]
-        x += [Paragraph("1. Entity and supervision", H2), table([["Field", "Value"], ["Name", i["name"]], ["Sector", i["type"]], ["Country", i["country"]]], [60 * mm, 110 * mm]),
-              Paragraph("Supervision details withheld from this remittance.", W)]
+        x += [Paragraph("1. Entity and supervision", H2),
+              table([["Field", "Value"], ["Name", i["name"]], ["Sector", _sector(i["type"])], ["Country", _country(i["country"])]], [60 * mm, 110 * mm]),
+              Paragraph(f"{section_title('supervision')} withheld from this remittance.", W)]
     # 2 submissions
     if "submissions" in included:
         sb = c["submissions"]
-        x += [Paragraph("2. Submissions on record", H2), Paragraph(f"{sb.get('filed', 0)} of {sb.get('expected', 0)} expected framework filings on record.", P)]
+        x += [Paragraph(f"2. {section_title('submissions')}", H2), Paragraph(f"{sb.get('filed', 0)} of {sb.get('expected', 0)} expected filings on record.", P)]
         if sb.get("frameworks"):
-            x += [table([["Framework", "State", "Status", "Period"]] + [[f.get("label"), f.get("state"), f.get("status"), f.get("period_label")] for f in sb["frameworks"]])]
+            x += [table([["Report", "State", "Status", "Period"]] + [[f.get("label"), _name("filing_state", f.get("state")),
+                                                                     str(f.get("status") or "—").replace("_", " ").capitalize(), f.get("period_label")] for f in sb["frameworks"]])]
     else:
-        x += withheld("2. Submissions on record")
-    # 3 plausibility
+        x += withheld(f"2. {section_title('submissions')}")
+    # 3 the quick check
     if "plausibility" in included:
         pl = c["plausibility"]
-        x += [Paragraph("3. Tier 1 — plausibility of the submitted template", H2)]
+        x += [Paragraph(f"3. {section_title('plausibility')}", H2)]
         if pl.get("available"):
             cnt = pl["counts"]
-            x += [Paragraph(f"{pl['period_label']} · {pl.get('source_file') or ''} · judged at {pl['scenario']} · {pl['horizon']}. "
-                            f"{cnt['plausible']} plausible, {cnt['above_band']} high for the geography, {cnt['below_band']} low, {cnt['no_reference']} without reference "
-                            f"({pl['n_cells']} cells; {pl['coverage_value_pct']}% of {(pl.get('exposure_measure') or {}).get('label', 'gross amount').lower()} judged).", P), Paragraph(pl["rule"], S)]
+            measure = (pl.get("exposure_measure") or {}).get("label", "gross amount")
+            x += [Paragraph(f"{pl['period_label']} · {pl.get('source_file') or ''} · read at {_basis(pl['scenario'], pl['horizon'])}. "
+                            f"{cnt['plausible']} within the regional range, {cnt['above_band']} above it, {cnt['below_band']} below it, {cnt['no_reference']} not judged "
+                            f"({pl['n_cells']} cells; {pl['coverage_value_pct']}% of the {measure.lower()} judged).", P), Paragraph(_said(pl["rule"]), S)]
             if pl["cells"]:
-                x += [table([["Cell", (pl.get("exposure_measure") or {}).get("label", "Gross"), "Submitted share", "Verdict", "Why"]] + [[f"{r['geography']} · {r['sector']}", _eur(r["gross_carrying_amount_eur"]),
-                            f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—", r["verdict_label"], r["reason"]] for r in pl["cells"]],
-                            [22 * mm, 22 * mm, 22 * mm, 30 * mm, 74 * mm])]
+                x += [table([["Cell", measure, "Filed share", "Result", "Why"]] + [[_cell(r), _eur(r["gross_carrying_amount_eur"]),
+                            f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—", r["verdict_label"], _said(r["reason"])] for r in pl["cells"]],
+                            [30 * mm, 22 * mm, 18 * mm, 24 * mm, 76 * mm])]
         else:
-            x += [Paragraph(pl.get("reason", ""), P)]
+            x += [Paragraph(_said(pl.get("reason"), ("what", "next")), P)]
     else:
-        x += withheld("3. Tier 1 — plausibility of the submitted template")
-    # 4 lens (+ projections)
+        x += withheld(f"3. {section_title('plausibility')}")
+    # 4 the full rebuild (+ projections)
     if "lens" in included:
         L = c["lens"]
-        x += [Paragraph("4. Tier 2 — independent lens", H2)]
+        x += [Paragraph(f"4. {section_title('lens')}", H2)]
         if L.get("available"):
             t = L["totals"]
             pj = c.get("projections") or {}
-            x += [Paragraph(f"Submitted sensitive {_eur(t.get('submitted'))} vs rebuilt {_eur(t.get('rebuilt'))} (gap {_eur(L['total_gap'])}); {L['n_flagged']} of {L['n_cells']} cells flagged. "
-                            f"Shadow book: {L['shadow_book']['n_rows']} rows, {L['shadow_book']['n_located']} located, {L['shadow_book']['n_scored']} scored. "
-                            + (f"Projections: {pj.get('cells_complete', 0)}/{pj.get('cells', 0)} cells complete across {pj.get('anchors_total', 0)} anchors." if "projections" in included else "Projections withheld."), P)]
+            sb = L["shadow_book"]
+            x += [Paragraph(f"Filed as sensitive {_eur(t.get('submitted'))}; rebuilt {_eur(t.get('rebuilt'))}; difference {_eur(L['total_gap'])}. "
+                            f"{L['n_flagged']} of {L['n_cells']} cells marked as questions. Your granular data: {sb['n_rows']} rows, {sb['n_located']} located, {sb['n_scored']} scored. "
+                            + (f"Scenario projections: {pj.get('cells_complete', 0)} of {pj.get('cells', 0)} cells complete across {pj.get('anchors_total', 0)} scenario-years."
+                               if "projections" in included else f"{section_title('projections')} withheld."), P)]
             if L["flagged"]:
-                x += [table([["Cell", "Submitted gross", "Submitted share", "Rebuilt share", "Coverage", "Why it differs"]] +
-                            [[f"{r['geography']} · {r['sector']}", _eur(r["submitted_gross"]), f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—",
-                              f"{r['rebuilt_share_pct']}%" if r["rebuilt_share_pct"] is not None else "—", f"{r['coverage_pct']}%" if r["coverage_pct"] is not None else "—", r["reason"]] for r in L["flagged"]],
-                            [20 * mm, 22 * mm, 20 * mm, 20 * mm, 18 * mm, 70 * mm])]
+                x += [table([["Cell", "Filed amount", "Filed share", "Rebuilt share", "Located", "Why it differs"]] +
+                            [[_cell(r), _eur(r["submitted_gross"]), f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—",
+                              f"{r['rebuilt_share_pct']}%" if r["rebuilt_share_pct"] is not None else "—", f"{r['coverage_pct']}%" if r["coverage_pct"] is not None else "—",
+                              _said(r["reason"])] for r in L["flagged"]],
+                            [28 * mm, 22 * mm, 18 * mm, 18 * mm, 16 * mm, 68 * mm])]
         else:
-            x += [Paragraph(L.get("reason", ""), P)]
+            x += [Paragraph(_said(L.get("reason"), ("what", "next")), P)]
     else:
-        x += withheld("4. Tier 2 — independent lens")
+        x += withheld(f"4. {section_title('lens')}")
     # 5 exposure
     if "exposure" in included:
         e = c["exposure"]
-        x += [Paragraph("5. Exposure (regional)", H2), Paragraph(f"{e['n_assets']} located assets, {_eur(e['value_eur'])}, in {e['n_regions']} regions. {e['note']}", P)]
+        x += [Paragraph(f"5. {section_title('exposure')}", H2),
+              Paragraph(f"{e['n_assets']} located assets, {_eur(e['value_eur'])}, in {e['n_regions']} regions. {_said(e.get('note'))}", P)]
         if e["top_regions"]:
-            x += [table([["Region", "Country", "Unit", "Sites", "Value", "Worst score", "Worst hazard"]] +
-                        [[r["name"], r["country"], r["kind"], r["n_sites"], _eur(r["value_eur"]), r["max_score"], r["worst_hazard"]] for r in e["top_regions"]])]
+            x += [table([["Region", "Country", "Unit", "Sites", "Value", "Highest score", "Hazard"]] +
+                        [[r["name"], _country(r["country"]), _name("region_kind", r["kind"]), r["n_sites"], _eur(r["value_eur"]), r["max_score"],
+                          _name("hazard", r["worst_hazard"], "Not scored" if r["worst_hazard"] in (None, "unscored") else None)] for r in e["top_regions"]])]
         if e["hazards"]:
-            x += [Spacer(1, 4), table([["Headline hazard", "Assets", "Value"]] + [[h["hazard"], h["n"], _eur(h["value_eur"])] for h in e["hazards"][:12]], [60 * mm, 30 * mm, 40 * mm])]
+            x += [Spacer(1, 4), table([["Headline hazard", "Assets", "Value"]] + [[_name("hazard", h["hazard"], "Not scored" if h["hazard"] == "unscored" else None),
+                                                                                  h["n"], _eur(h["value_eur"])] for h in e["hazards"][:12]], [60 * mm, 30 * mm, 40 * mm])]
     else:
-        x += withheld("5. Exposure (regional)")
+        x += withheld(f"5. {section_title('exposure')}")
     # 6 peer position
     if "peer_position" in included:
         pp = c["peer_position"]
-        x += [Paragraph("6. Peer position", H2)]
+        x += [Paragraph(f"6. {section_title('peer_position')}", H2)]
+        fig = lambda m, v: "—" if v is None else (_eur(v) if m.get("unit") == "eur" else f"{v}%")  # noqa: E731
         if pp.get("metrics"):
             x += [Paragraph(f"Against {pp.get('peers_in_sector')} peers in the sector.", P),
-                  table([["Metric", "Value", "Flag", "Percentile", "Peer median"]] + [[m["label"], m["value"], m["flag"], m["percentile"], (m.get("distribution") or {}).get("median")] for m in pp["metrics"]])]
+                  table([["Measure", "This entity", "Flag", "Percentile", "Peer median"]] +
+                        [[m["label"], fig(m, m["value"]), _name("peer_flag", m["flag"]), m["percentile"], fig(m, (m.get("distribution") or {}).get("median"))]
+                         for m in pp["metrics"]])]
         else:
-            x += [Paragraph(pp.get("reason") or "No peer benchmark for this entity's sector under the profile.", P)]
+            x += [Paragraph(_said(pp.get("reason")) or _said(_msg("supervision.desk.pack.no_benchmark")), P)]
     else:
-        x += withheld("6. Peer position")
+        x += withheld(f"6. {section_title('peer_position')}")
     # 7 engagement
     if "engagement" in included:
         g = c["engagement"]
-        x += [PageBreak(), Paragraph("7. Requests and findings", H2), Paragraph(f"{g['n']} raised, {g['n_open']} open.", P)]
+        side = {"supervisor": reg_name, "entity": ent_name}
+        x += [PageBreak(), Paragraph(f"7. {section_title('engagement')}", H2), Paragraph(f"{g['n']} raised, {g['n_open']} open.", P)]
         for r in g["requests"]:
-            x += [Paragraph(f"<b>{r['kind_label']}</b> · {r['title']} · {r['status_label']}{(' · ' + r['severity']) if r.get('severity') else ''} · due {r.get('due_date') or '—'}"
+            sev = f" · {_name('severity', r['severity'])} severity" if r.get("severity") else ""
+            x += [Paragraph(f"<b>{r['kind_label']}</b> · {r['title']} · {r['status_label']}{sev} · due {r.get('due_date') or '—'}"
                             f"{' · overdue' if r.get('overdue') else ''}", P)]
             if r["thread"]:
-                x += [table([["Side", "By", "When", "Status", "Message"]] + [[m["side"], m["author"], (m["created_at"] or "")[:16].replace("T", " "), m.get("status_label") or "", m.get("body") or ""] for m in r["thread"]],
-                            [18 * mm, 32 * mm, 26 * mm, 26 * mm, 68 * mm]), Spacer(1, 4)]
+                x += [table([["From", "By", "When", "Status", "Message"]] + [[side.get(m["side"], m["side"]), m["author"], (m["created_at"] or "")[:16].replace("T", " "),
+                                                                              m.get("status_label") or "", m.get("body") or ""] for m in r["thread"]],
+                            [26 * mm, 30 * mm, 26 * mm, 24 * mm, 64 * mm]), Spacer(1, 4)]
     else:
-        x += withheld("7. Requests and findings")
+        x += withheld(f"7. {section_title('engagement')}")
     # 8 access trail
     if "access_trail" in included:
-        x += [Paragraph("8. Supervisory access trail on this entity", H2)]
+        x += [Paragraph(f"8. {section_title('access_trail')}", H2)]
+        acts = messages.names().get("supervisory_action", {})
         if c["access_trail"]:
-            x += [table([["When", "Action", "By"]] + [[t["at"][:16].replace("T", " "), t["action"], t["by"]] for t in c["access_trail"][:60]], [34 * mm, 80 * mm, 56 * mm])]
+            x += [table([["When", "What", "By"]] + [[t["at"][:16].replace("T", " "), acts.get(t["action"]) or acts.get("other") or t["action"], t["by"]]
+                                                    for t in c["access_trail"][:60]], [34 * mm, 80 * mm, 56 * mm])]
     else:
-        x += withheld("8. Supervisory access trail on this entity")
-    # 9 method
+        x += withheld(f"8. {section_title('access_trail')}")
+    # 9 method — a pack generated before the method was written as catalogue messages prints its method as recorded
     if "method" in included:
         m = c["method"]
-        x += [Paragraph("9. Method and basis", H2)] + [Paragraph(m[k], P) for k in ("engine", "tier_1", "tier_2", "data")]
+        x += [Paragraph(f"9. {section_title('method')}", H2)]
+        if "messages" in m:
+            x += [Paragraph(f"<b>{s['label']}.</b> {_said(s)}", P) for s in m["messages"]]
+        else:
+            x += [Paragraph(m[k], P) for k in ("engine", "tier_1", "tier_2", "data") if m.get(k)]
     else:
-        x += withheld("9. Method and basis")
-    x += [Spacer(1, 8), Paragraph(f"Content hash (SHA-256 of the canonical JSON): {c['pack'].get('sha256', '')}", S)]
+        x += withheld(f"9. {section_title('method')}")
+    x += [Spacer(1, 8), Paragraph(f"Content fingerprint (SHA-256 of the pack's data): {c['pack'].get('sha256', '')}", S)]
 
     def on_page(canvas, _doc):
         if not watermark:
