@@ -339,11 +339,6 @@
   "error": 1,
   "rawError": 0
  },
- "services/governance/readiness.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/record_retention.py": {
   "display": 0,
   "error": 1,

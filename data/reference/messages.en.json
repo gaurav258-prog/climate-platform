@@ -2355,6 +2355,202 @@
     "what": "Each asset's stated valuation haircut is read at its score's band, and at the bands of the low and high ends of the score's confidence interval. The figure and its range add these up across the book.",
     "why": "An analyst override is carried as it stands, without a range. An asset whose score has no confidence interval adds the same amount to both ends."
    }
+  },
+  "horizon.at_risk.basis": {
+   "label": "At or above your at-risk level",
+   "detail": {
+    "what": "An asset counts as at risk when its highest physical-risk score is {level} or more out of 100, the at-risk level your organisation states for the year ending {period_end}. The score is the highest across the hazards that apply to the asset, the same score Portfolio shows.",
+    "why": "Today is read on the current climate. 2030, 2050 and 2100 are read on the climate scenario you choose, so the count can rise or fall between years.",
+    "next": "Change the level in your calculation settings."
+   }
+  },
+  "horizon.at_risk.not_stated": {
+   "label": "Needs your at-risk level",
+   "detail": {
+    "what": "Counting assets at risk needs the score at or above which your organisation treats an asset as at risk, and none is stated for the year ending {period_end}. Each asset's score is still shown.",
+    "next": "State the level in your calculation settings."
+   }
+  },
+  "horizon.population.basis": {
+   "label": "Highest score in each region",
+   "detail": {
+    "what": "Each point is a region where the entities you supervise hold exposures: a statistical region inside the EU, a grid cell of similar size elsewhere. Its colour is the highest physical-risk score among the exposures in it, today on the current climate and later on the climate scenario you choose.",
+    "why": "A region is the level of detail you see for the whole population. Individual sites appear only for an entity that has granted you access to them, on the Exposure map.",
+    "next": "Open the Exposure map for the regions' figures by entity."
+   }
+  },
+  "horizon.plot.eudr_unread": {
+   "label": "No current forest reading",
+   "detail": {
+    "what": "This plot grows a commodity the EU Deforestation Regulation covers, and it has no current reading against the forest dataset.",
+    "why": "The risk assessment of every shipment from this plot weighs its current reading (EU Deforestation Regulation, Article 10).",
+    "next": "Read the plot on the EUDR page."
+   }
+  },
+  "horizon.readiness.identity": {
+   "label": "Reporting identity complete",
+   "detail": {
+    "what": "Your {identifier} and a filing contact e-mail are recorded, as every filing needs."
+   }
+  },
+  "horizon.readiness.identity.failing": {
+   "label": "Reporting identity incomplete",
+   "detail": {
+    "what": "A filing needs your {identifier} and a filing contact e-mail. Not recorded yet: {missing}.",
+    "next": "Add it in Settings & team, under your organisation's details."
+   }
+  },
+  "horizon.readiness.second_approver": {
+   "label": "Two people can approve",
+   "detail": {
+    "what": "At least two active people hold the approver permission, so every change can be decided by someone other than the person who made it."
+   }
+  },
+  "horizon.readiness.second_approver.failing": {
+   "label": "Only one person can approve",
+   "detail": {
+    "what": "A change takes effect only when someone other than its author approves it, and only one active person can approve.",
+    "next": "Invite a colleague with the Approver role in Settings & team."
+   }
+  },
+  "horizon.readiness.golden_source_fresh": {
+   "label": "Reference data up to date",
+   "detail": {
+    "what": "Every reference data source the scores and filings read has been refreshed on schedule."
+   }
+  },
+  "horizon.readiness.golden_source_fresh.failing": {
+   "label": "Reference data overdue",
+   "detail": {
+    "what": "These sources missed their scheduled refresh, and an automatic retry did not bring them up to date: {sources}.",
+    "why": "Scores and filings read these sources, so they may not reflect the latest data.",
+    "next": "Open Data sources to see what failed, then refresh the source."
+   }
+  },
+  "horizon.readiness.sites_scored": {
+   "label": "All operating sites scored",
+   "detail": {
+    "what": "Every operating site has a physical-risk score on the current climate."
+   }
+  },
+  "horizon.readiness.sites_scored.failing": {
+   "label": "Some operating sites not yet scored",
+   "detail": {
+    "what": "Operating sites without a physical-risk score yet: {n}. A located site is scored shortly after it is added.",
+    "next": "Open Operations and check that each site has a precise location."
+   }
+  },
+  "horizon.readiness.sites_scored.none": {
+   "label": "No operating sites yet",
+   "detail": {
+    "what": "Your organisation has no operating sites recorded, so there is nothing to score or report on.",
+    "next": "Add your first sites in Operations."
+   }
+  },
+  "horizon.readiness.plots_polygons": {
+   "label": "Large plots have a boundary",
+   "detail": {
+    "what": "Every sourcing plot larger than four hectares has its boundary recorded, not only a point."
+   }
+  },
+  "horizon.readiness.plots_polygons.failing": {
+   "label": "Some plots need a boundary",
+   "detail": {
+    "what": "Sourcing plots larger than four hectares with only a point recorded: {n}.",
+    "why": "The EU Deforestation Regulation requires the boundary of every plot over four hectares (Article 9(1)(d)).",
+    "next": "Add each plot's boundary in Sourcing."
+   }
+  },
+  "horizon.readiness.eudr_run": {
+   "label": "Covered plots read against forest data",
+   "detail": {
+    "what": "Every plot of a commodity the EU Deforestation Regulation covers has a current reading against the forest dataset."
+   }
+  },
+  "horizon.readiness.eudr_run.failing": {
+   "label": "Some plots have no forest reading",
+   "detail": {
+    "what": "Plots of covered commodities with no current reading against the forest dataset: {n}.",
+    "why": "The risk assessment of a shipment weighs the current reading of each plot it comes from (EU Deforestation Regulation, Article 10).",
+    "next": "Open the EUDR page and read these plots."
+   }
+  },
+  "horizon.readiness.calibrations_current": {
+   "label": "Crop models re-validated on time",
+   "detail": {
+    "what": "Every crop model was trained on harvests recent enough: none is more than {years} years behind."
+   }
+  },
+  "horizon.readiness.calibrations_current.failing": {
+   "label": "Crop models due for re-validation",
+   "detail": {
+    "what": "Crop models trained on harvests more than {years} years old: {models}.",
+    "why": "Newer harvests should confirm that each model still explains yields before its figures are used again.",
+    "next": "Open Models to re-validate them."
+   }
+  },
+  "horizon.readiness.inputs_high_quality": {
+   "label": "Locations precise and scored",
+   "detail": {
+    "what": "Every site and plot has a precise location and a physical-risk score."
+   }
+  },
+  "horizon.readiness.inputs_high_quality.failing": {
+   "label": "Some locations need attention",
+   "detail": {
+    "what": "Located only roughly: {coarse}. Not yet scored: {unscored}.",
+    "why": "A rough location places an asset in the wrong grid cell, so its score may describe a neighbouring area.",
+    "next": "Refine the locations in Your data before you file."
+   }
+  },
+  "horizon.task.approvals": {
+   "label": "Approvals waiting for you",
+   "detail": {
+    "what": "Requests from colleagues waiting for a decision by someone other than their author: {n}. The oldest was raised on {raised}.",
+    "why": "A change takes effect only after a second person approves it.",
+    "next": "Open My approvals to approve, return or reject each one."
+   }
+  },
+  "horizon.task.support_reply": {
+   "label": "Support replied to your request",
+   "detail": {
+    "what": "Your open requests that Tellumen support has answered: {n}.",
+    "next": "Read the reply in Support, then close the request or answer it."
+   }
+  },
+  "horizon.task.period_ended": {
+   "label": "Reporting period ended without a statement",
+   "detail": {
+    "what": "Your reporting period ended on {date}, and no ESRS sustainability statement has been frozen for it.",
+    "next": "Freeze the statement for the period once the book is complete."
+   }
+  },
+  "horizon.task.period_ends": {
+   "label": "Reporting period ends soon",
+   "detail": {
+    "what": "Your reporting period ends on {date}, and no ESRS sustainability statement has been frozen for it yet.",
+    "next": "Freeze the statement for the period once the book is complete."
+   }
+  },
+  "horizon.task.filings_new_data": {
+   "label": "Frozen filings may need restating",
+   "detail": {
+    "what": "Frozen filings with new data on the assets they report: {n}.",
+    "why": "A frozen filing never changes by itself; it is restated only when you decide to.",
+    "next": "Open a filing to see what changed, then restate it if needed."
+   }
+  },
+  "horizon.due.waiting": {
+   "label": "Oldest raised on {raised}",
+   "detail": {
+    "what": "The oldest request was raised on {raised}. Tellumen marks an approval as overdue {sla} days after it is raised."
+   }
+  },
+  "horizon.due.past_target": {
+   "label": "Overdue since {due}",
+   "detail": {
+    "what": "The oldest request was raised on {raised}. Tellumen marks an approval as overdue {sla} days after it is raised, so it has been overdue since {due}."
+   }
   }
  },
  "names": {
@@ -2525,6 +2721,79 @@
    "independent": "as independent risks, 1 − (1 − physical) × (1 − transition)",
    "additive": "by adding them, up to the holding's whole value",
    "max": "by taking the larger of the two"
+  },
+  "horizon.stop": {
+   "current": "Today"
+  },
+  "horizon.noun": {
+   "bank": "financed assets",
+   "insurer": "insured locations",
+   "asset_manager": "holdings",
+   "reit": "properties",
+   "manufacturer": "sites and sourcing plots",
+   "regulator": "regions",
+   "other": "assets"
+  },
+  "horizon.kind": {
+   "financed_asset": "Financed asset",
+   "insured_location": "Insured location",
+   "holding": "Holding",
+   "property": "Property",
+   "site": "Operating site",
+   "plot": "Sourcing plot",
+   "region": "Region"
+  },
+  "horizon.value": {
+   "financed_asset": "Asset value",
+   "insured_location": "Sum insured",
+   "holding": "Position value",
+   "property": "Property value",
+   "site": "Asset value",
+   "plot": "Annual spend",
+   "region": "Exposure"
+  },
+  "horizon.fact": {
+   "sector": "Sector",
+   "commodity": "Commodity",
+   "country": "Country",
+   "sites": "Exposures",
+   "entities": "Supervised entities"
+  },
+  "horizon.action": {
+   "identity": "Finish setup",
+   "second_approver": "Add an approver",
+   "golden_source_fresh": "Review data sources",
+   "sites_scored": "Open operations",
+   "plots_polygons": "Add plot boundaries",
+   "eudr_run": "Open EUDR",
+   "calibrations_current": "Review crop models",
+   "inputs_high_quality": "Fix inputs",
+   "approvals_pending": "Review approvals",
+   "support_reply": "Open support",
+   "reporting_period": "Open reporting",
+   "filings_new_data": "Open filings"
+  },
+  "horizon.identifier": {
+   "lei": "legal entity identifier (LEI)",
+   "eori": "EORI number",
+   "filing_contact": "filing contact e-mail"
+  },
+  "role": {
+   "admin": "Administrator",
+   "analyst": "Analyst",
+   "approver": "Approver",
+   "viewer": "Viewer",
+   "auditor": "Auditor",
+   "respondent": "Respondent",
+   "platform-operator": "Platform operator"
+  },
+  "entity_kind": {
+   "group": "Group",
+   "sub_group": "Sub-group",
+   "legal_entity": "Legal entity",
+   "fund": "Fund",
+   "division": "Division",
+   "branch": "Branch"
   }
  }
 }

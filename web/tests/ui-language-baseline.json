@@ -647,14 +647,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/Horizon.tsx": {
-  "internal": 2,
-  "raw": 3,
-  "monoProse": 9,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 1
- },
  "src/pages/IntakeReview.tsx": {
   "internal": 0,
   "raw": 2,

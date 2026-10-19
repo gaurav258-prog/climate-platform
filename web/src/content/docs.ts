@@ -97,22 +97,28 @@ We never invent a value to fill a gap — a missing field is reported, not guess
   },
   {
     slug: 'globe', title: 'The globe & your assets', category: 'Your workspace',
-    summary: 'The front door — every asset you hold, at true coordinates, with its risk trajectory.',
+    summary: 'The front door — every asset you hold, at true coordinates, today and in each modelled year.',
     body: `
 **Horizon** is the front door. It opens on a live globe of *your* assets at their real coordinates, each
-carrying its worst-hazard score and how that score moves through 2030 / 2050 / 2100.
+coloured by its highest physical-risk score — the same score Portfolio shows — today and in each modelled year ahead.
 
 ## Reading it
-- **Colour / score** — the worst hazard for that asset at the chosen horizon.
-- **Play to a year** — step the whole book forward under a warming path; the slider scrubs, the year chips
-  set the target.
-- **Click any asset** — see its per-hazard detail, the sector facts (loan, sum insured, position, NOI…), and
-  the honest adaptation measures for that hazard.
+- **Colour** — the asset's highest score across the hazards that apply to it. A flaring dot is at or above the
+  at-risk level your organisation states.
+- **The timeline** — press play, or pick a year, to move the whole book forward under the climate scenario you choose.
+  Figures are shown for the modelled years; between them the colours only blend.
+- **The tiles** — what needs you, what is at risk (or your book, until you state an at-risk level) and how ready your
+  filings are. Click one for its detail.
+- **Click any asset** — its score in every modelled year, its key facts, and where to act on it. For your own sites
+  and sourcing plots, recognised adaptation measures for the hazard that leads.
+- **Working on** — scope the globe to one reporting entity and everything below it.
+
+A supervisor sees the regions where the entities it supervises hold exposures — never an individual site.
 
 ## On-demand scoring
-Zoom into the granular grid and Tellumen scores the cells around a site on demand, from the same golden
-source — so you see the risk *texture* around a location, not just one cell. A cell stays blank only where the
-underlying baselines genuinely have no coverage (open ocean, polar gaps).
+Open the surrounding grid and Tellumen scores the cells around a site on demand, from the same data — so you see
+the risk *texture* around a location, not just one cell. A cell stays blank only where the underlying data has no
+coverage (open ocean, polar gaps).
 `,
   },
   {

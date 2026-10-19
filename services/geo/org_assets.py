@@ -120,6 +120,8 @@ def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source:
         basis = "baseline/current (no scores at the requested basis)"
     else:
         basis = None
+        if scenario != "baseline":
+            agri_rows = [(kind, [*rows, *_scenario_flat(session, sql, agri_params)]) for (kind, rows), (_, sql) in zip(agri_rows, sources)]
     for kind, rows in agri_rows:
         for r in rows:
             key = f"{kind}:{r['id']}"
@@ -135,3 +137,14 @@ def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source:
             if sc is not None and (a["score"] is None or sc > a["score"]):
                 a["score"], a["hazard"] = sc, r["hazard"]
     return out + list(by_id.values())
+
+
+def _scenario_flat(session, sql: str, params: dict) -> list:
+    """The engine's scenario-flat rule for the agricultural books (services.portfolio_engine.fetch_entities_with_risk):
+    a hazard that does not vary by scenario (wildfire and flood susceptibility, frost, earthquake, …) is stored only on
+    the current climate; a forward read carries its current value — and only where the asset has NO row for that
+    hazard under the requested scenario at ANY horizon, so a scenario-varying hazard is never touched or counted twice."""
+    every_horizon = sql.replace("AND v.time_horizon = :h", "")
+    varying = {(r["id"], r["hazard"]) for r in session.execute(text(every_horizon), params).mappings().all()}
+    today = session.execute(text(sql), {**params, "sc": "baseline", "h": "current"}).mappings().all()
+    return [r for r in today if (r["id"], r["hazard"]) not in varying]

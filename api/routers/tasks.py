@@ -1,15 +1,14 @@
-"""What needs YOU now — a role-filtered, severity-ranked task feed for the cockpit.
+"""The signed-in person's front door (Horizon) and what needs them now.
 
-The platform already computes every "preemptive" signal (pending approvals, golden-source staleness,
-calibration drift, input quality, EUDR polygons, unscored sites, filing identity). They lived only in the
-admin Control-Center readiness list. This assembles them into one actionable feed, filtered to what THIS
-user can act on (by permission) so each role lands on their own work:
-  * approver → approvals waiting          (approvals.decide)
-  * admin    → setup / house-in-order     (admin.users.manage)
-  * analyst  → data & filing completeness  (modules.view)
-  * viewer   → sees the same awareness items, read-only
+  /globe     the organisation's book on the globe at today and each modelled year (services.intelligence.front_door —
+             the one cross-sector reader the sector pages and the supervisor's map use); a supervisory body sees its
+             population rolled up to regions
+  /entities  the reporting entities the person can scope it to
+  /tasks     a role-filtered, ranked feed: the failing readiness checks (services.governance.readiness — one
+             definition each) routed to who acts on them, approvals waiting, support replies, a reporting period
+             ending, frozen filings with new data
 
-Nothing here is a new number — it's routing the signals we have to the person who acts on them.
+Nothing here is a new number, and nothing is a sentence: every explanation is a catalogue message (horizon.*).
 """
 from __future__ import annotations
 
@@ -20,250 +19,72 @@ from fastapi import APIRouter, Query
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
-from services.governance.display_currency import balance as _bal
-from services.governance.display_currency import flow as _flow
+from core import messages
 
 router = APIRouter(prefix="/v1/me", tags=["Me"])
 
-# Horizon (the globe) forward path — real projection scores, not a fabricated flare year.
-_HORIZONS = ["current", "2030", "2050", "2100"]
-
-# The globe is the front door for EVERY sector. Each org type keeps its located exposures in its own
-# table + a physical-risk view of identical shape (id, h3_cell, hazard_type, scenario, time_horizon,
-# physical_risk_score). We dispatch by organizations.type so a bank sees financed assets, an insurer sees
-# insured locations, an asset manager sees holdings, a REIT sees properties — all on the same real globe,
-# scored off the same golden source. `noun` drives the UI copy; agri (manufacturer) is handled separately
-# because it unions two tables (own sites + sourcing plots) and carries the EUDR flag.
-_SECTOR_ASSETS = {
-    "bank": {"noun": "financed assets", "sql": """
-        SELECT a.asset_id AS id, a.asset_name AS name, 'asset' AS kind, a.latitude AS lat, a.longitude AS lon,
-               COALESCE(a.region, a.country) AS region, a.asset_value_eur AS value_eur,
-               a.outstanding_loan_balance_eur AS f_loan, a.sector AS f_sector, a.taxonomy_status AS f_tax,
-               (COALESCE(a.ghg_emissions_scope1_tco2e,0)+COALESCE(a.ghg_emissions_scope2_tco2e,0)
-                +COALESCE(a.ghg_emissions_scope3_tco2e,0)) AS f_ghg,
-               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-        FROM bank_assets a JOIN v_bank_asset_physical_risk v ON v.asset_id = a.asset_id
-        WHERE a.org_id = :o AND a.latitude IS NOT NULL AND v.scenario = :sc
-          AND (a.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
-    "insurer": {"noun": "insured locations", "sql": """
-        SELECT p.policy_id AS id, p.policy_name AS name, 'policy' AS kind, p.latitude AS lat, p.longitude AS lon,
-               COALESCE(p.region, p.country) AS region, p.sum_insured_eur AS value_eur,
-               p.deductible_pct AS f_ded, p.construction_type AS f_ctype, p.year_built AS f_year, p.policy_type AS f_peril,
-               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-        FROM insurance_policies p JOIN v_insurance_policy_physical_risk v ON v.policy_id = p.policy_id
-        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
-          AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
-    "asset_manager": {"noun": "holdings", "sql": """
-        SELECT h.holding_id AS id, h.holding_name AS name, 'holding' AS kind, h.latitude AS lat, h.longitude AS lon,
-               COALESCE(h.region, h.country) AS region, h.position_value_eur AS value_eur,
-               h.sector AS f_sector, h.nace_code AS f_nace,
-               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-        FROM assetmgmt_holdings h JOIN v_assetmgmt_holding_physical_risk v ON v.holding_id = h.holding_id
-        WHERE h.org_id = :o AND h.latitude IS NOT NULL AND v.scenario = :sc
-          AND (h.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
-    "reit": {"noun": "properties", "sql": """
-        SELECT p.property_id AS id, p.property_name AS name, 'property' AS kind, p.latitude AS lat, p.longitude AS lon,
-               COALESCE(p.region, p.country) AS region, p.property_value_eur AS value_eur,
-               p.annual_noi_eur AS f_noi, p.property_type AS f_ptype, p.construction_type AS f_ctype, p.year_built AS f_year,
-               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-        FROM realestate_properties p JOIN v_realestate_property_physical_risk v ON v.property_id = p.property_id
-        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
-          AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
-}
+_SCENARIO = "^(orderly_1_5c|disorderly_2c|hot_house_3_5c)$"
 
 
-# facet amounts are engine (EUR) figures written in the organisation's currency — globe() sets the view
-
-
-# Per-sector "key parameters" for a clicked site — real columns from the sector's own table, mapped to
-# labelled facets the detail panel renders. Every value is real; a missing column simply shows "—".
-def _bank_facets(r):
-    loan, av = r.get("f_loan"), r.get("value_eur")
-    ltv = f"{round(100*float(loan)/float(av))}%" if loan and av else "—"
-    out = [{"k": "Outstanding loan", "v": _bal(float(loan)) if loan else "—"},
-           {"k": "Loan-to-value", "v": ltv},
-           {"k": "Financed emissions", "v": f"{float(r.get('f_ghg') or 0):,.0f} tCO₂e" if r.get("f_ghg") else "—"}]
-    if r.get("f_sector"): out.append({"k": "Sector", "v": r["f_sector"]})
-    if r.get("f_tax"): out.append({"k": "Taxonomy", "v": r["f_tax"]})
-    return out
-
-
-def _insurer_facets(r):
-    out = [{"k": "Sum insured", "v": _bal(float(r.get("value_eur") or 0))}]
-    if r.get("f_ded") is not None: out.append({"k": "Deductible", "v": f"{r['f_ded']}%"})
-    if r.get("f_ctype") or r.get("f_year"):
-        out.append({"k": "Construction / year", "v": f"{r.get('f_ctype') or '—'} · {r.get('f_year') or '—'}"})
-    if r.get("f_peril"): out.append({"k": "Cover", "v": r["f_peril"]})
-    return out
-
-
-def _am_facets(r):
-    out = [{"k": "Position value", "v": _bal(float(r.get("value_eur") or 0))}]
-    if r.get("f_sector"): out.append({"k": "Sector", "v": r["f_sector"]})
-    if r.get("f_nace"): out.append({"k": "NACE", "v": r["f_nace"]})
-    return out
-
-
-def _reit_facets(r):
-    out = [{"k": "Property value", "v": _bal(float(r.get("value_eur") or 0))}]
-    if r.get("f_noi") is not None: out.append({"k": "Annual NOI", "v": _flow(float(r["f_noi"]))})
-    if r.get("f_ptype") or r.get("f_year"):
-        out.append({"k": "Type / year", "v": f"{r.get('f_ptype') or '—'} · {r.get('f_year') or '—'}"})
-    return out
-
-
-def _site_facets(r):
-    return [{"k": "Asset value", "v": _bal(float(r.get("value_eur") or 0))}, {"k": "Country", "v": r.get("region") or "—"}]
-
-
-def _plot_facets(r):
-    out = [{"k": "Annual spend", "v": _flow(float(r.get("value_eur") or 0))}]
-    if r.get("f_commodity"): out.append({"k": "Commodity", "v": r["f_commodity"]})
-    out.append({"k": "EUDR", "v": "covered · not read" if r.get("eudr_unread")
-                else ("covered · read" if r.get("f_eudr_covered") else "not covered")})
-    if r.get("f_area"): out.append({"k": "Plot area", "v": f"{r['f_area']} ha"})
-    return out
-
-
-_FACET_FN = {"bank": _bank_facets, "insurer": _insurer_facets, "asset_manager": _am_facets, "reit": _reit_facets}
-
-
-@router.get("/globe", summary="This org's real assets at true lat/lon with their projected risk trajectory")
+@router.get("/globe", summary="This org's located book at today and each modelled year, against its stated at-risk level")
 def globe(session: DbSession, ctx: CurrentUser,
-          scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$"),
-          entity_id: Optional[str] = Query(None, description="scope to one reporting entity; null = all entities")):
-    """Every located exposure this org holds, its coordinates, and its WORST-hazard physical-risk score at
-    current / 2030 / 2050 / 2100 under the chosen warming path — sector-aware (bank→financed assets,
-    insurer→insured locations, asset manager→holdings, REIT→properties, agri→sites + sourcing plots).
-    Real coordinates + real projection scores off the golden source, no illustrative euros."""
+          scenario: str = Query("disorderly_2c", pattern=_SCENARIO),
+          entity_id: Optional[str] = Query(None, description="scope to one reporting entity and everything below it")):
+    """Every located exposure the organisation holds with its headline score (the worst hazard over the scales that
+    apply to it) today and in each modelled year under the scenario, whether it is at or above the organisation's
+    stated at-risk level, the totals, the filing-readiness checklist and the person's roles. A supervisory body gets
+    the regions its supervised population sits in (never a site) and its population totals."""
+    from services.governance.readiness import org_readiness
+    from services.intelligence import front_door as fd
     org_id = ctx["org"]["org_id"]
     org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
 
-    from services.governance.display_currency import using, view
-    dv = view(session, org_id)
-
-    def _pivot(rows, facet_fn=None):
-        by_asset: dict = {}
-        with using(session, org_id, dv):
-            _rows(rows, facet_fn, by_asset)
-        return _finish(by_asset)
-
-    def _rows(rows, facet_fn, by_asset):
-        for r in rows:
-            if r["id"] not in by_asset:
-                by_asset[r["id"]] = {
-                    "id": str(r["id"]), "name": r["name"], "kind": r["kind"], "lat": float(r["lat"]),
-                    "lon": float(r["lon"]), "region": r["region"], "value_eur": float(r["value_eur"] or 0),
-                    "eudr_unread": bool(r.get("eudr_unread")),
-                    "facets": (facet_fn(r) if facet_fn else []), "_haz": {}}
-            by_asset[r["id"]]["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
-
-    def _finish(by_asset):
-        out = []
-        from services.intelligence.adaptation import actions_for
-        for a in by_asset.values():
-            # worst hazard = highest score at 2050 (the CSRD forward anchor), fallback current
-            worst = max(a["_haz"].items(),
-                        key=lambda kv: kv[1].get("2050", kv[1].get("current", 0)))
-            a["hazard"] = worst[0]
-            a["traj"] = {h: round(worst[1].get(h, worst[1].get("current", 0)), 1) for h in _HORIZONS}
-            # real adaptation measures for this hazard (honest actions, not a fabricated % reduction)
-            try:
-                acts = actions_for([a["hazard"]])
-                a["adaptations"] = acts[0]["actions"][:3] if acts else []
-            except Exception:
-                a["adaptations"] = []
-            a.pop("_haz")
-            out.append(a)
-        return out
-
-    vol_today = None
-    if org_type == "manufacturer":
-        # Agriculture: own operational sites UNION sourcing plots (the plots carry the EUDR flag).
-        noun = "sites & origins"
-        sites = session.execute(text("""
-            SELECT s.site_id AS id, s.name, 'site' AS kind, s.latitude AS lat, s.longitude AS lon,
-                   s.country AS region, s.annual_value_eur AS value_eur,
-                   v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-            FROM sc_company_sites s JOIN v_sc_site_physical_risk v ON v.site_id = s.site_id
-            WHERE s.org_id = :o AND s.latitude IS NOT NULL AND v.scenario = :sc
-              AND (s.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
-        """), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
-        plots = session.execute(text("""
-            SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
-                   p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
-                   p.annual_spend_eur AS value_eur,
-                   co.name AS f_commodity, co.eudr_covered AS f_eudr_covered, p.plot_area_ha AS f_area,
-                   v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-            FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
-            JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
-            WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
-              AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
-        """), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
-        from services.eudr.reading import for_org
-        unread = {pid for pid, r in for_org(session, org_id, covered_only=True, entity_id=entity_id).items() if r is None}
-        plots = [{**r, "eudr_unread": str(r["id"]) in unread} for r in plots]
-        assets = _pivot(sites, _site_facets) + _pivot(plots, _plot_facets)
-        # portfolio euro-at-risk TODAY is the real supply-engine figure (org-wide only — the engine isn't
-        # entity-scoped yet, so we don't show an org number against a single entity's book)
-        if entity_id is None:
-            try:
-                from services.intelligence.supply_cogs import project_org_supply
-                summ = project_org_supply(session, org_id)
-                vol_today = round(summ.volume_at_risk_eur or 0)
-            except Exception:
-                vol_today = None
-    elif org_type in _SECTOR_ASSETS:
-        cfg = _SECTOR_ASSETS[org_type]
-        noun = cfg["noun"]
-        rows = session.execute(text(cfg["sql"]), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
-        assets = _pivot(rows, _FACET_FN.get(org_type))
+    supervisor = None
+    if org_type == "regulator":
+        from api.routers.supervisor import _supervised
+        ents = _supervised(session, ctx)
+        view = fd.population(session, ents, scenario)
+        supervisor = _population_totals(session, ctx, ents)
     else:
-        noun, assets = "assets", []
+        view = fd.book(session, org_id, org_type, scenario, entity_id)
 
-    # ── left-rail KPIs (org) — all real: book value from the assets, elevated from the 2050 worst-hazard
-    #    score, readiness from the shared sector-aware checklist. No fabricated grade. ────────────────
-    n_elevated = sum(1 for a in assets if a["traj"].get("2050", a["traj"].get("current", 0)) >= 50)
-    book_value = round(sum(a["value_eur"] for a in assets))
-    from services.governance.readiness import org_readiness
     rd = org_readiness(session, org_id, org_type)
-    kpis = {"book_value_eur": book_value, "n_assets": len(assets), "n_elevated": n_elevated,
-            "readiness": {"passed": rd["passed"], "total": rd["total"], "checks": rd["checks"]},
-            "volume_at_risk_eur_today": vol_today}
-
-    # ── left-rail 'my scope' — assets are org-scoped (no per-user ownership), so this is honestly
-    #    "what YOU can act on": your roles + the approvals YOU raised that are still pending. The count of
-    #    your open actions is the /v1/me/tasks feed length (already permission-filtered), read client-side.
-    me = ctx["user"]["id"]
     raised_pending = session.execute(text(
         "SELECT count(*) FROM approval_requests WHERE org_id=:o AND maker_user_id=:u AND status='pending'"),
-        {"o": org_id, "u": me}).scalar() or 0
-    my_scope = {"roles": ctx.get("roles", []), "raised_pending": int(raised_pending)}
+        {"o": org_id, "u": ctx["user"]["id"]}).scalar() or 0
+    return {"audience": "supervisor" if org_type == "regulator" else "book", "sector": org_type,
+            "noun": messages.name("horizon.noun", org_type if org_type in messages.names().get("horizon.noun", {}) else "other"),
+            "scenario": {"key": scenario, "name": messages.name("scenario", scenario)},
+            "scenarios": fd.scenarios(), "stops": fd.stops(scenario),
+            **view,
+            "readiness": {"passed": rd["passed"], "total": rd["total"],
+                          "checks": [{k: c[k] for k in ("key", "ok", "message", "fix_href", "fix_label")} for c in rd["checks"]]},
+            "my_scope": {"roles": fd.role_names(org_type, ctx.get("roles", [])), "raised_pending": int(raised_pending)},
+            "supervisor": supervisor}
 
-    return {"scenario": scenario, "sector": org_type, "noun": noun, "horizons": _HORIZONS,
-            "n_assets": len(assets), "volume_at_risk_eur_today": vol_today,
-            "kpis": kpis, "my_scope": my_scope, "assets": assets}
+
+def _population_totals(session, ctx: dict, ents: list[dict]) -> dict:
+    """The supervisor's three figures: entities in view, expected filings not yet received, requests still open."""
+    from api.routers.supervisor import population
+    pop = population(session, ctx)
+    s = pop["summary"]
+    outstanding = sum(1 for e in pop["entities"] for f in e["frameworks"] if f["state"] != "filed")
+    ids = [e["org_id"] for e in ents]
+    open_requests = session.execute(text("""
+        SELECT count(*) FROM supervision_request WHERE regulator_org_id = CAST(:r AS uuid)
+           AND supervised_org_id = ANY(CAST(:ids AS uuid[])) AND closed_at IS NULL
+    """), {"r": ctx["org"]["org_id"], "ids": ids}).scalar() if ids else 0
+    return {"entities": len(ents), "filings_expected": s["frameworks_expected"], "filings_outstanding": outstanding,
+            "open_requests": int(open_requests or 0)}
 
 
-@router.get("/entities", summary="The reporting entities this org holds — the analyst scopes their work to one")
+@router.get("/entities", summary="The reporting entities this org holds — the person scopes Horizon to one")
 def entities(session: DbSession, ctx: CurrentUser):
-    """Real reporting entities (legal entity / fund / client / …) for the logged-in org, each with a live
-    count of the located assets assigned to it. The analyst picks one to scope the globe/KPIs/tasks; the
-    implicit 'All entities' (entity_id=null) is the whole org. Assets are counted across every sector table
-    so the count is right whatever the sector."""
-    org_id = ctx["org"]["org_id"]
-    rows = session.execute(text("""
-        SELECT e.entity_id, e.name, e.kind,
-               (SELECT count(*) FROM bank_assets a WHERE a.entity_id = e.entity_id)
-             + (SELECT count(*) FROM insurance_policies p WHERE p.entity_id = e.entity_id)
-             + (SELECT count(*) FROM assetmgmt_holdings h WHERE h.entity_id = e.entity_id)
-             + (SELECT count(*) FROM realestate_properties r WHERE r.entity_id = e.entity_id)
-             + (SELECT count(*) FROM sc_company_sites s WHERE s.entity_id = e.entity_id)
-             + (SELECT count(*) FROM sc_sourcing_plots pl WHERE pl.entity_id = e.entity_id) AS n_assets
-        FROM reporting_entities e WHERE e.org_id = :o ORDER BY e.name
-    """), {"o": org_id}).mappings().all()
-    return {"entities": [{"entity_id": str(r["entity_id"]), "name": r["name"], "kind": r["kind"],
-                          "n_assets": int(r["n_assets"])} for r in rows]}
+    """The organisation's reporting entities (legal entity / fund / group / …), each with the located assets it and
+    the entities below it hold — the slice the globe shows when it is picked. The implicit whole organisation is
+    entity_id = null."""
+    from services.intelligence.front_door import entity_counts
+    return {"entities": entity_counts(session, ctx["org"]["org_id"])}
 
 
 @router.get("/hexes", summary="The H3 res-8 grid around a location — the granular cell + its neighbours, real scores")
@@ -327,13 +148,13 @@ def hexes(session: DbSession, ctx: CurrentUser,
             "center_score": (round(score_by[center], 1) if center in score_by else None),
             "n_cells": len(cells), "n_scored": scored_n, "computing": computing, "cells": out}
 
+
 # severity → sort weight (higher first). action = needs a decision/edit; warning = will block a filing;
 # info = awareness; good = a positive confirmation.
 _WEIGHT = {"action": 3, "warning": 2, "info": 1, "good": 0}
 
-
 # Approval service-level target — a decision that has waited longer than this is treated as overdue. This
-# is OUR disclosed SLA (there is no regulatory approval deadline), surfaced as such in the UI, not a
+# is OUR disclosed target (there is no regulatory approval deadline), stated as such in the task's pop-up, not a
 # fabricated regulator date.
 _APPROVAL_SLA_DAYS = 3
 
@@ -342,10 +163,24 @@ _APPROVAL_SLA_DAYS = 3
 # a real action with no fixed date — never given an invented deadline.
 _BUCKET_ORDER = {"overdue": 0, "this_week": 1, "upcoming": 2, "open": 3}
 
+# A failing readiness check becomes a task for whoever acts on it: (permission, severity, bucket). The check itself —
+# what it tests, its words, where it is fixed — is services.governance.readiness, the one definition.
+_CHECK_TASK = {
+    "identity":             ("admin.users.manage", "warning", "open"),
+    "second_approver":      ("admin.users.manage", "warning", "open"),
+    "golden_source_fresh":  ("admin.users.manage", "warning", "overdue"),   # past its scheduled refresh
+    "calibrations_current": ("admin.users.manage", "info", "overdue"),      # past the re-validation window
+    "sites_scored":         ("modules.view", "info", "open"),
+    "plots_polygons":       ("modules.view", "warning", "open"),
+    "eudr_run":             ("modules.view", "action", "open"),
+    "inputs_high_quality":  ("modules.view", "info", "open"),
+}
 
-def _task(key, title, detail, severity, cta_label, cta_href, need, bucket="open", due=None):
-    return {"key": key, "title": title, "detail": detail, "severity": severity,
-            "cta_label": cta_label, "cta_href": cta_href, "_need": need, "bucket": bucket, "due": due}
+
+def _task(key, message, severity, action_key, href, need, bucket="open", due=None):
+    return {"key": key, "message": message, "severity": severity,
+            "action": {"label": messages.name("horizon.action", action_key), "href": href},
+            "_need": need, "bucket": bucket, "due": due}
 
 
 def _finalize(tasks: list[dict], perms: set) -> dict:
@@ -358,191 +193,93 @@ def _finalize(tasks: list[dict], perms: set) -> dict:
     return {"tasks": visible, "all_clear": len(visible) == 0}
 
 
-@router.get("/tasks", summary="Role-filtered actionable tasks for the cockpit")
-def my_tasks(session: DbSession, ctx: CurrentUser,
-             entity_id: Optional[str] = Query(None, description="scope asset-completeness tasks to one entity")):
+@router.get("/tasks", summary="Role-filtered actionable tasks for the front door")
+def my_tasks(session: DbSession, ctx: CurrentUser):
+    """What needs this person now, for the whole organisation: each failing readiness check routed to the
+    permission that acts on it, approvals waiting for a second person, support replies, an agricultural reporting
+    period ending without its statement, and frozen filings with new data."""
+    from services.governance.readiness import org_readiness
     org_id = ctx["org"]["org_id"]
     org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
-    is_agri = org_type == "manufacturer"
     perms = set(ctx.get("permissions") or [])
     tasks: list[dict] = []
 
-    # ── APPROVER: decisions waiting (bucket from the OLDEST pending request's real age vs our SLA) ────
-    # Only requests THIS user can actually action — a decider can't approve their own (4-eyes), so a
-    # request they raised is not "waiting for you". Count excludes own; a request assigned to someone
-    # else is still counted (any approver may act unless assignment routes it — keep it discoverable).
-    me = ctx["user"]["id"]
+    # ── approvals waiting (bucket from the OLDEST pending request's real age vs our target) ─────────────────
+    # Only requests THIS user can actually action — a decider can't approve their own (4-eyes), so a request they
+    # raised is not "waiting for you". A request assigned to someone else is still counted (any approver may act
+    # unless assignment routes it — keep it discoverable).
     prow = session.execute(text(
-        "SELECT count(*) n, EXTRACT(EPOCH FROM (now()-min(created_at)))/86400 AS oldest_days "
+        "SELECT count(*) n, min(created_at) AS oldest "
         "FROM approval_requests WHERE org_id=:o AND status='pending' AND maker_user_id <> :u"),
-        {"o": org_id, "u": me}).mappings().first()
+        {"o": org_id, "u": ctx["user"]["id"]}).mappings().first()
     pending = prow["n"] or 0
     if pending:
-        age = float(prow["oldest_days"] or 0)
-        past_sla = age > _APPROVAL_SLA_DAYS
+        from datetime import datetime, timedelta, timezone
+        oldest = prow["oldest"]
+        due = oldest + timedelta(days=_APPROVAL_SLA_DAYS)
+        late = datetime.now(timezone.utc) > due
+        raised = oldest.date().isoformat()
         tasks.append(_task(
-            "approvals_pending", f"{pending} approval{'s' if pending != 1 else ''} waiting for you",
-            "Review and approve, reject, or send back — the second pair of eyes in 4-eyes.",
-            "action", "Review approvals", "/approvals", "approvals.decide",
-            bucket="overdue" if past_sla else "this_week",
-            due=(f"oldest raised {age:.0f}d ago · past the {_APPROVAL_SLA_DAYS}-day SLA" if past_sla
-                 else f"oldest raised {age:.0f}d ago · {_APPROVAL_SLA_DAYS}-day SLA")))
+            "approvals_pending", messages.render("horizon.task.approvals", n=pending, raised=raised),
+            "action", "approvals_pending", "/approvals", "approvals.decide", bucket="overdue" if late else "this_week",
+            due=messages.render("horizon.due.past_target" if late else "horizon.due.waiting",
+                                raised=raised, due=due.date().isoformat(), sla=_APPROVAL_SLA_DAYS)))
 
-    # ── ADMIN: is the house in order (setup + pre-filing controls) ────────────────────────────────
-    org = session.execute(text(
-        "SELECT eori, filing_contact_email FROM organizations WHERE org_id=:o"), {"o": org_id}).mappings().first()
-    if org and not (org["eori"] and org["filing_contact_email"]):
-        tasks.append(_task(
-            "identity_incomplete", "Complete your reporting identity",
-            "EORI and a filing-contact email are needed before a CSRD/EUDR filing.",
-            "warning", "Finish setup", "/admin?setup=identity", "admin.users.manage"))
-
-    n_approvers = session.execute(text("""
-        SELECT count(DISTINCT u.user_id) FROM users u
-        JOIN user_roles ur ON ur.user_id=u.user_id JOIN role_permissions rp ON rp.role_id=ur.role_id
-        JOIN permissions p ON p.permission_id=rp.permission_id
-        WHERE u.org_id=:o AND u.status='active' AND p.code='approvals.decide'
-    """), {"o": org_id}).scalar() or 0
-    if n_approvers < 2:
-        tasks.append(_task(
-            "second_approver", "Add a second approver",
-            "4-eyes needs two people who can approve — invite a colleague with the Approver role.",
-            "warning", "Invite a teammate", "/admin", "admin.users.manage"))
-
-    try:
-        from services.data.feeds import overdue_basis_feeds
-        overdue = overdue_basis_feeds(session)
-        if overdue:
-            failed = [f for f in overdue if f.get("status") == "failed"]
-            max_days = max((f.get("days_since") or 0) for f in overdue)
-            title = "A golden source failed its auto-refresh" if failed else "A golden source is overdue"
-            detail = ((("Automated refresh FAILED: " + ", ".join(f["name"] for f in failed[:3]))
-                       if failed else ("Overdue: " + ", ".join(f["name"] for f in overdue[:3])))
-                      + ". Fix it before you file — the automated pull needs attention.")
-            tasks.append(_task(
-                "golden_source_stale", title, detail,
-                "warning", "Review data", "/foundation", "admin.users.manage",
-                bucket="overdue", due=(f"{len(failed)} failed" if failed else f"{max_days:.0f}d overdue")))
-    except Exception:
-        pass
+    # ── the readiness checklist: every failing check, to whoever fixes it (one definition: readiness.py) ────────
+    for c in org_readiness(session, org_id, org_type)["checks"]:
+        if c["ok"] or c["key"] not in _CHECK_TASK or not c.get("fix_href"):
+            continue
+        need, severity, bucket = _CHECK_TASK[c["key"]]
+        tasks.append(_task(c["key"], c["message"], severity, c["key"], c["fix_href"], need, bucket=bucket))
 
     # ── SUPPORT: Tellumen replied to a request you raised (cross-sector; anyone with portal access) ──
-    try:
-        awaiting = session.execute(text("""
-            SELECT count(*) FROM service_requests sr
-            WHERE sr.org_id = :o AND sr.status <> 'resolved'
-              AND (SELECT m.author_side FROM service_request_messages m
-                   WHERE m.request_id = sr.request_id ORDER BY m.created_at DESC LIMIT 1) = 'support'
-        """), {"o": org_id}).scalar() or 0
-        if awaiting:
-            tasks.append(_task(
-                "support_reply", f"Tellumen replied to {awaiting} support request{'s' if awaiting != 1 else ''}",
-                "Support has responded — read the reply and either close the loop or reply back.",
-                "info", "Open support", "/support", "portal.use"))
-    except Exception:
-        pass
+    awaiting = session.execute(text("""
+        SELECT count(*) FROM service_requests sr
+        WHERE sr.org_id = :o AND sr.status <> 'resolved'
+          AND (SELECT m.author_side FROM service_request_messages m
+               WHERE m.request_id = sr.request_id ORDER BY m.created_at DESC LIMIT 1) = 'support'
+    """), {"o": org_id}).scalar() or 0
+    if awaiting:
+        tasks.append(_task("support_reply", messages.render("horizon.task.support_reply", n=awaiting),
+                           "info", "support_reply", "/support", "portal.use"))
 
-    if is_agri:
-        try:
-            from services.intelligence.revalidation import revalidation_status
-            rv = revalidation_status(session)
-            if rv["overdue_count"]:
-                tasks.append(_task(
-                    "calibrations_due", f"{rv['overdue_count']} crop calibration(s) due for re-validation",
-                    "Their training window is far enough behind that new crop-years should re-check them.",
-                    "info", "See models", "/models", "admin.users.manage",
-                    bucket="overdue", due=f"{rv['overdue_count']} past the {rv['horizon_years']}y window"))
-        except Exception:
-            pass
+    if org_type == "manufacturer":
+        period = _reporting_period_task(session, org_id)
+        if period:
+            tasks.append(period)
 
-    # ── ANALYST / DOER: data & filing completeness ────────────────────────────────────────────────
-    # The site/plot/EUDR completeness signals below are agriculture-shaped (own ops + sourcing plots) and
-    # route to the agri operating pages. Financial sectors keep their exposures elsewhere, so they see only
-    # the cross-sector controls above (approvals, identity, 4-eyes, golden source) — never an agri prompt.
-    if not is_agri:
-        return _finalize(tasks, perms)
-
-    # Reporting-period end — a REAL forward date (the org's reporting basis). Bucket by proximity so the
-    # CSRD/ESRS filing shows up as overdue / this week / upcoming rather than as a date-less item.
-    try:
-        from datetime import date
-        from datetime import datetime as _dt
-
-        from services.governance.reporting_settings import get_settings
-        pe = get_settings(session, org_id).get("reporting_period_end")
-        if pe:
-            days = (_dt.strptime(pe, "%Y-%m-%d").date() - date.today()).days
-            if days <= 60:
-                bucket = "overdue" if days < 0 else ("this_week" if days <= 7 else "upcoming")
-                tasks.append(_task(
-                    "reporting_period", f"CSRD/ESRS filing for period ending {pe}",
-                    "Freeze the ESRS E1 filing for this reporting period once the book is complete.",
-                    "warning" if days <= 7 else "info", "Open reporting", "/esrs", "admin.users.manage",
-                    bucket=bucket, due=(f"period ended {-days}d ago" if days < 0 else f"period ends in {days}d")))
-    except Exception:
-        pass
-
-    sites = session.execute(text("""
-        SELECT count(*) n,
-               count(*) FILTER (WHERE NOT EXISTS (
-                   SELECT 1 FROM v_sc_site_physical_risk v
-                   WHERE v.site_id=s.site_id AND v.scenario='baseline' AND v.time_horizon='current')) unscored
-        FROM sc_company_sites s WHERE s.org_id=:o
-          AND (s.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
-    """), {"o": org_id, "ent": entity_id}).mappings().first()
-    plots = session.execute(text("""
-        SELECT count(*) n,
-               count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon
-        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id=p.commodity_id
-        WHERE p.org_id=:o
-          AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
-    """), {"o": org_id, "ent": entity_id}).mappings().first()
-
-    if (sites["n"] or 0) == 0 and (plots["n"] or 0) == 0:
-        tasks.append(_task(
-            "first_run", "Add your first sites or suppliers",
-            "Map an operational site or a sourcing plot to see its climate risk from the golden source.",
-            "action", "Add operations", "/operations", "modules.view"))
-    else:
-        if plots["needs_polygon"]:
-            tasks.append(_task(
-                "plots_polygon", f"{plots['needs_polygon']} plot(s) over 4 ha need a boundary polygon",
-                "EUDR needs a geometry, not just a point, for plots over 4 hectares.",
-                "warning", "Fix in Sourcing", "/sourcing", "modules.view"))
-        from services.eudr.reading import for_org, tally
-        unread = tally(for_org(session, org_id, covered_only=True, entity_id=entity_id))["unread"]
-        if unread:
-            tasks.append(_task(
-                "eudr_run", f"Read {unread} plot(s) against the forest dataset",
-                "A shipment's risk assessment weighs each plot's current satellite reading (Art. 10).",
-                "action", "Open EUDR", "/eudr", "modules.view"))
-        if sites["unscored"]:
-            tasks.append(_task(
-                "sites_unscored", f"{sites['unscored']} site(s) not yet scored",
-                "A located site scores from the golden source shortly — check if any are stuck.",
-                "info", "Open Operations", "/operations", "modules.view"))
-
-    try:   # intake phase 6: new data on assets a frozen filing rests on — the filing is never touched, only flagged
-        from services.governance.data_revisions import flagged_filings
-        flagged = flagged_filings(session, org_id)
-        if flagged:
-            tasks.append(_task(
-                "filings_new_data", f"{len(flagged)} frozen filing(s) may need restating",
-                "New data since they were frozen: " + "; ".join(f"{f['framework']} {f['period_label']}" for f in flagged[:3])
-                + ". The filings are unchanged — open one to see what changed, then restate it.",
-                "warning", "Open filings", "/filings", "reports.view"))
-    except Exception:
-        pass
-
-    try:
-        from services.intelligence.input_quality import input_quality_status
-        iq = input_quality_status(session, org_id)
-        if iq["low_confidence_count"]:
-            tasks.append(_task(
-                "low_confidence", f"{iq['low_confidence_count']} asset(s) located only coarsely",
-                "A coarse geocode means an imprecise cell — refine before filing.",
-                "info", "Review inputs", "/operations", "modules.view"))
-    except Exception:
-        pass
+    # intake phase 6: new data on assets a frozen filing rests on — the filing is never touched, only flagged
+    from services.governance.data_revisions import flagged_filings
+    flagged = flagged_filings(session, org_id)
+    if flagged:
+        tasks.append(_task("filings_new_data", messages.render("horizon.task.filings_new_data", n=len(flagged)),
+                           "warning", "filings_new_data", "/filings" if org_type == "manufacturer" else "/compliance",
+                           "reports.view"))
 
     return _finalize(tasks, perms)
+
+
+def _reporting_period_task(session, org_id: str) -> Optional[dict]:
+    """The agricultural reporting period ending (or ended) within 60 days while no live ESRS statement exists for it —
+    a REAL forward date from the organisation's reporting basis, bucketed by proximity."""
+    from datetime import date
+    from datetime import datetime as _dt
+
+    from services.governance.reporting_settings import get_settings
+    pe = get_settings(session, org_id).get("reporting_period_end")
+    if not pe:
+        return None
+    end = _dt.strptime(pe, "%Y-%m-%d").date()
+    days = (end - date.today()).days
+    if days > 60:
+        return None
+    done = session.execute(text("""
+        SELECT 1 FROM regulatory_filing WHERE org_id = CAST(:o AS uuid) AND framework = 'esrs_pack'
+           AND period_end = :pe AND status NOT IN ('superseded', 'withdrawn') LIMIT 1
+    """), {"o": org_id, "pe": end}).first()
+    if done:
+        return None
+    bucket = "overdue" if days < 0 else ("this_week" if days <= 7 else "upcoming")
+    msg = messages.render("horizon.task.period_ended" if days < 0 else "horizon.task.period_ends", date=pe)
+    return _task("reporting_period", msg, "warning" if days <= 7 else "info", "reporting_period", "/esrs",
+                 "admin.users.manage", bucket=bucket)
