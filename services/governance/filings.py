@@ -28,6 +28,8 @@ from datetime import date, datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from core.errors import UserError
 from services.governance.money_format import presentation_of
 from services.governance.report_snapshots import _BUILDERS, create_snapshot, get_snapshot
 
@@ -61,8 +63,8 @@ FRAMEWORKS = {
     "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
                 "frequency": "annual",
                 "retired": {"since": "2026-09-30", "replaced_by": "esrs_pack",
-                            "reason": "an ESRS statement is filed per undertaking as one esrs_pack filing (E1 is one of "
-                                      "its standards)"},
+                            "reason": "an ESRS statement is filed per undertaking as one sustainability statement (E1 is "
+                                      "one of its standards)"},
                 "regulator": "National competent authority (CSRD)", "basis": "ESRS E1"},
     # one undertaking's (or group's) ESRS statement for one financial year, on the version governing that year
     # (services.governance.esrs_document); its deadline is the mandate's (with the management report)
@@ -76,12 +78,12 @@ FRAMEWORKS = {
     "reit_taxonomy": {"label": "EU Taxonomy Article 8 KPIs (property book)", "sectors": ("reit",),
                       "frequency": "annual",
                       "regulator": "National competent authority", "basis": "Del. Reg. (EU) 2021/2178 Art. 8"},
-    "insurer_solvency": {"label": "Solvency II · natural catastrophe risk (S.27.01.01)", "sectors": ("insurer",),
+    "insurer_solvency": {"label": "Solvency II · natural catastrophe risk", "sectors": ("insurer",),
                          "frequency": "annual",
                          "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 Arts 119-126 · ITS (EU) 2023/894 S.27.01.01"},
     # an ORSA / a recovery plan runs from an event (the assessment's conclusion, a plan update): no calendar date — the
     # filing's disclosure date is the conclusion, and the ORSA report is due 2 weeks later (Del. Reg. 2015/35 Art. 312(1)(b))
-    "insurer_orsa_climate": {"label": "ORSA — climate change scenario analysis (Art. 45a)", "sectors": ("insurer",),
+    "insurer_orsa_climate": {"label": "ORSA — climate change scenario analysis", "sectors": ("insurer",),
                              "frequency": "annual", "regulator": "National competent authority (Solvency II supervisor)",
                              "basis": "Directive 2009/138/EC Art. 45a, 51(1b)(e) · Directive (EU) 2025/2"},
     "insurer_recovery_stress": {"label": "Pre-emptive recovery plan — nat-cat stress and capital indicators",
@@ -161,8 +163,39 @@ NOT_LIVE = ("superseded", "withdrawn")
 WITHDRAW_REASON_MIN = 10
 
 
-class FilingError(ValueError):
-    """A lifecycle rule was violated (bad transition, missing filing, duplicate slot)."""
+class FilingError(UserError, ValueError):
+    """A lifecycle rule refused the step (bad transition, missing filing, duplicate slot), in customer words (UI
+    standard, 2026-10-16): a message-catalogue code (data/reference/messages.en.json, prefix filing.) with its values.
+    The API answers it as a UserError — the label on the screen, the detail behind its ⓘ; str() is the detail's
+    sentence (logs, other services' messages)."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
+
+
+def election_view(elections: list[dict] | None) -> list[dict] | None:
+    """The interpretations frozen with a filing, each with its value in customer words (`value_label`): a scenario by
+    its name (names.scenario), a dependence rule by names.dependence, any other choice by names.filing.election, a
+    number or a yes/no as it is; None when the organisation stated nothing and the switch has no default."""
+    if elections is None:
+        return None
+    names = messages.names()
+    choice = {**names.get("filing.election", {}), **names.get("scenario", {}), **names.get("dependence", {})}
+
+    def word(v):
+        if v is None:
+            return None
+        if isinstance(v, bool):
+            return "Yes" if v else "No"
+        if isinstance(v, (int, float)):
+            return f"{v:g}"
+        return choice.get(str(v), "A stated choice")
+    return [{**e, "value_label": word(e.get("value"))} for e in elections]
+
+
+def _status_name(status: str | None) -> str:
+    """A filing status in a sentence ('in review', 'a draft') — the catalogue's names.filing.status."""
+    return messages.names().get("filing.status", {}).get(status or "", "in another state")
 
 
 # ── framework catalog ──────────────────────────────────────────────────
@@ -191,17 +224,26 @@ def retired_frameworks() -> list[str]:
     return sorted(k for k in FRAMEWORKS if retirement(k))
 
 
-def retirement_refusal(framework: str) -> str | None:
-    """Why nothing new can be made for a retired framework — the one message every caller refusing a new filing,
-    a refreshed draft, a restatement or a provided value gives; None while the framework is live."""
+def retirement_error(framework: str) -> FilingError | None:
+    """Why nothing new can be made for a retired framework, as the catalogue's refusal; None while it is live."""
     r = retirement(framework)
     if not r:
         return None
-    label = FRAMEWORKS[framework]["label"]
-    succ = r.get("replaced_by")
-    then = (f"prepare a {FRAMEWORKS[succ]['label']} instead" if succ else
-            "nothing replaces it, and no new filing, refreshed draft, restatement or provided value is made for it")
-    return f"{label} is retired since {r['since']} — {r['reason']}. Its filings stay readable as filed; {then}."
+    label, succ = FRAMEWORKS[framework]["label"], r.get("replaced_by")
+    if succ:
+        return FilingError("filing.refused.retired_replaced", report=label, since=r["since"], reason=r["reason"],
+                           successor=FRAMEWORKS[succ]["label"])
+    return FilingError("filing.refused.retired", report=label, since=r["since"], reason=r["reason"])
+
+
+def retirement_refusal(framework: str) -> str | None:
+    """Why nothing new can be made for a retired framework — the one message every caller refusing a new filing,
+    a refreshed draft, a restatement or a provided value gives; None while the framework is live."""
+    e = retirement_error(framework)
+    if e is None:
+        return None
+    m = messages.render(e.code, **e.params)["detail"]
+    return " ".join(x for x in (m["what"], m.get("next")) if x)
 
 
 def available_frameworks(org_type: str) -> list[dict]:
@@ -326,7 +368,7 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "consolidation": _consolidation_view(session, (r["payload"] or {}).get("_consolidation")),
             # the interpretations the filing was prepared under, as frozen in its payload (covered by its hash) — part of
             # the filing's record, beside the templates (the annex holds only what the templates print)
-            "elections": (r["payload"] or {}).get("_elections")}
+            "elections": election_view((r["payload"] or {}).get("_elections"))}
 
 
 def _consolidation_view(session: Session, cons: dict | None) -> dict | None:
@@ -849,25 +891,24 @@ def _obligation_scope(session: Session, org_id: str, obligation_id: str, framewo
     try:
         uuid.UUID(obligation_id)
     except ValueError:
-        raise FilingError("that obligation was not found") from None
+        raise FilingError("filing.refused.obligation_not_found") from None
     ob = session.execute(text("""SELECT framework, period_end, period_label, entity_id::text AS entity_id,
                                         fund_id::text AS fund_id
                                  FROM regulatory_obligation
                                  WHERE obligation_id = CAST(:i AS uuid) AND org_id = CAST(:o AS uuid)"""),
                          {"i": obligation_id, "o": org_id}).mappings().first()
     if ob is None:
-        raise FilingError("that obligation was not found")
+        raise FilingError("filing.refused.obligation_not_found")
     if ob["framework"] != framework:
-        raise FilingError("that obligation is for a different report")
+        raise FilingError("filing.refused.obligation_other_report")
     if entity_id is not None and entity_id != ob["entity_id"]:
-        raise FilingError("the chosen scope is not the obligation's entity")
+        raise FilingError("filing.refused.obligation_other_entity")
     if fund_id is not None and fund_id != ob["fund_id"]:
-        raise FilingError("the chosen fund is not the obligation's")
+        raise FilingError("filing.refused.obligation_other_fund")
     period = reporting_period_end(session, org_id)
     if ob["period_end"] != period:
-        raise FilingError(f"this obligation is for {ob['period_label']} (period ending {ob['period_end'].isoformat()}), "
-                          f"but your reporting period is set to end {period.isoformat()} — change the reporting "
-                          f"period before preparing it")
+        raise FilingError("filing.refused.obligation_other_period", obligation_period=ob["period_label"],
+                          obligation_end=ob["period_end"].isoformat(), period_end=period.isoformat())
     return ob["entity_id"], ob["fund_id"]
 
 
@@ -893,7 +934,7 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
     (entity_ids, value_weights, translation) from _book_scope (whole organisation when all None). Honest gaps, no
     freeze."""
     entity_ids, value_weights, translation = scope
-    gaps: list[str] = []
+    gaps: list[dict] = []                              # catalogue messages (core.messages.render)
     if framework == "bank_tcfd":                       # the loan book the Taxonomy templates read (E95)
         from services.governance.bank_taxonomy_report import preflight
         return preflight(session, org_id, basis, entity_ids, value_weights, translation)
@@ -909,14 +950,14 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
             st = {"error": str(e)}
         if st.get("error"):
             return {"coverage": {"label": "positions", "done": 0, "total": 0, "pct": 0},
-                    "total_value_eur": None, "noun": "positions", "gaps": [st["error"]]}
+                    "total_value_eur": None, "noun": "positions", "gaps": [sfdr_reason(st["error"])]}
         cs, ent, fr = st["coverage_summary"], st["entity"], st.get("filing_readiness", {})
         if not fr.get("ready_to_file"):
-            gaps += fr.get("missing", [])
+            gaps += sfdr_missing(fr.get("missing", []))
         mand, done = cs.get("mandatory_indicators", 0), cs.get("computed", 0)
         if mand and done < mand:
-            gaps.append(f"{done}/{mand} mandatory PAI indicators computed — the rest await issuer input")
-        return {"coverage": {"label": "PAI indicators computed", "done": done, "total": mand,
+            gaps.append(messages.render("filing.gap.pai_indicators", done=done, total=mand))
+        return {"coverage": {"label": "mandatory indicators computed", "done": done, "total": mand,
                              "pct": round(100 * done / mand, 1) if mand else 0},
                 "total_value_eur": ent.get("total_value_eur"), "value_at_risk_eur": None,
                 "noun": "positions", "positions": ent.get("positions"), "gaps": gaps}
@@ -926,7 +967,7 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                                       value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_properties", 0), r.get("n_scored", 0)
         if n_total and n_done < n_total:
-            gaps.append(f"{n_total - n_done} of {n_total} properties not yet scored — excluded from exposure")
+            gaps.append(messages.render("filing.gap.unscored_properties", n=n_total - n_done, total=n_total))
         return {"coverage": {"label": "properties scored", "done": n_done, "total": n_total,
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_value_eur"), "value_at_risk_eur": None,
@@ -939,14 +980,14 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                                       value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_policies", 0), r.get("n_priced", 0)
         if n_total and n_done < n_total:
-            gaps.append(f"{n_total - n_done} of {n_total} policies not yet priced")
+            gaps.append(messages.render("filing.gap.unpriced_policies", n=n_total - n_done, total=n_total))
         # figures stated per undertaking (or group) under Solvency II
         pe = reporting_period_end(session, org_id)
         who = root_of(session, org_id, entity_ids)
         if not position(session, org_id, pe, who).get("provenance"):
-            gaps.append("own funds / SCR not attested for this undertaking and period")
+            gaps.append(messages.render("filing.gap.own_funds"))
         if programme(session, org_id, pe, who)[1] != "attested":
-            gaps.append("reinsurance in force not attested for this undertaking and period")
+            gaps.append(messages.render("filing.gap.reinsurance"))
         return {"coverage": {"label": "policies priced", "done": n_done, "total": n_total,
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
                 "total_value_eur": r.get("total_sum_insured_eur"), "value_at_risk_eur": None,
@@ -980,9 +1021,9 @@ def org_data_coverage_pct(session: Session, org_id: str, org_type: str, framewor
 def _open_for_new(framework: str, org_type: str) -> None:
     """A framework a new filing can be prepared for: known, built, for this sector and not retired."""
     if framework not in FRAMEWORKS or framework not in _BUILDERS:
-        raise FilingError(f"unknown framework '{framework}'")
+        raise FilingError("filing.refused.unknown_report")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
-        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+        raise FilingError("filing.refused.not_for_sector", report=FRAMEWORKS[framework]["label"])
     _not_retired(framework)
 
 
@@ -990,12 +1031,12 @@ def _not_retired(framework: str) -> None:
     """A retired framework freezes nothing new — not a new filing, a refreshed draft or a restatement: its filings
     stay readable as frozen; a correction, where it has a successor, is prepared under that. A report frozen from its
     own subject (an EUDR statement from its shipment) is not frozen by these generic paths either."""
-    why = retirement_refusal(framework)
+    why = retirement_error(framework)
     if why:
-        raise FilingError(why)
+        raise why
     own = (FRAMEWORKS.get(framework) or {}).get("frozen_by")
     if own:
-        raise FilingError(f"{FRAMEWORKS[framework]['label']} is prepared {own}")
+        raise FilingError("filing.refused.prepared_elsewhere", report=FRAMEWORKS[framework]["label"], where=own)
 
 
 def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):
@@ -1025,7 +1066,7 @@ def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | 
     try:
         return _book_basis(session, org_id, framework, entity_id, period_end)
     except TranslationError as e:
-        raise FilingError(str(e)) from e
+        raise _refusal(e) from e
 
 
 def _check_scope(session: Session, org_id: str, framework: str, entity_id: str | None,
@@ -1036,27 +1077,25 @@ def _check_scope(session: Session, org_id: str, framework: str, entity_id: str |
     try:
         check(session, org_id, framework, entity_id, fund_id)
     except ProductScopeError as e:
-        raise FilingError(str(e)) from e
+        raise FilingError(e.code, **e.params) from e
     if framework in _PRODUCT_SCOPED:
         return
     # resolve the reporting scope — refuse a per-entity/consolidated scope for a framework that can't honour it
     # (would mislabel a whole-org number). SFDR consolidates by fund.
     if entity_id is not None and framework not in _ENTITY_SCOPED:
-        raise FilingError(f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
-                          f"consolidated scope isn't available for it (SFDR consolidates by fund in the Funds "
-                          f"workspace).")
+        raise FilingError("filing.refused.whole_org_only", report=FRAMEWORKS[framework]["label"])
     if entity_id is not None:
         from services.governance import entities as _E
         if not _E.get_entity(session, org_id, entity_id):
-            raise FilingError("reporting entity not found")
+            raise FilingError("filing.refused.entity_not_found")
     if framework == "esrs_pack":
         # an exempt subsidiary files no sustainability statement: it is included in its parent's consolidated report
         # (Directive 2013/34/EU Art. 19a(9) / 29a(8)) — nothing to confirm or freeze for it (E139)
         from services.governance.csrd_roles import live_role
         role = live_role(session, org_id, entity_id, reporting_period_end(session, org_id))
         if role and role["role"] == "exempt_subsidiary":
-            raise FilingError(f"an exempt subsidiary files no ESRS statement — it is included in {role['parent_name']}'s "
-                              f"consolidated report ({role['parent_report_ref']}); Directive 2013/34/EU Art. 19a(9) / 29a(8)")
+            raise FilingError("filing.refused.exempt_subsidiary", parent=role["parent_name"],
+                              report_ref=role["parent_report_ref"])
 
 
 def _previous_period_book(session: Session, org_id: str, framework: str, entity_id: str | None,
@@ -1101,8 +1140,59 @@ def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, n
                                previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end),
                                fund_id=fund_id, disclosure_date=disclosure_date, period_end=period_end)
     except (TranslationError, RunCheckError, ViewError, StatementRefused) as e:
-        raise FilingError(str(e)) from e
+        raise _refusal(e) from e
     return snap, (translation.presentation if translation is not None else "EUR")
+
+
+def _refusal(e: Exception) -> FilingError:
+    """Another service's refusal to freeze, in the catalogue's words: its values, never its own text (the log keeps
+    that). A currency that cannot be presented, an engine output that failed its integrity checks, a statement that
+    cannot be built for the period, or (anything else) a freeze that did not happen."""
+    import logging
+
+    from services.governance.engine_runs import RunCheckError
+    from services.governance.report_snapshots import StatementRefused
+    from services.governance.translation import TranslationError
+    logging.getLogger(__name__).info("freeze refused: %s", e)
+    if isinstance(e, TranslationError) and getattr(e, "kind", None):
+        return FilingError(f"filing.refused.{e.kind}", currency=e.currency, date=e.date)
+    if isinstance(e, RunCheckError):
+        return FilingError("filing.refused.checks_failed",
+                           checks=", ".join(c["label"] for c in e.checks if c["status"] == "fail") or "—")
+    if isinstance(e, StatementRefused):
+        return FilingError("filing.refused.statement_unavailable", reason=sfdr_reason(str(e))["label"].lower())
+    return FilingError("filing.refused.cannot_freeze")
+
+
+def sfdr_missing(missing: list[str]) -> list[dict]:
+    """What a principal adverse impacts statement still lacks before it can be submitted (its filing_readiness
+    'missing' list), as catalogue messages: the reporting entity's identity, holdings on the quarter ends, the answers
+    the Regulation requires. The checklist (services.governance.filing_validation) groups them the same way."""
+    held = [m[len("holdings: "):] for m in missing if m.startswith("holdings: ")]
+    answers = [m for m in missing if m.startswith("Article ")]
+    identity = [m for m in missing if not m.startswith(("holdings: ", "Article "))]
+    out = []
+    if identity:
+        out.append(messages.render("filing.gap.sfdr_identity", items=", ".join(identity)))
+    if held:
+        out.append(messages.render("filing.gap.sfdr_holdings", items="; ".join(held)))
+    if answers:
+        out.append(messages.render("filing.gap.sfdr_answers", n=len(answers), items="; ".join(answers)))
+    return out
+
+
+def sfdr_reason(error: str) -> dict:
+    """Why a principal adverse impacts statement cannot be built for the period, as a catalogue message: the four
+    reasons ml.regulatory.sfdr_pai / sfdr_pai_period give, each by its own words; any other is the general one."""
+    import re
+    m = re.match(r"manager has no positions to report on(?: in (\d{4}))?$", error)
+    if m:
+        return messages.render("filing.gap.sfdr_no_positions", year=m.group(1) or "the period")
+    if error == "manager has no funds":
+        return messages.render("filing.gap.sfdr_no_funds")
+    if error.startswith("A principal adverse impacts statement covers 1 January to 31 December"):
+        return messages.render("filing.gap.sfdr_period")
+    return messages.render("filing.gap.sfdr_unavailable")
 
 
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
@@ -1121,7 +1211,7 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     preparer never actually looked at if the book changed in between."""
     _open_for_new(framework, org_type)
     if not confirm_token:
-        raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
+        raise FilingError("filing.refused.not_confirmed")
 
     # prepared for a specific obligation: the filing takes that obligation's scope, and its period must be the one
     # the organisation reports for (the single period source) — never silently a different period or entity
@@ -1137,19 +1227,19 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     _basis = get_settings(session, org_id)
     _summary = _summary_for(session, org_id, framework, _basis, entity_id, fund_id, period_end)
     if confirm_token != _confirm_token(org_id, framework, _basis, _summary, entity_id, fund_id):
-        raise FilingError("the data has changed since you last confirmed it (or the token is invalid, or was for "
-                          "another scope) — re-run the pre-filing check and confirm again before freezing")
+        raise FilingError("filing.refused.data_changed")
     existing = session.execute(text("""
         SELECT filing_id, status FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status NOT IN ('superseded', 'withdrawn')
               AND entity_id IS NOT DISTINCT FROM :ent AND fund_id IS NOT DISTINCT FROM CAST(:fund AS uuid)
     """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id, "fund": fund_id}).mappings().first()
     if existing:
-        raise FilingError(f"a live {framework} filing for {_period_label(period_end)} already exists "
-                          f"(status {existing['status']}); withdraw it if it is an unfiled draft, or restate it if filed.")
+        raise FilingError("filing.refused.already_live", report=FRAMEWORKS[framework]["label"],
+                          period=_period_label(period_end), state=_status_name(existing["status"]))
 
     if disclosure_date is not None and disclosure_date <= period_end:
-        raise FilingError(f"the disclosure date {disclosure_date} must be after the period it reports on ({period_end})")
+        raise FilingError("filing.refused.disclosure_before_period", date=disclosure_date.isoformat(),
+                          period_end=period_end.isoformat())
     snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end, view, figure_sources,
                         fund_id, disclosure_date)
     from services.governance.entities import filing_role_for
@@ -1184,10 +1274,9 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
         FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
     """), {"f": filing_id, "o": org_id}).mappings().first()
     if not r:
-        raise FilingError("filing not found")
+        raise FilingError("error.not_found")
     if r["status"] != "draft":
-        raise FilingError(f"only a draft filing can be refreshed — this one is '{r['status']}'. "
-                          f"Restate it as a new version to bring in updated data.")
+        raise FilingError("filing.refused.refresh_not_draft", state=_status_name(r["status"]))
     _not_retired(r["framework"])
 
     snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"],
@@ -1208,7 +1297,7 @@ def _load(session: Session, org_id: str, filing_id: str) -> dict:
         FROM regulatory_filing WHERE org_id = :o AND filing_id = :f
     """), {"o": org_id, "f": filing_id}).mappings().first()
     if not r:
-        raise FilingError("filing not found")
+        raise FilingError("error.not_found")
     return dict(r)
 
 
@@ -1218,8 +1307,8 @@ def _apply_transition(session: Session, org_id: str, filing_id: str, action: str
     allowed_from, to_status = _TRANSITIONS[action]
     cur = _load(session, org_id, filing_id)
     if cur["status"] not in allowed_from:
-        raise FilingError(f"cannot {action} a filing that is '{cur['status']}' "
-                          f"(needs one of {sorted(allowed_from)})")
+        raise FilingError("filing.refused.wrong_status", state=_status_name(cur["status"]),
+                          step=messages.name("filing.step", action))
     sets = {"status": to_status}
     if extra_sets:
         sets.update(extra_sets)
@@ -1235,12 +1324,13 @@ def submit_for_review(session: Session, org_id: str, filing_id: str, actor_user_
     Refuses if the filing has an open BLOCKING validation issue — a broken filing never reaches a reviewer."""
     cur = _load(session, org_id, filing_id)
     if cur["status"] not in ("draft", "returned"):
-        raise FilingError(f"cannot submit a filing that is '{cur['status']}' for review")
+        raise FilingError("filing.refused.wrong_status", state=_status_name(cur["status"]),
+                          step=messages.name("filing.step", "submit_for_review"))
     from services.governance.filing_validation import blocking_messages, validate_filing
     vr = validate_filing(session, org_id, filing_id)
     if not vr["passed"]:
-        raise FilingError("cannot submit for approval — resolve the blocking validation issue(s): "
-                          + "; ".join(blocking_messages(vr)))
+        blocking = blocking_messages(vr)
+        raise FilingError("filing.refused.blocking_checks", n=len(blocking), checks="; ".join(blocking))
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (:o, 'filing.approve', :ti, CAST(:p AS jsonb), :m)
@@ -1277,11 +1367,10 @@ def attest(session: Session, org_id: str, filing_id: str, actor_user_id: str,
     statement is signed in the format of Annex II point 6 ('Signed for and on behalf of: Date: Name and function:
     Signature:'), so its signer states their function."""
     if not attestor_name or not statement:
-        raise FilingError("attestation needs the accountable person's name and a certification statement")
+        raise FilingError("filing.refused.attest_needs_statement")
     function = (function or "").strip() or None
     if _load(session, org_id, filing_id)["framework"] == "eudr_dds" and not function:
-        raise FilingError("a due diligence statement is signed with the signer's name and function (Regulation (EU) "
-                          "2023/1115, Annex II point 6) — state your function")
+        raise FilingError("filing.refused.attest_needs_function")
     return _apply_transition(session, org_id, filing_id, "attest", actor_user_id,
                              detail={"attestor_name": attestor_name, "statement": statement,
                                      **({"function": function} if function else {})})
@@ -1312,7 +1401,7 @@ def accept(session: Session, org_id: str, filing_id: str, actor_user_id: str,
                          {"f": filing_id, "o": org_id}).scalar()
     how = (FRAMEWORKS.get(fw) or {}).get("accepted_by")
     if how:
-        raise FilingError(f"{FRAMEWORKS[fw]['label']} is accepted {how}")
+        raise FilingError("filing.refused.accepted_elsewhere", report=FRAMEWORKS[fw]["label"], how=how)
     return _apply_transition(session, org_id, filing_id, "accept", actor_user_id,
                              detail={"ack_ref": ack_ref})
 
@@ -1322,10 +1411,10 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     draft, and supersede the old one pointing at the new. Both are preserved — the correction is a new
     version that runs the full lifecycle again, never an edit of the filed record."""
     if not reason:
-        raise FilingError("a restatement needs a reason")
+        raise FilingError("filing.refused.restate_needs_reason")
     cur = _load(session, org_id, filing_id)
     if cur["status"] not in ("submitted", "accepted"):
-        raise FilingError(f"only a filed (submitted/accepted) filing can be restated — this is '{cur['status']}'")
+        raise FilingError("filing.refused.restate_not_filed", state=_status_name(cur["status"]))
     _not_retired(cur["framework"])
 
     # period_end of the filing being restated (restatement keeps the same reference period)
@@ -1371,11 +1460,11 @@ def withdraw_filing(session: Session, org_id: str, filing_id: str, actor_user_id
     cell-override proposal on it is closed with it — override and approval request both 'withdrawn'."""
     reason = (reason or "").strip()
     if len(reason) < WITHDRAW_REASON_MIN:
-        raise FilingError(f"a withdrawal needs a reason of at least {WITHDRAW_REASON_MIN} characters")
+        raise FilingError("filing.refused.withdraw_reason", min=WITHDRAW_REASON_MIN)
     status = _load(session, org_id, filing_id)["status"]
     if status not in _TRANSITIONS["withdraw"][0]:
-        raise FilingError(f"only a draft or returned filing can be withdrawn — this one is '{status}'"
-                          + (". Restate it to correct a filed report." if status in ("submitted", "accepted") else "."))
+        raise FilingError("filing.refused.withdraw_filed" if status in ("submitted", "accepted")
+                          else "filing.refused.withdraw_not_draft", state=_status_name(status))
     pending = session.execute(text("""
         UPDATE filing_cell_override SET status = 'withdrawn', decided_by = :u, decided_at = now()
         WHERE org_id = :o AND filing_id = :f AND status = 'pending'

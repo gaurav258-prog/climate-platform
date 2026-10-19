@@ -18,7 +18,10 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core.errors import UserError
+
 SECTIONS = ["appetite", "breaches", "filings", "controls", "decisions", "supervision", "regulatory_change", "models", "method"]
+DUE_WINDOW_DAYS = 120          # the pack lists the obligations due within this many days after the period's end
 STATEMENTS = {"reviewed": "I have reviewed this pack.",
               "reviewed_with_reservations": "I have reviewed this pack and record reservations (see comment)."}
 
@@ -105,7 +108,7 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
     due = session.execute(text("""SELECT framework, period_label, due_date, source FROM regulatory_obligation
                                   WHERE org_id = CAST(:o AS uuid) AND due_date BETWEEN :t AND :t2
                                     AND framework <> ALL(CAST(:retired AS text[])) ORDER BY due_date"""),   # owed no more
-                          {"o": org_id, "t": period_to, "t2": period_to + timedelta(days=120),
+                          {"o": org_id, "t": period_to, "t2": period_to + timedelta(days=DUE_WINDOW_DAYS),
                            "retired": retired_frameworks()}).mappings().all()
     c["filings"] = {"requirements": [{"framework": r["framework"], "label": r.get("official_name") or r.get("label"), "regulator": r.get("regulator"), "due_label": r.get("due_label"),
                                       "last_filed": _last(r.get("last_filed")), "n_filings": r.get("n_filings", 0)} for r in reqs],
@@ -228,7 +231,7 @@ def render_pdf(c: dict, attestations: list[dict]) -> bytes:
     if b["episodes"]:
         x += [table([["Framework", "Indicator", "Severity", "Onset", "Peak", "Threshold", "Cleared"]] + [[e["framework"], e["label"], e["severity"], (e["onset_at"] or "")[:10], e["peak_value"], e["threshold"], (e["cleared_at"] or "open")[:10]] for e in b["episodes"]])]
     f = c["filings"]
-    x += [Paragraph("3. Regulatory filings and obligations", H2), Paragraph(f"{len(f['requirements'])} mandatory frameworks, {f['never_filed']} never filed; {len(f['filed_in_period'])} filing movements in the period; {len(f['due_next'])} obligations due in the next 120 days.", P)]
+    x += [Paragraph("3. Regulatory filings and obligations", H2), Paragraph(f"{len(f['requirements'])} mandatory frameworks, {f['never_filed']} never filed; {len(f['filed_in_period'])} filing movements in the period; {len(f['due_next'])} obligations due in the next {DUE_WINDOW_DAYS} days.", P)]
     if f["requirements"]:
         x += [table([["Framework", "Authority", "Due", "Last filed", "Filings"]] + [[r["label"], r["regulator"], r["due_label"], (r["last_filed"] or "never")[:10], r["n_filings"]] for r in f["requirements"]])]
     if f["due_next"]:
@@ -283,7 +286,7 @@ def create(session, *, org: dict, actor: dict, period_from: Optional[date], peri
     period_to = period_to or date.today()
     period_from = period_from or (period_to - timedelta(days=90))
     if period_from >= period_to:
-        raise ValueError("The period must start before it ends.")
+        raise UserError("filing.board.period_order")
     content = assemble(session, org=org, actor=actor, period_from=period_from, period_to=period_to)
     digest = sha256(content)
     content = {**content, "pack": {**content["pack"], "sha256": digest}}
@@ -301,6 +304,7 @@ def create(session, *, org: dict, actor: dict, period_from: Optional[date], peri
 def summary(c: dict) -> dict:
     return {"red": c["appetite"]["counts"]["red"], "amber": c["appetite"]["counts"]["amber"], "indicators": c["appetite"]["counts"]["indicators"],
             "breaches_open": c["breaches"]["n_open"], "never_filed": c["filings"]["never_filed"], "due_next": len(c["filings"]["due_next"]),
+            "due_window_days": DUE_WINDOW_DAYS,
             "exceptions_open": c["controls"]["exceptions"]["open"], "readiness": f"{c['controls']['readiness']['passed']}/{c['controls']['readiness']['total']}",
             "decisions": c["decisions"]["n"], "requests_open": c["supervision"]["requests"]["open"], "reg_changes": c["regulatory_change"]["n"], "models_active": len(c["models"]["active"])}
 
@@ -334,16 +338,16 @@ def get_pack(session, org_id: str, pack_id: str) -> Optional[dict]:
 
 def attest(session, *, org_id: str, pack_id: str, actor: dict, capacity: str, statement: str, comment: Optional[str], ip: Optional[str]) -> dict:
     if statement not in STATEMENTS:
-        raise ValueError(f"Statement must be one of: {', '.join(STATEMENTS)}.")
+        raise UserError("filing.board.statement_unknown")
     if not (capacity or "").strip():
-        raise ValueError("State the capacity in which you attest (for example 'Chair of the Risk Committee').")
+        raise UserError("filing.board.capacity")
     if statement == "reviewed_with_reservations" and not (comment or "").strip():
-        raise ValueError("Reservations need a comment.")
+        raise UserError("filing.board.reservations_comment")
     p = get_pack(session, org_id, pack_id)
     if not p:
-        raise ValueError("No such board pack.")
+        raise UserError("error.not_found")
     if any(a["email"] == actor.get("email") for a in p["attestations"]):
-        raise ValueError("You have already attested this version.")
+        raise UserError("filing.board.already_attested")
     aid = session.execute(text("""INSERT INTO board_pack_attestation (pack_id, user_id, capacity, statement, comment, sha256, step_up, ip)
                                   VALUES (CAST(:p AS uuid), CAST(:u AS uuid), :c, :s, :m, :h, TRUE, :ip) RETURNING attestation_id::text"""),
                           {"p": pack_id, "u": actor["id"], "c": capacity.strip(), "s": statement, "m": (comment or "").strip() or None, "h": p["sha256"], "ip": ip}).scalar()

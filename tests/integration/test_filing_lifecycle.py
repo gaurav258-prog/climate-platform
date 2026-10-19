@@ -102,7 +102,7 @@ def test_preflight_reports_coverage_headline_and_gaps():
         # the Taxonomy report reads no score: its coverage is the exposures stating a gross carrying amount (E95)
         assert pf["coverage"]["label"] == "exposures with a gross carrying amount" and pf["value_at_risk_eur"] is None
         if pf["coverage"]["done"] < pf["coverage"]["total"]:
-            assert any("no gross carrying amount" in g for g in pf["gaps"])
+            assert any(g["code"] == "filing.gap.no_gross" and g["label"] for g in pf["gaps"])
         # preflight must not have created a filing
         n = s.execute(text("SELECT count(*) FROM regulatory_filing WHERE org_id = :o AND period_end = '2099-12-31'"),
                       {"o": BANK_ORG}).scalar()
@@ -123,8 +123,9 @@ def test_generate_filing_rejects_missing_confirm_token():
     so any truthy value would do. A filing must not freeze without a real, freshly-verified token."""
     with get_session() as s:
         maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
-        with pytest.raises(F.FilingError, match="must be confirmed"):
+        with pytest.raises(F.FilingError, match="only after its data has been confirmed") as exc:
             F.generate_filing(s, EMPTY_BANK_ORG, "bank", "bank_tcfd", maker, confirm_token=None)
+        assert exc.value.code == "filing.refused.not_confirmed"
         s.rollback()
 
 
@@ -134,9 +135,10 @@ def test_generate_filing_rejects_a_stale_or_invalid_confirm_token():
     from a since-changed state — must be refused, not just checked for presence."""
     with get_session() as s:
         maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
-        with pytest.raises(F.FilingError, match="changed since you last confirmed"):
+        with pytest.raises(F.FilingError, match="changed after you confirmed") as exc:
             F.generate_filing(s, EMPTY_BANK_ORG, "bank", "bank_tcfd", maker,
                               confirm_token="0" * 32)
+        assert exc.value.code == "filing.refused.data_changed"
         s.rollback()
 
 

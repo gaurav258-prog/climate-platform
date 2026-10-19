@@ -32,7 +32,7 @@ def _content():
 
 def test_summary_counts_what_the_board_asks_first():
     s = summary(_content())
-    assert s == {"red": 0, "amber": 1, "indicators": 2, "breaches_open": 1, "never_filed": 0, "due_next": 1, "exceptions_open": 0, "readiness": "2/3",
+    assert s == {"red": 0, "amber": 1, "indicators": 2, "breaches_open": 1, "never_filed": 0, "due_next": 1, "due_window_days": 120, "exceptions_open": 0, "readiness": "2/3",
                  "decisions": 0, "requests_open": 0, "reg_changes": 0, "models_active": 1}
 
 

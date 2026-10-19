@@ -1,19 +1,17 @@
-import { Eyebrow } from '../components/ui'
+import { PageHeader } from '../components/ui'
+import { HEADING } from '../components/Details'
 import FilingCockpit from '../components/FilingCockpit'
 import ReportTabs from '../components/ReportTabs'
 
-// The filing cockpit for every sector — lifecycle, register, obligations calendar, validation, 4-eyes, attestation and
-// snapshot exports. Which reports appear comes from the organisation's own obligations, never from this page.
+// The filing cockpit for every sector — lifecycle, register, obligations, checks, four eyes, attestation and the
+// frozen report's downloads. Which reports appear comes from the organisation's own obligations, never from this page.
 
 export default function Filings() {
   return (
     <div className="fadeup space-y-6">
       <ReportTabs />
-      <div>
-        <Eyebrow>Compliance · filings</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Filings</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Prepare, review, attest and file your regulatory reports — every number frozen, reviewed by a second person, attested and exported.</p>
-      </div>
+      <PageHeader eyebrow="Compliance · filings" title="Filings" lead="Prepare, review, attest and file your regulatory reports."
+        about={[{ heading: HEADING.read, body: 'Every figure is frozen with the filing, reviewed by a second person, attested by the accountable person and exported from the frozen report.' }]} />
       <FilingCockpit />
     </div>
   )

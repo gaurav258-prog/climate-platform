@@ -60,7 +60,7 @@ def test_a_new_filing_carries_only_the_taxonomy_templates(api):
     assert not any(w in text_ for w in _NOT_TAXONOMY)
 
     r = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)
-    assert r.status_code == 409 and "not an available format" in r.text
+    assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.export_format"
     r = api.get(f"/v1/filings/{fid}/export?format=xlsx", headers=maker)
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))

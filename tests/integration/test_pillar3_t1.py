@@ -177,7 +177,7 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     assert fr[ids["e1"]]["counterparty_total_liabilities_eur"] == fr[ids["e2"]]["counterparty_total_liabilities_eur"] == L[CP_A]
     f = _findings(api, h, fid)
     assert not f["t1_counterparty_identified"]["passed"]                      # e4: emissions, no counterparty id
-    assert not f["t1_scope3_basis"]["passed"] and "not stated: how sector-average intensity is used" in f["t1_scope3_basis"]["message"]
+    assert not f["t1_scope3_basis"]["passed"] and "how the sector-average intensity is used is not stated" in f["t1_scope3_basis"]["message"]
     assert f["t1_counterparty_figure_agreed"]["passed"] and f["t1_total_liabilities_stated"]["passed"]
 
     # ── 3 a conflict the migration left (two exposures stated different figures) blocks until the one figure is stated ──
@@ -249,7 +249,10 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     assert cps[CP_C]["revenue_eur"] == rev_c and cps[CP_C]["revenue_period_end"] == "2025-09-30"
     _switch(api, h, checker, **{T1.S3_BASIS: "intensity_x_revenue"})
     f = _findings(api, h, _file(api, h))
-    assert not f["t1_scope3_basis"]["passed"] and T1.INTENSITY_REVENUE in f["t1_scope3_basis"]["message"]   # never the other one
+    from services.money import params  # the method choice by its name, never the other one
+    short = {k: v["short"] for k, v in params.parameters().items()}
+    assert not f["t1_scope3_basis"]["passed"] and short[T1.INTENSITY_REVENUE] in f["t1_scope3_basis"]["message"]
+    assert short[T1.INTENSITY] not in f["t1_scope3_basis"]["message"]
     r = api.post("/v1/provided", headers=h, json={**post, "datapoint_key": T1.INTENSITY_REVENUE, "value_num": intensity_rev,
                                                     "provider_name": "Source R revenue intensities", "data_vintage": "2024-12-31"})
     assert r.status_code == 201, r.text

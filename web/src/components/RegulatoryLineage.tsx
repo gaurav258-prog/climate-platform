@@ -1,36 +1,53 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, BookOpen, FileCheck2, Layers, ScrollText } from 'lucide-react'
-import { api, apiMessage } from '../lib/api'
+import { ArrowRight, BookOpen, FileCheck2, Layers, ScrollText, CheckCircle2, AlertTriangle, CircleHelp } from 'lucide-react'
+import { api, apiDetail, apiMessage } from '../lib/api'
+import { frameworkLabel } from '../lib/hazards'
 import { Card } from './ui'
+import { HEADING, InfoButton, MessageLine, type DetailSection } from './Details'
+import { StatusChip } from './StatusChip'
+import { Dialog } from './Dialog'
+import { STATUS_TONE, fmtDate } from './filing/words'
 
-// The regulatory lineage of a filing, read from what it froze: the act and its quoted legal basis (and whether the
-// official text is held and the quote found in it) → the specification version frozen with the filing (its file hash,
-// whether it changed since, its four-eyes sign-off) → each template the filing prints and how every row, column or item
-// is filled → the frozen record (its hash, the interpretations stated, the readings the specification declares).
-// The data-side trace (a figure → its exposures → the golden source → the feeds) is the Lineage tab.
+// From the law to a filing, read from what the filing froze: the act and its quoted legal basis (is the official text
+// held, is the quote found in it word for word) → the specification frozen with the filing (unchanged since? approved by
+// two people?) → each template the filing prints and how its rows, columns or items are filled → the frozen record.
+// The data-side trace (a figure → its exposures → the sources) is the next card.
 
-interface Tpl { id: string; code: string | null; title: string; ref: string; structure: string
-  rows?: { n: number; by_source: Record<string, number> }; columns?: { n: number; by_source: Record<string, number> }; items?: { n: number; by_source: Record<string, number> } }
+interface Axis { n: number; by_source: Record<string, number> }
+interface Tpl { id: string; name: string; structure: string; rows?: Axis; columns?: Axis; items?: Axis }
 interface Fam {
   family: string; version: string | null; note?: string; frozen_before_specs?: boolean
   act?: { celex: string | null; title: string; status: string; article: string | null; templates_in: string | null; quote: string | null; text_held: boolean; quote_found_in: string | null }
-  spec?: { sha256_frozen: string | null; sha256_now: string; changed_since: boolean | null; signoff_at_freeze: { approved?: boolean; one_person?: boolean; needs?: string[] }
-    signoff_of_frozen_file: { approved: boolean; one_person: boolean; signed: { role: string; by: string; signed_at: string; sole_reviewer: boolean }[] } | null }
+  spec?: { changed_since: boolean | null; applies?: { from?: string | null; until?: string | null } | null
+    signoff_of_frozen_file: { approved: boolean; one_person: boolean; signed: { role: string; by: string; signed_at: string }[] } | null }
   templates?: Tpl[]; interpretations?: { subject: string; reading: string; basis: string }[]
-  template_detail?: { id: string; rows: { axis: string; id: string; label: string; source: string; kind?: string }[] }
+  template_detail?: { id: string; rows: { axis: string; id: string; label: string; source: string }[] }
 }
 interface Data { filing: { framework: string; period_label: string; status: string; payload_sha256: string | null; hash_verified: boolean | null }
-  families: Fam[]; elections: { key: string; label: string; value: unknown; stated: boolean }[] }
+  families: Fam[]; elections: { key: string; stated: boolean }[] }
 
-const SRC: Record<string, string> = { computed: 'var(--color-sky)', input: 'var(--color-viz,#a78bfa)', 'n/a': 'var(--color-faint)', unbound: 'var(--color-bad)' }
-const ok = (b: boolean | null | undefined, yes: string, no: string, unknown = 'not known') =>
-  <span style={{ color: b === true ? 'var(--color-good)' : b === false ? 'var(--color-warn)' : 'var(--color-faint)' }}>{b === true ? yes : b === false ? no : unknown}</span>
+// how a template's cell is filled (services/regspec bindings: the kind before ':')
+const FILL: Record<string, { label: string; color: string }> = {
+  computed: { label: 'Computed', color: 'var(--color-sky)' }, input: { label: 'You provide', color: 'var(--color-viz, #a78bfa)' },
+  'n/a': { label: 'Not applicable', color: 'var(--color-line-2)' }, unbound: { label: 'Not yet bound', color: 'var(--color-bad)' },
+}
+const ACT_STATUS: Record<string, string> = { adopted: 'Adopted', proposed: 'Proposed', draft: 'Draft', repealed: 'Repealed' }
+const ROLE: Record<string, string> = { regulatory: 'Regulatory review', engineering: 'Engineering review' }
+const AXIS: Record<string, string> = { rows: 'Row', columns: 'Column', items: 'Item' }
+const kind = (s: string) => s.split(':')[0]
+// the readings the specification declares where the regulation is silent, each with its basis (for the pop-up)
+const readings = (f: Fam) => (f.interpretations ?? []).map(i => `${i.subject}: ${i.reading} (${i.basis})`)
 
-function Col({ icon: Icon, title, children }: { icon: typeof BookOpen; title: string; children: React.ReactNode }) {
+// a yes / no / not known reading, as a chip
+const Check = ({ ok, yes, no, unknown = 'Not known' }: { ok: boolean | null | undefined; yes: string; no: string; unknown?: string }) =>
+  <StatusChip tone={ok === true ? 'good' : ok === false ? 'warn' : 'neutral'} label={ok === true ? yes : ok === false ? no : unknown} />
+
+function Step({ icon: Icon, title, children, about }: { icon: typeof BookOpen; title: string; children: React.ReactNode; about?: DetailSection[] }) {
   return (
-    <div className="min-w-0 space-y-2">
-      <div className="flex items-center gap-1.5 mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]"><Icon size={12} /> {title}</div>
+    <div className="min-w-0 space-y-2 rounded-xl border border-[var(--color-line)] p-3">
+      <div className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-mute)]"><Icon size={13} className="text-[var(--color-blue)]" /> {title}
+        {about && about.length > 0 && <InfoButton compact details={{ title, sections: about }} />}</div>
       {children}
     </div>
   )
@@ -41,78 +58,101 @@ export default function RegulatoryLineage({ filingId }: { filingId: string }) {
   const q = useQuery({ queryKey: ['reg-lineage', filingId, tpl], queryFn: () =>
     api.get<Data>(`/v1/filings/${filingId}/regulatory-lineage${tpl ? `?template=${tpl}` : ''}`) })
   if (q.isLoading) return <Card className="p-4 text-[12.5px] text-[var(--color-faint)]">Reading the filing's frozen record…</Card>
-  if (!q.data) return <Card className="p-4 text-[12.5px] text-[var(--color-mute)]">{apiMessage(q.error, 'The regulatory lineage is not available.')}</Card>
+  if (!q.data) return <Card className="p-4"><MessageLine m={{ label: apiMessage(q.error, 'Not available'), detail: apiDetail(q.error) }} className="text-[12.5px] text-[var(--color-mute)]" /></Card>
   const d = q.data
+  const stated = d.elections.filter(e => e.stated).length
   return (
     <div className="space-y-3">
       {d.families.length === 0 && <Card className="p-4 text-[12.5px] text-[var(--color-mute)]">This filing froze no specification.</Card>}
       {d.families.map(f => (
         <Card key={f.family} className="p-4 space-y-3">
-          {f.version == null ? <div className="text-[12.5px] text-[var(--color-mute)]">{f.family}: {f.note}</div> : <>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1.4fr_auto_1fr] items-start text-[12px]">
-              <Col icon={ScrollText} title="Law">
-                <div className="font-medium">{f.act?.title}</div>
-                <div className="mono text-[10.5px] text-[var(--color-faint)]">CELEX {f.act?.celex ?? '—'} · {f.act?.status}</div>
-                {f.act?.article && <div className="text-[var(--color-mute)]">{f.act.article}</div>}
-                {f.act?.quote && <blockquote className="text-[11px] italic text-[var(--color-faint)] border-l border-[var(--color-line-2)] pl-2 line-clamp-4">{f.act.quote}</blockquote>}
-                <div className="text-[11px]">Official text {ok(f.act?.text_held, 'held', 'not held')} · quote {ok(f.act?.quote ? !!f.act?.quote_found_in : null, `found word for word${f.act?.quote_found_in ? ` (${f.act.quote_found_in})` : ''}`, 'not found')}</div>
-              </Col>
-              <ArrowRight size={14} className="hidden lg:block mt-6 text-[var(--color-faint)]" />
-              <Col icon={BookOpen} title="Specification">
-                <div className="font-medium mono">{f.family} · {f.version}</div>
-                {f.frozen_before_specs
-                  ? <div className="text-[11px] text-[var(--color-faint)]">Frozen before specifications were stamped on filings — the version in use then.</div>
-                  : <>
-                    <div className="mono text-[10.5px] text-[var(--color-faint)]">file {f.spec?.sha256_frozen?.slice(0, 12)}…</div>
-                    <div className="text-[11px]">File {ok(f.spec?.changed_since === false ? true : f.spec?.changed_since === true ? false : null, 'unchanged since', 'changed since this filing')}</div>
-                    <div className="text-[11px]">Sign-off of this file {ok(f.spec?.signoff_of_frozen_file?.approved, f.spec?.signoff_of_frozen_file?.one_person ? 'approved (one person, both roles)' : 'approved, four eyes', 'not approved')}</div>
-                    {(f.spec?.signoff_of_frozen_file?.signed ?? []).map(sg => <div key={sg.role + sg.signed_at} className="mono text-[10px] text-[var(--color-faint)]">{sg.role} · {sg.by} · {sg.signed_at.slice(0, 10)}</div>)}
-                  </>}
-              </Col>
-              <ArrowRight size={14} className="hidden lg:block mt-6 text-[var(--color-faint)]" />
-              <Col icon={Layers} title="Templates printed">
-                <div className="space-y-1">{(f.templates ?? []).map(t => {
-                  const axes = (['rows', 'columns', 'items'] as const).filter(a => t[a])
-                  return (
-                    <button key={t.id} type="button" onClick={() => setTpl(tpl === t.id ? null : t.id)} aria-pressed={tpl === t.id}
-                      className={`w-full text-left rounded-md border px-2 py-1 ${tpl === t.id ? 'border-[var(--color-sky)]' : 'border-[var(--color-line)] hover:border-[var(--color-line-2)]'}`}>
-                      <div className="truncate">{t.code ?? t.id} · <span className="text-[var(--color-mute)]">{t.title}</span></div>
-                      <div className="flex flex-wrap gap-x-3 mono text-[10px]">{axes.map(a => (
-                        <span key={a} className="text-[var(--color-faint)]">{a} {t[a]!.n}: {Object.entries(t[a]!.by_source).map(([k, n]) => <span key={k} style={{ color: SRC[k] }}> {n} {k}</span>)}</span>))}</div>
-                    </button>)
-                })}</div>
-              </Col>
-              <ArrowRight size={14} className="hidden lg:block mt-6 text-[var(--color-faint)]" />
-              <Col icon={FileCheck2} title="Filing">
-                <div className="font-medium">{d.filing.framework} · {d.filing.period_label} · {d.filing.status}</div>
-                <div className="text-[11px]">Frozen record {ok(d.filing.hash_verified, 'hash verifies', 'hash does not verify')}</div>
-                <div className="mono text-[10px] text-[var(--color-faint)]">{d.filing.payload_sha256?.slice(0, 16)}…</div>
-                <div className="text-[11px] text-[var(--color-mute)]">{d.elections.filter(e => e.stated).length} of {d.elections.length} interpretation(s) stated by the organisation</div>
-                {(f.interpretations ?? []).length > 0 && <div className="text-[11px] text-[var(--color-mute)]">{f.interpretations!.length} reading(s) declared by the specification</div>}
-              </Col>
-            </div>
-            {f.template_detail && <TemplateDetail t={f.template_detail} />}
-            {(f.interpretations ?? []).length > 0 && (
-              <details className="text-[11.5px] text-[var(--color-mute)]"><summary className="cursor-pointer text-[var(--color-faint)]">Readings the specification declares</summary>
-                <ul className="mt-1 space-y-1.5">{f.interpretations!.map((i, n) => <li key={n}><span className="text-[var(--color-ink)]">{i.subject}:</span> {i.reading} <span className="text-[var(--color-faint)]">— {i.basis}</span></li>)}</ul></details>)}
-          </>}
+          {f.version == null
+            ? <div className="text-[12.5px] text-[var(--color-mute)] flex items-center gap-1.5">No specification was frozen for part of this report
+                {f.note && <InfoButton compact details={{ title: 'No specification frozen', sections: [{ heading: HEADING.shows, body: f.note }] }} />}</div>
+            : <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1.4fr_auto_1fr] items-stretch text-[12.5px]">
+                <Step icon={ScrollText} title="Law" about={[
+                  ...(f.act?.celex ? [{ heading: 'Official reference', body: `CELEX ${f.act.celex}` }] : []),
+                  ...(f.act?.article ? [{ heading: 'Legal basis', body: f.act.article }] : []),
+                  ...(f.act?.quote ? [{ heading: 'As quoted', body: <blockquote className="italic border-l border-[var(--color-line-2)] pl-2 m-0">{f.act.quote}</blockquote> }] : []),
+                  ...(f.act?.quote_found_in ? [{ heading: 'Found in', body: f.act.quote_found_in }] : [])]}>
+                  <div className="font-medium text-[var(--color-ink)]">{f.act?.title}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <StatusChip tone="neutral" label={ACT_STATUS[f.act?.status ?? ''] ?? 'Status not known'} />
+                    <Check ok={f.act?.text_held} yes="Official text held" no="Official text not held" />
+                    {f.act?.quote && <Check ok={!!f.act.quote_found_in} yes="Quote found word for word" no="Quote not found" />}
+                  </div>
+                </Step>
+                <ArrowRight size={14} className="hidden lg:block self-center text-[var(--color-faint)]" />
+                <Step icon={BookOpen} title="Specification" about={(f.spec?.signoff_of_frozen_file?.signed ?? []).length
+                  ? [{ heading: 'Signed off', body: <ul className="space-y-0.5">{f.spec!.signoff_of_frozen_file!.signed.map(sg => <li key={sg.role + sg.signed_at}>{`${ROLE[sg.role] ?? 'Review'} · ${sg.by} · ${fmtDate(sg.signed_at)}`}</li>)}</ul> }] : undefined}>
+                  {f.frozen_before_specs
+                    ? <div className="text-[12px] text-[var(--color-faint)]">Frozen before specifications were recorded with filings: the one in use then.</div>
+                    : <div className="flex flex-wrap gap-1.5">
+                        {f.spec?.applies?.from && <StatusChip tone="neutral" label={`In force from ${fmtDate(f.spec.applies.from)}`} />}
+                        <Check ok={f.spec?.changed_since === false ? true : f.spec?.changed_since === true ? false : null} yes="Unchanged since this filing" no="Changed since this filing" />
+                        <Check ok={f.spec?.signoff_of_frozen_file?.approved} yes={f.spec?.signoff_of_frozen_file?.one_person ? 'Approved by one person' : 'Approved by two people'} no="Not approved" />
+                      </div>}
+                </Step>
+                <ArrowRight size={14} className="hidden lg:block self-center text-[var(--color-faint)]" />
+                <Step icon={Layers} title="Templates printed" about={[{ heading: HEADING.read, body: 'Each bar shows how the template is filled: computed by the platform, provided by you, not applicable, or not yet bound to a figure. Select a template for each row, column or item.' }]}>
+                  <div className="space-y-1.5">{(f.templates ?? []).map(t => <TemplateBar key={t.id} t={t} onOpen={() => setTpl(t.id)} />)}</div>
+                </Step>
+                <ArrowRight size={14} className="hidden lg:block self-center text-[var(--color-faint)]" />
+                <Step icon={FileCheck2} title="This filing" about={(f.interpretations ?? []).length ? [{ heading: 'Readings the specification declares',
+                  body: <ul className="space-y-1.5">{readings(f).map((r, n) => <li key={n}>{r}</li>)}</ul> }] : undefined}>
+                  <div className="font-medium text-[var(--color-ink)]">{frameworkLabel(d.filing.framework)} · {d.filing.period_label}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <StatusChip value={d.filing.status} tone={STATUS_TONE[d.filing.status]} />
+                    <Check ok={d.filing.hash_verified} yes="Matches its fingerprint" no="Does not match its fingerprint" />
+                    {d.elections.length > 0 && <StatusChip tone={stated === d.elections.length ? 'good' : 'warn'} label={`${stated} of ${d.elections.length} interpretations stated`} />}
+                    {(f.interpretations ?? []).length > 0 && <StatusChip tone="neutral" label={`${f.interpretations!.length} declared readings`} />}
+                  </div>
+                </Step>
+              </div>}
+          {f.template_detail && tpl === f.template_detail.id && <TemplateDetail t={f.template_detail} title={(f.templates ?? []).find(x => x.id === tpl)?.name ?? 'Template'} onClose={() => setTpl(null)} />}
         </Card>))}
     </div>
   )
 }
 
-function TemplateDetail({ t }: { t: NonNullable<Fam['template_detail']> }) {
+// One template as a stacked bar of how its cells are filled.
+function TemplateBar({ t, onOpen }: { t: Tpl; onOpen: () => void }) {
+  const counts: Record<string, number> = {}
+  for (const a of ['rows', 'columns', 'items'] as const) for (const [k, n] of Object.entries(t[a]?.by_source ?? {})) counts[kind(k)] = (counts[kind(k)] ?? 0) + n
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
   return (
-    <div className="overflow-x-auto max-h-[360px] overflow-y-auto border-t border-[var(--color-line)] pt-2">
-      <table className="w-full text-[11.5px] min-w-[620px]">
-        <thead><tr className="text-left mono text-[10px] uppercase text-[var(--color-faint)]"><th className="pr-3">{t.id}</th><th className="pr-3">Printed</th><th>How it is filled</th></tr></thead>
-        <tbody>{t.rows.map(r => (
-          <tr key={r.axis + r.id} className="border-t border-[var(--color-line-2)] align-top">
-            <td className="py-1 pr-3 mono whitespace-nowrap">{r.axis.slice(0, -1)} {r.id}</td>
-            <td className="py-1 pr-3 text-[var(--color-mute)]">{r.label.split(' > ').slice(-1)[0]}</td>
-            <td className="py-1 mono" style={{ color: SRC[r.source.split(':')[0]] }}>{r.source}</td>
-          </tr>))}</tbody>
-      </table>
-    </div>
+    <button type="button" onClick={onOpen} className="w-full text-left rounded-md border border-[var(--color-line)] hover:border-[var(--color-sky)] px-2 py-1.5 transition">
+      <div className="truncate text-[12px] text-[var(--color-ink)]">{t.name}</div>
+      <div className="mt-1 flex h-1.5 rounded-full overflow-hidden bg-[var(--color-line)]" role="img"
+        aria-label={Object.entries(counts).map(([k, n]) => `${n} ${(FILL[k]?.label ?? 'other').toLowerCase()}`).join(', ')}>
+        {Object.entries(counts).map(([k, n]) => <div key={k} title={`${n} ${FILL[k]?.label ?? 'Other'}`} style={{ width: `${(100 * n) / Math.max(1, total)}%`, background: FILL[k]?.color ?? 'var(--color-faint)' }} />)}
+      </div>
+    </button>
+  )
+}
+
+// Each row, column or item of one template, as printed, with how it is filled.
+function TemplateDetail({ t, title, onClose }: { t: NonNullable<Fam['template_detail']>; title: string; onClose: () => void }) {
+  const Icon = (k: string) => k === 'computed' || k === 'input' ? CheckCircle2 : k === 'unbound' ? AlertTriangle : CircleHelp
+  return (
+    <Dialog title={title} onClose={onClose} className="max-w-3xl">
+      <div className="flex flex-wrap gap-3 mb-2 text-[11.5px] text-[var(--color-mute)]">
+        {Object.entries(FILL).map(([k, v]) => <span key={k} className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: v.color }} />{v.label}</span>)}
+      </div>
+      <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+        <table className="w-full text-[12px] min-w-[520px]">
+          <thead><tr className="text-left text-[11px] text-[var(--color-faint)]"><th className="pr-3 font-medium">Where</th><th className="pr-3 font-medium">Printed</th><th className="font-medium">How it is filled</th></tr></thead>
+          <tbody>{t.rows.map(r => {
+            const k = kind(r.source), I = Icon(k)
+            return (
+              <tr key={r.axis + r.id} className="border-t border-[var(--color-line-2)] align-top">
+                <td className="py-1 pr-3 whitespace-nowrap text-[var(--color-mute)]">{AXIS[r.axis] ?? 'Item'} {r.id}</td>
+                <td className="py-1 pr-3 text-[var(--color-ink)]">{r.label.split(' > ').slice(-1)[0]}</td>
+                <td className="py-1"><span className="inline-flex items-center gap-1" style={{ color: FILL[k]?.color ?? 'var(--color-faint)' }}><I size={12} />{FILL[k]?.label ?? 'Other'}</span></td>
+              </tr>)
+          })}</tbody>
+        </table>
+      </div>
+    </Dialog>
   )
 }

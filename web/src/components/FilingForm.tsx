@@ -1,429 +1,132 @@
-import { useState, Fragment, createContext, useContext } from 'react'
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, FileSpreadsheet, Pencil, Check, X, Clock } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { ExternalLink, FileSpreadsheet, ClipboardList, Scale } from 'lucide-react'
+import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { DocumentItems, type DocItem } from './SfdrDocumentItems'
-import { Card } from './ui'
-import { hazardLabel } from '../lib/hazards'
+import { useLabels, type Labels } from '../lib/labels'
 import { toast } from '../lib/toast'
-import { money } from '../lib/money'
+import { Card, SectionHead } from './ui'
+import { HEADING, InfoButton } from './Details'
+import { StatusChip } from './StatusChip'
 import FilingFx, { type Fx } from './FilingFx'
 import FilingConsolidation, { type Consolidation } from './FilingConsolidation'
+import { AnnexView, CurrencyCtx, DatapointList, FormName, type Annex, type EditProps, type Group, type Supplied } from './filing/formParts'
+import { EARLIER, p3Group, type P3Group } from './filing/words'
 
-// The final form — the frozen disclosure, shown two ways over ONE set of figures:
-//   • Official form — the regulator's actual Annex / template layout (SFDR RTS Annex I Table 1, EU-Taxonomy
-//     Art.8 GAR summary, ESRS E1 …) as it will be submitted.
-//   • Datapoints — the flat labelled list, each cell showing its source (book / calc).
-// A preparer can propose a MANUAL override of a numeric cell (with a reason) from either view; it needs
-// 4-eyes approval before it lands, and an approved cell is visually distinct with its full provenance. The
-// frozen snapshot itself is never mutated — overrides are a separate audited layer merged at read time.
+// The final form — the frozen disclosure, two ways over one set of figures: the regulator's own template layout as it
+// will be submitted, and the flat list of figures, each with where it comes from. A preparer can propose a manual change
+// of a figure (with its reason); a second person approves it before it lands, and the frozen report itself never
+// changes — the change is a separate, audited layer read over it.
 
-interface Override { reason: string; by: string; at: string; approved_by: string; approved_at: string }
-interface Pending { value: number; reason: string; by: string }
-interface Dp {
-  key: string; label: string; value: number | string | null; fmt: string; unit: string | null; source: string; note: string | null
-  manual?: boolean; original_value?: number | null; override?: Override; pending?: Pending
-  // intake phase 5: a figure both you and we produce — which one this filing reports, and the other
-  figure?: { reported: 'client' | 'tellumen'; client_value: number | string | null; tellumen_value: number | null; delta_pct: number | null; client_provider: string | null }
-}
-interface Group { group: string; datapoints: Dp[] }
-interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; key?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null }; greyed?: boolean; frozen_value?: number | string | null }   // supply: a cell the institution enters ('<template>.<row>.<column>')
-interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
-interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string; kind?: 'document'; items?: DocItem[] }   // kind 'document': a template printed as a document (SFDR Annexes II–V)
-interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
-interface Form { framework: string; label: string; period_label: string; period_end: string | null; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; elections?: Election[] | null }
-interface Election { key: string; label: string; value: unknown; stated: boolean }
-
-// the currency the frozen filing presents in (fmt 'eur' = a money figure, whatever its currency)
-const CurrencyCtx = createContext('EUR')
-function fmt(v: number | string | null, f: string, ccy = 'EUR'): string {
-  if (v == null) return '—'
-  if (typeof v === 'string') return v
-  switch (f) {
-    case 'eur': return money(v, ccy)
-    case 'pct': return `${v}%`
-    case 'tco2e': return Math.round(v).toLocaleString('en-GB')
-    default: return Number.isInteger(v) ? v.toLocaleString('en-GB') : v.toLocaleString('en-GB', { maximumFractionDigits: 2 })
-  }
-}
-const dpLabel = (d: Dp) => d.key.startsWith('hazard.') ? hazardLabel(d.label) : d.label
-const EDITABLE_STATUS = ['draft', 'returned', 'in_review', 'approved']  // never edit a submitted/accepted/superseded filing
-
-// a supplied template-cell value for this filing's period: attested (lands in the filing on its next refresh) or pending 4-eyes
-interface Supplied { value: string; status: 'pending' | 'attested'; by?: string | null }
+interface Form { framework: string; period_end: string | null; status: string; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; elections?: Election[] | null }
+interface Election { key: string; label: string; value: unknown; value_label?: string | null; stated: boolean }
 interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null }
+const EDITABLE = ['draft', 'returned', 'in_review', 'approved']   // a submitted, accepted or superseded filing never changes
 
 export default function FilingForm({ filingId }: { filingId: string }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const labels = useLabels()
   const q = useQuery({ queryKey: ['filing-form', filingId], queryFn: () => api.get<Form>(`/v1/filings/${filingId}/form`) })
   // the values supplied for this filing's period (template cells the institution enters), from the one supplied-value store
-  const suppliedQ = useQuery({ queryKey: ['provided', q.data?.framework], queryFn: () => api.get<{ provided: ProvidedItem[] }>(`/v1/provided?framework=${q.data!.framework}`),
-    enabled: !!q.data?.framework })
-  const supplied: Record<string, Supplied> = {}
-  for (const p of suppliedQ.data?.provided ?? []) {
-    if (p.reporting_period_end !== q.data?.period_end || !['pending', 'attested'].includes(p.status)) continue
-    if ((p.reporting_entity_id ?? null) !== (q.data?.reporting_entity_id ?? null)) continue   // the filing's own entity's values
-    supplied[p.datapoint_key] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
-  }
-  const onSupplied = () => qc.invalidateQueries({ queryKey: ['provided', q.data?.framework] })
+  const suppliedQ = useQuery({ queryKey: ['provided', q.data?.framework], enabled: !!q.data?.framework,
+    queryFn: () => api.get<{ provided: ProvidedItem[] }>(`/v1/provided?framework=${q.data!.framework}`) })
   const [edit, setEdit] = useState<string | null>(null)
   const [view, setView] = useState<'official' | 'datapoints'>('official')
   const d = q.data
   if (!d || d.groups.length === 0) return null
-  const canEdit = (profile?.permissions ?? []).includes('approvals.create') && EDITABLE_STATUS.includes(d.status)
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['filing-form', filingId] }); qc.invalidateQueries({ queryKey: ['approvals'] }) }
-  const editProps = { filingId, canEdit, edit, setEdit, onDone: () => { setEdit(null); refresh() } }
+  const supplied: Record<string, Supplied> = {}
+  for (const p of suppliedQ.data?.provided ?? []) {
+    if (p.reporting_period_end !== d.period_end || !['pending', 'attested'].includes(p.status)) continue
+    if ((p.reporting_entity_id ?? null) !== (d.reporting_entity_id ?? null)) continue   // the filing's own entity's values
+    supplied[p.datapoint_key] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
+  }
+  const onSupplied = () => qc.invalidateQueries({ queryKey: ['provided', d.framework] })
+  const canEdit = (profile?.permissions ?? []).includes('approvals.create') && EDITABLE.includes(d.status)
+  const ep: EditProps = { filingId, canEdit, edit, setEdit, onDone: () => { setEdit(null); qc.invalidateQueries({ queryKey: ['filing-form', filingId] }); qc.invalidateQueries({ queryKey: ['approvals'] }) } }
   const hasAnnex = !!d.annex && d.annex.sections.length > 0
+  const common = { supplied, periodEnd: d.period_end, onSupplied, labels, ...ep }
 
   return (
     <CurrencyCtx.Provider value={d.currency ?? 'EUR'}>
-    <div>
-      {d.consolidation && <FilingConsolidation c={d.consolidation} />}
-      {d.elections && d.elections.length > 0 && <FilingElections e={d.elections} />}
-      {d.fx && <FilingFx fx={d.fx} />}
-      <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Final form · as it will be submitted
-          {d.n_manual > 0 && <span className="ml-2" style={{ color: 'var(--color-warn)' }}>· {d.n_manual} manual</span>}
-          {d.n_pending > 0 && <span className="ml-2" style={{ color: 'var(--color-sky)' }}>· {d.n_pending} pending 4-eyes</span>}
+      <div className="space-y-3">
+        {d.consolidation && <FilingConsolidation c={d.consolidation} />}
+        {d.elections && d.elections.length > 0 && <Elections e={d.elections} />}
+        {d.fx && <FilingFx fx={d.fx} />}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <SectionHead icon={ClipboardList}>Final form</SectionHead>
+            {d.n_manual > 0 && <StatusChip tone="warn" label={`${d.n_manual} changed by hand`} />}
+            {d.n_pending > 0 && <StatusChip tone="neutral" label={`${d.n_pending} awaiting approval`} />}
+            <InfoButton compact details={{ title: 'Final form', sections: [
+              { heading: HEADING.shows, body: 'The frozen report as it will be submitted: the official template, or the same figures as a list.' },
+              { heading: HEADING.read, body: 'Each figure says where it comes from: your book, calculated by the platform, or changed by hand. A change by hand needs a second person to approve it, and the original stays on record.' }] }} />
+          </div>
+          <div className="flex items-center gap-2">
+            {hasAnnex && (
+              <div className="flex gap-0.5 p-0.5 rounded-lg border border-[var(--color-line-2)]" role="tablist">
+                {(['official', 'datapoints'] as const).map(v => (
+                  <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}
+                    className={`px-2.5 py-0.5 rounded-md text-[12px] transition ${view === v ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>{v === 'official' ? 'Official form' : 'Figures'}</button>))}
+              </div>)}
+            {d.official_form_url && <a href={d.official_form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><FileSpreadsheet size={12} /> Official template <ExternalLink size={11} /></a>}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {hasAnnex && (
-            <div className="flex gap-0.5 p-0.5 rounded-lg border border-[var(--color-line-2)]">
-              {(['official', 'datapoints'] as const).map(v => (
-                <button key={v} onClick={() => setView(v)} className={`px-2 py-0.5 rounded-md mono text-[10px] uppercase tracking-wide transition ${view === v ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>{v === 'official' ? 'Official form' : 'Datapoints'}</button>
-              ))}
-            </div>
-          )}
-          {d.official_form_url && <a href={d.official_form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mono text-[10px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><FileSpreadsheet size={11} /> official form <ExternalLink size={10} /></a>}
-        </div>
+        {view !== 'official' || !hasAnnex ? <DatapointList groups={d.groups} labels={labels} {...ep} />
+          : d.framework === 'bank_p3esg' ? <P3FormTabs annex={d.annex!} entityId={d.reporting_entity_id ?? null} {...common} />
+          : <AnnexView annex={d.annex!} {...common} />}
       </div>
-
-      {view !== 'official'
-        ? <DatapointList groups={d.groups} {...editProps} />
-        : d.framework === 'bank_p3esg'
-          ? <P3FormTabs annex={d.annex!} supplied={supplied} periodEnd={d.period_end} entityId={d.reporting_entity_id ?? null} onSupplied={onSupplied} {...editProps} />
-          : hasAnnex
-            ? <AnnexView annex={d.annex!} supplied={supplied} periodEnd={d.period_end} onSupplied={onSupplied} {...editProps} />
-            : <DatapointList groups={d.groups} {...editProps} />}
-
-      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
-    </div>
     </CurrencyCtx.Provider>
   )
 }
 
-type EditProps = { filingId: string; canEdit: boolean; edit: string | null; setEdit: (k: string | null) => void; onDone: () => void }
-
-// ── the regulator's official Annex / template layout ──────────────────────────────────────────────────────
-const SRC_META: Record<string, { label: string; short: string; color: string }> = {
-  computed:   { label: 'Tellumen-computed',     short: 'Tellumen', color: 'var(--color-sky)' },
-  integrated: { label: 'Integrated (bank systems)', short: 'Integrated', color: 'var(--color-warn)' },
-  manual:     { label: 'Manual (you author)',   short: 'Manual', color: 'var(--color-viz, #a78bfa)' },
-}
-function SrcDot({ source }: { source?: string }) {
-  const m = source ? SRC_META[source] : undefined
-  if (!m) return null
-  return <span className="inline-block w-[6px] h-[6px] rounded-full align-middle" style={{ background: m.color }} title={m.label} />
-}
-function SrcLegend({ sources }: { sources: string[] }) {
-  const uniq = Array.from(new Set(sources.filter(Boolean)))
-  if (!uniq.length) return null
-  return (
-    <div className="px-4 py-1.5 flex flex-wrap gap-x-4 gap-y-1 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
-      {uniq.map(s => (
-        <span key={s} className="inline-flex items-center gap-1.5 mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">
-          <SrcDot source={s} />{SRC_META[s]?.label ?? s}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-// A template cell the institution enters itself (e.g. Template 10, Template 3 targets). The value is supplied for THIS
-// filing's reporting period and needs a second person to attest it; the filing shows the values attested when it
-// was prepared (frozen), and a newer attested value lands on the next refresh of the draft.
-function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }:
-  { cell: AnnexCell; supplied?: Supplied; periodEnd: string | null; canEdit: boolean; onSaved: () => void }) {
-  const frozen = cell.text ?? '—'
-  const [val, setVal] = useState('')
-  const [busy, setBusy] = useState(false)
-  const submit = async () => {
-    if (!val.trim() || !cell.supply || !periodEnd) return
-    setBusy(true)
-    const n = Number(val.replace(/,/g, ''))
-    try {
-      await api.post('/v1/provided', { framework: cell.supply.framework, datapoint_key: cell.supply.key, reporting_period_end: periodEnd, reporting_entity_id: cell.supply.reporting_entity_id ?? undefined,
-        ...(val.trim() !== '' && !Number.isNaN(n) ? { value_num: n } : { value_text: val.trim() }) })
-      toast.success('Sent for attestation by a second person.'); setVal(''); onSaved()
-    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit this value.') } finally { setBusy(false) }
-  }
-  // the value frozen in the filing (raw), not its display text: '5000000' and '€5.0m' are the same figure
-  const same = (a: string, b: unknown) => b != null && (a === String(b) || (a.trim() !== '' && !Number.isNaN(Number(a)) && Number(a) === Number(b)))
-  const note = supplied && !same(supplied.value, cell.frozen_value)
-    ? <span className="mono text-[8.5px] inline-flex items-center gap-0.5" style={{ color: supplied.status === 'pending' ? 'var(--color-warn)' : 'var(--color-viz,#a78bfa)' }}>
-        {supplied.status === 'pending' ? <><Clock size={8} />{supplied.value} awaiting attestation</> : <>{supplied.value} attested · refresh the draft</>}</span>
-    : null
-  return (
-    <div className="inline-flex flex-col items-end gap-1">
-      <span className="inline-flex items-center gap-1">{frozen !== '—' && <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />}{frozen}</span>
-      {note}
-      {canEdit && (
-        <div className="flex items-center gap-1">
-          <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit() }} disabled={busy}
-            placeholder="enter…" title="You supply this cell for the filing's reporting period; a second person attests it"
-            className="w-20 text-right mono tabular-nums text-[11px] bg-transparent border-0 border-b border-dashed border-[var(--color-line)] px-0.5 py-0 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] placeholder:text-[var(--color-faint)]" />
-          {val.trim() && <button onClick={submit} disabled={busy} className="text-[9px] mono px-1.5 py-0.5 rounded"
-            style={{ background: 'color-mix(in oklab, var(--color-sky) 16%, transparent)', color: 'var(--color-sky)' }}>send</button>}
-        </div>)}
-    </div>
-  )
-}
-
-// The 13 Pillar 3 forms grouped into 4 tabs by the EBA's own risk themes, so a preparer lands on the group they
-// own (qualitative author / risk team / taxonomy team) instead of scrolling one 13-form page. bank_p3esg only.
-type P3Group = 'qual' | 'trans' | 'phys' | 'tax' | 'earlier'
-// a filing frozen before E97 also carried figures no Pillar 3 template prints: shown on their own tab, marked
-const EARLIER = 'Earlier report shape'
-function p3Group(title: string): P3Group {
-  if (title.startsWith(EARLIER)) return 'earlier'
-  if (/\btable\b/i.test(title)) return 'qual'
-  const m = title.match(/template[s]?\s*(\d+)/i)
-  const n = m ? parseInt(m[1], 10) : 0
-  if (n >= 1 && n <= 4) return 'trans'
-  if (n === 5) return 'phys'
-  return 'tax'   // Templates 6–10 (GAR, BTAR, other actions)
-}
-const P3_TABS: { k: P3Group; label: string; sub: string }[] = [
-  { k: 'qual', label: 'Qualitative', sub: 'Tables 1–3' },
-  { k: 'trans', label: 'Transition risk', sub: 'Templates 1–4' },
-  { k: 'phys', label: 'Physical risk', sub: 'Template 5' },
-  { k: 'tax', label: 'Taxonomy & GAR', sub: 'Templates 6–10' },
+// The Pillar 3 forms grouped into four tabs by the EBA's own risk themes, so a preparer lands on the group they own.
+const P3_TABS: { k: P3Group; label: string; holds: string }[] = [
+  { k: 'qual', label: 'Qualitative', holds: 'Tables 1 to 3' }, { k: 'trans', label: 'Transition risk', holds: 'Templates 1 to 4' },
+  { k: 'phys', label: 'Physical risk', holds: 'Template 5' }, { k: 'tax', label: 'Taxonomy and green asset ratio', holds: 'Templates 6 to 10' },
 ]
-
-function P3FormTabs({ annex, supplied, periodEnd, entityId, onSupplied, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; entityId: string | null; onSupplied: () => void } & EditProps) {
-  const [tab, setTab] = useState<P3Group>('qual')
-  const qual = useQuery({ queryKey: ['p3-qualitative', entityId, periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, periodEnd)) })
-  const sectionsOf = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.title) === g) })
-  const tabs = annex.sections.some(s => p3Group(s.title) === 'earlier')
-    ? [...P3_TABS, { k: 'earlier' as P3Group, label: EARLIER, sub: 'not printed by the templates' }] : P3_TABS
-
-  const badge = (g: P3Group): { t: string; c: string } | null => {
-    if (g === 'earlier') return null
-    if (g === 'qual') return qual.data ? { t: `${qual.data.authored}/${qual.data.total_rows}`, c: 'var(--color-viz,#a78bfa)' } : null
-    const secs = annex.sections.filter(s => p3Group(s.title) === g)
-    const supplyKeys = secs.flatMap(s => s.rows.flatMap(r => (r.cells ?? []).map(c => c.supply?.key).filter(Boolean))) as string[]
-    const filled = supplyKeys.some(k => supplied[k])
-    if (filled) return { t: 'in progress', c: 'var(--color-good,#34d399)' }
-    const hasIntegrated = secs.some(s => (s.col_sources ?? []).includes('integrated'))
-    if (g === 'phys') return { t: 'engine', c: 'var(--color-sky)' }
-    return hasIntegrated ? { t: 'feed pending', c: 'var(--color-warn)' } : { t: 'engine', c: 'var(--color-sky)' }
-  }
-
-  return (
-    <div>
-      <div className="px-1 pb-2">
-        <div className="text-[13px] text-[var(--color-ink)]">{annex.official_name}</div>
-        <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">{[annex.official_form, annex.authority].filter(Boolean).join(' · ')}</div>
-      </div>
-      {/* form-group tabs — each holds only its templates, with a readiness badge */}
-      <div className="flex gap-1.5 flex-wrap border-b border-[var(--color-line)] mb-3">
-        {tabs.map(t => {
-          const b = badge(t.k); const on = tab === t.k
-          return (
-            <button key={t.k} onClick={() => setTab(t.k)}
-              className={`text-left px-4 pt-2.5 pb-3 rounded-t-lg border border-b-0 transition ${on ? 'bg-[var(--color-panel)] border-[var(--color-line)] -mb-px' : 'border-transparent hover:bg-[var(--color-bg-2)]'}`}>
-              <div className="flex items-center gap-2.5 whitespace-nowrap">
-                <span className={`text-[13px] font-medium ${on ? 'text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{t.label}</span>
-                {b && <span className="mono text-[8.5px] px-1.5 py-0.5 rounded-full shrink-0" style={{ color: b.c, background: 'color-mix(in oklab, ' + b.c + ' 14%, transparent)' }}>{b.t}</span>}
-              </div>
-              <div className="mono text-[8.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">{t.sub}</div>
-            </button>
-          )
-        })}
-      </div>
-      {tab === 'qual' && (ep.canEdit
-        ? <P3Qualitative entityId={entityId} periodEnd={periodEnd} />
-        : sectionsOf('qual').sections.length
-          ? <AnnexView annex={sectionsOf('qual')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />
-          : <Card className="p-4 mt-3 text-[12.5px] text-[var(--color-mute)]">This filing was prepared before the qualitative tables were frozen with it, so it holds no text of its own for Tables 1–3.</Card>)}
-      {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
-      {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
-      {tab === 'tax' && <AnnexView annex={sectionsOf('tax')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
-      {tab === 'earlier' && <AnnexView annex={sectionsOf('earlier')} supplied={supplied} periodEnd={periodEnd} onSupplied={onSupplied} hideName {...ep} />}
-    </div>
-  )
-}
-
-function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void; hideName?: boolean } & EditProps) {
-  return (
-    <Card className="p-0 overflow-hidden">
-      {!hideName && (
-        <div className="px-4 py-3 border-b border-[var(--color-line)]">
-          <div className="text-[13px] text-[var(--color-ink)]">{annex.official_name}</div>
-          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">{[annex.official_form, annex.authority].filter(Boolean).join(' · ')}</div>
-        </div>
-      )}
-      {annex.sections.map((s, si) => (
-        <div key={si} className={si > 0 ? 'border-t border-[var(--color-line)]' : ''}>
-          <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{s.title}</div>
-          {s.kind === 'document' ? <DocumentItems items={s.items ?? []} /> : <>
-          {s.col_sources && <SrcLegend sources={s.col_sources} />}
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="text-left">
-                  {s.columns.map((c, ci) => {
-                    const src = s.col_sources?.[ci]
-                    return (
-                      <th key={ci} className={`px-4 py-1.5 mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] font-medium align-bottom ${ci >= s.columns.length - 1 ? 'text-right' : ''}`}>
-                        <div className={`flex items-center gap-1 ${ci >= s.columns.length - 1 ? 'justify-end' : ''}`}>{src && <SrcDot source={src} />}<span>{c}</span></div>
-                      </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {s.rows.map((r, ri) => {
-                  if (r.type === 'subheader') return (
-                    <tr key={ri}><td colSpan={s.columns.length} className="px-4 pt-3 pb-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)]">{r.label}</td></tr>
-                  )
-                  const cells = r.cells ?? []
-                  const dpCells = cells.map(c => c.dp).filter(Boolean) as Dp[]
-                  const dpCell = dpCells.find(d => d.key === ep.edit) ?? dpCells[0]
-                  const editingHere = !!dpCell && ep.edit === dpCell.key
-                  return (
-                    <Fragment key={ri}>
-                      <tr className="border-t border-[var(--color-line)]" style={dpCell?.manual ? { background: 'color-mix(in oklab, var(--color-warn) 8%, transparent)' } : undefined}>
-                        {cells.map((c, ci) => {
-                          const last = ci === cells.length - 1
-                          if (c.dp) return <td key={ci} className="px-4 py-1.5 text-right align-top"><CellValue dp={c.dp} {...ep} /></td>
-                          // a cell the institution enters itself (the spec's supplied cells) — never a figure aggregated from loan data
-                          // a cell the template greys out (no instruction names it): hatched, as printed
-                          if (c.greyed) return <td key={ci} aria-label="not reported" style={{ background: 'repeating-linear-gradient(135deg, transparent 0 5px, var(--color-line) 5px 6px)' }} />
-                          if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[c.supply.key]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} /></td>
-                          return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right mono tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
-                        })}
-                      </tr>
-                      {editingHere && dpCell && (
-                        <tr><td colSpan={s.columns.length} className="px-4 pb-2"><OverrideEditor filingId={ep.filingId} dp={dpCell} onClose={() => ep.setEdit(null)} onDone={ep.onDone} /></td></tr>
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div></>}
-          {s.note && <div className="px-4 py-2 mono text-[9.5px] text-[var(--color-faint)] leading-relaxed border-t border-[var(--color-line)]">{s.note}</div>}
-        </div>
-      ))}
-    </Card>
-  )
-}
-
-// a value cell — the merged datapoint with its source/manual badge, a pending marker, and (when editable) the
-// override pencil. Shared by the official form and the datapoint list.
-function CellValue({ dp, canEdit, edit, setEdit }: { dp: Dp } & EditProps) {
-  const ccy = useContext(CurrencyCtx)
-  const editable = canEdit && dp.fmt !== 'text' && typeof dp.value === 'number'
-  return (
-    <span className="inline-flex items-center gap-1.5 justify-end">
-      {dp.pending && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: 'var(--color-sky)', background: 'color-mix(in oklab, var(--color-sky) 14%, transparent)' }}><Clock size={9} /> pending → {fmt(dp.pending.value, dp.fmt, ccy)}</span>}
-      {dp.manual
-        ? <span title={`Manual override · was ${fmt(dp.original_value ?? null, dp.fmt, ccy)} · ${dp.override?.reason} · by ${dp.override?.by}, approved by ${dp.override?.approved_by}`}
-            className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 16%, transparent)' }}>manual ⓘ</span>
-        : dp.value != null && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: dp.source === 'book' ? 'var(--color-sky)' : 'var(--color-mute)', background: 'color-mix(in oklab, var(--color-line) 60%, transparent)' }}>{dp.source === 'book' ? 'book' : 'calc'}</span>}
-      <span className="mono text-[12.5px] tabular-nums" style={{ color: dp.manual ? 'var(--color-warn)' : 'var(--color-ink)' }}>{fmt(dp.value, dp.fmt, ccy)}</span>
-      {dp.unit && <span className="mono text-[9px] text-[var(--color-faint)]">{dp.unit}</span>}
-      {editable && edit !== dp.key && <button onClick={() => setEdit(dp.key)} title="Propose a manual override (4-eyes)" className="text-[var(--color-faint)] hover:text-[var(--color-sky)]"><Pencil size={11} /></button>}
-    </span>
-  )
-}
-
-// ── the flat labelled datapoint list ──────────────────────────────────────────────────────────────────────
-function DatapointList({ groups, ...ep }: { groups: Group[] } & EditProps) {
-  const ccy = useContext(CurrencyCtx)
-  return (
-    <Card className="p-0 overflow-hidden">
-      {groups.map((g, gi) => (
-        <div key={gi} className={gi > 0 ? 'border-t border-[var(--color-line)]' : ''}>
-          <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{g.group}</div>
-          <div className="divide-y divide-[var(--color-line)]">
-            {g.datapoints.map(dp => {
-              const isEditing = ep.edit === dp.key
-              return (
-                <div key={dp.key} className="px-4 py-2 text-[12.5px]" style={dp.manual ? { background: 'color-mix(in oklab, var(--color-warn) 8%, transparent)' } : undefined}>
-                  <div className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[var(--color-ink)]">{dpLabel(dp)}</span>
-                      {dp.note && <span className="mono text-[10px] text-[var(--color-faint)] ml-1.5">· {dp.note}</span>}
-                    </div>
-                    <CellValue dp={dp} {...ep} />
-                  </div>
-                  {isEditing && <OverrideEditor filingId={ep.filingId} dp={dp} onClose={() => ep.setEdit(null)} onDone={ep.onDone} />}
-                  {dp.manual && dp.override && (
-                    <div className="mono text-[10px] text-[var(--color-faint)] mt-1">was {fmt(dp.original_value ?? null, dp.fmt, ccy)} · “{dp.override.reason}” · {dp.override.by} → approved {dp.override.approved_by}</div>
-                  )}
-                  {dp.figure && (
-                    <div className="mono text-[10px] text-[var(--color-faint)] mt-1">
-                      reports {dp.figure.reported === 'client' ? `your figure${dp.figure.client_provider ? ` (${dp.figure.client_provider})` : ''}` : 'our figure'} ·
-                      {' '}yours {fmt(typeof dp.figure.client_value === 'number' ? dp.figure.client_value : null, dp.fmt, ccy)} · ours {fmt(dp.figure.tellumen_value, dp.fmt, ccy)}
-                      {dp.figure.delta_pct != null ? ` · ${dp.figure.delta_pct > 0 ? '+' : ''}${dp.figure.delta_pct}%` : ''}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </Card>
-  )
-}
-
-function OverrideEditor({ filingId, dp, onClose, onDone }: { filingId: string; dp: Dp; onClose: () => void; onDone: () => void }) {
-  const [value, setValue] = useState(String(typeof dp.value === 'number' ? dp.value : ''))
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const save = async () => {
-    const v = Number(value)
-    if (!isFinite(v)) { setErr('Enter a number.'); return }
-    if (!reason.trim()) { setErr('A reason is required.'); return }
-    setBusy(true); setErr(null)
-    try {
-      await api.post(`/v1/filings/${filingId}/overrides`, { datapoint_key: dp.key, value: v, reason: reason.trim() })
-      onDone()
-    } catch (e) { setErr(e instanceof ApiError ? String((e.body as { message?: string })?.message ?? e.message) : 'Could not propose the override.') }
-    finally { setBusy(false) }
-  }
-  const box = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)]'
-  return (
-    <div className="mt-2 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] p-2.5 space-y-2 text-left">
-      {err && <div className="text-[11.5px] text-[var(--color-bad)]">{err}</div>}
-      <div className="mono text-[10px] text-[var(--color-faint)]">Override · {dpLabel(dp)}</div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mono text-[10px] text-[var(--color-faint)]">value ({dp.fmt}):</span>
-        <input value={value} onChange={e => setValue(e.target.value)} className={`${box} w-40 mono`} placeholder="new value (raw)" />
-        <input value={reason} onChange={e => setReason(e.target.value)} className={`${box} flex-1 min-w-[200px]`} placeholder="Reason (required · audited)" />
-        <button onClick={save} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-sky)] text-[var(--color-on-accent)] px-3 py-1.5 text-[12px] font-medium disabled:opacity-50"><Check size={13} /> Propose</button>
-        <button onClick={onClose} className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 text-[12px] text-[var(--color-mute)]"><X size={13} /></button>
-      </div>
-      <div className="mono text-[9.5px] text-[var(--color-faint)]">This needs a second pair of eyes to approve before it lands on the form; the original stays on record.</div>
-    </div>
-  )
-}
-
-// ── Pillar 3 ESG qualitative Tables 1-3 (Annex XXXIX) — free-format text the institution authors, for one institution
-// (the filing's entity, or the organisation) and one reference date (the filing's). A draft freezes the text when it is
-// prepared or refreshed; once out of draft the form shows the frozen copy, never the live text.
+interface QData { tables: { table: string; title: string; rows: QRow[] }[]; total_rows: number; authored: number; period_end: string }
+interface QRow { key: string; row: string; group: string; prompt: string; value: string; basis?: string; required_when?: string }
 const qualUrl = (entityId: string | null, periodEnd: string | null) =>
   `/v1/filings/qualitative/p3esg?undertaking=${entityId ?? 'organisation'}${periodEnd ? `&period_end=${periodEnd}` : ''}`
-interface QRow { key: string; row: string; group: string; prompt: string; value: string; basis?: string; required_when?: string }
-interface QTable { table: string; title: string; rows: QRow[] }
-interface QData { tables: QTable[]; total_rows: number; authored: number; period_end: string; entity_id: string | null }
 
+function P3FormTabs({ annex, entityId, ...common }: { annex: Annex; entityId: string | null; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void; labels: Labels } & EditProps) {
+  const [tab, setTab] = useState<P3Group>('qual')
+  const qual = useQuery({ queryKey: ['p3-qualitative', entityId, common.periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, common.periodEnd)) })
+  const of = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.spec?.template, s.title) === g) })
+  const tabs = annex.sections.some(s => p3Group(s.spec?.template, s.title) === 'earlier') ? [...P3_TABS, { k: 'earlier' as P3Group, label: EARLIER, holds: 'Figures no template prints' }] : P3_TABS
+  const badge = (g: P3Group): { t: string; tone: 'good' | 'warn' | 'neutral' } | null => {
+    if (g === 'earlier') return null
+    if (g === 'qual') return qual.data ? { t: `${qual.data.authored} of ${qual.data.total_rows}`, tone: qual.data.authored === qual.data.total_rows ? 'good' : 'warn' } : null
+    const secs = of(g).sections
+    if (secs.some(s => s.rows.some(r => (r.cells ?? []).some(c => c.supply && common.supplied[c.supply.key])))) return { t: 'In progress', tone: 'good' }
+    return g !== 'phys' && secs.some(s => (s.col_sources ?? []).includes('integrated')) ? { t: 'Awaiting your systems', tone: 'warn' } : { t: 'Calculated', tone: 'neutral' }
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 px-1 pb-2"><FormName annex={annex} />
+        <InfoButton compact details={{ title: 'The four groups', sections: P3_TABS.map(t => ({ heading: t.label, body: t.holds })) }} /></div>
+      <div className="flex gap-1.5 flex-wrap border-b border-[var(--color-line)] mb-3" role="tablist">
+        {tabs.map(t => {
+          const b = badge(t.k), on = tab === t.k
+          return (
+            <button key={t.k} role="tab" aria-selected={on} onClick={() => setTab(t.k)}
+              className={`px-4 pt-2.5 pb-2.5 rounded-t-lg border border-b-0 transition flex items-center gap-2.5 whitespace-nowrap ${on ? 'bg-[var(--color-panel)] border-[var(--color-line)] -mb-px' : 'border-transparent hover:bg-[var(--color-bg-2)]'}`}>
+              <span className={`text-[13px] font-medium ${on ? 'text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{t.label}</span>
+              {b && <StatusChip tone={b.tone} label={b.t} />}
+            </button>)
+        })}
+      </div>
+      {tab === 'qual' && (common.canEdit ? <P3Qualitative entityId={entityId} periodEnd={common.periodEnd} />
+        : of('qual').sections.length ? <AnnexView annex={of('qual')} hideName {...common} />
+        : <Card className="p-4 mt-3 text-[12.5px] text-[var(--color-mute)]">This filing was prepared before the qualitative tables were frozen with it.</Card>)}
+      {tab !== 'qual' && <AnnexView annex={of(tab)} hideName {...common} />}
+    </div>
+  )
+}
+
+// Pillar 3 qualitative Tables 1 to 3: free text the institution writes for one institution and reference date. A draft
+// freezes the text when it is prepared or refreshed; once out of draft the form shows the frozen copy.
 function P3Qualitative({ entityId, periodEnd }: { entityId: string | null; periodEnd: string | null }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['p3-qualitative', entityId, periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, periodEnd)) })
@@ -432,35 +135,35 @@ function P3Qualitative({ entityId, periodEnd }: { entityId: string | null; perio
   return (
     <Card className="p-0 overflow-hidden mt-3">
       <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3 · Template 1 narrative</div>
-          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Free-format text · <span style={{ color: 'var(--color-sky)' }}>you author</span> · for this filing's institution and reference date {d.period_end} · frozen when the draft is refreshed</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[13px] text-[var(--color-ink)]">Qualitative disclosures</span>
+          <InfoButton compact details={{ title: 'Qualitative disclosures', sections: [
+            { heading: HEADING.shows, body: `The text you write for Tables 1 to 3 and the narrative of Template 1, for this filing's institution and its reference date (${d.period_end}).` },
+            { heading: HEADING.read, body: 'The text is frozen with the draft when it is refreshed.' }] }} />
         </div>
-        <div className="mono text-[10px] text-[var(--color-faint)]">{d.authored}/{d.total_rows} authored</div>
+        <StatusChip tone={d.authored === d.total_rows ? 'good' : 'warn'} label={`${d.authored} of ${d.total_rows} written`} />
       </div>
       {d.tables.map(t => {
         let lastGroup = ''
         return (
           <div key={t.table} className="border-b border-[var(--color-line)] last:border-0">
-            <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{t.title}</div>
+            <div className="px-4 py-2 bg-[var(--color-bg-2)] text-[12px] font-medium text-[var(--color-ink)]">{t.title}</div>
             <div className="divide-y divide-[var(--color-line-2)]">
               {t.rows.map(r => {
                 const showGroup = r.group !== lastGroup; lastGroup = r.group
+                const about = [...(r.required_when ? [{ heading: 'When it is required', body: r.required_when }] : []), ...(r.basis ? [{ heading: 'Legal basis', body: r.basis }] : [])]
                 return (
                   <div key={r.key}>
-                    {showGroup && <div className="px-4 pt-2.5 pb-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)]">{r.group}</div>}
+                    {showGroup && <div className="px-4 pt-2.5 pb-1 text-[11px] font-medium text-[var(--color-sky)]">{r.group}</div>}
                     <div className="px-4 py-2">
-                      <div className="text-[12px] text-[var(--color-mute)] mb-1"><span className="mono text-[10px] text-[var(--color-faint)] mr-1.5">{r.row}</span>{r.prompt}</div>
-                      {r.required_when && <div className="mono text-[9.5px] text-[var(--color-faint)] mb-1">{r.required_when}</div>}
-                      {r.basis && <div className="text-[10.5px] text-[var(--color-faint)] italic mb-1">{r.basis}</div>}
+                      <div className="text-[12.5px] text-[var(--color-mute)] mb-1 flex items-start gap-1.5"><span className="text-[11px] text-[var(--color-faint)] shrink-0">{r.row}</span><span>{r.prompt}</span>
+                        {about.length > 0 && <InfoButton compact details={{ title: r.prompt, sections: about }} />}</div>
                       <QCell row={r} entityId={entityId} periodEnd={periodEnd} onSaved={() => qc.invalidateQueries({ queryKey: ['p3-qualitative'] })} />
                     </div>
-                  </div>
-                )
+                  </div>)
               })}
             </div>
-          </div>
-        )
+          </div>)
       })}
     </Card>
   )
@@ -478,28 +181,27 @@ function QCell({ row, entityId, periodEnd, onSaved }: { row: QRow; entityId: str
   }
   return (
     <div>
-      <textarea value={val} onChange={e => { setVal(e.target.value); setSaved(false) }} onBlur={save} rows={2}
-        placeholder="Author this disclosure…"
+      <textarea value={val} onChange={e => { setVal(e.target.value); setSaved(false) }} onBlur={save} rows={2} placeholder="Write this disclosure…" aria-label={row.prompt}
         className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] resize-y" />
-      <div className="mono text-[9px] mt-0.5 h-3">{saving ? <span className="text-[var(--color-faint)]">saving…</span> : saved ? <span style={{ color: 'var(--color-good)' }}>✓ saved</span> : null}</div>
+      <div className="text-[11px] mt-0.5 h-3">{saving ? <span className="text-[var(--color-faint)]">Saving…</span> : saved ? <span style={{ color: 'var(--color-good)' }}>Saved</span> : null}</div>
     </div>
   )
 }
 
-
-// The choices the regulation leaves to the organisation, as frozen with this filing (inside its hash).
-function FilingElections({ e }: { e: Election[] }) {
+// The interpretations the regulation leaves to the organisation, as frozen with this filing (inside its fingerprint).
+function Elections({ e }: { e: Election[] }) {
   const [open, setOpen] = useState(false)
+  const stated = e.filter(x => x.stated).length
   return (
     <Card className="p-4">
-      <button type="button" onClick={() => setOpen(o => !o)} className="flex w-full items-center justify-between text-left">
-        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Interpretations stated by the organisation · frozen with this filing</span>
-        <span className="mono text-[10.5px] text-[var(--color-mute)]">{e.filter(x => x.stated).length}/{e.length} stated {open ? '▾' : '▸'}</span>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 text-left">
+        <span className="flex items-center gap-2"><Scale size={15} className="text-[var(--color-blue)]" /><span className="text-[13.5px] font-medium text-[var(--color-ink)]">Your interpretations</span></span>
+        <StatusChip tone={stated === e.length ? 'good' : 'warn'} label={`${stated} of ${e.length} stated`} />
       </button>
       {open && <div className="mt-2 divide-y divide-[var(--color-line-2)]">{e.map(x => (
-        <div key={x.key} className="flex justify-between gap-4 py-1.5 text-[12px]">
+        <div key={x.key} className="flex justify-between gap-4 py-1.5 text-[12.5px]">
           <span className="text-[var(--color-mute)]">{x.label}</span>
-          <span className="mono text-right">{x.value == null ? <span className="text-[var(--color-warn)]">not stated</span> : String(x.value)}<span className="text-[var(--color-faint)]"> · {x.stated ? 'stated' : 'default'}</span></span>
+          <span className="text-right">{x.value_label == null ? <span className="text-[var(--color-warn)]">Not stated</span> : x.value_label}<span className="text-[var(--color-faint)]"> · {x.stated ? 'stated' : 'default'}</span></span>
         </div>))}</div>}
     </Card>
   )

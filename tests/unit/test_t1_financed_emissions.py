@@ -220,8 +220,8 @@ def test_the_revenue_basis_is_an_offered_statement_with_its_own_parameter():
 
 
 @pytest.mark.parametrize("rec, why", [
-    (_rec(), "not stated: how sector-average intensity is used"),
-    (_rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity={}), "no sector-average scope 3 intensity stated for division C24"),
+    (_rec(), "how the sector-average intensity is used is not stated"),
+    (_rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity={}), "is stated for division C24"),
 ])
 def test_no_gathered_scope_3_and_no_sector_average_is_a_named_gap_never_zero(rec, why):
     book = BOOK + [_x(7, 200_000, L=2_000_000, s=(20.0, 10.0, None))]

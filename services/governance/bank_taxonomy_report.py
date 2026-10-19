@@ -121,8 +121,8 @@ def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None,
     p = freeze(session, org_id, basis["scenario"], basis["horizon"], entity_ids, value_weights, translation)
     assets = p["assets"]
     done = sum(1 for a in assets if gross_of(a))
-    gaps = [f"{len(assets) - done} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — "
-            "they sit in no template row"] if done < len(assets) else []
+    from core import messages
+    gaps = [messages.render("filing.gap.no_gross", n=len(assets) - done, total=len(assets))] if done < len(assets) else []
     return {"coverage": {"label": "exposures with a gross carrying amount", "done": done, "total": len(assets),
                          "pct": round(100 * done / len(assets), 1) if assets else 0},
             "total_value_eur": p["rollup"]["total_value_eur"], "value_at_risk_eur": None, "noun": "exposures", "gaps": gaps}

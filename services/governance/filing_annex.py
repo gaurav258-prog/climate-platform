@@ -14,6 +14,18 @@ from services.governance import money_format
 from services.governance.reg_reference import reference
 
 
+def _report_name(framework: str) -> str:
+    """The report's name where no reference entry names its official form (never its key)."""
+    from services.governance.filings import FRAMEWORKS
+    return (FRAMEWORKS.get(framework) or {}).get("label") or "The report"
+
+
+def _scenario_name(key: str | None) -> str:
+    """A scenario's customer name (the catalogue's names.scenario)."""
+    from core import messages
+    return messages.names().get("scenario", {}).get(key or "", "the reporting scenario")
+
+
 def _txt(s):
     return {"text": s}
 
@@ -223,7 +235,7 @@ def _bank_analytics_sections(payload: dict) -> list[dict]:
                 {"type": "row", "cells": [_txt("Lifetime expected loss (maturity-matched)"), _mnum(_eur(el.get("lifetime_el_eur")), "computed")]},
                 {"type": "row", "cells": [_txt("Lifetime expected loss (bps of EAD)"), _num(f"{el.get('lifetime_el_bps')} bps")]},
             ],
-            "note": (f"Scenario {el.get('scenario')}. Physical EL = exposure × the bank's stated annual event probability × "
+            "note": (f"Scenario: {_scenario_name(el.get('scenario'))}. Physical EL = exposure × the bank's stated annual event probability × "
                      "its stated damage ratio, by peril and hazard band (its own method for the year). Lifetime EL "
                      f"accumulates annual EL over each loan's residual maturity ({el.get('maturity_fed')}/{el.get('n_assets')} "
                      "maturity-fed). Not a fitted PD·LGD.")})
@@ -638,11 +650,11 @@ def _gar_note(counts: dict, tid: str) -> str:
                         "counterparty and instrument facts are stated")
         if counts["nfc_nfrd_unstated"]:
             bits.append(f"{counts['nfc_nfrd_unstated']:,} corporate exposures do not state whether the counterparty is subject "
-                        "to NFRD disclosure, so they sit in no GAR or BTAR row — state nfrd_subject on the loan tape")
+                        "to NFRD disclosure, so they sit in no GAR or BTAR row — state it on the loan tape")
         if counts.get("eligible_alignment_unknown"):
             bits.append(f"{counts['eligible_alignment_unknown']:,} eligible exposures have no alignment established (technical "
-                        "screening, DNSH and minimum safeguards), so the aligned columns stay blank for them — state "
-                        "ccm_sustainable or an aligned status")
+                        "screening, DNSH and minimum safeguards), so the aligned columns stay blank for them — state on "
+                        "the loan tape whether each is environmentally sustainable, or its aligned status")
         if not counts["objective_stated"]:
             bits.append("no exposure states its Taxonomy objective, so the CCM and CCA columns stay blank; the total "
                         "(CCM + CCA) columns read the Taxonomy status alone")
@@ -722,8 +734,14 @@ def _spec_values_section(spec: dict, tid: str, values: dict, key: str, binding: 
             "spec": {"version": spec["version"], "template": tid, "sha256": spec["_sha256"]}}
 
 
+def _printed(c: dict) -> str:
+    """A column as the template prints it: its printed id where its address differs (a misprinted duplicate, 'ae' twice,
+    is addressed ae_2 but shown 'ae')."""
+    return c.get("printed_id") or c["id"]
+
+
 def _col_head(c: dict) -> str:
-    return f"{c['id']} · {c['label'].split(' > ')[-1]}"
+    return f"{_printed(c)} · {c['label'].split(' > ')[-1]}"
 
 
 def _col_groups(cols: list[dict]) -> str:
@@ -732,9 +750,9 @@ def _col_groups(cols: list[dict]) -> str:
     for c in cols:
         parent = " > ".join(c["label"].split(" > ")[:-1])
         if run and run[0] == parent:
-            run[2] = c["id"]
+            run[2] = _printed(c)
         else:
-            run = [parent, c["id"], c["id"]]
+            run = [parent, _printed(c), _printed(c)]
             out.append(run)
     return " · ".join(f"{a if a == b else a + '–' + b} under “{p}”" for p, a, b in out if p)
 
@@ -783,7 +801,7 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
     # it is silent, comes from the spec
     if tid == "T5":
         notes.append(f"Method: an exposure is sensitive when a climate hazard at its location scores at or above the "
-                     f"institution's stated level ({grid.get('at_risk_level')} of 100, method.at_risk_level).")
+                     f"institution's stated at-risk level ({grid.get('at_risk_level')} of 100).")
     if tid == "T1":
         from services.governance import pillar3_t1 as T1
         rec = grid.get("t1_method")
@@ -1070,7 +1088,7 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
         from services.governance.reg_reference import REFERENCE, with_spec
         ref = with_spec(REFERENCE[framework], frozen) if framework in REFERENCE else ref
     return {
-        "official_name": ref.get("official_name", framework),
+        "official_name": ref.get("official_name") or _report_name(framework),
         "authority": ref.get("authority"),
         "official_form": ref.get("official_form"),
         "legal_basis": ref.get("legal_basis"),

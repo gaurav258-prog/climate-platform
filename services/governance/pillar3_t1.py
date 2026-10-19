@@ -166,7 +166,8 @@ def exposure(a: dict, rec: dict) -> dict | None:
         return {"blocked": "unattributed"}
     if f > 1:
         return {"blocked": "over"}
-    out = {"blocked": None, "i": None, "j": None, "basis": None, "company_specific": None, "scope3_gap": None}
+    out = {"blocked": None, "i": None, "j": None, "basis": None, "company_specific": None, "scope3_gap": None,
+           "scope3_reason": None}
     s3 = None
     if est == "scope_1_2_3":
         if g3 is not None:
@@ -177,22 +178,27 @@ def exposure(a: dict, rec: dict) -> dict | None:
             stated = (rec.get("sector_intensity_revenue" if by_revenue else "sector_intensity") or {}).get(d) if d else None
             if how not in _INTENSITY_OF:
                 out["scope3_gap"] = f"not stated: how sector-average intensity is used ({S3_BASIS})"
+                out["scope3_reason"] = {"kind": "basis_not_stated"}
             elif d is None:
                 out["scope3_gap"] = "no NACE division to read a sector-average intensity for"
+                out["scope3_reason"] = {"kind": "no_division"}
             elif stated is None:
                 out["scope3_gap"] = f"no sector-average scope 3 intensity stated for division {d} ({_INTENSITY_OF[how]})"
+                out["scope3_reason"] = {"kind": "no_intensity", "division": d, "parameter": _INTENSITY_OF[how]}
             elif by_revenue and _num(a.get("revenue_eur")) is None:
                 out["scope3_gap"] = "no revenue stated for the counterparty (template bank_counterparties)"
+                out["scope3_reason"] = {"kind": "no_revenue"}
             elif by_revenue and str(a.get("counterparty_revenue_period_end") or "")[:10] > str(rec.get("reference_date") or ""):
                 out["scope3_gap"] = ("the counterparty's revenue is for a financial year ending after the reference date — "
                                      "state the year ending on or before it")
+                out["scope3_reason"] = {"kind": "revenue_after"}
             else:
                 base = float(a["revenue_eur"]) if by_revenue else float(a["counterparty_total_liabilities_eur"])
                 s3, out["basis"] = float(stated["value"]) * base / EUR_MILLION, "sector_average"
         if s3 is not None:
             out["j"] = f * s3
         if out["scope3_gap"] and (g1 is None or g2 is None):
-            out["scope3_gap"] = None             # not in column i for its scopes 1-2 either: not a scope 3 gap
+            out["scope3_gap"] = out["scope3_reason"] = None   # not in column i for its scopes 1-2 either: not a scope 3 gap
     needed = (g1, g2, s3) if est == "scope_1_2_3" else (g1, g2)
     if all(v is not None for v in needed):
         out["i"] = f * sum(needed)
@@ -212,22 +218,50 @@ def scope3_gaps(payload: dict) -> set[str]:
     return {r["scope3_gap"] for a in payload.get("assets") or [] if (r := exposure(a, rec)) and r.get("scope3_gap")}
 
 
-def gaps(rec: dict | None) -> list[str]:
-    """Why columns i-k cannot be printed as the institution's own method: each a named gap ([] when none)."""
+def scope3_reasons(payload: dict) -> str:
+    """Why the exposures of a frozen book that need a scope 3 have none, each reason once, in the catalogue's words
+    (names "filing.scope_reason")."""
+    from core import messages
+    rec = (payload or {}).get(RECORD)
+    if not rec:
+        return ""
+    from services.money import params
+    words, short = messages.names().get("filing.scope_reason", {}), {k: v["short"] for k, v in params.parameters().items()}
+    seen = {(r["scope3_reason"]["kind"], r["scope3_reason"].get("division"), r["scope3_reason"].get("parameter"))
+            for a in payload.get("assets") or [] if (r := exposure(a, rec)) and r.get("scope3_reason")}
+    return "; ".join(sorted(words.get(k, k).format(division=d, intensity=short.get(p or "", "the sector intensity"))
+                            for k, d, p in seen))
+
+
+def gap_kinds(rec: dict | None) -> list[str]:
+    """Why columns i-k cannot be printed as the institution's own method, by kind: 'estimation' (which counterparty
+    emissions it estimates is not stated) or 'attribution' (how they are attributed is not stated); [] when none. A
+    screen names each with the catalogue's filing.gap.emissions_<kind>."""
     if rec is None:
         return []
-    out = []
     est, att = rec.get("estimation"), rec.get("attribution")
     if est is None:
-        out.append(f"not stated: which counterparty emissions the institution estimates (methodology — {ESTIMATION})")
-    elif est in ESTIMATING and att is None:
-        out.append(f"not stated: how counterparty emissions are attributed to the exposure (methodology — {ATTRIBUTION})")
-    return out
+        return ["estimation"]
+    if est in ESTIMATING and att is None:
+        return ["attribution"]
+    return []
+
+
+def gaps(rec: dict | None) -> list[str]:
+    """Why columns i-k cannot be printed as the institution's own method: each a named gap ([] when none)."""
+    words = {"estimation": f"not stated: which counterparty emissions the institution estimates (methodology — {ESTIMATION})",
+             "attribution": f"not stated: how counterparty emissions are attributed to the exposure (methodology — {ATTRIBUTION})"}
+    return [words[k] for k in gap_kinds(rec)]
+
+
+def k_gap_open(rec: dict | None) -> bool:
+    """Column k alone is a gap: the institution estimates scopes 1 and 2 and has not stated what k counts then."""
+    return bool(rec and rec.get("estimation") == "scope_1_2" and not gap_kinds(rec) and rec.get("k_scope_1_2") is None)
 
 
 def k_gap(rec: dict | None) -> str | None:
-    """Column k alone is a gap: the institution estimates scopes 1 and 2 and has not stated what k counts then."""
-    if rec and rec.get("estimation") == "scope_1_2" and not gaps(rec) and rec.get("k_scope_1_2") is None:
+    """Column k alone is a gap (k_gap_open), as a named gap."""
+    if k_gap_open(rec):
         return f"not stated: what column k counts while scope 3 is not yet estimated (methodology — {K_READING})"
     return None
 
@@ -312,8 +346,8 @@ def phase_in_note(ph: dict) -> str:
     ref = phase_in_reference()
     pend = ph.get("in_phase_in") or []
     head = (f"Scope 3 phase-in on {ph['reference_date']} — “{ref['basis'][0]['quote']}” (Annex XL, column j); Article 5(1) "
-            "of Delegated Regulation (EU) 2020/1818, read as a calendar per NACE division (declared reading, "
-            "data/reference/pillar3/scope3_phase_in.json). ")
+            "of Delegated Regulation (EU) 2020/1818, read as a calendar per NACE division (the platform's declared "
+            "reading). ")
     body = ("Every division of the book is phased in." if not pend else "In their phase-in period (not yet required by "
             "Article 5): " + ", ".join(f"{p['division']} (point ({p['point']}), from {p['from']}; {p['n']} exposure{'' if p['n'] == 1 else 's'})"
                                        for p in pend) + ".")

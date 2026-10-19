@@ -21,7 +21,7 @@ def test_shared_figures_extracts_bank_headline():
 
 
 def test_shared_figures_sfdr_and_unknown():
-    assert _shared_figures("sfdr_pai", {"entity": {"total_value_eur": 5000}}) == {"NAV in scope": 5000}
+    assert _shared_figures("sfdr_pai", {"entity": {"total_value_eur": 5000}}) == {"net asset value in scope": 5000}
     assert _shared_figures("bank_tcfd", {}) == {}          # nothing to share → empty, not a crash
     assert _shared_figures("mystery", {"x": 1}) == {}
 

@@ -27,6 +27,9 @@ class DocumentError(ValueError):
     pass
 
 
+# the reinsurance a document's capital figures rest on (services.insurer_capital programme basis), in words
+_TREATY = {"attested": "the attested treaty", "illustrative_standard": "an illustrative standard programme, not attested"}
+
 def _doc(report_type: str) -> dict:
     if report_type not in DOCS:
         raise DocumentError(f"'{report_type}' is not an insurer document report")
@@ -144,7 +147,7 @@ def sections(payload: dict, report_type: str) -> list[dict]:
     gaps = [i for i in built if i["status"] == "missing"]
     comp = doc.get("computed") or {}
     notes = [f"Capital: {'attested' if (comp.get('capital') or {}).get('attested') else 'not yet attested'} "
-             f"(own funds, SCR); reinsurance: {comp.get('treaty_basis')}."]
+             f"(own funds, SCR); reinsurance: {_TREATY.get(comp.get('treaty_basis'), 'none attested')}."]
     if gaps:
         notes.append(f"{len(gaps)} items still need the undertaking's answer — answer them on the report's page and refresh "
                      "this draft.")

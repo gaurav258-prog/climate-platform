@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from api.deps import CurrentUser, DbSession, attachment, require_permission
 from core.config import settings
+from core.errors import UserError
 from services.governance import assurance_share as AS
 from services.intelligence import third_parties as TP
 
@@ -32,11 +33,8 @@ class ShareCreate(BaseModel):
 
 @router.post("/v1/filings/{filing_id}/assurance-shares", status_code=201, summary="Share this filing's assurance pack with the auditor under a governed link")
 def share_pack(filing_id: str, body: ShareCreate, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
-    try:
-        out = AS.create(session, org_id=ctx["org"]["org_id"], org_name=ctx["org"].get("name") or "", filing_id=filing_id, recipient_name=body.recipient_name, recipient_email=body.recipient_email,
-                        purpose=body.purpose, expires_in_days=body.expires_in_days, max_downloads=body.max_downloads, actor=ctx["user"], link_base=settings.APP_BASE_URL)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    out = AS.create(session, org_id=ctx["org"]["org_id"], org_name=ctx["org"].get("name") or "", filing_id=filing_id, recipient_name=body.recipient_name, recipient_email=body.recipient_email,
+                    purpose=body.purpose, expires_in_days=body.expires_in_days, max_downloads=body.max_downloads, actor=ctx["user"], link_base=settings.APP_BASE_URL)
     session.commit()
     return out
 
@@ -49,7 +47,7 @@ def list_shares(filing_id: str, session: DbSession, ctx: dict = Depends(require_
 @router.post("/v1/assurance-shares/{share_id}/revoke", summary="Revoke a share: the link stops working at once")
 def revoke_share(share_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     if not AS.revoke(session, org_id=ctx["org"]["org_id"], share_id=share_id, actor=ctx["user"]):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active share."})
+        raise UserError("filing.share.not_active")
     session.commit()
     return {"ok": True}
 

@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from api.deps import DbSession, attachment, require_permission
 from api.services.rbac import write_audit
+from core.errors import UserError
 from services.governance import filings as F
 
 router = APIRouter(prefix="/v1", tags=["Reporting cockpit"])
@@ -63,7 +64,7 @@ def _qual_subject(session, org_id: str, undertaking: str, period_end: Optional[d
     try:
         eid = _undertaking(session, org_id, undertaking)
     except PFError as e:
-        raise HTTPException(422, {"error": "bad_undertaking", "message": str(e)})
+        raise UserError("filing.refused.qualitative_undertaking") from e
     return eid, period_end or F.reporting_period_end(session, org_id)
 
 
@@ -89,11 +90,11 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
     org_id = ctx["org"]["org_id"]
     unknown = sorted(set(body.values) - Q.valid_keys())
     if unknown:
-        raise HTTPException(422, {"error": "unknown_rows", "message": f"Not a row of the governing tables: {', '.join(unknown[:5])}"})
+        raise UserError("filing.refused.qualitative_rows", rows=", ".join(unknown[:5]))
     eid, pe = _qual_subject(session, org_id, body.undertaking, body.period_end)
     refused = Q.save(session, org_id, body.values, ctx["user"]["id"], entity_id=eid, period_end=pe)["refused"]
     if refused:
-        raise HTTPException(422, {"error": "refused", "message": "; ".join(r["reason"] for r in refused)})
+        raise UserError("filing.refused.qualitative_text", reasons="; ".join(r["reason"] for r in refused))
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                 action="p3esg.qualitative.author", target_type="organization", target_id=org_id,
@@ -262,7 +263,7 @@ def delete_entity(entity_id: str, session: DbSession, ctx: dict = Depends(requir
 def filing_form(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     v = F.form_view(session, ctx["org"]["org_id"], filing_id)
     if not v:
-        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+        raise UserError("error.not_found")
     return v
 
 
@@ -276,11 +277,8 @@ class CellOverride(BaseModel):
 def propose_override(filing_id: str, body: CellOverride, session: DbSession,
                      ctx: dict = Depends(require_permission("approvals.create"))):
     from services.governance import filing_overrides as O
-    try:
-        r = O.propose(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
-                      datapoint_key=body.datapoint_key, value=body.value, reason=body.reason)
-    except O.OverrideError as e:
-        raise HTTPException(409, {"error": "override_error", "message": str(e)})
+    r = O.propose(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
+                  datapoint_key=body.datapoint_key, value=body.value, reason=body.reason)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="filing.cell_override.propose",
                 target_type="regulatory_filing", target_id=filing_id,
                 detail={"datapoint_key": body.datapoint_key, "to": body.value, "reason": body.reason})
@@ -303,7 +301,7 @@ def set_basis(body: BasisPatch, session: DbSession, ctx: dict = Depends(require_
     from services.governance.config_governance import submit_or_apply_config
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
-        raise HTTPException(422, {"error": "no_changes", "message": "Nothing to change."})
+        raise UserError("filing.refused.basis_unchanged")
     return submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                                   request_type="config.reporting_settings", updates=changes)
 
@@ -320,17 +318,14 @@ def preflight(framework: str, session: DbSession, entity_id: Optional[str] = Non
     """entity_id: the scope being filed (a legal entity, or a group consolidated over its subtree); omitted = the
     whole organisation. fund_id: the financial product a per-product report discloses. The figures and the confirm
     token are for exactly that book."""
-    try:
-        return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework, entity_id, fund_id)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework, entity_id, fund_id)
 
 
 @router.get("/filings/{filing_id}", summary="One filing — status, full history, and the frozen report")
 def get_filing(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     f = F.get_filing(session, ctx["org"]["org_id"], filing_id)
     if not f:
-        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+        raise UserError("error.not_found")
     return f
 
 
@@ -339,12 +334,8 @@ def export_filing(filing_id: str, format: str, session: DbSession,
                   ctx: dict = Depends(require_permission("reports.view"))):
     from fastapi.responses import StreamingResponse
 
-    from services.governance.filing_export import ExportError
     from services.governance.filing_export import export_filing as _export
-    try:
-        filename, media_type, content = _export(session, ctx["org"]["org_id"], filing_id, format)
-    except ExportError as e:
-        raise HTTPException(404 if "not found" in str(e) else 409, {"error": "export_error", "message": str(e)})
+    filename, media_type, content = _export(session, ctx["org"]["org_id"], filing_id, format)
     return StreamingResponse(iter([content]), media_type=media_type,
                              headers={"Content-Disposition": attachment(filename)})
 
@@ -362,10 +353,10 @@ def filing_assurance_pack(filing_id: str, session: DbSession, ctx: dict = Depend
     sid = session.execute(text("SELECT snapshot_id::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
                           {"f": filing_id, "o": org_id}).scalar()
     if not sid:
-        raise HTTPException(409, {"error": "no_snapshot", "message": "This filing has no frozen snapshot yet — prepare it first."})
+        raise UserError("filing.refused.no_snapshot")
     out = build_assurance_pack(session, org_id, sid)
     if not out:
-        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
+        raise UserError("error.not_found")
     fname, data = out
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
                 target_type="regulatory_filing", target_id=filing_id, detail={"file": fname})
@@ -378,8 +369,8 @@ def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
     from services.governance.filing_validation import validate_filing
     try:
         return validate_filing(session, ctx["org"]["org_id"], filing_id)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.get("/filings/{filing_id}/regulatory-lineage",
@@ -390,8 +381,8 @@ def regulatory_lineage(filing_id: str, session: DbSession, template: Optional[st
     from services.governance.regulatory_lineage import LineageError, build
     try:
         return build(session, ctx["org"]["org_id"], filing_id, template)
-    except LineageError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except LineageError as e:                    # the filing is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.get("/filings/{filing_id}/lineage/hazards", summary="The hazard cells a filing reports (trace entry points)")
@@ -498,10 +489,7 @@ def variance(filing_id: str, session: DbSession, vs: Optional[str] = None,
              summary="Restate a filed filing — freeze a new draft and supersede the old")
 def restate(filing_id: str, body: RestateBody, session: DbSession,
             ctx: dict = Depends(require_permission("reports.publish"))):
-    try:
-        f = F.restate_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.restate_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
     _audit(session, ctx, "filing.restate", filing_id, {"reason": body.reason, "new_filing_id": f["filing_id"]})
     return f
 
@@ -509,20 +497,14 @@ def restate(filing_id: str, body: RestateBody, session: DbSession,
 @router.post("/filings/{filing_id}/withdraw", summary="Withdraw a draft filing generated by mistake (frees its slot)")
 def withdraw(filing_id: str, body: WithdrawBody, session: DbSession,
              ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        f = F.withdraw_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.withdraw_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
     _audit(session, ctx, "filing.withdraw", filing_id, {"reason": body.reason.strip()})
     return f
 
 
 @router.post("/filings/{filing_id}/refresh", summary="Re-freeze a draft filing's data from the current book")
 def refresh(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        f = F.refresh_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.refresh_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
     _audit(session, ctx, "filing.refresh", filing_id)
     return f
 
@@ -532,14 +514,11 @@ def refresh(filing_id: str, session: DbSession, ctx: dict = Depends(require_perm
 @router.post("/filings", status_code=201, summary="Generate a draft filing (freezes the report)")
 def generate(body: GenerateBody, session: DbSession,
              ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
-                              body.framework, ctx["user"]["id"], note=body.note,
-                              confirm_token=body.confirm_token, entity_id=body.entity_id, view=body.view,
-                              figure_sources=body.figure_sources, obligation_id=body.obligation_id,
-                              fund_id=body.fund_id, disclosure_date=body.disclosure_date)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
+                          body.framework, ctx["user"]["id"], note=body.note,
+                          confirm_token=body.confirm_token, entity_id=body.entity_id, view=body.view,
+                          figure_sources=body.figure_sources, obligation_id=body.obligation_id,
+                          fund_id=body.fund_id, disclosure_date=body.disclosure_date)
     _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id,
                                                             "view": body.view, "figure_sources": body.figure_sources})
     return f
@@ -548,10 +527,7 @@ def generate(body: GenerateBody, session: DbSession,
 @router.post("/filings/{filing_id}/submit-for-review", summary="Submit a draft for 4-eyes approval (maker)")
 def submit_for_review(filing_id: str, session: DbSession,
                       ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        f = F.submit_for_review(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.submit_for_review(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
     _audit(session, ctx, "filing.submit_for_review", filing_id)
     return f
 
@@ -563,11 +539,8 @@ def attest(filing_id: str, body: AttestBody, session: DbSession,
     # docstring). Falls back to email only in the unlikely case full_name is blank, so attestation is never
     # recorded against an empty string.
     attestor_name = ctx["user"].get("full_name") or ctx["user"]["email"]
-    try:
-        f = F.attest(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
-                     attestor_name, body.statement, body.function)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.attest(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
+                 attestor_name, body.statement, body.function)
     _audit(session, ctx, "filing.attest", filing_id, {"attestor_name": attestor_name, "function": body.function})
     return f
 
@@ -575,10 +548,7 @@ def attest(filing_id: str, body: AttestBody, session: DbSession,
 @router.post("/filings/{filing_id}/submit", summary="Transmit the filing to the regulator")
 def submit(filing_id: str, body: SubmitBody, session: DbSession,
            ctx: dict = Depends(require_permission("reports.publish"))):
-    try:
-        f = F.submit(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.submission_ref)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.submit(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.submission_ref)
     _audit(session, ctx, "filing.submit", filing_id, {"submission_ref": body.submission_ref})
     return f
 
@@ -586,9 +556,6 @@ def submit(filing_id: str, body: SubmitBody, session: DbSession,
 @router.post("/filings/{filing_id}/accept", summary="Record the regulator's acknowledgement")
 def accept(filing_id: str, body: AcceptBody, session: DbSession,
            ctx: dict = Depends(require_permission("reports.publish"))):
-    try:
-        f = F.accept(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.ack_ref)
-    except F.FilingError as e:
-        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    f = F.accept(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.ack_ref)
     _audit(session, ctx, "filing.accept", filing_id, {"ack_ref": body.ack_ref})
     return f

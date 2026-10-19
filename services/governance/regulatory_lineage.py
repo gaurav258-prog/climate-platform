@@ -35,11 +35,21 @@ def _act(spec: dict) -> dict:
             "quote_found_in": found}
 
 
+def _name(t: dict) -> str:
+    """A template as the regulation names it: its number, then its title — once ('Template 1: Banking book …', not
+    'Template 1 · Template 1: …'); a bare number reads 'Template 3'."""
+    code, title = (t.get("code") or "").strip(), t["title"]
+    if not code or title.startswith(code):
+        return title
+    return f"{'Template ' + code if code.isdigit() else code} · {title}"
+
+
 def _filled(spec: dict, binding: dict | None, tid: str) -> dict:
     """How one template is filled: counts per source kind, per axis (rows / columns, or items)."""
     t = R.template(spec, tid)
     b = (binding or {}).get(tid) or {}
-    out = {"id": tid, "code": t.get("code"), "title": t["title"], "ref": t["ref"], "structure": t["structure"]}
+    out = {"id": tid, "code": t.get("code"), "title": t["title"], "ref": t["ref"], "structure": t["structure"],
+           "name": _name(t)}
     axes = ("items",) if t["structure"] == "document" else ("rows", "columns")
     for axis in axes:
         ids = [i["id"] for i in (R.items_to_fill(t) if axis == "items" else t.get(axis) or [])]
@@ -65,7 +75,7 @@ def template_detail(spec: dict, binding: dict | None, tid: str) -> list[dict]:
 
 def build(session: Session, org_id: str, filing_id: str, template: str | None = None) -> dict:
     """The regulatory lineage of one filing (template: also the rows / columns / items of that template)."""
-    from services.governance.filings import get_filing
+    from services.governance.filings import election_view, get_filing
     from services.regspec.bindings import binding_for
     from services.regspec.signoff import signed_on
     f = get_filing(session, org_id, filing_id, with_payload=True)
@@ -117,5 +127,5 @@ def build(session: Session, org_id: str, filing_id: str, template: str | None = 
     return {"filing": {"filing_id": filing_id, "framework": f["framework"], "period_label": f.get("period_label"),
                        "status": f["status"], "payload_sha256": snap.get("payload_sha256"),
                        "hash_verified": snap.get("hash_verified")},
-            "families": families, "elections": payload.get("_elections") or [],
+            "families": families, "elections": election_view(payload.get("_elections")) or [],
             "regulation": payload.get("_regulation")}

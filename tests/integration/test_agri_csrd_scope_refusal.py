@@ -45,7 +45,8 @@ def test_sfdr_pai_refusal_unchanged_reason():
         with pytest.raises(F.FilingError) as exc:
             F.generate_filing(s, am_org, "asset_manager", "sfdr_pai", u,
                               confirm_token=token, entity_id=e["entity_id"])
+        # the refusal in the catalogue's words: filed for the whole organisation, a statement adding up fund by fund
+        assert exc.value.code == "filing.refused.whole_org_only"
         msg = str(exc.value)
-        assert "consolidates by fund" in msg
-        assert "legal scoping" not in msg and "Art 19a" not in msg
+        assert "whole organisation" in msg and "legal scoping" not in msg and "Art 19a" not in msg
         s.rollback()

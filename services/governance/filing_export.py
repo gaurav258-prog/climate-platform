@@ -17,12 +17,18 @@ import json
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from core.errors import UserError
 from services.governance.filings import EXPORT_FORMATS, get_filing
 from services.governance.money_format import presentation_of
 
 
-class ExportError(ValueError):
-    pass
+class ExportError(UserError, ValueError):
+    """Why a filing cannot be exported, as a message-catalogue code with its values (UI standard, 2026-10-16): the API answers it as a UserError
+    (core/errors.py); str() is the catalogue's sentence."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
 
 
 def formats_for(framework: str) -> tuple[str, ...]:
@@ -33,13 +39,13 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
     """Render a filing's frozen snapshot to (filename, media_type, bytes). Raises ExportError on any gap."""
     filing = get_filing(session, org_id, filing_id, with_payload=True)
     if not filing:
-        raise ExportError("filing not found")
+        raise ExportError("error.not_found")
     snap = filing.get("snapshot")
     if not snap:
-        raise ExportError("this filing has no frozen snapshot yet — prepare it first")
+        raise ExportError("filing.refused.no_snapshot")
     fmt = (fmt or "").lower()
     if fmt not in formats_for(filing["framework"]):
-        raise ExportError(f"'{fmt}' is not an available format for a {filing['framework']} filing")
+        raise ExportError("filing.refused.export_format", format=fmt.upper() or "—")
 
     payload = snap.get("payload") or {}
     basis = snap.get("reporting_basis") or {}
@@ -84,14 +90,14 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
         from services.governance import sfdr_product_forms
         from services.governance.sfdr_product_html import render
         if not payload.get("fund"):
-            raise ExportError("this filing froze no fund")
+            raise ExportError("filing.refused.export_no_fund")
         spec, tid, built = sfdr_product_forms.items(payload, filing["framework"])
         import services.regspec as R
         doc = render(R.template(spec, tid)["title"], R.citation(spec, tid), payload["fund"], built,
                      payload["period"]["end"] if payload.get("document") == "periodic" else None)
         return f"{stem}.html", "text/html", doc.encode("utf-8")
 
-    raise ExportError(f"unknown format '{fmt}'")
+    raise ExportError("filing.refused.export_format", format=fmt.upper() or "—")
 
 
 def _cell_text(cell: dict):
@@ -217,7 +223,7 @@ def _xlsx(framework: str, payload: dict, annex: dict | None = None) -> io.BytesI
         else:
             rows.append(["Unavailable", nb.get("reason", "no scored policies"), None, None, None, None, None, None, None, ""])
         return build_export_workbook(_cur(headers, payload), rows, sheet_name=f"Solvency II · {TEMPLATE}")
-    raise ExportError(f"no workbook renderer for '{framework}'")
+    raise ExportError("filing.refused.export_format", format="XLSX")
 
 
 def _identity(session: Session, org_id: str, entity_id: str | None) -> dict:
@@ -237,8 +243,7 @@ def _identity(session: Session, org_id: str, entity_id: str | None) -> dict:
                     "note": f"{ent['name'] if ent else 'the filing entity'} has no LEI on file — identified by the organisation's LEI"}
     elif org.get("lei"):
         return {"lei": org["lei"].strip(), "name": name, "note": "identified by the organisation's LEI"}
-    raise ExportError("no LEI on file for this filing — add the entity's LEI (Admin → Entities) or the organisation's, "
-                      "then export again")
+    raise ExportError("filing.refused.export_no_lei")
 
 
 def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
@@ -247,15 +252,17 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
         try:
             return instance(payload, _identity(session, org_id, entity_id))
         except XbrlError as e:
-            raise ExportError(str(e)) from e
+            import logging
+            logging.getLogger(__name__).info("XBRL instance refused: %s", e)
+            raise ExportError("filing.refused.export_failed") from e
     # No XBRL for Pillar 3 ESG (E104): the EBA's own taxonomy (the Pillar 3 Data Hub DPM) is not bound, and an instance
     # under Tellumen-made element names is not a filing — as the EU Taxonomy report (E95) and the ESRS (E60). No XBRL for
     # SFDR PAI (E113): no official SFDR PAI taxonomy is held. Filings of every date are refused: the format is not
     # offered for the report type (filings.EXPORT_FORMATS).
-    raise ExportError(f"no XBRL renderer for '{framework}'")
+    raise ExportError("filing.refused.export_format", format="XBRL")
 
 
 def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:
     """No Inline XBRL for any report type: an ESRS statement is tagged with EFRAG's ESRS taxonomy, whose binding is not
     built (E60), and no official SFDR PAI taxonomy is held (E113). An instance under Tellumen-made names is not a filing."""
-    raise ExportError(f"no iXBRL renderer for '{framework}'")
+    raise ExportError("filing.refused.export_format", format="Inline XBRL")

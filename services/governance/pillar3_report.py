@@ -27,7 +27,7 @@ EARLIER_KEYS = ("expected_loss", "transition", "collateral_stranding", "by_hazar
 # per exposure: the climate-discounted valuation — no template reads it
 NOT_FROZEN = ("valuation",)
 EARLIER = "Earlier report shape"
-EARLIER_NOTE = ("Frozen under the earlier shape of this report (before E97), which also carried figures no Pillar 3 "
+EARLIER_NOTE = ("Frozen under the earlier shape of this report, which also carried figures no Pillar 3 "
                 "template prints. Shown as frozen; not part of the ITS templates.")
 _KEPT_GROUPS = ("Financed emissions (PCAF)",)
 
@@ -104,7 +104,7 @@ def form(payload: dict) -> list[dict]:
     n = r.get("n_assets", len(payload.get("assets") or []))
     groups.append({"group": "Frozen banking book", "datapoints": [
         _dp("book.n_assets", "Exposures in the frozen book", n, "num", source="book",
-            note=f"{r.get('n_scored', 0)} of {n} scored on the golden source (Template 5 reads the scores)")]})
+            note=f"{r.get('n_scored', 0)} of {n} scored for physical risk (Template 5 reads the scores)")]})
     if is_earlier_shape(payload):
         groups += [{"group": f"{EARLIER} · {g['group']}", "datapoints": g["datapoints"], "note": EARLIER_NOTE}
                    for g in located if g["group"] not in _KEPT_GROUPS]
@@ -135,6 +135,13 @@ def xlsx_rows(payload: dict) -> list[list]:
 
 
 # ── confirm-data step ─────────────────────────────────────────────────────────
+# Template 1's per-exposure gaps (t1_total "stated" counts) → the catalogue message naming each; the pre-filing check and
+# the validation checklist (services.governance.filing_validation) say the same thing.
+T1_EXPOSURE_GAPS = {"no_counterparty": "filing.gap.no_counterparty", "conflict": "filing.gap.counterparty_conflict",
+                    "s3_gap": "filing.gap.scope_three_basis", "unattributed": "filing.gap.no_liabilities",
+                    "over": "filing.gap.above_liabilities", "rep_unknown": "filing.gap.no_emissions_source"}
+
+
 def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None, translation=None) -> dict:
     """Over exactly the book the filing will freeze: how many exposures are scored (Template 5 reads the scores) and how
     many state the gross carrying amount every template amount is. No book-level at-risk figure: no template prints one."""
@@ -142,32 +149,32 @@ def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None,
     p = freeze(session, org_id, basis["scenario"], basis["horizon"], entity_ids, value_weights, translation)
     r, assets = p["rollup"], p["assets"]
     n_total, n_done = r["n_assets"], r["n_scored"]
+    from core import messages
     gaps = []
     if n_total and n_done < n_total:
-        gaps.append(f"{n_total - n_done} of {n_total} exposures not yet scored — Template 5 cannot place them")
+        gaps.append(messages.render("filing.gap.unscored_exposures", n=n_total - n_done, total=n_total))
     missing = no_gross(assets)
     if missing:
-        gaps.append(f"{missing} of {len(assets)} exposures state no gross carrying amount (outstanding balance) — they "
-                    "sit in no template row")
+        gaps.append(messages.render("filing.gap.no_gross", n=missing, total=len(assets)))
     from services.governance import pillar3_t1 as T1
-    gaps += [f"Template 1 columns i–k — {g}" for g in T1.gaps(p[T1.RECORD])]
-    if T1.k_gap(p[T1.RECORD]):
-        gaps.append(f"Template 1 column k — {T1.k_gap(p[T1.RECORD])}")
+    gaps += [messages.render(f"filing.gap.emissions_{k}") for k in T1.gap_kinds(p[T1.RECORD])]
+    if T1.k_gap_open(p[T1.RECORD]):
+        gaps.append(messages.render("filing.gap.reported_share_basis"))
     st = (t1_total(p) or {}).get("stated") or {}
-    for k, what in (("no_counterparty", "state emissions but no counterparty id"),
-                    ("conflict", "belong to counterparties whose total liabilities are in conflict"),
-                    ("unattributed", "have no counterparty total liabilities stated"),
-                    ("s3_gap", "need a scope 3 that is neither gathered nor given by a stated sector-average intensity")):
+    for k, code in T1_EXPOSURE_GAPS.items():
+        if k in ("over", "rep_unknown"):              # checked on the frozen filing (filing_validation), not here
+            continue
         if st.get(k):
-            gaps.append(f"Template 1 columns i–k — {st[k]} exposures {what}")
-    gaps += [f"Template 1 narrative not authored: {n['prompt']}" for n in T1.missing_narrative(p[T1.RECORD])]
+            gaps.append(messages.render(code, n=st[k], reasons=T1.scope3_reasons(p) if k == "s3_gap" else None))
+    narrative = T1.missing_narrative(p[T1.RECORD])
+    if narrative:
+        gaps.append(messages.render("filing.gap.emissions_narrative", items="; ".join(n["prompt"] for n in narrative)))
     if p.get("qualitative") is not None:
         import services.regspec as R
         from services.governance.pillar3_qualitative import unanswered
         left = unanswered(R.governing("bank_p3esg", period_end=p[T1.RECORD]["reference_date"]), p["qualitative"])
         if left:
-            gaps.append(f"Qualitative Tables 1–3: {len(left)} row(s) not answered for this institution and reference date "
-                        f"({', '.join(left[:6])}{' …' if len(left) > 6 else ''})")
+            gaps.append(messages.render("filing.gap.qualitative", n=len(left)))
     return {"coverage": {"label": "exposures scored", "done": n_done, "total": n_total,
                          "pct": round(100 * n_done / n_total, 1) if n_total else 0},
             "total_value_eur": r["total_value_eur"], "value_at_risk_eur": None, "noun": "exposures", "gaps": gaps}

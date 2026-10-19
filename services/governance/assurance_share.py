@@ -14,6 +14,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core.errors import UserError
+
 DEFAULT_DAYS, MAX_DAYS = 30, 180
 
 
@@ -35,15 +37,15 @@ def status_of(r: dict, now: Optional[datetime] = None) -> str:
 def create(session, *, org_id: str, org_name: str, filing_id: str, recipient_name: str, recipient_email: str, purpose: str,
            expires_in_days: Optional[int], max_downloads: Optional[int], actor: dict, link_base: str) -> dict:
     if not (recipient_name or "").strip() or "@" not in (recipient_email or ""):
-        raise ValueError("Name the auditor and give a valid e-mail.")
+        raise UserError("filing.share.recipient")
     if not (purpose or "").strip():
-        raise ValueError("State the purpose of the share.")
+        raise UserError("filing.share.purpose")
     days = int(expires_in_days or DEFAULT_DAYS)
     if days < 1 or days > MAX_DAYS:
-        raise ValueError(f"Expiry must be between 1 and {MAX_DAYS} days.")
+        raise UserError("filing.share.expiry", max=MAX_DAYS)
     f = session.execute(text("SELECT framework, period_label, status FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"), {"f": filing_id, "o": org_id}).mappings().first()
     if not f:
-        raise ValueError("No such filing.")
+        raise UserError("error.not_found")
     token = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + timedelta(days=days)
     sid = session.execute(text("""INSERT INTO assurance_share (org_id, filing_id, recipient_name, recipient_email, purpose, token_hash, expires_at, max_downloads, created_by)

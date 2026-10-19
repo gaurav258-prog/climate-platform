@@ -3796,6 +3796,1163 @@
     "what": "The model you reviewed is no longer in the register.",
     "next": "Reload the page and open its card again."
    }
+  },
+  "filing.refused.unknown_report": {
+   "status": 404,
+   "label": "This report is not available",
+   "detail": {
+    "what": "The platform does not prepare the report you asked for."
+   }
+  },
+  "filing.refused.not_for_sector": {
+   "status": 409,
+   "label": "This report does not apply to you",
+   "detail": {
+    "what": "{report} is filed by another kind of organisation than yours."
+   }
+  },
+  "filing.refused.retired": {
+   "status": 409,
+   "label": "This report is retired",
+   "detail": {
+    "what": "{report} is retired since {since}: {reason}. Its filings stay readable as filed.",
+    "next": "Nothing replaces it: no new filing, refreshed draft, restatement or supplied value is made for it."
+   }
+  },
+  "filing.refused.retired_replaced": {
+   "status": 409,
+   "label": "This report is retired",
+   "detail": {
+    "what": "{report} is retired since {since}: {reason}. Its filings stay readable as filed.",
+    "next": "Prepare a {successor} instead."
+   }
+  },
+  "filing.refused.prepared_elsewhere": {
+   "status": 409,
+   "label": "Prepared on its own page",
+   "detail": {
+    "what": "{report} is prepared {where}.",
+    "next": "Open it there."
+   }
+  },
+  "filing.refused.accepted_elsewhere": {
+   "status": 409,
+   "label": "Accepted on its own page",
+   "detail": {
+    "what": "{report} is accepted {how}."
+   }
+  },
+  "filing.refused.obligation_not_found": {
+   "status": 404,
+   "label": "That obligation was not found",
+   "detail": {
+    "what": "The obligation this filing was prepared for is not in your organisation's calendar."
+   }
+  },
+  "filing.refused.obligation_other_report": {
+   "status": 409,
+   "label": "That obligation is for another report",
+   "detail": {
+    "what": "The obligation chosen is for a different report than the one being prepared.",
+    "next": "Prepare it from its own card."
+   }
+  },
+  "filing.refused.obligation_other_entity": {
+   "status": 409,
+   "label": "Scope differs from the obligation",
+   "detail": {
+    "what": "The scope chosen is not the legal entity this obligation is for."
+   }
+  },
+  "filing.refused.obligation_other_fund": {
+   "status": 409,
+   "label": "Fund differs from the obligation",
+   "detail": {
+    "what": "The fund chosen is not the one this obligation is for."
+   }
+  },
+  "filing.refused.obligation_other_period": {
+   "status": 409,
+   "label": "Obligation is for another period",
+   "detail": {
+    "what": "This obligation is for {obligation_period} (the period ending {obligation_end}), but your reporting period ends {period_end}.",
+    "next": "Change the reporting period under Basis, then prepare it."
+   }
+  },
+  "filing.refused.whole_org_only": {
+   "status": 409,
+   "label": "Filed for the whole organisation",
+   "detail": {
+    "what": "{report} is filed for the whole organisation, so a legal entity or group cannot be chosen for it.",
+    "why": "A statement of principal adverse impacts adds up fund by fund; each fund's own statement is prepared in the Funds workspace."
+   }
+  },
+  "filing.refused.entity_not_found": {
+   "status": 404,
+   "label": "Legal entity not found",
+   "detail": {
+    "what": "The legal entity chosen is not in your organisation's structure."
+   }
+  },
+  "filing.refused.exempt_subsidiary": {
+   "status": 409,
+   "label": "An exempt subsidiary files no statement",
+   "detail": {
+    "what": "This undertaking is an exempt subsidiary: it files no sustainability statement of its own and is included in {parent}'s consolidated report ({report_ref}).",
+    "why": "The Accounting Directive exempts a subsidiary included in its parent's consolidated sustainability report (Directive 2013/34/EU, Articles 19a(9) and 29a(8))."
+   }
+  },
+  "filing.refused.not_confirmed": {
+   "status": 409,
+   "label": "Confirm the data first",
+   "detail": {
+    "what": "A filing is frozen only after its data has been confirmed in the pre-filing check.",
+    "next": "Open Prepare, review the data and confirm it."
+   }
+  },
+  "filing.refused.data_changed": {
+   "status": 409,
+   "label": "The data changed since you confirmed",
+   "detail": {
+    "what": "The book, the reporting basis or the scope changed after you confirmed the data, so that confirmation no longer matches what would be frozen.",
+    "next": "Review the data again and confirm it."
+   }
+  },
+  "filing.refused.already_live": {
+   "status": 409,
+   "label": "A live filing already exists",
+   "detail": {
+    "what": "A {report} for {period} already exists for this scope, and it is {state}.",
+    "next": "Withdraw it if it is an unfiled draft, or restate it if it was filed."
+   }
+  },
+  "filing.refused.disclosure_before_period": {
+   "status": 409,
+   "label": "Disclosure date falls inside the period",
+   "detail": {
+    "what": "The disclosure date {date} must come after the period it reports on, which ends {period_end}."
+   }
+  },
+  "filing.refused.refresh_not_draft": {
+   "status": 409,
+   "label": "Only a draft is refreshed",
+   "detail": {
+    "what": "This filing is {state}; only a draft takes in new data.",
+    "next": "Restate it as a new version to bring in updated data."
+   }
+  },
+  "filing.refused.wrong_status": {
+   "status": 409,
+   "label": "Not possible at this stage",
+   "detail": {
+    "what": "This filing is {state}, so it cannot be {step} now."
+   }
+  },
+  "filing.refused.blocking_checks": {
+   "status": 409,
+   "label": "Resolve the blocking checks first",
+   "detail": {
+    "what": "{n} blocking check(s) fail: {checks}.",
+    "next": "Fix them, refresh the draft, then send it for approval."
+   }
+  },
+  "filing.refused.attest_needs_statement": {
+   "status": 409,
+   "label": "Add the statement you certify",
+   "detail": {
+    "what": "An attestation records your name and the statement you certify."
+   }
+  },
+  "filing.refused.attest_needs_function": {
+   "status": 409,
+   "label": "State your function",
+   "detail": {
+    "what": "A due diligence statement is signed with the signer's name and function.",
+    "why": "The EU Deforestation Regulation sets the signature block of the statement (Regulation (EU) 2023/1115, Annex II, point 6)."
+   }
+  },
+  "filing.refused.restate_needs_reason": {
+   "status": 409,
+   "label": "Give a reason for the restatement",
+   "detail": {
+    "what": "A restatement records why the filed figures are corrected."
+   }
+  },
+  "filing.refused.restate_not_filed": {
+   "status": 409,
+   "label": "Only a filed report is restated",
+   "detail": {
+    "what": "This filing is {state}; a restatement corrects a report that was submitted or accepted."
+   }
+  },
+  "filing.refused.withdraw_reason": {
+   "status": 409,
+   "label": "Give a longer reason",
+   "detail": {
+    "what": "A withdrawal records a reason of at least {min} characters."
+   }
+  },
+  "filing.refused.withdraw_not_draft": {
+   "status": 409,
+   "label": "Only a draft is withdrawn",
+   "detail": {
+    "what": "This filing is {state}; only a draft or a returned filing can be withdrawn."
+   }
+  },
+  "filing.refused.withdraw_filed": {
+   "status": 409,
+   "label": "A filed report is restated, not withdrawn",
+   "detail": {
+    "what": "This filing is {state}; only a draft or a returned filing can be withdrawn.",
+    "next": "Restate it to correct a filed report."
+   }
+  },
+  "filing.refused.no_rate": {
+   "status": 409,
+   "label": "No exchange rate for {currency}",
+   "detail": {
+    "what": "There is no exchange rate for {currency} on {date}, so the filing cannot present its figures.",
+    "next": "Add your own rate for that date under Admin, Your exchange rates."
+   }
+  },
+  "filing.refused.rate_tolerance": {
+   "status": 409,
+   "label": "Your {currency} rate is out of tolerance",
+   "detail": {
+    "what": "Your own {currency} rate for {date} differs from the reference rate by more than your tolerance.",
+    "next": "Correct it under Admin, Your exchange rates, before freezing."
+   }
+  },
+  "filing.refused.checks_failed": {
+   "status": 409,
+   "label": "The calculation failed its checks",
+   "detail": {
+    "what": "The calculation did not pass its integrity checks, so nothing was frozen: {checks}.",
+    "next": "Raise a request in Support and say when it happened."
+   }
+  },
+  "filing.refused.statement_unavailable": {
+   "status": 409,
+   "label": "The statement cannot be built",
+   "detail": {
+    "what": "The principal adverse impacts statement cannot be built for this period: {reason}."
+   }
+  },
+  "filing.refused.cannot_freeze": {
+   "status": 409,
+   "label": "The filing could not be frozen",
+   "detail": {
+    "what": "Something stopped the filing from being frozen; nothing was saved.",
+    "next": "Try again. If it keeps happening, raise a request in Support."
+   }
+  },
+  "filing.refused.not_per_product": {
+   "status": 409,
+   "label": "This report is not per fund",
+   "detail": {
+    "what": "This report is not disclosed per financial product, so no fund is chosen for it."
+   }
+  },
+  "filing.refused.per_product_not_entity": {
+   "status": 409,
+   "label": "This report is disclosed per fund",
+   "detail": {
+    "what": "This report is disclosed per financial product, not per legal entity.",
+    "next": "Choose the fund."
+   }
+  },
+  "filing.refused.choose_fund": {
+   "status": 409,
+   "label": "Choose the fund",
+   "detail": {
+    "what": "This report is disclosed per financial product, so it needs its fund."
+   }
+  },
+  "filing.refused.fund_not_found": {
+   "status": 404,
+   "label": "Fund not found",
+   "detail": {
+    "what": "The fund chosen is not one of your organisation's."
+   }
+  },
+  "filing.refused.fund_not_classified": {
+   "status": 409,
+   "label": "Fund is not Article 8 or 9",
+   "detail": {
+    "what": "{fund} is not classified Article 8 or Article 9 under SFDR, so this template does not apply to it.",
+    "next": "Set its SFDR classification in the Funds workspace first."
+   }
+  },
+  "filing.refused.no_snapshot": {
+   "status": 409,
+   "label": "Prepare the filing first",
+   "detail": {
+    "what": "This filing has no frozen report yet."
+   }
+  },
+  "filing.refused.export_format": {
+   "status": 409,
+   "label": "Format not available",
+   "detail": {
+    "what": "{format} is not available for this report."
+   }
+  },
+  "filing.refused.export_no_fund": {
+   "status": 409,
+   "label": "No fund frozen in this filing",
+   "detail": {
+    "what": "This filing was frozen without its fund, so its document cannot be produced."
+   }
+  },
+  "filing.refused.export_no_lei": {
+   "status": 409,
+   "label": "Add a legal entity identifier first",
+   "detail": {
+    "what": "No legal entity identifier is on file for this filing.",
+    "next": "Add the entity's identifier under Admin, Entities, or the organisation's, then export again."
+   }
+  },
+  "filing.refused.export_failed": {
+   "status": 409,
+   "label": "The export could not be produced",
+   "detail": {
+    "what": "The file could not be produced from the frozen report.",
+    "next": "Try another format. If it keeps happening, raise a request in Support."
+   }
+  },
+  "filing.refused.override_reason": {
+   "status": 409,
+   "label": "Give a reason for the change",
+   "detail": {
+    "what": "A manual change of a figure records its reason."
+   }
+  },
+  "filing.refused.override_withdrawn": {
+   "status": 409,
+   "label": "This filing was withdrawn",
+   "detail": {
+    "what": "A withdrawn filing can no longer be changed."
+   }
+  },
+  "filing.refused.override_unknown": {
+   "status": 409,
+   "label": "That figure is not on this form",
+   "detail": {
+    "what": "The figure you tried to change is not one this filing reports."
+   }
+  },
+  "filing.refused.override_not_numeric": {
+   "status": 409,
+   "label": "Only a number can be changed",
+   "detail": {
+    "what": "This figure is text, so it cannot be changed to a number."
+   }
+  },
+  "filing.refused.qualitative_rows": {
+   "status": 422,
+   "label": "Not a row of these tables",
+   "detail": {
+    "what": "{rows} is not a row of the qualitative tables."
+   }
+  },
+  "filing.refused.qualitative_text": {
+   "status": 422,
+   "label": "Text not saved",
+   "detail": {
+    "what": "The text was not saved: {reasons}."
+   }
+  },
+  "filing.refused.qualitative_undertaking": {
+   "status": 422,
+   "label": "Choose an institution in your structure",
+   "detail": {
+    "what": "The institution chosen is not your organisation or one of its legal entities."
+   }
+  },
+  "filing.refused.basis_unchanged": {
+   "status": 422,
+   "label": "Nothing to change",
+   "detail": {
+    "what": "The reporting basis you sent is the same as the one in force."
+   }
+  },
+  "filing.gap.no_gross": {
+   "label": "{n} exposures without a carrying amount",
+   "detail": {
+    "what": "{n} of {total} exposures state no gross carrying amount (the outstanding balance), so they sit in no template row.",
+    "next": "State it on the loan tape."
+   }
+  },
+  "filing.gap.unscored_exposures": {
+   "label": "{n} exposures not yet scored",
+   "detail": {
+    "what": "{n} of {total} exposures have no physical-risk score yet, so the physical-risk template cannot place them."
+   }
+  },
+  "filing.gap.unscored_properties": {
+   "label": "{n} properties not yet scored",
+   "detail": {
+    "what": "{n} of {total} properties have no physical-risk score yet; they are left out of the exposure figures."
+   }
+  },
+  "filing.gap.unpriced_policies": {
+   "label": "{n} policies not yet priced",
+   "detail": {
+    "what": "{n} of {total} policies are not yet priced."
+   }
+  },
+  "filing.gap.own_funds": {
+   "label": "Own funds not attested",
+   "detail": {
+    "what": "Own funds and the solvency capital requirement are not attested for this undertaking and period."
+   }
+  },
+  "filing.gap.reinsurance": {
+   "label": "Reinsurance not attested",
+   "detail": {
+    "what": "The reinsurance in force is not attested for this undertaking and period."
+   }
+  },
+  "filing.gap.pai_indicators": {
+   "label": "{done} of {total} mandatory indicators computed",
+   "detail": {
+    "what": "{done} of the {total} mandatory indicators are computed; the rest await data from the issuers."
+   }
+  },
+  "filing.gap.emissions_estimation": {
+   "label": "Emissions estimation not stated",
+   "detail": {
+    "what": "Which counterparty emissions the institution estimates is not stated, so the financed-emissions columns cannot follow your method.",
+    "why": "The first Pillar 3 template prints financed emissions on the institution's own estimation (Template 1, columns i to k).",
+    "next": "State it under Methodology."
+   }
+  },
+  "filing.gap.emissions_attribution": {
+   "label": "Emissions attribution not stated",
+   "detail": {
+    "what": "How counterparty emissions are attributed to each exposure is not stated, so the financed-emissions columns cannot follow your method.",
+    "why": "Template 1 attributes emissions per counterparty (columns i to k).",
+    "next": "State it under Methodology."
+   }
+  },
+  "filing.gap.reported_share_basis": {
+   "label": "Company-reported share basis not stated",
+   "detail": {
+    "what": "What the share of company-reported emissions counts while scope 3 is not yet estimated is not stated.",
+    "why": "Template 1, column k.",
+    "next": "State it under Methodology."
+   }
+  },
+  "filing.gap.no_counterparty": {
+   "label": "{n} exposures without a counterparty",
+   "detail": {
+    "what": "{n} exposures state emissions but no counterparty identifier, and emissions are attributed per counterparty.",
+    "next": "State the counterparty identifier (its LEI or your own) on the loan tape."
+   }
+  },
+  "filing.gap.counterparty_conflict": {
+   "label": "{n} exposures with conflicting counterparty figures",
+   "detail": {
+    "what": "{n} exposures belong to counterparties whose exposures state different total liabilities, and none was chosen.",
+    "next": "State the counterparty's one figure under Data, Counterparties."
+   }
+  },
+  "filing.gap.scope_three_basis": {
+   "label": "{n} exposures without a scope 3 basis",
+   "detail": {
+    "what": "{n} exposures need scope 3 emissions that are neither gathered from the counterparty nor given by a stated sector-average intensity: {reasons}.",
+    "why": "Institutions base scope 3 on the counterparty's own information and on sector-average intensity (Template 1 instructions)."
+   }
+  },
+  "filing.gap.no_liabilities": {
+   "label": "{n} exposures without counterparty liabilities",
+   "detail": {
+    "what": "{n} exposures state emissions but not the counterparty's total liabilities and equity, so their financed emissions cannot be attributed.",
+    "next": "State it once for the counterparty, with its balance-sheet date, under Data, Counterparties."
+   }
+  },
+  "filing.gap.above_liabilities": {
+   "label": "{n} exposures above counterparty liabilities",
+   "detail": {
+    "what": "{n} exposures are larger than the counterparty's stated total liabilities and equity; one of the two is wrong."
+   }
+  },
+  "filing.gap.no_emissions_source": {
+   "label": "{n} exposures without an emissions source",
+   "detail": {
+    "what": "{n} exposures do not record whether the counterparty reported its own emissions, so the company-reported share cannot be read.",
+    "next": "State whether the company reported its emissions in the loan attributes."
+   }
+  },
+  "filing.gap.emissions_narrative": {
+   "label": "Emissions narrative not written",
+   "detail": {
+    "what": "Not yet written: {items}.",
+    "next": "Write it under Methodology, Pillar 3 narrative."
+   }
+  },
+  "filing.gap.qualitative": {
+   "label": "{n} qualitative rows not answered",
+   "detail": {
+    "what": "{n} rows of the qualitative tables have no text for this institution and reference date.",
+    "next": "Write them on the form's Qualitative tab."
+   }
+  },
+  "filing.gap.no_spec": {
+   "label": "No template governs this period",
+   "detail": {
+    "what": "No adopted template specification governs this report for the period."
+   }
+  },
+  "filing.gap.no_holdings": {
+   "label": "No holdings for the reference period",
+   "detail": {
+    "what": "No holdings are on file for the fund in the reference period."
+   }
+  },
+  "filing.gap.unanswered": {
+   "label": "{n} items have no answer yet",
+   "detail": {
+    "what": "{n} items of the template have no answer yet.",
+    "next": "Answer them on the fund's disclosure page."
+   }
+  },
+  "filing.gap.sfdr_no_funds": {
+   "label": "No funds on file",
+   "detail": {
+    "what": "Your organisation has no funds, so there is no statement to build."
+   }
+  },
+  "filing.gap.sfdr_no_positions": {
+   "label": "No positions to report on",
+   "detail": {
+    "what": "Your funds hold no positions to report on in {year}."
+   }
+  },
+  "filing.gap.sfdr_period": {
+   "label": "Reference period must be a calendar year",
+   "detail": {
+    "what": "A principal adverse impacts statement covers 1 January to 31 December.",
+    "why": "Delegated Regulation (EU) 2022/1288, Article 4(1).",
+    "next": "Set the reporting period to a calendar year end under Basis."
+   }
+  },
+  "filing.gap.sfdr_unavailable": {
+   "label": "The statement cannot be built",
+   "detail": {
+    "what": "The principal adverse impacts statement cannot be built for this period."
+   }
+  },
+  "filing.gap.sfdr_identity": {
+   "label": "Reporting entity details missing",
+   "detail": {
+    "what": "Missing before the statement can be submitted: {items}.",
+    "next": "Add them under Admin, Organisation."
+   }
+  },
+  "filing.gap.sfdr_holdings": {
+   "label": "Holdings missing on quarter ends",
+   "detail": {
+    "what": "Not on file: {items}.",
+    "why": "Each impact is the average of the holdings on the four quarter ends (Delegated Regulation (EU) 2022/1288, Article 6(3))."
+   }
+  },
+  "filing.gap.sfdr_answers": {
+   "label": "{n} required answers missing",
+   "detail": {
+    "what": "Not yet answered: {items}.",
+    "why": "Delegated Regulation (EU) 2022/1288, Articles 5 to 9."
+   }
+  },
+  "filing.check.frozen.ok": {
+   "label": "Frozen as an unchangeable record",
+   "detail": {
+    "what": "The report is frozen: its figures cannot change after this point."
+   }
+  },
+  "filing.check.frozen.fail": {
+   "label": "No frozen report behind this filing",
+   "detail": {
+    "what": "There is no frozen report behind this filing, so there is nothing to submit."
+   }
+  },
+  "filing.check.fingerprint.ok": {
+   "label": "Matches its fingerprint",
+   "detail": {
+    "what": "The frozen report still matches the fingerprint taken when it was frozen, so nothing in it has changed since."
+   }
+  },
+  "filing.check.fingerprint.fail": {
+   "label": "Does not match its fingerprint",
+   "detail": {
+    "what": "The frozen report no longer matches the fingerprint taken when it was frozen: it was altered or damaged afterwards.",
+    "next": "Do not submit it. Raise a request in Support."
+   }
+  },
+  "filing.check.in_scope.ok": {
+   "label": "{n} {noun} in scope",
+   "detail": {
+    "what": "The filing covers {n} {noun}."
+   }
+  },
+  "filing.check.in_scope.fail": {
+   "label": "No {noun} in scope",
+   "detail": {
+    "what": "There are no {noun} in scope, so there is nothing to file."
+   }
+  },
+  "filing.check.scored.ok": {
+   "label": "{n} {noun} scored",
+   "detail": {
+    "what": "{n} {noun} carry a physical-risk score."
+   }
+  },
+  "filing.check.scored.fail": {
+   "label": "No {noun} scored",
+   "detail": {
+    "what": "No {noun} carry a physical-risk score, so the disclosure would be empty."
+   }
+  },
+  "filing.check.coverage.ok": {
+   "label": "All {n} {noun} scored",
+   "detail": {
+    "what": "All {n} {noun} carry a physical-risk score ({pct}%)."
+   }
+  },
+  "filing.check.coverage.fail": {
+   "label": "{done} of {total} {noun} scored",
+   "detail": {
+    "what": "{done} of {total} {noun} are scored ({pct}%); the {left} not yet scored are left out of the exposure figures."
+   }
+  },
+  "filing.check.value.ok": {
+   "label": "{measure}: {value}",
+   "detail": {
+    "what": "{measure} is {value}."
+   }
+  },
+  "filing.check.value.fail": {
+   "label": "{measure} is zero",
+   "detail": {
+    "what": "{measure} is zero, so there is nothing of value to report."
+   }
+  },
+  "filing.check.share_range.ok": {
+   "label": "Share at material risk: {pct}%",
+   "detail": {
+    "what": "{pct}% of the book is at material physical risk."
+   }
+  },
+  "filing.check.share_range.fail": {
+   "label": "Share at risk out of range",
+   "detail": {
+    "what": "The share of the book at material physical risk reads {pct}%; a share lies between 0 and 100%."
+   }
+  },
+  "filing.check.emissions_sign.ok": {
+   "label": "Financed emissions are not negative",
+   "detail": {
+    "what": "No financed emissions figure is below zero."
+   }
+  },
+  "filing.check.emissions_sign.fail": {
+   "label": "Negative financed emissions",
+   "detail": {
+    "what": "Financed emissions are below zero for: {scopes}."
+   }
+  },
+  "filing.check.hazard_book.ok": {
+   "label": "{hazard}: {value} exposed",
+   "detail": {
+    "what": "{value} is exposed to {hazard}, within the book."
+   }
+  },
+  "filing.check.hazard_book.fail": {
+   "label": "{hazard} exposure exceeds the book",
+   "detail": {
+    "what": "{value} is shown exposed to {hazard}, more than the whole book of {total}."
+   }
+  },
+  "filing.check.buckets.ok": {
+   "label": "Severity bands add up to the book",
+   "detail": {
+    "what": "The severity bands add up to the book total of {value}."
+   }
+  },
+  "filing.check.buckets.fail": {
+   "label": "Severity bands do not add up",
+   "detail": {
+    "what": "The severity bands add up to {value}, not the book total of {total}."
+   }
+  },
+  "filing.check.var_book.ok": {
+   "label": "Value at risk within the book",
+   "detail": {
+    "what": "Value at material physical risk is {value}, within the book."
+   }
+  },
+  "filing.check.var_book.fail": {
+   "label": "Value at risk exceeds the book",
+   "detail": {
+    "what": "Value at risk of {value} is more than the whole book of {total}."
+   }
+  },
+  "filing.check.gross_amount.ok": {
+   "label": "Every exposure states its carrying amount",
+   "detail": {
+    "what": "All {n} exposures state their gross carrying amount (the outstanding balance)."
+   }
+  },
+  "filing.check.qualitative.ok": {
+   "label": "Every qualitative row is answered",
+   "detail": {
+    "what": "Every row of the qualitative tables has its text for this institution and reference date."
+   }
+  },
+  "filing.check.emissions_method.ok": {
+   "label": "Emissions columns follow your method",
+   "detail": {
+    "what": "The financed-emissions columns follow the institution's stated estimation and attribution."
+   }
+  },
+  "filing.check.emissions_inputs.ok": {
+   "label": "Every exposure states what is needed",
+   "detail": {
+    "what": "Every exposure the financed-emissions columns read states what they need."
+   }
+  },
+  "filing.check.reported_share.ok": {
+   "label": "Company-reported share follows your statement",
+   "detail": {
+    "what": "The share of company-reported emissions follows the institution's statement."
+   }
+  },
+  "filing.check.emissions_narrative.ok": {
+   "label": "Emissions narrative is written",
+   "detail": {
+    "what": "The narrative that accompanies the financed-emissions template is written."
+   }
+  },
+  "filing.check.method.ok": {
+   "label": "Every money figure rests on your method",
+   "detail": {
+    "what": "Every money figure rests on your stated method for the period ending {period_end}."
+   }
+  },
+  "filing.check.method.fail": {
+   "label": "Method choices not stated",
+   "detail": {
+    "what": "Not stated for the period: {names}. The figures that need them are left blank.",
+    "next": "State them under Methodology."
+   }
+  },
+  "filing.check.sfdr_period.ok": {
+   "label": "Reference period {start} to {end}",
+   "detail": {
+    "what": "Each impact is the average of the holdings on {dates}."
+   }
+  },
+  "filing.check.sfdr_period.fail": {
+   "label": "Frozen without a reference period",
+   "detail": {
+    "what": "Impacts were taken on the latest holdings, not as the average of the four quarter ends.",
+    "why": "A statement covers 1 January to 31 December, each impact the average of the four quarter ends.",
+    "next": "Prepare the statement again."
+   }
+  },
+  "filing.check.sfdr_identity.ok": {
+   "label": "Reporting entity details complete",
+   "detail": {
+    "what": "The identity of the reporting entity is complete."
+   }
+  },
+  "filing.check.sfdr_holdings.ok": {
+   "label": "Holdings on file for all quarter ends",
+   "detail": {
+    "what": "Holdings are on file for all four quarter ends."
+   }
+  },
+  "filing.check.sfdr_answers.ok": {
+   "label": "Every required section is answered",
+   "detail": {
+    "what": "Every section the Regulation requires is answered."
+   }
+  },
+  "filing.check.pai_indicators.ok": {
+   "label": "All {n} mandatory indicators computed",
+   "detail": {
+    "what": "All {n} mandatory principal adverse impact indicators are computed."
+   }
+  },
+  "filing.check.emissions_coverage.ok": {
+   "label": "Emissions cover {pct}% of net assets",
+   "detail": {
+    "what": "Emissions data covers {pct}% of net asset value."
+   }
+  },
+  "filing.check.emissions_coverage.fail": {
+   "label": "Emissions cover only {pct}% of net assets",
+   "detail": {
+    "what": "Emissions data covers only {pct}% of net asset value, so the emissions indicators rest on a thin base."
+   }
+  },
+  "filing.check.fund_coverage.ok": {
+   "label": "Every fund's emissions coverage is adequate",
+   "detail": {
+    "what": "Every fund has emissions data for at least 30% of its value."
+   }
+  },
+  "filing.check.fund_coverage.fail": {
+   "label": "Thinly covered funds in the total",
+   "detail": {
+    "what": "These funds have emissions data for under 30% of their value, inside the entity total: {funds}."
+   }
+  },
+  "filing.check.alignment.fail": {
+   "label": "{n} eligible buildings lack alignment facts",
+   "detail": {
+    "what": "{n} eligible buildings ({value} of turnover) lack the facts to decide alignment, so they count as neither aligned nor not aligned: {reasons}."
+   }
+  },
+  "filing.check.turnover_basis.fail": {
+   "label": "{n} buildings use net operating income",
+   "detail": {
+    "what": "{n} of {total} buildings have no gross rental revenue on file, so their turnover uses net operating income, which understates gross revenue.",
+    "next": "Add gross rental revenue to the property data."
+   }
+  },
+  "filing.check.capex_opex.info": {
+   "label": "CapEx and OpEx come from your ledger",
+   "detail": {
+    "what": "The CapEx and OpEx key performance indicators are entered from the undertaking's own ledger."
+   }
+  },
+  "filing.check.priced.ok": {
+   "label": "{n} policies priced",
+   "detail": {
+    "what": "{n} policies are priced."
+   }
+  },
+  "filing.check.priced.fail": {
+   "label": "No policies priced",
+   "detail": {
+    "what": "No policy is priced, so the capital requirement would be zero."
+   }
+  },
+  "filing.check.net_gross.ok": {
+   "label": "Net loss within gross loss",
+   "detail": {
+    "what": "The 1-in-200 loss net of reinsurance ({net}) is within the gross loss ({gross})."
+   }
+  },
+  "filing.check.net_gross.fail": {
+   "label": "Net loss exceeds gross loss",
+   "detail": {
+    "what": "The 1-in-200 loss net of reinsurance ({net}) is above the gross loss ({gross}); reinsurance cannot increase a loss."
+   }
+  },
+  "filing.check.tail_mean.ok": {
+   "label": "1-in-200 loss at or above the mean",
+   "detail": {
+    "what": "The 1-in-200 loss ({gross}) is at or above the mean annual loss ({mean})."
+   }
+  },
+  "filing.check.tail_mean.fail": {
+   "label": "1-in-200 loss below the mean",
+   "detail": {
+    "what": "The 1-in-200 loss ({gross}) is below the mean annual loss ({mean}); a tail loss is never lower than the mean."
+   }
+  },
+  "filing.check.zones.ok": {
+   "label": "Zone losses add up to the portfolio",
+   "detail": {
+    "what": "The expected annual losses of the accumulation zones add up to the portfolio's mean annual loss."
+   }
+  },
+  "filing.check.zones.fail": {
+   "label": "Zone losses do not add up",
+   "detail": {
+    "what": "The expected annual losses of the accumulation zones do not add up to the portfolio's mean annual loss: an inconsistency in the calculation, not a gap in your data.",
+    "next": "Raise a request in Support."
+   }
+  },
+  "filing.check.sf_available.ok": {
+   "label": "Standard formula computed",
+   "detail": {
+    "what": "The standard-formula natural catastrophe risk is computed beside the modelled 1-in-200 loss."
+   }
+  },
+  "filing.check.sf_available.fail": {
+   "label": "Standard formula not computed",
+   "detail": {
+    "what": "The standard-formula natural catastrophe risk is not computed for this book."
+   }
+  },
+  "filing.check.sf_complete.ok": {
+   "label": "Every exposure is charged",
+   "detail": {
+    "what": "The standard formula charges every exposure."
+   }
+  },
+  "filing.check.sf_complete.fail": {
+   "label": "Standard formula incomplete",
+   "detail": {
+    "what": "Inputs the standard formula still needs: {items}."
+   }
+  },
+  "filing.check.simplification.fail": {
+   "label": "Simplified calculation used",
+   "detail": {
+    "what": "A natural catastrophe simplification is used, so the submission must also include the template of simplifications.",
+    "next": "Add postal codes to the statement of values to place every risk in its zone instead."
+   }
+  },
+  "filing.check.mitigation.ok": {
+   "label": "Mitigation never adds to the charge",
+   "detail": {
+    "what": "After mitigation never exceeds before mitigation plus reinstatement premiums."
+   }
+  },
+  "filing.check.mitigation.fail": {
+   "label": "After mitigation exceeds before",
+   "detail": {
+    "what": "After mitigation exceeds before mitigation plus reinstatement premiums for: {items}."
+   }
+  },
+  "filing.check.entity.ok": {
+   "label": "Reporting entity: {name}",
+   "detail": {
+    "what": "The statement is for {name}."
+   }
+  },
+  "filing.check.entity.fail": {
+   "label": "No reporting entity name",
+   "detail": {
+    "what": "No name of the reporting entity is on file."
+   }
+  },
+  "filing.check.material_hazards.ok": {
+   "label": "{n} material hazards identified",
+   "detail": {
+    "what": "{n} material hazards are identified."
+   }
+  },
+  "filing.check.material_hazards.fail": {
+   "label": "No material hazards identified",
+   "detail": {
+    "what": "No material hazards were identified; this is disclosed as found, not assumed clean."
+   }
+  },
+  "filing.check.negative.fail": {
+   "label": "{hazard}: a negative figure",
+   "detail": {
+    "what": "{hazard} ({leg}): the {measure} is negative ({value})."
+   }
+  },
+  "filing.check.plots.ok": {
+   "label": "Every covered plot is accounted for",
+   "detail": {
+    "what": "Every one of the {n} plots the Deforestation Regulation covers is in one of the four determination states."
+   }
+  },
+  "filing.check.plots.fail": {
+   "label": "Covered plots do not add up",
+   "detail": {
+    "what": "{n} plots are covered by the Deforestation Regulation, but the four determination states add up to {sum}."
+   }
+  },
+  "filing.check.eudr_statement.fail": {
+   "label": "No statement frozen",
+   "detail": {
+    "what": "No due diligence statement was frozen in this filing."
+   }
+  },
+  "filing.check.eudr_declaration.fail": {
+   "label": "No declaration frozen",
+   "detail": {
+    "what": "No simplified declaration is frozen in this filing."
+   }
+  },
+  "filing.check.arrears.none": {
+   "label": "No arrears book uploaded yet",
+   "detail": {
+    "what": "Seasonal and genuine arrears are not reconciled for this filing yet.",
+    "next": "Upload an arrears book under Your data to enable this check."
+   }
+  },
+  "filing.check.arrears.ok": {
+   "label": "Seasonal arrears checked",
+   "detail": {
+    "what": "{n} past-due loans; {pct}% are classified as genuine deterioration."
+   }
+  },
+  "filing.check.arrears.no_country": {
+   "label": "Seasonal arrears checked",
+   "detail": {
+    "what": "{n} past-due loans; {pct}% are classified as genuine deterioration. {m} had no country on record and are counted as genuine."
+   }
+  },
+  "filing.check.ledger.none": {
+   "label": "No general ledger uploaded yet",
+   "detail": {
+    "what": "The reported book is not yet tied to your general ledger for this filing.",
+    "next": "Upload one under Your data to enable this check."
+   }
+  },
+  "filing.check.ledger.ok": {
+   "label": "Book ties to your ledger",
+   "detail": {
+    "what": "The reported book is within the ±{tol}% tolerance of your general ledger (difference {var}%)."
+   }
+  },
+  "filing.check.ledger.fail": {
+   "label": "Book does not tie to your ledger",
+   "detail": {
+    "what": "The reported book differs from your general ledger by {var}%, beyond the ±{tol}% tolerance ({reported} reported, {ledger} on the ledger).",
+    "next": "Resolve the difference or correct the upload before sending the filing for approval."
+   }
+  },
+  "filing.check.fx_current.ok": {
+   "label": "Exchange rates unchanged since freezing",
+   "detail": {
+    "what": "Every exchange rate this filing used is unchanged since it was frozen."
+   }
+  },
+  "filing.check.fx_current.fail": {
+   "label": "{n} exchange rates changed since freezing",
+   "detail": {
+    "what": "Rates that changed after the filing was frozen: {items}.",
+    "next": "Consider restating the filing."
+   }
+  },
+  "filing.check.fx_fresh.ok": {
+   "label": "Every exchange rate was current",
+   "detail": {
+    "what": "Every exchange rate was current for its date."
+   }
+  },
+  "filing.check.fx_fresh.fail": {
+   "label": "{n} exchange rates were out of date",
+   "detail": {
+    "what": "{n} exchange rates were older than their source normally publishes.",
+    "next": "Check them before submitting."
+   }
+  },
+  "filing.check.cross.none": {
+   "label": "First filing of its kind",
+   "detail": {
+    "what": "There is no earlier or restated filing of this report to compare with."
+   }
+  },
+  "filing.check.cross.currency": {
+   "label": "Not compared: different currencies",
+   "detail": {
+    "what": "{period} version {version} presents in {other}, this filing in {this}, so their figures are not compared."
+   }
+  },
+  "filing.check.cross.same_ok": {
+   "label": "{figure} matches version {version}",
+   "detail": {
+    "what": "{figure} is within {pct}% of version {version} for the same period."
+   }
+  },
+  "filing.check.cross.same_fail": {
+   "label": "{figure} differs from version {version}",
+   "detail": {
+    "what": "{figure} differs from version {version} for the same period by {pct}%. A restatement usually corrects specific figures, not the whole book.",
+    "next": "Confirm the change is intended."
+   }
+  },
+  "filing.check.cross.prior_ok": {
+   "label": "{figure} moved {pct}% since {period}",
+   "detail": {
+    "what": "{figure} moved {pct}% since {period}, within the normal range."
+   }
+  },
+  "filing.check.cross.prior_fail": {
+   "label": "{figure} moved {pct}% since {period}",
+   "detail": {
+    "what": "{figure} moved {pct}% since {period}, an unusually large move.",
+    "next": "Confirm it is real."
+   }
+  },
+  "filing.board.not_for_supervisor": {
+   "status": 404,
+   "label": "No board pack for a supervisor",
+   "detail": {
+    "what": "A supervisory body has no board climate-risk pack.",
+    "next": "Use the population export instead."
+   }
+  },
+  "filing.board.period_order": {
+   "status": 422,
+   "label": "The period must start before it ends",
+   "detail": {
+    "what": "The first day of the period must come before its last day."
+   }
+  },
+  "filing.board.statement_unknown": {
+   "status": 422,
+   "label": "Choose one of the statements",
+   "detail": {
+    "what": "An attestation uses one of the pack's statements."
+   }
+  },
+  "filing.board.capacity": {
+   "status": 422,
+   "label": "State your capacity",
+   "detail": {
+    "what": "An attestation records the capacity in which you attest, for example Chair of the Risk Committee."
+   }
+  },
+  "filing.board.reservations_comment": {
+   "status": 422,
+   "label": "Reservations need a comment",
+   "detail": {
+    "what": "An attestation with reservations records them in a comment."
+   }
+  },
+  "filing.board.already_attested": {
+   "status": 409,
+   "label": "You have already attested this version",
+   "detail": {
+    "what": "Your attestation of this version is already on record."
+   }
+  },
+  "filing.board.format": {
+   "status": 422,
+   "label": "Choose PDF or JSON",
+   "detail": {
+    "what": "A board pack downloads as PDF or JSON."
+   }
+  },
+  "filing.share.recipient": {
+   "status": 422,
+   "label": "Name the auditor and their e-mail",
+   "detail": {
+    "what": "A share records who receives it: the auditor's name and a valid e-mail address."
+   }
+  },
+  "filing.share.purpose": {
+   "status": 422,
+   "label": "State the purpose of the share",
+   "detail": {
+    "what": "A share records why the auditor receives the evidence."
+   }
+  },
+  "filing.share.expiry": {
+   "status": 422,
+   "label": "Expiry is 1 to {max} days",
+   "detail": {
+    "what": "A share expires between 1 and {max} days after it is made."
+   }
+  },
+  "filing.share.not_active": {
+   "status": 404,
+   "label": "This share is no longer active",
+   "detail": {
+    "what": "The share was already revoked or has expired."
+   }
   }
  },
  "names": {
@@ -4275,6 +5432,64 @@
    "independent": "Independent record",
    "harvests": "Past harvests",
    "events": "Named events"
+  },
+  "filing.election": {
+   "orsa_default": "The reference default",
+   "region_only": "The regional charge only",
+   "region_and_premium": "The regional charge plus the premium-based charge",
+   "amended_rules": "The amended rules",
+   "pre_amendment_rules": "The rules before the amendment",
+   "dr_2023_2772_as_2025_1416": "ESRS as amended in 2025",
+   "dr_2026_1563": "The simplified ESRS of 2026",
+   "dr_2023_2772_as_2025_1416_with_2026_1563_reliefs": "ESRS as amended in 2025, with the 2026 reliefs",
+   "not_stated": "Not stated",
+   "exempted": "Exempted by the Member State",
+   "not_exempted": "Not exempted",
+   "jrc_huizinga_2017": "European river-flood damage curves",
+   "nfip_measured": "Measured US flood claims",
+   "comonotonic": "Fully dependent",
+   "defended": "With flood defences",
+   "undefended": "Without flood defences",
+   "scope_1_2_3": "Scopes 1, 2 and 3",
+   "scope_1_2": "Scopes 1 and 2",
+   "not_yet_estimating": "Not yet estimating",
+   "exposure_over_total_liabilities": "Exposure over the counterparty's total liabilities",
+   "scopes_estimated": "The scopes estimated",
+   "all_three_scopes": "All three scopes",
+   "intensity_x_total_liabilities": "Sector intensity times total liabilities",
+   "intensity_x_revenue": "Sector intensity times revenue",
+   "period_average": "Average rate for the period",
+   "closing": "Closing rate"
+  },
+  "filing.scope_reason": {
+   "basis_not_stated": "how the sector-average intensity is used is not stated (Methodology)",
+   "no_division": "no economic activity (NACE division) is on file to read a sector average for",
+   "no_intensity": "no {intensity} is stated for division {division} (Methodology)",
+   "no_revenue": "no revenue is stated for the counterparty (Data, Counterparties)",
+   "revenue_after": "the counterparty's revenue is for a financial year ending after the reference date; state the year ending on or before it"
+  },
+  "filing.status": {
+   "draft": "a draft",
+   "in_review": "in review",
+   "returned": "returned to the preparer",
+   "approved": "approved",
+   "attested": "attested",
+   "submitted": "submitted",
+   "accepted": "accepted",
+   "rejected": "rejected",
+   "superseded": "superseded by a restatement",
+   "withdrawn": "withdrawn"
+  },
+  "filing.step": {
+   "submit_for_review": "sent for approval",
+   "approve": "approved",
+   "return": "returned to the preparer",
+   "reject": "rejected",
+   "attest": "attested",
+   "submit": "recorded as submitted",
+   "accept": "marked accepted",
+   "supersede": "superseded",
+   "withdraw": "withdrawn"
   }
  }
 }

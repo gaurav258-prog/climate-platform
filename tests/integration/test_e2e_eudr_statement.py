@@ -52,7 +52,8 @@ def _file(api, maker, checker, fid):
     assert sr.status_code == 200, sr.text
     _approve(api, checker, sr.json()["approval_request_id"])
     unsigned = api.post(f"/v1/filings/{fid}/attest", headers=checker, json={"statement": "Signed for Terra Foods."})
-    assert unsigned.status_code == 409 and "Annex II point 6" in unsigned.text        # name and function (Annex II point 6)
+    assert unsigned.status_code == 409 and unsigned.json()["error"]["error"] == "filing.refused.attest_needs_function"
+    assert "Annex II, point 6" in unsigned.json()["error"]["detail"]["why"]            # name and function (Annex II point 6)
     at = api.post(f"/v1/filings/{fid}/attest", headers=checker,
                   json={"statement": "Signed for and on behalf of Terra Foods.", "function": "Head of Sourcing Compliance"})
     assert at.status_code == 200, at.text

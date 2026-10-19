@@ -43,20 +43,24 @@ def _shared_figures(framework: str, payload: dict) -> dict:
     if framework == "reit_tcfd":
         r = payload.get("rollup") or {}
         return {k: v for k, v in {"property book value": r.get("total_value_eur"),
-                                  "NOI impact %": r.get("portfolio_noi_impact_pct")}.items() if v}
+                                  "net operating income impact (%)": r.get("portfolio_noi_impact_pct")}.items() if v}
     if framework == "insurer_climate":
         r = payload.get("rollup") or {}
         return {k: v for k, v in {"sum insured": r.get("total_sum_insured_eur"),
                                   "expected annual loss": r.get("total_expected_annual_loss_eur")}.items() if v}
     if framework == "sfdr_pai":
         ent = payload.get("entity") or {}
-        return {k: v for k, v in {"NAV in scope": ent.get("total_value_eur")}.items() if v}
+        return {k: v for k, v in {"net asset value in scope": ent.get("total_value_eur")}.items() if v}
     return {}
 
 
-def _f(rule, severity, passed, message):
+def _f(rule, severity, passed, code, **params):
+    """A cross-report finding in the catalogue's words (filing.check.cross.*): `msg` for the checklist, `message` its
+    sentence for the other readers (as services.governance.filing_validation._check)."""
+    from core import messages
+    m = messages.render(code, **params)
     return {"rule": rule, "category": "cross_report", "severity": severity, "passed": passed,
-            "message": message, "ref": None}
+            "message": m["detail"]["what"], "msg": m, "ref": None}
 
 
 def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[dict]:
@@ -86,8 +90,7 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
 
     out: list[dict] = []
     if not same_period and not prior_period:
-        out.append(_f("cross_report:none", "info", True,
-                      "No sibling filing to reconcile against — this is the first of its kind."))
+        out.append(_f("cross_report:none", "info", True, "filing.check.cross.none"))
         return out
 
     def compare(sib, kind, tol, verb):
@@ -96,8 +99,8 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
             return
         cc, sc = presentation_of(snap.get("payload")), presentation_of(sib_snap.get("payload"))
         if cc != sc:                       # figures in different currencies can't be compared (multi-currency phase 3)
-            out.append(_f(f"cross_report:{kind}:currency", "info", True,
-                          f"{sib['period_label']} v{sib['version']} presents in {sc}, this filing in {cc} — not compared"))
+            out.append(_f(f"cross_report:{kind}:currency", "info", True, "filing.check.cross.currency",
+                          period=sib["period_label"], version=sib["version"], other=sc, this=cc))
             return
         sib_figs = _shared_figures(framework, sib_snap.get("payload") or {})
         for name, cur_v in cur.items():
@@ -107,14 +110,9 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
             rel = abs(cur_v - sv) / max(abs(sv), 1)
             ok = rel <= tol
             pct = round(rel * 100, 1)
-            if kind == "same":
-                msg = (f"{name} reconciles with the same-period v{sib['version']} (Δ{pct}%)" if ok
-                       else f"{name} differs from same-period v{sib['version']} by {pct}% — a restatement "
-                            f"usually corrects specifics, not the whole book")
-            else:
-                msg = (f"{name} moved {pct}% vs {sib['period_label']} — within normal range" if ok
-                       else f"{name} moved {pct}% vs {sib['period_label']} — an unusually large swing; confirm it's real")
-            out.append(_f(f"cross_report:{kind}:{name}", "info" if ok else "warning", ok, msg))
+            code = f"filing.check.cross.{kind}_{'ok' if ok else 'fail'}"
+            out.append(_f(f"cross_report:{kind}:{name}", "info" if ok else "warning", ok, code,
+                          figure=name[:1].upper() + name[1:], version=sib["version"], period=sib["period_label"], pct=pct))
 
     if same_period:
         compare(same_period, "same", _SAME_PERIOD_TOL, "restatement")

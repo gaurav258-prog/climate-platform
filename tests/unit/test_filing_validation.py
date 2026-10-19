@@ -129,7 +129,7 @@ def test_gl_out_of_tolerance_actually_blocks_now():
     f = _gl_finding({"available": True, "reconciled": False, "variance_pct": 13.558, "tolerance_pct": 0.5,
                      "reported_book_eur": 4161900000, "gl_book_eur": 3665000000})
     assert f["severity"] == "blocking" and not f["passed"]
-    assert "13.558" in f["message"] and "EXCEEDS" in f["message"]
+    assert f["msg"]["code"] == "filing.check.ledger.fail" and "13.558" in f["message"] and "€4,161,900,000" in f["message"]
 
 
 def test_arrears_no_book_uploaded_is_a_warning():

@@ -10,6 +10,9 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from core.errors import UserError
+
 # report type -> the document it is (template_answers.document) and the annex per SFDR article
 PRODUCT_SCOPED = {
     "sfdr_precontractual": {"document": "precontractual", "annex": {"article_8": "AII", "article_9": "AIII"}},
@@ -17,8 +20,12 @@ PRODUCT_SCOPED = {
 }
 
 
-class ProductScopeError(ValueError):
-    pass
+class ProductScopeError(UserError, ValueError):
+    """A scope a product report refuses, as a message-catalogue code with its values (UI standard, 2026-10-16): the API answers it as a UserError
+    (core/errors.py); str() is the catalogue's sentence."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
 
 
 def fund_of(session: Session, org_id: str, fund_id: str) -> dict | None:
@@ -41,18 +48,17 @@ def check(session: Session, org_id: str, framework: str, entity_id: str | None, 
     spec = PRODUCT_SCOPED.get(framework)
     if spec is None:
         if fund_id is not None:
-            raise ProductScopeError("this report is not disclosed per financial product — leave the fund out")
+            raise ProductScopeError("filing.refused.not_per_product")
         return None
     if entity_id is not None:
-        raise ProductScopeError("this report is disclosed per financial product, not per legal entity — choose the fund")
+        raise ProductScopeError("filing.refused.per_product_not_entity")
     if fund_id is None:
-        raise ProductScopeError("this report is disclosed per financial product — choose the fund")
+        raise ProductScopeError("filing.refused.choose_fund")
     fund = fund_of(session, org_id, fund_id)
     if fund is None:
-        raise ProductScopeError("fund not found")
+        raise ProductScopeError("filing.refused.fund_not_found")
     if fund["sfdr_classification"] not in spec["annex"]:
-        raise ProductScopeError(f"{fund['name']} is not classified Article 8 or Article 9 under SFDR, so this template "
-                                "does not apply — set its SFDR classification first")
+        raise ProductScopeError("filing.refused.fund_not_classified", fund=fund["name"])
     return fund
 
 
@@ -79,15 +85,15 @@ def preflight_summary(session: Session, org_id: str, framework: str, fund_id: st
     spec = R.governing(S.FAMILY, period_end=period_end)
     gaps = []
     if spec is None:
-        return {"coverage": None, "total_value_eur": None, "noun": "items", "gaps": ["no template specification governs"]}
+        return {"coverage": None, "total_value_eur": None, "noun": "items", "gaps": [messages.render("filing.gap.no_spec")]}
     tid = annex(framework, book["fund"]["sfdr_classification"])
     built = S.build(spec, tid, book)
     todo = [i for i in built if i["source"] != "fixed"]
     open_ = missing(built)
     if doc == "periodic" and not book["holdings"]:     # the pre-contractual document computes nothing from holdings
-        gaps.append("no holdings on file for the reference period")
+        gaps.append(messages.render("filing.gap.no_holdings"))
     if open_:
-        gaps.append(f"{len(open_)} items have no answer yet — answer them on the fund's disclosure page")
+        gaps.append(messages.render("filing.gap.unanswered", n=len(open_)))
     total = sum(h["value"] for h in book["holdings"]) / max(1, len(book["position_dates"]))
     return {"coverage": {"label": "template items answered", "done": len(todo) - len(open_), "total": len(todo),
                          "pct": round(100 * (len(todo) - len(open_)) / len(todo), 1) if todo else 0},

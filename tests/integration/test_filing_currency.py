@@ -203,5 +203,5 @@ def test_an_entity_filing_is_identified_by_the_entitys_own_lei(session_rolled_ba
     E.update_entity(s, BANK_ORG, leasing["entity_id"], lei=None)
     assert "has no LEI on file — identified by the organisation's LEI" in _identity(s, BANK_ORG, leasing["entity_id"])["note"]
     s.execute(text("UPDATE organizations SET lei = NULL WHERE org_id = CAST(:o AS uuid)"), {"o": BANK_ORG})
-    with pytest.raises(ExportError, match="no LEI on file"):                                     # never a made-up identifier
+    with pytest.raises(ExportError, match="No legal entity identifier is on file"):                                     # never a made-up identifier
         _identity(s, BANK_ORG, leasing["entity_id"])

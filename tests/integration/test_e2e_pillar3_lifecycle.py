@@ -125,7 +125,7 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     # the digits by coincidence, E97)
     assert "Template 7" in sheets and "Template 10" in sheets and "12.5m" in sheets
     xb = api.get(f"/v1/filings/{fid}/export?format=xbrl", headers=maker)     # no XBRL until the EBA taxonomy is bound (E104)
-    assert xb.status_code == 409 and "not an available format" in xb.text
+    assert xb.status_code == 409 and xb.json()["error"]["error"] == "filing.refused.export_format"
 
 
 def test_preparing_an_obligation_files_its_own_entity_and_period(api):
@@ -145,10 +145,11 @@ def test_preparing_an_obligation_files_its_own_entity_and_period(api):
 
     r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(),
                                                      "obligation_id": later["obligation_id"]})
-    assert r.status_code == 409 and "change the reporting period" in r.json()["error"]["message"]
+    assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.obligation_other_period"
+    assert "Change the reporting period" in r.json()["error"]["detail"]["next"]
     r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(),
                                                      "obligation_id": solo["obligation_id"], "entity_id": other["entity_id"]})
-    assert r.status_code == 409 and "not the obligation's entity" in r.json()["error"]["message"]
+    assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.obligation_other_entity"
 
     # the pre-filing check is for the scope being filed: its figures are the entity's own book, and a confirmation
     # of the whole organisation cannot freeze the entity's filing
@@ -157,7 +158,7 @@ def test_preparing_an_obligation_files_its_own_entity_and_period(api):
     assert 0 < mine["total_value_eur"] < whole["total_value_eur"]
     r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": whole["confirm_token"],
                                                      "obligation_id": solo["obligation_id"]})
-    assert r.status_code == 409 and "another scope" in r.json()["error"]["message"]
+    assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.data_changed"
     r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": mine["confirm_token"],
                                                      "obligation_id": solo["obligation_id"]})
     assert r.status_code == 201, r.text

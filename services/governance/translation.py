@@ -61,7 +61,12 @@ FILING_PERIOD_DAYS = 365
 
 
 class TranslationError(ValueError):
-    pass
+    """Money that cannot be presented. `kind` names why for a screen (no_rate | rate_tolerance: the catalogue's
+    filing.refused.<kind>), with the currency and date it is about; the text is for the log."""
+
+    def __init__(self, text: str, kind: str | None = None, currency: str | None = None, date: str | None = None):
+        super().__init__(text)
+        self.kind, self.currency, self.date = kind, currency, date
 
 
 @dataclass
@@ -135,10 +140,11 @@ def _rate(session: Session, t: Translation, ccy: str, *, average: bool, start: O
     try:
         r = _choose(session, t.org_id, ccy, end, average, (start, end) if average else None)
     except FxError as e:
-        raise TranslationError(f"No exchange rate for {ccy} on {end.isoformat()} — the filing can't present it ({e}).") from e
+        raise TranslationError(f"No exchange rate for {ccy} on {end.isoformat()} — the filing can't present it ({e}).",
+                               "no_rate", ccy, end.isoformat()) from e
     if r.get("outside_tolerance"):
         raise TranslationError(f"Your own {ccy} rate for {end.isoformat()} is beyond your tolerance: {r.get('note')}. "
-                               "Correct it (Admin → Your exchange rates) before freezing.")
+                               "Correct it (Admin → Your exchange rates) before freezing.", "rate_tolerance", ccy, end.isoformat())
     t.rates_used[key] = {"currency": ccy, "basis": "average" if average else "closing",
                          "period_start": start.isoformat() if start else None, "rate_date": r.get("rate_date") or end.isoformat(),
                          "as_of": end.isoformat(), "units_per_eur": float(r["units_per_eur"]), "source": r.get("source"),

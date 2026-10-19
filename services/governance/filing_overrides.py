@@ -9,9 +9,16 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from core.errors import UserError
 
-class OverrideError(ValueError):
-    pass
+
+class OverrideError(UserError, ValueError):
+    """Why a manual change of a figure is refused, as a message-catalogue code with its values (UI standard, 2026-10-16): the API answers it as a UserError
+    (core/errors.py); str() is the catalogue's sentence."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
 
 
 def _filing_form(session: Session, org_id: str, filing_id: str):
@@ -31,17 +38,17 @@ def _filing_form(session: Session, org_id: str, filing_id: str):
 def propose(session: Session, org_id: str, filing_id: str, actor: str, *, datapoint_key: str,
             value: float, reason: str) -> dict:
     if not (reason or "").strip():
-        raise OverrideError("a reason is required for a manual override")
+        raise OverrideError("filing.refused.override_reason")
     framework, dps = _filing_form(session, org_id, filing_id)
     if framework is None:
-        raise OverrideError("filing not found")
+        raise OverrideError("error.not_found")
     if session.execute(text("SELECT status FROM regulatory_filing WHERE filing_id = :f"), {"f": filing_id}).scalar() == "withdrawn":
-        raise OverrideError("this filing was withdrawn — it can no longer be changed")
+        raise OverrideError("filing.refused.override_withdrawn")
     dp = dps.get(datapoint_key)
     if not dp:
-        raise OverrideError("unknown datapoint")
+        raise OverrideError("filing.refused.override_unknown")
     if dp["fmt"] == "text" or not isinstance(dp["value"], (int, float)):
-        raise OverrideError("this datapoint can't be overridden numerically")
+        raise OverrideError("filing.refused.override_not_numeric")
     original = dp["value"]
 
     # one live override per (filing, datapoint) — a new proposal supersedes any prior pending/approved one

@@ -277,4 +277,5 @@ def test_an_exempt_subsidiary_files_no_statement(api):
     assert set(_failing(d)) == {"csrd_role"} and "Terra Group" in _failing(d)["csrd_role"]
     assert {c["rule"] for c in d["checks"]} == {"specification", "csrd_role"}
     pf = api.get(f"/v1/filings/preflight?framework=esrs_pack&entity_id={foods}", headers=maker)
-    assert pf.status_code == 409 and "exempt subsidiary files no ESRS statement" in pf.text, pf.text
+    assert pf.status_code == 409 and pf.json()["error"]["error"] == "filing.refused.exempt_subsidiary", pf.text
+    assert "exempt subsidiary" in pf.json()["error"]["detail"]["what"]
