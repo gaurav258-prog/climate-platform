@@ -214,6 +214,1111 @@
     "next": "Download the template, fill in its columns and try again."
    }
   },
+  "eudr.check.application.not_yet": {
+   "label": "The rules do not apply yet",
+   "detail": {
+    "what": "On {on}, the date of this shipment, the due diligence obligations do not apply yet. They apply from {start}.",
+    "why": "The statement can still be prepared; it runs the checks that will apply."
+   }
+  },
+  "eudr.check.application.established_unknown": {
+   "label": "Date established as micro or small not stated",
+   "detail": {
+    "what": "Your undertaking is micro or small, but the date it was established as such is not stated. One established as micro or small by {by} is bound from {start}; otherwise the general date applies.",
+    "next": "Restate your undertaking's status with the date it was established."
+   }
+  },
+  "eudr.check.application.wood": {
+   "label": "Wood: the later start date may not apply",
+   "detail": {
+    "what": "The later start date for micro and small undertakings does not apply to wood products that the earlier EU Timber Regulation covered. Whether this product is one of them is not determined here.",
+    "next": "Check the product against the Annex to Regulation (EU) No 995/2010 and keep the outcome with your records."
+   }
+  },
+  "eudr.check.application.small_later": {
+   "label": "Micro or small: the rules apply later",
+   "detail": {
+    "what": "Your undertaking was established as micro or small by {by}, so the obligations apply to it from {start}."
+   }
+  },
+  "eudr.check.application.applies": {
+   "label": "The rules apply on this date",
+   "detail": {
+    "what": "The due diligence obligations apply on {on}, the date of this shipment."
+   }
+  },
+  "eudr.check.filer.micro_small_primary_operator": {
+   "label": "This role makes a simplified declaration instead",
+   "detail": {
+    "what": "A micro or small primary operator makes a one-time simplified declaration, not a due diligence statement for each shipment.",
+    "next": "Use the simplified declaration on this page."
+   }
+  },
+  "eudr.check.filer.downstream_operator": {
+   "label": "A downstream operator files no statement",
+   "detail": {
+    "what": "A downstream operator submits no due diligence statement. It holds its suppliers' reference numbers and the details of who supplied it and whom it supplied.",
+    "next": "Keep the record of this shipment instead."
+   }
+  },
+  "eudr.check.filer.trader": {
+   "label": "A trader files no statement",
+   "detail": {
+    "what": "A trader submits no due diligence statement. It holds the details of who supplied it and whom it supplied.",
+    "next": "Keep the record of this shipment instead."
+   }
+  },
+  "eudr.check.scope.out": {
+   "label": "Not a covered product on this date",
+   "detail": {
+    "what": "On {on}, the date of this shipment: {basis}",
+    "why": "Only covered products need a due diligence statement.",
+    "next": "If the product code is wrong, correct it in your shipments book and upload it again."
+   }
+  },
+  "eudr.check.scope.open": {
+   "label": "State whether the product is covered",
+   "detail": {
+    "what": "The list of covered products leaves this product open. {basis}",
+    "why": "Where the list leaves it open, your own statement decides, with your reasons. The platform does not decide it for you.",
+    "next": "State whether the product is covered, and why."
+   }
+  },
+  "eudr.check.scope.stated_out": {
+   "label": "You stated the product is not covered",
+   "detail": {
+    "what": "Your statement: {stated}",
+    "why": "A product you state is not covered needs no due diligence statement.",
+    "next": "If that was not your intention, state the scope again."
+   }
+  },
+  "eudr.check.scope.stated_in": {
+   "label": "You stated the product is covered",
+   "detail": {
+    "what": "Your statement: {stated}"
+   }
+  },
+  "eudr.check.status.missing": {
+   "label": "State your undertaking's status",
+   "detail": {
+    "what": "Your undertaking's status is not stated for this date: its size, country and address.",
+    "why": "Every statement names the operator with its address, and the size decides when the rules apply.",
+    "next": "State the status on this page. A second person approves it."
+   }
+  },
+  "eudr.check.operator.address": {
+   "label": "Your address is not stated",
+   "detail": {
+    "what": "The status in force does not state your undertaking's address.",
+    "why": "The statement names the operator with its address.",
+    "next": "Restate your undertaking's status on this page. A second person approves it."
+   }
+  },
+  "eudr.check.operator.eori": {
+   "label": "EORI number needed",
+   "detail": {
+    "what": "The goods enter or leave the EU market through customs, so your EORI number is required.",
+    "next": "Restate your undertaking's status on this page. A second person approves it."
+   }
+  },
+  "eudr.check.product.species": {
+   "label": "Wood: species names needed",
+   "detail": {
+    "what": "For wood, the full scientific names of the species are required.",
+    "next": "Add the scientific names to the shipment and upload it again."
+   }
+  },
+  "eudr.check.product.deviation": {
+   "label": "State the mass estimate or deviation",
+   "detail": {
+    "what": "Outside customs, a net mass is stated with a percentage estimate or deviation. This shipment states a net mass without one.",
+    "next": "Add the percentage to the shipment and upload it again."
+   }
+  },
+  "eudr.check.plots.none": {
+   "label": "No plot linked to this shipment",
+   "detail": {
+    "what": "No plot of land is linked to this shipment.",
+    "why": "The statement gives the location of every plot the product comes from.",
+    "next": "Upload the shipment's plots in the shipment plots book."
+   }
+  },
+  "eudr.check.plot.country": {
+   "label": "{plot}: country of production not stated",
+   "detail": {
+    "what": "The plot {plot} does not state its country of production.",
+    "next": "Correct the plot in Sourcing."
+   }
+  },
+  "eudr.check.plot.decimals_unknown": {
+   "label": "{plot}: coordinate precision not known",
+   "detail": {
+    "what": "It is not known how many decimals the coordinates of {plot} were given with. At least six are required.",
+    "next": "Send the plot's coordinates again with at least six decimals."
+   }
+  },
+  "eudr.check.plot.decimals_low": {
+   "label": "{plot}: coordinates need six decimals",
+   "detail": {
+    "what": "The coordinates of {plot} were given with {n} decimals. At least six are required.",
+    "next": "Send the plot's coordinates again with at least six decimals."
+   }
+  },
+  "eudr.check.plot.polygon": {
+   "label": "{plot}: boundary needed",
+   "detail": {
+    "what": "{plot} is larger than four hectares, so it is located by its boundary, not by a single point.",
+    "next": "Add the plot's boundary in Sourcing."
+   }
+  },
+  "eudr.check.plot.area_unknown": {
+   "label": "{plot}: area not stated",
+   "detail": {
+    "what": "{plot} states no area and has no boundary, so whether a boundary is required cannot be known.",
+    "next": "State the plot's area or add its boundary in Sourcing."
+   }
+  },
+  "eudr.check.plot.unread": {
+   "label": "{plot}: no current forest reading",
+   "detail": {
+    "what": "{plot} has no reading of its current location against the forest dataset.",
+    "why": "Without one, the information that the land was not deforested after 2020 comes from another source.",
+    "next": "Read the plot on this page, or keep the other source with your records."
+   }
+  },
+  "eudr.check.plot.loss": {
+   "label": "{plot}: tree-cover loss read after 2020",
+   "detail": {
+    "what": "The reading shows {loss_ha} ha of tree-cover loss inside {plot} after 31 December 2020, first in {year}.",
+    "why": "A reading is a risk your assessment weighs: the dataset shows neither the land use nor the tree height that the definitions of forest and deforestation rest on.",
+    "next": "Weigh it in the shipment's risk assessment."
+   }
+  },
+  "eudr.check.plot.not_assessable": {
+   "label": "{plot}: reading not assessable",
+   "detail": {
+    "what": "The reading could not assess {plot}: {reason}",
+    "next": "Address the reason and read the plot again, or keep another source with your records."
+   }
+  },
+  "eudr.check.plot.location": {
+   "label": "{plot}: location or postal address needed",
+   "detail": {
+    "what": "{plot} has neither a location as required (coordinates with at least {decimals} decimals, and a boundary above {ha} hectares) nor a postal address.",
+    "next": "Add the coordinates, the boundary or the postal address in Sourcing."
+   }
+  },
+  "eudr.check.plot.other_country": {
+   "label": "{plot}: outside your country",
+   "detail": {
+    "what": "{plot} is in {country}; your undertaking is established in {home}.",
+    "why": "The simplified regime covers the operator's own production in the country where it is established.",
+    "next": "Review whether this plot belongs in the declaration."
+   }
+  },
+  "eudr.check.supplier.incomplete": {
+   "label": "Supplier's name, address and email needed",
+   "detail": {
+    "what": "The supplier's name, postal address and email address are required. This shipment lacks at least one of them.",
+    "next": "Complete the supplier in your suppliers book and upload it again."
+   }
+  },
+  "eudr.check.supplier.missing": {
+   "label": "No supplier on this shipment",
+   "detail": {
+    "what": "No supplier is recorded on this shipment.",
+    "why": "You hold each supplier's name, address and email before you place, make available or export.",
+    "next": "Add the supplier to the shipment and upload it again."
+   }
+  },
+  "eudr.check.supplier.name": {
+   "label": "Supplier's name or trade mark needed",
+   "detail": {
+    "what": "The supplier has no name, registered trade name or trade mark on file.",
+    "next": "Complete the supplier in your suppliers book and upload it again."
+   }
+  },
+  "eudr.check.supplier.address": {
+   "label": "Supplier's postal address needed",
+   "detail": {
+    "what": "The supplier has no postal address on file.",
+    "next": "Complete the supplier in your suppliers book and upload it again."
+   }
+  },
+  "eudr.check.supplier.email": {
+   "label": "Supplier's email address needed",
+   "detail": {
+    "what": "The supplier has no email address on file.",
+    "next": "Complete the supplier in your suppliers book and upload it again."
+   }
+  },
+  "eudr.check.customer.none": {
+   "label": "No customer on this shipment",
+   "detail": {
+    "what": "No customer is recorded on this shipment.",
+    "next": "Record the customer once the products are supplied."
+   }
+  },
+  "eudr.check.customer.missing": {
+   "label": "No customer on this shipment",
+   "detail": {
+    "what": "No customer is recorded on this shipment.",
+    "why": "When you make products available, you hold the details of whom you supplied.",
+    "next": "Add the customer to the shipment and upload it again."
+   }
+  },
+  "eudr.check.customer.name": {
+   "label": "Customer's name or trade mark needed",
+   "detail": {
+    "what": "The customer has no name, registered trade name or trade mark on file.",
+    "next": "Complete the customer in your customers book and upload it again."
+   }
+  },
+  "eudr.check.customer.address": {
+   "label": "Customer's postal address needed",
+   "detail": {
+    "what": "The customer has no postal address on file.",
+    "next": "Complete the customer in your customers book and upload it again."
+   }
+  },
+  "eudr.check.customer.email": {
+   "label": "Customer's email address needed",
+   "detail": {
+    "what": "The customer has no email address on file.",
+    "next": "Complete the customer in your customers book and upload it again."
+   }
+  },
+  "eudr.check.legality.none": {
+   "label": "No legality evidence on file",
+   "detail": {
+    "what": "There is no evidence that the products were produced under the relevant laws of the country of production: none for the plots, the supplier or this shipment.",
+    "next": "Add legality evidence for this shipment or its plots."
+   }
+  },
+  "eudr.check.risk.none": {
+   "label": "No approved risk assessment",
+   "detail": {
+    "what": "This shipment has no approved risk assessment.",
+    "why": "Products are placed on the market or exported only when the assessment finds no or only a negligible risk.",
+    "next": "State the risk assessment. A second person approves it."
+   }
+  },
+  "eudr.check.risk.not_negligible": {
+   "label": "Assessment does not find a negligible risk",
+   "detail": {
+    "what": "The approved assessment does not conclude that there is no or only a negligible risk.",
+    "why": "Risk mitigation comes first, then a new assessment.",
+    "next": "Adopt mitigation measures, then state a new assessment."
+   }
+  },
+  "eudr.check.risk.simplified_countries": {
+   "label": "Simplified path needs low-risk countries only",
+   "detail": {
+    "what": "The simplified assessment rests on every country of production being low risk. Not low risk: {countries}.",
+    "next": "State a full assessment."
+   }
+  },
+  "eudr.check.risk.review": {
+   "label": "Risk assessment older than a year",
+   "detail": {
+    "what": "The assessment dates from {since}. It is reviewed at least once a year.",
+    "next": "Review the assessment and state it again."
+   }
+  },
+  "eudr.check.concern.uninformed": {
+   "label": "Authorities not yet informed",
+   "detail": {
+    "what": "{concern} received on {since}: there is no record that the competent authorities were informed.",
+    "why": "The competent authorities are informed immediately.",
+    "next": "Record the step once you have informed them."
+   }
+  },
+  "eudr.check.concern.unverified": {
+   "label": "Substantiated concern not verified",
+   "detail": {
+    "what": "A substantiated concern received on {since} has no verification showing no or only a negligible risk.",
+    "why": "A large undertaking does not place or make the products available until the verification shows no or only a negligible risk.",
+    "next": "Record the verification and its conclusion."
+   }
+  },
+  "eudr.check.ready": {
+   "label": "Every blocking check passes",
+   "detail": {
+    "what": "No check blocks this. It can be prepared."
+   }
+  },
+  "eudr.check.declaration.size": {
+   "label": "Only micro or small undertakings declare",
+   "detail": {
+    "what": "Your undertaking's stated size is {size}. The simplified declaration is for a micro or small primary operator; others submit a due diligence statement for each shipment."
+   }
+  },
+  "eudr.check.declaration.country": {
+   "label": "Not established in a low-risk country",
+   "detail": {
+    "what": "Your undertaking is established in {country}, classified as {risk}. The simplified declaration is for operators established in a low-risk country."
+   }
+  },
+  "eudr.check.declaration.own_unstated": {
+   "label": "State whether you place your own produce",
+   "detail": {
+    "what": "It is not stated that your undertaking places products it itself grew, harvested, obtained or raised on its own plots.",
+    "why": "Only such an undertaking is a primary operator.",
+    "next": "Restate your undertaking's status with this answer."
+   }
+  },
+  "eudr.check.declaration.own_no": {
+   "label": "You do not place your own produce",
+   "detail": {
+    "what": "Your status states that your undertaking does not place products of its own production, so it is not a primary operator.",
+    "next": "It submits a due diligence statement for each shipment instead."
+   }
+  },
+  "eudr.check.declaration.other_system": {
+   "label": "Your information is held in another system",
+   "detail": {
+    "what": "All the declaration's information is held in {system}. No declaration need be submitted: the Member State makes it available.",
+    "next": "Place products only after the declaration identifier is assigned."
+   }
+  },
+  "eudr.check.declaration.no_product": {
+   "label": "No product declared",
+   "detail": {
+    "what": "No product is declared yet.",
+    "next": "Add each product with its estimated yearly quantity."
+   }
+  },
+  "eudr.check.declaration.no_plots": {
+   "label": "No plot of a covered commodity held",
+   "detail": {
+    "what": "Your undertaking holds no plot of a covered commodity on this date.",
+    "next": "Add your plots in Sourcing."
+   }
+  },
+  "eudr.check.line.scope_out": {
+   "label": "HS {hs}: not a covered product",
+   "detail": {
+    "what": "On {on}: {basis}",
+    "next": "Remove the product from the declaration."
+   }
+  },
+  "eudr.check.line.scope_open": {
+   "label": "HS {hs}: state whether it is covered",
+   "detail": {
+    "what": "The list of covered products leaves HS {hs} open. {basis}",
+    "next": "Remove the product and add it again with your statement of scope and why."
+   }
+  },
+  "eudr.check.line.scope_stated_out": {
+   "label": "HS {hs}: you stated it is not covered",
+   "detail": {
+    "what": "Your statement: {stated}",
+    "next": "Remove the product from the declaration."
+   }
+  },
+  "eudr.check.line.mass_needed": {
+   "label": "HS {hs}: state the net mass",
+   "detail": {
+    "what": "The product enters or leaves the market through customs, so its estimated quantity is given in kilograms of net mass.",
+    "next": "Remove the product and add it again with its net mass."
+   }
+  },
+  "eudr.check.line.deviation": {
+   "label": "HS {hs}: state the estimate or deviation",
+   "detail": {
+    "what": "Outside customs, a net mass is stated with a percentage estimate or deviation.",
+    "next": "Remove the product and add it again with the percentage."
+   }
+  },
+  "eudr.check.trade.role": {
+   "label": "This record is for downstream operators and traders",
+   "detail": {
+    "what": "An operator submits a due diligence statement or a simplified declaration, not this record."
+   }
+  },
+  "eudr.check.trade.trader_kind": {
+   "label": "A trader only makes products available",
+   "detail": {
+    "what": "A trader makes products available on the market. Placing on the market or exporting is done by an operator or a downstream operator.",
+    "next": "Correct it in your shipments book and upload it again."
+   }
+  },
+  "eudr.check.trade.status": {
+   "label": "State your undertaking's status",
+   "detail": {
+    "what": "Your undertaking's status is not stated for this date.",
+    "why": "Its size decides whether you register in the information system and verify substantiated concerns before placing.",
+    "next": "State the status on this page. A second person approves it."
+   }
+  },
+  "eudr.check.trade.registration": {
+   "label": "Registration in the information system not stated",
+   "detail": {
+    "what": "A large downstream operator or trader registers in the information system before placing, making available or exporting. The registration is not stated.",
+    "next": "Restate your undertaking's status on this page. A second person approves it."
+   }
+  },
+  "eudr.check.trade.supplier_role": {
+   "label": "State whether the supplier is an operator",
+   "detail": {
+    "what": "The shipment does not state the supplier's role.",
+    "why": "Where the supplier is an operator, you also hold the reference numbers of its statements or its declaration identifiers.",
+    "next": "State the supplier's role on the shipment and upload it again."
+   }
+  },
+  "eudr.check.trade.references": {
+   "label": "Supplier's reference numbers needed",
+   "detail": {
+    "what": "The supplier is an operator, so you hold the reference numbers of its due diligence statements, or its declaration identifiers, for these products.",
+    "next": "Add them to the shipment and upload it again."
+   }
+  },
+  "eudr.check.trade.no_customer": {
+   "label": "No downstream customer on this shipment",
+   "detail": {
+    "what": "No downstream operator or trader was supplied on this shipment."
+   }
+  },
+  "eudr.check.trade.ready": {
+   "label": "Information held: the record can be kept",
+   "detail": {
+    "what": "Everything the record holds is on file.",
+    "next": "Keep the record now."
+   }
+  },
+  "eudr.scope.listed": {
+   "label": "A covered product",
+   "detail": {
+    "what": "HS {hs} falls under the listed entry {printed} ({commodity})."
+   }
+  },
+  "eudr.scope.not_listed": {
+   "label": "Not a covered product",
+   "detail": {
+    "what": "No entry on the list of covered products covers HS {hs} on this date."
+   }
+  },
+  "eudr.scope.narrower_only": {
+   "label": "Give the full product code",
+   "detail": {
+    "what": "The list names only longer codes under HS {hs} ({printed}), so a code this short cannot be placed against them.",
+    "next": "Give the full product code."
+   }
+  },
+  "eudr.scope.ambiguous": {
+   "label": "The list's start date is unclear here",
+   "detail": {
+    "what": "Entry {printed} covers this product, but from when is not stated unambiguously: {note}."
+   }
+  },
+  "eudr.scope.excepts_part": {
+   "label": "The entry excepts part of what it names",
+   "detail": {
+    "what": "Entry {printed} excepts part of what it names ({exception}). Whether this product is excepted is a fact about the product itself."
+   }
+  },
+  "eudr.scope.ex_heading": {
+   "label": "Only part of the heading is covered",
+   "detail": {
+    "what": "The list prints entry {printed} for only part of its heading: {description}. Whether this product falls under that description is a fact about the product itself."
+   }
+  },
+  "eudr.reading.unread": {
+   "label": "Not read yet",
+   "detail": {
+    "what": "This plot has no reading of its current location against the forest dataset. A plot moved or redrawn since it was last read needs a new reading."
+   }
+  },
+  "eudr.reading.no_loss": {
+   "label": "No tree-cover loss read after 2020",
+   "detail": {
+    "what": "The forest dataset shows no tree-cover loss inside the plot after 31 December 2020.",
+    "why": "A reading is a risk your assessment weighs: the dataset shows neither the land use nor the tree height that the definitions of forest and deforestation rest on."
+   }
+  },
+  "eudr.reading.loss": {
+   "label": "Tree-cover loss read after 2020",
+   "detail": {
+    "what": "The forest dataset shows {loss_ha} ha of tree-cover loss inside the plot after 31 December 2020, first in {year}.",
+    "why": "A reading is a risk your assessment weighs: the dataset shows neither the land use nor the tree height that the definitions of forest and deforestation rest on."
+   }
+  },
+  "eudr.reading.not_assessable.point_no_radius": {
+   "label": "A point plot needs a radius",
+   "detail": {
+    "what": "The plot is a single point with no area, so there is nothing to read.",
+    "next": "State the radius to read around it, or add the plot's boundary, then read it again."
+   }
+  },
+  "eudr.reading.not_assessable.crosses_tiles": {
+   "label": "The plot crosses data tiles",
+   "detail": {
+    "what": "The plot spans more than one tile of the forest dataset, and a reading covers one tile.",
+    "next": "Keep another source of the forest information with your records."
+   }
+  },
+  "eudr.reading.not_assessable.dataset_unreadable": {
+   "label": "The forest dataset could not be read here",
+   "detail": {
+    "what": "The forest dataset could not be read at this plot's location.",
+    "next": "Read the plot again later."
+   }
+  },
+  "eudr.reading.not_assessable.treecover_unreadable": {
+   "label": "The year-2000 tree-cover layer could not be read",
+   "detail": {
+    "what": "The tree cover in 2000 could not be read here, so the threshold you stated could not be applied.",
+    "next": "Read the plot again later, or without a tree-cover threshold."
+   }
+  },
+  "eudr.reading.not_assessable.unknown": {
+   "label": "Reading not assessable",
+   "detail": {
+    "what": "The reading could not assess this plot.",
+    "next": "Read the plot again."
+   }
+  },
+  "eudr.event.reference_received": {
+   "label": "{name}",
+   "detail": {
+    "what": "The information system made the statement's reference and verification numbers available.",
+    "why": "From then, the statement can be amended or withdrawn for 72 hours, unless something closes the window sooner (Implementing Regulation (EU) 2024/3084, Article 5(1))."
+   }
+  },
+  "eudr.event.identifier_received": {
+   "label": "{name}",
+   "detail": {
+    "what": "The declaration identifier and verification number were assigned.",
+    "why": "An update of the declaration keeps the same identifier (Implementing Regulation (EU) 2024/3084, Article 4a(3))."
+   }
+  },
+  "eudr.event.grouped": {
+   "label": "{name}",
+   "detail": {
+    "what": "The reference was used to group statements in the information system.",
+    "why": "Once used for grouping, it can no longer be amended or withdrawn (Implementing Regulation (EU) 2024/3084, Article 5(2))."
+   }
+  },
+  "eudr.event.check_notified": {
+   "label": "{name}",
+   "detail": {
+    "what": "A competent authority notified a check.",
+    "why": "While the check runs, the statement can no longer be amended or withdrawn (Implementing Regulation (EU) 2024/3084, Article 5(3)(a))."
+   }
+  },
+  "eudr.event.check_ended": {
+   "label": "{name}",
+   "detail": {
+    "what": "The notified check ended."
+   }
+  },
+  "eudr.event.placed_or_exported": {
+   "label": "{name}",
+   "detail": {
+    "what": "The products were placed on the market or exported.",
+    "why": "From then, the statement can no longer be amended or withdrawn (Implementing Regulation (EU) 2024/3084, Article 5(3)(b))."
+   }
+  },
+  "eudr.event.given_to_customs": {
+   "label": "{name}",
+   "detail": {
+    "what": "The reference number was given to customs.",
+    "why": "From then, the statement can no longer be amended or withdrawn (Implementing Regulation (EU) 2024/3084, Article 5(3)(c))."
+   }
+  },
+  "eudr.event.window_extended": {
+   "label": "{name}",
+   "detail": {
+    "what": "The competent authority extended the window to amend or withdraw until {until}.",
+    "why": "An extension ends no later than eight calendar days after the reference was made available (Implementing Regulation (EU) 2024/3084, Article 5(4))."
+   }
+  },
+  "eudr.event.rejected": {
+   "label": "{name}",
+   "detail": {
+    "what": "The competent authority rejected it.",
+    "why": "The products are then treated as not covered by it (Implementing Regulation (EU) 2024/3084, Article 8)."
+   }
+  },
+  "eudr.window.open": {
+   "label": "Open to amend or withdraw",
+   "detail": {
+    "what": "The statement can be amended or withdrawn until {closes}.",
+    "why": "The window is 72 hours from when the reference number was made available, unless the authority extended it (Implementing Regulation (EU) 2024/3084, Article 5)."
+   }
+  },
+  "eudr.window.no_reference": {
+   "label": "No reference number yet",
+   "detail": {
+    "what": "The window to amend or withdraw opens when the reference number is made available."
+   }
+  },
+  "eudr.window.grouped": {
+   "label": "Closed: used for grouping",
+   "detail": {
+    "what": "The statement can no longer be amended or withdrawn: its reference was used for grouping."
+   }
+  },
+  "eudr.window.placed_or_exported": {
+   "label": "Closed: products placed or exported",
+   "detail": {
+    "what": "The statement can no longer be amended or withdrawn: the products were placed on the market or exported."
+   }
+  },
+  "eudr.window.given_to_customs": {
+   "label": "Closed: reference given to customs",
+   "detail": {
+    "what": "The statement can no longer be amended or withdrawn: its reference number was given to customs."
+   }
+  },
+  "eudr.window.rejected": {
+   "label": "Closed: rejected by the authority",
+   "detail": {
+    "what": "The statement can no longer be amended or withdrawn: the competent authority rejected it."
+   }
+  },
+  "eudr.window.check_notified": {
+   "label": "Closed while a check runs",
+   "detail": {
+    "what": "The statement can no longer be amended or withdrawn while a check a competent authority notified is running."
+   }
+  },
+  "eudr.window.expired": {
+   "label": "Closed: the window has ended",
+   "detail": {
+    "what": "The window to amend or withdraw ended on {closes}."
+   }
+  },
+  "eudr.refused.not_found.book": {
+   "status": 404,
+   "label": "No such EUDR book",
+   "detail": {
+    "what": "The EUDR books are suppliers, customers, shipments and shipment plots."
+   }
+  },
+  "eudr.refused.not_found.shipment": {
+   "status": 404,
+   "label": "Shipment not found",
+   "detail": {
+    "what": "This shipment does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.statement": {
+   "status": 404,
+   "label": "Statement not found",
+   "detail": {
+    "what": "This due diligence statement does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.declaration": {
+   "status": 404,
+   "label": "Declaration not found",
+   "detail": {
+    "what": "This simplified declaration does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.record": {
+   "status": 404,
+   "label": "Record not found",
+   "detail": {
+    "what": "This kept record does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.concern": {
+   "status": 404,
+   "label": "Not found",
+   "detail": {
+    "what": "This new information or concern does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.line": {
+   "status": 404,
+   "label": "Product not found",
+   "detail": {
+    "what": "This declared product does not exist or was already removed."
+   }
+  },
+  "eudr.refused.not_found.plot": {
+   "status": 404,
+   "label": "Plot not found",
+   "detail": {
+    "what": "This plot does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.plots": {
+   "status": 404,
+   "label": "Some plots were not found",
+   "detail": {
+    "what": "Some of these plots are not in your organisation."
+   }
+  },
+  "eudr.refused.not_found.supplier": {
+   "status": 404,
+   "label": "Supplier not found",
+   "detail": {
+    "what": "This supplier does not exist, or your organisation cannot see it."
+   }
+  },
+  "eudr.refused.not_found.entity": {
+   "status": 422,
+   "label": "Undertaking not found",
+   "detail": {
+    "what": "That undertaking is not one of your organisation's entities."
+   }
+  },
+  "eudr.refused.blocked.statement": {
+   "status": 409,
+   "label": "Clear the blocking checks first",
+   "detail": {
+    "what": "The statement cannot be prepared while checks block it: {checks}.",
+    "next": "Open the shipment, clear each blocking check, then prepare the statement."
+   }
+  },
+  "eudr.refused.blocked.declaration": {
+   "status": 409,
+   "label": "Clear the blocking checks first",
+   "detail": {
+    "what": "The declaration cannot be prepared while checks block it: {checks}.",
+    "next": "Clear each blocking check, then prepare the declaration."
+   }
+  },
+  "eudr.refused.blocked.record": {
+   "status": 409,
+   "label": "Clear the blocking checks first",
+   "detail": {
+    "what": "The record cannot be kept while checks block it: {checks}.",
+    "next": "Clear each blocking check, then keep the record."
+   }
+  },
+  "eudr.refused.live.statement": {
+   "status": 409,
+   "label": "This shipment already has a statement",
+   "detail": {
+    "what": "A statement for this shipment is already live ({state}).",
+    "next": "Continue with it, or amend it once it has its reference number."
+   }
+  },
+  "eudr.refused.live.declaration": {
+   "status": 409,
+   "label": "A declaration is already live",
+   "detail": {
+    "what": "Your undertaking already has a live simplified declaration ({state}).",
+    "next": "Update it instead."
+   }
+  },
+  "eudr.refused.reference.not_submitted": {
+   "status": 409,
+   "label": "Record the reference after submission",
+   "detail": {
+    "what": "A reference number is recorded for a submitted statement; this one is {state}."
+   }
+  },
+  "eudr.refused.event.unknown": {
+   "status": 422,
+   "label": "Choose a listed event",
+   "detail": {
+    "what": "This event is not one the platform records."
+   }
+  },
+  "eudr.refused.event.not_filed": {
+   "status": 409,
+   "label": "Record events after submission",
+   "detail": {
+    "what": "Events are recorded on a submitted statement or declaration; this one is {state}."
+   }
+  },
+  "eudr.refused.event.reject_after_reference": {
+   "status": 409,
+   "label": "Rejection comes before the reference number",
+   "detail": {
+    "what": "A statement can be rejected only before its reference number is made available.",
+    "why": "Implementing Regulation (EU) 2024/3084, Article 8(1)."
+   }
+  },
+  "eudr.refused.event.extension_incomplete": {
+   "status": 422,
+   "label": "An extension needs its end",
+   "detail": {
+    "what": "An extension is recorded once the reference number has been received, with the end the authority set."
+   }
+  },
+  "eudr.refused.event.extension_too_long": {
+   "status": 409,
+   "label": "The extension ends too late",
+   "detail": {
+    "what": "An extension ends no later than eight calendar days after the reference was made available: by {latest}.",
+    "why": "Implementing Regulation (EU) 2024/3084, Article 5(4)."
+   }
+  },
+  "eudr.refused.withdraw.not_accepted": {
+   "status": 409,
+   "label": "Withdraw here once the reference is received",
+   "detail": {
+    "what": "This statement is {state}. A statement is withdrawn here once its reference number is made available; a draft is withdrawn in the filings register."
+   }
+  },
+  "eudr.refused.withdraw.declaration_not_filed": {
+   "status": 409,
+   "label": "Withdraw here once submitted",
+   "detail": {
+    "what": "This declaration is {state}. A submitted declaration is withdrawn here; a draft is withdrawn in the filings register."
+   }
+  },
+  "eudr.refused.window.withdraw": {
+   "status": 409,
+   "label": "Can no longer be withdrawn",
+   "detail": {
+    "what": "{reason}"
+   }
+  },
+  "eudr.refused.window.amend": {
+   "status": 409,
+   "label": "Can no longer be amended",
+   "detail": {
+    "what": "{reason}"
+   }
+  },
+  "eudr.refused.reason_needed": {
+   "status": 422,
+   "label": "Say why it is withdrawn",
+   "detail": {
+    "what": "Give the reason in at least ten characters."
+   }
+  },
+  "eudr.refused.refresh.not_draft": {
+   "status": 409,
+   "label": "Only a draft is refreshed",
+   "detail": {
+    "what": "Only a draft or returned statement or declaration is refreshed from your records; this one is {state}."
+   }
+  },
+  "eudr.refused.amend.not_accepted": {
+   "status": 409,
+   "label": "Amend once the reference is received",
+   "detail": {
+    "what": "Only a statement with its reference number is amended; this one is {state}."
+   }
+  },
+  "eudr.refused.update.not_accepted": {
+   "status": 409,
+   "label": "Update once the identifier is assigned",
+   "detail": {
+    "what": "Only a declaration with its identifier is updated."
+   }
+  },
+  "eudr.refused.grouped.update": {
+   "status": 409,
+   "label": "A grouped declaration is not updated",
+   "detail": {
+    "what": "This declaration was used as a reference in a grouping; the grouped declaration stands for it."
+   }
+  },
+  "eudr.refused.grouped.withdraw": {
+   "status": 409,
+   "label": "A grouped declaration cannot be withdrawn",
+   "detail": {
+    "what": "This declaration was used as a reference in a grouping, so it can no longer be withdrawn.",
+    "why": "Implementing Regulation (EU) 2024/3084, Article 4a(7)."
+   }
+  },
+  "eudr.refused.identifier.not_submitted": {
+   "status": 409,
+   "label": "Record the identifier after submission",
+   "detail": {
+    "what": "A declaration identifier is recorded for a submitted declaration; this one is {state}."
+   }
+  },
+  "eudr.refused.identifier.changed": {
+   "status": 409,
+   "label": "An update keeps the declaration identifier",
+   "detail": {
+    "what": "This declaration updates an earlier one, so it keeps its identifier: {kept}.",
+    "why": "Implementing Regulation (EU) 2024/3084, Article 4a(3)."
+   }
+  },
+  "eudr.refused.line.code": {
+   "status": 422,
+   "label": "Not a product code",
+   "detail": {
+    "what": "{hs} is not an HS code: give 2, 4, 6, 8 or 10 digits."
+   }
+  },
+  "eudr.refused.line.not_covered": {
+   "status": 422,
+   "label": "HS {hs}: not a covered product",
+   "detail": {
+    "what": "{basis}"
+   }
+  },
+  "eudr.refused.line.scope_decided": {
+   "status": 422,
+   "label": "The list decides this product's scope",
+   "detail": {
+    "what": "HS {hs} is on the list of covered products, so no statement of scope is taken."
+   }
+  },
+  "eudr.refused.line.scope_half": {
+   "status": 422,
+   "label": "Give both your answer and why",
+   "detail": {
+    "what": "A statement of scope says whether the product is covered, and why."
+   }
+  },
+  "eudr.refused.line.scope_open": {
+   "status": 422,
+   "label": "State whether the product is covered",
+   "detail": {
+    "what": "The list of covered products leaves HS {hs} open. {basis}",
+    "next": "Say whether it is covered, and why."
+   }
+  },
+  "eudr.refused.line.quantity": {
+   "status": 422,
+   "label": "State the estimated yearly quantity",
+   "detail": {
+    "what": "Give the one-off estimated yearly quantity as net mass, volume or number of items."
+   }
+  },
+  "eudr.refused.declaration.not_in_force": {
+   "status": 404,
+   "label": "No simplified declaration on this date",
+   "detail": {
+    "what": "The version of the Regulation in force on {on} has no simplified declaration."
+   }
+  },
+  "eudr.refused.status.address": {
+   "status": 422,
+   "label": "Your address is required",
+   "detail": {
+    "what": "The status states your undertaking's address."
+   }
+  },
+  "eudr.refused.status.size": {
+   "status": 422,
+   "label": "Choose a size class",
+   "detail": {
+    "what": "The size class is micro, small, medium or large."
+   }
+  },
+  "eudr.refused.evidence.aspect": {
+   "status": 422,
+   "label": "Choose a listed aspect",
+   "detail": {
+    "what": "Legality evidence covers one of the listed aspects of the relevant laws."
+   }
+  },
+  "eudr.refused.evidence.subject": {
+   "status": 422,
+   "label": "Evidence is for one item",
+   "detail": {
+    "what": "Legality evidence is recorded for one plot, one supplier or one shipment."
+   }
+  },
+  "eudr.refused.risk.path": {
+   "status": 422,
+   "label": "Choose full or simplified",
+   "detail": {
+    "what": "The assessment follows the full or the simplified path."
+   }
+  },
+  "eudr.refused.risk.conclusion": {
+   "status": 422,
+   "label": "State the conclusion",
+   "detail": {
+    "what": "The conclusion is no or only a negligible risk, or not negligible."
+   }
+  },
+  "eudr.refused.risk.criteria": {
+   "status": 422,
+   "label": "Answer every criterion",
+   "detail": {
+    "what": "The full assessment answers every listed criterion in your words. Missing: {missing}."
+   }
+  },
+  "eudr.refused.risk.mitigation": {
+   "status": 422,
+   "label": "Choose listed mitigation measures",
+   "detail": {
+    "what": "Mitigation is stated against the listed measures, or as other measures."
+   }
+  },
+  "eudr.refused.risk.mixing": {
+   "status": 422,
+   "label": "Assess circumvention and mixing",
+   "detail": {
+    "what": "The simplified path rests on your assessment of the risk of circumvention and of mixing with products of unknown origin."
+   }
+  },
+  "eudr.refused.risk.no_country": {
+   "status": 422,
+   "label": "No country of production known",
+   "detail": {
+    "what": "None of the shipment's plots states its country of production, so the simplified path cannot be used."
+   }
+  },
+  "eudr.refused.risk.not_low": {
+   "status": 422,
+   "label": "Simplified path needs low-risk countries",
+   "detail": {
+    "what": "The simplified path is only for products all produced in low-risk countries. Not low risk: {countries}.",
+    "next": "State a full assessment."
+   }
+  },
+  "eudr.refused.scope.decided": {
+   "status": 409,
+   "label": "The list already decides this product",
+   "detail": {
+    "what": "{basis}",
+    "why": "A statement of scope is taken only where the list leaves the product open."
+   }
+  },
+  "eudr.refused.concern.kind": {
+   "status": 422,
+   "label": "Choose the kind of information",
+   "detail": {
+    "what": "It is relevant new information or a substantiated concern."
+   }
+  },
+  "eudr.refused.concern.detail": {
+   "status": 422,
+   "label": "Describe what was learned",
+   "detail": {
+    "what": "Describe what was learned in at least ten characters."
+   }
+  },
+  "eudr.refused.concern.step_kind": {
+   "status": 422,
+   "label": "Choose a listed step",
+   "detail": {
+    "what": "A step is: competent authorities informed, downstream operators and traders informed, or verified."
+   }
+  },
+  "eudr.refused.concern.conclusion": {
+   "status": 422,
+   "label": "Only a verification states a conclusion",
+   "detail": {
+    "what": "A verification states its conclusion; the other steps do not."
+   }
+  },
+  "eudr.refused.concern.step_before": {
+   "status": 422,
+   "label": "A step comes after the information",
+   "detail": {
+    "what": "A step cannot be dated before {since}, when the information was received."
+   }
+  },
+  "eudr.request.status": {
+   "label": "Undertaking status from {since}: {size}",
+   "detail": {
+    "what": "Your undertaking's EUDR status, in force from {since}, waiting for a second person."
+   }
+  },
+  "eudr.request.risk": {
+   "label": "Risk assessment: {conclusion}",
+   "detail": {
+    "what": "A shipment's risk assessment ({path}), waiting for a second person."
+   }
+  },
   "coverage.tier.calibrated": {
    "label": "Validated",
    "detail": {
@@ -5289,6 +6394,95 @@
    "residential_real_estate": "residential property",
    "commercial_real_estate": "commercial property",
    "light_industrial": "light industrial"
+  },
+  "eudr.kind": {
+   "placing": "Placing on the market",
+   "making_available": "Making available",
+   "export": "Export"
+  },
+  "eudr.actor": {
+   "operator": "Operator",
+   "micro_small_primary_operator": "Micro or small primary operator",
+   "downstream_operator": "Downstream operator",
+   "trader": "Trader"
+  },
+  "eudr.outcome": {
+   "no_loss_detected": "No loss read",
+   "loss_after_cutoff": "Loss after 2020",
+   "not_assessable": "Not assessable",
+   "unread": "Not read"
+  },
+  "eudr.event": {
+   "reference_received": "Reference number received",
+   "identifier_received": "Declaration identifier assigned",
+   "grouped": "Used for grouping",
+   "check_notified": "Check notified",
+   "check_ended": "Check ended",
+   "placed_or_exported": "Placed on the market or exported",
+   "given_to_customs": "Reference given to customs",
+   "window_extended": "Window extended by the authority",
+   "rejected": "Rejected by the authority"
+  },
+  "eudr.aspect": {
+   "land_use_rights": "Land-use rights",
+   "environmental_protection": "Environmental protection",
+   "forest_rules": "Forest-related rules",
+   "third_party_rights": "Third parties’ rights",
+   "labour_rights": "Labour rights",
+   "human_rights": "Human rights",
+   "fpic": "Free, prior and informed consent",
+   "tax_anticorruption_trade_customs": "Tax, anti-corruption, trade and customs",
+   "flegt_licence": "FLEGT licence"
+  },
+  "eudr.size": {
+   "micro": "Micro",
+   "small": "Small",
+   "medium": "Medium-sized",
+   "large": "Large"
+  },
+  "eudr.country_risk": {
+   "low": "Low risk",
+   "standard": "Standard risk",
+   "high": "High risk",
+   "unclassified": "Not classified"
+  },
+  "eudr.concern": {
+   "new_information": "New information",
+   "substantiated_concern": "Substantiated concern"
+  },
+  "eudr.step": {
+   "authorities_informed": "Competent authorities informed",
+   "downstream_informed": "Downstream operators and traders informed",
+   "verified": "Verified"
+  },
+  "eudr.conclusion": {
+   "negligible": "No or only a negligible risk",
+   "not_negligible": "Not negligible"
+  },
+  "eudr.path": {
+   "full": "Full assessment",
+   "simplified": "Simplified, low-risk countries only"
+  },
+  "eudr.source": {
+   "manual_entry": "Entered in the information system by hand",
+   "information_system": "From the information system",
+   "contingency": "Contingency procedure",
+   "member_state": "Communicated by the Member State"
+  },
+  "eudr.commodity": {
+   "cattle": "Cattle",
+   "cocoa": "Cocoa",
+   "coffee": "Coffee",
+   "oil_palm": "Oil palm",
+   "rubber": "Rubber",
+   "soya": "Soya",
+   "wood": "Wood"
+  },
+  "eudr.book": {
+   "eudr_suppliers": "Suppliers",
+   "eudr_customers": "Customers",
+   "eudr_movements": "Shipments",
+   "eudr_movement_plots": "Shipment plots"
   },
   "event_record": {
    "seismic": "USGS earthquake catalogue (magnitude 5 and above)",

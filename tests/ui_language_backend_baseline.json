@@ -59,11 +59,6 @@
   "error": 0,
   "rawError": 2
  },
- "api/routers/eudr.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 7
- },
  "api/routers/filings.py": {
   "display": 0,
   "error": 0,
@@ -207,16 +202,6 @@
  "services/eet/share_classes.py": {
   "display": 0,
   "error": 2,
-  "rawError": 0
- },
- "services/eudr/records.py": {
-  "display": 0,
-  "error": 1,
-  "rawError": 0
- },
- "services/eudr/trade.py": {
-  "display": 0,
-  "error": 3,
   "rawError": 0
  },
  "services/governance/client_onboarding.py": {

@@ -22,16 +22,14 @@ from sqlalchemy.orm import Session
 
 from services.eudr import spec as SP
 from services.eudr.statement import MIN_DECIMALS, POLYGON_OVER_HA
+from services.eudr.words import EudrError, name, scope_msg
+from services.eudr.words import finding as _f
 
 SIZE_CLASSES = ("micro", "small")                 # Art. 2(15a): 'a micro-undertaking or small undertaking'
 
 
-class DeclarationError(ValueError):
-    pass
-
-
-def _f(rule: str, severity: str, passed: bool, message: str, ref: Optional[str] = None) -> dict:
-    return {"rule": rule, "category": "eudr", "severity": severity, "passed": bool(passed), "message": message, "ref": ref}
+class DeclarationError(EudrError):
+    """A refused step of the simplified declaration: a catalogue code (eudr.refused.*) with its values."""
 
 
 # ── the products it declares (Annex III point 2) ──
@@ -43,17 +41,21 @@ def add_line(session: Session, org_id: str, user_id: str, *, entity_id: Optional
              items_count: Optional[int] = None, scope_in: Optional[bool] = None, scope_basis: Optional[str] = None) -> str:
     from services.reference.eudr_refdata import scope
     code = "".join(ch for ch in hs_code if ch.isdigit())
-    sc = scope(code, date.today())
+    try:
+        sc = scope(code, date.today())
+    except ValueError as e:                        # not a product code
+        raise DeclarationError("eudr.refused.line.code", hs=hs_code) from e
+    basis = scope_msg(sc, code)["detail"]["what"]
     if sc["in_scope"] is False:
-        raise DeclarationError(f"HS {code} is not a relevant product under Annex I today: {sc.get('why')}")
+        raise DeclarationError("eudr.refused.line.not_covered", hs=code, basis=basis)
     if sc["in_scope"] is True and scope_in is not None:
-        raise DeclarationError("Annex I decides this product's scope — no statement of scope is taken")
+        raise DeclarationError("eudr.refused.line.scope_decided", hs=code)
     if (scope_in is None) != (not (scope_basis or "").strip()):
-        raise DeclarationError("a statement of scope needs both whether it is in scope and why")
+        raise DeclarationError("eudr.refused.line.scope_half")
     if sc["in_scope"] is None and scope_in is None:
-        raise DeclarationError(f"Annex I leaves this product's scope open ({sc.get('why')}) — state whether it is in scope, and why")
+        raise DeclarationError("eudr.refused.line.scope_open", hs=code, basis=basis)
     if est_net_mass_kg is None and volume_m3 is None and items_count is None:
-        raise DeclarationError("state the one-off estimated annual quantity: net mass, volume or number of items (Annex III point 2)")
+        raise DeclarationError("eudr.refused.line.quantity")
     return str(session.execute(text("""
         INSERT INTO eudr_declaration_line (org_id, reporting_entity_id, hs_code, description, trade_name, customs_flow,
                                            est_net_mass_kg, mass_deviation_pct, supplementary_unit, supplementary_qty,
@@ -69,7 +71,7 @@ def remove_line(session: Session, org_id: str, line_id: str) -> None:
     n = session.execute(text("""UPDATE eudr_declaration_line SET removed_at = now() WHERE line_id = CAST(:l AS uuid)
                                 AND org_id = CAST(:o AS uuid) AND removed_at IS NULL"""), {"l": line_id, "o": org_id}).rowcount
     if not n:
-        raise DeclarationError("no such product line")
+        raise DeclarationError("eudr.refused.not_found.line")
 
 
 def lines(session: Session, org_id: str, entity_id: Optional[str]) -> list[dict]:
@@ -111,7 +113,7 @@ def compute(session: Session, org_id: str, entity_id: Optional[str], on: Optiona
     on = on or date.today()
     spec = SP.governing(on)
     if not SP.has(spec, "AIII"):
-        raise DeclarationError(f"the version in force on {on} has no simplified declaration (Annex III)")
+        raise DeclarationError("eudr.refused.declaration.not_in_force", on=on.isoformat())
     status = REC.live_status(session, org_id, entity_id, on)
     # the declaring operator is the undertaking: the legal entity, else the organisation
     org = session.execute(text("""SELECT COALESCE((SELECT r.name FROM reporting_entities r WHERE r.entity_id = CAST(:e AS uuid)
@@ -122,7 +124,8 @@ def compute(session: Session, org_id: str, entity_id: Optional[str], on: Optiona
     ls, plots = lines(session, org_id, entity_id), _plots(session, org_id, entity_id, on)
     for x in ls:                                   # Annex I as in force on the declaration's date, not when the line was added
         sc = scope(x["hs_code"], on)
-        x["annex_scope"] = {"in_scope": sc["in_scope"], "why": sc.get("why"), "version": sc.get("version")}
+        x["annex_scope"] = {"in_scope": sc["in_scope"], "why": sc.get("why"), "version": sc.get("version"),
+                            "msg": scope_msg(sc, x["hs_code"])}
     est_risk = country_risk(status["country"], on) if status and status.get("country") else None
     return {
         "on": on.isoformat(), "entity_id": entity_id, "spec": SP.record(spec),
@@ -142,74 +145,73 @@ def compute(session: Session, org_id: str, entity_id: Optional[str], on: Optiona
 
 
 def checks(st: dict) -> list[dict]:
-    """What the declaration must satisfy before it can be prepared, each with its article."""
+    """What the declaration must satisfy before it can be prepared, each a catalogue message with its article."""
     out: list[dict] = []
     status, a3 = st.get("operator_status"), st["annex_iii"]
     # who may make it — Art. 2(15a)
     if status is None:
-        out.append(_f("annex_iii_1", "blocking", False, "state the undertaking's EUDR status (size, country, address)", "Annex III point 1"))
+        out.append(_f("annex_iii_1", "completeness", "blocking", False, "eudr.check.status.missing", "Annex III point 1"))
     else:
         if status["size_class"] not in SIZE_CLASSES:
-            out.append(_f("filer", "blocking", False, f"a {status['size_class']} undertaking is not a micro or small primary "
-                          "operator — it submits due diligence statements", "Art. 2(15a), 4a"))
+            out.append(_f("filer", "scope", "blocking", False, "eudr.check.declaration.size", "Art. 2(15a), 4a",
+                          size=name("size", status["size_class"])))
         if st["established_risk"] != "low":
-            out.append(_f("filer_country", "blocking", False, f"established in {status['country']}, classified "
-                          f"{st['established_risk'] or 'not classified'} — the simplified regime is for operators established "
-                          "in a low-risk country", "Art. 2(15a), 29"))
+            out.append(_f("filer_country", "scope", "blocking", False, "eudr.check.declaration.country", "Art. 2(15a), 29",
+                          country=status["country"],
+                          risk=name("country_risk", st["established_risk"]) if st["established_risk"] else
+                          name("country_risk", "unclassified")))
         own = status.get("primary_own_produce")
         if own is not True:
-            out.append(_f("own_produce", "blocking", False, "not stated that it places products it itself grew, harvested, "
-                          "obtained from or raised on its plots" if own is None else "stated that it does not place its own "
-                          "produce — it is not a primary operator", "Art. 2(15a)"))
+            out.append(_f("own_produce", "scope", "blocking", False,
+                          "eudr.check.declaration.own_unstated" if own is None else "eudr.check.declaration.own_no",
+                          "Art. 2(15a)"))
         if status.get("other_system"):
-            out.append(_f("other_system", "info", True, f"all Annex III information is held in {status['other_system']}: "
-                          "no declaration need be submitted — the Member State makes it available; place products only "
-                          "after the declaration identifier is assigned", "Art. 4a(4)"))
+            out.append(_f("other_system", "completeness", "info", True, "eudr.check.declaration.other_system", "Art. 4a(4)",
+                          system=status["other_system"]))
         if not a3["1"].get("address"):
-            out.append(_f("annex_iii_1", "blocking", False, "the operator's address is not stated", "Annex III point 1"))
+            out.append(_f("annex_iii_1", "completeness", "blocking", False, "eudr.check.operator.address", "Annex III point 1"))
         if any(x["customs_flow"] for x in a3["2"]) and not a3["1"].get("eori"):
-            out.append(_f("annex_iii_1_eori", "blocking", False, "products entering or leaving the market: the EORI number "
-                          "is required", "Annex III point 1"))
+            out.append(_f("annex_iii_1_eori", "completeness", "blocking", False, "eudr.check.operator.eori", "Annex III point 1"))
     # the products — Annex III point 2
     if not a3["2"]:
-        out.append(_f("annex_iii_2", "blocking", False, "no relevant product is declared", "Annex III point 2"))
+        out.append(_f("annex_iii_2", "completeness", "blocking", False, "eudr.check.declaration.no_product", "Annex III point 2"))
     for x in a3["2"]:
-        name = f"HS {x['hs_code']}"
         sc = x["annex_scope"]["in_scope"]
+        basis = (x["annex_scope"].get("msg") or {}).get("detail", {}).get("what") or ""
         if sc is False:
-            out.append(_f(f"scope:{x['line_id']}", "blocking", False, f"{name} is not a relevant product on {st['on']}: "
-                          f"{x['annex_scope']['why']}", "Art. 2(2), Annex I"))
+            out.append(_f(f"scope:{x['line_id']}", "scope", "blocking", False, "eudr.check.line.scope_out",
+                          "Art. 2(2), Annex I", hs=x["hs_code"], on=st["on"], basis=basis))
         elif sc is None and x["scope_in"] is None:
-            out.append(_f(f"scope:{x['line_id']}", "blocking", False, f"{name}: Annex I leaves its scope open "
-                          f"({x['annex_scope']['why']}) — state whether it is in scope, and why", "Annex I"))
+            out.append(_f(f"scope:{x['line_id']}", "scope", "blocking", False, "eudr.check.line.scope_open", "Annex I",
+                          hs=x["hs_code"], basis=basis))
         elif sc is None and x["scope_in"] is False:
-            out.append(_f(f"scope:{x['line_id']}", "blocking", False, f"{name} stated out of scope: {x['scope_basis']}", "Annex I"))
+            out.append(_f(f"scope:{x['line_id']}", "scope", "blocking", False, "eudr.check.line.scope_stated_out", "Annex I",
+                          hs=x["hs_code"], stated=x["scope_basis"] or ""))
         if x["customs_flow"] and x["est_net_mass_kg"] is None:
-            out.append(_f(f"quantity:{x['line_id']}", "blocking", False, f"{name}: entering or leaving the market, the estimated "
-                          "quantity is expressed in kilograms of net mass", "Annex III point 2"))
+            out.append(_f(f"quantity:{x['line_id']}", "completeness", "blocking", False, "eudr.check.line.mass_needed",
+                          "Annex III point 2", hs=x["hs_code"]))
         if not x["customs_flow"] and x["est_net_mass_kg"] is not None and x["mass_deviation_pct"] is None:
-            out.append(_f(f"quantity:{x['line_id']}", "blocking", False, f"{name}: net mass is stated 'specifying a percentage "
-                          "estimate or deviation'", "Annex III point 2"))
+            out.append(_f(f"quantity:{x['line_id']}", "completeness", "blocking", False, "eudr.check.line.deviation",
+                          "Annex III point 2", hs=x["hs_code"]))
     # where it is produced — Annex III point 3, Art. 4a(5), Art. 2(28)
     plots = st["plots"]
     if not plots:
-        out.append(_f("annex_iii_3", "blocking", False, "no plot of land of a relevant commodity is held", "Annex III point 3"))
+        out.append(_f("annex_iii_3", "completeness", "blocking", False, "eudr.check.declaration.no_plots", "Annex III point 3"))
     for p in plots:
-        name = p["plot_name"] or p["plot_id"]
+        plot = p["plot_name"] or p.get("external_ref") or "A plot"
         if not p["country"]:
-            out.append(_f(f"country:{p['plot_id']}", "blocking", False, f"{name}: country of production not stated", "Annex III point 3"))
+            out.append(_f(f"country:{p['plot_id']}", "completeness", "blocking", False, "eudr.check.plot.country",
+                          "Annex III point 3", plot=plot))
         geo_ok = (p["coordinate_decimals"] is not None and p["coordinate_decimals"] >= MIN_DECIMALS
                   and not (p["polygon_required"] and not p["has_polygon"]))
         if not geo_ok and not (p.get("postal_address") or "").strip():
-            out.append(_f(f"location:{p['plot_id']}", "blocking", False, f"{name}: neither a geolocation as Art. 2(28) asks "
-                          f"(at least {MIN_DECIMALS} decimals; a polygon over {POLYGON_OVER_HA} ha) nor its postal address",
-                          "Annex III point 3; Art. 4a(5)"))
+            out.append(_f(f"location:{p['plot_id']}", "completeness", "blocking", False, "eudr.check.plot.location",
+                          "Annex III point 3; Art. 4a(5)", plot=plot, decimals=MIN_DECIMALS, ha=POLYGON_OVER_HA))
         if status and p["country"] and p["country"] != status.get("country"):
-            out.append(_f(f"plot_country:{p['plot_id']}", "warning", False, f"{name} is in {p['country']}, the undertaking is "
-                          f"established in {status.get('country')} — the definition speaks of the operator's own production "
-                          "and of establishments 'located in that country'", "Art. 2(15a)"))
+            out.append(_f(f"plot_country:{p['plot_id']}", "scope", "warning", False, "eudr.check.plot.other_country",
+                          "Art. 2(15a)", plot=plot, country=p["country"], home=status.get("country")))
     if not any(not f["passed"] and f["severity"] == "blocking" for f in out):
-        out.append(_f("ready", "info", True, "every blocking check passes"))
+        out.append(_f("ready", "completeness", "info", True, "eudr.check.ready"))
     return out
 
 

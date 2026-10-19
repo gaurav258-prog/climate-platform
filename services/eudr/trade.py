@@ -24,17 +24,16 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.eudr.words import EudrError, blocking_labels, name, scope_msg
+from services.eudr.words import finding as _f
+
 ROLES = ("downstream_operator", "trader")
 SUPPLIER_ROLES = ("operator", "downstream_operator", "trader")
 NON_SME = ("large",)                              # Art. 2(30): SMEs are micro, small and medium undertakings
 
 
-class TradeError(ValueError):
-    pass
-
-
-def _f(rule: str, severity: str, passed: bool, message: str, ref: Optional[str] = None) -> dict:
-    return {"rule": rule, "category": "eudr", "severity": severity, "passed": bool(passed), "message": message, "ref": ref}
+class TradeError(EudrError):
+    """A refused Article 5 step: a catalogue code (eudr.refused.*) with its values."""
 
 
 def concerns(session: Session, movement_id: str) -> list[dict]:
@@ -61,7 +60,7 @@ def compute(session: Session, org_id: str, movement_id: str) -> dict:
         FROM eudr_movement m LEFT JOIN sc_suppliers s USING (supplier_id) LEFT JOIN sc_customers c USING (customer_id)
         WHERE m.movement_id = CAST(:m AS uuid) AND m.org_id = CAST(:o AS uuid)"""), {"m": movement_id, "o": org_id}).mappings().first()
     if m is None:
-        raise TradeError("no such movement in this organisation")
+        raise TradeError("eudr.refused.not_found.shipment")
     on = m["planned_on"]
     status = REC.live_status(session, org_id, m["entity_id"], on)
 
@@ -98,15 +97,16 @@ def _keep_until(on: date) -> date:
 
 
 def _party_checks(out: list, who: str, p: Optional[dict], ref: str) -> None:
+    """who: 'supplier' or 'customer' — the codes eudr.check.<who>.*"""
     if p is None:
-        out.append(_f(f"{who}", "blocking", False, f"no {who} on the movement", ref))
+        out.append(_f(f"{who}", "completeness", "blocking", False, f"eudr.check.{who}.missing", ref))
         return
     if not (p.get("name") or p.get("trade_name")):
-        out.append(_f(f"{who}_name", "blocking", False, f"the {who}'s name, registered trade name or trade mark", ref))
+        out.append(_f(f"{who}_name", "completeness", "blocking", False, f"eudr.check.{who}.name", ref))
     if not p.get("postal_address"):
-        out.append(_f(f"{who}_address", "blocking", False, f"the {who}'s postal address", ref))
+        out.append(_f(f"{who}_address", "completeness", "blocking", False, f"eudr.check.{who}.address", ref))
     if not p.get("email"):
-        out.append(_f(f"{who}_email", "blocking", False, f"the {who}'s email address", ref))
+        out.append(_f(f"{who}_email", "completeness", "blocking", False, f"eudr.check.{who}.email", ref))
 
 
 def concern_checks(st: dict, non_sme: bool, severity: str = "blocking") -> list[dict]:
@@ -119,14 +119,13 @@ def concern_checks(st: dict, non_sme: bool, severity: str = "blocking") -> list[
     for c in st["concerns"]:
         kinds = [s["kind"] for s in c["steps"]]
         if "authorities_informed" not in kinds:
-            out.append(_f(f"informed:{c['concern_id']}", severity, False, f"{c['kind'].replace('_', ' ')} of {c['received_on']}: "
-                          "the competent authorities are to be informed immediately — not recorded", art))
+            out.append(_f(f"informed:{c['concern_id']}", "completeness", severity, False, "eudr.check.concern.uninformed", art,
+                          concern=name("concern", c["kind"]), since=c["received_on"]))
         if st["movement"]["actor_role"] in ROLES and non_sme and c["kind"] == "substantiated_concern" and c["received_on"] <= on:
             verified = [s for s in c["steps"] if s["kind"] == "verified"]
             if not verified or verified[-1]["conclusion"] != "negligible":
-                out.append(_f(f"verified:{c['concern_id']}", "blocking", False, "a substantiated concern before placing: "
-                              "not placed or made available unless the verification demonstrates no or only a negligible risk",
-                              "Art. 5(6)"))
+                out.append(_f(f"verified:{c['concern_id']}", "completeness", "blocking", False, "eudr.check.concern.unverified",
+                              "Art. 5(6)", since=c["received_on"]))
     return out
 
 
@@ -134,42 +133,36 @@ def checks(st: dict) -> list[dict]:
     out: list[dict] = []
     mv, status = st["movement"], st["status"]
     if mv["actor_role"] not in ROLES:
-        out.append(_f("role", "blocking", False, "Article 5 is for downstream operators and traders — an operator submits a "
-                      "due diligence statement (Art. 4(2)) or a simplified declaration (Art. 4a)", "Art. 4, 5"))
+        out.append(_f("role", "scope", "blocking", False, "eudr.check.trade.role", "Art. 4, 5"))
         return out
     if mv["actor_role"] == "trader" and mv["kind"] != "making_available":
-        out.append(_f("trader_kind", "blocking", False, "a trader 'makes relevant products available on the market' — placing "
-                      "on the market or export is done by an operator or a downstream operator", "Art. 2(15)-(17)"))
+        out.append(_f("trader_kind", "scope", "blocking", False, "eudr.check.trade.trader_kind", "Art. 2(15)-(17)"))
     sc = st["scope"]
+    basis = scope_msg(sc, mv["hs_code"])["detail"]["what"]
     if sc.get("in_scope") is False:
-        out.append(_f("scope", "blocking", False, f"not a relevant product on {mv['on']}: {sc.get('why')}", "Art. 2(2), Annex I"))
+        out.append(_f("scope", "scope", "blocking", False, "eudr.check.scope.out", "Art. 2(2), Annex I", on=mv["on"], basis=basis))
     elif sc.get("in_scope") is None and mv.get("scope_in") is None:
-        out.append(_f("scope", "blocking", False, f"Annex I leaves this product's scope open ({sc.get('why')}) — state whether "
-                      "it is in scope, and why", "Annex I"))
+        out.append(_f("scope", "scope", "blocking", False, "eudr.check.scope.open", "Annex I", basis=basis))
     non_sme = False
     if status is None:
-        out.append(_f("status", "blocking", False, "state the undertaking's EUDR status (its size decides Art. 5(2) and 5(6))",
-                      "Art. 2(30), 5(2)"))
+        out.append(_f("status", "completeness", "blocking", False, "eudr.check.trade.status", "Art. 2(30), 5(2)"))
     else:
         non_sme = status["size_class"] in NON_SME
         if non_sme and not (status.get("is_registration") or "").strip():
-            out.append(_f("registration", "blocking", False, "a non-SME downstream operator or trader registers in the "
-                          "information system before placing, making available or export — not stated", "Art. 5(2)"))
+            out.append(_f("registration", "completeness", "blocking", False, "eudr.check.trade.registration", "Art. 5(2)"))
     a = st["art5_3_a"]
     _party_checks(out, "supplier", a["supplier"], "Art. 5(3)(a)")
     if a["supplier_role"] is None:
-        out.append(_f("supplier_role", "blocking", False, "state whether the supplier is an operator — its statements' reference "
-                      "numbers or declaration identifiers are then held", "Art. 5(3)(a)"))
+        out.append(_f("supplier_role", "completeness", "blocking", False, "eudr.check.trade.supplier_role", "Art. 5(3)(a)"))
     elif a["supplier_role"] == "operator" and not a["references"]:
-        out.append(_f("references", "blocking", False, "the supplier is an operator: the reference numbers of the due diligence "
-                      "statements or the declaration identifiers associated with the products", "Art. 5(3)(a)"))
+        out.append(_f("references", "completeness", "blocking", False, "eudr.check.trade.references", "Art. 5(3)(a)"))
     if mv["kind"] == "making_available":
         _party_checks(out, "customer", st["art5_3_b"]["customer"], "Art. 5(3)(b)")
     elif st["art5_3_b"]["customer"] is None:
-        out.append(_f("customer", "info", True, "no downstream operator or trader supplied on this movement", "Art. 5(3)(b)"))
+        out.append(_f("customer", "completeness", "info", True, "eudr.check.trade.no_customer", "Art. 5(3)(b)"))
     out += concern_checks(st, non_sme)
     if not any(not f["passed"] and f["severity"] == "blocking" for f in out):
-        out.append(_f("ready", "info", True, "the Article 5(3) information is held — the record can be kept"))
+        out.append(_f("ready", "completeness", "info", True, "eudr.check.trade.ready"))
     return out
 
 
@@ -179,9 +172,8 @@ def keep(session: Session, org_id: str, user_id: str, movement_id: str) -> dict:
     """Freeze the movement's Art. 5(3) information as a hashed record, kept until five years after the movement's date."""
     st = compute(session, org_id, movement_id)
     cs = checks(st)
-    blocking = [c["message"] for c in cs if not c["passed"] and c["severity"] == "blocking"]
-    if blocking:
-        raise TradeError("the record cannot be kept yet: " + "; ".join(blocking[:6]))
+    if any(not c["passed"] and c["severity"] == "blocking" for c in cs):
+        raise TradeError("eudr.refused.blocked.record", checks=blocking_labels(cs))
     payload = {"record": st, "checks": cs}
     body = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     rid = session.execute(text("""
@@ -198,7 +190,7 @@ def get(session: Session, org_id: str, record_id: str) -> dict:
                                 WHERE record_id = CAST(:r AS uuid) AND org_id = CAST(:o AS uuid)"""),
                         {"r": record_id, "o": org_id}).mappings().first()
     if r is None:
-        raise TradeError("no such record in this organisation")
+        raise TradeError("eudr.refused.not_found.record")
     body = json.dumps(r["payload"], sort_keys=True, separators=(",", ":"), default=str)
     return {**{k: r[k] for k in ("record_id", "movement_id", "payload", "payload_sha256")},
             "keep_until": r["keep_until"].isoformat(), "recorded_at": r["recorded_at"].isoformat(),
@@ -217,12 +209,12 @@ def kept(session: Session, org_id: str, movement_id: str) -> list[dict]:
 
 def add_concern(session: Session, org_id: str, user_id: str, movement_id: str, *, kind: str, received_on: date, detail: str) -> str:
     if kind not in ("new_information", "substantiated_concern"):
-        raise TradeError("kind is 'new_information' or 'substantiated_concern' (Art. 2(31))")
+        raise TradeError("eudr.refused.concern.kind")
     if not session.execute(text("SELECT 1 FROM eudr_movement WHERE movement_id = CAST(:m AS uuid) AND org_id = CAST(:o AS uuid)"),
                            {"m": movement_id, "o": org_id}).first():
-        raise TradeError("no such movement in this organisation")
+        raise TradeError("eudr.refused.not_found.shipment")
     if len((detail or "").strip()) < 10:
-        raise TradeError("describe what was learned")
+        raise TradeError("eudr.refused.concern.detail")
     return session.execute(text("""INSERT INTO eudr_concern (org_id, movement_id, kind, received_on, detail, recorded_by)
                                    VALUES (CAST(:o AS uuid), CAST(:m AS uuid), :k, :d, :t, CAST(:u AS uuid))
                                    RETURNING concern_id::text"""),
@@ -234,13 +226,13 @@ def add_step(session: Session, org_id: str, user_id: str, concern_id: str, *, ki
     c = session.execute(text("SELECT received_on FROM eudr_concern WHERE concern_id = CAST(:c AS uuid) AND org_id = CAST(:o AS uuid)"),
                         {"c": concern_id, "o": org_id}).first()
     if c is None:
-        raise TradeError("no such concern in this organisation")
+        raise TradeError("eudr.refused.not_found.concern")
     if kind not in ("authorities_informed", "downstream_informed", "verified"):
-        raise TradeError("step is authorities_informed, downstream_informed or verified")
+        raise TradeError("eudr.refused.concern.step_kind")
     if (kind == "verified") != (conclusion is not None):
-        raise TradeError("a verification states its conclusion (negligible / not_negligible) — and only a verification does")
+        raise TradeError("eudr.refused.concern.conclusion")
     if on_date < c[0]:
-        raise TradeError("a step cannot come before the information was received")
+        raise TradeError("eudr.refused.concern.step_before", since=c[0].isoformat())
     return session.execute(text("""INSERT INTO eudr_concern_step (concern_id, kind, on_date, conclusion, detail, recorded_by)
                                    VALUES (CAST(:c AS uuid), :k, :d, :cn, :t, CAST(:u AS uuid)) RETURNING step_id::text"""),
                            {"c": concern_id, "k": kind, "d": on_date, "cn": conclusion, "t": detail, "u": user_id}).scalar()

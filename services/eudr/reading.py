@@ -53,7 +53,8 @@ def _tiles(footprint) -> set[str]:
 
 
 def read(geom: dict, *, treecover_min_pct: Optional[int], point_radius_m: Optional[float]) -> dict:
-    """The reading of one geometry: {outcome, loss_ha, first_loss_year, reason, method} (no database)."""
+    """The reading of one geometry: {outcome, loss_ha, first_loss_year, reason, method} (no database). A reading that is
+    not assessable records why as method.reason_kind (services/eudr/words.reason_kind), its sentence as `reason`."""
     from shapely.geometry import shape
 
     from services.intelligence import forest as F
@@ -62,7 +63,8 @@ def read(geom: dict, *, treecover_min_pct: Optional[int], point_radius_m: Option
               "treecover_min_pct": treecover_min_pct, "point_radius_m": point_radius_m, "geometry_type": g.geom_type}
     if g.geom_type == "Point":
         if not point_radius_m:
-            return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None, "method": method,
+            return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None,
+                    "method": {**method, "reason_kind": "point_no_radius"},
                     "reason": "a point has no area — state the radius to read around it, or provide the plot's boundary"}
         c = g.centroid
         footprint = g.buffer(point_radius_m / (111_320.0 * max(math.cos(math.radians(c.y)), 1e-6)))
@@ -70,11 +72,13 @@ def read(geom: dict, *, treecover_min_pct: Optional[int], point_radius_m: Option
         footprint = g
     tiles = _tiles(footprint)
     if len(tiles) > 1:
-        return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None, "method": {**method, "tiles": sorted(tiles)},
+        return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None,
+                "method": {**method, "tiles": sorted(tiles), "reason_kind": "crosses_tiles"},
                 "reason": f"the plot crosses data tiles {', '.join(sorted(tiles))} — a reading covers one tile"}
     raw = F.forest_loss_since(footprint, cutoff_year=CUTOFF.year, min_treecover_pct=0, point_buffer_m=0.0)
     if raw.insufficient:
-        return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None, "method": {**method, "tile": raw.tile},
+        return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None,
+                "method": {**method, "tile": raw.tile, "reason_kind": "dataset_unreadable"},
                 "reason": f"the dataset could not be read here ({raw.source})"}
     method.update(tile=raw.tile, source=raw.source, pixels=raw.total_pixels, loss_pixels_unmasked=raw.loss_pixels,
                   loss_ha_unmasked=raw.loss_ha, first_loss_year_unmasked=raw.first_loss_year)
@@ -82,7 +86,8 @@ def read(geom: dict, *, treecover_min_pct: Optional[int], point_radius_m: Option
     if treecover_min_pct:
         masked = F.forest_loss_since(footprint, cutoff_year=CUTOFF.year, min_treecover_pct=treecover_min_pct, point_buffer_m=0.0)
         if masked.insufficient:
-            return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None, "method": method,
+            return {"outcome": "not_assessable", "loss_ha": None, "first_loss_year": None,
+                    "method": {**method, "reason_kind": "treecover_unreadable"},
                     "reason": f"the 2000 tree-cover layer could not be read here ({masked.source})"}
         method.update(loss_pixels_masked=masked.loss_pixels, forest_pixels_2000=masked.forest_pixels)
         loss_ha, first, pixels = masked.loss_ha, masked.first_loss_year, masked.loss_pixels

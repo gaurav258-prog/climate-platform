@@ -8,7 +8,7 @@ legality evidence, the risk assessment, the product's scope under Annex I and ea
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
@@ -16,13 +16,14 @@ from sqlalchemy.orm import Session
 
 from services.eudr import spec as SP
 from services.eudr import trade as TR
+from services.eudr.words import EudrError, name
 
 POLYGON_OVER_HA = 4                     # Art. 2(28): 'plots of land of more than four hectares … using polygons'
 MIN_DECIMALS = 6                        # Art. 2(28): 'at least six decimal digits'
 
 
-class StatementError(ValueError):
-    pass
+class StatementError(EudrError):
+    """No statement can be gathered: a catalogue code (eudr.refused.*)."""
 
 
 def _plots(session: Session, movement_id: str) -> list[dict]:
@@ -62,7 +63,7 @@ def compute(session: Session, org_id: str, movement_id: str) -> dict:
         JOIN organizations o ON o.org_id = m.org_id
         WHERE m.movement_id = CAST(:m AS uuid) AND m.org_id = CAST(:o AS uuid)"""), {"m": movement_id, "o": org_id}).mappings().first()
     if m is None:
-        raise StatementError("no such movement in this organisation")
+        raise StatementError("eudr.refused.not_found.shipment")
     on = m["planned_on"]
     spec = SP.governing(on)
     entity = str(m["reporting_entity_id"]) if m["reporting_entity_id"] else None
@@ -145,7 +146,7 @@ def form(payload: dict) -> list[dict]:
         {"label": "2 · Quantity", "value": _qty(a["2"]["quantity"])},
         {"label": "3 · Countries of production", "value": ", ".join(a["3"]["countries"]) or "—"},
         {"label": "3 · Plots", "value": str(len(a["3"]["plots"]))},
-        {"label": "Shipment", "value": f"{mv['kind'].replace('_', ' ')} on {mv['planned_on']} · {mv.get('external_ref') or ''}"},
+        {"label": "Shipment", "value": f"{name('kind', mv['kind'])} on {mv['planned_on']} · {mv.get('external_ref') or ''}"},
     ]}]
 
 
@@ -201,9 +202,14 @@ def sign_point_6(annex: dict, payload: dict, att: dict | None) -> None:
         return
     lines = [f"Signed for and on behalf of: {a1.get('name') or '—'}", f"Date: {att['at'][:10]}",
              f"Name and function: {att.get('attestor_name')}, {att.get('function') or 'function not stated'}",
-             f"Signature: attested in the platform by {att.get('email') or att.get('attestor_name')} at {att['at']}"]
+             f"Signature: attested in the platform by {att.get('email') or att.get('attestor_name')} at {_when(att['at'])}"]
     sec["rows"][i]["cells"][1] = {"text": lines[0]}
     sec["rows"][i + 1:i + 1] = [{"type": "row", "cells": [{"text": ""}, {"text": t}]} for t in lines[1:]]
+
+
+def _when(at: str) -> str:
+    """The attestation's moment as a reader writes it, in UTC (02 Oct 2026, 07:34 UTC)."""
+    return f"{datetime.fromisoformat(at).astimezone(timezone.utc):%d %b %Y, %H:%M} UTC"
 
 
 def binding(spec: dict) -> dict:

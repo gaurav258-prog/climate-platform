@@ -85,7 +85,7 @@ def test_a_shipment_is_stated_filed_referenced_amended_and_withdrawn(api, monkey
 
     # nothing can be prepared yet; the generic preflight sends you to the shipment
     pre = api.post(f"/v1/eudr/movements/{m}/filing", headers=maker, json={})
-    assert pre.status_code == 409 and "cannot be prepared yet" in pre.text
+    assert pre.status_code == 409 and pre.json()["error"]["error"] == "eudr.refused.blocked.statement"
     g = api.get("/v1/filings/preflight?framework=eudr_dds", headers=maker)
     assert g.status_code in (400, 409, 422) and "from its shipment" in g.text
 
@@ -146,7 +146,8 @@ def test_a_shipment_is_stated_filed_referenced_amended_and_withdrawn(api, monkey
     # placed on the market: the window closes
     assert api.post(f"/v1/eudr/filings/{fid3}/events", headers=maker, json={"kind": "placed_or_exported"}).status_code == 201
     wd = api.post(f"/v1/eudr/filings/{fid3}/withdraw", headers=maker, json={"reason": "a mistake found after placing"})
-    assert wd.status_code == 409 and "placed on the market or exported" in wd.text
+    assert wd.status_code == 409 and wd.json()["error"]["error"] == "eudr.refused.window.withdraw"
+    assert "placed on the market or exported" in wd.json()["error"]["detail"]["what"]
 
     # dated and named by its shipment: no scenario, horizon or money; the assurance pack says what it rests on
     f3 = api.get(f"/v1/filings/{fid3}", headers=maker).json()

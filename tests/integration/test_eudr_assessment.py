@@ -105,7 +105,7 @@ def test_legality_evidence_and_the_assessment_are_kept_with_four_eyes(api):
     # the assessment: every Art. 10(2) criterion answered; four eyes; the latest is live
     part = api.post(f"/v1/eudr/movements/{m}/risk-assessment", headers=maker,
                     json={"path": "full", "conclusion": "negligible", "criteria": {"a": "Ghana: low risk"}})
-    assert part.status_code == 422 and "(b)" in part.text
+    assert part.status_code == 422 and part.json()["error"]["error"] == "eudr.refused.risk.criteria" and "(b)" in part.json()["error"]["detail"]["what"]
     full = {k: f"assessed: {k}" for k in REC.CRITERIA}
     r = api.post(f"/v1/eudr/movements/{m}/risk-assessment", headers=maker,
                  json={"path": "full", "conclusion": "negligible", "criteria": full, "mitigation": {"a": "plot titles obtained"}})
@@ -149,4 +149,4 @@ def test_the_statement_gathers_what_annex_ii_and_art_9_ask(api, monkeypatch):
     s.execute(text("INSERT INTO eudr_movement_plot VALUES (CAST(:m AS uuid), CAST(:p AS uuid), '2026-01-01', '2026-06-30')"),
               {"m": m, "p": ci})                                    # a plot in a standard-risk country joins the movement
     r = api.post(f"/v1/eudr/movements/{m}/risk-assessment", headers=maker, json=simple)
-    assert r.status_code == 422 and "not low risk: CI" in r.text
+    assert r.status_code == 422 and r.json()["error"]["error"] == "eudr.refused.risk.not_low" and "Not low risk: CI" in r.json()["error"]["detail"]["what"]

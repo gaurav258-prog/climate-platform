@@ -20,13 +20,15 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.eudr.words import EudrError, blocking_labels, state
+
 FRAMEWORK = "eudr_simplified"
 EVENTS = ("grouped", "check_notified", "check_ended", "rejected")
 LIVE = "status NOT IN ('superseded', 'withdrawn', 'rejected')"
 
 
-class DeclarationFilingError(ValueError):
-    pass
+class DeclarationFilingError(EudrError):
+    """A refused step of the declaration as a filing: a catalogue code (eudr.refused.*) with its values."""
 
 
 def _filing(session: Session, org_id: str, filing_id: str) -> dict:
@@ -37,7 +39,7 @@ def _filing(session: Session, org_id: str, filing_id: str) -> dict:
                                 WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid) AND framework = :fw"""),
                         {"f": filing_id, "o": org_id, "fw": FRAMEWORK}).mappings().first()
     if f is None:
-        raise DeclarationFilingError("no such simplified declaration in this organisation")
+        raise DeclarationFilingError("eudr.refused.not_found.declaration")
     return dict(f)
 
 
@@ -53,14 +55,14 @@ def prepare(session: Session, org_id: str, user_id: str, entity_id: Optional[str
     from services.governance.report_snapshots import create_snapshot
     on = date.today()
     st = D.compute(session, org_id, entity_id, on)
-    blocking = [c["message"] for c in D.checks(st) if not c["passed"] and c["severity"] == "blocking"]
-    if blocking:
-        raise DeclarationFilingError("the declaration cannot be prepared yet: " + "; ".join(blocking[:6]))
+    cs = D.checks(st)
+    if any(not c["passed"] and c["severity"] == "blocking" for c in cs):
+        raise DeclarationFilingError("eudr.refused.blocked.declaration", checks=blocking_labels(cs))
     live = session.execute(text(f"""SELECT filing_id::text, status FROM regulatory_filing WHERE org_id = CAST(:o AS uuid)
                                     AND framework = :fw AND entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND {LIVE}"""),
                            {"o": org_id, "fw": FRAMEWORK, "e": entity_id}).first()
     if live and live[0] != supersedes:
-        raise DeclarationFilingError(f"this undertaking already has a live simplified declaration ({live[1]}) — update it")
+        raise DeclarationFilingError("eudr.refused.live.declaration", state=state(live[1]))
     snap = create_snapshot(session, org_id, FRAMEWORK, user_id, note=note, period_end=on, declaration_entity=entity_id)
     if supersedes:
         session.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE filing_id = CAST(:f AS uuid)"),
@@ -83,9 +85,9 @@ def update(session: Session, org_id: str, user_id: str, filing_id: str, note: Op
     """After a major change (Reg. Art. 4a(3)): a new declaration that supersedes the accepted one."""
     f = _filing(session, org_id, filing_id)
     if f["status"] != "accepted":
-        raise DeclarationFilingError("only a declaration with its identifier is updated")
+        raise DeclarationFilingError("eudr.refused.update.not_accepted")
     if _grouped(session, filing_id):
-        raise DeclarationFilingError("it was used as a reference in a grouping (IR Art. 8a) — the grouped declaration stands for it")
+        raise DeclarationFilingError("eudr.refused.grouped.update")
     return prepare(session, org_id, user_id, f["entity_id"], note=note, supersedes=filing_id)
 
 
@@ -94,7 +96,7 @@ def refresh(session: Session, org_id: str, user_id: str, filing_id: str, note: O
     from services.governance.filings import _log_event
     f = _filing(session, org_id, filing_id)
     if f["status"] not in ("draft", "returned"):
-        raise DeclarationFilingError("only a draft or returned declaration is refreshed")
+        raise DeclarationFilingError("eudr.refused.refresh.not_draft", state=state(f["status"]))
     session.execute(text("UPDATE regulatory_filing SET status = 'withdrawn' WHERE filing_id = CAST(:f AS uuid)"), {"f": filing_id})
     _log_event(session, filing_id, f["status"], "withdrawn", "refresh", user_id, {})
     return prepare(session, org_id, user_id, f["entity_id"], note=note, supersedes=f["supersedes"])
@@ -105,12 +107,12 @@ def record_identifier(session: Session, org_id: str, user_id: str, filing_id: st
     from services.governance.filings import _apply_transition
     f = _filing(session, org_id, filing_id)
     if f["status"] != "submitted":
-        raise DeclarationFilingError("an identifier is recorded for a submitted declaration")
+        raise DeclarationFilingError("eudr.refused.identifier.not_submitted", state=state(f["status"]))
     identifier = identifier.strip()
     if f["supersedes"]:
         kept = identifier_of(session, f["supersedes"])
         if kept and kept != identifier:
-            raise DeclarationFilingError(f"an update keeps the declaration identifier ({kept}) — IR 2024/3084 Art. 4a(3)")
+            raise DeclarationFilingError("eudr.refused.identifier.changed", kept=kept)
     session.execute(text("""INSERT INTO eudr_declaration_identifier (filing_id, declaration_identifier, verification_number,
                                                                      source, recorded_by)
                             VALUES (CAST(:f AS uuid), :i, :v, :s, CAST(:u AS uuid))"""),
@@ -128,10 +130,10 @@ def _grouped(session: Session, filing_id: str) -> bool:
 def record_event(session: Session, org_id: str, user_id: str, filing_id: str, kind: str, detail: Optional[str] = None) -> dict:
     from services.governance.filings import _log_event
     if kind not in EVENTS:
-        raise DeclarationFilingError(f"event is one of {EVENTS}")
+        raise DeclarationFilingError("eudr.refused.event.unknown")
     f = _filing(session, org_id, filing_id)
     if f["status"] not in ("submitted", "accepted"):
-        raise DeclarationFilingError("events are recorded on a submitted declaration")
+        raise DeclarationFilingError("eudr.refused.event.not_filed", state=state(f["status"]))
     session.execute(text("INSERT INTO eudr_dds_event (filing_id, kind, detail, recorded_by) VALUES (CAST(:f AS uuid), :k, :d, "
                          "CAST(:u AS uuid))"), {"f": filing_id, "k": kind, "d": detail, "u": user_id})
     if kind == "rejected":                       # Art. 8(2): 'deemed not covered by a … Simplified Declaration'
@@ -144,11 +146,11 @@ def withdraw(session: Session, org_id: str, user_id: str, filing_id: str, reason
     from services.governance.filings import _log_event, get_filing
     f = _filing(session, org_id, filing_id)
     if f["status"] not in ("submitted", "accepted"):
-        raise DeclarationFilingError("a submitted declaration is withdrawn here; a draft is withdrawn in the register")
+        raise DeclarationFilingError("eudr.refused.withdraw.declaration_not_filed", state=state(f["status"]))
     if _grouped(session, filing_id):
-        raise DeclarationFilingError("it was used as a reference in a grouping — it can no longer be withdrawn (IR Art. 4a(7))")
+        raise DeclarationFilingError("eudr.refused.grouped.withdraw")
     if len((reason or "").strip()) < 10:
-        raise DeclarationFilingError("say why it is withdrawn")
+        raise DeclarationFilingError("eudr.refused.reason_needed")
     session.execute(text("UPDATE regulatory_filing SET status = 'withdrawn' WHERE filing_id = CAST(:f AS uuid)"), {"f": filing_id})
     _log_event(session, filing_id, f["status"], "withdrawn", "withdraw", user_id, {"reason": reason})
     return get_filing(session, org_id, filing_id, with_payload=False)
@@ -165,7 +167,7 @@ def history(session: Session, org_id: str, entity_id: Optional[str]) -> list[dic
     from services.eudr.filing import events
     out = []
     for r in rows:
-        evs = events(session, r["filing_id"])
+        evs = events(session, r["filing_id"], declaration=True)
         out.append({**dict(r), "period_end": r["period_end"].isoformat(), "events": evs,
                     "grouped": any(e["kind"] == "grouped" for e in evs)})
     return out

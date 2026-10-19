@@ -72,7 +72,8 @@ def test_a_trader_holds_and_keeps_the_article_5_information(api):
     s.execute(text("UPDATE eudr_movement SET supplier_role = 'operator' WHERE movement_id = CAST(:m AS uuid)"), {"m": m})
     assert _blocking(api, maker, m) == {"references"}                     # an operator supplier: its reference numbers
     refused = api.post(f"/v1/eudr/movements/{m}/trade/keep", headers=maker)
-    assert refused.status_code == 409 and "reference numbers" in refused.text
+    assert refused.status_code == 409 and refused.json()["error"]["error"] == "eudr.refused.blocked.record"
+    assert "reference numbers" in refused.json()["error"]["detail"]["what"]      # the blocking check, by its label
     s.execute(text("UPDATE eudr_movement SET upstream_refs = ARRAY['26BEABC0001'] WHERE movement_id = CAST(:m AS uuid)"), {"m": m})
     assert _blocking(api, maker, m) == set()
 

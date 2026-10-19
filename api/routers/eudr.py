@@ -1,17 +1,21 @@
 """EUDR records through the governed intake (Regulation (EU) 2023/1115; E92): the suppliers and customers, each
 placing on the market / making available / export, and the plots each came from — template, dry run, upload — and the
-movements on file. The due diligence statement is built on them (layers 3-5)."""
+movements on file. The due diligence statement is built on them (layers 3-5).
+
+Every refusal is a core.errors.UserError with a catalogue code (eudr.refused.*; the services' errors are UserErrors),
+answered by the API's handler — the label on the screen, the detail behind its ⓘ; never an exception's own text."""
 from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, attachment, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/eudr", tags=["EUDR"])
 BOOKS = ("eudr_suppliers", "eudr_customers", "eudr_movements", "eudr_movement_plots")
@@ -19,7 +23,7 @@ BOOKS = ("eudr_suppliers", "eudr_customers", "eudr_movements", "eudr_movement_pl
 
 def _book(book: str) -> str:
     if book not in BOOKS:
-        raise HTTPException(404, {"error": "unknown_book", "message": f"the EUDR books are {', '.join(BOOKS)}"})
+        raise UserError("eudr.refused.not_found.book")
     return book
 
 
@@ -84,6 +88,7 @@ def records(session: DbSession, on: Optional[date] = None, entity_id: Optional[s
             ctx: dict = Depends(require_permission("reports.view"))):
     from services.eudr import records as REC
     from services.eudr.reading import current, tally
+    from services.eudr.words import names, with_reading_msg
     org = ctx["org"]["org_id"]
     st = REC.live_status(session, org, entity_id, on or date.today())
     plots = [dict(r) for r in session.execute(text("""
@@ -106,9 +111,9 @@ def records(session: DbSession, on: Optional[date] = None, entity_id: Optional[s
             "on": (on or date.today()).isoformat(),
             "criteria": REC.CRITERIA, "mitigation": REC.MITIGATION, "aspects": list(REC.ASPECTS),
             "size_classes": list(REC.SIZE_CLASSES),
-            "plots": [{**p, "reading": readings.get(p["plot_id"])} for p in plots], "readings_tally": tally(readings),
-            "entities": entities, "entity_id": entity_id,
-            "pending": pending}
+            "plots": [{**p, "reading": with_reading_msg(readings.get(p["plot_id"]))} for p in plots],
+            "readings_tally": tally(readings), "entities": entities, "entity_id": entity_id,
+            "pending": pending, "names": names()}
 
 
 class StatusBody(BaseModel):
@@ -130,11 +135,8 @@ class StatusBody(BaseModel):
 
 @router.post("/status", status_code=202, summary="State the undertaking's EUDR status (a second person approves)")
 def state_status(body: StatusBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    from services.eudr.records import RecordError, request_status
-    try:
-        out = request_status(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
-    except RecordError as e:
-        raise HTTPException(422, {"error": "invalid_status", "message": str(e)}) from e
+    from services.eudr.records import request_status
+    out = request_status(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
     session.commit()
     return out
 
@@ -156,12 +158,8 @@ class EvidenceBody(BaseModel):
 
 @router.post("/evidence", status_code=201, summary="Record legality evidence (Art. 9(1)(h), 2(40)) — append-only")
 def add_evidence(body: EvidenceBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    from services.eudr.records import RecordError
     from services.eudr.records import add_evidence as add
-    try:
-        eid = add(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
-    except RecordError as e:
-        raise HTTPException(422, {"error": "invalid_evidence", "message": str(e)}) from e
+    eid = add(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
     session.commit()
     return {"evidence_id": eid}
 
@@ -179,7 +177,7 @@ def read_plots(body: ReadBody, session: DbSession, ctx: dict = Depends(require_p
     mine = {r[0] for r in session.execute(text("SELECT plot_id::text FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid) "
                                                 "AND plot_id = ANY(CAST(:p AS uuid[]))"), {"o": org_id, "p": body.plot_ids}).all()}
     if mine != set(body.plot_ids):
-        raise HTTPException(404, {"error": "unknown_plots", "message": "some plots are not in this organisation"})
+        raise UserError("eudr.refused.not_found.plots")
     return submit("eudr.read_plots", org_id, body.plot_ids, ctx["user"]["id"], body.treecover_min_pct, body.point_radius_m)
 
 
@@ -194,11 +192,8 @@ class RiskBody(BaseModel):
 @router.post("/movements/{movement_id}/risk-assessment", status_code=202,
              summary="State the risk assessment of a movement (Art. 10-11, or Art. 13) — a second person approves")
 def assess(movement_id: str, body: RiskBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    from services.eudr.records import RecordError, request_assessment
-    try:
-        out = request_assessment(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id=movement_id, **body.model_dump())
-    except RecordError as e:
-        raise HTTPException(422, {"error": "invalid_assessment", "message": str(e)}) from e
+    from services.eudr.records import request_assessment
+    out = request_assessment(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id=movement_id, **body.model_dump())
     session.commit()
     return out
 
@@ -206,13 +201,15 @@ def assess(movement_id: str, body: RiskBody, session: DbSession, ctx: dict = Dep
 @router.get("/movements/{movement_id}/statement",
             summary="The due diligence statement as it stands, what it rests on, and the checks the filing will run")
 def statement(movement_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    """The statement as compute() gathers it (the shape a filing freezes), with what a screen reads besides: each check
+    as a message, the product's place in Annex I as a message, and each plot's reading as a message."""
     from services.eudr.checks import checks
-    from services.eudr.statement import StatementError, compute
-    try:
-        st = compute(session, ctx["org"]["org_id"], movement_id)
-    except StatementError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)}) from e
-    return {**st, "checks": checks(st)}
+    from services.eudr.statement import compute
+    from services.eudr.words import scope_msg, with_reading_msg
+    st = compute(session, ctx["org"]["org_id"], movement_id)
+    return {**st, "checks": checks(st),
+            "scope": {**st["scope"], "msg": scope_msg(st["scope"], st["annex_ii"]["2"]["hs_code"])},
+            "plots": [{**p, "reading": with_reading_msg(p.get("reading"))} for p in st["plots"]]}
 
 
 class ScopeBody(BaseModel):
@@ -226,10 +223,12 @@ def state_scope(movement_id: str, body: ScopeBody, session: DbSession,
     """Only where Annex I leaves it open (an 'ex' heading, or a row that excepts part of what it names): the operator's
     own statement about its product, with why. Refused once the movement's statement is under review (database)."""
     from services.eudr.statement import compute
+    from services.eudr.words import scope_msg
     org_id = ctx["org"]["org_id"]
     st = compute(session, org_id, movement_id)
     if st["scope"].get("in_scope") is not None:
-        raise HTTPException(409, {"error": "not_open", "message": f"Annex I decides this product: {st['scope'].get('why')}"})
+        raise UserError("eudr.refused.scope.decided",
+                        basis=scope_msg(st["scope"], st["annex_ii"]["2"]["hs_code"])["detail"]["what"])
     session.execute(text("UPDATE eudr_movement SET scope_in = :i, scope_basis = :b WHERE movement_id = CAST(:m AS uuid) "
                          "AND org_id = CAST(:o AS uuid)"), {"i": body.in_scope, "b": body.basis, "m": movement_id, "o": org_id})
     session.commit()
@@ -238,10 +237,6 @@ def state_scope(movement_id: str, body: ScopeBody, session: DbSession,
 
 # ── the statement as a filing (services/eudr/filing.py); review, approval, attestation, submission: /v1/filings/{id}/… ──
 
-def _fail(e: Exception, code: int = 409):
-    raise HTTPException(code, {"error": "eudr_filing", "message": str(e)}) from e
-
-
 class PrepareBody(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
 
@@ -249,11 +244,8 @@ class PrepareBody(BaseModel):
 @router.post("/movements/{movement_id}/filing", status_code=201, summary="Prepare the shipment's due diligence statement")
 def prepare_filing(movement_id: str, body: PrepareBody, session: DbSession,
                    ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.eudr.filing import EudrFilingError, prepare
-    try:
-        out = prepare(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id, note=body.note)
-    except EudrFilingError as e:
-        _fail(e)
+    from services.eudr.filing import prepare
+    out = prepare(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id, note=body.note)
     session.commit()
     return out
 
@@ -261,11 +253,8 @@ def prepare_filing(movement_id: str, body: PrepareBody, session: DbSession,
 @router.post("/filings/{filing_id}/refresh", summary="Replace a draft statement after its shipment was corrected")
 def refresh_filing(filing_id: str, body: PrepareBody, session: DbSession,
                    ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.eudr.filing import EudrFilingError, refresh
-    try:
-        out = refresh(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
-    except EudrFilingError as e:
-        _fail(e)
+    from services.eudr.filing import refresh
+    out = refresh(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
     session.commit()
     return out
 
@@ -279,12 +268,8 @@ class ReferenceBody(BaseModel):
 @router.post("/filings/{filing_id}/reference", summary="Record the reference and verification numbers made available")
 def record_reference(filing_id: str, body: ReferenceBody, session: DbSession,
                      ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.eudr.filing import EudrFilingError
     from services.eudr.filing import record_reference as rec
-    try:
-        out = rec(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, **body.model_dump())
-    except EudrFilingError as e:
-        _fail(e)
+    out = rec(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, **body.model_dump())
     session.commit()
     return out
 
@@ -298,23 +283,16 @@ class EventBody(BaseModel):
 @router.post("/filings/{filing_id}/events", status_code=201, summary="Record what happened to a filed statement")
 def record_event(filing_id: str, body: EventBody, session: DbSession,
                  ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.eudr.filing import EudrFilingError
     from services.eudr.filing import record_event as rec
-    try:
-        out = rec(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.kind, detail=body.detail, until=body.until)
-    except EudrFilingError as e:
-        _fail(e)
+    out = rec(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.kind, detail=body.detail, until=body.until)
     session.commit()
     return out
 
 
 @router.get("/filings/{filing_id}/window", summary="Whether the statement may still be amended or withdrawn, and its events")
 def filing_window(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.eudr.filing import EudrFilingError, _filing, events, window
-    try:
-        _filing(session, ctx["org"]["org_id"], filing_id)
-    except EudrFilingError as e:
-        _fail(e, 404)
+    from services.eudr.filing import _filing, events, window
+    _filing(session, ctx["org"]["org_id"], filing_id)
     return {"window": window(session, filing_id), "events": events(session, filing_id)}
 
 
@@ -325,11 +303,8 @@ class WithdrawBody(BaseModel):
 @router.post("/filings/{filing_id}/withdraw", summary="Withdraw a statement within the information system's window")
 def withdraw_filing(filing_id: str, body: WithdrawBody, session: DbSession,
                     ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.eudr.filing import EudrFilingError, withdraw
-    try:
-        out = withdraw(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.reason)
-    except EudrFilingError as e:
-        _fail(e)
+    from services.eudr.filing import withdraw
+    out = withdraw(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.reason)
     session.commit()
     return out
 
@@ -337,20 +312,13 @@ def withdraw_filing(filing_id: str, body: WithdrawBody, session: DbSession,
 @router.post("/filings/{filing_id}/amend", status_code=201, summary="Amend a statement within the window (a new draft)")
 def amend_filing(filing_id: str, body: PrepareBody, session: DbSession,
                  ctx: dict = Depends(require_permission("reports.publish"))):
-    from services.eudr.filing import EudrFilingError, amend
-    try:
-        out = amend(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
-    except EudrFilingError as e:
-        _fail(e)
+    from services.eudr.filing import amend
+    out = amend(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
     session.commit()
     return out
 
 
-
 # ── the simplified declaration of a micro or small primary operator (Art. 4a, Annex III; E115) ──
-
-def _decl_fail(e: Exception, code: int = 409):
-    raise HTTPException(code, {"error": "eudr_declaration", "message": str(e)}) from e
 
 
 @router.get("/declaration", summary="The simplified declaration as it stands, its checks, product lines and history")
@@ -358,10 +326,7 @@ def declaration(session: DbSession, entity_id: Optional[str] = None, ctx: dict =
     from services.eudr import declaration as D
     from services.eudr import declaration_filing as DF
     org = ctx["org"]["org_id"]
-    try:
-        st = D.compute(session, org, entity_id)
-    except D.DeclarationError as e:
-        _decl_fail(e, 404)
+    st = D.compute(session, org, entity_id)
     return {**st, "checks": D.checks(st), "history": DF.history(session, org, entity_id)}
 
 
@@ -384,10 +349,7 @@ class LineBody(BaseModel):
 @router.post("/declaration/lines", status_code=201, summary="Declare a relevant product with its estimated annual quantity")
 def add_declaration_line(body: LineBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import declaration as D
-    try:
-        lid = D.add_line(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
-    except D.DeclarationError as e:
-        _decl_fail(e, 422)
+    lid = D.add_line(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
     session.commit()
     return {"line_id": lid}
 
@@ -395,10 +357,7 @@ def add_declaration_line(body: LineBody, session: DbSession, ctx: dict = Depends
 @router.delete("/declaration/lines/{line_id}", summary="Remove a product line (dated, never deleted)")
 def remove_declaration_line(line_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import declaration as D
-    try:
-        D.remove_line(session, ctx["org"]["org_id"], line_id)
-    except D.DeclarationError as e:
-        _decl_fail(e, 404)
+    D.remove_line(session, ctx["org"]["org_id"], line_id)
     session.commit()
     return {"removed": line_id}
 
@@ -412,10 +371,7 @@ class DeclarationPrepareBody(BaseModel):
 def prepare_declaration(body: DeclarationPrepareBody, session: DbSession,
                         ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import declaration_filing as DF
-    try:
-        f = DF.prepare(session, ctx["org"]["org_id"], ctx["user"]["id"], body.entity_id, note=body.note)
-    except DF.DeclarationFilingError as e:
-        _decl_fail(e)
+    f = DF.prepare(session, ctx["org"]["org_id"], ctx["user"]["id"], body.entity_id, note=body.note)
     session.commit()
     return f
 
@@ -423,10 +379,7 @@ def prepare_declaration(body: DeclarationPrepareBody, session: DbSession,
 @router.post("/declaration/filings/{filing_id}/refresh", summary="Replace a draft declaration after the records were corrected")
 def refresh_declaration(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import declaration_filing as DF
-    try:
-        f = DF.refresh(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id)
-    except DF.DeclarationFilingError as e:
-        _decl_fail(e)
+    f = DF.refresh(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id)
     session.commit()
     return f
 
@@ -436,10 +389,7 @@ def refresh_declaration(filing_id: str, session: DbSession, ctx: dict = Depends(
 def update_declaration(filing_id: str, body: PrepareBody, session: DbSession,
                        ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import declaration_filing as DF
-    try:
-        f = DF.update(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
-    except DF.DeclarationFilingError as e:
-        _decl_fail(e)
+    f = DF.update(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, note=body.note)
     session.commit()
     return f
 
@@ -454,11 +404,8 @@ class IdentifierBody(BaseModel):
 def declaration_identifier(filing_id: str, body: IdentifierBody, session: DbSession,
                            ctx: dict = Depends(require_permission("reports.publish"))):
     from services.eudr import declaration_filing as DF
-    try:
-        f = DF.record_identifier(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, identifier=body.identifier,
-                                 verification_number=body.verification_number, source=body.source)
-    except DF.DeclarationFilingError as e:
-        _decl_fail(e)
+    f = DF.record_identifier(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, identifier=body.identifier,
+                             verification_number=body.verification_number, source=body.source)
     session.commit()
     return f
 
@@ -472,10 +419,7 @@ class DeclarationEventBody(BaseModel):
 def declaration_event(filing_id: str, body: DeclarationEventBody, session: DbSession,
                       ctx: dict = Depends(require_permission("reports.publish"))):
     from services.eudr import declaration_filing as DF
-    try:
-        out = DF.record_event(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.kind, body.detail)
-    except DF.DeclarationFilingError as e:
-        _decl_fail(e)
+    out = DF.record_event(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.kind, body.detail)
     session.commit()
     return out
 
@@ -484,29 +428,19 @@ def declaration_event(filing_id: str, body: DeclarationEventBody, session: DbSes
 def withdraw_declaration(filing_id: str, body: WithdrawBody, session: DbSession,
                          ctx: dict = Depends(require_permission("reports.publish"))):
     from services.eudr import declaration_filing as DF
-    try:
-        f = DF.withdraw(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.reason)
-    except DF.DeclarationFilingError as e:
-        _decl_fail(e)
+    f = DF.withdraw(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id, body.reason)
     session.commit()
     return f
 
 
-
 # ── Article 5: what a downstream operator or trader holds and keeps; new information and concerns (E122) ──
-
-def _trade_fail(e: Exception, code: int = 409):
-    raise HTTPException(code, {"error": "eudr_trade", "message": str(e)}) from e
 
 
 @router.get("/movements/{movement_id}/trade", summary="The Article 5(3) information of a movement, its checks and kept records")
 def trade_record(movement_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.eudr import trade as T
     org = ctx["org"]["org_id"]
-    try:
-        st = T.compute(session, org, movement_id)
-    except T.TradeError as e:
-        _trade_fail(e, 404)
+    st = T.compute(session, org, movement_id)
     return {**st, "checks": T.checks(st), "kept": T.kept(session, org, movement_id)}
 
 
@@ -514,10 +448,7 @@ def trade_record(movement_id: str, session: DbSession, ctx: dict = Depends(requi
              summary="Keep the movement's Article 5(3) information (frozen, hashed, kept five years — Art. 5(4))")
 def keep_trade_record(movement_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import trade as T
-    try:
-        out = T.keep(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id)
-    except T.TradeError as e:
-        _trade_fail(e)
+    out = T.keep(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id)
     session.commit()
     return out
 
@@ -525,10 +456,7 @@ def keep_trade_record(movement_id: str, session: DbSession, ctx: dict = Depends(
 @router.get("/trade-records/{record_id}", summary="A kept Article 5 record, as provided to the competent authorities on request")
 def get_trade_record(record_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.eudr import trade as T
-    try:
-        return T.get(session, ctx["org"]["org_id"], record_id)
-    except T.TradeError as e:
-        _trade_fail(e, 404)
+    return T.get(session, ctx["org"]["org_id"], record_id)
 
 
 class ConcernBody(BaseModel):
@@ -541,10 +469,7 @@ class ConcernBody(BaseModel):
              summary="Record relevant new information or a substantiated concern (Art. 4(5), 5(5)-(6))")
 def add_concern(movement_id: str, body: ConcernBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import trade as T
-    try:
-        cid = T.add_concern(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id, **body.model_dump())
-    except T.TradeError as e:
-        _trade_fail(e, 422)
+    cid = T.add_concern(session, ctx["org"]["org_id"], ctx["user"]["id"], movement_id, **body.model_dump())
     session.commit()
     return {"concern_id": cid}
 
@@ -560,9 +485,6 @@ class ConcernStepBody(BaseModel):
 def add_concern_step(concern_id: str, body: ConcernStepBody, session: DbSession,
                      ctx: dict = Depends(require_permission("approvals.create"))):
     from services.eudr import trade as T
-    try:
-        sid = T.add_step(session, ctx["org"]["org_id"], ctx["user"]["id"], concern_id, **body.model_dump())
-    except T.TradeError as e:
-        _trade_fail(e, 422)
+    sid = T.add_step(session, ctx["org"]["org_id"], ctx["user"]["id"], concern_id, **body.model_dump())
     session.commit()
     return {"step_id": sid}

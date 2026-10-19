@@ -88,10 +88,10 @@ def test_a_simplified_declaration_is_made_filed_identified_and_updated(api):
     # the products: a quantity is required; customs flow in kilograms
     bad = api.post("/v1/eudr/declaration/lines", headers=maker, json={"entity_id": ent, "hs_code": "180100",
                                                                       "description": "Cocoa beans", "customs_flow": True})
-    assert bad.status_code == 422 and "estimated annual quantity" in bad.text
+    assert bad.status_code == 422 and bad.json()["error"]["error"] == "eudr.refused.line.quantity"
     milk = api.post("/v1/eudr/declaration/lines", headers=maker, json={"entity_id": ent, "hs_code": "0401", "description": "Milk",
                                                                        "customs_flow": False, "est_net_mass_kg": 10})
-    assert milk.status_code == 422 and "not a relevant product" in milk.text
+    assert milk.status_code == 422 and milk.json()["error"]["error"] == "eudr.refused.line.not_covered"
     ln = api.post("/v1/eudr/declaration/lines", headers=maker, json={"entity_id": ent, "hs_code": "180100",
                                                                      "description": "Cocoa beans, whole, raw", "customs_flow": True,
                                                                      "est_net_mass_kg": 12000, "trade_name": "Ashanti beans"})
@@ -137,14 +137,14 @@ def test_a_simplified_declaration_is_made_filed_identified_and_updated(api):
     assert _status_of(s, fid) == "superseded"
     _file(api, maker, checker, fid2)
     other = api.post(f"/v1/eudr/declaration/filings/{fid2}/identifier", headers=maker, json={"identifier": "26GHDECL0999"})
-    assert other.status_code == 409 and "keeps the declaration identifier" in other.text
+    assert other.status_code == 409 and other.json()["error"]["error"] == "eudr.refused.identifier.changed"
     assert api.post(f"/v1/eudr/declaration/filings/{fid2}/identifier", headers=maker,
                     json={"identifier": "26GHDECL0001"}).json()["status"] == "accepted"
 
     # used as a reference in a grouping: no longer withdrawn — the service and the database both refuse
     assert api.post(f"/v1/eudr/declaration/filings/{fid2}/events", headers=maker, json={"kind": "grouped"}).status_code == 201
     w = api.post(f"/v1/eudr/declaration/filings/{fid2}/withdraw", headers=maker, json={"reason": "no longer farming cocoa"})
-    assert w.status_code == 409 and "grouping" in w.text
+    assert w.status_code == 409 and w.json()["error"]["error"] == "eudr.refused.grouped.withdraw"
     import psycopg
     with pytest.raises(Exception) as e, s.begin_nested():
         s.execute(text("UPDATE regulatory_filing SET status = 'withdrawn' WHERE filing_id = CAST(:f AS uuid)"), {"f": fid2})

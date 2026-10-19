@@ -303,38 +303,6 @@
   "figure": 0,
   "citation": 3
  },
- "src/components/eudr/Declaration.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 0,
-  "apiProse": 4,
-  "figure": 0,
-  "citation": 3
- },
- "src/components/eudr/EudrForms.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 2,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/eudr/Shipment.tsx": {
-  "internal": 0,
-  "raw": 3,
-  "monoProse": 0,
-  "apiProse": 4,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/eudr/TradeRecord.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 0,
-  "apiProse": 4,
-  "figure": 0,
-  "citation": 4
- },
  "src/components/sfdr/PaiStatement.tsx": {
   "internal": 0,
   "raw": 1,
@@ -502,14 +470,6 @@
   "apiProse": 3,
   "figure": 0,
   "citation": 1
- },
- "src/pages/Eudr.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 2
  },
  "src/pages/Exceptions.tsx": {
   "internal": 0,

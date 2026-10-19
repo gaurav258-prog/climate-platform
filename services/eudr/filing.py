@@ -19,13 +19,16 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from services.eudr.words import EudrError, blocking_labels, name, state
+
 WINDOW = timedelta(hours=72)                    # IR 2024/3084 Art. 5(1)
 MAX_EXTENSION = timedelta(days=8)               # Art. 5(4): 'not … longer than 8 calendar days'
 EVENTS = ("grouped", "check_notified", "check_ended", "placed_or_exported", "given_to_customs", "window_extended", "rejected")
 
 
-class EudrFilingError(ValueError):
-    pass
+class EudrFilingError(EudrError):
+    """A refused step of a statement as a filing: a catalogue code (eudr.refused.*) with its values."""
 
 
 def _filing(session: Session, org_id: str, filing_id: str) -> dict:
@@ -33,7 +36,7 @@ def _filing(session: Session, org_id: str, filing_id: str) -> dict:
                                 FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"""),
                         {"f": filing_id, "o": org_id}).mappings().first()
     if r is None or r["framework"] != "eudr_dds":
-        raise EudrFilingError("no such EUDR statement in this organisation")
+        raise EudrFilingError("eudr.refused.not_found.statement")
     return dict(r)
 
 
@@ -45,14 +48,14 @@ def prepare(session: Session, org_id: str, user_id: str, movement_id: str, note:
     from services.governance.filings import _log_event, get_filing
     from services.governance.report_snapshots import create_snapshot
     st = compute(session, org_id, movement_id)
-    blocking = [c["message"] for c in checks(st) if not c["passed"] and c["severity"] == "blocking"]
-    if blocking:
-        raise EudrFilingError("the statement cannot be prepared yet: " + "; ".join(blocking[:6]))
+    cs = checks(st)
+    if any(not c["passed"] and c["severity"] == "blocking" for c in cs):
+        raise EudrFilingError("eudr.refused.blocked.statement", checks=blocking_labels(cs))
     live = session.execute(text("""SELECT filing_id::text, status FROM regulatory_filing WHERE org_id = CAST(:o AS uuid)
                                    AND eudr_movement_id = CAST(:m AS uuid) AND status NOT IN ('superseded', 'withdrawn')"""),
                            {"o": org_id, "m": movement_id}).first()
     if live and live[0] != supersedes:
-        raise EudrFilingError(f"this shipment already has a live statement ({live[1]})")
+        raise EudrFilingError("eudr.refused.live.statement", state=state(live[1]))
     # a statement has no reporting period: it is dated by its shipment (placing, making available or export) and named by it
     period_end = date.fromisoformat(st["movement"]["planned_on"])
     label = f"{st['movement']['external_ref'] or 'shipment'} · {period_end.isoformat()}"
@@ -75,11 +78,23 @@ def prepare(session: Session, org_id: str, user_id: str, movement_id: str, note:
     return get_filing(session, org_id, fid, with_payload=False)
 
 
-def events(session: Session, filing_id: str) -> list[dict]:
+def events(session: Session, filing_id: str, declaration: bool = False) -> list[dict]:
+    """What happened to a filed statement (or declaration), in order, each with its message (eudr.event.*): its name
+    for the screen, what it means and its legal basis behind the ⓘ. A declaration's 'reference_received' is its
+    identifier being assigned."""
     rows = session.execute(text("""SELECT kind, at, until, detail FROM eudr_dds_event WHERE filing_id = CAST(:f AS uuid)
                                    ORDER BY seq"""), {"f": filing_id}).mappings().all()
+    def kind(k: str) -> str:                     # a declaration's reference is its identifier
+        return "identifier_received" if declaration and k == "reference_received" else k
     return [{"kind": r["kind"], "at": r["at"].isoformat(), "until": r["until"] and r["until"].isoformat(),
-             "detail": r["detail"]} for r in rows]
+             "detail": r["detail"], "msg": messages.render(f"eudr.event.{kind(r['kind'])}", name=name("event", kind(r["kind"])),
+                                                         until=_when(r["until"]))}
+            for r in rows]
+
+
+def _when(t: Optional[datetime]) -> str:
+    """A moment as a reader writes it, in UTC (21 Jan 2027, 14:05 UTC)."""
+    return f"{t.astimezone(timezone.utc):%d %b %Y, %H:%M} UTC" if t else ""
 
 
 def record_reference(session: Session, org_id: str, user_id: str, filing_id: str, *, reference_number: str,
@@ -88,7 +103,7 @@ def record_reference(session: Session, org_id: str, user_id: str, filing_id: str
     from services.governance.filings import _apply_transition
     f = _filing(session, org_id, filing_id)
     if f["status"] != "submitted":
-        raise EudrFilingError(f"a reference is recorded for a submitted statement (this one is '{f['status']}')")
+        raise EudrFilingError("eudr.refused.reference.not_submitted", state=state(f["status"]))
     session.execute(text("""INSERT INTO eudr_dds_reference (filing_id, reference_number, verification_number, source, recorded_by)
                             VALUES (CAST(:f AS uuid), :r, :v, :s, CAST(:u AS uuid))"""),
                     {"f": filing_id, "r": reference_number.strip(), "v": (verification_number or "").strip() or None,
@@ -101,19 +116,18 @@ def record_reference(session: Session, org_id: str, user_id: str, filing_id: str
 def record_event(session: Session, org_id: str, user_id: str, filing_id: str, kind: str, *, detail: Optional[str] = None,
                  until: Optional[datetime] = None) -> dict:
     if kind not in EVENTS:
-        raise EudrFilingError(f"event is one of {EVENTS}")
+        raise EudrFilingError("eudr.refused.event.unknown")
     f = _filing(session, org_id, filing_id)
     if f["status"] not in ("submitted", "accepted"):
-        raise EudrFilingError("events are recorded on a submitted statement")
+        raise EudrFilingError("eudr.refused.event.not_filed", state=state(f["status"]))
     if kind == "rejected" and (f["status"] != "submitted" or _received_at(session, filing_id) is not None):
-        raise EudrFilingError("a statement can be rejected only before its reference number is available (IR 2024/3084 "
-                              "Art. 8(1))")
+        raise EudrFilingError("eudr.refused.event.reject_after_reference")
     if kind == "window_extended":
         received = _received_at(session, filing_id)
         if received is None or until is None:
-            raise EudrFilingError("an extension needs the reference received and the end the authority set")
+            raise EudrFilingError("eudr.refused.event.extension_incomplete")
         if until > received + MAX_EXTENSION:
-            raise EudrFilingError("an extension ends no later than 8 calendar days after the reference (Art. 5(4))")
+            raise EudrFilingError("eudr.refused.event.extension_too_long", latest=_when(received + MAX_EXTENSION))
     session.execute(text("""INSERT INTO eudr_dds_event (filing_id, kind, until, detail, recorded_by)
                             VALUES (CAST(:f AS uuid), :k, :u2, :d, CAST(:u AS uuid))"""),
                     {"f": filing_id, "k": kind, "u2": until, "d": detail, "u": user_id})
@@ -131,39 +145,46 @@ def _received_at(session: Session, filing_id: str) -> Optional[datetime]:
 
 
 def window(session: Session, filing_id: str, now: Optional[datetime] = None) -> dict:
-    """Whether the statement may still be amended or withdrawn now, and why not."""
+    """Whether the statement may still be amended or withdrawn now: {open, opened, closes, closed_by, msg} — closed_by
+    names what closed it (no_reference, grouped, placed_or_exported, given_to_customs, rejected, check_notified,
+    expired), msg says it in the catalogue's words (eudr.window.*)."""
     now = now or datetime.now(timezone.utc)
     received = _received_at(session, filing_id)
     if received is None:
-        return {"open": False, "why": "no reference number has been made available yet"}
-    evs = events(session, filing_id)
-    kinds = [e["kind"] for e in evs]
-    ext = [datetime.fromisoformat(e["until"]) for e in evs if e["kind"] == "window_extended"]
-    closes = max([received + WINDOW, *ext])
-    for k, why in (("grouped", "it was used for grouping (Art. 5(2))"), ("placed_or_exported", "the product was placed "
-                   "on the market or exported (Art. 5(3)(b))"), ("given_to_customs", "the reference number was given to "
-                   "customs (Art. 5(3)(c))"), ("rejected", "it was rejected (Art. 8)")):
+        return _window(None, None, "no_reference")
+    kinds = [r[0] for r in session.execute(text("SELECT kind FROM eudr_dds_event WHERE filing_id = CAST(:f AS uuid) ORDER BY seq"),
+                                           {"f": filing_id}).all()]
+    ext = session.execute(text("SELECT max(until) FROM eudr_dds_event WHERE filing_id = CAST(:f AS uuid) "
+                               "AND kind = 'window_extended'"), {"f": filing_id}).scalar()
+    closes = max(received + WINDOW, ext) if ext else received + WINDOW
+    for k in ("grouped", "placed_or_exported", "given_to_customs", "rejected"):
         if k in kinds:
-            return {"open": False, "closes": closes.isoformat(), "why": why}
+            return _window(received, closes, k)
     if kinds.count("check_notified") > kinds.count("check_ended"):
-        return {"open": False, "closes": closes.isoformat(), "why": "a check is notified, for its period (Art. 5(3)(a))"}
+        return _window(received, closes, "check_notified")
     if now > closes:
-        return {"open": False, "closes": closes.isoformat(), "why": f"the window closed at {closes.isoformat()} (Art. 5(1), (4))"}
-    return {"open": True, "closes": closes.isoformat()}
+        return _window(received, closes, "expired")
+    return _window(received, closes, None)
+
+
+def _window(opened: Optional[datetime], closes: Optional[datetime], closed_by: Optional[str]) -> dict:
+    return {"open": closed_by is None, "opened": opened and opened.isoformat(), "closes": closes and closes.isoformat(),
+            "closed_by": closed_by, "msg": messages.render(f"eudr.window.{closed_by or 'open'}", closes=_when(closes))}
 
 
 def withdraw(session: Session, org_id: str, user_id: str, filing_id: str, reason: str) -> dict:
     from services.governance.filings import _log_event, get_filing
     f = _filing(session, org_id, filing_id)
     if f["status"] != "accepted":
-        raise EudrFilingError("a statement with its reference number is withdrawn here; a draft is withdrawn in the register")
+        raise EudrFilingError("eudr.refused.withdraw.not_accepted", state=state(f["status"]))
     w = window(session, filing_id)
     if not w["open"]:
-        raise EudrFilingError(f"it can no longer be withdrawn: {w['why']}")
+        raise EudrFilingError("eudr.refused.window.withdraw", reason=w["msg"]["detail"]["what"])
     if len((reason or "").strip()) < 10:
-        raise EudrFilingError("say why it is withdrawn")
+        raise EudrFilingError("eudr.refused.reason_needed")
     session.execute(text("UPDATE regulatory_filing SET status = 'withdrawn' WHERE filing_id = CAST(:f AS uuid)"), {"f": filing_id})
-    _log_event(session, filing_id, "accepted", "withdrawn", "withdraw", user_id, {"reason": reason, "window": w})
+    _log_event(session, filing_id, "accepted", "withdrawn", "withdraw", user_id,
+               {"reason": reason, "window": {k: w[k] for k in ("open", "opened", "closes")}})
     return get_filing(session, org_id, filing_id, with_payload=False)
 
 
@@ -172,7 +193,7 @@ def refresh(session: Session, org_id: str, user_id: str, filing_id: str, note: O
     from services.governance.filings import _log_event
     f = _filing(session, org_id, filing_id)
     if f["status"] not in ("draft", "returned"):
-        raise EudrFilingError("only a draft or returned statement is refreshed")
+        raise EudrFilingError("eudr.refused.refresh.not_draft", state=state(f["status"]))
     session.execute(text("UPDATE regulatory_filing SET status = 'withdrawn' WHERE filing_id = CAST(:f AS uuid)"), {"f": filing_id})
     _log_event(session, filing_id, f["status"], "withdrawn", "refresh", user_id, {})
     return prepare(session, org_id, user_id, f["movement_id"], note=note)
@@ -181,8 +202,8 @@ def refresh(session: Session, org_id: str, user_id: str, filing_id: str, note: O
 def amend(session: Session, org_id: str, user_id: str, filing_id: str, note: Optional[str] = None) -> dict:
     f = _filing(session, org_id, filing_id)
     if f["status"] != "accepted":
-        raise EudrFilingError("only a statement with its reference number is amended")
+        raise EudrFilingError("eudr.refused.amend.not_accepted", state=state(f["status"]))
     w = window(session, filing_id)
     if not w["open"]:
-        raise EudrFilingError(f"it can no longer be amended: {w['why']}")
+        raise EudrFilingError("eudr.refused.window.amend", reason=w["msg"]["detail"]["what"])
     return prepare(session, org_id, user_id, f["movement_id"], note=note, supersedes=filing_id)

@@ -10,6 +10,9 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from services.eudr.words import EudrError, name
+
 ACT = "02023R1115-20260918"
 
 # Art. 10(2): 'the risk assessment shall take into account, in particular, the following risk assessment criteria'
@@ -42,8 +45,8 @@ ASPECTS = ("land_use_rights", "environmental_protection", "forest_rules", "third
 SIZE_CLASSES = ("micro", "small", "medium", "large")
 
 
-class RecordError(ValueError):
-    pass
+class RecordError(EudrError):
+    """A refused record (status, evidence, risk assessment): a catalogue code (eudr.refused.*) with its values."""
 
 
 def _request(session: Session, org_id: str, user_id: str, kind: str, title: str, payload: dict) -> dict:
@@ -72,18 +75,20 @@ def request_status(session: Session, org_id: str, user_id: str, *, entity_id: Op
     stated — and the Union or Member State system holding all its Annex III information, where it states one (Art. 4a(4)).
     A second person approves it."""
     if not str(address or "").strip():
-        raise RecordError("the operator's address is required (Annex II point 1)")
+        raise RecordError("eudr.refused.status.address")
     if size_class not in SIZE_CLASSES:
-        raise RecordError(f"size class is one of {SIZE_CLASSES} (Directive 2013/34/EU Art. 3)")
+        raise RecordError("eudr.refused.status.size")
     if entity_id and not session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) "
                                               "AND org_id = CAST(:o AS uuid)"), {"e": entity_id, "o": org_id}).first():
-        raise RecordError("that undertaking is not one of this organisation's entities")
+        raise RecordError("eudr.refused.not_found.entity")
     payload = {"entity_id": entity_id, "effective_from": effective_from.isoformat(), "size_class": size_class,
                "country": (country or "").upper(), "address": address.strip(), "eori": (eori or "").upper() or None,
                "established_on": established_on.isoformat() if established_on else None, "basis": basis,
                "primary_own_produce": primary_own_produce, "other_system": (other_system or "").strip() or None,
                "is_registration": (is_registration or "").strip() or None}
-    return _request(session, org_id, user_id, "eudr.status", f"EUDR status from {effective_from}: {size_class}", payload)
+    return _request(session, org_id, user_id, "eudr.status",
+                    messages.label("eudr.request.status", since=effective_from.isoformat(), size=name("size", size_class)),
+                    payload)
 
 
 def apply_status(session: Session, org_id: str, request_id: str, payload: dict, decision: str, checker: str) -> dict:
@@ -120,14 +125,15 @@ def add_evidence(session: Session, org_id: str, user_id: str, *, aspect: str, do
                  valid_from: Optional[date] = None, valid_until: Optional[date] = None, note: Optional[str] = None,
                  withdraws: Optional[str] = None) -> str:
     if aspect not in ASPECTS:
-        raise RecordError(f"aspect is one of {ASPECTS} (Art. 2(40) (a)-(h); a FLEGT licence, Art. 10(3))")
+        raise RecordError("eudr.refused.evidence.aspect")
     if sum(x is not None for x in (plot_id, supplier_id, movement_id)) != 1:
-        raise RecordError("evidence is for one plot, one supplier or one movement")
-    for table, col, v in (("sc_sourcing_plots", "plot_id", plot_id), ("sc_suppliers", "supplier_id", supplier_id),
-                          ("eudr_movement", "movement_id", movement_id)):
+        raise RecordError("eudr.refused.evidence.subject")
+    for table, col, v, code in (("sc_sourcing_plots", "plot_id", plot_id, "eudr.refused.not_found.plot"),
+                                ("sc_suppliers", "supplier_id", supplier_id, "eudr.refused.not_found.supplier"),
+                                ("eudr_movement", "movement_id", movement_id, "eudr.refused.not_found.shipment")):
         if v and not session.execute(text(f"SELECT 1 FROM {table} WHERE {col} = CAST(:v AS uuid) AND org_id = CAST(:o AS uuid)"),
                                      {"v": v, "o": org_id}).first():
-            raise RecordError(f"no such {col.removesuffix('_id')} in this organisation")
+            raise RecordError(code)
     return session.execute(text("""
         INSERT INTO eudr_legality_evidence (org_id, plot_id, supplier_id, movement_id, aspect, document_kind, document_ref,
                                             file_sha256, issued_by, valid_from, valid_until, note, withdraws, recorded_by)
@@ -160,31 +166,34 @@ def request_assessment(session: Session, org_id: str, user_id: str, *, movement_
     """path 'full': every Art. 10(2) criterion answered in the operator's words; 'simplified' (Art. 13(1)): only where
     all was produced in low-risk countries, with the assessment of circumvention and mixing. Four eyes."""
     if path not in ("full", "simplified"):
-        raise RecordError("path is 'full' (Art. 10-11) or 'simplified' (Art. 13)")
+        raise RecordError("eudr.refused.risk.path")
     if conclusion not in ("negligible", "not_negligible"):
-        raise RecordError("conclusion is 'negligible' (Art. 10(1): no or only a negligible risk) or 'not_negligible'")
+        raise RecordError("eudr.refused.risk.conclusion")
     if not session.execute(text("SELECT 1 FROM eudr_movement WHERE movement_id = CAST(:m AS uuid) AND org_id = CAST(:o AS uuid)"),
                            {"m": movement_id, "o": org_id}).first():
-        raise RecordError("no such movement in this organisation")
+        raise RecordError("eudr.refused.not_found.shipment")
     criteria, mitigation = criteria or {}, mitigation or {}
     if path == "full":
         missing = [k for k in CRITERIA if not str(criteria.get(k) or "").strip()]
         if missing:
-            raise RecordError("answer every Art. 10(2) criterion — missing: " + ", ".join(f"({k})" for k in missing))
+            raise RecordError("eudr.refused.risk.criteria", missing=", ".join(f"({k})" for k in missing))
         if set(mitigation) - set(MITIGATION) - {"other"}:
-            raise RecordError(f"mitigation keys are {sorted(MITIGATION)} or 'other' (Art. 11(1))")
+            raise RecordError("eudr.refused.risk.mitigation")
     else:
         if not str(circumvention_mixing or "").strip():
-            raise RecordError("the simplified path rests on the assessment of circumvention and mixing (Art. 13(1))")
+            raise RecordError("eudr.refused.risk.mixing")
         from services.eudr.statement import countries_of
         risk = countries_of(session, org_id, movement_id)
         not_low = sorted(c for c, r in risk.items() if r != "low")
-        if not risk or not_low:
-            raise RecordError("the simplified path is only for products all produced in low-risk countries (Art. 13(1)) — "
-                              + ("no country of production is known" if not risk else "not low risk: " + ", ".join(not_low)))
+        if not risk:
+            raise RecordError("eudr.refused.risk.no_country")
+        if not_low:
+            raise RecordError("eudr.refused.risk.not_low", countries=", ".join(not_low))
     payload = {"movement_id": movement_id, "path": path, "conclusion": conclusion, "criteria": criteria,
                "mitigation": mitigation, "circumvention_mixing": circumvention_mixing}
-    return _request(session, org_id, user_id, "eudr.risk", f"EUDR risk assessment ({path}): {conclusion}", payload)
+    return _request(session, org_id, user_id, "eudr.risk",
+                    messages.label("eudr.request.risk", path=name("path", path), conclusion=name("conclusion", conclusion)),
+                    payload)
 
 
 def apply_assessment(session: Session, org_id: str, request_id: str, payload: dict, decision: str, checker: str) -> dict:
