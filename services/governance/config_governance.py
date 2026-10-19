@@ -17,6 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.services.rbac import write_audit
+from core import messages
 from services.governance.location_governance import needs_approval
 
 _TITLES = {
@@ -44,8 +45,8 @@ def apply_config_change(session: Session, request_type: str, payload: dict,
         maker = payload.get("_maker") or actor_user_id
         result = set_threshold(session, org_id, maker, payload["framework"], payload["kri_key"], patch, reason=payload.get("reason"),
                                approved_by=(actor_user_id if actor_user_id != maker else None), approval_request_id=payload.get("_request_id"))
-    else:
-        raise ValueError(f"unknown config request_type '{request_type}'")
+    else:       # a programming error, never the customer's: the approvals route logs it and says the change was not applied
+        raise LookupError(f"no way to apply the configuration change {request_type!r}")
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action=request_type,
                 target_type="config", target_id=request_type.split(".", 1)[1], detail={"changes": payload})
     return result
@@ -66,7 +67,6 @@ def submit_or_apply_config(session: Session, *, org_id: str, actor_user_id: str,
         if request_type == "config.kri_appetite":      # the version must name the maker even when a checker applies it
             session.execute(text("UPDATE approval_requests SET payload = payload || CAST(:p AS jsonb) WHERE request_id = :r"),
                             {"p": json.dumps({"_maker": actor_user_id, "_request_id": str(rid)}), "r": rid})
-        return {"status": "pending_approval", "request_id": str(rid),
-                "message": "This change needs a second approver (4-eyes). It is queued in Approvals."}
+        return {"status": "pending_approval", "request_id": str(rid), "message": messages.label("platform.config.pending")}
     result = apply_config_change(session, request_type, updates, actor_user_id, org_id)
     return {"status": "applied", "result": result}

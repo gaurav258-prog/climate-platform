@@ -3,8 +3,12 @@ import { useSearchParams } from 'react-router-dom'
 import { BookOpen, Search, ChevronRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
-import { DOCS, DOC_CATEGORIES, type DocArticle } from '../content/docs'
+import { HEADING } from '../components/Details'
+import { DOCS, DOC_CATEGORIES, categoryLabel, type DocArticle, type DocCategory } from '../content/docs'
 import SectionTabs, { HELP_TABS } from '../components/SectionTabs'
+import { blocks, spans } from './docs/markdown'
+
+const ABOUT = [{ heading: HEADING.shows, body: 'How the software works, how to get your data in, and how a disclosure is produced and governed — written for your risk, data and compliance teams.' }]
 
 export default function Docs() {
   const { profile } = useAuth()
@@ -24,13 +28,12 @@ export default function Docs() {
   }, [visible, q])
 
   const active = visible.find(d => d.slug === slug) ?? visible[0]
-  const byCat = (cat: string) => filtered.filter(d => d.category === cat)
+  const byCat = (cat: DocCategory) => filtered.filter(d => d.category === cat)
 
   return (
     <div className="fadeup space-y-6">
       <SectionTabs tabs={HELP_TABS} />
-      <PageHeader eyebrow="Help · documentation" title="Documentation"
-        lead="How the software works, how to get your data in, and how a disclosure is produced and governed — written for your risk, data and compliance teams." />
+      <PageHeader eyebrow="Help" title="Documentation" lead="How the software works, and how to get the most from it." about={ABOUT} />
 
       <div className="grid lg:grid-cols-[minmax(0,300px)_1fr] gap-6 items-start">
         {/* index */}
@@ -40,11 +43,11 @@ export default function Docs() {
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search the docs…"
               className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg pl-9 pr-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
           </div>
-          {DOC_CATEGORIES.filter(c => byCat(c).length > 0).map(cat => (
-            <div key={cat}>
-              <div className="mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-1.5 px-1">{cat}</div>
+          {DOC_CATEGORIES.filter(c => byCat(c.key).length > 0).map(cat => (
+            <div key={cat.key}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-faint)] mb-1.5 px-1">{cat.label}</div>
               <div className="space-y-0.5">
-                {byCat(cat).map(d => (
+                {byCat(cat.key).map(d => (
                   <button key={d.slug} onClick={() => setSlug(d.slug)}
                     className={`w-full text-left rounded-lg px-2.5 py-2 text-[13px] transition flex items-center gap-2 ${active?.slug === d.slug
                       ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
@@ -62,7 +65,7 @@ export default function Docs() {
         {/* article */}
         <Card className="p-7 max-w-[760px]">
           {active ? (<>
-            <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-sky)] flex items-center gap-1.5 mb-2"><BookOpen size={12} /> {active.category}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-sky)] flex items-center gap-1.5 mb-2"><BookOpen size={12} /> {categoryLabel(active.category)}</div>
             <h2 className="display text-2xl font-semibold leading-tight">{active.title}</h2>
             <p className="text-[13.5px] text-[var(--color-mute)] mt-1.5 mb-5">{active.summary}</p>
             <div className="border-t border-[var(--color-line)] pt-5"><Markdown body={active.body} /></div>
@@ -79,7 +82,7 @@ function Related({ current, pool, onGo }: { current: DocArticle; pool: DocArticl
   if (more.length === 0) return null
   return (
     <div className="mt-7 pt-5 border-t border-[var(--color-line)]">
-      <div className="mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-2">More in {current.category}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-faint)] mb-2">More in {categoryLabel(current.category)}</div>
       <div className="space-y-1">
         {more.map(d => (
           <button key={d.slug} onClick={() => onGo(d.slug)} className="flex items-center gap-1.5 text-[13px] text-[var(--color-sky)] hover:underline">
@@ -91,49 +94,26 @@ function Related({ current, pool, onGo }: { current: DocArticle; pool: DocArticl
   )
 }
 
-/* ── minimal markdown: ##/### headings, - bullets, 1. ordered, > callout, **bold**, `code`, paragraphs ── */
+/* ── the help centre's markdown (docs/markdown.ts reads the blocks); **bold** and `code` inline ── */
 function inline(text: string): ReactNode[] {
-  const out: ReactNode[] = []
-  // split on **bold** and `code`, keeping delimiters
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
-  parts.forEach((p, i) => {
-    if (/^\*\*[^*]+\*\*$/.test(p)) out.push(<strong key={i} className="text-[var(--color-ink)] font-semibold">{p.slice(2, -2)}</strong>)
-    else if (/^`[^`]+`$/.test(p)) out.push(<code key={i} className="mono text-[12px] px-1 py-0.5 rounded bg-[var(--color-bg-2)] border border-[var(--color-line)]">{p.slice(1, -1)}</code>)
-    else if (p) out.push(<span key={i}>{p}</span>)
-  })
-  return out
+  return spans(text).map((p, i) =>
+    p.kind === 'b' ? <strong key={i} className="text-[var(--color-ink)] font-semibold">{p.text}</strong>
+      : p.kind === 'i' ? <em key={i}>{p.text}</em>
+        : p.kind === 'code' ? <code key={i} className="mono text-[12px] px-1 py-0.5 rounded bg-[var(--color-bg-2)] border border-[var(--color-line)]">{p.text}</code>
+          : <span key={i}>{p.text}</span>)
 }
 
 function Markdown({ body }: { body: string }) {
-  const lines = body.replace(/^\n+/, '').split('\n')
-  const blocks: ReactNode[] = []
-  let i = 0
-  let para: string[] = []
-  const flushPara = () => {
-    if (para.length) { blocks.push(<p key={`p${blocks.length}`} className="text-[13.5px] text-[var(--color-mute)] leading-relaxed my-3">{inline(para.join(' '))}</p>); para = [] }
-  }
-  while (i < lines.length) {
-    const ln = lines[i]
-    if (ln.trim() === '') { flushPara(); i++; continue }
-    if (ln.startsWith('### ')) { flushPara(); blocks.push(<h4 key={i} className="text-[14px] font-semibold text-[var(--color-ink)] mt-5 mb-1.5">{inline(ln.slice(4))}</h4>); i++; continue }
-    if (ln.startsWith('## ')) { flushPara(); blocks.push(<h3 key={i} className="display text-[17px] font-semibold text-[var(--color-ink)] mt-6 mb-2">{inline(ln.slice(3))}</h3>); i++; continue }
-    if (ln.startsWith('> ')) {
-      flushPara(); const buf: string[] = []
-      while (i < lines.length && lines[i].startsWith('> ')) { buf.push(lines[i].slice(2)); i++ }
-      blocks.push(<div key={i} className="my-4 rounded-lg border-l-2 border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_7%,transparent)] px-4 py-2.5 text-[13px] text-[var(--color-soft,var(--color-mute))] leading-relaxed">{inline(buf.join(' '))}</div>); continue
-    }
-    if (/^\d+\.\s/.test(ln)) {
-      flushPara(); const items: string[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) { items.push(lines[i].replace(/^\d+\.\s/, '')); i++ }
-      blocks.push(<ol key={i} className="list-decimal ml-5 my-3 space-y-1.5 text-[13.5px] text-[var(--color-mute)] leading-relaxed marker:text-[var(--color-faint)]">{items.map((it, k) => <li key={k}>{inline(it)}</li>)}</ol>); continue
-    }
-    if (ln.startsWith('- ')) {
-      flushPara(); const items: string[] = []
-      while (i < lines.length && lines[i].startsWith('- ')) { items.push(lines[i].slice(2)); i++ }
-      blocks.push(<ul key={i} className="ml-1 my-3 space-y-1.5 text-[13.5px] text-[var(--color-mute)] leading-relaxed">{items.map((it, k) => <li key={k} className="flex gap-2.5"><span className="mt-2 w-1 h-1 rounded-full bg-[var(--color-sky)] shrink-0" />{inline(it)}</li>)}</ul>); continue
-    }
-    para.push(ln); i++
-  }
-  flushPara()
-  return <div>{blocks}</div>
+  return (
+    <div>
+      {blocks(body).map((b, k) => {
+        if (b.kind === 'h4') return <h4 key={k} className="text-[14px] font-semibold text-[var(--color-ink)] mt-5 mb-1.5">{inline(b.text)}</h4>
+        if (b.kind === 'h3') return <h3 key={k} className="display text-[17px] font-semibold text-[var(--color-ink)] mt-6 mb-2">{inline(b.text)}</h3>
+        if (b.kind === 'quote') return <div key={k} className="my-4 rounded-lg border-l-2 border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_7%,transparent)] px-4 py-2.5 text-[13px] text-[var(--color-soft,var(--color-mute))] leading-relaxed">{inline(b.text)}</div>
+        if (b.kind === 'ol') return <ol key={k} className="list-decimal ml-5 my-3 space-y-1.5 text-[13.5px] text-[var(--color-mute)] leading-relaxed marker:text-[var(--color-faint)]">{b.items.map((it, j) => <li key={j}>{inline(it)}</li>)}</ol>
+        if (b.kind === 'ul') return <ul key={k} className="ml-1 my-3 space-y-1.5 text-[13.5px] text-[var(--color-mute)] leading-relaxed">{b.items.map((it, j) => <li key={j} className="flex gap-2.5"><span className="mt-2 w-1 h-1 rounded-full bg-[var(--color-sky)] shrink-0" /><span>{inline(it)}</span></li>)}</ul>
+        return <p key={k} className="text-[13.5px] text-[var(--color-mute)] leading-relaxed my-3">{inline(b.text)}</p>
+      })}
+    </div>
+  )
 }

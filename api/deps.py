@@ -4,11 +4,12 @@ from __future__ import annotations
 import re
 from typing import Annotated, Generator, Optional
 
-from fastapi import Depends, Header, HTTPException, Query, Request
+from fastapi import Depends, Header, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from core.db.session import get_session as _get_session
+from core.errors import UserError
 
 # ── DB session ─────────────────────────────────────────────────────────
 
@@ -53,25 +54,13 @@ def require_customer_id(
     Raw key is shown exactly once at creation time.
     """
     if not credentials or not credentials.credentials:
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "error":   "missing_credentials",
-                "message": "Authorization: Bearer <api_key> header required.",
-            },
-        )
+        raise UserError("platform.access.no_key")
 
     from api.auth import validate_api_key
     result = validate_api_key(session, credentials.credentials)
 
     if not result:
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "error":   "invalid_api_key",
-                "message": "API key is invalid, revoked, or expired.",
-            },
-        )
+        raise UserError("platform.access.bad_key")
 
     return result["customer_id"]
 
@@ -89,17 +78,13 @@ def require_ingest_org(
     """Validate a Bearer ingest token → {org_id, token_id, org_type, org_name}."""
     raw = credentials.credentials if credentials else None
     if not raw:
-        raise HTTPException(status_code=401, detail={
-            "error": "missing_credentials", "message": "Authorization: Bearer <ingest_token> header required."})
+        raise UserError("platform.access.no_ingest_token")
     if not raw.startswith("tlm_live_"):
-        raise HTTPException(status_code=401, detail={
-            "error": "ingest_token_required",
-            "message": "This endpoint needs a tenant ingest token (tlm_live_…), not a user session or legacy key."})
+        raise UserError("platform.access.not_ingest_token")
     from api.services.ingest_tokens import validate_token
     res = validate_token(session, raw)
     if not res:
-        raise HTTPException(status_code=401, detail={
-            "error": "invalid_ingest_token", "message": "Ingest token is invalid, revoked, or expired."})
+        raise UserError("platform.access.bad_ingest_token")
     return res
 
 
@@ -125,41 +110,26 @@ def get_current_user(
     """
     token = credentials.credentials if credentials else None
     if not token:
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "missing_credentials", "message": "Authorization: Bearer <token> required."},
-        )
+        raise UserError("platform.access.signed_out")
     if token.startswith("cp_live_"):
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "user_token_required", "message": "This endpoint requires a user session token, not an API key."},
-        )
+        raise UserError("platform.access.needs_sign_in")
 
     from api.security import decode_access_token
     from api.services.rbac import load_user_context
 
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "invalid_token", "message": "Session token is invalid or expired."},
-        )
+        raise UserError("platform.access.session_expired")
 
     ctx = load_user_context(session, payload["sub"])
     if not ctx or ctx["user"]["status"] != "active":
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "invalid_token", "message": "User not found or disabled."},
-        )
+        # the same words as an expired session: a sign-in never says whether an account exists or is switched off
+        raise UserError("platform.access.session_expired")
     # session revocation: a token minted before revoke-all / password-reset carries a stale version
     if payload.get("tv", 0) != ctx["user"].get("token_version", 0):
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "session_revoked", "message": "This session has been signed out. Please sign in again."},
-        )
+        raise UserError("platform.access.session_revoked")
     if (ctx.get("org") or {}).get("plan") == "respondent" and not request.url.path.startswith(RESPONDENT_PATHS):
-        raise HTTPException(status_code=403, detail={"error": "forbidden",
-                            "message": "Your account is a supervisory-portal account: it can answer your supervisor, not use the workspace."})
+        raise UserError("platform.access.portal_only")
     return ctx
 
 
@@ -171,19 +141,18 @@ def require_step_up(ctx: CurrentUser, x_step_up: Optional[str] = Header(None)) -
     from api.security import decode_access_token
     p = decode_access_token(x_step_up) if x_step_up else None
     if not p or p.get("typ") != "stepup" or p.get("sub") != ctx["user"]["id"]:
-        raise HTTPException(status_code=403,
-                            detail={"error": "step_up_required", "message": "Re-authenticate to perform this action."})
+        raise UserError("platform.access.step_up")
     return ctx
 
 
 def require_permission(code: str):
-    """Dependency factory: 403 unless the current user holds `code`."""
+    """Dependency factory: 403 unless the current user holds `code`. The refusal names the permission in the
+    customer's words (the admin.permission names, the same as the control center's roles grid), never its code."""
     def _dep(ctx: CurrentUser) -> dict:
         if code not in ctx["permissions"]:
-            raise HTTPException(
-                status_code=403,
-                detail={"error": "forbidden", "message": f"Missing permission: {code}"},
-            )
+            from core import messages
+            name = messages.names().get("admin.permission", {}).get(code)   # every required permission is named (test)
+            raise UserError("platform.access.missing_permission", permission=name) if name else UserError("error.forbidden")
         return ctx
     return _dep
 
@@ -216,7 +185,7 @@ def own_or_404(session: Session, table: str, id_col: str, target_id: str, org_id
         session.rollback()
         row = None
     if not row:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"{label} not found."})
+        raise UserError("platform.access.not_found", thing=label)
 
 
 def attachment(filename: str) -> str:

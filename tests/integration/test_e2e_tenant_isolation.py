@@ -29,7 +29,7 @@ def test_records_are_served_only_to_their_own_organisation(api):
     for path in (f"/v1/bank/asset/{other_bank}", f"/v1/supply/plot/{other_plot}", f"/v1/insurance/policy/{other_policy}",
                  "/v1/bank/asset/not-an-id"):
         r = api.get(path)                                            # anonymous
-        assert r.status_code == 404 and r.json()["error"]["message"].endswith("not found."), (path, r.status_code)
+        assert r.status_code == 404 and r.json()["error"]["error"] == "platform.access.not_found", (path, r.status_code)
     assert api.get(f"/v1/bank/asset/{own_bank}").status_code == 200        # the public demo record
     # a signed-in user of another organisation sees the same 404 for the demo bank's record
     terra = login(api, "admin@terra.demo", "Demo!admin1")

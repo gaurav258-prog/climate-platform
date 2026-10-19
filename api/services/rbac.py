@@ -14,18 +14,15 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.security import verify_password
+from core.errors import UserError
 
 _LOCKOUT_THRESHOLD = 5
 _LOCKOUT_MINUTES = 15
 
 
-class AuthError(Exception):
-    """A non-credential authentication failure the login endpoint should surface specifically."""
-
-    def __init__(self, code: str, message: str):
-        self.code = code
-        self.message = message
-        super().__init__(message)
+class AuthError(UserError):
+    """A non-credential sign-in refusal (account locked, password sign-in switched off): a catalogue code
+    (core/errors.py)."""
 
 
 def authenticate(session: Session, email: str, password: str) -> Optional[dict]:
@@ -45,9 +42,9 @@ def authenticate(session: Session, email: str, password: str) -> Optional[dict]:
         return None
     now = datetime.now(timezone.utc)
     if row["locked_until"] and row["locked_until"] > now:
-        raise AuthError("account_locked", "Too many failed attempts. Try again later or reset your password.")
+        raise AuthError("platform.signin.locked", minutes=_LOCKOUT_MINUTES)
     if row["password_login_disabled"]:
-        raise AuthError("sso_required", "Password sign-in is disabled for your organization. Use single sign-on.")
+        raise AuthError("platform.signin.sso_only")
 
     if not verify_password(password, row["hashed_password"]):
         n = (row["failed_login_count"] or 0) + 1
@@ -56,7 +53,7 @@ def authenticate(session: Session, email: str, password: str) -> Optional[dict]:
                         {"n": n, "lk": lock, "uid": str(row["user_id"])})
         session.commit()
         if lock:
-            raise AuthError("account_locked", "Too many failed attempts. Your account is temporarily locked.")
+            raise AuthError("platform.signin.locked", minutes=_LOCKOUT_MINUTES)
         return None
 
     session.execute(text("UPDATE users SET last_login_at = :now, failed_login_count = 0, locked_until = NULL WHERE user_id = :uid"),

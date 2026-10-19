@@ -27,13 +27,14 @@ from sqlalchemy.orm import Session
 
 from api.security import hash_password
 from api.services.rbac import write_audit
+from core import messages
 from core.config import settings
+from core.errors import UserError
 from services.governance import contracts as vault
 from services.governance import totp
 from services.governance.tenant_provisioning import (
     DEFAULT_ENTITLEMENTS,
     VALID_ORG_TYPES,
-    TenantError,
     create_tenant,
 )
 from services.notifications.mailer import queue_email
@@ -42,10 +43,18 @@ ROSTER_ROLES = {"admin", "analyst", "approver", "viewer"}
 VALID_REGIONS = {"EU", "US"}
 INTAKE_TOKEN_TTL_DAYS = 14
 ACTIVATION_TTL_HOURS = 72
+MAX_DOCUMENT_MB = 25
+MIN_PASSWORD = 10
 
 
-class OnboardingError(ValueError):
-    """A client-facing onboarding validation failure (maps to HTTP 400/409)."""
+class OnboardingError(UserError):
+    """An onboarding refusal in customer words: a catalogue code with its values (core/errors.py). Provisioning's own
+    refusals (a name already taken, an LEI the register does not hold) arrive as tenant_provisioning.TenantError,
+    also a catalogue code, and pass through unchanged."""
+
+
+def _regions() -> str:
+    return " or ".join(sorted(VALID_REGIONS))
 
 
 # ── token helpers ────────────────────────────────────────────────────────────
@@ -91,16 +100,16 @@ def create_intake(
     """Open a pre-tenant intake and mint a tokenized link the client (or an operator) fills. Status → invited."""
     company_name = (company_name or "").strip()
     if not company_name:
-        raise OnboardingError("company_name is required")
+        raise OnboardingError("admin.tenant.no_name")
     org_type = (org_type or "").strip().lower()
     if org_type not in VALID_ORG_TYPES:
-        raise OnboardingError(f"org_type must be one of {sorted(VALID_ORG_TYPES)}")
+        raise OnboardingError("admin.tenant.bad_sector")
     contact_email = (contact_email or "").strip().lower()
     if "@" not in contact_email:
-        raise OnboardingError("a valid contact_email is required")
+        raise OnboardingError("platform.onboarding.bad_contact")
     region = (region or "EU").strip().upper()
     if region not in VALID_REGIONS:
-        raise OnboardingError(f"region must be one of {sorted(VALID_REGIONS)}")
+        raise OnboardingError("platform.onboarding.bad_region", regions=_regions())
     country = (country or "").strip().upper()[:2] or None
     mods = modules if modules is not None else list(DEFAULT_ENTITLEMENTS.get(org_type, []))
 
@@ -126,6 +135,18 @@ def create_intake(
     return {"intake_id": intake_id, "status": "invited", "form_token": raw, "form_url": intake_form_url(raw)}
 
 
+def _named(row: dict) -> dict:
+    """An intake with its codes named for the screen: its sector and its status (the codes stay for the screen's logic)."""
+    row["org_type_label"] = messages.name("admin.sector", row["org_type"])
+    row["status_label"] = messages.name("platform.intake_status", row["status"])
+    return row
+
+
+def sectors() -> list[dict]:
+    """The sectors an intake may be opened for — exactly the ones create_intake accepts — with their names."""
+    return [{"key": k, "label": n} for k, n in messages.names()["admin.sector"].items() if k in VALID_ORG_TYPES]
+
+
 def _intake_row(session: Session, intake_id: str) -> dict | None:
     r = session.execute(text("SELECT * FROM client_intake WHERE intake_id = CAST(:i AS uuid)"),
                         {"i": intake_id}).mappings().first()
@@ -137,7 +158,7 @@ def _roster(session: Session, intake_id: str) -> list[dict]:
         SELECT roster_id, email, full_name, role, created_user_id
         FROM client_intake_user WHERE intake_id = CAST(:i AS uuid) ORDER BY seq
     """), {"i": intake_id}).mappings().all()
-    return [dict(r) for r in rows]
+    return [{**dict(r), "role_label": messages.name("role", r["role"])} for r in rows]
 
 
 def _documents(session: Session, intake_id: str) -> list[dict]:
@@ -155,7 +176,7 @@ def get_intake(session: Session, intake_id: str) -> dict | None:
     row.pop("token_hash", None)
     row["roster"] = _roster(session, intake_id)
     row["documents"] = _documents(session, intake_id)
-    return row
+    return _named(row)
 
 
 def list_intakes(session: Session) -> list[dict]:
@@ -166,7 +187,7 @@ def list_intakes(session: Session) -> list[dict]:
                (SELECT count(*) FROM client_intake_document d WHERE d.intake_id = i.intake_id) AS document_count
         FROM client_intake i ORDER BY i.created_at DESC, i.intake_id
     """)).mappings().all()
-    return [dict(r) for r in rows]
+    return [_named(dict(r)) for r in rows]
 
 
 # ── intake fill (client side, token-authenticated) ───────────────────────────
@@ -196,13 +217,13 @@ def submit_intake_form(session: Session, token: str, payload: dict) -> dict:
           AND (token_expires_at IS NULL OR token_expires_at > now())
     """), {"th": _hash(token)}).mappings().first()
     if not r:
-        raise OnboardingError("this onboarding link is invalid or has expired")
+        raise OnboardingError("platform.onboarding.form_link_invalid")
     intake_id = str(r["intake_id"])
 
     country = (payload.get("country") or "").strip().upper()[:2] or None
     region = (payload.get("region") or "EU").strip().upper()
     if region not in VALID_REGIONS:
-        raise OnboardingError(f"region must be one of {sorted(VALID_REGIONS)}")
+        raise OnboardingError("platform.onboarding.bad_region", regions=_regions())
     roster = payload.get("roster") or []
     clean_roster = _validate_roster(roster)
 
@@ -253,9 +274,9 @@ def add_intake_document(
     content_type: str, data: bytes, to_vault: bool = False, contract_type: str | None = None,
 ) -> dict:
     if not data:
-        raise OnboardingError("empty file")
-    if len(data) > 25 * 1024 * 1024:
-        raise OnboardingError("file exceeds 25MB")
+        raise OnboardingError("platform.onboarding.empty_file")
+    if len(data) > MAX_DOCUMENT_MB * 1024 * 1024:
+        raise OnboardingError("platform.onboarding.file_too_large", limit=MAX_DOCUMENT_MB)
     doc_id = str(uuid.uuid4())
     session.execute(text("""
         INSERT INTO client_intake_document
@@ -273,26 +294,23 @@ def provision_from_intake(session: Session, *, actor_user_id: str | None, intake
     vault, and issue each user a secure activation link. Idempotency guard: refuses an already-provisioned intake."""
     intake = _intake_row(session, intake_id)
     if not intake:
-        raise OnboardingError("intake not found")
+        raise OnboardingError("platform.onboarding.not_found")
     if intake["status"] == "provisioned":
-        raise OnboardingError("this intake has already been provisioned")
+        raise OnboardingError("platform.onboarding.already_set_up")
     if not intake["country"]:
-        raise OnboardingError("country is required before provisioning — ask the client to complete the intake")
+        raise OnboardingError("platform.onboarding.no_country")
     roster = _roster(session, intake_id)
     if not roster:
-        raise OnboardingError("the user roster is empty — at least one admin is required")
+        raise OnboardingError("platform.onboarding.no_people")
     if not any(m["role"] == "admin" for m in roster):
-        raise OnboardingError("the roster needs at least one admin so the tenant is usable")
+        raise OnboardingError("platform.onboarding.no_admin")
 
     modules = intake["modules"] if isinstance(intake["modules"], list) else json.loads(intake["modules"] or "[]")
-    try:
-        tenant = create_tenant(
-            session, actor_user_id=actor_user_id, name=intake["company_name"], org_type=intake["org_type"],
-            country=intake["country"], legal_name=intake["legal_name"], lei=intake["lei"],
-            filing_contact_email=intake["filing_contact_email"], entitlements=modules or None,
-        )  # commits internally
-    except TenantError as e:
-        raise OnboardingError(str(e)) from e
+    tenant = create_tenant(                       # its refusals (TenantError) are catalogue codes and pass through
+        session, actor_user_id=actor_user_id, name=intake["company_name"], org_type=intake["org_type"],
+        country=intake["country"], legal_name=intake["legal_name"], lei=intake["lei"],
+        filing_contact_email=intake["filing_contact_email"], entitlements=modules or None,
+    )  # commits internally
     org_id = tenant["org_id"]
 
     # region (data residency) is not part of create_tenant — stamp it now
@@ -320,7 +338,8 @@ def provision_from_intake(session: Session, *, actor_user_id: str | None, intake
                         {"u": user_id, "rid": str(m["roster_id"])})
         link = _issue_activation(session, org_id=org_id, user_id=user_id, email=m["email"], full_name=m["full_name"],
                                  company=intake["company_name"])
-        created_users.append({"email": m["email"], "role": m["role"], "activation_url": link})
+        created_users.append({"email": m["email"], "role": m["role"], "role_label": messages.name("role", m["role"]),
+                              "activation_url": link})
 
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action="tenant.provisioned_from_intake",
                 target_type="client_intake", target_id=intake_id,
@@ -408,9 +427,9 @@ def get_activation(session: Session, token: str) -> dict | None:
 def set_activation_password(session: Session, token: str, password: str) -> dict:
     a = _activation_row(session, token)
     if not a or a["status"] != "pending" or a["expires_at"] <= _now():
-        raise OnboardingError("this activation link is invalid or has expired")
-    if not password or len(password) < 10:
-        raise OnboardingError("password must be at least 10 characters")
+        raise OnboardingError("platform.onboarding.activation_link_invalid")
+    if not password or len(password) < MIN_PASSWORD:
+        raise OnboardingError("platform.onboarding.password_short", min=MIN_PASSWORD)
     session.execute(text("UPDATE users SET hashed_password = :h, status = 'active' WHERE user_id = CAST(:u AS uuid)"),
                     {"h": hash_password(password), "u": str(a["user_id"])})
     write_audit(session, org_id=str(a["org_id"]), actor_user_id=str(a["user_id"]), action="account.password_set",
@@ -423,9 +442,9 @@ def begin_mfa_enrollment(session: Session, token: str) -> dict:
     """Generate (or reuse) a TOTP secret for the activating user and return the provisioning URI + secret."""
     a = _activation_row(session, token)
     if not a or a["status"] != "pending" or a["expires_at"] <= _now():
-        raise OnboardingError("this activation link is invalid or has expired")
+        raise OnboardingError("platform.onboarding.activation_link_invalid")
     if not a["hashed_password"]:
-        raise OnboardingError("set your password first")
+        raise OnboardingError("platform.onboarding.password_first")
     secret = totp.generate_secret()
     session.execute(text("UPDATE users SET mfa_secret = :s WHERE user_id = CAST(:u AS uuid)"),
                     {"s": secret, "u": str(a["user_id"])})
@@ -456,13 +475,13 @@ def confirm_mfa_enrollment(session: Session, token: str, code: str) -> dict:
     """Verify the first TOTP code, enrol MFA, and consume the activation token. Activation is now complete."""
     a = _activation_row(session, token)
     if not a or a["status"] != "pending" or a["expires_at"] <= _now():
-        raise OnboardingError("this activation link is invalid or has expired")
+        raise OnboardingError("platform.onboarding.activation_link_invalid")
     secret = session.execute(text("SELECT mfa_secret FROM users WHERE user_id = CAST(:u AS uuid)"),
                              {"u": str(a["user_id"])}).scalar()
     if not secret:
-        raise OnboardingError("start MFA enrolment first")
+        raise OnboardingError("platform.onboarding.mfa_not_started")
     if not totp.verify(secret, code):
-        raise OnboardingError("that code didn't match — check your authenticator app and try again")
+        raise OnboardingError("platform.onboarding.code_mismatch")
     session.execute(text("UPDATE users SET mfa_enrolled_at = now() WHERE user_id = CAST(:u AS uuid)"),
                     {"u": str(a["user_id"])})
     session.execute(text("UPDATE user_activation SET status = 'used', used_at = now() WHERE activation_id = CAST(:a AS uuid)"),
@@ -477,7 +496,7 @@ def resend_activation(session: Session, *, intake_id: str, actor_user_id: str | 
     """Re-issue activation links for every rostered user that hasn't finished activating."""
     intake = _intake_row(session, intake_id)
     if not intake or intake["status"] != "provisioned":
-        raise OnboardingError("intake is not provisioned")
+        raise OnboardingError("platform.onboarding.not_set_up")
     org_id = str(intake["provisioned_org_id"])
     pending = session.execute(text("""
         SELECT u.user_id, u.email, u.full_name FROM users u

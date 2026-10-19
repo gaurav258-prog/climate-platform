@@ -1,19 +1,4 @@
 {
- "api/deps.py": {
-  "display": 3,
-  "error": 0,
-  "rawError": 0
- },
- "api/routers/auth.py": {
-  "display": 2,
-  "error": 0,
-  "rawError": 0
- },
- "api/routers/auth_user.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
- },
  "api/routers/contracts.py": {
   "display": 0,
   "error": 0,
@@ -54,11 +39,6 @@
   "error": 0,
   "rawError": 1
  },
- "api/routers/growth.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
  "api/routers/insurer_documents.py": {
   "display": 0,
   "error": 0,
@@ -69,35 +49,15 @@
   "error": 0,
   "rawError": 3
  },
- "api/routers/onboarding_intake.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
  "api/routers/packages.py": {
   "display": 0,
   "error": 0,
   "rawError": 4
  },
- "api/routers/passkeys_esign.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 4
- },
- "api/routers/security_admin.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
  "api/routers/supply.py": {
   "display": 2,
   "error": 0,
   "rawError": 7
- },
- "api/services/rbac.py": {
-  "display": 0,
-  "error": 3,
-  "rawError": 0
  },
  "services/calibration/crop_weather.py": {
   "display": 0,
@@ -109,24 +69,9 @@
   "error": 1,
   "rawError": 0
  },
- "services/data/feeds.py": {
-  "display": 7,
-  "error": 0,
-  "rawError": 0
- },
  "services/eet/share_classes.py": {
   "display": 0,
   "error": 2,
-  "rawError": 0
- },
- "services/governance/client_onboarding.py": {
-  "display": 0,
-  "error": 3,
-  "rawError": 0
- },
- "services/governance/config_governance.py": {
-  "display": 0,
-  "error": 1,
   "rawError": 0
  },
  "services/governance/entities.py": {
@@ -159,11 +104,6 @@
   "error": 0,
   "rawError": 0
  },
- "services/governance/onboarding.py": {
-  "display": 2,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/pillar3_grids.py": {
   "display": 0,
   "error": 1,
@@ -175,11 +115,6 @@
   "rawError": 0
  },
  "services/governance/report_snapshots.py": {
-  "display": 0,
-  "error": 1,
-  "rawError": 0
- },
- "services/governance/signup.py": {
   "display": 0,
   "error": 1,
   "rawError": 0

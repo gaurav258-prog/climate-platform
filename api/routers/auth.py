@@ -17,13 +17,14 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from api.auth import create_api_key, list_api_keys, revoke_api_key, validate_api_key
 from api.deps import CustomerId, DbSession
 from core.config import settings
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
 
@@ -93,10 +94,7 @@ def create_key(
     if credentials and credentials.credentials:
         auth_result = validate_api_key(session, credentials.credentials)
         if not auth_result:
-            raise HTTPException(status_code=401, detail={
-                "error":   "invalid_api_key",
-                "message": "API key is invalid, revoked, or expired.",
-            })
+            raise UserError("platform.access.bad_key")
         resolved_customer_id = auth_result["customer_id"]
     else:
         # SECURITY: the no-auth bootstrap path is gated behind the operator secret
@@ -104,25 +102,14 @@ def create_key(
         # entirely; otherwise the caller must present it as X-Bootstrap-Secret.
         # This closes the hole where anyone could mint a live key for any customer.
         if not settings.KEY_BOOTSTRAP_SECRET or x_bootstrap_secret != settings.KEY_BOOTSTRAP_SECRET:
-            raise HTTPException(status_code=403, detail={
-                "error":   "bootstrap_disabled",
-                "message": "Anonymous key creation is disabled. Authenticate with an existing "
-                           "key, or present a valid X-Bootstrap-Secret if onboarding is enabled.",
-            })
+            raise UserError("platform.access.bootstrap_off")
         # Bootstrap: customer_id must be in body and be a valid UUID
         if not body.customer_id:
-            raise HTTPException(status_code=422, detail={
-                "error":   "customer_id_required",
-                "message": "Provide customer_id in the request body for first-time key creation, "
-                           "or include Authorization: Bearer <key> header.",
-            })
+            raise UserError("platform.access.no_customer")
         try:
             uuid.UUID(body.customer_id)
         except ValueError:
-            raise HTTPException(status_code=422, detail={
-                "error":   "invalid_customer_id",
-                "message": "customer_id must be a valid UUID.",
-            })
+            raise UserError("platform.access.bad_customer") from None
         resolved_customer_id = body.customer_id
 
     result = create_api_key(
@@ -153,8 +140,5 @@ def list_keys(customer_id: CustomerId, session: DbSession):
 def revoke_key(key_id: str, customer_id: CustomerId, session: DbSession):
     revoked = revoke_api_key(session, key_id=key_id, customer_id=customer_id)
     if not revoked:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Key {key_id} not found or already revoked.",
-        )
+        raise UserError("platform.access.key_not_found")
     return RevokeResponse(revoked=True, key_id=key_id)

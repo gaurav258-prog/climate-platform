@@ -1,42 +1,46 @@
 // In-product documentation — the customer-facing help centre content.
 //
 // Real product documentation, authored against what the software actually does today. Where a capability is
-// on the roadmap (direct integration, SSO), the docs say so plainly rather than implying it exists. Content
-// is static and versioned with the app; sector-aware articles (AGRI vs financial) are gated by `sectors`.
-// Rendered by pages/Docs.tsx with a small markdown subset (##/###, -, 1., **bold**, `code`, > callout).
+// on the roadmap, the docs say so plainly rather than implying it exists. Content is static and versioned with the
+// app; an article can be limited to some sectors with `sectors`. Rendered by pages/Docs.tsx with a small markdown
+// subset (##/###, -, 1., **bold**, `code`, > callout). An article is the page's main content, so it follows the
+// main-screen rules of the UI standard: plain words, and no article, annex, template or metric number — those sit in
+// the filings and exports themselves.
+
+export type DocCategory = 'start' | 'workspace' | 'filing' | 'governance' | 'data' | 'help'
 
 export interface DocArticle {
   slug: string
   title: string
-  category: string
+  category: DocCategory
   summary: string
   sectors?: string[]        // undefined = all sectors; else organizations.type values
   body: string
 }
 
-export const AGRI = ['manufacturer']
-export const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
-
-// Display order of categories in the index.
-export const DOC_CATEGORIES = [
-  'Getting started', 'Your workspace', 'Compliance & filing', 'Governance & trust', 'Data foundation', 'Help',
+// The categories in the index's order, with their names.
+export const DOC_CATEGORIES: { key: DocCategory; label: string }[] = [
+  { key: 'start', label: 'Getting started' }, { key: 'workspace', label: 'Your workspace' },
+  { key: 'filing', label: 'Compliance & filing' }, { key: 'governance', label: 'Governance & trust' },
+  { key: 'data', label: 'Data foundation' }, { key: 'help', label: 'Help' },
 ]
+export const categoryLabel = (k: DocCategory) => DOC_CATEGORIES.find(c => c.key === k)?.label ?? 'Help'
 
 export const DOCS: DocArticle[] = [
   {
-    slug: 'welcome', title: 'Welcome to Tellumen', category: 'Getting started',
+    slug: 'welcome', title: 'Welcome to Tellumen', category: 'start',
     summary: 'What Tellumen does, and the operating loop your team works through.',
     body: `
 Tellumen turns **physical climate and nature risk** into decisions and disclosures you can defend. It scores
-every located asset you hold against nine hazards — heat, drought, flood, fire, storm, seismic, frost, water
-stress and deforestation — off authoritative satellite and agency data, then projects that risk forward under
+every located asset you hold against the climate and natural hazards that apply to it — heat, drought, flood,
+wildfire, storms and more — off authoritative satellite and agency data, then projects that risk forward under
 recognised warming pathways.
 
 ## The operating loop
 Everything in the product follows the same four-step loop:
 
 1. **Sense** — bring your book in and locate it. We reconcile and geocode every asset to a precise grid cell.
-2. **Score** — each asset is scored against the hazards that matter, from the golden source.
+2. **Score** — each asset is scored against the hazards that matter, from the same authoritative data.
 3. **Project** — see how the risk moves to 2030, 2050 and 2100 under different warming paths.
 4. **Act** — produce a filing, a management report, or a risk decision — governed and reproducible.
 
@@ -48,7 +52,7 @@ never a guess. See *Why a figure sometimes shows "—"* for the rule behind this
 `,
   },
   {
-    slug: 'roles-access', title: 'Users, roles & access', category: 'Getting started',
+    slug: 'roles-access', title: 'Users, roles & access', category: 'start',
     summary: 'The four roles, what each can do, and the two-person rule.',
     body: `
 Your organization is set up with role-based access. A **super user (admin)** creates the other users and
@@ -69,7 +73,7 @@ not just by policy. See *Approvals & 4-eyes*.
 `,
   },
   {
-    slug: 'data-in', title: 'Getting your data in', category: 'Your workspace',
+    slug: 'data-in', title: 'Getting your data in', category: 'workspace',
     summary: 'The three ways to bring your book in, and the validation gate that checks it.',
     body: `
 Your team feeds the software in one of three ways:
@@ -77,13 +81,13 @@ Your team feeds the software in one of three ways:
 1. **Manual entry** — add an asset directly in the workspace.
 2. **Template upload** — download the template for your sector, fill it, and upload the CSV. This is the
    fastest way to bring a whole book in.
-3. **Direct integration** — a secure API push from your source systems using a tenant **ingest token**. An
-   admin creates a token in **Control center › Integrations**; your system then POSTs rows to the ingest API,
+3. **Direct integration** — a secure push from your source systems using your organisation's **ingest token**. An
+   admin creates a token in **Control center › Integrations**; your system then sends rows to the ingest address,
    which validates, locates and scores them exactly like an upload. *(Live for banking today; other sectors'
    push endpoints are rolling out — the token and handshake work for every sector now.)*
 
 ## The validation gate
-Nothing is silently accepted. On upload we check schema, units, and completeness, then return a **coverage
+Nothing is silently accepted. On upload we check the columns, units and completeness, then return a **coverage
 report** telling you exactly what landed, what's missing, and where a location could only be resolved coarsely.
 We never invent a value to fill a gap — a missing field is reported, not guessed.
 
@@ -96,7 +100,7 @@ We never invent a value to fill a gap — a missing field is reported, not guess
 `,
   },
   {
-    slug: 'globe', title: 'The globe & your assets', category: 'Your workspace',
+    slug: 'globe', title: 'The globe & your assets', category: 'workspace',
     summary: 'The front door — every asset you hold, at true coordinates, today and in each modelled year.',
     body: `
 **Horizon** is the front door. It opens on a live globe of *your* assets at their real coordinates, each
@@ -122,7 +126,7 @@ coverage (open ocean, polar gaps).
 `,
   },
   {
-    slug: 'reporting-basis', title: 'Setting your reporting basis', category: 'Compliance & filing',
+    slug: 'reporting-basis', title: 'Setting your reporting basis', category: 'filing',
     summary: 'What you configure to suit your needs — and what stays locked for integrity.',
     body: `
 Parameterisation is where the software is tuned to *your* needs and compliance requirements. Some of it is
@@ -142,17 +146,19 @@ yours to set; some of it is deliberately not.
 `,
   },
   {
-    slug: 'producing-a-filing', title: 'Producing a disclosure', category: 'Compliance & filing',
+    slug: 'producing-a-filing', title: 'Producing a disclosure', category: 'filing',
     summary: 'From scored book to a filed, frozen, auditable disclosure.',
     body: `
 Tellumen assembles the mandated tables for the frameworks in scope and takes them through a governed release.
 
 ## Frameworks
-- **SFDR** — the Principal Adverse Impact statement (Annex I), including the physical-climate indicators.
-- **EU Taxonomy (Art. 8)** — alignment and the climate-adaptation objective, with DNSH / minimum-safeguards.
-- **CSRD / ESRS** — E1 physical risk, E3 water, E4 deforestation, bound to the EFRAG taxonomy.
+- **SFDR** — the principal adverse impact statement, including the physical-climate indicators.
+- **EU Taxonomy** — alignment and the climate-adaptation objective, with the do-no-significant-harm and
+  minimum-safeguards checks.
+- **CSRD / ESRS** — climate change (physical risk), water, and biodiversity (deforestation), tagged to EFRAG's
+  digital taxonomy.
 - **EUDR** — the due-diligence statement against forest-loss data *(TRACES submission is sandbox-ready)*.
-- **Pillar 3 ESG (banks)** — the EBA templates, including financed emissions (Template 1) and physical-risk exposure (Template 5).
+- **Pillar 3 ESG (banks)** — the EBA templates, including financed emissions and physical-risk exposure.
 
 ## The release
 1. An **analyst** prepares the filing on the chosen basis.
@@ -167,7 +173,7 @@ output to your other systems, or use it directly for internal risk and managemen
 `,
   },
   {
-    slug: 'approvals', title: 'Approvals & 4-eyes', category: 'Governance & trust',
+    slug: 'approvals', title: 'Approvals & 4-eyes', category: 'governance',
     summary: 'How a change is raised, routed, and decided by a second person.',
     body: `
 Sensitive changes land in **Approvals** for a second person to action.
@@ -186,7 +192,7 @@ Every decision, comment and assignment is written to the audit trail.
 `,
   },
   {
-    slug: 'honesty-model', title: 'Why a figure sometimes shows "—"', category: 'Governance & trust',
+    slug: 'honesty-model', title: 'Why a figure sometimes shows "—"', category: 'governance',
     summary: 'The publish gate, the ranged tier, and the confidence grade — the rules that keep a number honest.',
     body: `
 Tellumen would rather show nothing than show a number it can't defend. Three mechanisms enforce that.
@@ -209,7 +215,7 @@ input confidence — so you know how much to lean on it.
 `,
   },
   {
-    slug: 'golden-source', title: 'The golden source & freshness', category: 'Data foundation',
+    slug: 'golden-source', title: 'Where the data comes from', category: 'data',
     summary: 'Where the data comes from, and how it stays current on its own.',
     body: `
 Your risk is scored off data **direct from Europe's and America's satellites and agencies** — reconciled,
@@ -230,38 +236,40 @@ the exact feed and calibration behind it.
 `,
   },
   {
-    slug: 'architecture', title: 'How Tellumen is built', category: 'Data foundation',
+    slug: 'architecture', title: 'How Tellumen is built', category: 'data',
     summary: 'The layered architecture, in plain terms — for your risk, data and audit teams.',
     body: `
 For teams that want to understand what sits under the workspace, Tellumen is a layered platform. Data flows
 down; results feed back up.
 
 ## The layers
-1. **People & access** — your admin, analysts, approvers and viewers, each scoped by role and tenant.
-2. **Ingestion** — the golden feeds we bring and the data you bring (upload today, direct integration on the
-   roadmap), through one validation gate.
-3. **Knowledge** — reconciliation and data quality over a zoned database: raw as-landed, a curated golden
-   record (append-only, write-once), your operational data, and a governance zone (audit + frozen snapshots).
+1. **People & access** — your admin, analysts, approvers and viewers, each scoped by role and organisation.
+2. **Data in** — the agency and satellite sources we bring and the data you bring (an upload, or a direct push from
+   your systems), through one validation gate.
+3. **Knowledge** — reconciliation and data quality over a zoned database: data as it arrived, a curated master
+   record that is written once and never overwritten, your operational data, and a governance zone (the audit
+   trail and frozen snapshots).
 4. **The engine** — the hazard models, scoring, projections and the r² publish gate, then 4-eyes and freeze.
 5. **Output** — your portfolio book, disclosures, filings and evidence pack.
 
 ## The chain that runs through all of it
-Named golden source → validated input → locked model → governed decision (4-eyes) → immutable snapshot →
-auditable artifact. Every published figure is reproducible from its frozen, provenance-tracked snapshot.
+Named authoritative source → validated input → locked model → governed decision (4-eyes) → frozen snapshot →
+auditable output. Every published figure can be reproduced from its frozen snapshot, which records where each
+input came from.
 
 > A fuller functional and technical architecture walkthrough is available from your Tellumen contact as a
 > shareable one-pager.
 `,
   },
   {
-    slug: 'getting-help', title: 'Getting help & raising a request', category: 'Help',
+    slug: 'getting-help', title: 'Getting help & raising a request', category: 'help',
     summary: 'How to reach the Tellumen team, and what to include.',
     body: `
 If something looks wrong, a figure seems off, or you're unsure how something works, raise a request in
 **Support** (in the Help section of the sidebar) and talk to the Tellumen team directly.
 
 ## Raising a good request
-- Pick the **type** — bug, data, report/filing, onboarding, question.
+- Pick the **type** — a question, something wrong, data, a report or filing, onboarding.
 - Give a **one-line subject** and, where you can, the **screen name and the specific asset or figure** (an
   asset id or a location helps us reproduce it fast).
 - Set a **priority** if it's blocking a filing.

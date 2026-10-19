@@ -11,14 +11,17 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
 from services.governance import billing
-from services.governance.tenant_provisioning import VALID_ORG_TYPES, TenantError, create_tenant
+from services.governance.tenant_provisioning import VALID_ORG_TYPES, create_tenant
 
 TRIAL_DAYS = 14
+MIN_PASSWORD = 10
 
 
-class SignupError(ValueError):
-    pass
+class SignupError(UserError):
+    """A sign-up refusal in customer words: a catalogue code with its values (core/errors.py). Provisioning's own
+    refusals (a name or an e-mail already taken) arrive as tenant_provisioning.TenantError and pass through."""
 
 
 def self_serve_signup(session: Session, *, company_name: str, org_type: str, country: str,
@@ -27,22 +30,19 @@ def self_serve_signup(session: Session, *, company_name: str, org_type: str, cou
     org_type = (org_type or "").strip().lower()
     admin_email = (admin_email or "").strip().lower()
     if not company_name:
-        raise SignupError("company name is required")
+        raise SignupError("admin.tenant.no_name")
     if org_type not in VALID_ORG_TYPES:
-        raise SignupError(f"org_type must be one of {sorted(VALID_ORG_TYPES)}")
+        raise SignupError("admin.tenant.bad_sector")
     if "@" not in admin_email:
-        raise SignupError("a valid work email is required")
-    if not password or len(password) < 10:
-        raise SignupError("password must be at least 10 characters")
+        raise SignupError("platform.signup.bad_email")
+    if not password or len(password) < MIN_PASSWORD:
+        raise SignupError("platform.signup.password_short", min=MIN_PASSWORD)
     if not (country or "").strip():
-        raise SignupError("country is required")
+        raise SignupError("admin.tenant.no_country")
 
-    try:
-        tenant = create_tenant(session, actor_user_id=None, name=company_name, org_type=org_type,
-                               country=country, admin_email=admin_email, admin_full_name=admin_full_name,
-                               admin_password=password)   # commits internally
-    except TenantError as e:
-        raise SignupError(str(e)) from e
+    tenant = create_tenant(session, actor_user_id=None, name=company_name, org_type=org_type,
+                           country=country, admin_email=admin_email, admin_full_name=admin_full_name,
+                           admin_password=password)   # commits internally; its refusals (TenantError) pass through
 
     org_id = tenant["org_id"]
     session.execute(text("""

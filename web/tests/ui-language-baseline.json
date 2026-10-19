@@ -143,22 +143,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/content/docs.ts": {
-  "internal": 4,
-  "raw": 0,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 1
- },
- "src/pages/Activate.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/Analytics.tsx": {
   "internal": 0,
   "raw": 0,
@@ -247,14 +231,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/Docs.tsx": {
-  "internal": 0,
-  "raw": 2,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/Exceptions.tsx": {
   "internal": 0,
   "raw": 0,
@@ -276,14 +252,6 @@
   "raw": 2,
   "monoProse": 0,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/Onboarding.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 1,
   "figure": 0,
   "citation": 0
  },
@@ -330,14 +298,6 @@
  "src/pages/SupervisorMap.tsx": {
   "internal": 0,
   "raw": 1,
-  "monoProse": 1,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/Support.tsx": {
-  "internal": 0,
-  "raw": 2,
   "monoProse": 1,
   "apiProse": 0,
   "figure": 0,

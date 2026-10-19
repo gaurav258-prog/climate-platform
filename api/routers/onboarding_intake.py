@@ -5,16 +5,18 @@ Three audiences, three auth models:
   • client form         (/v1/onboarding/form/{token}) — token-authenticated, no account yet
   • activation          (/v1/onboarding/activate/*)   — token-authenticated, sets password + enrols MFA
 
-Thin skin over services.governance.client_onboarding, which owns the state machine.
+Thin skin over services.governance.client_onboarding, which owns the state machine. Its refusals are catalogue codes
+(OnboardingError, TenantError: core/errors.py UserError) and reach the screen as the catalogue's words.
 """
 from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel
 
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 from services.governance import client_onboarding as ob
 
 router = APIRouter(prefix="/v1/onboarding", tags=["onboarding"])
@@ -65,52 +67,40 @@ class MfaConfirm(BaseModel):
     code: str
 
 
-def _oops(e: ob.OnboardingError) -> HTTPException:
-    return HTTPException(status_code=400, detail={"message": str(e)})
-
-
 # ── operator: intake management ──────────────────────────────────────────────
 @router.post("/intakes", status_code=201)
 def create_intake(body: IntakeCreate, session: DbSession, ctx: dict = Depends(_manage)):
-    try:
-        return ob.create_intake(
-            session, actor_user_id=ctx["user"]["id"], actor_org_id=ctx["org"]["org_id"],
-            company_name=body.company_name, org_type=body.org_type, contact_email=str(body.contact_email),
-            contact_name=body.contact_name, country=body.country, region=body.region,
-            legal_name=body.legal_name, lei=body.lei, filing_contact_email=body.filing_contact_email,
-            modules=body.modules, notes=body.notes,
-        )
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.create_intake(
+        session, actor_user_id=ctx["user"]["id"], actor_org_id=ctx["org"]["org_id"],
+        company_name=body.company_name, org_type=body.org_type, contact_email=str(body.contact_email),
+        contact_name=body.contact_name, country=body.country, region=body.region,
+        legal_name=body.legal_name, lei=body.lei, filing_contact_email=body.filing_contact_email,
+        modules=body.modules, notes=body.notes,
+    )
 
 
 @router.get("/intakes")
 def list_intakes(session: DbSession, ctx: dict = Depends(_manage)):
-    return {"intakes": ob.list_intakes(session)}
+    # the sectors the create form may offer: exactly the ones an intake accepts, named
+    return {"intakes": ob.list_intakes(session), "org_types": ob.sectors()}
 
 
 @router.get("/intakes/{intake_id}")
 def get_intake(intake_id: str, session: DbSession, ctx: dict = Depends(_manage)):
     row = ob.get_intake(session, intake_id)
     if not row:
-        raise HTTPException(status_code=404, detail={"message": "intake not found"})
+        raise UserError("platform.onboarding.not_found")
     return row
 
 
 @router.post("/intakes/{intake_id}/provision")
 def provision(intake_id: str, session: DbSession, ctx: dict = Depends(_manage)):
-    try:
-        return ob.provision_from_intake(session, actor_user_id=ctx["user"]["id"], intake_id=intake_id)
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.provision_from_intake(session, actor_user_id=ctx["user"]["id"], intake_id=intake_id)
 
 
 @router.post("/intakes/{intake_id}/resend")
 def resend(intake_id: str, session: DbSession, ctx: dict = Depends(_manage)):
-    try:
-        return ob.resend_activation(session, intake_id=intake_id, actor_user_id=ctx["user"]["id"])
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.resend_activation(session, intake_id=intake_id, actor_user_id=ctx["user"]["id"])
 
 
 @router.post("/intakes/{intake_id}/documents", status_code=201)
@@ -120,14 +110,11 @@ async def upload_intake_document(
     to_vault: bool = Form(False), contract_type: str = Form(None),
 ):
     data = await file.read()
-    try:
-        return ob.add_intake_document(
-            session, intake_id, kind=kind, title=title or file.filename,
-            filename=file.filename or "upload", content_type=file.content_type or "application/octet-stream",
-            data=data, to_vault=to_vault, contract_type=contract_type,
-        )
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.add_intake_document(
+        session, intake_id, kind=kind, title=title or file.filename,
+        filename=file.filename or "upload", content_type=file.content_type or "application/octet-stream",
+        data=data, to_vault=to_vault, contract_type=contract_type,
+    )
 
 
 # ── client: the tokenized intake form (no account yet) ───────────────────────
@@ -135,16 +122,13 @@ async def upload_intake_document(
 def load_form(token: str, session: DbSession):
     row = ob.get_intake_by_token(session, token)
     if not row:
-        raise HTTPException(status_code=404, detail={"message": "this onboarding link is invalid or has expired"})
+        raise UserError("platform.onboarding.form_link_invalid", status=404)
     return row
 
 
 @router.put("/form/{token}")
 def submit_form(token: str, body: IntakeFormSubmit, session: DbSession):
-    try:
-        return ob.submit_intake_form(session, token, body.model_dump())
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.submit_intake_form(session, token, body.model_dump())
 
 
 @router.post("/form/{token}/documents", status_code=201)
@@ -155,16 +139,13 @@ async def upload_form_document(
 ):
     intake = ob.get_intake_by_token(session, token)
     if not intake:
-        raise HTTPException(status_code=404, detail={"message": "this onboarding link is invalid or has expired"})
+        raise UserError("platform.onboarding.form_link_invalid", status=404)
     data = await file.read()
-    try:
-        return ob.add_intake_document(
-            session, str(intake["intake_id"]), kind=kind, title=title or file.filename,
-            filename=file.filename or "upload", content_type=file.content_type or "application/octet-stream",
-            data=data, to_vault=to_vault, contract_type=contract_type,
-        )
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.add_intake_document(
+        session, str(intake["intake_id"]), kind=kind, title=title or file.filename,
+        filename=file.filename or "upload", content_type=file.content_type or "application/octet-stream",
+        data=data, to_vault=to_vault, contract_type=contract_type,
+    )
 
 
 # ── user: activation (set password + enrol MFA) ──────────────────────────────
@@ -172,29 +153,20 @@ async def upload_form_document(
 def load_activation(token: str, session: DbSession):
     a = ob.get_activation(session, token)
     if not a:
-        raise HTTPException(status_code=404, detail={"message": "this activation link is invalid or has expired"})
+        raise UserError("platform.onboarding.activation_link_invalid", status=404)
     return a
 
 
 @router.post("/activate/{token}/password")
 def set_password(token: str, body: PasswordSet, session: DbSession):
-    try:
-        return ob.set_activation_password(session, token, body.password)
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.set_activation_password(session, token, body.password)
 
 
 @router.post("/activate/{token}/mfa/begin")
 def mfa_begin(token: str, session: DbSession):
-    try:
-        return ob.begin_mfa_enrollment(session, token)
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.begin_mfa_enrollment(session, token)
 
 
 @router.post("/activate/{token}/mfa/confirm")
 def mfa_confirm(token: str, body: MfaConfirm, session: DbSession):
-    try:
-        return ob.confirm_mfa_enrollment(session, token, body.code)
-    except ob.OnboardingError as e:
-        raise _oops(e)
+    return ob.confirm_mfa_enrollment(session, token, body.code)

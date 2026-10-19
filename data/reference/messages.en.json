@@ -10265,6 +10265,893 @@
     "what": "Your identity provider could not be reached.",
     "next": "Try again in a moment."
    }
+  },
+  "platform.access.no_key": {
+   "status": 401,
+   "label": "API key missing",
+   "detail": {
+    "what": "The request did not carry an API key.",
+    "next": "Send your API key as a bearer token in the Authorization header."
+   }
+  },
+  "platform.access.bad_key": {
+   "status": 401,
+   "label": "API key not accepted",
+   "detail": {
+    "what": "The API key is not valid: it may be mistyped, revoked or expired.",
+    "next": "Check the key, or create a new one."
+   }
+  },
+  "platform.access.key_not_found": {
+   "status": 404,
+   "label": "API key not found",
+   "detail": {
+    "what": "There is no such API key, or it is already revoked."
+   }
+  },
+  "platform.access.bootstrap_off": {
+   "status": 403,
+   "label": "A first key cannot be created here",
+   "detail": {
+    "what": "A first API key can be created without an existing key only while onboarding is open, with the onboarding secret.",
+    "next": "Use an existing API key, or ask your Tellumen contact to open onboarding."
+   }
+  },
+  "platform.access.no_customer": {
+   "status": 422,
+   "label": "Name the customer for the first key",
+   "detail": {
+    "what": "A first API key needs the identifier of the customer it belongs to.",
+    "next": "Send the customer identifier with the request, or use an existing API key."
+   }
+  },
+  "platform.access.bad_customer": {
+   "status": 422,
+   "label": "Customer identifier not recognised",
+   "detail": {
+    "what": "The customer identifier is not in the expected form.",
+    "next": "Use the identifier your Tellumen contact gave you."
+   }
+  },
+  "platform.access.no_ingest_token": {
+   "status": 401,
+   "label": "Ingest token missing",
+   "detail": {
+    "what": "The request did not carry an ingest token.",
+    "next": "Send your organisation's ingest token as a bearer token in the Authorization header. An administrator creates one under Integrations."
+   }
+  },
+  "platform.access.not_ingest_token": {
+   "status": 401,
+   "label": "This needs an ingest token",
+   "detail": {
+    "what": "This address takes data from your own systems and accepts only an ingest token, not a personal sign-in or an API key.",
+    "next": "Create an ingest token under Integrations and send it instead."
+   }
+  },
+  "platform.access.bad_ingest_token": {
+   "status": 401,
+   "label": "Ingest token not accepted",
+   "detail": {
+    "what": "The ingest token is not valid: it may be mistyped, revoked or expired.",
+    "next": "Create a new token under Integrations."
+   }
+  },
+  "platform.access.signed_out": {
+   "status": 401,
+   "label": "Please sign in",
+   "detail": {
+    "what": "This needs you to be signed in.",
+    "next": "Sign in, then try again."
+   }
+  },
+  "platform.access.needs_sign_in": {
+   "status": 401,
+   "label": "This needs a personal sign-in",
+   "detail": {
+    "what": "This is for people signed in to the workspace; an API key is not accepted here.",
+    "next": "Sign in with your own account."
+   }
+  },
+  "platform.access.session_expired": {
+   "status": 401,
+   "label": "Your session has ended",
+   "detail": {
+    "what": "Your sign-in is no longer valid, most often because it expired.",
+    "next": "Sign in again."
+   }
+  },
+  "platform.access.session_revoked": {
+   "status": 401,
+   "label": "You were signed out",
+   "detail": {
+    "what": "This session was signed out, for example after a password change or a sign-out on every device.",
+    "next": "Sign in again."
+   }
+  },
+  "platform.access.portal_only": {
+   "status": 403,
+   "label": "Your account is for your supervisor's requests",
+   "detail": {
+    "what": "Your organisation's account answers your supervisor through the supervisory portal; it does not open the workspace.",
+    "next": "Open the supervisory portal to see and answer your supervisor's requests."
+   }
+  },
+  "platform.access.step_up": {
+   "status": 403,
+   "label": "Confirm it is you first",
+   "detail": {
+    "what": "This action needs you to confirm your password, and your authenticator code if you use one, just before it runs.",
+    "next": "Confirm your identity when asked, then try again."
+   }
+  },
+  "platform.access.missing_permission": {
+   "status": 403,
+   "label": "Your role does not allow this",
+   "detail": {
+    "what": "This needs the permission “{permission}”, which none of your roles holds.",
+    "next": "Ask an administrator in your organisation for a role that holds it."
+   }
+  },
+  "platform.access.not_found": {
+   "status": 404,
+   "label": "{thing} not found",
+   "detail": {
+    "what": "{thing} does not exist, or your organisation cannot see it."
+   }
+  },
+  "platform.signin.locked": {
+   "status": 401,
+   "label": "Sign-in paused for this account",
+   "detail": {
+    "what": "After several wrong passwords in a row, sign-in to this account is paused for {minutes} minutes to protect it.",
+    "next": "Wait and try again, or reset your password from the sign-in screen."
+   }
+  },
+  "platform.signin.sso_only": {
+   "status": 401,
+   "label": "Use single sign-on",
+   "detail": {
+    "what": "Your organisation signs in through its own identity provider; password sign-in is switched off.",
+    "next": "Choose single sign-on and enter your work e-mail."
+   }
+  },
+  "platform.signin.step_up_password": {
+   "status": 401,
+   "label": "Password is incorrect",
+   "detail": {
+    "what": "The password you entered to confirm this action is not your password.",
+    "next": "Enter your password again."
+   }
+  },
+  "platform.signin.step_up_code": {
+   "status": 401,
+   "label": "Authenticator code did not match",
+   "detail": {
+    "what": "The code from your authenticator app, or the backup code, was not accepted.",
+    "next": "Enter the current six-digit code, or an unused backup code."
+   }
+  },
+  "platform.reset.link_invalid": {
+   "status": 404,
+   "label": "This reset link has expired",
+   "detail": {
+    "what": "The link is no longer valid: it was used already, or it expired.",
+    "next": "Ask for a new link from the sign-in screen."
+   }
+  },
+  "platform.passkey.not_added": {
+   "status": 400,
+   "label": "Passkey not added",
+   "detail": {
+    "what": "The passkey could not be confirmed, or the request took too long.",
+    "next": "Try again from Account security."
+   }
+  },
+  "platform.passkey.none": {
+   "status": 404,
+   "label": "No passkey for this e-mail",
+   "detail": {
+    "what": "There is no passkey to sign in with for this e-mail address.",
+    "next": "Sign in with your password, then add a passkey under Account security."
+   }
+  },
+  "platform.passkey.failed": {
+   "status": 401,
+   "label": "Passkey sign-in did not work",
+   "detail": {
+    "what": "The passkey could not be confirmed for this e-mail address.",
+    "next": "Try again, or sign in with your password."
+   }
+  },
+  "platform.esign.no_title": {
+   "status": 400,
+   "label": "Name the document to sign",
+   "detail": {
+    "what": "A signature request needs the title of the document."
+   }
+  },
+  "platform.esign.bad_signer": {
+   "status": 400,
+   "label": "Enter the signer's e-mail address",
+   "detail": {
+    "what": "A signature request needs a valid e-mail address for the person who signs."
+   }
+  },
+  "platform.esign.unavailable": {
+   "status": 400,
+   "label": "The signing service did not answer",
+   "detail": {
+    "what": "The request could not be sent to the e-signature service.",
+    "next": "Try again later. If it keeps happening, raise a request in Support."
+   }
+  },
+  "platform.esign.not_found": {
+   "status": 404,
+   "label": "Signature request not found",
+   "detail": {
+    "what": "There is no such signature request in your organisation."
+   }
+  },
+  "platform.security.person_not_found": {
+   "status": 404,
+   "label": "Person not found",
+   "detail": {
+    "what": "There is no such person in your organisation."
+   }
+  },
+  "platform.onboarding.bad_contact": {
+   "status": 400,
+   "label": "Enter a valid contact e-mail",
+   "detail": {
+    "what": "An onboarding application needs the e-mail address of the client's contact."
+   }
+  },
+  "platform.onboarding.bad_region": {
+   "status": 400,
+   "label": "Choose where the data is kept",
+   "detail": {
+    "what": "The data region must be {regions}."
+   }
+  },
+  "platform.onboarding.form_link_invalid": {
+   "status": 400,
+   "label": "This onboarding link has expired",
+   "detail": {
+    "what": "The link is no longer valid: the application was completed already, or the link expired.",
+    "next": "Ask your Tellumen contact for a new link."
+   }
+  },
+  "platform.onboarding.empty_file": {
+   "status": 400,
+   "label": "The file is empty",
+   "detail": {
+    "what": "The file uploaded holds nothing.",
+    "next": "Choose the file again."
+   }
+  },
+  "platform.onboarding.file_too_large": {
+   "status": 400,
+   "label": "The file is too large",
+   "detail": {
+    "what": "A document can be at most {limit} MB.",
+    "next": "Upload a smaller file, or split the document."
+   }
+  },
+  "platform.onboarding.not_found": {
+   "status": 404,
+   "label": "Application not found",
+   "detail": {
+    "what": "There is no such onboarding application."
+   }
+  },
+  "platform.onboarding.already_set_up": {
+   "status": 400,
+   "label": "This client is already set up",
+   "detail": {
+    "what": "A workspace was already created from this application.",
+    "next": "Open the client's workspace from the platform console."
+   }
+  },
+  "platform.onboarding.no_country": {
+   "status": 400,
+   "label": "The country is needed first",
+   "detail": {
+    "what": "A workspace cannot be created before the application states the client's country.",
+    "next": "Ask the client to complete the application."
+   }
+  },
+  "platform.onboarding.no_people": {
+   "status": 400,
+   "label": "Add the client's people first",
+   "detail": {
+    "what": "The application lists no one, so no one could sign in to the new workspace.",
+    "next": "Add at least one administrator to the application."
+   }
+  },
+  "platform.onboarding.no_admin": {
+   "status": 400,
+   "label": "Name at least one administrator",
+   "detail": {
+    "what": "The application lists no administrator, so no one could manage the new workspace.",
+    "next": "Give one person on the application the administrator role."
+   }
+  },
+  "platform.onboarding.not_set_up": {
+   "status": 400,
+   "label": "This client is not set up yet",
+   "detail": {
+    "what": "Activation links are sent once the client's workspace is created.",
+    "next": "Create the workspace from the application first."
+   }
+  },
+  "platform.onboarding.activation_link_invalid": {
+   "status": 400,
+   "label": "This activation link has expired",
+   "detail": {
+    "what": "The link is no longer valid: it was used already, or it expired.",
+    "next": "Ask your administrator to send your invitation again, then open the new link."
+   }
+  },
+  "platform.onboarding.password_short": {
+   "status": 400,
+   "label": "Use at least {min} characters",
+   "detail": {
+    "what": "Your password must be at least {min} characters long."
+   }
+  },
+  "platform.onboarding.password_first": {
+   "status": 400,
+   "label": "Set your password first",
+   "detail": {
+    "what": "Two-factor set-up starts once your password is set."
+   }
+  },
+  "platform.onboarding.mfa_not_started": {
+   "status": 400,
+   "label": "Start the authenticator set-up first",
+   "detail": {
+    "what": "There is no authenticator set-up to confirm yet.",
+    "next": "Open the link again to start the set-up."
+   }
+  },
+  "platform.onboarding.code_mismatch": {
+   "status": 400,
+   "label": "That code did not match",
+   "detail": {
+    "what": "The six-digit code was not the one your authenticator app shows now.",
+    "next": "Check the app and enter the current code."
+   }
+  },
+  "platform.signup.bad_email": {
+   "status": 400,
+   "label": "Enter a valid work e-mail",
+   "detail": {
+    "what": "Your workspace's first administrator signs in with this e-mail address."
+   }
+  },
+  "platform.signup.password_short": {
+   "status": 400,
+   "label": "Use at least {min} characters",
+   "detail": {
+    "what": "Your password must be at least {min} characters long."
+   }
+  },
+  "platform.config.pending": {
+   "label": "Sent to a second person for approval",
+   "detail": {
+    "what": "Your approval rules ask a second person to approve this change before it applies. It waits in Approvals."
+   }
+  },
+  "platform.golive.unavailable": {
+   "status": 404,
+   "label": "Organisation not found",
+   "detail": {
+    "what": "There is no such organisation on the platform."
+   }
+  },
+  "platform.golive.step.tenant": {
+   "label": "Workspace created",
+   "detail": {
+    "what": "Your organisation's workspace, with the offerings and roles of its sector."
+   }
+  },
+  "platform.golive.step.identity": {
+   "label": "Reporting identity",
+   "detail": {
+    "what": "The legal name and legal entity identifier (LEI) your filings are made under."
+   }
+  },
+  "platform.golive.step.access": {
+   "label": "People and access",
+   "detail": {
+    "what": "The people who work in your workspace, each with a role."
+   }
+  },
+  "platform.golive.step.contracts": {
+   "label": "Signed contracts on file",
+   "detail": {
+    "what": "Your signed agreements with Tellumen, kept in the contracts vault."
+   }
+  },
+  "platform.golive.step.book": {
+   "label": "Book loaded",
+   "detail": {
+    "what": "The holdings, assets, sites or sourcing plots your figures are computed for."
+   }
+  },
+  "platform.golive.step.systems": {
+   "label": "Source systems connected",
+   "detail": {
+    "what": "The systems of record your book is loaded from."
+   }
+  },
+  "platform.golive.step.engine": {
+   "label": "Reporting basis set",
+   "detail": {
+    "what": "The reporting period, climate scenario and horizon your filings report against."
+   }
+  },
+  "platform.golive.step.governance": {
+   "label": "Approval rules set",
+   "detail": {
+    "what": "Which changes need a second person's approval before they apply."
+   }
+  },
+  "platform.golive.step.scored": {
+   "label": "Book scored",
+   "detail": {
+    "what": "Your book scored for physical climate risk, location by location."
+   }
+  },
+  "platform.golive.step.filing": {
+   "label": "First filing",
+   "detail": {
+    "what": "Your first regulatory disclosure, prepared in the workspace."
+   }
+  },
+  "platform.golive.tenant.done": {
+   "label": "{org} · {sector}",
+   "detail": {
+    "what": "The workspace for {org} is set up for the {sector} sector."
+   }
+  },
+  "platform.golive.identity.done": {
+   "label": "LEI {lei}",
+   "detail": {
+    "what": "Your filings are made under {legal_name}, legal entity identifier {lei}."
+   }
+  },
+  "platform.golive.identity.todo": {
+   "label": "Legal name and LEI not set",
+   "detail": {
+    "what": "Filings need your organisation's legal name and its legal entity identifier (LEI).",
+    "next": "Look your organisation up in the global LEI register from the control center."
+   }
+  },
+  "platform.golive.access.done": {
+   "label": "People active: {n}",
+   "detail": {
+    "what": "{n} people in your organisation can sign in."
+   }
+  },
+  "platform.golive.access.alone": {
+   "label": "One person is active",
+   "detail": {
+    "what": "One person in your organisation can sign in so far.",
+    "next": "Invite your team from the control center."
+   }
+  },
+  "platform.golive.access.todo": {
+   "label": "No one is active yet",
+   "detail": {
+    "what": "No one in your organisation has activated an account yet.",
+    "next": "Invite your team from the control center."
+   }
+  },
+  "platform.golive.contracts.done": {
+   "label": "Contracts on file: {n}",
+   "detail": {
+    "what": "Signed contracts kept in your contracts vault: {n}."
+   }
+  },
+  "platform.golive.contracts.todo": {
+   "label": "No signed contract on file",
+   "detail": {
+    "what": "This step is optional: it does not hold back going live.",
+    "next": "Upload signed contracts to the contracts vault."
+   }
+  },
+  "platform.golive.book.done_fin": {
+   "label": "Holdings and assets: {n}",
+   "detail": {
+    "what": "Holdings and assets loaded to your book: {n}."
+   }
+  },
+  "platform.golive.book.done_agri": {
+   "label": "Sites and sourcing plots: {n}",
+   "detail": {
+    "what": "Operating sites and sourcing plots loaded to your book: {n}."
+   }
+  },
+  "platform.golive.book.todo": {
+   "label": "Your book is not loaded",
+   "detail": {
+    "what": "No holding, asset, site or sourcing plot is loaded yet.",
+    "next": "Upload your book from the Data hub."
+   }
+  },
+  "platform.golive.systems.done": {
+   "label": "Source systems registered: {n}",
+   "detail": {
+    "what": "Systems of record registered for your organisation: {n}."
+   }
+  },
+  "platform.golive.systems.todo": {
+   "label": "No source system connected",
+   "detail": {
+    "what": "This step is optional: it does not hold back going live.",
+    "next": "Register your systems of record under Integrations."
+   }
+  },
+  "platform.golive.engine.done": {
+   "label": "Period, scenario and horizon set",
+   "detail": {
+    "what": "Your organisation has set its own reporting basis."
+   }
+  },
+  "platform.golive.engine.todo": {
+   "label": "Using the platform's default basis",
+   "detail": {
+    "what": "Until you set your reporting basis, filings use the platform's default period, scenario and horizon.",
+    "next": "Confirm your reporting basis in the control center."
+   }
+  },
+  "platform.golive.governance.done": {
+   "label": "Approval matrix set",
+   "detail": {
+    "what": "Your organisation has set its own approval matrix."
+   }
+  },
+  "platform.golive.governance.todo": {
+   "label": "Using the platform's default approval rules",
+   "detail": {
+    "what": "Until you set your own approval matrix, the platform's default rules decide which changes need a second person.",
+    "next": "Review the approval matrix in the control center."
+   }
+  },
+  "platform.golive.scored.done": {
+   "label": "{scored} of {book} scored",
+   "detail": {
+    "what": "{scored} of the {book} locations in your book carry a physical-risk score."
+   }
+  },
+  "platform.golive.scored.no_book": {
+   "label": "Load your book first",
+   "detail": {
+    "what": "Scoring starts once your book is loaded."
+   }
+  },
+  "platform.golive.filing.done": {
+   "label": "Filings created: {n}",
+   "detail": {
+    "what": "Filings prepared in your workspace: {n}."
+   }
+  },
+  "platform.golive.filing.todo": {
+   "label": "No filing yet",
+   "detail": {
+    "what": "No disclosure has been prepared in the workspace yet.",
+    "next": "Generate your first disclosure from Filings."
+   }
+  },
+  "platform.feed.climate_reanalysis": {
+   "label": "Copernicus ERA5 and ERA5-Land climate reanalysis",
+   "detail": {
+    "what": "Global climate reanalysis from Copernicus and ECMWF: temperature, precipitation, soil moisture, frost and wind.",
+    "why": "It scores heat, drought, frost, soil water and wind. Global baselines for temperature, precipitation, soil moisture and frost are in place, so scoring is worldwide."
+   }
+  },
+  "platform.feed.flood": {
+   "label": "ERA5-Land runoff, a stand-in flood source",
+   "detail": {
+    "what": "Total runoff from Copernicus ERA5-Land, standing in for river discharge since the Copernicus river-discharge data was withdrawn from the Climate Data Store in 2025.",
+    "why": "It was the input of an earlier flood model. The published flood score now reads the JRC river-flood hazard maps, so a refresh of this source does not change a filing."
+   }
+  },
+  "platform.feed.jrc_flood_maps": {
+   "label": "JRC global river-flood hazard maps",
+   "detail": {
+    "what": "Flood depth at about 90 m for the 1-in-10, 1-in-100 and 1-in-500-year river floods, with the permanent-water mask, from the Copernicus Emergency Management Service and the European Commission's Joint Research Centre.",
+    "why": "It drives the flood score. It covers river flooding only: surface-water, flash and groundwater flooding are not covered, and the maps carry no flood defences, so they show the hazard, not the risk left behind defences."
+   }
+  },
+  "platform.feed.fire_thermal": {
+   "label": "NASA FIRMS active-fire detections",
+   "detail": {
+    "what": "Active fires detected by the VIIRS satellite instruments, from NASA's Fire Information for Resource Management System.",
+    "why": "Heat readings from Sentinel-3 (thermal-infrared brightness temperature) are connected through the Copernicus Data Space and start once access to it is set up. They are brightness temperature, not the corrected land-surface temperature product."
+   }
+  },
+  "platform.feed.atmosphere": {
+   "label": "Copernicus atmosphere monitoring (CAMS)",
+   "detail": {
+    "what": "Air quality, dust and fire emissions from the Copernicus Atmosphere Monitoring Service, read when needed and not stored.",
+    "why": "It informs the risk view. Pollution reporting is outside the scope of the climate and nature filings."
+   }
+  },
+  "platform.feed.imagery": {
+   "label": "Copernicus Sentinel-1 radar and Sentinel-2 imagery",
+   "detail": {
+    "what": "Satellite radar (Sentinel-1) and optical imagery (Sentinel-2) from the Copernicus programme.",
+    "why": "The Sentinel-1 flood reading, radar backscatter and its change over seven days, is built and starts once access credentials for the Copernicus Data Space are in place; until readings arrive it shows as not yet available. Sentinel-2 vegetation readings are not yet in production."
+   }
+  },
+  "platform.feed.storms_ocean": {
+   "label": "NOAA IBTrACS tropical-cyclone tracks",
+   "detail": {
+    "what": "Tracks and strengths of tropical cyclones worldwide, from NOAA's International Best Track Archive.",
+    "why": "It drives the cyclone score. Sea-state data from Copernicus Marine is not yet connected."
+   }
+  },
+  "platform.feed.nasa_power": {
+   "label": "NASA POWER daily temperature",
+   "detail": {
+    "what": "Thirty years (1991 to 2020) of daily minimum and maximum temperature at 2 m, read for each location when needed, from NASA POWER.",
+    "why": "Cold wave: the 1-in-10 coldest night and the location's 99.6 % design temperature, from the daily minima. Rising heat: the number of days at or above 30 °C, from the daily maxima."
+   }
+  },
+  "platform.feed.geophysical": {
+   "label": "USGS earthquakes and Smithsonian volcano records",
+   "detail": {
+    "what": "Earthquake scores from the global USGS catalogue of earthquakes of magnitude 5.0 and above, with the European seismic hazard model as a background layer; and eruption records for the volcanoes the volcanic score is tested on.",
+    "why": "Earthquakes and volcanoes are geophysical, not climate-related, so they are outside the scope of the climate and nature filings."
+   }
+  },
+  "platform.feed.fire_climatology": {
+   "label": "Fire weather index and burned-area history",
+   "detail": {
+    "what": "Days of extreme fire danger from 2006 to 2020 from the Copernicus Fire Weather Index (ECMWF), combined with burned-area history from 2001 to 2019 from the Copernicus Climate Change Service and the European Space Agency.",
+    "why": "It is the wildfire climatology behind the wildfire score, rebuilt once a year."
+   }
+  },
+  "platform.feed.volcanic_gvp": {
+   "label": "Smithsonian Volcanoes of the World catalogue",
+   "detail": {
+    "what": "About 1,200 volcanoes active in roughly the last 12,000 years and about 11,000 catalogued eruptions with their explosive size, from the Smithsonian Global Volcanism Program.",
+    "why": "It drives the volcanic screening score for any address. Volcanoes are geophysical, so they are outside the scope of the climate and nature filings."
+   }
+  },
+  "platform.feed.cmip_ensemble": {
+   "label": "CMIP6 climate projections, four-model average",
+   "detail": {
+    "what": "Projected change in temperature, precipitation and near-surface wind against 1995 to 2014, for each warming pathway and period, as the average of four climate models with their spread, on a 2° grid.",
+    "why": "It drives the warming, rainfall-change and wind-change scores and the future years of the flood, cyclone and wildfire scores."
+   }
+  },
+  "platform.feed.gesla_tide_gauges": {
+   "label": "GESLA tide-gauge extreme sea levels",
+   "detail": {
+    "what": "The observed 1-in-10-year extreme still-water level at the nearest tide gauge, from 1,864 gauges with ten or more years of records between 1979 and 2020.",
+    "why": "It sets how high the sea can reach at a coastal site; sea-level rise from the IPCC's sixth assessment is added for future years. A site with no gauge within 250 km is not scored."
+   }
+  },
+  "platform.feed.elevation_dem": {
+   "label": "Copernicus elevation model and the coastline",
+   "detail": {
+    "what": "Elevation and slope at each site, read when needed from the Copernicus global elevation model, and the distance to the coastline (Natural Earth).",
+    "why": "It feeds coastal flooding and saltwater intrusion (elevation and distance to the coast), and avalanche and soil creep (slope)."
+   }
+  },
+  "platform.feed.landslide_lhasa": {
+   "label": "NASA global landslide susceptibility map",
+   "detail": {
+    "what": "Landslide susceptibility classes at about 1 km, from slope, geology, roads, fault zones and forest loss (NASA).",
+    "why": "It shows how prone the ground is to landslides, not a forecast of a landslide after rain, and it does not change with the climate scenario."
+   }
+  },
+  "platform.feed.subsidence_egms": {
+   "label": "Copernicus European Ground Motion Service",
+   "detail": {
+    "what": "Vertical ground movement measured by satellite radar at 100 m and calibrated against satellite-positioning stations, 2020 to 2024.",
+    "why": "It drives the subsidence score across the European Economic Area; outside its coverage the global susceptibility map is used."
+   }
+  },
+  "platform.feed.subsidence_gss": {
+   "label": "Global subsidence susceptibility map",
+   "detail": {
+    "what": "Subsidence susceptibility classes at about 1 km, from aquifer compaction, rock and soil type, groundwater depletion and urban load (Herrera-García and others, 2021).",
+    "why": "It is the subsidence score outside the coverage of the European Ground Motion Service."
+   }
+  },
+  "platform.feed.permafrost_obu": {
+   "label": "Northern Hemisphere permafrost probability",
+   "detail": {
+    "what": "The probability of permafrost at about 1 km across the Northern Hemisphere north of 25°N (Obu and others, 2019, European Space Agency).",
+    "why": "It drives the permafrost thaw score and, with slope, the soil-creep score."
+   }
+  },
+  "platform.feed.soil_erosion_glosem": {
+   "label": "Global soil erosion by water",
+   "detail": {
+    "what": "Soil lost to water erosion, in tonnes per hectare a year at about 100 m (European Soil Data Centre; Borrelli and Panagos).",
+    "why": "It drives the soil erosion score."
+   }
+  },
+  "platform.feed.soil_degradation_sdg": {
+   "label": "Trends.Earth degraded land",
+   "detail": {
+    "what": "Whether land is degraded, stable or improving, from the global map behind the United Nations land-degradation indicator (Trends.Earth, Conservation International), read for each location when needed and not stored.",
+    "why": "It drives the soil degradation score."
+   }
+  },
+  "platform.feed.coastal_erosion_liscoast": {
+   "label": "JRC shoreline-change projections for sandy coasts",
+   "detail": {
+    "what": "Projected long-term retreat of sandy coastlines under the RCP 4.5 and RCP 8.5 emission pathways in 2050 and 2100 (European Commission's Joint Research Centre; Vousdoukas and others, 2020).",
+    "why": "It drives the coastal erosion score for future years only: it has no value for today."
+   }
+  },
+  "platform.feed.ocean_ph_oceansoda": {
+   "label": "OceanSODA surface-ocean acidity",
+   "detail": {
+    "what": "The recent mean pH of the surface ocean on a global grid (OceanSODA-ETHZ, NOAA).",
+    "why": "It drives the ocean acidification score and applies only to coastal and marine assets."
+   }
+  },
+  "platform.feed.glacial_lakes_giglak": {
+   "label": "GIGLak global glacial-lake inventory",
+   "detail": {
+    "what": "About 117,000 mapped glacial lakes with their area.",
+    "why": "It screens how close a site is to a glacial lake; it does not model the path an outburst flood would take."
+   }
+  },
+  "platform.feed.deforestation": {
+   "label": "Hansen Global Forest Change",
+   "detail": {
+    "what": "Annual forest loss worldwide (University of Maryland), read when a deforestation check runs and not stored.",
+    "why": "Deforestation checks are run again on each new release."
+   }
+  },
+  "platform.feed.natura": {
+   "label": "EEA Natura 2000 protected areas",
+   "detail": {
+    "what": "The boundaries of the EU's Natura 2000 protected areas, from one annual release of the European Environment Agency; EU coverage.",
+    "why": "It flags your sites and sourcing plots in or near a Natura 2000 area, for biodiversity reporting. The data may be reused, including commercially, with acknowledgement, which is shown."
+   }
+  },
+  "platform.feed.osm_protected": {
+   "label": "OpenStreetMap protected areas",
+   "detail": {
+    "what": "Protected areas outside the EU from OpenStreetMap, used where the World Database on Protected Areas needs a licence.",
+    "why": "It is community-sourced with uneven coverage: a screening layer, not an agency source, and labelled as such."
+   }
+  },
+  "platform.feed.wdpa": {
+   "label": "World Database on Protected Areas (WDPA)",
+   "detail": {
+    "what": "Protected areas worldwide, the counterpart to Natura 2000 outside the EU (UNEP-WCMC and IUCN, Protected Planet).",
+    "why": "It is available under a licence through IBAT; connecting it is pending."
+   }
+  },
+  "platform.feed.wdoecm": {
+   "label": "Other effective conservation measures (WD-OECM)",
+   "detail": {
+    "what": "Areas conserved by means other than protection, the companion to the World Database on Protected Areas (UNEP-WCMC and IUCN).",
+    "why": "It widens the coverage of biodiversity reporting. Like the World Database on Protected Areas it is licensed through IBAT; connecting it is pending."
+   }
+  },
+  "platform.feed.kba": {
+   "label": "Key Biodiversity Areas",
+   "detail": {
+    "what": "Sites of significance for global biodiversity (KBA Partnership).",
+    "why": "It is licensed commercially through IBAT together with the World Database on Protected Areas; once the licence is in place it is loaded from the licensed file with the other protected areas."
+   }
+  },
+  "platform.feed.reference_lei": {
+   "label": "GLEIF legal entity identifiers",
+   "detail": {
+    "what": "Legal entity identifiers (LEI) from the Global Legal Entity Identifier Foundation.",
+    "why": "A change renames an entity; it does not change a risk score."
+   }
+  },
+  "platform.feed.reference_assets": {
+   "label": "Sector emission-intensity estimates",
+   "detail": {
+    "what": "Emissions estimated as the average emission intensity of a sector of economic activity (NACE) times revenue.",
+    "why": "It is not a facility-level emissions source, and the values are labelled as estimated wherever they appear."
+   }
+  },
+  "platform.feed.reference_countries": {
+   "label": "Unicode CLDR countries, codes and currencies",
+   "detail": {
+    "what": "ISO 3166 country codes (two-letter, three-letter and numeric), country names in the EU's official languages plus Norwegian and Turkish, and each country's current currency.",
+    "why": "It matches a country however you write it, such as Deutschland, DEU or UK. It is fixed to one release, and a name that could mean two countries is never matched."
+   }
+  },
+  "platform.feed.fx_imf": {
+   "label": "IMF monthly exchange rates",
+   "detail": {
+    "what": "Month-end and monthly-average rates per euro for about 180 countries since 2010, from the International Monetary Fund: the second official source after the ECB, for currencies such as the Ghanaian cedi, Vietnamese dong or Colombian peso.",
+    "why": "The IMF publishes one to two months late, so a month-end rate is used for up to 62 days; an older one is marked out of date. A period in the future, or before a currency existed, is refused."
+   }
+  },
+  "platform.feed.fx_ecb": {
+   "label": "ECB euro reference exchange rates",
+   "detail": {
+    "what": "Daily reference rates for about 30 currencies from the European Central Bank: the full history since 1999, then the last 90 days each day, which fills in any missed day.",
+    "why": "Values you give in other currencies are converted to euro at the rate for the book date; the ECB's own figure is kept beside the one used. A refresh whose newest rate is more than 5 days old is recorded as failed."
+   }
+  },
+  "platform.feed.commodity_prices_wb": {
+   "label": "World Bank commodity prices (Pink Sheet)",
+   "detail": {
+    "what": "Monthly prices of 33 commodities and fertilisers since 1960, from the World Bank.",
+    "why": "It shows input-cost pressure and checks cost of goods. It is published monthly and refreshed automatically."
+   }
+  },
+  "platform.feed.crop_production_faostat": {
+   "label": "FAOSTAT crop production",
+   "detail": {
+    "what": "Production, area and yield per country and year since 1961 for the crops and origins mapped, from the Food and Agriculture Organization of the United Nations.",
+    "why": "It feeds the crop calibrations and the realised-exposure and world-crop views. It is checked monthly for a new file (FAO publishes about once a year and revises earlier years); a new file is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_eurostat": {
+   "label": "Eurostat crop production by country",
+   "detail": {
+    "what": "Area, production and yield per country and year for the crops with a Eurostat code, in the 27 EU countries, the EFTA countries, the UK and candidate countries, including durum wheat (which FAOSTAT does not separate) and the latest season ahead of FAOSTAT.",
+    "why": "It is checked monthly against the dataset's update date; a new publication is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_eurostat_regional": {
+   "label": "Eurostat crop production by region",
+   "detail": {
+    "what": "Area, production and yield per region (NUTS 2, 2021 edition) and year for the crops Eurostat publishes by region; wheat is common wheat plus durum, the two parts of Eurostat's wheat total.",
+    "why": "National figures stay those of the national dataset; codes for other region levels or editions are set aside and shown with the release. It is checked monthly against the dataset's update date; a new publication is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_usda_fas": {
+   "label": "USDA world production, supply and distribution",
+   "detail": {
+    "what": "Official production, area and yield estimates per country and marketing year for the crops with a USDA code: the current and recent seasons, ahead of FAOSTAT's one-to-two-year lag (USDA Foreign Agricultural Service).",
+    "why": "Where its definitions differ from FAO's (milled rice, palm and olive oil, shelled almonds) the crop list says so. It is checked monthly against its release dates; a new release is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_usda_nass": {
+   "label": "USDA NASS US and state crop production",
+   "detail": {
+    "what": "Production, area and yield for the US and each state for the crops with a NASS series: the history below national level behind US origins (USDA National Agricultural Statistics Service).",
+    "why": "Annual survey estimates only: a season still in progress and withheld values are set aside and shown with the release. It is checked monthly for records loaded since the last release; a new release is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_usda_nass_county": {
+   "label": "USDA NASS US county crop production",
+   "detail": {
+    "what": "Production, area and yield per US county (the Census Bureau's 2020 county list) for the crops with a NASS series, published once a year after the annual summary.",
+    "why": "Combined counties, counties no longer in the 2020 list and withheld values are set aside and shown with the release. It is checked monthly for records loaded since the last release; a new release is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_statcan": {
+   "label": "Statistics Canada field crop production",
+   "detail": {
+    "what": "Area, production and yield for Canada and each province for the crops grown in Canada, including durum wheat, from Statistics Canada's field crops table.",
+    "why": "Final production only: a season before the November survey (the July and September figures are model estimates) and unpublished values are set aside and shown with the release. It is checked monthly for a new file; a new file is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.weather_era_land_global": {
+   "label": "ERA5-Land monthly weather for crops",
+   "detail": {
+    "what": "Monthly precipitation, temperature and potential evaporation worldwide at 0.1° since 1991, with the current year's months as Copernicus publishes them.",
+    "why": "It is checked monthly against the months Copernicus holds. New months are fetched, the weather over each crop's growing areas is rebuilt and every crop calibration is run again; a result that would change a publication is proposed for review."
+   }
+  },
+  "platform.feed.commodity_prices_eu": {
+   "label": "EU agri-food prices: olive oil, wine, dairy",
+   "detail": {
+    "what": "Weekly EU prices the World Bank series lacks, for olive oil, wine and dairy, averaged to a monthly EU figure (European Commission agri-food data portal).",
+    "why": "It is published weekly and refreshed automatically. Almond prices are not yet included."
+   }
   }
  },
  "names": {
@@ -11326,6 +12213,19 @@
    "url": "Portal address",
    "user": "User name",
    "password": "Password"
+  },
+  "platform.golive_phase": {
+   "provision": "Set up",
+   "load": "Load and configure",
+   "govern": "Govern and go live"
+  },
+  "platform.intake_status": {
+   "draft": "Draft",
+   "invited": "Sent to the client",
+   "submitted": "Completed by the client",
+   "in_review": "In review",
+   "provisioned": "Workspace created",
+   "rejected": "Declined"
   }
  }
 }

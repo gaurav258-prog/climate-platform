@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle2, ShieldCheck, KeyRound } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { api, apiDetail, apiMessage } from '../lib/api'
 import { BrandMark, Wordmark } from '../components/BrandMark'
+import { HEADING, InfoButton, MessageLine, type Message } from '../components/Details'
 
 interface Activation { email: string; full_name: string | null; org_name: string; password_set: boolean; mfa_enrolled: boolean }
-function msg(e: unknown, fallback: string): string {
-  if (e instanceof ApiError) return (e.body as { error?: { message?: string } })?.error?.message ?? fallback
-  return fallback
+// a refusal from the server: its short label, its explanation one click away
+const refusal = (e: unknown, fallback: string): Message => ({ label: apiMessage(e, fallback), detail: apiDetail(e) })
+const APPS = {
+  title: 'Two-factor authentication', sections: [
+    { heading: HEADING.shows, body: 'Every sign-in asks for a six-digit code from an authenticator app on your phone, as well as your password. It is required for every account.' },
+    { heading: HEADING.read, body: 'Any authenticator app works, for example Google Authenticator, Microsoft Authenticator, Authy or 1Password. Scan the code with the app, or type the key under it, then enter the six digits the app shows.' },
+  ],
 }
 const inp = 'w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)]'
 
@@ -19,7 +24,7 @@ export default function Activate() {
   const [mfa, setMfa] = useState<{ qr_data_uri: string | null; secret: string } | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
+  const [err, setErr] = useState<Message | null>(null)
 
   useEffect(() => {
     api.get<Activation>(`/v1/onboarding/activate/${token}`).then(d => {
@@ -32,20 +37,20 @@ export default function Activate() {
 
   async function setPassword() {
     setErr(null)
-    if (pw.length < 10) { setErr('Use at least 10 characters.'); return }
-    if (pw !== pw2) { setErr('Passwords don’t match.'); return }
+    if (pw.length < 10) { setErr({ label: 'Use at least 10 characters.' }); return }
+    if (pw !== pw2) { setErr({ label: 'Passwords don’t match.' }); return }
     setBusy(true)
     try { await api.post(`/v1/onboarding/activate/${token}/password`, { password: pw }); setStep('mfa') }
-    catch (e) { setErr(msg(e, 'Could not set your password.')) } finally { setBusy(false) }
+    catch (e) { setErr(refusal(e, 'Could not set your password.')) } finally { setBusy(false) }
   }
   async function beginMfa() {
     try { setMfa(await api.post(`/v1/onboarding/activate/${token}/mfa/begin`)) }
-    catch (e) { setErr(msg(e, 'Could not start two-factor setup.')) }
+    catch (e) { setErr(refusal(e, 'Could not start two-factor setup.')) }
   }
   async function confirmMfa() {
     setErr(null); setBusy(true)
     try { await api.post(`/v1/onboarding/activate/${token}/mfa/confirm`, { code }); setStep('done') }
-    catch (e) { setErr(msg(e, 'That code didn’t match — try again.')) } finally { setBusy(false) }
+    catch (e) { setErr(refusal(e, 'That code didn’t match — try again.')) } finally { setBusy(false) }
   }
 
   return (
@@ -62,7 +67,7 @@ export default function Activate() {
             <Field label="New password"><input type="password" className={inp} value={pw} onChange={e => setPw(e.target.value)} placeholder="At least 10 characters" /></Field>
             <Field label="Confirm password"><input type="password" className={inp} value={pw2} onChange={e => setPw2(e.target.value)} /></Field>
           </div>
-          {err && <div className="text-[13px] text-[var(--color-bad)] mt-3">{err}</div>}
+          {err && <MessageLine m={err} className="text-[13px] text-[var(--color-bad)] mt-3" />}
           <Btn onClick={setPassword} busy={busy} disabled={!pw || !pw2}>Continue →</Btn>
         </div>
       )}
@@ -70,19 +75,19 @@ export default function Activate() {
       {step === 'mfa' && a && (
         <div>
           <Head icon={<ShieldCheck size={20} />} eyebrow={`${a.org_name} · two-factor authentication`} title="Secure your account"
-            sub="Scan this with an authenticator app (Google Authenticator, Authy, 1Password, Microsoft Authenticator), then enter the 6-digit code. This is required." />
+            sub={<>Scan with your authenticator app, then enter its code. <InfoButton compact details={APPS} /></>} />
           <div className="mt-5 flex flex-col items-center gap-3">
             {mfa?.qr_data_uri
               ? <img src={mfa.qr_data_uri} alt="Scan to set up two-factor" className="w-44 h-44 rounded-lg bg-white p-2" />
               : <p className="text-[12px] text-[var(--color-faint)]">Preparing…</p>}
             {mfa?.secret && <div className="text-center">
-              <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Can’t scan? Enter this key</div>
+              <div className="text-[11.5px] text-[var(--color-faint)]">Can’t scan? Enter this key</div>
               <div className="mono text-[12px] text-[var(--color-ink)] break-all">{mfa.secret}</div>
             </div>}
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric"
               className={inp + ' tracking-[0.4em] text-center max-w-[200px]'} placeholder="123456" />
           </div>
-          {err && <div className="text-[13px] text-[var(--color-bad)] mt-3 text-center">{err}</div>}
+          {err && <div className="mt-3 text-center"><MessageLine m={err} className="text-[13px] text-[var(--color-bad)]" /></div>}
           <Btn onClick={confirmMfa} busy={busy} disabled={code.length < 6}>Verify & finish →</Btn>
         </div>
       )}
@@ -111,18 +116,18 @@ function Frame({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-function Head({ icon, eyebrow, title, sub }: { icon: React.ReactNode; eyebrow: string; title: string; sub: string }) {
+function Head({ icon, eyebrow, title, sub }: { icon: React.ReactNode; eyebrow: string; title: string; sub: React.ReactNode }) {
   return (
     <div>
       <div className="text-[var(--color-sky)] mb-2">{icon}</div>
-      <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-blue)] mb-1">{eyebrow}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-blue)] mb-1">{eyebrow}</div>
       <h1 className="display text-xl font-semibold m-0">{title}</h1>
-      <p className="text-[13px] text-[var(--color-mute)] mt-1.5">{sub}</p>
+      <div className="text-[13px] text-[var(--color-mute)] mt-1.5">{sub}</div>
     </div>
   )
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><label className="block text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-1.5">{label}</label>{children}</div>
+  return <div><label className="block text-[11.5px] text-[var(--color-mute)] mb-1.5">{label}</label>{children}</div>
 }
 function Btn({ children, onClick, busy, disabled }: { children: React.ReactNode; onClick: () => void; busy: boolean; disabled?: boolean }) {
   return <button onClick={onClick} disabled={busy || disabled}

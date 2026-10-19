@@ -8,11 +8,12 @@ from __future__ import annotations
 import csv
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
 from api.deps import DbSession, require_permission, require_step_up
+from core.errors import UserError
 from services.governance import account_security as acct
 
 router = APIRouter(prefix="/v1/security", tags=["security"])
@@ -23,8 +24,8 @@ def reset_mfa(user_id: str, session: DbSession, ctx: dict = Depends(require_perm
               _su: dict = Depends(require_step_up)):
     try:
         return acct.admin_reset_mfa(session, actor_user_id=ctx["user"]["id"], org_id=ctx["org"]["org_id"], user_id=user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail={"message": str(e)})
+    except ValueError as e:          # the one refusal: no such person in the administrator's organisation
+        raise UserError("platform.security.person_not_found") from e
 
 
 @router.post("/email/drain", summary="Deliver pending emails from the outbox")

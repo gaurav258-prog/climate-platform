@@ -46,8 +46,9 @@ def test_lineage_html_renders_chain_and_feed_provenance():
     # the five-stage source→filing chain
     assert html.count("border-left:4px") == 5
     # feeds mapped to their authoritative source name + maturity/freshness
-    assert "Copernicus / ECMWF — ERA5 / ERA5-Land" in html   # the feed registry's own name
-    assert "ERA5-Land runoff (flood proxy)" in html
+    from services.data.feeds import FEEDS
+    names = {f["key"]: f["name"] for f in FEEDS}
+    assert names["climate_reanalysis"] in html and names["flood"] in html   # the feed registry's own names
     assert "planned" in html and "overdue" in html
     # engine + snapshot identity threaded through
     assert "sc-impact-v0.5" in html and "bank_p3esg v4" in html

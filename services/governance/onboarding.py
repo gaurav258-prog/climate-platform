@@ -11,6 +11,8 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+
 _FIN = {"bank", "insurer", "reit", "asset_manager"}
 
 
@@ -21,14 +23,25 @@ def _scalar(session: Session, sql: str, **params):
         return None
 
 
+# the checklist's phases, in order; each step's title, what it means (its ⓘ) and its live state are catalogue messages
+# (platform.golive.*), never words written here
+PHASES = ("provision", "load", "govern")
+
+
+def _step(key: str, phase: str, done: bool, optional: bool, route: str, state: str, **params) -> dict:
+    about = messages.render(f"platform.golive.step.{key}")
+    return {"key": key, "phase": phase, "title": about["label"], "about": about, "done": done, "optional": optional,
+            "message": messages.render(f"platform.golive.{key}.{state}", **params), "route": route}
+
+
 def onboarding_status(session: Session, org_id: str) -> dict:
-    """The onboarding checklist for one tenant, with each step's live done-state, detail, and the route that
-    completes it. Optional steps don't gate go-live."""
+    """The onboarding checklist for one tenant, with each step's live done-state, the message that says where it
+    stands, and the route that completes it. Optional steps don't gate go-live."""
     org = session.execute(text("""
         SELECT name, type, legal_name, lei, filing_contact_email, created_at FROM organizations WHERE org_id = CAST(:o AS uuid)
     """), {"o": org_id}).mappings().first()
     if not org:
-        return {"available": False, "reason": "org_not_found"}
+        return {"available": False, "message": messages.render("platform.golive.unavailable")}
     otype = org["type"]
 
     n_users = _scalar(session, "SELECT count(*) FROM users WHERE org_id = CAST(:o AS uuid) AND status = 'active'", o=org_id) or 0
@@ -36,12 +49,12 @@ def onboarding_status(session: Session, org_id: str) -> dict:
     # book loaded — org-type-aware (FIN books vs agri sites/plots)
     if otype in _FIN:
         n_book = _scalar(session, "SELECT count(*) FROM portfolio_entities WHERE org_id = CAST(:o AS uuid)", o=org_id) or 0
-        book_noun = "holdings / assets"
+        book_state = "done_fin"
     else:
         n_plots = _scalar(session, "SELECT count(*) FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid)", o=org_id) or 0
         n_sites = _scalar(session, "SELECT count(*) FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)", o=org_id) or 0
         n_book = n_plots + n_sites
-        book_noun = "sites / sourcing plots"
+        book_state = "done_agri"
 
     # scored — entities/plots carrying a physical-risk score
     if otype in _FIN:
@@ -55,41 +68,26 @@ def onboarding_status(session: Session, org_id: str) -> dict:
             JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
             WHERE p.org_id = CAST(:o AS uuid) AND v.physical_risk_score IS NOT NULL""", o=org_id) or 0
 
-    n_source = _scalar(session, "SELECT count(*) FROM source_systems WHERE org_id = CAST(:o AS uuid)", o=org_id)
+    n_source = _scalar(session, "SELECT count(*) FROM source_systems WHERE org_id = CAST(:o AS uuid)", o=org_id) or 0
     has_basis = bool(_scalar(session, "SELECT 1 FROM org_reporting_settings WHERE org_id = CAST(:o AS uuid) LIMIT 1", o=org_id))
     has_policy = bool(_scalar(session, "SELECT 1 FROM approval_policy WHERE org_id = CAST(:o AS uuid) LIMIT 1", o=org_id))
     n_filings = _scalar(session, "SELECT count(*) FROM regulatory_filing WHERE org_id = CAST(:o AS uuid)", o=org_id) or 0
-    n_contracts = _scalar(session, "SELECT count(*) FROM customer_contract WHERE org_id = CAST(:o AS uuid)", o=org_id)
+    n_contracts = _scalar(session, "SELECT count(*) FROM customer_contract WHERE org_id = CAST(:o AS uuid)", o=org_id) or 0
+    identity = bool(org["legal_name"] and org["lei"])
 
     steps = [
-        {"key": "tenant", "phase": "Provision", "title": "Client tenant created",
-         "done": True, "optional": False, "detail": f"{org['name']} · {otype.replace('_', ' ')}", "route": "/platform"},
-        {"key": "identity", "phase": "Provision", "title": "Reporting identity",
-         "done": bool(org["legal_name"] and org["lei"]), "optional": False,
-         "detail": (f"LEI {org['lei']}" if org["lei"] else "legal name + LEI not set — look up in GLEIF"), "route": "/admin"},
-        {"key": "access", "phase": "Provision", "title": "People & access",
-         "done": n_users >= 1, "optional": False,
-         "detail": f"{n_users} active user{'s' if n_users != 1 else ''}" + (" — invite the team" if n_users < 2 else ""), "route": "/admin"},
-        {"key": "contracts", "phase": "Provision", "title": "Signed contracts on file",
-         "done": (n_contracts or 0) > 0, "optional": True,
-         "detail": f"{n_contracts or 0} contract{'s' if (n_contracts or 0) != 1 else ''}", "route": "/contracts"},
-        {"key": "book", "phase": "Load & configure", "title": "Book loaded to the golden source",
-         "done": n_book > 0, "optional": False, "detail": f"{n_book} {book_noun}", "route": "/data"},
-        {"key": "systems", "phase": "Load & configure", "title": "Source systems connected",
-         "done": (n_source or 0) > 0, "optional": True,
-         "detail": f"{n_source or 0} system{'s' if (n_source or 0) != 1 else ''} registered", "route": "/admin"},
-        {"key": "engine", "phase": "Load & configure", "title": "Reporting basis configured",
-         "done": has_basis, "optional": False,
-         "detail": "period / scenario / horizon set" if has_basis else "using platform defaults — confirm the basis", "route": "/admin"},
-        {"key": "governance", "phase": "Govern & go live", "title": "Governance set up",
-         "done": has_policy, "optional": False,
-         "detail": "approval matrix configured" if has_policy else "using default 4-eyes rules — review", "route": "/admin"},
-        {"key": "scored", "phase": "Govern & go live", "title": "Book scored & verified",
-         "done": n_scored > 0, "optional": False,
-         "detail": f"{n_scored} of {n_book} scored" if n_book else "load the book first", "route": "/"},
-        {"key": "filing", "phase": "Govern & go live", "title": "First filing",
-         "done": n_filings > 0, "optional": False,
-         "detail": f"{n_filings} filing{'s' if n_filings != 1 else ''} created" if n_filings else "generate the first disclosure", "route": "/filings"},
+        _step("tenant", "provision", True, False, "/platform", "done", org=org["name"], sector=messages.name("admin.sector", otype)),
+        _step("identity", "provision", identity, False, "/admin", "done" if identity else "todo",
+              legal_name=org["legal_name"], lei=org["lei"]),
+        _step("access", "provision", n_users >= 1, False, "/admin",
+              "todo" if n_users == 0 else "alone" if n_users == 1 else "done", n=n_users),
+        _step("contracts", "provision", n_contracts > 0, True, "/contracts", "done" if n_contracts else "todo", n=n_contracts),
+        _step("book", "load", n_book > 0, False, "/data", book_state if n_book else "todo", n=n_book),
+        _step("systems", "load", n_source > 0, True, "/admin", "done" if n_source else "todo", n=n_source),
+        _step("engine", "load", has_basis, False, "/admin", "done" if has_basis else "todo"),
+        _step("governance", "govern", has_policy, False, "/admin", "done" if has_policy else "todo"),
+        _step("scored", "govern", n_scored > 0, False, "/", "done" if n_book else "no_book", scored=n_scored, book=n_book),
+        _step("filing", "govern", n_filings > 0, False, "/filings", "done" if n_filings else "todo", n=n_filings),
     ]
 
     required = [s for s in steps if not s["optional"]]
@@ -97,6 +95,7 @@ def onboarding_status(session: Session, org_id: str) -> dict:
     n_done = sum(1 for s in steps if s["done"])
     return {
         "available": True, "org_id": org_id, "org_name": org["name"], "org_type": otype,
+        "phases": [{"key": k, "label": messages.name("platform.golive_phase", k)} for k in PHASES],
         "steps": steps,
         "required_total": len(required), "required_done": done_req,
         "total": len(steps), "done": n_done,

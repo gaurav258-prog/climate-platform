@@ -8,6 +8,7 @@ POST /v1/auth/logout  — stateless no-op (client discards token); logged for au
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,12 +18,14 @@ from sqlalchemy import text as _sql
 from api.deps import CurrentUser, DbSession
 from api.ratelimit import rate_limiter
 from api.security import create_access_token, token_expires_in_seconds
-from api.services.rbac import AuthError, authenticate, load_user_context, write_audit
+from api.services.rbac import authenticate, load_user_context, write_audit
+from core.errors import UserError
 from services.governance import account_security as acct
 from services.governance import sessions as sess
 from services.governance import totp
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
+logger = logging.getLogger(__name__)
 
 _login_limit = rate_limiter(max_calls=30, window_seconds=60)     # 30 login attempts / IP / minute
 _forgot_limit = rate_limiter(max_calls=8, window_seconds=300)    # 8 reset requests / IP / 5 min
@@ -54,10 +57,11 @@ def _profile(ctx: dict) -> dict:
 
 @router.post("/login", summary="Log in with email + password")
 def login(body: LoginRequest, session: DbSession, request: Request, _rl: None = Depends(_login_limit)):
-    try:
-        user = authenticate(session, body.email, body.password)
-    except AuthError as e:
-        raise HTTPException(status_code=401, detail={"error": e.code, "message": e.message})
+    # A locked account or one whose organisation signs in through single sign-on is refused by authenticate() with
+    # a catalogue code (api/services/rbac.py AuthError). The three refusals below keep their machine codes because
+    # the sign-in screen branches on them (web/src/pages/Login.tsx: mfa_required opens the code field); their words
+    # are customer words, and a wrong e-mail and a wrong password get the same one.
+    user = authenticate(session, body.email, body.password)
     if not user:
         raise HTTPException(
             status_code=401,
@@ -107,7 +111,8 @@ def refresh(body: RefreshRequest, session: DbSession, request: Request):
                            user_agent=request.headers.get("user-agent"),
                            ip=request.client.host if request.client else None)
     except sess.SessionError as e:
-        raise HTTPException(status_code=401, detail={"error": "invalid_refresh", "message": str(e)})
+        logger.warning("refresh refused: %s", e)          # a reused token signs every session out: worth the log
+        raise UserError("platform.access.session_expired") from e
 
 
 @router.get("/sessions", summary="List active sessions on this account")
@@ -166,10 +171,10 @@ def step_up(body: StepUpRequest, ctx: CurrentUser, session: DbSession):
         _sql("SELECT hashed_password, mfa_secret, mfa_enrolled_at FROM users WHERE user_id = CAST(:u AS uuid)"),
         {"u": ctx["user"]["id"]}).mappings().first()
     if not verify_password(body.password, row["hashed_password"]):
-        raise HTTPException(status_code=401, detail={"error": "invalid_credentials", "message": "Password is incorrect."})
+        raise UserError("platform.signin.step_up_password")
     if row["mfa_enrolled_at"] and not (totp.verify(row["mfa_secret"] or "", body.otp or "")
                                        or acct.consume_backup_code(session, ctx["user"]["id"], body.otp or "")):
-        raise HTTPException(status_code=401, detail={"error": "mfa_invalid", "message": "Authenticator code required."})
+        raise UserError("platform.signin.step_up_code")
     return {"step_up_token": create_step_up_token(ctx["user"]["id"])}
 
 
@@ -183,13 +188,15 @@ def forgot_password(body: ForgotRequest, session: DbSession, _rl: None = Depends
 def check_reset(token: str, session: DbSession):
     r = acct.get_reset(session, token)
     if not r:
-        raise HTTPException(status_code=404, detail={"message": "this reset link is invalid or has expired"})
+        raise UserError("platform.reset.link_invalid")
     return r
 
 
 @router.post("/password/reset/{token}", summary="Set a new password via a reset link")
 def do_reset(token: str, body: ResetRequest, session: DbSession):
+    # ResetRequest refuses a password shorter than ten characters before this runs, so the one refusal left is the link
     try:
         return acct.complete_password_reset(session, token, body.password)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+        logger.info("password reset refused: %s", e)
+        raise UserError("platform.reset.link_invalid", status=400) from e

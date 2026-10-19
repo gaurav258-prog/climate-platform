@@ -10,10 +10,13 @@ stamps the log (and can trigger a re-score); it does not itself fetch data. Hone
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from core import messages
 
 # Registry — data positioning stays "direct from Europe's & America's satellites & agencies", never "free".
 # `invalidates_basis` = a refresh of this feed changes live scores that feed an un-frozen ESRS / EUDR
@@ -25,245 +28,140 @@ from sqlalchemy.orm import Session
 # LANDS, not what we aspire to:
 #   live        — a real adapter lands rows to a queryable store
 #   on_demand   — fetched live per-query from the source (not persisted to our store)
-#   proxy       — a real feed, but standing in for a different source (named in `note`)
-#   partial     — real but limited coverage (named in `note`)
+#   proxy       — a real feed, but standing in for a different source (named in its words)
+#   partial     — real but limited coverage (named in its words)
 #   estimated   — derived (e.g. sector-average), not a measured feed
 #   planned     — adapter is stub / not yet in production
 #   release     — a pinned, versioned dataset release landed to our store; it changes only when the publisher
 #                 issues a new release (then re-landed and re-scored), so there is nothing to refresh on a clock
-# `name` is the source we ACTUALLY ingest; any gap between that and the ideal source is stated in `note`.
+# A feed's customer words — its name (the source we ACTUALLY ingest) and what it is and drives, with any gap between
+# that and the ideal source — are the catalogue message platform.feed.<key> (data/reference/messages.en.json), set on
+# each entry below as `name`, `note` and `message`; the comments beside the entries keep the engineering detail.
 FEEDS: list[dict] = [
-    {"key": "climate_reanalysis", "name": "Copernicus / ECMWF — ERA5 / ERA5-Land", "category": "hazard",
-     "cadence_days": 30, "invalidates_basis": True, "maturity": "live",
-     "note": "Global climate reanalysis — heat, drought, frost, soil-water and wind. Global baselines are in place "
-             "(temperature, precipitation, soil-moisture and frost climatologies), so scoring is worldwide."},
-    {"key": "flood", "name": "ERA5-Land runoff (flood proxy)", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": False, "maturity": "proxy",
-     "note": "GloFAS discharge was withdrawn from the CDS in 2025; ERA5-Land total runoff stands in for it. This "
-             "was the input of the earlier flood event model. It no longer drives the published flood score, "
-             "which reads the JRC river-flood hazard maps (flood v3) — so a refresh does not change a filing."},
-    {"key": "jrc_flood_maps", "name": "Copernicus EMS / JRC global river-flood hazard maps v2.1.2", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "LISFLOOD-FP inundation depth at ~90 m for the 1-in-10, 1-in-100 and 1-in-500-year floods, plus the "
-             "permanent-water mask. Drives the flood score (v3). River flooding only: pluvial/flash and groundwater "
-             "flooding are disclosed gaps, and the maps carry no flood defences (hazard, not residual risk)."},
-    {"key": "fire_thermal", "name": "NASA FIRMS (VIIRS active fire)", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
-     "note": "Active fire real. Sentinel-3 SLSTR heat integration is now LIVE via the CDSE Sentinel Hub "
-             "Statistical API (per-H3-cell S8 10.85µm thermal-IR brightness temperature → lst_kelvin heat "
-             "feature; activates once Copernicus Data Space credentials are configured). It is brightness temperature, not the "
-             "emissivity-corrected L2 LST product (that is the raw-scene Path-B upgrade)."},
-    {"key": "atmosphere", "name": "Copernicus CAMS", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": False, "maturity": "on_demand",
-     "note": "Air quality / dust / fire emissions, fetched per-query (not landed). Informs the risk view; "
-             "E2 pollution is out of filing scope."},
-    {"key": "imagery", "name": "Sentinel-1/2 (SAR + optical)", "category": "hazard",
-     "cadence_days": 6, "invalidates_basis": True, "maturity": "planned",
-     "note": "Sentinel-1 SAR flood integration is built and awaiting activation via the Copernicus Data Space "
-             "Statistical API (per-cell terrain-corrected VV backscatter and a 7-day anomaly feeding the flood "
-             "model). It activates once Copernicus Data Space credentials are configured; until production rows "
-             "land, the feed is shown as Planned. Sentinel-2 NDVI integration is not yet in production. When SAR "
-             "data is in production, flood moves from the ERA5 runoff proxy to observed inundation."},
-    {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
-     "note": "Tropical-cyclone tracks are in production; Copernicus Marine sea-state is not yet integrated."},
-    {"key": "nasa_power", "name": "NASA POWER (MERRA-2) daily minimum and maximum temperature", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": False, "maturity": "live",
-     "note": "30 years (1991-2020) of daily 2 m temperature at the location, read on demand from NASA POWER. Cold wave: "
-             "the 1-in-10 coldest night and the location's 99.6 % design temperature, from the daily minima. Chronic "
-             "heat: the count of days at or above 30 °C, from the daily maxima."},
-    {"key": "geophysical", "name": "USGS seismic (global) · Smithsonian GVP", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
-     "note": "Seismic scores from the global USGS M>=5.0 catalogue plus physics; the "
-             "EMSC/ESHM20 European raster is a secondary background layer, not the scoring path. GVP per-volcano "
-             "event records for the curated backtest volcanoes; the global volcano catalogue is its own feed. "
-             "Geophysical, not climate-attributable, therefore out of CSRD/EUDR filing scope."},
-    {"key": "fire_climatology", "name": "Copernicus CEMS/ECMWF Fire Weather Index (EWDS) · C3S ESA-CCI burned area", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "live",
-     "note": "Wildfire hazard climatology: Fire Weather Index extreme-danger days 2006-2020 combined with ESA-CCI "
-             "burned-area history 2001-2019. Rebuilt annually."},
-    {"key": "volcanic_gvp", "name": "Smithsonian GVP — Volcanoes of the World (Holocene catalogue, WFS)", "category": "hazard",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
-     "note": "All ~1,200 Holocene volcanoes + ~11,000 catalogued eruptions (confirmed-eruption VEI history) drives the "
-             "any-address volcanic screening score. Geophysical, therefore out of CSRD/EUDR filing scope."},
-    {"key": "cmip6_ensemble", "name": "CMIP6 multi-model ensemble (4 models, Pangeo archive)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "Projected change in temperature, precipitation and near-surface wind versus 1995-2014, per SSP and "
-             "period, as an ensemble mean and across-model spread on a 2° grid. Drives the changing-temperature, "
-             "-precipitation and -wind channels and the forward horizons of flood, cyclone and wildfire."},
-    {"key": "gesla_tide_gauges", "name": "GESLA-3 tide-gauge records (extreme still-water levels)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "The observed 1-in-10-year extreme still-water level at the nearest gauge (1,864 gauges with 10+ years, "
-             "1979-2020) sets coastal freeboard; IPCC AR6 sea-level rise is added for forward horizons. Sites with no "
-             "gauge within 250 km are not scored."},
-    {"key": "elevation_dem", "name": "Copernicus GLO-90 DEM (elevation) · Natural Earth coastline", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
-     "note": "Elevation at the site and a five-point slope stencil, read per location and cached per H3 cell, plus "
-             "distance to the coastline. Feeds coastal flooding and saline intrusion (elevation and distance to the "
-             "coast) and avalanche and solifluction (slope)."},
-    {"key": "landslide_lhasa", "name": "NASA Global Landslide Susceptibility Map (LHASA)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "~1 km susceptibility classes from slope, geology, roads, fault zones and forest loss. Terrain "
-             "predisposition, not a rainfall-triggered event forecast; does not vary by scenario."},
-    {"key": "subsidence_egms", "name": "Copernicus European Ground Motion Service (EGMS) Ortho L3, 2020-2024", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "Observed InSAR vertical ground velocity (100 m, GNSS-calibrated). Drives subsidence v2 across the EEA; "
-             "cells outside EGMS coverage fall back to the global susceptibility layer."},
-    {"key": "subsidence_gss", "name": "Global Subsidence Susceptibility (Herrera-García et al. 2021)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "~1 km susceptibility classes from aquifer compaction, lithology, groundwater depletion and urban load. "
-             "The subsidence score outside EGMS coverage."},
-    {"key": "permafrost_obu", "name": "Northern Hemisphere permafrost probability (Obu et al. 2019, ESA)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "~1 km permafrost probability fraction, Northern Hemisphere north of 25°N. Drives permafrost thaw and, "
-             "with slope, solifluction."},
-    {"key": "soil_erosion_glosem", "name": "ESDAC GloSEM global soil erosion (Borrelli/Panagos)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "RUSLE-based soil loss by water erosion, t/ha/yr at ~100 m."},
-    {"key": "soil_degradation_sdg", "name": "Trends.Earth SDG 15.3.1 degraded land (Conservation International)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
-     "note": "UNCCD degraded / stable / improved land status, read per location from the published global raster "
-             "(not landed)."},
-    {"key": "coastal_erosion_liscoast", "name": "JRC LISCoAsT shoreline-change projections (Vousdoukas et al. 2020)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "Projected long-term shoreline retreat for sandy coasts under RCP4.5 / RCP8.5 at 2050 and 2100, landed "
-             "to an H3 lookup. Forward-looking only: no present-day value."},
-    {"key": "ocean_ph_oceansoda", "name": "OceanSODA-ETHZ surface-ocean pH (NOAA NCEI OCADS)", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "Recent-years mean surface-ocean pH on a global grid; applies only to coastal and marine assets."},
-    {"key": "glacial_lakes_giglak", "name": "GIGLak global glacial-lake inventory", "category": "hazard",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
-     "note": "117k mapped glacial lakes with area, landed to an H3 exposure layer. A proximity screen, not a "
-             "flow-routed outburst model."},
-    {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
-     "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
-    {"key": "natura2000", "name": "EEA Natura 2000 (protected areas)", "category": "nature",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "partial",
-     "attribution": "© European Environment Agency (EEA) — Natura 2000 (reused under the EEA re-use policy)",
-     "note": "EU protected-area boundaries, precomputed to an H3 lookup; flags own sites / sourcing plots in or "
-             "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage. EEA data is reusable "
-             "(incl. commercially) with acknowledgement — attribution shown."},
-    {"key": "osm_protected", "name": "OpenStreetMap protected areas", "category": "nature",
-     "cadence_days": 30, "invalidates_basis": True, "maturity": "partial",
-     "attribution": "© OpenStreetMap contributors (ODbL)",
-     "note": "Global coverage layer for protected areas outside the EU where the authoritative WDPA is "
-             "licence-restricted. Community-sourced with uneven coverage: a screening layer, not an authoritative "
-             "agency feed, and labelled as such."},
-    {"key": "wdpa", "name": "WDPA (World Database on Protected Areas)", "category": "nature",
-     "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
-     "attribution": "UNEP-WCMC and IUCN — Protected Planet: WDPA (licensed via IBAT)",
-     "note": "Global protected areas — the non-EU counterpart to Natura 2000. Available under an IBAT licence; "
-             "integration pending."},
-    {"key": "wdoecm", "name": "WD-OECM (other conservation measures)", "category": "nature",
-     "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
-     "attribution": "UNEP-WCMC and IUCN — Protected Planet: WD-OECM (licensed via IBAT)",
-     "note": "Other Effective area-based Conservation Measures — companion to WDPA; widens ESRS E4 / TNFD "
-             "coverage. Same commercial-licence position as WDPA — sourced via IBAT."},
-    {"key": "kba", "name": "Key Biodiversity Areas (KBA)", "category": "nature",
-     "cadence_days": 365, "invalidates_basis": True, "maturity": "planned",
-     "attribution": "BirdLife International / KBA Partnership (licensed via IBAT)",
-     "note": "Sites of significance for global biodiversity (KBA Partnership). Commercially licensed via IBAT "
-             "alongside WDPA/WD-OECM; loaded from the licensed file into the same H3 lookup."},
-    {"key": "reference_lei", "name": "GLEIF (LEI)", "category": "reference",
-     "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
-     "note": "Legal-entity identifiers; changes rename entities, not risk scores."},
-    {"key": "reference_assets", "name": "Sector-intensity estimates (NACE)", "category": "reference",
-     "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated",
-     "note": "Emissions are sector-average intensity × revenue, not a facility-level emissions feed; values are "
-             "labelled as estimated throughout."},
-    {"key": "reference_countries", "name": "Unicode CLDR — countries, codes and currencies", "category": "reference",
-     "cadence_days": 180, "invalidates_basis": False, "maturity": "live",
-     "attribution": "Unicode CLDR (Unicode licence)",
-     "note": "ISO 3166 codes (alpha-2, alpha-3, numeric), country names in the EU's official languages plus Norwegian "
-             "and Turkish, and each country's current currency — so a customer's 'Deutschland', 'DEU' or 'UK' is "
-             "matched to the right country. Pinned CLDR release; a name that could mean two countries is never matched."},
-    {"key": "fx_imf", "name": "IMF Exchange Rates (ER) — monthly, currencies the ECB does not quote", "category": "reference",
-     "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
-     "attribution": "Source: International Monetary Fund, Exchange Rates (ER) dataset",
-     "note": "Month-end and monthly-average national currency per euro for ~180 countries (from 2010), direct from the "
-             "IMF data API — the second official source after the ECB, for currencies such as the Ghanaian cedi, "
-             "Vietnamese dong or Colombian peso. Published with a 1-2 month lag, so a month-end rate is used for up "
-             "to 62 days; older is marked stale. Future-dated periods and periods before a currency's introduction "
-             "are refused."},
-    {"key": "fx_ecb", "name": "ECB euro foreign exchange reference rates (first source)", "category": "reference",
-     "cadence_days": 1, "invalidates_basis": False, "maturity": "live",
-     "attribution": "Source: European Central Bank (ECB) — euro foreign exchange reference rates",
-     "note": "Daily reference rates for ~30 currencies, direct from the ECB (full history since 1999, then the last "
-             "90 days each day, which heals missed days). Converts customer values given in other currencies to EUR "
-             "at the rate for the book date; the ECB's own figure is kept beside the one we calculate with. A "
-             "refresh whose newest rate is more than 5 days old is recorded as failed."},
-    {"key": "commodity_prices_wb", "name": "World Bank Pink Sheet (commodity prices)", "category": "reference",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
-     "attribution": "© World Bank — Commodity Markets 'Pink Sheet' (CC BY 4.0)",
-     "note": "Monthly commodity + fertiliser prices (1960→), keyless. Used for input-cost pressure and cost-of-goods "
-             "validation — 33 commodities. Updates monthly; refreshed automatically."},
-    {"key": "crop_production_faostat", "name": "FAOSTAT crop production (QCL)", "category": "reference",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: FAO, FAOSTAT — Crops and livestock products (CC BY 4.0)",
-     "note": "Production, area and yield per country and year for the mapped crops and origins (1961→), the input of the "
-             "crop calibrations, realised-exposure and world-crop views. Checked monthly for a new file (FAO publishes "
-             "about once a year and revises earlier years); a new file is staged with its difference and lands only "
-             "after review, as the platform's Approvers policy states."},
-    {"key": "crop_production_eurostat", "name": "Eurostat crop production (apro_cpsh1)", "category": "reference",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: Eurostat, apro_cpsh1 — Crop production in EU standard humidity",
-     "note": "Area, production and yield per country and year for the registry's crops with a Eurostat code, in the EU-27, "
-             "EFTA, the UK and candidate countries — including durum wheat (FAOSTAT does not separate it) and the latest "
-             "season ahead of FAOSTAT. Checked monthly against the dataset's update stamp; a new publication is staged with "
-             "its difference and lands only after review."},
-    {"key": "crop_production_eurostat_regional", "name": "Eurostat crop production by NUTS-2 region (apro_cpshr)",
-     "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: Eurostat, apro_cpshr — Crop production in EU standard humidity by NUTS 2 region",
-     "note": "Area, production and yield per NUTS-2 region (NUTS 2021) and year for the registry's crops published by "
-             "region — wheat as common wheat + durum, the two parts of Eurostat's wheat total. National figures stay "
-             "the national dataset's; NUTS-1, extra-regio and other-NUTS-version codes are set aside and shown with "
-             "the release. "
-             "Checked monthly against the dataset's update stamp; a new publication is staged with its difference and "
-             "lands only after review."},
-    {"key": "crop_production_usda_fas", "name": "USDA FAS — Production, Supply and Distribution (PSD)", "category": "reference",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: USDA Foreign Agricultural Service, PSD database",
-     "note": "Official production, area and yield estimates per country and MARKET year for the registry's crops with a FAS "
-             "code — the current and recent seasons, ahead of FAOSTAT's 1–2 year lag. Definitions that differ from FAO's "
-             "(milled rice, palm and olive oil, shelled almonds) are stated in the crop registry. Checked monthly against "
-             "FAS's release dates; a new release is staged with its difference and lands only after review."},
-    {"key": "crop_production_usda_nass", "name": "USDA NASS Quick Stats — US and state crop production", "category": "reference",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats",
-     "note": "Production, area and yield for the US and each state (ISO 3166-2, from the Census Bureau's state list) for "
-             "the registry's crops with a NASS series — the sub-national history behind US origins. Annual survey "
-             "estimates only: a season still in progress (NASS repeats its forecast under 'YEAR') and withheld values "
-             "are set aside and shown with the release. Checked monthly for records NASS loaded since the last release; "
-             "a new release is staged with its difference and lands only after review."},
-    {"key": "crop_production_usda_nass_county", "name": "USDA NASS Quick Stats — US county crop production",
-     "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats (county estimates)",
-     "note": "Production, area and yield per US county (Census Bureau 2020 county list) for the registry's crops with a "
-             "NASS series — published once a year after NASS's annual summary. Combined counties, counties no longer "
-             "in the 2020 list and withheld values are set aside and shown with the release. Checked monthly for records "
-             "NASS loaded since the last release; a new release is staged with its difference and lands only after "
-             "review."},
-    {"key": "crop_production_statcan", "name": "Statistics Canada — field crops (32-10-0359-01)", "category": "reference",
-     "cadence_days": 30, "invalidates_basis": False, "maturity": "live", "review": True,
-     "attribution": "Source: Statistics Canada, Table 32-10-0359-01 (Statistics Canada Open Licence)",
-     "note": "Area, production and yield for Canada and each province (ISO 3166-2 as Statistics Canada states them) "
-             "for the registry's crops grown in Canada — including durum wheat. Final production only: a season still "
-             "before the November survey (July and September figures are model-based estimates) and unpublished values "
-             "are set aside and shown with the release. Checked monthly against the file's validators; a new file is "
-             "staged with its difference and lands only after review."},
-    {"key": "weather_era5_land_global", "name": "ERA5-Land monthly (global) — crop weather and the supply outlook",
-     "category": "reference", "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
-     "attribution": "Contains modified Copernicus Climate Change Service information (ERA5-Land monthly averaged data)",
-     "note": "Precipitation, temperature and potential evaporation worldwide at 0.1° from 1991, the current year's months "
-             "as Copernicus publishes them. Checked monthly against the months Copernicus holds (no download to check); "
-             "new months are fetched, the crop weather rebuilt over each crop's growing area, and every calibration "
-             "re-run — results that would change a publication are proposed for review (E163)."},
-    {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
-     "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
-     "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
-     "note": "Weekly EU prices the Pink Sheet lacks — olive oil, wine, and dairy — aggregated to a monthly EU "
-             "mean, keyless. Updates weekly; refreshed automatically. Almond prices are not yet included."},
+    {"key": "climate_reanalysis", "category": "hazard", "cadence_days": 30, "invalidates_basis": True, "maturity": "live"},
+    # GloFAS discharge was withdrawn from the CDS in 2025; ERA5-Land total runoff stands in. Input of the earlier
+    # flood event model; the published flood score (v3) reads jrc_flood_maps.
+    {"key": "flood", "category": "hazard", "cadence_days": 1, "invalidates_basis": False, "maturity": "proxy"},
+    # Copernicus EMS / JRC global river-flood hazard maps v2.1.2: LISFLOOD-FP inundation depth, RP10/100/500 +
+    # permanent-water mask; drives flood v3.
+    {"key": "jrc_flood_maps", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # Sentinel-3 SLSTR via the CDSE Sentinel Hub Statistical API: per-H3-cell S8 10.85 µm brightness temperature →
+    # lst_kelvin heat feature; activates with Copernicus Data Space credentials. Emissivity-corrected L2 LST is
+    # the raw-scene Path-B upgrade.
+    {"key": "fire_thermal", "category": "hazard", "cadence_days": 1, "invalidates_basis": True, "maturity": "live"},
+    # fetched per query (not landed); E2 pollution is out of filing scope.
+    {"key": "atmosphere", "category": "hazard", "cadence_days": 1, "invalidates_basis": False, "maturity": "on_demand"},
+    # Sentinel-1 GRD: per-cell terrain-corrected VV backscatter + 7-day anomaly via the CDSE Statistical API
+    # (activates with credentials; maturity stays planned until production rows land). Sentinel-2 NDVI not in
+    # production.
+    {"key": "imagery", "category": "hazard", "cadence_days": 6, "invalidates_basis": True, "maturity": "planned"},
+    {"key": "storms_ocean", "category": "hazard", "cadence_days": 1, "invalidates_basis": True, "maturity": "live"},
+    # MERRA-2 based; daily T2M min/max 1991-2020 read on demand.
+    {"key": "nasa_power", "category": "hazard", "cadence_days": 365, "invalidates_basis": False, "maturity": "live"},
+    # USGS M>=5.0 catalogue + physics; EMSC/ESHM20 raster is a secondary background layer, not the scoring path;
+    # GVP event records for the curated backtest volcanoes.
+    {"key": "geophysical", "category": "hazard", "cadence_days": 1, "invalidates_basis": False, "maturity": "partial"},
+    # Copernicus CEMS/ECMWF FWI (EWDS) extreme-danger days 2006-2020 · C3S ESA-CCI burned area 2001-2019.
+    {"key": "fire_climatology", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "live"},
+    # GVP Holocene catalogue over WFS; confirmed-eruption VEI history.
+    {"key": "volcanic_gvp", "category": "hazard", "cadence_days": 30, "invalidates_basis": False, "maturity": "live"},
+    # 4 models from the Pangeo archive; SSP × period ensemble mean and spread, 2° grid.
+    {"key": "cmip6_ensemble", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # GESLA-3; IPCC AR6 SLR added for forward horizons.
+    {"key": "gesla_tide_gauges", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # Copernicus GLO-90 DEM, five-point slope stencil, cached per H3 cell; Natural Earth coastline.
+    {"key": "elevation_dem", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand"},
+    # LHASA global susceptibility map.
+    {"key": "landslide_lhasa", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # EGMS Ortho L3 2020-2024, GNSS-calibrated; drives subsidence v2 across the EEA; falls back to subsidence_gss.
+    {"key": "subsidence_egms", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    {"key": "subsidence_gss", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # ESA CCI permafrost (Obu et al. 2019).
+    {"key": "permafrost_obu", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # ESDAC GloSEM, RUSLE-based.
+    {"key": "soil_erosion_glosem", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # Trends.Earth SDG 15.3.1 raster, read per location (not landed).
+    {"key": "soil_degradation_sdg", "category": "hazard", "cadence_days": 365,
+     "invalidates_basis": True, "maturity": "on_demand"},
+    # JRC LISCoAsT, landed to an H3 lookup; forward-looking only.
+    {"key": "coastal_erosion_liscoast", "category": "hazard", "cadence_days": 365,
+     "invalidates_basis": True, "maturity": "release"},
+    # NOAA NCEI OCADS.
+    {"key": "ocean_ph_oceansoda", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    # landed to an H3 exposure layer; proximity screen, not flow-routed.
+    {"key": "glacial_lakes_giglak", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
+    {"key": "deforestation", "category": "nature", "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand"},
+    # precomputed to an H3 lookup (ESRS E4).
+    {"key": "natura2000", "category": "nature", "cadence_days": 365,
+     "invalidates_basis": True, "maturity": "partial",
+     "attribution": "© European Environment Agency (EEA) — Natura 2000 (reused under the EEA re-use policy)"},
+    {"key": "osm_protected", "category": "nature", "cadence_days": 30,
+     "invalidates_basis": True, "maturity": "partial",
+     "attribution": "© OpenStreetMap contributors (ODbL)"},
+    # IBAT licence pending.
+    {"key": "wdpa", "category": "nature", "cadence_days": 30,
+     "invalidates_basis": True, "maturity": "planned",
+     "attribution": "UNEP-WCMC and IUCN — Protected Planet: WDPA (licensed via IBAT)"},
+    # ESRS E4 / TNFD; IBAT licence, same position as WDPA.
+    {"key": "wdoecm", "category": "nature", "cadence_days": 30,
+     "invalidates_basis": True, "maturity": "planned",
+     "attribution": "UNEP-WCMC and IUCN — Protected Planet: WD-OECM (licensed via IBAT)"},
+    # loaded from the licensed file into the same H3 lookup once licensed.
+    {"key": "kba", "category": "nature", "cadence_days": 365,
+     "invalidates_basis": True, "maturity": "planned",
+     "attribution": "BirdLife International / KBA Partnership (licensed via IBAT)"},
+    {"key": "reference_lei", "category": "reference", "cadence_days": 7, "invalidates_basis": False, "maturity": "live"},
+    {"key": "reference_assets", "category": "reference", "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated"},
+    {"key": "reference_countries", "category": "reference", "cadence_days": 180,
+     "invalidates_basis": False, "maturity": "live",
+     "attribution": "Unicode CLDR (Unicode licence)"},
+    {"key": "fx_imf", "category": "reference", "cadence_days": 7,
+     "invalidates_basis": False, "maturity": "live",
+     "attribution": "Source: International Monetary Fund, Exchange Rates (ER) dataset"},
+    {"key": "fx_ecb", "category": "reference", "cadence_days": 1,
+     "invalidates_basis": False, "maturity": "live",
+     "attribution": "Source: European Central Bank (ECB) — euro foreign exchange reference rates"},
+    # keyless API.
+    {"key": "commodity_prices_wb", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live",
+     "attribution": "© World Bank — Commodity Markets 'Pink Sheet' (CC BY 4.0)"},
+    # FAOSTAT QCL; a reviewed feed (E148): staged → reviewed → landed.
+    {"key": "crop_production_faostat", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: FAO, FAOSTAT — Crops and livestock products (CC BY 4.0)"},
+    # Eurostat apro_cpsh1; reviewed feed.
+    {"key": "crop_production_eurostat", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Eurostat, apro_cpsh1 — Crop production in EU standard humidity"},
+    # Eurostat apro_cpshr (NUTS 2021); NUTS-1, extra-regio and other-NUTS-version codes set aside; reviewed feed.
+    {"key": "crop_production_eurostat_regional", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Eurostat, apro_cpshr — Crop production in EU standard humidity by NUTS 2 region"},
+    # USDA FAS PSD; reviewed feed.
+    {"key": "crop_production_usda_fas", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: USDA Foreign Agricultural Service, PSD database"},
+    # NASS Quick Stats; ISO 3166-2 from the Census Bureau's state list; 'YEAR' forecast rows set aside; reviewed feed.
+    {"key": "crop_production_usda_nass", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats"},
+    # NASS Quick Stats county estimates; reviewed feed.
+    {"key": "crop_production_usda_nass_county", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: USDA National Agricultural Statistics Service, Quick Stats (county estimates)"},
+    # Statistics Canada table 32-10-0359-01, checked against the file's HTTP validators; reviewed feed.
+    {"key": "crop_production_statcan", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Statistics Canada, Table 32-10-0359-01 (Statistics Canada Open Licence)"},
+    # checked against the CDS month list (no download); calibrations re-run, publication changes proposed for
+    # review (E163).
+    {"key": "weather_era5_land_global", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live",
+     "attribution": "Contains modified Copernicus Climate Change Service information (ERA5-Land monthly averaged data)"},
+    # keyless API.
+    {"key": "commodity_prices_eu", "category": "reference", "cadence_days": 7,
+     "invalidates_basis": False, "maturity": "live",
+     "attribution": "© European Commission — agri-food data portal (CC BY 4.0)"},
 ]
 _BY_KEY = {f["key"]: f for f in FEEDS}
 
@@ -273,6 +171,17 @@ _BY_KEY = {f["key"]: f for f in FEEDS}
 _AUTO_MATURITY = {"live", "proxy", "partial"}
 for _f in FEEDS:
     _f["auto_refresh"] = _f["maturity"] in _AUTO_MATURITY
+
+
+def words_code(feed_key: str) -> str:
+    """The catalogue code of a feed's words: platform.feed.<key>, without the key's digits (a catalogue code is
+    letters only, and cmip6_ensemble, natura2000 and weather_era5_land_global carry digits)."""
+    return "platform.feed." + re.sub(r"\d", "", feed_key)
+
+
+for _f in FEEDS:      # the words every screen, filing methodology and assurance pack names the feed with
+    _m = messages.render(words_code(_f["key"]))
+    _f["name"], _f["note"], _f["message"] = _m["label"], " ".join(_m["detail"].values()), _m
 
 
 # Which source feed(s) a hazard's score is derived from. canonical_scores carries no feed FK — the link is

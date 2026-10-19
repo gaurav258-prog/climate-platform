@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from api.deps import CurrentUser, DbSession, require_permission
@@ -28,13 +28,11 @@ class SignupIn(BaseModel):
 
 @router.post("/signup", summary="Create a trial workspace (self-serve)")
 def signup(body: SignupIn, session: DbSession, request: Request, _rl: None = Depends(_signup_limit)):
-    try:
-        res = signup_svc.self_serve_signup(
-            session, company_name=body.company_name, org_type=body.org_type, country=body.country,
-            admin_email=body.admin_email, admin_full_name=body.admin_full_name or body.admin_email.split("@")[0],
-            password=body.password, sandbox=bool(body.sandbox))
-    except signup_svc.SignupError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    # a refusal (SignupError, or provisioning's TenantError) is a catalogue error and reaches the screen in its words
+    res = signup_svc.self_serve_signup(
+        session, company_name=body.company_name, org_type=body.org_type, country=body.country,
+        admin_email=body.admin_email, admin_full_name=body.admin_full_name or body.admin_email.split("@")[0],
+        password=body.password, sandbox=bool(body.sandbox))
     pair = sess.issue_pair(session, user_id=res["admin_user_id"], org_id=res["org_id"],
                            user_agent=request.headers.get("user-agent"),
                            ip=request.client.host if request.client else None)

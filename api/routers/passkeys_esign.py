@@ -1,18 +1,23 @@
-"""Passkeys (WebAuthn) + e-signature endpoints."""
+"""Passkeys (WebAuthn) + e-signature endpoints. Every refusal is a catalogue code (core/errors.py); the technical cause
+goes to the log. A passkey sign-in refusal has one set of words whatever went wrong, so it never says whether an
+account exists."""
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from api.deps import CurrentUser, DbSession, require_permission
 from api.ratelimit import rate_limiter
+from core.errors import UserError
 from services.governance import esign as esign_svc
 from services.governance import passkeys as pk
 from services.governance import sessions as sess
 
 router = APIRouter(prefix="/v1", tags=["passkeys", "esign"])
+logger = logging.getLogger(__name__)
 _pk_login_limit = rate_limiter(max_calls=30, window_seconds=60)
 
 
@@ -33,7 +38,8 @@ def pk_reg_verify(body: PkRegisterVerify, ctx: CurrentUser, session: DbSession):
     try:
         return pk.registration_verify(session, user_id=ctx["user"]["id"], credential=body.credential, name=body.name)
     except pk.PasskeyError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+        logger.info("passkey not registered: %s", e)
+        raise UserError("platform.passkey.not_added") from e
 
 
 @router.get("/auth/passkey/credentials")
@@ -54,8 +60,8 @@ class PkLoginOptions(BaseModel):
 @router.post("/auth/passkey/login/options")
 def pk_login_options(body: PkLoginOptions, session: DbSession, _rl: None = Depends(_pk_login_limit)):
     opts = pk.authentication_options(session, body.email)
-    if not opts:
-        raise HTTPException(status_code=404, detail={"message": "no passkey is registered for this account"})
+    if not opts:            # no account, or an account without a passkey: one answer for both
+        raise UserError("platform.passkey.none")
     return opts
 
 
@@ -69,7 +75,8 @@ def pk_login_verify(body: PkLoginVerify, session: DbSession, request: Request):
     try:
         who = pk.authentication_verify(session, email=body.email, credential=body.credential)
     except pk.PasskeyError as e:
-        raise HTTPException(status_code=401, detail={"error": "passkey_failed", "message": str(e)})
+        logger.info("passkey sign-in refused: %s", e)
+        raise UserError("platform.passkey.failed") from e
     return sess.issue_pair(session, user_id=who["user_id"], org_id=who["org_id"],
                            user_agent=request.headers.get("user-agent"),
                            ip=request.client.host if request.client else None)
@@ -84,11 +91,17 @@ class EsignRequestIn(BaseModel):
 
 @router.post("/esign/requests", status_code=201)
 def esign_create(body: EsignRequestIn, session: DbSession, ctx: dict = Depends(require_permission("contracts.manage"))):
+    # the request's own checks, at the boundary and in the service's words: a title, and a signer's e-mail address
+    if not (body.title or "").strip():
+        raise UserError("platform.esign.no_title")
+    if "@" not in (body.signer_email or ""):
+        raise UserError("platform.esign.bad_signer")
     try:
         return esign_svc.request_signature(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                                            title=body.title, signer_email=body.signer_email, contract_id=body.contract_id)
-    except esign_svc.EsignError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    except esign_svc.EsignError as e:        # past the checks above, the one refusal left: the signing service
+        logger.warning("e-signature request not sent: %s", e)
+        raise UserError("platform.esign.unavailable") from e
 
 
 @router.get("/esign/requests")
@@ -107,4 +120,5 @@ def esign_complete(request_id: str, body: EsignComplete, session: DbSession,
         return esign_svc.complete_request(session, org_id=ctx["org"]["org_id"], request_id=request_id,
                                           actor_user_id=ctx["user"]["id"], contract_id=body.contract_id)
     except esign_svc.EsignError as e:
-        raise HTTPException(status_code=404, detail={"message": str(e)})
+        logger.info("e-signature request not completed: %s", e)
+        raise UserError("platform.esign.not_found") from e
