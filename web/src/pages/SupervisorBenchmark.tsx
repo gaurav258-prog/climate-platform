@@ -8,6 +8,9 @@ import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import { balance } from '../lib/money'
 import MethodGap from '../components/MethodGap'
+import { HEADING, InfoButton } from '../components/Details'
+import { frameworkLabel, horizonLabel, scenarioLabel } from '../lib/labels'
+import { PEER_FLAG, PROFILE_FRAMEWORK, percent } from '../lib/codeWords'
 // ── Peer benchmark — every sector in the profile, every configured metric, every supervised entity ────────
 interface BenchEntity { org_id: string; name: string; value: number | null; flag: string; percentile: number | null }
 interface BenchMetric { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
@@ -15,7 +18,7 @@ interface BenchMetric { id: string; label: string; unit: string; direction?: str
 interface BenchResp { scenario: string; horizon: string; profile_id: string; at_risk_level: number | null; gap?: string
   sectors: Record<string, { label: string; book_noun: string; frameworks: string[]; n_entities: number; metrics: BenchMetric[] }> }
 const FLAGC: Record<string, string> = { act: 'var(--color-bad)', watch: 'var(--color-warn)', ok: 'var(--color-good)', na: 'var(--color-faint)' }
-const fmtV = (unit: string, v: number | null | undefined) => v == null ? '—' : unit === 'eur' ? balance(v) : `${v}%`
+const fmtV = (unit: string, v: number | null | undefined) => v == null ? '—' : unit === 'eur' ? balance(v) : percent(v)
 
 function BenchmarkCard() {
   const nav = useNavigate()
@@ -33,8 +36,12 @@ function BenchmarkCard() {
     <Card className="p-5">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
         <div>
-          <div className="text-[15px] font-semibold">Peer benchmark</div>
-          <div className="text-[12px] text-[var(--color-mute)] mt-0.5">Each entity's own engine figures, side by side. Flags are your profile's supervisory expectations, not a judgement of the entity.{d ? ` Basis ${d.scenario} · ${d.horizon}.` : ''}{d?.at_risk_level != null ? ` At risk = headline at or above your stated level (${d.at_risk_level}).` : ''}</div>
+          <div className="text-[15px] font-semibold inline-flex items-center gap-1.5">Peer benchmark <InfoButton compact details={{ title: 'Peer benchmark', sections: [
+            { heading: HEADING.shows, body: 'Each entity’s own figures on the metrics your profile declares, side by side.' },
+            { heading: HEADING.read, body: `Colours are your profile’s supervisory expectations, not a judgement of the entity: green within, amber watch, red act. The dashed line is the peer median.${d?.at_risk_level != null ? ` At risk means a headline score at or above your stated level (${d.at_risk_level}).` : ''}` },
+            ...(sec?.frameworks.length ? [{ heading: 'Filings expected', body: sec.frameworks.map(f => PROFILE_FRAMEWORK[f] ?? frameworkLabel(f)).join(', ') }] : []),
+          ] }} /></div>
+          {d && <div className="text-[12px] text-[var(--color-mute)] mt-0.5">{scenarioLabel(d.scenario)} · {horizonLabel(d.horizon)}</div>}
           {d?.gap && <div className="mt-2"><MethodGap gap={d.gap} what="At-risk metrics" /></div>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -72,10 +79,13 @@ function BenchmarkCard() {
                   </td>))}
               </tr>))}</tbody>
           </table>
-          <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">{sec.n_entities} {sec.label.toLowerCase()} · frameworks expected: {sec.frameworks.join(', ')} · colour = flag against your thresholds (green within, amber watch, red act)</div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-faint)] mt-2">
+            <span>{sec.n_entities} {sec.label.toLowerCase()}</span>
+            {(['ok', 'watch', 'act'] as const).map(k => <span key={k} className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: FLAGC[k] }} />{PEER_FLAG[k]}</span>)}
+          </div>
         </div>) : (
         <div>
-          <div className="text-[11.5px] text-[var(--color-mute)] mb-3">each entity against your profile's expectations — amber watch, red act; the dashed line is the peer median · click a bar to open the entity file</div>
+          <div className="text-[11.5px] text-[var(--color-mute)] mb-3">Click a bar to open the entity file</div>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {sec.metrics.filter(m => m.direction !== 'neutral').map(m => (
               <div key={m.id}>
@@ -83,9 +93,9 @@ function BenchmarkCard() {
                 <div style={{ height: 40 + 22 * Math.max(1, m.entities.length) }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={m.entities.map(e => ({ name: e.name.replace(' (demo)', ''), value: e.value ?? 0, flag: e.flag, org_id: e.org_id }))} layout="vertical" margin={{ top: 2, right: 16, left: 4, bottom: 0 }} style={{ cursor: 'pointer' }}>
-                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => m.unit === 'eur' ? balance(Number(v)) : `${v}%`} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => fmtV(m.unit, Number(v))} />
                       <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10.5, fill: 'var(--color-mute)' }} />
-                      <Tooltip formatter={(v) => [m.unit === 'eur' ? balance(Number(v)) : `${v}%`, m.label]} />
+                      <Tooltip formatter={(v) => [fmtV(m.unit, Number(v)), m.label]} />
                       {m.distribution.median != null && <ReferenceLine x={m.distribution.median} stroke="var(--color-sky)" strokeDasharray="4 3" />}
                       {m.watch_above != null && <ReferenceLine x={m.watch_above} stroke="#EF9F27" />}
                       {m.act_above != null && <ReferenceLine x={m.act_above} stroke="#E24B4A" />}

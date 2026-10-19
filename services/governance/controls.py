@@ -47,7 +47,7 @@ def _evidence(session, org_id: str, org_type: Optional[str]) -> dict:
         for x in v["findings"]:
             key = "cross_report:*" if x["rule"].startswith("cross_report") else x["rule"]
             findings.setdefault(key, []).append({"filing_id": f["filing_id"], "framework": f["framework"], "period": f["period_label"], "passed": x["passed"],
-                                                 "severity": x["severity"], "message": x["message"]})
+                                                 "severity": x["severity"], "message": x["message"], "msg": x.get("msg")})
     rd = org_readiness(session, org_id, org_type)
     readiness = {c["key"]: c for c in rd["checks"]}
     feeds = feed_freshness(session)
@@ -72,7 +72,8 @@ def _from_findings(ev: dict, rules: list[str]):
     if not items:
         return "not_applicable", 0, 0, [{"note": "No live filing to test against."}]
     failed = [x for x in items if not x["passed"]]
-    return ("fail" if failed else "pass"), len(items), len(failed), [{"filing_id": x["filing_id"], "framework": x["framework"], "period": x["period"], "message": x["message"], "severity": x["severity"]} for x in failed[:20]]
+    return ("fail" if failed else "pass"), len(items), len(failed), [{"filing_id": x["filing_id"], "framework": x["framework"], "period": x["period"], "message": x["message"], "severity": x["severity"],
+                                                                     **({"msg": x["msg"]} if x.get("msg") else {})} for x in failed[:20]]
 
 
 def _from_readiness(ev: dict, keys: list[str]):
@@ -80,7 +81,7 @@ def _from_readiness(ev: dict, keys: list[str]):
     if not checks:
         return "not_applicable", 0, 0, [{"note": "This check does not apply to the organisation's sector."}]
     failed = [c for c in checks if not c["ok"]]
-    return ("fail" if failed else "pass"), len(checks), len(failed), [{"check": c["label"], "hint": c.get("hint")} for c in failed]
+    return ("fail" if failed else "pass"), len(checks), len(failed), [{"check": c["label"], "hint": c.get("hint"), "msg": c.get("message")} for c in failed]
 
 
 def _approval_on_release(ev: dict):
@@ -92,8 +93,9 @@ def _approval_on_release(ev: dict):
     # the second-approver readiness check is part of the same control
     sa = ev["readiness"].get("second_approver")
     if sa and not sa["ok"]:
-        out = "fail"; failed = failed + [{"framework": "—", "period": "—", "note": sa["label"]}]
-    return out, len(released) + (1 if sa else 0), len(failed), [{"framework": f["framework"], "period": f.get("period_label") or f.get("period"), "note": f.get("note") or "released without an approval request"} for f in failed[:20]]
+        out = "fail"; failed = failed + [{"framework": "—", "period": "—", "note": sa["label"], "msg": sa.get("message")}]
+    return out, len(released) + (1 if sa else 0), len(failed), [{"framework": f["framework"], "period": f.get("period_label") or f.get("period"), "note": f.get("note") or "released without an approval request",
+                                                         **({"msg": f["msg"]} if f.get("msg") else {})} for f in failed[:20]]
 
 
 def _feeds(ev: dict):
@@ -111,7 +113,7 @@ def _models(ev: dict):
     n_failed = len(bad) + (1 if cal and not cal["ok"] else 0)
     detail = [{"hazard": m["hazard_type"], "version": m["model_version"], "r2_oos": float(m["r2_oos"]), "gate": ev["gate"]} for m in bad]
     if cal and not cal["ok"]:
-        detail.append({"check": cal["label"], "hint": cal.get("hint")})
+        detail.append({"check": cal["label"], "hint": cal.get("hint"), "msg": cal.get("message")})
     return ("fail" if n_failed else "pass"), len(active) + (1 if cal else 0), n_failed, detail
 
 
@@ -214,7 +216,7 @@ def view(session, org_id: str, window_days: int = 90) -> dict:
     for c in reg["controls"]:
         lt, rt, ow = latest.get(c["id"]), rates.get(c["id"]), owners.get(c["id"])
         rows.append({**c, "category_label": reg["categories"].get(c["category"], c["category"]),
-                     "last": {"outcome": lt["outcome"], "n_items": lt["n_items"], "n_failed": lt["n_failed"], "detail": lt["detail"], "at": lt["at"].isoformat()} if lt else None,
+                     "last": {"outcome": lt["outcome"], "n_items": lt["n_items"], "n_failed": lt["n_failed"], "detail": named(lt["detail"]), "at": lt["at"].isoformat()} if lt else None,
                      "pass_rate_pct": (round(100.0 * rt["n_pass"] / rt["n_tests"], 1) if rt and rt["n_tests"] else None), "n_tests": rt["n_tests"] if rt else 0,
                      "last_fail": rt["last_fail"].isoformat() if rt and rt["last_fail"] else None,
                      "owner": ow["owner"] if ow else None, "owner_user_id": ow["owner_user_id"] if ow else None, "review_by": ow["review_by"].isoformat() if ow and ow["review_by"] else None,
@@ -230,7 +232,7 @@ def view(session, org_id: str, window_days: int = 90) -> dict:
 def history(session, org_id: str, control_id: str, limit: int = 60) -> list[dict]:
     rows = session.execute(text("""SELECT r.at, r.outcome, r.n_items, r.n_failed, r.detail, t.trigger FROM control_test_result r JOIN control_test_run t ON t.run_id = r.run_id
                                    WHERE r.org_id = CAST(:o AS uuid) AND r.control_id = :c ORDER BY r.at DESC LIMIT :l"""), {"o": org_id, "c": control_id, "l": limit}).mappings().all()
-    return [dict(r) | {"at": r["at"].isoformat()} for r in rows]
+    return [dict(r) | {"at": r["at"].isoformat(), "detail": named(r["detail"])} for r in rows]
 
 
 def set_owner(session, *, org_id: str, control_id: str, owner_user_id: Optional[str], review_by: Optional[date], note: Optional[str], actor_user_id: str) -> None:
@@ -248,6 +250,64 @@ def set_owner(session, *, org_id: str, control_id: str, owner_user_id: Optional[
     from api.services.rbac import write_audit
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action="controls.owner_set", target_type="control", target_id=control_id,
                 detail={"owner_user_id": owner_user_id, "review_by": review_by.isoformat() if review_by else None})
+
+
+# ── a test's items in customer words ──────────────────────────────────────────────────────────────────────────
+# A test's items are stored as they were found (control_test_result.detail) and kept, so every stored shape is named here,
+# old rows too: each item gets `msg`, a catalogue message (core/messages.py) — its label for the register, its detail
+# behind the ⓘ — beside its unchanged fields. A test that could not run is named without its technical cause.
+_NOTES = {"No live filing to test against.": "oversight.control.no_live_filing",
+          "This check does not apply to the organisation's sector.": "oversight.control.not_for_sector",
+          "Nothing released yet.": "oversight.control.nothing_released",
+          "released without an approval request": "oversight.control.released_unapproved",
+          "No active model in the registry.": "oversight.control.no_active_model",
+          "No open red breach.": "oversight.control.no_red_breach",
+          "No source scan on record.": "oversight.control.no_scan",
+          "No obligation past its due date.": "oversight.control.no_overdue_obligation"}
+
+
+def _day(v) -> str:
+    try:
+        return (v if isinstance(v, (date, datetime)) else datetime.fromisoformat(str(v))).strftime("%d %b %Y")
+    except (TypeError, ValueError):
+        return "an unrecorded date"
+
+
+def item_message(x: dict) -> dict:
+    """The catalogue message for one stored test item."""
+    from core import messages
+    if isinstance(x.get("msg"), dict) and x["msg"].get("label"):               # a filing check in its own catalogue words
+        return x["msg"]
+    note = x.get("note")
+    if isinstance(note, str) and note.startswith("could not test"):
+        return messages.render("oversight.control.not_tested")
+    if x.get("message"):                                                     # a filing check stored before it carried them
+        return messages.render("oversight.control.finding", sentence=x["message"])
+    if "check" in x:
+        return messages.render("oversight.control.check_not_met", check=x.get("check") or "A readiness check",
+                               why=x.get("hint") or "It is not met.")
+    if "feed" in x:
+        code = "oversight.control.feed_failed" if x.get("status") == "failed" else "oversight.control.feed_overdue"
+        return messages.render(code, feed=x.get("feed") or "A data feed", last=_day(x["last_refresh"]) if x.get("last_refresh") else "never")
+    if "r2_oos" in x:
+        try:
+            hazard = messages.name("hazard", x.get("hazard") or "")
+        except messages.MessageError:
+            hazard = "A hazard"
+        return messages.render("oversight.control.model_below_gate", hazard=hazard, fit=f"{float(x['r2_oos']):.2f}", gate=f"{float(x['gate']):.2f}")
+    if "indicator" in x:
+        return messages.render("oversight.control.breach_unacknowledged", indicator=x.get("indicator") or "An indicator", since=_day(x.get("onset_at")))
+    if "last_scan" in x:
+        return messages.render("oversight.control.scan", when=_day(x["last_scan"]), days=x.get("days_ago", "—"))
+    if "due_date" in x:
+        return messages.render("oversight.control.obligation_missed", due=_day(x["due_date"]))
+    if note in _NOTES:
+        return messages.render(_NOTES[note])
+    return messages.render("oversight.control.check_not_met", check=note or "A check", why="It did not pass.")
+
+
+def named(detail) -> list[dict]:
+    return [{**x, "msg": item_message(x)} for x in (detail or []) if isinstance(x, dict)]
 
 
 # ── exports ─────────────────────────────────────────────────────────────────────────────────────────────────

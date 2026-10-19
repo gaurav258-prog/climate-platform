@@ -9,6 +9,7 @@ import { Card, SectionHead } from './ui'
 import { hazardLabel } from '../lib/hazards'
 import { balance, balanceValue, displaySymbol } from '../lib/money'
 import MethodGap from './MethodGap'
+import { countryName } from '../lib/codeWords'
 
 // Custom views — bounded self-service analytics. A user picks scope × measure × scenario × horizon × group-by
 // and gets a chart/table, then saves it as a named, shareable view. CRITICAL: a view stores only PARAMETERS —
@@ -119,7 +120,7 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
   const result = useMemo(() => {
     const { groups, total } = aggregate(items)
     return [...groups.entries()].map(([k, v]) => ({
-      key: k, label: cfg.groupBy === 'hazard' ? hazardLabel(k) : cfg.groupBy === 'severity' ? (BUCKET[k]?.label ?? k) : k,
+      key: k, label: cfg.groupBy === 'hazard' ? hazardLabel(k) : cfg.groupBy === 'severity' ? (BUCKET[k]?.label ?? 'Not banded') : cfg.groupBy === 'country' ? (countryName(k) ?? k) : k,
       raw: cfg.measure === 'count' ? v.count : cfg.measure === 'pct' ? (total ? v.value / total * 100 : 0) : v.value,
       color: v.color,
     })).sort((a, b) => b.raw - a.raw)
@@ -177,11 +178,11 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
     <Card className="p-5">
       <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
         <SectionHead icon={BarChart3} hint="build your own cut of the book">Custom views</SectionHead>
-        <span className="inline-flex items-center gap-1.5 mono text-[9.5px] uppercase tracking-wide px-2 py-1 rounded-full" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 14%, transparent)' }}>
+        <span className="inline-flex items-center gap-1.5 text-[10.5px] uppercase tracking-wide px-2 py-1 rounded-full" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 14%, transparent)' }}>
           <Info size={11} /> Exploratory · not a filed figure
         </span>
       </div>
-      <p className="text-[12.5px] text-[var(--color-mute)] mb-4 max-w-2xl">Slice the same golden-source book any way you need — every figure is recomputed live, never invented. Save a cut as a named view and share it with your team.</p>
+      <p className="text-[12.5px] text-[var(--color-mute)] mb-4 max-w-2xl">Cut your book any way you need; save a cut as a view and share it.</p>
 
       {savedViews.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -232,7 +233,7 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
           </Select>
           {cfg.scope?.dim && (
             <Select value={cfg.scope.val} onChange={v => set('scope', { dim: cfg.scope!.dim, val: v })}>
-              <option value="">Choose…</option>{scopeValues.map(v => <option key={v} value={v}>{v}</option>)}
+              <option value="">Choose…</option>{scopeValues.map(v => <option key={v} value={v}>{cfg.scope!.dim === 'country' ? countryName(v) : v}</option>)}
             </Select>
           )}
         </label>
@@ -287,7 +288,7 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
             </table>
           </div>
         )}
-      {hidden > 0 && cfg.chart === 'bar' && <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">+{hidden} more group{hidden === 1 ? '' : 's'} — switch to Table or export CSV for the full list.</div>}
+      {hidden > 0 && cfg.chart === 'bar' && <div className="text-[11.5px] text-[var(--color-faint)] mt-2">+{hidden} more group{hidden === 1 ? '' : 's'} — switch to Table or export CSV for the full list.</div>}
 
       <div className="mt-4 pt-4 border-t border-[var(--color-line)] flex items-center gap-2 flex-wrap">
         <Save size={14} className="text-[var(--color-faint)]" />

@@ -3,12 +3,13 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Download, Map as MapIcon, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, SectionHead } from '../components/ui'
+import { HEADING, InfoButton } from '../components/Details'
 import MiniMap from '../components/MiniMap'
 import LocationEditor from '../components/LocationEditor'
 import { hazardLabel } from '../lib/hazards'
 import { balance, flow } from '../lib/money'
+import { EUDR_DECLARED, IRRIGATION, SITE_TYPE, countryName } from '../lib/codeWords'
 
-const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 interface Adapt { hazard: string; label: string; actions: string[] }
 interface Norm { title: string; sub: string; lat: number | null; lon: number | null
@@ -34,7 +35,7 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
 
   const worst = Math.max(0, ...n.hazards.map(h => h.score ?? 0))
   const csv = () => {
-    const rows = [['hazard', 'score'], ...n.hazards.map(h => [h.hazard, String(h.score ?? '')])]
+    const rows = [['Hazard', 'Score'], ...n.hazards.map(h => [hazardLabel(h.hazard), String(h.score ?? '')])]
     const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${n.title}-hazards.csv`; a.click()
   }
@@ -93,9 +94,12 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
           </Card>
 
           {n.irrigationContext?.note && (
-            <Card className="p-4">
-              <SectionHead className="mb-1.5">Water management · declared {n.irrigationContext.status.replace('_', '-')}</SectionHead>
-              <div className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{n.irrigationContext.note}</div>
+            <Card className="p-4 flex items-center gap-2">
+              <SectionHead>Water management</SectionHead>
+              <span className="text-[12.5px] text-[var(--color-mute)]">Declared {(IRRIGATION[n.irrigationContext.status] ?? 'by you').toLowerCase()}</span>
+              <InfoButton compact details={{ title: 'Water management', sections: [
+                { heading: HEADING.read, body: n.irrigationContext.note },
+                { heading: HEADING.sources, body: 'Your own declaration for the plot.' }] }} />
             </Card>
           )}
 
@@ -132,16 +136,15 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
     const s = d.site as Record<string, unknown>
     return {
       title: s.name as string,
-      sub: `${pretty(s.site_type as string)} · ${(s.country as string) ?? '—'}${s.address ? ` · ${s.address}` : ''}`,
+      sub: [SITE_TYPE[s.site_type as string] ?? 'Operating site', countryName(s.country as string), s.address as string].filter(Boolean).join(' · '),
       lat: (s.lat as number) ?? null, lon: (s.lon as number) ?? null,
       facts: [
-        { k: 'Type', v: pretty(s.site_type as string) },
-        { k: 'Country', v: (s.country as string) ?? '—' },
+        { k: 'Type', v: SITE_TYPE[s.site_type as string] ?? 'Operating site' },
+        { k: 'Country', v: countryName(s.country as string) ?? '—' },
         { k: 'Asset value', v: balance(s.value_eur as number) },
         { k: 'Annual throughput', v: flow(s.throughput_eur as number) },
         // annual throughput × your stated downtime share (method.bi_downtime_share); a gap names what is not stated
         { k: 'Business-interruption', v: d.bi_at_risk_eur != null ? flow(d.bi_at_risk_eur as number) : (d.gap ? 'not stated — see Methodology' : '—') },
-        { k: 'Grid cell', v: (s.h3_cell as string) ?? '—' },
       ],
       hazards: (d.hazards as { hazard_type: string; score: number | null }[]).map(h => ({ hazard: h.hazard_type, score: h.score })),
       adaptation: (d.adaptation as Adapt[]) ?? [],
@@ -152,15 +155,14 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
     .filter(r => r.scenario === 'baseline' && r.time_horizon === 'current')
   return {
     title: p.plot_name as string,
-    sub: `${p.commodity as string} · ${(p.country as string) ?? '—'}${p.supplier ? ` · ${p.supplier}` : ''}`,
+    sub: [p.commodity as string, countryName(p.country as string), p.supplier as string].filter(Boolean).join(' · '),
     lat: (p.lat as number) ?? null, lon: (p.lon as number) ?? null,
     facts: [
       { k: 'Commodity', v: p.commodity as string },
-      { k: 'Country', v: (p.country as string) ?? '—' },
+      { k: 'Country', v: countryName(p.country as string) ?? '—' },
       { k: 'Annual spend', v: flow(p.spend_eur as number) },
-      { k: 'EUDR status', v: pretty((p.eudr_status as string) ?? null) },
+      { k: 'EUDR declaration', v: EUDR_DECLARED[p.eudr_status as string] ?? 'Not declared' },
       { k: 'EUDR satellite reading', v: eudrReading(d.eudr_reading as { outcome: string; first_loss_year: number | null; assessed_at: string } | null) },
-      { k: 'Grid cell', v: (p.h3_cell as string) ?? '—' },
     ],
     hazards: risks.map(r => ({ hazard: r.hazard_type, score: r.score })),
     adaptation: (d.adaptation as Adapt[]) ?? [],

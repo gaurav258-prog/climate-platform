@@ -17,6 +17,8 @@ import { balance } from '../lib/money'
 import { CloseButton } from '../components/Dialog'
 import { Drawer } from '../components/Drawer'
 import MethodGap from '../components/MethodGap'
+import { HEADING, InfoButton } from '../components/Details'
+import { placeLine } from '../lib/codeWords'
 
 // Analytics — the forward-looking read: how the book's climate exposure moves across the two parameters
 // (scenario × horizon). The centrepiece is the scenario TRAJECTORY (value-at-risk over Now→2100, one line
@@ -250,8 +252,10 @@ export default function Analytics() {
                 </ResponsiveContainer>
               )}
             </div>
-            <div className="px-5 py-2.5 border-t border-[var(--color-line)] mono text-[9.5px] text-[var(--color-faint)] leading-relaxed">
-              Parametric warming shift applied to the climate-physical hazard scores at each horizon; excludes non-climate drivers (policy, fuel, labour). <span className="text-[var(--color-mute)]">Today / Now</span> equals the current-basis figures a filing freezes.
+            <div className="px-5 py-2.5 border-t border-[var(--color-line)] text-[11.5px] text-[var(--color-faint)]">
+              <InfoButton label="How the projection is made" details={{ title: 'How the projection is made', sections: [
+                { heading: HEADING.read, body: 'Each pathway shifts the climate-physical hazard scores by its warming at each horizon. Drivers other than climate — policy, fuel, labour — are not in it.' },
+                { heading: HEADING.limits, body: 'Now equals the current-basis figures a filing freezes.' }] }} />
             </div>
           </Card>
 
@@ -347,9 +351,9 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
     <Drawer label={`Exposures driving ${hazardLabel(hazard)}`} onClose={onClose} className="w-full max-w-md h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)]">
         <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
           <div>
-            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Exposures driving this hazard</div>
+            <div className="text-[10.5px] uppercase tracking-widest text-[var(--color-faint)]">Exposures driving this hazard</div>
             <div className="text-[15px] font-semibold capitalize mt-0.5">{hazardLabel(hazard)}</div>
-            <div className="mono text-[10px] text-[var(--color-faint)]">{scenarioLabel} · {horizonLabel}</div>
+            <div className="text-[11px] text-[var(--color-faint)]">{scenarioLabel} · {horizonLabel}</div>
           </div>
           <CloseButton onClick={onClose} />
         </div>
@@ -358,7 +362,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
           : rows.length === 0 ? <div className="p-8 text-[13px] text-[var(--color-faint)]">No exposures at or above your stated level ({level}) for this hazard under the selected pathway.</div>
           : (
             <div className="p-5">
-              <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at or above your level ({level}) · {balance(total)} exposed</div>
+              <div className="text-[12px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at or above your level ({level}) · {balance(total)} exposed</div>
               <div className="space-y-2">
                 {groups.map(g => {
                   const open = isOpen(g.bk)
@@ -377,7 +381,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
                             <div key={a.id} className="flex items-center gap-3 px-3 py-2">
                               <div className="min-w-0 flex-1">
                                 <div className="text-[12.5px] text-[var(--color-ink)] truncate">{a.name}</div>
-                                <div className="mono text-[10px] text-[var(--color-faint)]">{[a.region, a.country].filter(Boolean).join(', ') || '—'}</div>
+                                <div className="text-[11px] text-[var(--color-faint)]">{placeLine(a.region, a.country)}</div>
                               </div>
                               <span className="mono text-[10.5px] tabular-nums shrink-0" style={{ color: g.color }}>{hz!.score != null ? Math.round(hz!.score) : ''}</span>
                               <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{balance(a.value_eur)}</span>
@@ -487,7 +491,7 @@ function TrajTable({ at }: { at: (scen: string, hIdx: number) => Disc | undefine
       <table className="w-full text-[12.5px]">
         <thead>
           <tr className="text-left border-b border-[var(--color-line)]">
-            <th className="px-4 py-2.5 mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] font-medium">Pathway · value at risk</th>
+            <th className="px-4 py-2.5 text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] font-medium">Pathway · value at risk</th>
             {HZ.map(([, l]) => <th key={l} className="px-4 py-2.5 mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] font-medium text-right">{l}</th>)}
           </tr>
         </thead>

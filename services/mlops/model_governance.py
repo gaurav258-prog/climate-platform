@@ -43,7 +43,7 @@ def _get(s: Session, model_id: str) -> dict:
         FROM model_registry WHERE model_id = CAST(:m AS uuid)
     """), {"m": model_id}).mappings().first()
     if not row:
-        raise GovernanceError(f"unknown model_id {model_id}")
+        raise GovernanceError(f"no model {model_id} in the model registry")
     return dict(row)
 
 

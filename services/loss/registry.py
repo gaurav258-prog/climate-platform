@@ -71,7 +71,7 @@ def layer(key: str) -> dict:
     try:
         return layers()[key]
     except KeyError:
-        raise RegistryError(f"intensity layer '{key}' is not registered (data/reference/hazard_intensity_layers.json)")
+        raise RegistryError(f"no intensity layer {key!r} in the hazard intensity register")
 
 
 def occupancy_of(stated: Optional[str], table: str, asset_type: Optional[str]) -> tuple[Optional[str], str]:
@@ -79,7 +79,7 @@ def occupancy_of(stated: Optional[str], table: str, asset_type: Optional[str]) -
     type; else (None, why) — never a guess."""
     if stated:
         if stated not in occupancy_classes():
-            raise RegistryError(f"occupancy '{stated}' is not a class of data/reference/occupancy.json")
+            raise RegistryError(f"{stated!r} is not a building-use class of the occupancy register")
         return stated, "stated"
     walk = _occupancy()["crosswalk"].get(table, {})
     if asset_type and asset_type in walk:

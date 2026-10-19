@@ -4,11 +4,12 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from api.deps import CurrentUser, DbSession, require_permission
+from core.errors import UserError
 from services.governance import controls as C
 
 router = APIRouter(prefix="/v1/controls", tags=["Governance"])
@@ -16,14 +17,14 @@ router = APIRouter(prefix="/v1/controls", tags=["Governance"])
 
 def _regulated(ctx: dict) -> dict:
     if (ctx.get("org") or {}).get("type") == "regulator":
-        raise HTTPException(status_code=404, detail={"error": "not_applicable", "message": "A supervisory body has no reporting control register."})
+        raise UserError("oversight.controls.not_for_supervisors")
     return ctx
 
 
 def _reader(ctx: CurrentUser) -> dict:
     """Read access: the operators (ops.oversee) and the auditor (admin.audit.view)."""
     if not ({"ops.oversee", "admin.audit.view"} & set(ctx["permissions"])):
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: ops.oversee or admin.audit.view"})
+        raise UserError("error.forbidden")
     return ctx
 
 
@@ -61,7 +62,7 @@ def export_csv(session: DbSession, ctx: dict = Depends(_reader)):
 def control_history(control_id: str, session: DbSession, ctx: dict = Depends(_reader)):
     _regulated(ctx)
     if not C.control(control_id):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such control."})
+        raise UserError("error.not_found")
     return {"control": C.control(control_id), "tests": C.history(session, ctx["org"]["org_id"], control_id)}
 
 
@@ -74,9 +75,11 @@ class Owner(BaseModel):
 @router.put("/{control_id}/owner", summary="Set the control's owner and review date")
 def put_owner(control_id: str, body: Owner, session: DbSession, ctx: dict = Depends(require_permission("ops.oversee"))):
     _regulated(ctx)
+    if not C.control(control_id):
+        raise UserError("error.not_found")
     try:
         C.set_owner(session, org_id=ctx["org"]["org_id"], control_id=control_id, owner_user_id=body.owner_user_id, review_by=body.review_by, note=body.note, actor_user_id=ctx["user"]["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    except ValueError as e:               # the control exists (checked above): the owner is not an active person here
+        raise UserError("oversight.controls.owner_not_active") from e
     session.commit()
     return {"ok": True}

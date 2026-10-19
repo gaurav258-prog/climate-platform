@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import { flow } from '../lib/money'
+import { SITE_TYPE } from '../lib/codeWords'
 
 interface Summary {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number }
@@ -41,8 +42,8 @@ export default function Home() {
 
   // biggest exposures across the whole book (sites + suppliers), for the granular strip — each opens its detail
   const exposures = [
-    ...siteList.map(x => ({ name: x.name, kind: x.site_type.replace(/_/g, ' '), hazard: x.top_hazard, score: x.hazard_score, href: `/detail/site/${x.site_id}` })),
-    ...plots.map(p => ({ name: p.plot_name, kind: p.commodity, hazard: p.top_hazard, score: p.hazard_score, href: `/detail/plot/${p.plot_id}` })),
+    ...siteList.map(x => ({ name: x.name, what: SITE_TYPE[x.site_type] ?? 'Operating site', hazard: x.top_hazard, score: x.hazard_score, href: `/detail/site/${x.site_id}` })),
+    ...plots.map(p => ({ name: p.plot_name, what: p.commodity, hazard: p.top_hazard, score: p.hazard_score, href: `/detail/plot/${p.plot_id}` })),
   ].filter(e => e.score != null).sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 6)
 
   return (
@@ -77,7 +78,7 @@ export default function Home() {
                 <span className="text-[13px] text-[var(--color-ink)] truncate">{e.name}</span>
                 <span className="mono text-[13px] shrink-0" style={{ color: hz(e.score) }}>{Math.round(e.score as number)}</span>
               </div>
-              <div className="text-[11px] text-[var(--color-faint)] mt-0.5">{pretty(e.hazard)} · {e.kind}</div>
+              <div className="text-[11px] text-[var(--color-faint)] mt-0.5">{pretty(e.hazard)} · {e.what}</div>
             </button>
           ))}
           {exposures.length === 0 && <div className="text-[13px] text-[var(--color-faint)]">Add sites or suppliers to see your exposures.</div>}

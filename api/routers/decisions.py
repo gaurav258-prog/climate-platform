@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 import services.intelligence.forward_decisions as D
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/decisions", tags=["Forward-risk decisions"])
 
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/v1/decisions", tags=["Forward-risk decisions"])
 def _vertical(ctx: dict) -> str:
     v = D.VERTICAL.get(ctx["org"].get("type"))
     if not v:
-        raise HTTPException(400, {"error": "unsupported", "message": "Forward-risk decisions aren't wired for this sector."})
+        raise UserError("oversight.decisions.unsupported")
     return v
 
 
@@ -41,14 +42,15 @@ class DecideBody(BaseModel):
 def crossings(session: DbSession, scenario: str = "disorderly_2c", horizon: str = "2050",
               ctx: dict = Depends(require_permission("reports.view"))):
     from services.money.params import for_org
-    level = for_org(session, ctx["org"]["org_id"]).get("method.at_risk_level")
+    method = for_org(session, ctx["org"]["org_id"])
+    level = method.get("method.at_risk_level")
     if level is None:                    # 'crossing' is the institution's own line — not stated, no crossings (a named gap)
-        return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": None, "gap": "not stated: method.at_risk_level",
+        return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": None, "gap": method.gap_text(),
                 "policy": D.decision_policy(session, ctx["org"]["org_id"]), "n": 0, "crossings": []}
     try:
         rows = D.crossings(session, ctx["org"]["org_id"], _vertical(ctx), scenario, horizon, level)
-    except D.DecisionError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    except D.DecisionError as e:          # the only refusal here: a horizon the projection does not cross by
+        raise UserError("oversight.decisions.bad_horizon") from e
     return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": level,
             "policy": D.decision_policy(session, ctx["org"]["org_id"]),
             "n": len(rows), "crossings": rows}
@@ -61,8 +63,8 @@ def decide(body: DecideBody, session: DbSession, ctx: dict = Depends(require_per
         return D.decide(session, ctx["org"]["org_id"], ctx["user"]["id"], entity_id=body.entity_id,
                         entity_name=body.entity_name, scenario=body.scenario, horizon=body.horizon,
                         action=body.action, rationale=body.rationale, value_eur=body.value_eur)
-    except D.DecisionError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    except D.DecisionError as e:          # the only refusal here: an action no sector offers
+        raise UserError("oversight.decisions.bad_action") from e
 
 
 @router.get("/log", summary="The decision audit log")
@@ -81,8 +83,8 @@ def resolve_flag(flag_id: str, session: DbSession, status: str = "included",
     from fastapi import Response
     try:
         D.resolve_disclosure_flag(session, ctx["org"]["org_id"], flag_id, ctx["user"]["id"], status)
-    except D.DecisionError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    except D.DecisionError as e:          # the only refusal here: an outcome other than included or dismissed
+        raise UserError("oversight.decisions.bad_flag_outcome") from e
     return Response(status_code=204)
 
 
@@ -103,6 +105,6 @@ def resolve_watch(watch_id: str, session: DbSession, status: str = "cleared",
     from fastapi import Response
     try:
         D.resolve_watch(session, ctx["org"]["org_id"], watch_id, ctx["user"]["id"], status)
-    except D.DecisionError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    except D.DecisionError as e:          # the only refusal here: an outcome other than cleared or escalated
+        raise UserError("oversight.decisions.bad_watch_outcome") from e
     return Response(status_code=204)

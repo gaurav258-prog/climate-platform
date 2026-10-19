@@ -7,7 +7,9 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { HBar } from '../components/Charts'
-import { hazardLabel } from '../lib/hazards'
+import { hazardLabel, statusLabel } from '../lib/hazards'
+import { StatusChip } from '../components/StatusChip'
+import { placeLine } from '../lib/codeWords'
 import { actionLabel } from '../lib/actionLabels'
 import { balance } from '../lib/money'
 import MethodGap from '../components/MethodGap'
@@ -102,10 +104,11 @@ export default function Decisions() {
       <PageHeader eyebrow={`${profile?.org?.name} · act`} title="Forward-risk decisions"
         lead={<>{NounP} that cross your stated at-risk level{cq.data?.at_risk_threshold != null ? <> (score ≥ <b>{cq.data.at_risk_threshold}</b>)</> : null} by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one spins a card on the board.</>}>
         {cq.data?.policy && (
-          <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">
+          <div className="text-[12px] text-[var(--color-faint)] mt-2">
             {cq.data.policy.requires_approval
-              ? <>governance · <span className="text-[var(--color-mute)]">4-eyes required{cq.data.policy.threshold_eur ? ` above ${balance(cq.data.policy.threshold_eur)}` : ' on every decision'}</span></>
-              : <>governance · <span className="text-[var(--color-mute)]">decisions apply directly (no 4-eyes)</span> — configurable in Settings → Approval matrix</>}
+              ? <>A second approver signs off {cq.data.policy.threshold_eur ? `decisions at or above ${balance(cq.data.policy.threshold_eur)}` : 'every decision'}</>
+              : <>Decisions apply directly, without a second approver</>}
+            {' · '}<Link to="/admin?tab=matrix" className="text-[var(--color-sky)] hover:underline">Approval matrix</Link>
           </div>
         )}
       </PageHeader>
@@ -123,7 +126,7 @@ export default function Decisions() {
       {/* summary — lead with the answer */}
       <HeroBanner
         eyebrow="Forward-risk decisions"
-        title={cq.isLoading ? 'Reading the forward book…' : cq.data?.gap ? 'Your at-risk level is not stated.' : crossings.length === 0 ? 'Nothing crosses your at-risk level by this pathway.' : `${crossings.length} ${crossings.length === 1 ? noun : nounP} cross your at-risk level.`}
+        title={cq.isLoading ? 'Reading the forward book…' : cq.data?.gap ? 'Your at-risk level is not stated.' : crossings.length === 0 ? 'Nothing crosses your at-risk level by this pathway.' : `${crossings.length} ${crossings.length === 1 ? `${noun} crosses` : `${nounP} cross`} your at-risk level.`}
         lead={`${NounP} that cross your stated at-risk level by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
         stat={[
           { label: `${NounP} crossing`, value: cq.isLoading ? '—' : crossings.length, icon: TrendingUp, tone: 'var(--color-sky)' },
@@ -151,7 +154,7 @@ export default function Decisions() {
         {cq.isLoading ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">projecting the book…</div>
           : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">{cq.data?.gap ? 'Not computed — state your at-risk level first.' : <>No {nounP} newly cross your at-risk level under this pathway by {horizon}. Nothing to act on.</>}</div>
           : <div className="divide-y divide-[var(--color-line)]">
-              {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} actions={actions} discloseTo={aq.data?.vertical === 'agri' ? '/filings' : '/compliance'} focused={!!focusId && c.entity_id === focusId} onDone={refresh} />)}
+              {crossings.map(c => <CrossingRow key={c.entity_id} c={c} policy={cq.data?.policy} scenario={scenario} horizon={horizon} canAct={canAct} actions={actions} discloseTo={aq.data?.vertical === 'agri' ? '/filings' : '/compliance'} focused={!!focusId && c.entity_id === focusId} onDone={refresh} />)}
             </div>}
       </Card>
 
@@ -164,7 +167,13 @@ export default function Decisions() {
   )
 }
 
-function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focused, onDone }: { c: Crossing; scenario: string; horizon: string; canAct: boolean; actions: (Meta & { key: string })[]; discloseTo: string; focused?: boolean; onDone: () => void }) {
+// Whether a decision on this exposure goes to a second approver: the organisation's rule as the server states it
+// (forward_decisions.decision_policy) — off unless set; on with a threshold, from that value up.
+type Policy = { requires_approval: boolean; threshold_eur: number | null }
+const secondApprover = (p: Policy | undefined, value: number | null) =>
+  !!p?.requires_approval && (p.threshold_eur == null || (value ?? 0) >= p.threshold_eur)
+
+function CrossingRow({ c, policy, scenario, horizon, canAct, actions, discloseTo, focused, onDone }: { c: Crossing; policy?: Policy; scenario: string; horizon: string; canAct: boolean; actions: (Meta & { key: string })[]; discloseTo: string; focused?: boolean; onDone: () => void }) {
   const [open, setOpen] = useState(!!focused && canAct)   // deep-linked from the globe → open ready to decide
   const rowRef = useRef<HTMLDivElement>(null)
   const [lit, setLit] = useState(!!focused)
@@ -194,7 +203,7 @@ function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focuse
       <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] text-[var(--color-ink)] truncate">{c.entity_name}</div>
-          <div className="mono text-[10.5px] text-[var(--color-faint)]">{[c.region, c.country].filter(Boolean).join(', ') || '—'} · driver <span className="capitalize text-[var(--color-mute)]">{hazardLabel(c.driver)}</span></div>
+          <div className="text-[11px] text-[var(--color-faint)]">{placeLine(c.region, c.country)} · driver <span className="capitalize text-[var(--color-mute)]">{hazardLabel(c.driver)}</span></div>
         </div>
         {/* score migration */}
         <div className="hidden sm:flex items-center gap-1.5 mono text-[11.5px] shrink-0">
@@ -209,7 +218,7 @@ function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focuse
             ? <button onClick={() => canAct && setOpen(o => !o)} title={proposed ? 'Proposed — awaiting a second approval' : `Approved · ${c.decision.by?.split('@')[0]}`}
                 className="mono text-[9px] uppercase tracking-wide px-2 py-1 rounded inline-flex items-center gap-1"
                 style={proposed ? { color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 15%, transparent)' } : { color: dm?.tone, background: `color-mix(in oklab, ${dm?.tone} 15%, transparent)` }}>
-                {proposed ? <><Clock size={10} /> {dm?.label} · 4-eyes</> : <><Check size={11} /> {dm?.label ?? actionLabel(c.decision.action)}</>}
+                {proposed ? <><Clock size={10} /> {dm?.label ?? actionLabel(c.decision.action)} · awaiting approval</> : <><Check size={11} /> {dm?.label ?? actionLabel(c.decision.action)}</>}
               </button>
             : canAct
               ? <Button variant="ghost" onClick={() => setOpen(o => !o)}>Decide</Button>
@@ -244,7 +253,7 @@ function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focuse
           <div className="flex items-center gap-2">
             <Button variant="primary" onClick={save} disabled={busy || !action}><Check size={13} /> Propose decision</Button>
             <button onClick={() => setOpen(false)} className="text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Cancel</button>
-            <span className="mono text-[9.5px] text-[var(--color-faint)] ml-auto">{c.decision ? `last: ${dm?.label} · ${c.decision.status}` : 'needs a second approval (4-eyes)'}</span>
+            <span className="text-[11px] text-[var(--color-faint)] ml-auto">{c.decision ? `Last: ${dm?.label ?? actionLabel(c.decision.action)} · ${statusLabel(c.decision.status)}` : secondApprover(policy, c.value_eur) ? 'Goes to a second approver' : 'Applies at once'}</span>
           </div>
         </div>
       )}
@@ -316,7 +325,7 @@ function DecisionsReference({ canAct, log }: { canAct: boolean; log: LogRow[] })
                 return (
                   <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
                     <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: m?.tone, background: `color-mix(in oklab, ${m?.tone} 15%, transparent)` }}>{m?.label ?? actionLabel(d.action)}</span>
-                    <span className="mono text-[9px] uppercase tracking-wide shrink-0" style={{ color: d.status === 'approved' ? 'var(--color-good)' : d.status === 'proposed' ? 'var(--color-warn)' : 'var(--color-faint)' }}>{d.status}</span>
+                    <StatusChip value={d.status} className="shrink-0" />
                     <span className="text-[var(--color-ink)] truncate flex-1">{d.entity_name ?? '—'}{d.rationale ? <span className="text-[var(--color-faint)]"> · {d.rationale}</span> : ''}</span>
                     <span className="mono text-[10px] text-[var(--color-faint)] shrink-0">{scLabel(d.scenario)} · {d.horizon} · {d.by?.split('@')[0]} · {new Date(d.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
                   </div>

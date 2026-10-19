@@ -4,16 +4,6 @@
   "error": 0,
   "rawError": 1
  },
- "api/routers/controls.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
- "api/routers/decisions.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 4
- },
  "api/routers/entity_structure.py": {
   "display": 0,
   "error": 0,
@@ -172,31 +162,6 @@
  "services/intelligence/supply_concentration.py": {
   "display": 1,
   "error": 0,
-  "rawError": 0
- },
- "services/intelligence/taxonomy_adaptation.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
- "services/loss/projection_check.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
- "services/loss/registry.py": {
-  "display": 0,
-  "error": 2,
-  "rawError": 0
- },
- "services/mlops/model_governance.py": {
-  "display": 0,
-  "error": 1,
-  "rawError": 0
- },
- "services/money/params.py": {
-  "display": 0,
-  "error": 1,
   "rawError": 0
  },
  "services/reference/carbon_price.py": {

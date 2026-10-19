@@ -4450,6 +4450,164 @@
     "what": "This share of the case file has been downloaded as many times as the issuing authority allowed."
    }
   },
+  "oversight.decisions.unsupported": {
+   "status": 400,
+   "label": "Not offered for your type of organisation",
+   "detail": {
+    "what": "Forward-risk decisions are offered to banks, insurers, asset managers, real-estate companies and agricultural companies.",
+    "next": "Ask your administrator which pages your organisation uses."
+   }
+  },
+  "oversight.decisions.bad_horizon": {
+   "status": 422,
+   "label": "Choose 2030, 2050 or 2100",
+   "detail": {
+    "what": "Decisions are taken on the projection to 2030, 2050 or 2100; no other year is projected for them.",
+    "next": "Pick one of the three years."
+   }
+  },
+  "oversight.decisions.bad_action": {
+   "status": 422,
+   "label": "Choose one of the offered actions",
+   "detail": {
+    "what": "The decision named an action this page does not offer.",
+    "next": "Pick an action from the list and propose the decision again."
+   }
+  },
+  "oversight.decisions.bad_flag_outcome": {
+   "status": 422,
+   "label": "Mark it included or dismissed",
+   "detail": {
+    "what": "An exposure flagged for disclosure is either included in the filing or dismissed; nothing else can be recorded."
+   }
+  },
+  "oversight.decisions.bad_watch_outcome": {
+   "status": 422,
+   "label": "Clear or escalate the watch",
+   "detail": {
+    "what": "A watched exposure is either cleared from the watchlist or escalated; nothing else can be recorded."
+   }
+  },
+  "oversight.controls.not_for_supervisors": {
+   "status": 404,
+   "label": "No control register for a supervisor",
+   "detail": {
+    "what": "The reporting control register tests an organisation's own regulatory reporting. A supervisory body files no reports, so it has none."
+   }
+  },
+  "oversight.controls.owner_not_active": {
+   "status": 422,
+   "label": "Choose an active person as owner",
+   "detail": {
+    "what": "A control's owner must be an active member of your organisation.",
+    "next": "Pick someone from the list, or ask an administrator to restore their access."
+   }
+  },
+  "oversight.control.not_tested": {
+   "label": "Could not be tested",
+   "detail": {
+    "what": "The evidence for this control could not be read, so the test counts as failed.",
+    "next": "Test the controls again. If it fails again, raise a request in Support."
+   }
+  },
+  "oversight.control.finding": {
+   "label": "A check on this filing did not pass",
+   "detail": {
+    "what": "{sentence}"
+   }
+  },
+  "oversight.control.check_not_met": {
+   "label": "Not met: {check}",
+   "detail": {
+    "what": "{why}"
+   }
+  },
+  "oversight.control.feed_overdue": {
+   "label": "{feed} is overdue",
+   "detail": {
+    "what": "{feed} has not refreshed on its schedule. Last refreshed: {last}.",
+    "why": "Figures computed now rest on older data from this source."
+   }
+  },
+  "oversight.control.feed_failed": {
+   "label": "{feed} failed to refresh",
+   "detail": {
+    "what": "The last refresh of {feed} failed. Last successful refresh: {last}."
+   }
+  },
+  "oversight.control.model_below_gate": {
+   "label": "{hazard} model below the publishing fit",
+   "detail": {
+    "what": "Its fit on held-out data is {fit}; a model needs {gate} to publish a money figure."
+   }
+  },
+  "oversight.control.breach_unacknowledged": {
+   "label": "{indicator}: red, not acknowledged",
+   "detail": {
+    "what": "{indicator} has been red since {since} and no one has acknowledged it.",
+    "next": "Acknowledge the breach on the indicator, with its owner and action."
+   }
+  },
+  "oversight.control.scan": {
+   "label": "Sources last scanned {when}",
+   "detail": {
+    "what": "The official sources of every tracked framework were last checked on {when}, {days} days ago."
+   }
+  },
+  "oversight.control.obligation_missed": {
+   "label": "Due {due}, not submitted",
+   "detail": {
+    "what": "This filing was due on {due}, and no filing for the period has been submitted or accepted."
+   }
+  },
+  "oversight.control.no_live_filing": {
+   "label": "No live filing to test",
+   "detail": {
+    "what": "There is no live filing for this control to test against."
+   }
+  },
+  "oversight.control.not_for_sector": {
+   "label": "Does not apply to your sector",
+   "detail": {
+    "what": "This check does not apply to your organisation's sector."
+   }
+  },
+  "oversight.control.nothing_released": {
+   "label": "Nothing released yet",
+   "detail": {
+    "what": "No filing has been released yet, so there is no release to check."
+   }
+  },
+  "oversight.control.released_unapproved": {
+   "label": "Released without an approval",
+   "detail": {
+    "what": "This filing was released without an approval request, so no second person signed it off."
+   }
+  },
+  "oversight.control.no_active_model": {
+   "label": "No active model",
+   "detail": {
+    "what": "No model is active in the registry, so there is nothing to check."
+   }
+  },
+  "oversight.control.no_red_breach": {
+   "label": "No open red breach",
+   "detail": {
+    "what": "No indicator is red."
+   }
+  },
+  "oversight.control.no_scan": {
+   "label": "No source scan on record",
+   "detail": {
+    "what": "The official sources of the tracked frameworks have never been checked."
+   }
+  },
+  "oversight.control.no_overdue_obligation": {
+   "label": "No obligation past its due date",
+   "detail": {
+    "what": "Every obligation past its due date has a submitted or accepted filing."
+   }
+  },
   "kri.unsupported": {
    "label": "No indicators for this report yet",
    "detail": {

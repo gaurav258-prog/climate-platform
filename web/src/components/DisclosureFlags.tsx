@@ -3,13 +3,13 @@ import { Flag, Check, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, SectionHead } from './ui'
+import { horizonLabel, scenarioLabel } from '../lib/labels'
 
 // Act → Report bridge: exposures an approved 'disclose' decision flagged for the next climate filing. The
 // reporting team sees, in the cockpit, what Risk wants surfaced this period, and marks each included or
 // dismissed. Only shown when there are open flags.
 
 interface FlagRow { flag_id: string; entity_name: string | null; scenario: string | null; horizon: string | null; by: string | null; at: string }
-const SCEN: Record<string, string> = { baseline: 'Today', orderly_1_5c: 'Orderly 1.5°C', disorderly_2c: 'Disorderly 2°C', hot_house_3_5c: 'Hot-house 3.5°C' }
 
 export default function DisclosureFlags() {
   const { profile } = useAuth()
@@ -34,7 +34,7 @@ export default function DisclosureFlags() {
           <div key={f.flag_id} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
             <div className="min-w-0 flex-1">
               <span className="text-[var(--color-ink)]">{f.entity_name ?? '—'}</span>
-              <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{SCEN[f.scenario ?? ''] ?? f.scenario} · {f.horizon} · {f.by?.split('@')[0]}</span>
+              <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{[scenarioLabel(f.scenario), horizonLabel(f.horizon), f.by?.split('@')[0]].filter(Boolean).join(' · ')}</span>
             </div>
             {canAct && (
               <div className="flex items-center gap-1.5 shrink-0">

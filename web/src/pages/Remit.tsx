@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { FileLock2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { BrandMark, Wordmark } from '../components/BrandMark'
+import { HEADING, InfoButton } from '../components/Details'
 import { SECTION_LABEL, STATUS, type Remittance } from '../components/Remittance'
 
 // The recipient's page: opened from the link in the remittance e-mail, no login. Shows what was remitted, by whom,
@@ -30,10 +31,12 @@ export default function Remit() {
               <dl className="mt-4 grid grid-cols-[120px_1fr] gap-y-1.5 text-[12.5px]">
                 <dt className="text-[var(--color-faint)]">Status</dt><dd className="m-0 font-medium" style={{ color: st.color }}>{st.label}</dd>
                 <dt className="text-[var(--color-faint)]">Purpose</dt><dd className="m-0 text-[var(--color-ink)]">{d.purpose}</dd>
-                <dt className="text-[var(--color-faint)]">Legal basis</dt><dd className="m-0 text-[var(--color-ink)]">{d.legal_basis.stated ? `${d.legal_basis.stated} · ` : ''}{d.legal_basis.url ? <a href={d.legal_basis.url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">{d.legal_basis.ref}</a> : d.legal_basis.ref}</dd>
+                <dt className="text-[var(--color-faint)]">Legal basis</dt><dd className="m-0 text-[var(--color-ink)] inline-flex items-center gap-1.5">{d.legal_basis.stated ?? d.legal_basis.act}
+                  <InfoButton compact details={{ title: 'Legal basis', sections: [{ heading: 'The provision', body: d.legal_basis.url
+                    ? <a href={d.legal_basis.url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">{d.legal_basis.ref} ↗</a> : d.legal_basis.ref }] }} /></dd>
                 <dt className="text-[var(--color-faint)]">Sections</dt><dd className="m-0 text-[var(--color-ink)]">{d.sections.map(s => SECTION_LABEL[s] ?? s).join(', ')}</dd>
                 <dt className="text-[var(--color-faint)]">Expires</dt><dd className="m-0 text-[var(--color-ink)]">{d.expires_at.slice(0, 16).replace('T', ' ')} UTC{d.max_downloads ? ` · ${d.n_downloads} of ${d.max_downloads} downloads used` : ''}</dd>
-                <dt className="text-[var(--color-faint)]">Document hash</dt><dd className="m-0 mono text-[11px] text-[var(--color-mute)] break-all">{d.pdf_sha256}</dd>
+                <dt className="text-[var(--color-faint)]">Document fingerprint</dt><dd className="m-0 tabular-nums text-[11px] text-[var(--color-mute)] break-all">{d.pdf_sha256}</dd>
               </dl>
               {d.status === 'active' ? (
                 <div className="flex gap-2 mt-5">
@@ -42,7 +45,9 @@ export default function Remit() {
                 </div>
               ) : <div className="mt-5 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel-2)] px-4 py-3 text-[12.5px] text-[var(--color-mute)]">
                 {d.status === 'revoked' ? 'The issuing authority has revoked this remittance.' : d.status === 'expired' ? 'This remittance has expired.' : 'This remittance has reached its download limit.'} Contact {d.regulator} if you still need the case file.</div>}
-              <p className="text-[11.5px] text-[var(--color-faint)] mt-4">{d.notice}</p>
+              <div className="mt-4"><InfoButton label="How this remittance is governed" details={{ title: 'How this remittance is governed', sections: [
+                { heading: HEADING.shows, body: d.notice },
+                { heading: HEADING.read, body: 'The document fingerprint identifies the case file exactly: a copy whose fingerprint differs is not the file that was remitted.' }] }} /></div>
             </div>
           )}
         </div>

@@ -5,10 +5,19 @@ import { api } from '../lib/api'
 import { Card, PageHeader } from '../components/ui'
 import ExposureMap, { type Region, type Site } from '../components/ExposureMap'
 import { balance } from '../lib/money'
+import { HEADING, InfoButton } from '../components/Details'
+import { hazardLabel, horizonLabel, scenarioLabel } from '../lib/labels'
+import { countryName } from '../lib/codeWords'
+
+// how the map is drawn — one click away (UI standard)
+const ABOUT = [
+  { heading: HEADING.read, body: 'Inside the EU each area is a statistical region (NUTS level 3); elsewhere it is a hexagonal grid cell, clipped to the coastline. These are the units your filings use. Individual sites appear only for an entity that has granted you access to them — the switch is on the entity’s side.' },
+  { heading: HEADING.sources, body: 'Regions: Eurostat GISCO, NUTS 2021. Coastline: Eurostat GISCO countries, 2020. Map tiles: Esri.' },
+]
 // ── Where the supervised exposure sits ─────────────────────────────────────────────────────────────────────
 // Regional by default (NUTS-3 / hexagons — what filings carry). Individual sites only for an entity that has
 // granted site-level access; the switch is on the entity's side, the regulator can only ask.
-interface MapResp { scenario: string; horizon: string; level: string; n_sites: number; value_eur: number; n_regions: number
+interface MapResp { scenario: string; horizon: string; n_sites: number; value_eur: number; n_regions: number
   entities: { org_id: string; name: string; type: string; n_sites: number; value_eur: number; site_access: boolean }[]; regions: Region[] }
 interface SitesResp { entity: { org_id: string; name: string }; n_sites: number; sites: Site[] }
 
@@ -27,10 +36,8 @@ function ExposureCard() {
     <Card className="p-5">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
         <div>
-          <div className="text-[15px] font-semibold">Where the supervised exposure sits</div>
-          <div className="text-[12px] text-[var(--color-mute)] mt-0.5">
-            Regional by default — {d?.level ?? 'NUTS-3 / hexagons'}, the unit your filings use. Individual sites appear only for an entity that has granted you site-level access.
-          </div>
+          <div className="text-[15px] font-semibold inline-flex items-center gap-1.5">Where the supervised exposure sits <InfoButton compact details={{ title: 'How the map is drawn', sections: ABOUT }} /></div>
+          <div className="text-[12px] text-[var(--color-mute)] mt-0.5">By region; individual sites only where access is granted.</div>
         </div>
         <div className="flex items-center gap-2">
           <select value={entity} onChange={e => { setEntity(e.target.value); setShowSites(false) }}
@@ -46,10 +53,10 @@ function ExposureCard() {
         </div>
       </div>
       {focusKey && d && (() => { const r = d.regions.find(x => x.key === focusKey); return r ? (
-        <div className="mb-2 text-[12.5px] text-[var(--color-ink)]">Focused on <b>{r.name}</b>{r.country ? ` · ${r.country}` : ''}: {r.n_sites} sites · {balance(r.value_eur)} · worst {r.max_score != null ? Math.round(r.max_score) : '—'}/100{r.worst_hazard ? ` (${r.worst_hazard.replace(/_/g, ' ')})` : ''} · {r.entities.join(', ')}</div>) : null })()}
+        <div className="mb-2 text-[12.5px] text-[var(--color-ink)]">Focused on <b>{r.name}</b>{countryName(r.country) && !r.name.includes(countryName(r.country)!) ? ` · ${countryName(r.country)}` : ''}: {r.n_sites} sites · {balance(r.value_eur)} · worst {r.max_score != null ? Math.round(r.max_score) : '—'}/100{r.worst_hazard ? ` (${hazardLabel(r.worst_hazard)})` : ''} · {r.entities.join(', ')}</div>) : null })()}
       {d && (
-        <div className="mono text-[11px] text-[var(--color-faint)] mb-2">
-          {d.n_sites.toLocaleString()} sites · {balance(d.value_eur)} · {d.n_regions} regions · {d.scenario} · {d.horizon}
+        <div className="text-[11.5px] text-[var(--color-faint)] mb-2">
+          {d.n_sites.toLocaleString()} sites · {balance(d.value_eur)} · {d.n_regions} areas · {scenarioLabel(d.scenario)} · {horizonLabel(d.horizon)}
           {' · '}{d.entities.filter(e => e.site_access).length} of {d.entities.length} entities grant site access
         </div>
       )}
@@ -68,7 +75,7 @@ export default function SupervisorMap() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Exposure map" title="Where the supervised exposure sits"
-        lead="Regional by default — NUTS-3 inside the EU, hexagons elsewhere clipped to the coastline (Eurostat GISCO countries 2020) — the unit your filings use. Individual sites appear only for an entity that has granted you site-level access." />
+        lead="The supervised population's exposure, region by region." about={ABOUT} />
       <ExposureCard />
     </div>
   )

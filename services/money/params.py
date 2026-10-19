@@ -72,7 +72,7 @@ class Method:
 
     def get(self, key: str, member: str | None = None) -> float | None:
         if key not in parameters():
-            raise KeyError(f"{key} is not a registered parameter (data/reference/money/parameters.json)")
+            raise KeyError(f"{key!r} is not in the register of money parameters")
         v = self._values.get((key, member))
         if v is None or v.get("value") is None:
             self.gaps.add((key, member))

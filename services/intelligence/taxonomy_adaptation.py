@@ -48,7 +48,7 @@ def adaptation_kpi(session: Session, org_id: str, method) -> dict:
             "coverage_pct": pct(len(located), len(sites)),
             "asset_value_assessed_eur": round(total_value),
         },
-        "physical_risk": ({"gap": "not stated: method.at_risk_level", "at_risk_level": None} if threshold is None else {
+        "physical_risk": ({"gap": method.gap_text(), "at_risk_level": None} if threshold is None else {
             "at_risk_level": threshold,
             "sites_materially_exposed": len(exposed),
             "asset_value_exposed_eur": round(exposed_value),

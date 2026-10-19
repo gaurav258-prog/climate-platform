@@ -98,7 +98,7 @@ def agreement(session: Session) -> dict:
             "both_wet": c.get(("wet", "wet"), 0), "both_dry": c.get(("dry", "dry"), 0),
             "jrc_wet_only": c.get(("wet", "dry"), 0), "aqueduct_wet_only": c.get(("dry", "wet"), 0),
             "agree_share": round(agree / judged, 4) if judged else None,
-            "basis": "JRC wet: the location's H3 res-8 cell has a flooded share; Aqueduct wet: its 30″ pixel is wet"}
+            "basis": "JRC wet: the location's hexagonal grid cell (resolution 8) has a flooded share; Aqueduct wet: its 30″ pixel is wet"}
 
 
 def run(session: Session) -> dict:

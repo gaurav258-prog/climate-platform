@@ -4,6 +4,9 @@ import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
+import { HEADING } from '../components/Details'
+import { bucketLabel, hazardLabel } from '../lib/labels'
+import { CRITICALITY, PRECISION, countryName } from '../lib/codeWords'
 
 // Third-party physical exposure — the critical service providers, custodians, data centres and outsourcers the
 // organisation depends on, located and read at the same engine score as its own sites.
@@ -30,13 +33,15 @@ export default function ThirdParties() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Assess · third parties" title="Third-party physical exposure"
-        lead="The providers your operations depend on — data centres, cloud, custodians, outsourced functions — located like your own sites and read at the same engine score. A critical provider in a high-hazard cell is an operational-resilience question before it is a climate one."
+        lead="The providers you depend on, located and scored like your own sites."
+        about={[{ heading: HEADING.read, body: 'Data centres, cloud, custodians and outsourced functions are located like your own sites and read at the same score. A critical provider in a high-hazard place is an operational-resilience question before it is a climate one.' },
+          ...(d?.note ? [{ heading: HEADING.limits, body: d.note }] : [])]}
         actions={<Button variant="ghost" onClick={() => download('/v1/third-parties/register.csv', 'third-party-register.csv')}>Export register (CSV)</Button>} />
       {s && <StatGrid cols={4} items={[
         { label: 'Third parties', value: String(s.n), sub: `${s.critical} critical` },
         { label: 'High or very high exposure', value: String(s.high), sub: 'max hazard score ≥ 60', accent: s.high ? 'var(--color-warn)' : 'var(--color-good)' },
         { label: 'Critical and high', value: String(s.critical_high), sub: 'needs a resilience answer', accent: s.critical_high ? 'var(--color-bad)' : 'var(--color-good)' },
-        { label: 'Scored / pending', value: `${s.scored} / ${s.pending}`, sub: d?.note ? 'new locations score in the background' : '' },
+        { label: 'Scored / pending', value: `${s.scored} / ${s.pending}`, sub: 'new locations score in the background' },
       ]} />}
       {d?.can_edit && (
         <Card className="p-5">
@@ -45,9 +50,9 @@ export default function ThirdParties() {
             <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="Name" className={inp} />
             <select value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })} className={inp}>{Object.entries(d.kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
             <input value={f.service} onChange={e => setF({ ...f, service: e.target.value })} placeholder="Service provided" className={inp} />
-            <select value={f.criticality} onChange={e => setF({ ...f, criticality: e.target.value })} className={inp}>{d.criticality.map(c => <option key={c} value={c}>{c}</option>)}</select>
-            <input value={f.address} onChange={e => setF({ ...f, address: e.target.value })} placeholder="Address (geocoded) — or coordinates via API" className={inp + ' md:col-span-2'} />
-            <input value={f.country} onChange={e => setF({ ...f, country: e.target.value.toUpperCase().slice(0, 2) })} placeholder="Country (ISO-2)" className={inp} />
+            <select value={f.criticality} onChange={e => setF({ ...f, criticality: e.target.value })} className={inp}>{d.criticality.map(c => <option key={c} value={c}>{CRITICALITY[c] ?? 'Other'}</option>)}</select>
+            <input value={f.address} onChange={e => setF({ ...f, address: e.target.value })} placeholder="Address" className={inp + ' md:col-span-2'} />
+            <input value={f.country} onChange={e => setF({ ...f, country: e.target.value.toUpperCase().slice(0, 2) })} placeholder="Country code, e.g. DE" className={inp} />
             <input value={f.contract_ref} onChange={e => setF({ ...f, contract_ref: e.target.value })} placeholder="Contract reference" className={inp} />
           </div>
           <div className="flex justify-end mt-2"><Button onClick={add} disabled={busy || !f.name || !f.address}>{busy ? 'Locating…' : 'Add and score'}</Button></div>
@@ -55,20 +60,20 @@ export default function ThirdParties() {
       <Card className="p-5">
         {q.isLoading ? <div className="text-[12.5px] text-[var(--color-faint)] py-6 text-center">loading…</div> : (d?.third_parties.length ?? 0) === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">No third party registered yet.</div> : (
           <div className="overflow-x-auto"><table className="data-table text-[12px]">
-            <thead><tr><th>Third party</th><th>Kind</th><th>Criticality</th><th>Location</th><th>Worst hazard</th><th className="num">Score</th><th>Bucket</th><th className="num">Hazards</th><th></th></tr></thead>
+            <thead><tr><th>Third party</th><th>Kind</th><th>Criticality</th><th>Location</th><th>Worst hazard</th><th className="num">Score</th><th>Band</th><th className="num">Hazards</th><th></th></tr></thead>
             <tbody>{d!.third_parties.map(t => (<>
               <tr key={t.third_party_id}>
                 <td><span className="text-[var(--color-ink)]">{t.name}</span>{t.service && <div className="text-[11px] text-[var(--color-faint)]">{t.service}</div>}</td>
                 <td>{t.kind_label}</td>
-                <td><span className="font-medium" style={{ color: CRIT[t.criticality] }}>{t.criticality}</span></td>
-                <td>{t.address ?? `${t.latitude.toFixed(3)}, ${t.longitude.toFixed(3)}`}<div className="mono text-[10px] text-[var(--color-faint)]">{t.country ?? ''} · {t.geocode_precision ?? ''} · {t.h3_cell}</div></td>
-                <td>{t.worst_hazard ?? <span className="text-[var(--color-faint)]">pending</span>}</td>
+                <td><span className="font-medium" style={{ color: CRIT[t.criticality] }}>{CRITICALITY[t.criticality] ?? 'Other'}</span></td>
+                <td>{t.address ?? `${t.latitude.toFixed(3)}, ${t.longitude.toFixed(3)}`}<div className="text-[10.5px] text-[var(--color-faint)]">{[countryName(t.country), PRECISION[t.geocode_precision ?? '']].filter(Boolean).join(' · ')}</div></td>
+                <td>{t.worst_hazard ? hazardLabel(t.worst_hazard) : <span className="text-[var(--color-faint)]">Scoring…</span>}</td>
                 <td className="num mono" style={{ color: severityHex(t.max_score) }}>{t.max_score != null ? t.max_score.toFixed(0) : '—'}</td>
-                <td>{t.bucket ?? '—'}</td>
+                <td>{bucketLabel(t.bucket)}</td>
                 <td className="num mono">{t.n_hazards_scored}</td>
                 <td className="whitespace-nowrap"><button onClick={() => setOpen(open === t.third_party_id ? null : t.third_party_id)} className="text-[var(--color-sky)] hover:underline">{open === t.third_party_id ? 'Hide' : 'Hazards'}</button>{d!.can_edit && <>{' · '}<button onClick={() => end(t)} className="text-[var(--color-bad)] hover:underline">End</button></>}</td>
               </tr>
-              {open === t.third_party_id && <tr key={t.third_party_id + '-h'}><td colSpan={9} className="bg-[var(--color-panel-2)]"><div className="flex flex-wrap gap-1.5 py-1">{t.hazards.map(h => <span key={h.hazard} className="px-2 py-0.5 rounded-full border border-[var(--color-line)] mono text-[11px]" style={{ color: severityHex(h.score) }}>{h.hazard} {h.score.toFixed(0)}</span>)}{t.contract_ref && <span className="text-[11px] text-[var(--color-faint)] ml-auto">contract {t.contract_ref} · added {t.created_at.slice(0, 10)} by {t.created_by ?? '—'}</span>}</div></td></tr>}
+              {open === t.third_party_id && <tr key={t.third_party_id + '-h'}><td colSpan={9} className="bg-[var(--color-panel-2)]"><div className="flex flex-wrap gap-1.5 py-1">{t.hazards.map(h => <span key={h.hazard} className="px-2 py-0.5 rounded-full border border-[var(--color-line)] text-[11px] tabular-nums" style={{ color: severityHex(h.score) }}>{hazardLabel(h.hazard)} {h.score.toFixed(0)}</span>)}{t.contract_ref && <span className="text-[11px] text-[var(--color-faint)] ml-auto">contract {t.contract_ref} · added {t.created_at.slice(0, 10)} by {t.created_by ?? '—'}</span>}</div></td></tr>}
             </>))}</tbody></table></div>)}
       </Card>
     </div>

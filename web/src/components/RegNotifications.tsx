@@ -64,7 +64,7 @@ export default function RegNotifications({ framework }: { framework: string }) {
             <div key={e.event_id} className="py-2.5">
               <div className="flex items-center gap-2.5 text-[12.5px]">
                 <span className="flex-1 min-w-0 truncate text-[var(--color-ink)]">{e.title}</span>
-                {e.authority && <span className="mono text-[10px] text-[var(--color-faint)] shrink-0">{e.authority}</span>}
+                {e.authority && <span className="text-[11px] text-[var(--color-faint)] shrink-0">{e.authority}</span>}
                 {e.status === 'notified'
                   ? <span className="mono text-[10.5px] inline-flex items-center gap-1 shrink-0" style={{ color: 'var(--color-good)' }}><CheckCircle2 size={12} /> notified{e.notified_ref ? ` · ${e.notified_ref}` : ''}</span>
                   : <span className="mono text-[10.5px] inline-flex items-center gap-1 shrink-0" style={{ color: e.overdue ? 'var(--color-bad)' : 'var(--color-warn)' }}>{e.overdue ? <AlertTriangle size={12} /> : <Clock size={12} />} {rem(e.hours_remaining)}</span>}
@@ -90,7 +90,7 @@ export default function RegNotifications({ framework }: { framework: string }) {
 
       {canAct && flaggable.length > 0 && (
         <div>
-          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Flag a breach as notifiable</div>
+          <div className="text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Flag a breach as notifiable</div>
           <div className="flex flex-wrap gap-1.5">
             {flaggable.slice(0, 6).map(e => (
               <button key={e.kri_key} onClick={() => flag(e)}

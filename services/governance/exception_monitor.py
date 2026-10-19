@@ -56,7 +56,7 @@ def exceptions(session: Session, org_id: str) -> dict:
                 "filing_id": f["filing_id"], "filing_label": f["framework"], "period": f["period_label"],
                 "filing_status": f["status"], "rule": finding["rule"], "category": finding["category"],
                 "severity": finding["severity"], "criticality": _CRIT[finding["severity"]],
-                "message": finding["message"], "source_ref": ref,
+                "message": finding["message"], "msg": finding.get("msg"), "source_ref": ref,   # msg: its catalogue words
                 "tracked": ref in tracked, "task_id": tracked.get(ref),
             })
 

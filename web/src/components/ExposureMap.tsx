@@ -3,12 +3,17 @@ import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap } from 
 import 'leaflet/dist/leaflet.css'
 import { severityHex } from './SiteMap'
 import { balance } from '../lib/money'
+import { regionTooltip, type Region } from './exposureMapWords'
+
+export type { Region }
 
 // The supervisor's map. Regions (NUTS-3 in the EU, H3 hexagons elsewhere) are always drawn — the unit filings
 // use, no site identifiable. Individual sites are layered on top ONLY for entities that granted site access.
-export interface Region { key: string; name: string; country: string | null; kind: 'nuts3' | 'h3'; geometry: GeoJSON.Geometry
-  n_sites: number; value_eur: number; max_score: number | null; mean_score: number | null; worst_hazard: string | null; entities: string[] }
 export interface Site { id: string; name: string; kind: string; lat: number; lon: number; value_eur: number; score: number | null; hazard: string | null }
+
+// a site's kind: the engine books name themselves ('financed asset', 'property'); an agriculture site or plot is a code
+const SITE_KIND: Record<string, string> = { site: 'Operating site', plot: 'Sourcing plot' }
+const siteKind = (k: string) => SITE_KIND[k] ?? k[0].toUpperCase() + k.slice(1)
 
 const LIGHT = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
 const DARK = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
@@ -52,22 +57,18 @@ export default function ExposureMap({ regions, sites, height = 480, focusKey }: 
         <GeoJSON key={fc.features.length + (dark ? 'd' : 'l') + (focusKey ?? '')} data={fc}
           style={(f) => { const r = f?.properties as Region; const c = severityHex(r.max_score); const hot = focusKey && r.key === focusKey
             return { color: hot ? (dark ? '#fff' : '#0f172a') : c, weight: hot ? 3 : r.kind === 'h3' ? 1 : 1.2, dashArray: r.kind === 'h3' ? '4 3' : undefined, fillColor: c, fillOpacity: r.max_score == null ? 0.15 : 0.45 } }}
-          onEachFeature={(f, layer) => { const r = f.properties as Region
-            layer.bindTooltip(`<b>${r.name}</b>${r.country ? ' · ' + r.country : ''}${r.kind === 'h3' ? ' (grid cell, outside EU statistical regions)' : ''}<br/>` +
-              `${r.n_sites} site${r.n_sites === 1 ? '' : 's'} · ${balance(r.value_eur)}<br/>` +
-              (r.max_score != null ? `worst ${Math.round(r.max_score)}/100 · ${(r.worst_hazard ?? '').replace(/_/g, ' ')} · mean ${r.mean_score}` : 'not yet scored') +
-              (r.entities.length ? `<br/><span style="opacity:.7">${r.entities.join(' · ')}</span>` : ''), { sticky: true }) }} />
+          onEachFeature={(f, layer) => { layer.bindTooltip(regionTooltip(f.properties as Region), { sticky: true }) }} />
         {(sites ?? []).map(s => (
           <CircleMarker key={s.id} center={[s.lat, s.lon]} radius={5}
             pathOptions={{ color: dark ? '#fff' : '#0f172a', weight: 1, fillColor: severityHex(s.score), fillOpacity: 0.9 }}>
             <Tooltip direction="top" offset={[0, -5]} opacity={1}>
-              <span style={{ fontSize: 12 }}><b>{s.name}</b> · {s.kind.replace(/_/g, ' ')} · {balance(s.value_eur)}{s.score != null ? ` · ${Math.round(s.score)}/100` : ''}</span>
+              <span style={{ fontSize: 12 }}><b>{s.name}</b> · {siteKind(s.kind)} · {balance(s.value_eur)}{s.score != null ? ` · ${Math.round(s.score)}/100` : ''}</span>
             </Tooltip>
           </CircleMarker>
         ))}
       </MapContainer>
-      <div className="absolute left-2 bottom-2 z-[500] mono text-[10px] px-2 py-1 rounded-md bg-[var(--color-panel)]/90 text-[var(--color-faint)] border border-[var(--color-line)]">
-        {regions.length} regions{sites ? ` · ${sites.length} individual sites (granted)` : ' · no individual sites (regional only)'}
+      <div className="absolute left-2 bottom-2 z-[500] text-[10.5px] px-2 py-1 rounded-md bg-[var(--color-panel)]/90 text-[var(--color-faint)] border border-[var(--color-line)]">
+        {regions.length} areas{sites ? ` · ${sites.length} individual sites, as granted` : ' · regions only'}
       </div>
     </div>
   )

@@ -6,14 +6,21 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, SectionHead, PageHeader } from '../components/ui'
 import { filingLink, taskLink } from '../lib/links'
+import { CALENDAR_KIND, frequencyWord } from '../lib/codeWords'
 
 // Regulatory calendar — filing deadlines and task due-dates on one month grid, with an upcoming list.
 
-interface Ev { date: string; kind: 'obligation' | 'task' | 'reg_change'; title: string; sub: string; ref_id: string | null; status: string; overdue: boolean; criticality: string | null }
+interface Ev { date: string; kind: 'obligation' | 'task' | 'reg_change'; title: string; sub: string; ref_id: string | null; status: string; overdue: boolean; criticality: string | null
+  period?: string; frequency?: string; set_by?: string | null }
 interface Resp { events: Ev[]; upcoming: Ev[]; today: string }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+// the line under an entry, from its own fields: a filing's period and how often it is due (and who set the deadline),
+// a task's assignee; a rule change's framework code is not shown — its title names it
+const subOf = (e: Ev): string => e.kind === 'obligation'
+  ? [e.period, frequencyWord(e.frequency), e.set_by ? `deadline set by ${e.set_by}` : null].filter(Boolean).join(' · ')
+  : e.kind === 'task' ? e.sub : 'Takes effect'
 const kindColor = (e: Ev) => e.overdue ? '#fb7185' : e.kind === 'obligation' ? '#5cc8ff' : e.kind === 'reg_change' ? '#a78bfa' : e.criticality === 'critical' ? '#fb7185' : e.criticality === 'high' ? '#f0a860' : '#34d399'
 
 export default function Calendar() {
@@ -108,11 +115,11 @@ export default function Calendar() {
                           <Icon size={14} style={{ color: kindColor(e) }} className="shrink-0" />
                           <div className="min-w-0 flex-1">
                             <div className="text-[13px] text-[var(--color-ink)] truncate">{e.title}</div>
-                            <div className="mono text-[10.5px] text-[var(--color-faint)]">{e.sub}</div>
+                            <div className="text-[11px] text-[var(--color-faint)]">{subOf(e)}</div>
                           </div>
                           <div className="text-right shrink-0">
                             <div className="mono text-[11.5px]" style={{ color: e.overdue ? '#fb7185' : 'var(--color-mute)' }}>{new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
-                            <div className="mono text-[9.5px] text-[var(--color-faint)]">{e.kind}</div>
+                            <div className="text-[10.5px] text-[var(--color-faint)]">{CALENDAR_KIND[e.kind]}</div>
                           </div>
                           <Chev size={14} className="text-[var(--color-faint)] shrink-0" />
                         </button>

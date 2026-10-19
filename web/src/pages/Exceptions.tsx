@@ -8,7 +8,9 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Lens, PageHeader, HeroBanner } from '../components/ui'
 import { HBar } from '../components/Charts'
-import { frameworkLabel, prettify } from '../lib/hazards'
+import { frameworkLabel } from '../lib/hazards'
+import { InfoButton, MESSAGE_HEADING, messageDetails, type Message } from '../components/Details'
+import { CHECK_FAMILY } from '../components/filing/words'
 import { filingLink, taskLink } from '../lib/links'
 
 // Control Tower — every open validation/reconciliation exception across all filings, in one prioritised
@@ -17,9 +19,15 @@ import { filingLink, taskLink } from '../lib/links'
 
 interface Exc {
   filing_id: string; filing_label: string; period: string; filing_status: string
-  rule: string; category: string; severity: string; criticality: string; message: string
+  rule: string; category: string; severity: string; criticality: string; message: string; msg?: Message | null
   source_ref: string; tracked: boolean; task_id: string | null
 }
+// a check's family in words (the filing journey's own list); a family it does not name reads as a check
+const family = (c: string) => CHECK_FAMILY[c] ?? 'Other'
+// an exception on the main screen is its short label; what it means sits behind its ⓘ. A rule set that does not yet
+// name its findings in the catalogue (its own sentence only) reads as a failed check of its family.
+const shortOf = (e: Exc) => e.msg?.label ?? `${family(e.category)} check not passed`
+const detailsOf = (e: Exc) => e.msg ? messageDetails(e.msg) : { title: shortOf(e), sections: [{ heading: MESSAGE_HEADING.what, body: e.message }] }
 interface Resp {
   exceptions: Exc[]
   summary: { total: number; blocking: number; warnings: number; tracked: number; by_category: Record<string, number>; filings_scanned: number; filings_skipped: number }
@@ -101,11 +109,11 @@ export default function Exceptions() {
           <Card className="p-5">
             <div className="text-[13px] font-medium text-[var(--color-ink)] mb-0.5">Open exceptions by category</div>
             <div className="text-[11.5px] text-[var(--color-mute)] mb-3">where the recurring failure modes are — click a bar to filter the worklist below</div>
-            <HBar data={cats.map(([cat, n]) => ({ label: prettify(cat), value: n, color: cat === categoryFilter ? '#38bdf8' : 'var(--color-sky)' }))}
+            <HBar data={cats.map(([cat, n]) => ({ label: family(cat), value: n, color: cat === categoryFilter ? '#38bdf8' : 'var(--color-sky)' }))}
               format={(n) => `${n}`} height={16} onBar={(i) => setCategoryFilter(prev => prev === cats[i][0] ? null : cats[i][0])} />
             {categoryFilter && (
               <div className="flex items-center gap-1.5 mt-3 text-[12px] text-[var(--color-mute)]">
-                showing <span className="text-[var(--color-ink)] font-medium">{prettify(categoryFilter)}</span> only
+                showing <span className="text-[var(--color-ink)] font-medium">{family(categoryFilter)}</span> only
                 <button onClick={() => setCategoryFilter(null)} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">clear <X size={12} /></button>
               </div>
             )}
@@ -116,7 +124,7 @@ export default function Exceptions() {
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">scanning filings…</Card>
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load exceptions.</div>
         : shown.length === 0
-          ? <Card className="p-10 text-center"><CheckCircle2 size={22} className="mx-auto mb-2" style={{ color: '#34d399' }} /><div className="text-[13px] text-[var(--color-mute)]">{categoryFilter ? `No open exceptions in ${prettify(categoryFilter)}.` : filingFilter ? 'No open exceptions on this filing — it’s clean.' : 'No open exceptions — every live filing is clean.'}</div></Card>
+          ? <Card className="p-10 text-center"><CheckCircle2 size={22} className="mx-auto mb-2" style={{ color: '#34d399' }} /><div className="text-[13px] text-[var(--color-mute)]">{categoryFilter ? `No open exceptions in ${family(categoryFilter)}.` : filingFilter ? 'No open exceptions on this filing — it’s clean.' : 'No open exceptions — every live filing is clean.'}</div></Card>
           : (
           <Card className="p-0 overflow-hidden">
             <div className="divide-y divide-[var(--color-line)]">
@@ -125,13 +133,16 @@ export default function Exceptions() {
                 return (
                   <div key={i} className="px-5 py-3 flex items-center gap-3">
                     <Icon size={15} style={{ color: sevColor(e.severity) }} className="shrink-0" />
-                    <button onClick={() => nav(filingLink(profile?.org?.type, e.filing_id))}
-                      className="min-w-0 flex-1 text-left group" title="Open the filing behind this exception">
-                      <div className="text-[13px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition inline-flex items-center gap-1">{e.message}<ChevronRight size={12} className="opacity-0 group-hover:opacity-100" /></div>
-                      <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">
-                        {frameworkLabel(e.filing_label)} · {e.period} · {prettify(e.category)}
-                      </div>
-                    </button>
+                    <div className="min-w-0 flex-1 flex items-start gap-1.5">
+                      <button onClick={() => nav(filingLink(profile?.org?.type, e.filing_id))}
+                        className="min-w-0 text-left group" title="Open the filing behind this exception">
+                        <div className="text-[13px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition inline-flex items-center gap-1">{shortOf(e)}<ChevronRight size={12} className="opacity-0 group-hover:opacity-100" /></div>
+                        <div className="text-[11px] text-[var(--color-faint)] mt-0.5">
+                          {frameworkLabel(e.filing_label)} · {e.period} · {family(e.category)}
+                        </div>
+                      </button>
+                      <InfoButton compact className="mt-0.5" details={detailsOf(e)} />
+                    </div>
                     {e.tracked
                       ? e.task_id
                         ? <button onClick={() => nav(taskLink(e.task_id!))} title="Open the task tracking this exception"

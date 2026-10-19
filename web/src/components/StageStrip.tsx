@@ -1,6 +1,8 @@
+import { InfoButton } from './Details'
+
 // The supervisory process, one entity at a time: five steps derived from what the platform holds, never ticked
 // by hand. Filled = done, half = partly, empty = not yet, dashed = planned surface. Used on the Population table
-// (compact) and at the top of the entity file (with details).
+// (compact) and at the top of the entity file, where each step stands is one click away (UI standard).
 export interface Step { key: string; label: string; done: boolean; partial?: boolean; planned?: boolean; detail?: string }
 
 export default function StageStrip({ steps, compact = false }: { steps: Step[]; compact?: boolean }) {
@@ -17,8 +19,10 @@ export default function StageStrip({ steps, compact = false }: { steps: Step[]; 
                        boxShadow: s.partial ? `inset 0 0 0 4px ${color}33` : undefined }}>{i + 1}</span>
             {!compact && (
               <div className="min-w-0 mr-3">
-                <div className="text-[12px] leading-tight" style={{ color: s.done || s.partial ? 'var(--color-ink)' : 'var(--color-faint)' }}>{s.label}{s.planned ? <span className="mono text-[9px] uppercase ml-1 text-[var(--color-faint)]">planned</span> : null}</div>
-                {s.detail && <div className="mono text-[10px] text-[var(--color-faint)] leading-tight">{s.detail}</div>}
+                <div className="text-[12px] leading-tight inline-flex items-center gap-1" style={{ color: s.done || s.partial ? 'var(--color-ink)' : 'var(--color-faint)' }}>
+                  {s.label}{s.planned ? <span className="text-[9.5px] uppercase tracking-wide ml-1 text-[var(--color-faint)]">planned</span> : null}
+                  {s.detail && <InfoButton compact details={{ title: s.label, sections: [{ heading: 'Where it stands', body: s.detail }] }} />}
+                </div>
               </div>)}
             {i < steps.length - 1 && <span className={`h-px ${compact ? 'w-2' : 'w-5'} shrink-0`} style={{ background: s.done ? 'var(--color-good)' : 'var(--color-line)' }} />}
           </div>)

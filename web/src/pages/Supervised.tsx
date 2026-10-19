@@ -6,6 +6,8 @@ import { useAuth } from '../lib/auth'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { RemittancesReceived } from '../components/Remittance'
 import StageStrip, { type Step } from '../components/StageStrip'
+import { horizonLabel, scenarioLabel } from '../lib/labels'
+import { countryName, percent } from '../lib/codeWords'
 
 // The Population page is the supervisor's working list: every entity, where it stands in the process, the criteria
 // a supervisor sorts on, and the one next action. Everything in a row is derived from what the platform holds.
@@ -39,7 +41,7 @@ export default function Supervised() {
   }, [d, sort, fSector, fJur, fStage, fFlag, search])
   const toggle = (key: SortKey) => setSort(s => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : (key === 'name' || key === 'sector_label' || key === 'jurisdiction' ? 1 : -1) }))
   const Th = ({ k, children, right, center }: { k: SortKey; children: React.ReactNode; right?: boolean; center?: boolean }) => (
-    <th className={`cursor-pointer select-none hover:text-[var(--color-sky)] ${right ? 'num' : center ? 'text-center' : ''}`} onClick={() => toggle(k)}>
+    <th className={`cursor-pointer select-none hover:text-[var(--color-sky)] ${right ? 'num' : center ? 'text-center' : ''}`} onClick={() => toggle(k)} title="Sort by this column">
       {children}{sort.key === k ? (sort.dir === 1 ? ' ↑' : ' ↓') : ''}</th>)
   const uniq = (f: (e: Row) => string | null) => Array.from(new Set((d?.entities ?? []).map(f).filter(Boolean))) as string[]
   const stageCounts = (d?.entities ?? []).reduce<Record<string, number>>((a, e) => { a[e.stage] = (a[e.stage] ?? 0) + 1; return a }, {})
@@ -56,7 +58,7 @@ export default function Supervised() {
           </div>)}
         <StatGrid cols={4} items={[
           { label: d.visibility?.scope === 'assigned' ? 'Your entities' : 'Supervised entities', value: String(d.summary.entities), sub: `${d.entities.filter(e => e.in_profile).length} in your profile` },
-          { label: 'Submission coverage', value: d.summary.coverage_pct != null ? `${d.summary.coverage_pct}%` : '—', sub: `${d.summary.frameworks_filed}/${d.summary.frameworks_expected} framework-periods filed` },
+          { label: 'Submission coverage', value: percent(d.summary.coverage_pct), sub: `${d.summary.frameworks_filed}/${d.summary.frameworks_expected} framework-periods filed` },
           { label: 'Reviewed', value: `${stageCounts.reviewed ?? 0} / ${d.entities.filter(e => e.in_profile).length}`, sub: 'independent lens run', accent: (stageCounts.reviewed ?? 0) ? 'var(--color-good)' : undefined },
           { label: 'Open questions', value: String(d.entities.reduce((a, e) => a + (e.n_questions ?? 0), 0)), sub: 'flagged cells across the population', accent: d.entities.some(e => (e.n_questions ?? 0) > 0) ? 'var(--color-warn)' : undefined },
         ]} />
@@ -76,13 +78,13 @@ export default function Supervised() {
               ['Stage', fStage, setFStage, Object.keys(STAGE_ORDER).filter(k => stageCounts[k])]].map(([label, val, set, opts]) => (
               <select key={label as string} value={val as string} onChange={e => (set as (v: string) => void)(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none">
                 <option value="">All {(label as string).toLowerCase()}s</option>
-                {(opts as string[]).map(o => <option key={o} value={o}>{label === 'Stage' ? STAGE_LABEL[o] ?? o : o}</option>)}
+                {(opts as string[]).map(o => <option key={o} value={o}>{label === 'Stage' ? STAGE_LABEL[o] ?? o : label === 'Jurisdiction' ? countryName(o) : o}</option>)}
               </select>))}
             <select value={fFlag} onChange={e => setFFlag(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none">
               <option value="">Any flag</option><option value="act">Act (at-risk share)</option><option value="watch">Watch (at-risk share)</option><option value="questions">Has open questions</option><option value="site_access">Site access granted</option>
             </select>
             {(fSector || fJur || fStage || fFlag || search) && <button onClick={() => { setFSector(''); setFJur(''); setFStage(''); setFFlag(''); setSearch('') }} className="mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]">clear</button>}
-            <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">{rows.length} of {d.entities.length} · basis {d.scenario} · {d.horizon} · click a column to sort</span>
+            <span className="text-[11.5px] text-[var(--color-faint)] ml-auto">{rows.length} of {d.entities.length} · {scenarioLabel(d.scenario)} · {horizonLabel(d.horizon)}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="data-table w-full text-[12.5px]">
@@ -93,13 +95,13 @@ export default function Supervised() {
               <tbody>{rows.map(e => (
                 <tr key={e.org_id} className={`border-t border-[var(--color-line)] ${e.in_profile ? '' : 'opacity-60'}`}>
                   <td><Link to={`/supervised/${e.org_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline font-medium">{e.name}</Link>
-                    {e.site_access && <span className="mono text-[9.5px] uppercase ml-2 px-1 rounded bg-[var(--color-good)]/15 text-[var(--color-good)]">sites</span>}</td>
+                    {e.site_access && <span className="text-[9.5px] uppercase tracking-wide ml-2 px-1 rounded bg-[var(--color-good)]/15 text-[var(--color-good)]" title="This entity has granted you access to its individual sites">sites</span>}</td>
                   <td className="text-[var(--color-mute)]">{e.sector_label}</td>
-                  <td className="mono text-[11px] text-[var(--color-faint)]">{e.jurisdiction ?? '—'}</td>
+                  <td className="text-[12px] text-[var(--color-mute)]">{countryName(e.jurisdiction) ?? '—'}</td>
                   <td><div className="flex items-center justify-center gap-2"><StageStrip steps={e.steps} compact /><span className="text-[11px] text-[var(--color-mute)]">{e.stage_label ?? STAGE_LABEL[e.stage] ?? e.stage}</span></div></td>
                   <td className="num mono text-[var(--color-mute)]">{e.filed}/{e.expected}</td>
-                  <td className="num mono" style={{ color: FLAGC[e.high_risk_flag ?? 'na'] }}>{e.high_risk_share_pct != null ? `${e.high_risk_share_pct}%` : '—'}</td>
-                  <td className="num mono" style={{ color: e.lens_gap_pct != null && Math.abs(e.lens_gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.lens_gap_pct != null ? `${e.lens_gap_pct}%` : '—'}</td>
+                  <td className="num mono" style={{ color: FLAGC[e.high_risk_flag ?? 'na'] }}>{percent(e.high_risk_share_pct)}</td>
+                  <td className="num mono" style={{ color: e.lens_gap_pct != null && Math.abs(e.lens_gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{percent(e.lens_gap_pct)}</td>
                   <td className="num mono text-[var(--color-mute)]">{e.n_questions ?? '—'}</td>
                   <td><Link to={e.next.to} className="text-[12px] text-[var(--color-sky)] hover:underline">{e.next.label} →</Link></td>
                 </tr>))}</tbody>
