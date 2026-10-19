@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileSignature, Upload, Download, Trash2, ShieldCheck } from 'lucide-react'
-import { api, download, ApiError } from '../lib/api'
+import { api, apiMessage, download } from '../lib/api'
 import { toast } from '../lib/toast'
+import { statusLabel } from '../lib/labels'
 import { Card, PageHeader, Button, SectionHead } from '../components/ui'
 import { Dialog, CloseButton } from '../components/Dialog'
+import { HEADING } from '../components/Details'
+import { StatusChip } from '../components/StatusChip'
 
 interface Contract {
   contract_id: string; title: string; counterparty: string | null; contract_type: string; status: string
@@ -15,7 +18,9 @@ interface Contract {
 interface ContractsResp { contracts: Contract[]; can_manage: boolean }
 
 const TYPE_LABEL: Record<string, string> = { msa: 'MSA', dpa: 'DPA', sow: 'SOW', order_form: 'Order form', nda: 'NDA', other: 'Other' }
-const STATUS_TONE: Record<string, string> = { active: 'var(--color-good)', expired: 'var(--color-warn)', terminated: 'var(--color-bad)', draft: 'var(--color-faint)' }
+const STATUSES = ['active', 'expired', 'terminated', 'draft'] as const
+const TONE: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = { active: 'good', expired: 'warn', terminated: 'bad', draft: 'neutral' }
+const BAR: Record<string, string> = { active: 'var(--color-good)', expired: 'var(--color-warn)', terminated: 'var(--color-bad)', draft: 'var(--color-slate)' }
 const kb = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`
 
 export default function Contracts() {
@@ -23,8 +28,8 @@ export default function Contracts() {
   const [showUp, setShowUp] = useState(false)
   const qc = useQueryClient()
 
-  if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>You don't have access to contracts, or the API is unreachable.</Center>
+  if (q.isLoading) return <Center>Loading…</Center>
+  if (q.error || !q.data) return <Center>Contracts could not be opened. Your role may not include them.</Center>
   const d = q.data
 
   const remove = async (c: Contract) => {
@@ -36,8 +41,9 @@ export default function Contracts() {
   return (
     <div className="fadeup space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <PageHeader eyebrow="Set up · governed documents" title="Contracts"
-          lead="Your organization's signed agreements — MSAs, DPAs, SOWs, order forms. Visible to members by role; every download is audited." />
+        <PageHeader eyebrow="Set up · governed documents" title="Contracts" lead="Your organisation's signed agreements."
+          about={[{ heading: HEADING.shows, body: 'The agreements your organisation has signed — master services agreements, data processing agreements, statements of work, order forms and others.' },
+            { heading: 'Who can see them', body: 'Administrators and approvers can view and download them; only administrators can upload or remove one. Every download and change is recorded on the audit trail.' }]} />
         {d.can_manage && (
           <button onClick={() => setShowUp(true)}
             className="shrink-0 mt-1 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-sky)] text-[#08111f] px-3.5 py-2 text-[13px] font-medium hover:bg-[var(--color-blue)] transition">
@@ -47,9 +53,20 @@ export default function Contracts() {
       </div>
       {showUp && <UploadModal onClose={() => setShowUp(false)} onDone={() => { setShowUp(false); qc.invalidateQueries({ queryKey: ['contracts'] }) }} />}
 
-      <Card className="p-3.5 flex items-center gap-2 text-[12.5px] text-[var(--color-mute)]">
-        <ShieldCheck size={15} className="text-[var(--color-good)] shrink-0" />
-        Access is role-based: admins &amp; approvers can view; only admins can upload or remove. {d.can_manage ? 'You can manage contracts.' : 'You have view access.'}
+      <Card className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-baseline gap-2"><span className="display text-[26px] font-semibold tabular-nums text-[var(--color-ink)]">{d.contracts.length}</span><span className="text-[12.5px] text-[var(--color-mute)]">on file</span></div>
+        {d.contracts.length > 0 && (
+          <div className="flex-1 min-w-[180px]">
+            <div className="flex h-2 rounded-full overflow-hidden bg-[var(--color-panel-2)]">
+              {STATUSES.map(st => { const n = d.contracts.filter(c => c.status === st).length
+                return n ? <div key={st} style={{ width: `${(100 * n) / d.contracts.length}%`, background: BAR[st] }} title={`${statusLabel(st)}: ${n}`} /> : null })}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11.5px] text-[var(--color-mute)]">
+              {STATUSES.map(st => { const n = d.contracts.filter(c => c.status === st).length
+                return n ? <span key={st} className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: BAR[st] }} />{statusLabel(st)} {n}</span> : null })}
+            </div>
+          </div>)}
+        <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-mute)]"><ShieldCheck size={14} className="text-[var(--color-good)]" />{d.can_manage ? 'You can manage contracts' : 'You can view contracts'}</span>
       </Card>
 
       {d.contracts.length === 0 ? (
@@ -57,7 +74,7 @@ export default function Contracts() {
       ) : (
         <Card className="p-0 overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead><tr className="text-[var(--color-faint)] mono text-[11px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
+            <thead><tr className="text-[var(--color-faint)] text-[10.5px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
               <th className="font-normal py-2.5 px-4">Contract</th><th className="font-normal px-4">Type</th>
               <th className="font-normal px-4">Counterparty</th><th className="font-normal px-4">Status</th>
               <th className="font-normal px-4">Signed</th><th className="font-normal px-4 text-right">Size</th>
@@ -67,10 +84,10 @@ export default function Contracts() {
               {d.contracts.map(c => (
                 <tr key={c.contract_id} className="border-b border-[var(--color-line)] last:border-0 hover:bg-[var(--color-panel)] transition">
                   <td className="py-2.5 px-4"><div className="text-[var(--color-ink)]">{c.title}</div><div className="mono text-[10px] text-[var(--color-faint)]">{c.filename}</div></td>
-                  <td className="px-4 mono text-[11px] text-[var(--color-mute)]">{TYPE_LABEL[c.contract_type] ?? c.contract_type}</td>
+                  <td className="px-4 text-[12px] text-[var(--color-mute)]">{TYPE_LABEL[c.contract_type] ?? 'Other'}</td>
                   <td className="px-4 text-[var(--color-mute)]">{c.counterparty ?? '—'}</td>
-                  <td className="px-4"><span className="mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: STATUS_TONE[c.status], background: `color-mix(in oklab, ${STATUS_TONE[c.status]} 13%, transparent)` }}>{c.status}</span></td>
-                  <td className="px-4 text-[var(--color-mute)] mono text-[11px]">{c.signed_date ?? '—'}</td>
+                  <td className="px-4"><StatusChip value={c.status} tone={TONE[c.status]} /></td>
+                  <td className="px-4 text-[var(--color-mute)] tabular-nums text-[12px] whitespace-nowrap">{c.signed_date ? new Date(`${c.signed_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
                   <td className="px-4 text-right mono text-[11px] text-[var(--color-faint)]">{kb(c.size_bytes)}</td>
                   <td className="px-4">
                     <div className="flex items-center gap-2 justify-end">
@@ -108,7 +125,7 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
       await api.post('/v1/contracts', fd)
       toast.success('Contract uploaded'); onDone()
     } catch (err) {
-      toast.error(err instanceof ApiError ? (err.body as { message?: string })?.message ?? 'Upload failed.' : 'Upload failed.')
+      toast.error(apiMessage(err, 'Upload failed.'))
     } finally { setBusy(false) }
   }
 
@@ -137,7 +154,7 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
                 <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Status</span>
                 <select value={f.status} onChange={e => set('status', e.target.value)}
                   className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px] outline-none focus:border-[var(--color-sky)]">
-                  {['active', 'expired', 'terminated', 'draft'].map(x => <option key={x} value={x}>{x}</option>)}
+                  {STATUSES.map(x => <option key={x} value={x}>{statusLabel(x)}</option>)}
                 </select>
               </label>
               <label className="flex flex-col gap-1">

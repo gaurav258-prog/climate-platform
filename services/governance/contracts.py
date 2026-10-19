@@ -18,7 +18,12 @@ MAX_BYTES = 25 * 1024 * 1024   # 25 MB per contract
 
 
 class ContractError(ValueError):
-    """A contract operation was rejected (bad input, too large, not found)."""
+    """A contract operation was rejected (bad input, too large, not found): its sentence (logs) and the same as a
+    catalogue message (code, params) the API answers."""
+
+    def __init__(self, message: str, code: str, **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 def list_contracts(session: Session, org_id: str) -> list[dict]:
@@ -48,11 +53,12 @@ def add_contract(session: Session, org_id: str, actor: str | None, *, title: str
     """Store one signed contract against the tenant. Returns its metadata."""
     title = (title or "").strip()
     if not title:
-        raise ContractError("a contract needs a title")
+        raise ContractError("a contract needs a title", "filings.contract.title")
     if not data:
-        raise ContractError("the contract file is empty")
+        raise ContractError("the contract file is empty", "filings.contract.empty")
     if len(data) > MAX_BYTES:
-        raise ContractError(f"file exceeds the {MAX_BYTES // (1024 * 1024)} MB limit")
+        raise ContractError(f"file exceeds the {MAX_BYTES // (1024 * 1024)} MB limit", "filings.contract.too_large",
+                            limit=MAX_BYTES // (1024 * 1024))
     ctype = contract_type if contract_type in CONTRACT_TYPES else "other"
     st = status if status in CONTRACT_STATUSES else "active"
     cid = str(uuid.uuid4())

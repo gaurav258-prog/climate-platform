@@ -11790,6 +11790,207 @@
     "what": "Uploaded files cannot be stored on this installation.",
     "next": "Raise a request in Support."
    }
+  },
+  "filings.share.unknown": {
+   "status": 404,
+   "label": "This link is not a share we know",
+   "detail": {
+    "what": "The link does not match any assurance pack shared with you, or the share was removed.",
+    "next": "Check that the whole link was copied from the e-mail, or ask the organisation for a new one."
+   }
+  },
+  "filings.share.expired": {
+   "status": 410,
+   "label": "This share has expired",
+   "detail": {
+    "what": "The share of {organisation}'s assurance pack has passed its expiry date, so the pack can no longer be downloaded.",
+    "next": "Contact {organisation} if you still need the pack."
+   }
+  },
+  "filings.share.revoked": {
+   "status": 410,
+   "label": "The organisation revoked this share",
+   "detail": {
+    "what": "{organisation} revoked this share, so the pack can no longer be downloaded.",
+    "next": "Contact {organisation} if you still need the pack."
+   }
+  },
+  "filings.share.exhausted": {
+   "status": 410,
+   "label": "The download limit is reached",
+   "detail": {
+    "what": "The share allows a set number of downloads, and all of them have been used.",
+    "next": "Contact {organisation} if you still need the pack."
+   }
+  },
+  "filings.share.unavailable": {
+   "status": 410,
+   "label": "The pack cannot be built right now",
+   "detail": {
+    "what": "The filing behind this share has no frozen report to build the pack from.",
+    "next": "Contact {organisation} if you still need the pack."
+   }
+  },
+  "filings.share.contents": {
+   "label": "What the pack holds",
+   "detail": {
+    "what": "The cover, the methodology, the validation record, the four-eyes approvals, where each figure comes from, the reporting control register with its outcomes, and the report as filed.",
+    "why": "A manifest inside the pack lists a fingerprint (hash) of every file, so you can check that nothing was changed after it was shared.",
+    "next": "Every open and download of this share is recorded on {organisation}'s audit trail."
+   }
+  },
+  "filings.package.retired": {
+   "status": 422,
+   "label": "This package is retired",
+   "detail": {
+    "what": "Climate packages under the CSRD are no longer prepared here. The sustainability statement is prepared for each undertaking and financial year and filed as a filing.",
+    "why": "The package exported its figures under element names that are not those of the official ESRS taxonomy.",
+    "next": "Prepare the ESRS statement on the ESRS page and file it from Filings."
+   }
+  },
+  "filings.package.unknown_framework": {
+   "status": 422,
+   "label": "This package type is not available",
+   "detail": {
+    "what": "Packages are prepared for the ECB climate tables only."
+   }
+  },
+  "filings.package.released": {
+   "status": 409,
+   "label": "This package is already released",
+   "detail": {
+    "what": "A released package is final and cannot change.",
+    "next": "Prepare a new package if the figures need to change."
+   }
+  },
+  "filings.holding.no_value": {
+   "status": 422,
+   "label": "A holding has no market value",
+   "detail": {
+    "what": "The row for {isin} gives no market value.",
+    "why": "Each holding is weighted by its value, so every row states it: in euro, or in its own currency with that currency named.",
+    "next": "Fill the market value in euro, or the market value and its currency, on that row of the template."
+   }
+  },
+  "filings.holding.financials_twice": {
+   "status": 422,
+   "label": "Issuer figures given twice",
+   "detail": {
+    "what": "The row for {isin} gives the issuer's revenue or enterprise value both in euro and in the issuer's own currency.",
+    "next": "Keep one of the two: the euro figure, or the figure in the issuer's own currency with that currency named."
+   }
+  },
+  "filings.holding.financials_currency": {
+   "status": 422,
+   "label": "Name the currency of the issuer's figures",
+   "detail": {
+    "what": "The row for {isin} gives the issuer's revenue or enterprise value in its own currency without naming the currency.",
+    "why": "A figure is never assumed to be in euro: it is converted from the currency it is in.",
+    "next": "Name the currency of the issuer's figures (for example USD) on that row."
+   }
+  },
+  "filings.holding.financials_date": {
+   "status": 422,
+   "label": "Date the issuer's figures",
+   "detail": {
+    "what": "The row for {isin} gives the issuer's revenue or enterprise value in its own currency without the date they describe.",
+    "why": "Revenue converts at the average rate of the twelve months to that date, enterprise value at that date's rate.",
+    "next": "Give the date of the issuer's figures, or its reporting year (read as 31 December)."
+   }
+  },
+  "filings.holding.taxonomy_parts_alone": {
+   "status": 422,
+   "label": "State the aligned share with its parts",
+   "detail": {
+    "what": "The row for {isin} gives fossil gas or nuclear parts of the {basis}-based Taxonomy-aligned share, but not the aligned share itself.",
+    "why": "The fossil gas and nuclear parts are parts of the aligned share.",
+    "next": "Give the {basis}-based aligned share on the same row."
+   }
+  },
+  "filings.holding.taxonomy_parts_exceed": {
+   "status": 422,
+   "label": "Parts exceed the aligned share",
+   "detail": {
+    "what": "On the row for {isin}, the fossil gas and nuclear parts ({parts}%) are more than the {basis}-based Taxonomy-aligned share ({aligned}%).",
+    "why": "The fossil gas and nuclear parts are parts of the aligned share, so together they cannot exceed it.",
+    "next": "Correct the parts or the aligned share on that row."
+   }
+  },
+  "filings.fx.source_unknown": {
+   "label": "Its source",
+   "detail": {
+    "what": "The frozen record does not name where this rate came from."
+   }
+  },
+  "filings.insurer_doc.no_rules": {
+   "status": 422,
+   "label": "No adopted rules for that date",
+   "detail": {
+    "what": "No adopted version of the rules governs a report made on {on}. They apply from {first}.",
+    "next": "Choose a disclosure date on or after {first}."
+   }
+  },
+  "filings.insurer_doc.interval": {
+   "status": 422,
+   "label": "The interval is three years at most",
+   "detail": {
+    "what": "The interval at which the climate change scenario analysis is repeated is a number of years, no longer than three.",
+    "why": "The Solvency II Directive sets it at three years at most (Article 45a(3)).",
+    "next": "Enter the interval in years, from one to three."
+   }
+  },
+  "filings.contract.title": {
+   "status": 400,
+   "label": "Give the contract a title",
+   "detail": {
+    "what": "A contract is listed by its title, so it needs one."
+   }
+  },
+  "filings.contract.empty": {
+   "status": 400,
+   "label": "The file is empty",
+   "detail": {
+    "what": "The chosen file has no content.",
+    "next": "Choose the signed contract file again."
+   }
+  },
+  "filings.contract.too_large": {
+   "status": 400,
+   "label": "The file is larger than {limit} MB",
+   "detail": {
+    "what": "A contract file can be at most {limit} MB.",
+    "next": "Upload a smaller copy, for example a compressed PDF."
+   }
+  },
+  "filings.third_party.kind": {
+   "status": 422,
+   "label": "Choose a kind of third party",
+   "detail": {
+    "what": "A third party is one of: {kinds}."
+   }
+  },
+  "filings.third_party.criticality": {
+   "status": 422,
+   "label": "Choose how critical it is",
+   "detail": {
+    "what": "A third party's criticality is one of: {levels}."
+   }
+  },
+  "filings.third_party.name": {
+   "status": 422,
+   "label": "Name the third party",
+   "detail": {
+    "what": "A third party is listed by its name, so it needs one."
+   }
+  },
+  "filings.third_party.not_located": {
+   "status": 422,
+   "label": "The third party could not be located",
+   "detail": {
+    "what": "The address could not be found on the map, and no coordinates were given.",
+    "why": "A third party is scored where it is, so a place is never assumed.",
+    "next": "Give its coordinates, or an address that can be found."
+   }
   }
  },
  "names": {

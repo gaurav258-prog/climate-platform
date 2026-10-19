@@ -54,6 +54,6 @@ def test_the_csrd_package_and_its_xbrl_are_retired():
     from api.main import app
     from ml.regulatory.packager import PackagerError, create_package
     r = TestClient(app).get("/v1/packages/00000000-0000-0000-0000-000000000000/xbrl", params={"lei": "5493001KJTIIGC8Y1R12"})
-    assert r.status_code == 410 and "esrs_pack" in r.text
+    assert r.status_code == 410 and r.json()["error"]["error"] == "filings.package.retired" and "esrs_pack" not in r.text
     with pytest.raises(PackagerError, match="retired"):
         create_package("00000000-0000-0000-0000-000000000000", "CSRD", date(2025, 1, 1), date(2025, 12, 31), "maker")

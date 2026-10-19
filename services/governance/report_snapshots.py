@@ -109,7 +109,7 @@ _BUILDERS = {
 
 def _retired(report_type: str):
     """A retired report freezes nothing new (create_snapshot refuses it first, with the reason of its declaration —
-    services.governance.filings.retirement_refusal); its frozen snapshots stay readable. Its engine is gone (csrd_e1 read
+    services.governance.filings.retirement_error); its frozen snapshots stay readable. Its engine is gone (csrd_e1 read
     a v0 business-interruption curve and a fixed 'material' line of the platform's own, E69; the TCFD-style reports, E87)."""
     from services.governance.filings import retirement_refusal
     raise ValueError(retirement_refusal(report_type) or f"{report_type} is retired")
@@ -265,11 +265,11 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     group-internal exposures; its record — currency, every rate used, per-entity translation, eliminations — is frozen
     in the payload as `_fx` (hash-verified). Books that don't take one (CSRD/ESRS, SFDR) present in EUR, and say so.
     fund_id: the financial product a per-product report (sfdr_precontractual / sfdr_periodic) is about."""
+    from services.governance.filings import FilingError, retirement_error
     if report_type not in _BUILDERS:
-        raise ValueError(f"unknown report_type '{report_type}'")
-    from services.governance.filings import retirement_refusal
-    if retirement_refusal(report_type):                  # a retired report freezes nothing new — the one reason
-        raise ValueError(retirement_refusal(report_type))
+        raise FilingError("filing.refused.unknown_report")       # a UserError and a ValueError, as before
+    if (refused := retirement_error(report_type)) is not None:   # a retired report freezes nothing new — the one reason
+        raise refused
     s = get_settings(session, org_id)
     from datetime import date as _pd
     period_end = _pd.fromisoformat(str(period_end)[:10])            # the filing's period — never the org's setting

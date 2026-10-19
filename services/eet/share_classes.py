@@ -75,9 +75,9 @@ def _clean(session: Session, body: dict, partial: bool = False) -> dict:
         try:
             d = date.fromisoformat(str(body["launch_date"])[:10])
         except ValueError:
-            raise ShareClassError("launch_date must be YYYY-MM-DD", "disclose.eet.class.launch_date")
+            raise ShareClassError("the launch date must be a date (YYYY-MM-DD)", "disclose.eet.class.launch_date")
         if d > date.today():
-            raise ShareClassError("launch_date can't be in the future", "disclose.eet.class.launch_future")
+            raise ShareClassError("the launch date can't be in the future", "disclose.eet.class.launch_future")
         out["launch_date"] = d
     return out
 

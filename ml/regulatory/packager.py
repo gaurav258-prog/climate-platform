@@ -43,17 +43,20 @@ RETIRED_FRAMEWORKS = {
 
 
 class PackagerError(Exception):
-    pass
+    """A package refused: its sentence (logs, callers) and the same as a catalogue message (code, status, params) the
+    API answers (data/reference/messages.en.json)."""
+
+    def __init__(self, message: str, code: str, status: int = 422, **params):
+        super().__init__(message)
+        self.code, self.status, self.params = code, status, params
 
 
 class MakerCheckerViolation(PackagerError):
     """Raised when checker and maker are the same user."""
-    pass
 
 
 class PackageAlreadyReleased(PackagerError):
     """Raised when attempting to modify a released package."""
-    pass
 
 
 def create_package(
@@ -78,11 +81,12 @@ def create_package(
     """
     framework = framework.upper()
     if framework in RETIRED_FRAMEWORKS:
-        raise PackagerError(RETIRED_FRAMEWORKS[framework])
+        raise PackagerError(RETIRED_FRAMEWORKS[framework], "filings.package.retired")
     if framework not in SUPPORTED_FRAMEWORKS:
         raise PackagerError(
             f"Unknown framework '{framework}'. "
-            f"Supported: {list(SUPPORTED_FRAMEWORKS)}"
+            f"Supported: {list(SUPPORTED_FRAMEWORKS)}",
+            "filings.package.unknown_framework",
         )
 
     logger.info(f"[Packager] MAKER — {maker_user_id} creating {framework} package "
@@ -182,17 +186,19 @@ def approve_package(
         """), {"package_id": package_id}).mappings().fetchone()
 
     if not row:
-        raise PackagerError(f"Package {package_id} not found")
+        raise PackagerError(f"Package {package_id} not found", "error.not_found", 404)
 
     if row["is_released"]:
         raise PackageAlreadyReleased(
-            f"Package {package_id} is already released — it is immutable and cannot be modified."
+            f"Package {package_id} is already released — it is immutable and cannot be modified.",
+            "filings.package.released", 409,
         )
 
     if str(row["maker_user_id"]) == str(checker_user_id):
         raise MakerCheckerViolation(
             f"4-eyes violation: checker ({checker_user_id}) cannot be the same as "
-            f"maker ({row['maker_user_id']}). A different user must approve this package."
+            f"maker ({row['maker_user_id']}). A different user must approve this package.",
+            "admin.approvals.own_request",
         )
 
     released_at = datetime.now(timezone.utc)

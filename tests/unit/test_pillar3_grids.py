@@ -129,12 +129,13 @@ def test_template5_is_sensitive_at_the_stated_level_and_a_gap_without_it():
     spec = R.load("bank_p3esg", ADOPTED[-1])
     at_70 = _rows(G.build(spec, "T5", BOOK, 70.0))["1"]
     assert at_70["sensitive"] == 200 + 0 and (at_70["h"], at_70["i"], at_70["j"]) == (0, 200, 0)   # only the VH (80) flood
-    with pytest.raises(ValueError, match="method.at_risk_level"):
+    with pytest.raises(ValueError, match="stated at-risk threshold"):
         G.build(spec, "T5", BOOK)
     not_stated = {"used": [], "gaps": [{"key": "method.at_risk_level", "member": None}]}
     annex = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "method": not_stated, "_spec": {"version": ADOPTED[-1]}})
     t5 = next(s for s in annex["sections"] if s.get("key") == "t5")
-    assert t5["rows"] == [] and "method.at_risk_level" in t5["note"]
+    # the note says what is missing in customer words (UI standard), never the method key
+    assert t5["rows"] == [] and "at-risk threshold is not stated" in t5["note"] and "method." not in t5["note"]
 
 
 def test_a_filing_frozen_before_the_stated_method_is_re_read_on_its_own_definition():

@@ -24,7 +24,17 @@ DOCS = {
 
 
 class DocumentError(ValueError):
-    pass
+    """The document cannot be built or answered: its sentence (logs, other callers) and the same as a catalogue message
+    (code, params, status) the API answers."""
+
+    def __init__(self, message: str, code: str, status: int = 422, **params):
+        super().__init__(message)
+        self.code, self.status, self.params = code, status, params
+
+
+def _day(d: date | str) -> str:
+    d = date.fromisoformat(d) if isinstance(d, str) else d
+    return f"{d.day} {d:%B %Y}"
 
 
 # the reinsurance a document's capital figures rest on (services.insurer_capital programme basis), in words
@@ -32,7 +42,7 @@ _TREATY = {"attested": "the attested treaty", "illustrative_standard": "an illus
 
 def _doc(report_type: str) -> dict:
     if report_type not in DOCS:
-        raise DocumentError(f"'{report_type}' is not an insurer document report")
+        raise DocumentError(f"'{report_type}' is not an insurer document report", "error.not_found", 404)
     return DOCS[report_type]
 
 
@@ -44,7 +54,8 @@ def spec_for(report_type: str, period_end: date, disclosure_date: date | None = 
     on = disclosure_date or max(date.today(), date.fromisoformat(first))
     spec = R.governing(mod.FAMILY, period_end=period_end, disclosure_date=on)
     if spec is None:
-        raise DocumentError(f"no adopted {mod.FAMILY} specification governs a report made on {on} (they apply from {first})")
+        raise DocumentError(f"no adopted {mod.FAMILY} specification governs a report made on {on} (they apply from {first})",
+                            "filings.insurer_doc.no_rules", on=_day(on), first=_day(first))
     return spec
 
 
@@ -118,7 +129,8 @@ def save(session, org_id: str, report_type: str, answers: dict, user_id: str, *,
     t = spec["templates"][0]
     bad = [k for k, v in (answers or {}).items() if k == "impact.interval" and v and not _interval_ok(v)]
     if bad:
-        raise DocumentError("impact.interval: the interval is a number of years, no longer than three (Art. 45a(3))")
+        raise DocumentError("impact.interval: the interval is a number of years, no longer than three (Art. 45a(3))",
+                            "filings.insurer_doc.interval")
     return TA.save(session, org_id, mod.FAMILY, mod.DOCUMENT, t, mod.binding(spec)[t["id"]]["items"], answers, user_id,
                    period_end=period_end, entity_id=entity_id, label=t["title"], computed_from="the book")
 

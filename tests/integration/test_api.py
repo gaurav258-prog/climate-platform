@@ -299,7 +299,9 @@ class TestPackages:
             "period_end":   "2024-12-31",
             "maker_user_id": "alice-01",
         })
-        assert resp.status_code == 422 and "esrs_pack" in resp.text
+        # the refusal is the catalogue's (UI standard): its words name the ESRS statement, never the internal report type
+        assert resp.status_code == 422 and resp.json()["error"]["error"] == "filings.package.retired"
+        assert "ESRS statement" in resp.json()["error"]["detail"]["next"] and "esrs_pack" not in resp.text
 
     def test_maker_checker_violation_returns_422(self, auth):
         create = client.post("/v1/packages", headers=auth, json={
@@ -315,10 +317,9 @@ class TestPackages:
                               headers=auth,
                               json={"checker_user_id": "alice-01"})
         assert approve.status_code == 422
-        # App-wide error envelope is {"error": <detail>} (custom HTTPException handler
-        # in api/main.py), so a dict detail surfaces under ["error"], not FastAPI's
-        # default ["detail"].
-        assert approve.json()["error"]["error"] == "maker_checker_violation"
+        # a refusal in the catalogue's words (core/errors.py UserError): {"error": {error, message, detail}}
+        assert approve.json()["error"]["error"] == "admin.approvals.own_request"
+        assert approve.json()["error"]["message"] == "You cannot approve your own request"
 
     def test_approve_package(self, auth):
         create = client.post("/v1/packages", headers=auth, json={
@@ -346,4 +347,4 @@ class TestPackages:
         pkg_id = create.json()["package_id"]
         resp = client.get(f"/v1/packages/{pkg_id}/xbrl?lei=5493001KJTIIGC8Y1R12",
                           headers=auth)
-        assert resp.status_code == 410
+        assert resp.status_code == 410 and resp.json()["error"]["error"] == "filings.package.retired"

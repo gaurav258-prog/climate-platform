@@ -5,10 +5,10 @@ import { api } from '../lib/api'
 import { balance } from '../lib/money'
 import { useAuth } from '../lib/auth'
 import { Card, SectionHead } from './ui'
+import { HEADING, InfoButton } from './Details'
 
 // Eligibility & coverage — the step between "which regulation" and "the final form": what of your book
-// actually qualifies for this disclosure, and what does not. Reads the current-basis disclosure (the golden
-// source) and shows the EU-Taxonomy eligible / not-eligible split by value and position count (the aligned share is
+// actually qualifies for this disclosure, and what does not. Reads the current-basis disclosure and shows the EU-Taxonomy eligible / not-eligible split by value and position count (the aligned share is
 // decided on the filing form, per sector engine). This is the
 // honest coverage picture before a filing is prepared — nothing invented, "—" where a figure is absent.
 
@@ -39,10 +39,14 @@ export default function FilingCoverage() {
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
         <ListChecks size={15} className="text-[var(--color-sky)]" />
         <SectionHead hint="what of your book qualifies">Eligibility &amp; coverage</SectionHead>
+        <InfoButton compact details={{ title: 'Eligibility and coverage', sections: [
+          { heading: HEADING.shows, body: 'How much of your book, by value, falls within the EU Taxonomy\'s activities, before a filing is prepared.' },
+          { heading: HEADING.read, body: 'The aligned share is worked out on the filing\'s official form from the facts your book states. Where a fact is missing, the figure is left blank and counted there, never assumed.' },
+          { heading: HEADING.limits, body: 'Positions with no usable data are left out of both sides here. Load or refresh the book from Portfolio.' }] }} />
       </div>
 
       {q.isLoading ? (
-        <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">reading the book…</div>
+        <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">Reading the book…</div>
       ) : !tax ? (
         <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">Coverage will appear once book data is loaded for this period.</div>
       ) : (
@@ -56,12 +60,7 @@ export default function FilingCoverage() {
               <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--color-good)' }} />
             </div>
           )}
-          <p className="mono text-[10.5px] text-[var(--color-faint)] leading-relaxed">
-            Eligibility by book value. The <span className="text-[var(--color-mute)]">aligned</span> share is worked out on the filing's official form from the facts your book states,
-            and where a fact is missing the figure is left blank and counted there, never assumed. Positions with no usable data are excluded
-            from both sides here. Load or refresh the book from{' '}
-            <Link to="/portfolio" className="inline-flex items-center gap-0.5 text-[var(--color-sky)] hover:underline">Portfolio <ArrowUpRight size={11} /></Link>.
-          </p>
+          <Link to="/portfolio" className="inline-flex items-center gap-0.5 text-[12px] text-[var(--color-sky)] hover:underline">Refresh the book in Portfolio <ArrowUpRight size={11} /></Link>
         </div>
       )}
     </Card>
@@ -75,8 +74,8 @@ function Split({ tone, label, value, sub }: { tone: string; label: string; value
         <span className="w-2 h-2 rounded-full" style={{ background: tone }} />
         <span className="text-[12.5px] text-[var(--color-ink)]">{label}</span>
       </div>
-      <div className="mono text-[20px] tabular-nums" style={{ color: tone }}>{value}</div>
-      <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{sub}</div>
+      <div className="display text-[20px] font-semibold tabular-nums" style={{ color: tone }}>{value}</div>
+      <div className="text-[11.5px] text-[var(--color-faint)] mt-1">{sub}</div>
     </div>
   )
 }

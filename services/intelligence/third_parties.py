@@ -17,6 +17,15 @@ KINDS = {"critical_service_provider": "Critical service provider", "cloud": "Clo
 CRITICALITY = ("critical", "important", "standard")
 
 
+class ThirdPartyError(ValueError):
+    """A third party refused: its sentence (logs, callers catching ValueError) and the same as a catalogue message
+    (code, params) the API answers."""
+
+    def __init__(self, message: str, code: str, **params):
+        super().__init__(message)
+        self.code, self.params = code, params
+
+
 def add(session, *, org_id: str, name: str, kind: str, service: Optional[str], criticality: str, address: Optional[str], lat: Optional[float], lon: Optional[float],
         country: Optional[str], contract_ref: Optional[str], note: Optional[str], actor_user_id: str) -> dict:
     import h3
@@ -28,15 +37,17 @@ def add(session, *, org_id: str, name: str, kind: str, service: Optional[str], c
     )
     from services.scoring.on_demand import schedule_scoring
     if kind not in KINDS:
-        raise ValueError(f"Kind must be one of: {', '.join(KINDS)}.")
+        raise ThirdPartyError(f"Kind must be one of: {', '.join(KINDS)}.", "filings.third_party.kind",
+                              kinds=", ".join(v.lower() for v in KINDS.values()))
     if criticality not in CRITICALITY:
-        raise ValueError(f"Criticality must be one of: {', '.join(CRITICALITY)}.")
+        raise ThirdPartyError(f"Criticality must be one of: {', '.join(CRITICALITY)}.", "filings.third_party.criticality",
+                              levels=", ".join(CRITICALITY))
     if not (name or "").strip():
-        raise ValueError("Name the third party.")
+        raise ThirdPartyError("Name the third party.", "filings.third_party.name")
     try:
         loc = resolve_location(address, lat, lon, session=session)
     except SiteLocationError as e:
-        raise ValueError(str(e))
+        raise ThirdPartyError(str(e), "filings.third_party.not_located") from e
     cell = h3.latlng_to_cell(loc["lat"], loc["lon"], H3_RESOLUTION)
     tid = session.execute(text("""INSERT INTO third_party (org_id, name, kind, service, criticality, address, country, latitude, longitude, h3_cell, geocode_precision, contract_ref, note, created_by)
                                   VALUES (CAST(:o AS uuid), :n, :k, :s, :c, :a, :co, :la, :lo, :h, :gp, :cr, :nt, CAST(:u AS uuid)) RETURNING third_party_id::text"""),

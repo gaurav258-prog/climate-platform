@@ -3,18 +3,21 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from api.deps import CurrentUser, DbSession, attachment, require_permission
+from core import messages
 from core.config import settings
 from core.errors import UserError
 from services.governance import assurance_share as AS
 from services.intelligence import third_parties as TP
 
 router = APIRouter(tags=["Governance"])
-_GONE = {"expired": "This share has expired.", "revoked": "This share was revoked by the organisation.", "exhausted": "This share has reached its download limit.", "unavailable": "The pack behind this share cannot be built right now."}
+# why a share no longer serves its pack (assurance_share.status_of, and a pack that cannot be built), in the catalogue
+GONE = {"expired": "filings.share.expired", "revoked": "filings.share.revoked", "exhausted": "filings.share.exhausted",
+        "unavailable": "filings.share.unavailable"}
 
 
 def _who(request: Request) -> dict:
@@ -56,9 +59,13 @@ def revoke_share(share_id: str, session: DbSession, ctx: dict = Depends(require_
 def open_share(token: str, request: Request, session: DbSession):
     d = AS.open_share(session, token, _who(request))
     if not d:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "This link is not a share we know."})
+        raise UserError("filings.share.unknown")
     session.commit()
-    return d
+    # the auditor reads the report by its name and, when the share no longer serves the pack, why — in customer words
+    from services.governance.admin_view import report_name
+    return {**d, "report": report_name(d["framework"]),
+            "contents": messages.render("filings.share.contents", organisation=d["organisation"]),
+            "state": messages.render(GONE[d["status"]], organisation=d["organisation"]) if d["status"] in GONE else None}
 
 
 @router.get("/v1/assurance/{token}/download.zip", summary="Download the shared assurance pack (logged, counted)")
@@ -66,9 +73,9 @@ def download_share(token: str, request: Request, session: DbSession):
     status, built, d = AS.download(session, token, _who(request))
     session.commit()
     if status == "unknown":
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "This link is not a share we know."})
+        raise UserError("filings.share.unknown")
     if status != "ok":
-        raise HTTPException(status_code=410, detail={"error": status, "message": _GONE[status]})
+        raise UserError(GONE[status], organisation=d.get("organisation") or "")
     name, blob = built
     return Response(content=blob, media_type="application/zip", headers={"Content-Disposition": attachment(f"{name}")})
 
@@ -99,8 +106,8 @@ def add_third_party(body: ThirdPartyCreate, session: DbSession, ctx: dict = Depe
     try:
         out = TP.add(session, org_id=ctx["org"]["org_id"], name=body.name, kind=body.kind, service=body.service, criticality=body.criticality, address=body.address, lat=body.latitude, lon=body.longitude,
                      country=body.country, contract_ref=body.contract_ref, note=body.note, actor_user_id=ctx["user"]["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    except TP.ThirdPartyError as e:
+        raise UserError(e.code, **e.params) from e
     session.commit()
     return out
 
@@ -108,7 +115,7 @@ def add_third_party(body: ThirdPartyCreate, session: DbSession, ctx: dict = Depe
 @router.delete("/v1/third-parties/{third_party_id}", summary="End a third-party relationship (kept on the audit trail)")
 def end_third_party(third_party_id: str, session: DbSession, ctx: dict = Depends(require_permission("supply.locations.write"))):
     if not TP.end(session, org_id=ctx["org"]["org_id"], third_party_id=third_party_id, actor_user_id=ctx["user"]["id"]):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such third party."})
+        raise UserError("error.not_found")
     session.commit()
     return {"ok": True}
 

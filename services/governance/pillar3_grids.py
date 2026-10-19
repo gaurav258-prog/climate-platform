@@ -325,7 +325,7 @@ def build(spec: dict, template_id: str, assets: list[dict], level: float | None 
     institution's stated at-risk level (what makes an exposure sensitive); Template 1 columns i-k its stated estimation
     and attribution (`t1`, the filing's frozen pillar3_t1 record; None = a filing frozen before it was recorded)."""
     if template_id == "T5" and level is None:
-        raise ValueError("Template 5 needs the stated at-risk level (method.at_risk_level)")
+        raise ValueError("Template 5 needs the institution's stated at-risk threshold")
     from services.regspec import template as spec_template
     t = spec_template(spec, template_id)
     binding = BINDING[template_id]["rows"]

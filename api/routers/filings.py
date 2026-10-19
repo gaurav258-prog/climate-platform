@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, attachment, require_permission
@@ -207,16 +207,14 @@ class EntityPatch(BaseModel):
 @router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
 def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from services.governance import entities as E
-    try:
-        e = E.create_entity(session, ctx["org"]["org_id"], name=body.name, kind=body.kind,
-                            parent_entity_id=body.parent_entity_id, ownership_pct=body.ownership_pct,
-                            consolidation_method=body.consolidation_method,
-                            consolidation_basis=body.consolidation_basis,
-                            requires_solo_filing=body.requires_solo_filing,
-                            solo_waiver_reason=body.solo_waiver_reason, functional_currency=body.functional_currency,
-                            lei=body.lei, country=body.country)
-    except E.EntityError as ex:
-        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    # a refusal is an EntityError, a core.errors.UserError with its catalogue code: it reaches the screen as such
+    e = E.create_entity(session, ctx["org"]["org_id"], name=body.name, kind=body.kind,
+                        parent_entity_id=body.parent_entity_id, ownership_pct=body.ownership_pct,
+                        consolidation_method=body.consolidation_method,
+                        consolidation_basis=body.consolidation_basis,
+                        requires_solo_filing=body.requires_solo_filing,
+                        solo_waiver_reason=body.solo_waiver_reason, functional_currency=body.functional_currency,
+                        lei=body.lei, country=body.country)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
                 target_type="reporting_entity", target_id=e["entity_id"], detail={"name": body.name, "kind": body.kind})
     return e
@@ -238,10 +236,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.set_lei: kwargs["lei"] = body.lei
     if body.set_country: kwargs["country"] = body.country
     if body.set_joint_arrangement: kwargs["joint_arrangement"] = body.joint_arrangement
-    try:
-        e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
-    except E.EntityError as ex:
-        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)      # EntityError: a UserError
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.update",
                 target_type="reporting_entity", target_id=entity_id, detail=kwargs)
     return e
@@ -250,10 +245,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
 @router.delete("/filings/entities/{entity_id}", summary="Remove a reporting entity (its book falls back to whole-org)")
 def delete_entity(entity_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from services.governance import entities as E
-    try:
-        E.delete_entity(session, ctx["org"]["org_id"], entity_id)
-    except E.EntityError as ex:
-        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    E.delete_entity(session, ctx["org"]["org_id"], entity_id)                    # EntityError: a UserError
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.delete",
                 target_type="reporting_entity", target_id=entity_id, detail={})
     return {"ok": True}
@@ -264,6 +256,22 @@ def filing_form(filing_id: str, session: DbSession, ctx: dict = Depends(require_
     v = F.form_view(session, ctx["org"]["org_id"], filing_id)
     if not v:
         raise UserError("error.not_found")
+    return _named(v)
+
+
+def _named(v: dict) -> dict:
+    """The form with the codes its currency and consolidation records keep named for the screen: where each exchange
+    rate came from (names intake.fx_source) and the role of each sign-off of the consolidation rules (names
+    regchange.role). The frozen records keep their keys; only the response gains the names."""
+    from core import messages
+    src = messages.names()["intake.fx_source"]
+    fx, cons = v.get("fx"), v.get("consolidation")
+    if fx:
+        v["fx"] = {**fx, "rates_used": [{**r, "source_label": src.get(r.get("source") or "") or messages.label("filings.fx.source_unknown")}
+                                        for r in fx.get("rates_used") or []]}
+    if cons and cons.get("signoff"):
+        v["consolidation"] = {**cons, "signoff": {**cons["signoff"], "signed": [
+            {**g, "role_label": messages.name("regchange.role", g["role"])} for g in cons["signoff"]["signed"]]}}
     return v
 
 

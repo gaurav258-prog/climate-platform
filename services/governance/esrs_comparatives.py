@@ -255,7 +255,7 @@ def _validate(item: dict, value) -> dict:
         raise TA.AnswerError(f"{iid}: an answer is an object", "disclose.answers.invalid")
     if iid.startswith("topic."):
         if value.get("first_time") is not True:
-            raise TA.AnswerError(f"{iid}: state {{'first_time': true}} for a topic reported for the first time",
+            raise TA.AnswerError(f"{iid}: tick a topic only to say it is reported for the first time",
                                  "disclose.answers.invalid")
         return {"first_time": True}
     out = {}

@@ -38,7 +38,8 @@ def basis(session: Session, currency: str = "EUR", year: Optional[int] = None) -
     from services.reference.fx import FxError, average_rate
     d = deflators()
     if BASE_YEAR not in d:
-        raise CarbonPriceError("the US deflator table has no 2010 base year (scripts/build_us_gdp_deflator.py)")
+        # the table is rebuilt by scripts/build_us_gdp_deflator.py
+        raise CarbonPriceError("the US GDP deflator table has no 2010 base year")
     last_full_fx_year = date.today().year - 1
     y = year or max(k for k in d if k <= last_full_fx_year)
     if y not in d:

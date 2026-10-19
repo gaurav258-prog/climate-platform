@@ -95,8 +95,10 @@ def test_site_value_is_a_balance_and_throughput_a_flow():
 
 def test_fund_issuer_financials_in_their_own_currency():
     from api.routers.funds import Holding, _issuer_financials_eur
-    with pytest.raises(ValueError, match="financials_currency"):
+    from core.errors import UserError
+    with pytest.raises(UserError) as refused:                     # the currency of the issuer's figures, never assumed
         Holding(isin="US0000000001", market_value_eur=1e6, revenue=5e9)
+    assert refused.value.code == "filings.holding.financials_currency" and refused.value.params["isin"] == "US0000000001"
     h = Holding(isin="US0000000001", market_value_eur=1e6, revenue=5e9, evic=2e10, financials_currency="USD", reporting_year=2025)
     with get_session() as s:
         f = _issuer_financials_eur(s, h)

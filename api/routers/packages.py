@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 from api.deps import CustomerId
 from api.schemas.packages import (
@@ -22,10 +22,8 @@ from api.schemas.packages import (
     PackageResponse,
     PackageSummary,
 )
+from core.errors import UserError
 from ml.regulatory.packager import (
-    RETIRED_FRAMEWORKS,
-    MakerCheckerViolation,
-    PackageAlreadyReleased,
     PackagerError,
     approve_package,
     create_package,
@@ -60,8 +58,8 @@ def create(body: PackageCreateRequest, customer_id: CustomerId):
             scenarios=body.scenarios,
             time_horizons=body.time_horizons,
         )
-    except PackagerError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+    except PackagerError as e:                      # its sentence to the log, the catalogue's words to the screen
+        raise UserError(e.code, e.status, **e.params) from e
 
     return PackageCreateResponse(**result)
 
@@ -84,24 +82,8 @@ def approve(package_id: str, body: PackageApproveRequest):
             package_id=package_id,
             checker_user_id=body.checker_user_id,
         )
-    except MakerCheckerViolation as e:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "error":   "maker_checker_violation",
-                "message": str(e),
-            },
-        )
-    except PackageAlreadyReleased as e:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error":   "package_already_released",
-                "message": str(e),
-            },
-        )
-    except PackagerError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except PackagerError as e:                      # same maker and checker, already released, or no such package
+        raise UserError(e.code, e.status, **e.params) from e
 
     return PackageApproveResponse(**result)
 
@@ -116,7 +98,7 @@ def approve(package_id: str, body: PackageApproveRequest):
 def get(package_id: str, include_data: bool = Query(default=True)):
     pkg = get_package(package_id)
     if not pkg:
-        raise HTTPException(status_code=404, detail=f"Package {package_id} not found")
+        raise UserError("error.not_found")
 
     if not include_data:
         pkg.pop("package_data", None)
@@ -148,7 +130,7 @@ def get(package_id: str, include_data: bool = Query(default=True)):
     status_code=410,
 )
 def export_xbrl(package_id: str):
-    raise HTTPException(status_code=410, detail={"error": "retired", "message": RETIRED_FRAMEWORKS["CSRD"]})
+    raise UserError("filings.package.retired", 410)
 
 
 # ── GET /v1/packages ──────────────────────────────────────────────────

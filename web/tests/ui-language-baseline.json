@@ -39,30 +39,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/FilingConsolidation.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/FilingCoverage.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/FilingFx.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 0,
-  "apiProse": 2,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/HexMap.tsx": {
   "internal": 0,
   "raw": 0,
@@ -151,22 +127,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/Assurance.tsx": {
-  "internal": 2,
-  "raw": 2,
-  "monoProse": 1,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/Audit.tsx": {
-  "internal": 1,
-  "raw": 0,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/Calendar.tsx": {
   "internal": 0,
   "raw": 1,
@@ -187,14 +147,6 @@
   "internal": 0,
   "raw": 2,
   "monoProse": 3,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/Contracts.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 0,
   "apiProse": 0,
   "figure": 0,
   "citation": 0

@@ -896,8 +896,9 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         level = stated_level(payload)
         if level is None:
             sections.append({"key": "t5", "title": _p3_title(spec, "T5"), "columns": [], "rows": [],
-                             "note": "Not computed — not stated: method.at_risk_level (the score at or above which the "
-                                     "institution treats an exposure as sensitive to physical risk)."})
+                             "note": "Not computed: your at-risk threshold is not stated — the hazard score at or above "
+                                     "which the institution treats an exposure as sensitive to physical risk. State it "
+                                     "in your calculation settings."})
         else:
             g5 = p3_t5(spec, assets, level)
             sections.append(_spec_grid_section(spec, "T5", g5, key="t5", scope="All geographies"))

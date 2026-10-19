@@ -169,24 +169,26 @@ class Holding(BaseModel):
 
     @model_validator(mode="after")
     def _one_value(self) -> "Holding":
+        # A row the file cannot hold is refused in the catalogue's words, naming the row's ISIN (a UserError is not a
+        # ValueError, so it passes through pydantic to the API's handler as {error, message, detail}, status 422).
+        isin = (self.isin or "").strip() or "—"
         if self.market_value_eur is None and self.market_value is None:
-            raise ValueError("each holding needs market_value_eur, or market_value + currency")
+            raise UserError("filings.holding.no_value", isin=isin)
         if self.revenue is not None and self.revenue_eur is not None or self.evic is not None and self.evic_eur is not None:
-            raise ValueError("give revenue/evic either in EUR (revenue_eur/evic_eur) or in financials_currency, not both")
+            raise UserError("filings.holding.financials_twice", isin=isin)
         if (self.revenue is not None or self.evic is not None) and not (self.financials_currency or "").strip():
-            raise ValueError("revenue/evic in the issuer's own currency need financials_currency (e.g. USD)")
+            raise UserError("filings.holding.financials_currency", isin=isin)
         if (self.revenue is not None or self.evic is not None) and self.financials_date is None and self.reporting_year is None:
-            raise ValueError("revenue/evic in the issuer's own currency need financials_date or reporting_year")
+            raise UserError("filings.holding.financials_date", isin=isin)
         for basis, aligned, gas, nuc in (
                 ("turnover", self.taxonomy_aligned_pct, self.taxonomy_fossil_gas_aligned_pct, self.taxonomy_nuclear_aligned_pct),
                 ("CapEx", self.taxonomy_aligned_capex_pct, self.taxonomy_fossil_gas_aligned_capex_pct,
                  self.taxonomy_nuclear_aligned_capex_pct)):
             if (gas is not None or nuc is not None) and aligned is None:
-                raise ValueError(f"the fossil gas / nuclear parts are parts of the aligned share: state the {basis}-based "
-                                 "aligned share with them")
+                raise UserError("filings.holding.taxonomy_parts_alone", isin=isin, basis=basis)
             if aligned is not None and (gas or 0) + (nuc or 0) > aligned + 1e-9:
-                raise ValueError(f"the fossil gas and nuclear parts ({(gas or 0) + (nuc or 0)}%) exceed the {basis}-based "
-                                 f"aligned share ({aligned}%)")
+                raise UserError("filings.holding.taxonomy_parts_exceed", isin=isin, basis=basis,
+                                parts=f"{(gas or 0) + (nuc or 0):g}", aligned=f"{aligned:g}")
         return self
     # ── Optional issuer data the client already holds (fills SFDR gaps) ──
     nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI

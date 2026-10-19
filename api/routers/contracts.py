@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import Response
 
 from api.deps import DbSession, attachment, require_permission
 from api.services.rbac import write_audit
+from core.errors import UserError
 from services.governance import contracts as C
 
 router = APIRouter(prefix="/v1/contracts", tags=["Contracts"])
@@ -36,7 +37,7 @@ async def upload_contract(session: DbSession, ctx: dict = Depends(require_permis
                              counterparty=counterparty, contract_type=contract_type, status=status,
                              signed_date=signed_date, effective_date=effective_date, expiry_date=expiry_date)
     except C.ContractError as e:
-        raise HTTPException(status_code=400, detail={"error": "contract_error", "message": str(e)})
+        raise UserError(e.code, 400, **e.params) from e
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="contract.uploaded",
                 target_type="customer_contract", target_id=res["contract_id"],
                 detail=f"Uploaded '{res['title']}' ({res['contract_type']}, {res['size_bytes']} bytes)")
@@ -47,7 +48,7 @@ async def upload_contract(session: DbSession, ctx: dict = Depends(require_permis
 def download_contract(contract_id: str, session: DbSession, ctx: dict = Depends(require_permission("contracts.view"))):
     got = C.get_contract_file(session, ctx["org"]["org_id"], contract_id)
     if not got:
-        raise HTTPException(status_code=404, detail="contract not found")
+        raise UserError("error.not_found")
     filename, content_type, data = got
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="contract.downloaded",
                 target_type="customer_contract", target_id=contract_id, detail=f"Downloaded '{filename}'")
@@ -58,7 +59,7 @@ def download_contract(contract_id: str, session: DbSession, ctx: dict = Depends(
 @router.delete("/{contract_id}", summary="Remove a contract (contracts.manage · audited)")
 def delete_contract(contract_id: str, session: DbSession, ctx: dict = Depends(require_permission("contracts.manage"))):
     if not C.delete_contract(session, ctx["org"]["org_id"], contract_id):
-        raise HTTPException(status_code=404, detail="contract not found")
+        raise UserError("error.not_found")
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="contract.removed",
                 target_type="customer_contract", target_id=contract_id, detail="Removed contract")
     return {"ok": True}

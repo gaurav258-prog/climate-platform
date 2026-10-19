@@ -152,7 +152,7 @@ def refresh(session: Session, full: bool = False) -> dict:
     cc = {r[0]: (r[1], r[2]) for r in session.execute(text(
         "SELECT iso3, currency, currency_from FROM ref_countries WHERE iso3 IS NOT NULL AND currency IS NOT NULL")).all()}
     if not cc:
-        raise ImfFxError("the country reference (feed reference_countries) is not loaded — currencies can't be assigned")
+        raise ImfFxError("the country reference is not loaded yet, so currencies can't be assigned to countries")
     iso2_of = {r[0]: r[1] for r in session.execute(text("SELECT iso3, iso2 FROM ref_countries WHERE iso3 IS NOT NULL")).all()}
     out = parse(_get(start), cc, iso2_of=iso2_of)
     if not out["rows"]:

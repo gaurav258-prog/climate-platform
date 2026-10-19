@@ -7,10 +7,11 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from api.deps import DbSession, own_or_404, require_permission
+from core.errors import UserError
 from services.governance import insurer_documents as D
 
 router = APIRouter(prefix="/v1/insurance/documents", tags=["Insurance — Solvency II documents"])
@@ -32,7 +33,7 @@ def get_document(report_type: str, session: DbSession, entity_id: Optional[str] 
         return D.live(session, org_id, report_type, entity_id=entity_id, period_end=_period_end(session, org_id),
                       disclosure_date=disclosure_date)
     except D.DocumentError as e:
-        raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
+        raise UserError(e.code, e.status, **e.params) from e
 
 
 class Answers(BaseModel):
@@ -51,9 +52,8 @@ def put_answers(report_type: str, body: Answers, session: DbSession,
         out = D.save(session, org_id, report_type, body.answers, ctx["user"]["id"], entity_id=body.entity_id,
                      period_end=_period_end(session, org_id), disclosure_date=body.disclosure_date)
     except D.DocumentError as e:
-        raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
+        raise UserError(e.code, e.status, **e.params) from e
     session.commit()
     if out["refused"] and not out["saved"]:
-        raise HTTPException(status_code=422, detail={"error": "refused", "message": "no answer could be saved",
-                                                     "refused": out["refused"]})
+        raise UserError("disclose.answers.refused_all", n=len(out["refused"]), first=out["refused"][0]["msg"]["label"])
     return out
