@@ -42,7 +42,7 @@ def _haversine_km(lat1, lon1, lat2, lon2) -> float:
 def storm_strength(category: int | None, wind_kt: float | None) -> tuple[int, float]:
     """How strong a best-track point is, for picking a storm's strongest point within reach: its Saffir-Simpson class
     (every class below a tropical storm counts as below it), then its wind. A tropical storm is class 0 — never
-    read as 'no class' (E-next: `category or -1` made every tropical storm a depression)."""
+    read as 'no class' (E244: `category or -1` made every tropical storm a depression)."""
     rank = category if category is not None and category >= _TROPICAL_STORM else _TROPICAL_STORM - 1
     return rank, float(wind_kt or 0.0)
 
@@ -73,7 +73,7 @@ def _span(first, last) -> dict | None:
 def catalogue_spans(session: Session, min_magnitude: float = _MIN_MAGNITUDE) -> dict[str, dict | None]:
     """The years each observed catalogue covers, from its first record to its last — the window an observed frequency
     is counted over. A span in days, not calendar years: a catalogue from July 2016 to July 2026 covers 10.0 years, not
-    11 (E-next)."""
+    11 (E247)."""
     s = session.execute(text("SELECT MIN(observation_time), MAX(observation_time) FROM storm_events")).first()
     q = session.execute(text("SELECT MIN(origin_time), MAX(origin_time) FROM seismic_events "
                              "WHERE CAST(magnitude AS FLOAT) >= :m"), {"m": min_magnitude}).first()
@@ -240,7 +240,7 @@ def located_realized_exposure(session: Session, org_id: str, vertical: str,
 def agri_realized_exposure(session: Session, org_id: str) -> dict:
     """For an agri sourcing book, the observed falls in national production of the crops the buyer sources, in the
     countries it sources them from (crop_yield_observations.yoy_change_pct is the change in production, not in yield
-    per hectare — E-next: it was shown as '% yield')."""
+    per hectare — E248: it was shown as '% yield')."""
     sourced = session.execute(text("""
         SELECT co.name AS commodity, p.country AS country, SUM(CAST(p.annual_spend_eur AS FLOAT)) AS spend
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id

@@ -1,4 +1,4 @@
-// A governed change that waits for a second person is never announced as applied (E-next): Methodology compared the
+// A governed change that waits for a second person is never announced as applied (E267): Methodology compared the
 // answer with 'pending' while the server answers 'pending_approval', and the reporting basis never looked at it, so a
 // change still waiting for approval said "Interpretation updated." / "Saved — every filing now uses this basis."
 import { test } from 'node:test'

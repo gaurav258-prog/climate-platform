@@ -1,6 +1,6 @@
 // Every figure an undertaking states for its ESRS statement can be stated on the ESRS page: the page groups the figures
 // by their key, and a group list that matched only some prefixes left the climate-related remuneration figure
-// (esrs2.gov3.*) in no group, so it could not be stated there (E-next). Each provided concept of the registry falls in a
+// (esrs2.gov3.*) in no group, so it could not be stated there (E255). Each provided concept of the registry falls in a
 // group, and the groups are the page's own.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

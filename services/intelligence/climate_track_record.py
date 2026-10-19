@@ -9,7 +9,7 @@ both, for any coordinates, and keeps them apart:
   * the MODELLED scores — the platform's current hazard scores for the grid cell, labelled as modelled. Only a scale
     that expresses the likelihood or intensity of damaging conditions may be the location's highest hazard
     (core/hazard_relevance.py); a nowcast reading, a crop scale, a susceptibility class or a variability rank is
-    context (E-next: the headline read 'acute heat 100/100', today's reading).
+    context (E245: the headline read 'acute heat 100/100', today's reading).
 
 A diligence dossier, not a regulatory filing. Every explanation is a catalogue message (codes realized.place.*).
 """

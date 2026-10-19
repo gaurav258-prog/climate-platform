@@ -24,7 +24,7 @@ def test_haversine_is_symmetric():
     assert abs(a - b) < 1e-6
 
 
-# ── the observed record in the catalogue's own terms (E-next) ──────────────────────────────────────────────────────
+# ── the observed record in the catalogue's own terms (E244, E247, E248) ──────────────────────────────────────────────────────
 from datetime import date  # noqa: E402
 
 from services.intelligence.realized_exposure import (  # noqa: E402

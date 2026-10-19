@@ -8,7 +8,7 @@ platform holds the observed record — the storms and earthquakes that have cros
     the policy file does not otherwise hold. Never projected; a crossing is not a loss.
   * FREQUENCY CHECK (each peril the policy is priced on that has an observed catalogue: storm, earthquake): the
     crossings counted over the years the catalogue covers, beside the number the priced return period expects in those
-    years (years ÷ return period). Every such peril is checked with its OWN priced return period (E-next: only the
+    years (years ÷ return period). Every such peril is checked with its OWN priced return period (E246: only the
     headline hazard was checked, with the return period of the peril driving the price, so 124 of a book's 145 policies
     priced on earthquake were reported as priced on a peril with no catalogue).
 

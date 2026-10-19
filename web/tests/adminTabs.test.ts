@@ -1,4 +1,4 @@
-// Every link into the control center lands on the tab it names (E-next): the readiness check linked /admin?tab=team,
+// Every link into the control center lands on the tab it names (E265): the readiness check linked /admin?tab=team,
 // the method-gap notes, Loss and Portfolio linked /admin?tab=Methodology — and the page read no tab from its address, so
 // every one opened on Overview. The page now resolves ?tab= by key, label or older name; this test reads every such
 // link in the screens and the server and fails on one that names no tab.
@@ -40,7 +40,7 @@ test('the control center reads the tab from its address', () => {
 })
 
 // "Finish setup" (/admin?setup=identity, services/governance/readiness.py) read the address once on mount, so following it
-// from the Overview itself — where the readiness check sits — did nothing (E-next). The form now follows the link while
+// from the Overview itself — where the readiness check sits — did nothing (E272). The form now follows the link while
 // the page is open, and the link is cleared once the form closes or another tab opens.
 test('the identity form follows the setup link while the page is open', () => {
   const readiness = readFileSync(join(root, 'services', 'governance', 'readiness.py'), 'utf8')

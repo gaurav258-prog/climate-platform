@@ -4,16 +4,6 @@
   "error": 0,
   "rawError": 0
  },
- "api/routers/admin.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 7
- },
- "api/routers/approvals.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "api/routers/auth.py": {
   "display": 2,
   "error": 0,
@@ -23,11 +13,6 @@
   "display": 0,
   "error": 0,
   "rawError": 2
- },
- "api/routers/calc_settings.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
  },
  "api/routers/contracts.py": {
   "display": 0,
@@ -44,28 +29,18 @@
   "error": 0,
   "rawError": 4
  },
- "api/routers/eet.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
  "api/routers/entity_structure.py": {
   "display": 0,
   "error": 0,
   "rawError": 6
  },
- "api/routers/esrs.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
- },
  "api/routers/filings.py": {
   "display": 0,
   "error": 0,
-  "rawError": 12
+  "rawError": 3
  },
  "api/routers/funds.py": {
-  "display": 1,
+  "display": 0,
   "error": 4,
   "rawError": 0
  },
@@ -82,7 +57,7 @@
  "api/routers/growth.py": {
   "display": 0,
   "error": 0,
-  "rawError": 2
+  "rawError": 1
  },
  "api/routers/insurer_documents.py": {
   "display": 0,
@@ -90,14 +65,9 @@
   "rawError": 2
  },
  "api/routers/intake_batches.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 3
- },
- "api/routers/intake_facts.py": {
   "display": 0,
   "error": 0,
-  "rawError": 2
+  "rawError": 3
  },
  "api/routers/onboarding_intake.py": {
   "display": 0,
@@ -114,74 +84,19 @@
   "error": 0,
   "rawError": 4
  },
- "api/routers/periods.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 3
- },
- "api/routers/prior_filings.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 7
- },
- "api/routers/provided.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 2
- },
- "api/routers/reg_tasks.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 9
- },
  "api/routers/security_admin.py": {
   "display": 0,
   "error": 0,
   "rawError": 1
- },
- "api/routers/sfdr_documents.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
- },
- "api/routers/source_systems.py": {
-  "display": 1,
-  "error": 2,
-  "rawError": 0
- },
- "api/routers/sso_scim.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 4
- },
- "api/routers/supervisor.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 3
  },
  "api/routers/supply.py": {
   "display": 2,
   "error": 0,
   "rawError": 7
  },
- "api/routers/transmission.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 5
- },
- "api/services/intake_http.py": {
-  "display": 3,
-  "error": 0,
-  "rawError": 0
- },
  "api/services/rbac.py": {
   "display": 0,
   "error": 3,
-  "rawError": 0
- },
- "services/calc_settings.py": {
-  "display": 10,
-  "error": 0,
   "rawError": 0
  },
  "services/calibration/crop_weather.py": {
@@ -214,11 +129,6 @@
   "error": 1,
   "rawError": 0
  },
- "services/governance/data_dictionary.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/entities.py": {
   "display": 0,
   "error": 7,
@@ -249,11 +159,6 @@
   "error": 0,
   "rawError": 0
  },
- "services/governance/filing_variance.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/onboarding.py": {
   "display": 2,
   "error": 0,
@@ -265,11 +170,6 @@
   "rawError": 0
  },
  "services/governance/provided_data.py": {
-  "display": 0,
-  "error": 1,
-  "rawError": 0
- },
- "services/governance/record_retention.py": {
   "display": 0,
   "error": 1,
   "rawError": 0
@@ -289,21 +189,6 @@
   "error": 0,
   "rawError": 0
  },
- "services/governance/sso.py": {
-  "display": 0,
-  "error": 3,
-  "rawError": 0
- },
- "services/governance/tasks.py": {
-  "display": 0,
-  "error": 1,
-  "rawError": 0
- },
- "services/governance/tenant_provisioning.py": {
-  "display": 0,
-  "error": 2,
-  "rawError": 0
- },
  "services/ingest/bank_counterparties.py": {
   "display": 0,
   "error": 1,
@@ -319,23 +204,8 @@
   "error": 2,
   "rawError": 0
  },
- "services/ingest/sector_contract.py": {
-  "display": 0,
-  "error": 2,
-  "rawError": 0
- },
- "services/ingest/sector_ingest.py": {
-  "display": 0,
-  "error": 10,
-  "rawError": 0
- },
  "services/ingest/templates.py": {
   "display": 5,
-  "error": 0,
-  "rawError": 0
- },
- "services/intake/catalog.py": {
-  "display": 1,
   "error": 0,
   "rawError": 0
  },
@@ -343,16 +213,6 @@
   "display": 0,
   "error": 1,
   "rawError": 0
- },
- "services/intake/money.py": {
-  "display": 0,
-  "error": 1,
-  "rawError": 0
- },
- "services/intake/pipeline.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
  },
  "services/intake/storage.py": {
   "display": 0,
@@ -407,11 +267,6 @@
  "services/reference/carbon_price.py": {
   "display": 0,
   "error": 1,
-  "rawError": 0
- },
- "services/reference/client_fx.py": {
-  "display": 0,
-  "error": 4,
   "rawError": 0
  },
  "services/reference/eurostat_crops.py": {
