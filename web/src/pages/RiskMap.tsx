@@ -6,7 +6,9 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../lib/api'
 import { PLACE_LABELS } from '../lib/placeLabels'
 import { Card, PageHeader } from '../components/ui'
+import { HEADING } from '../components/Details'
 import { hazardLabel } from '../lib/hazards'
+import { bandHex, bandName, bandRanges, NOT_SCORED_HEX } from '../lib/bands'
 import { flow } from '../lib/money'
 
 interface Plot {
@@ -21,8 +23,8 @@ interface Hex { cell: string; rings: [number, number][][]; score: number | null;
   driver_hazard: string | null; n_plots: number; plots?: HexPlot[]; is_plot_cell: boolean; status: string }
 interface HexResponse { resolution: number; hexes: Hex[]; n_plot_cells?: number }
 
-const hazardColor = (s: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
-const bandLabel = (s: number | null) => s == null ? 'unscored' : s >= 60 ? 'High' : s >= 40 ? 'Medium' : 'Low'
+// a score's colour and name are the platform's bands (lib/bands), the same on every map
+const hazardColor = bandHex
 const prettyHazard = hazardLabel
 
 // H3 display resolution follows the map zoom — coarse cells zoomed out, finer as you zoom in.
@@ -223,16 +225,16 @@ export default function RiskMap() {
   return (
     <div className="fadeup space-y-5">
       <PageHeader eyebrow="Agriculture · where the risk sits" title="Risk map"
-        lead={<>
-          The Earth as we index it — broken into <span className="text-[var(--color-ink)]">H3 hexagonal cells</span>.
-          Each cell around your book carries its own hazard reading from the golden source. Zoom in and the cells get
-          finer. Click a hexagon or a plot for the detail.
-        </>} />
+        lead="Your sourcing plots on the grid the platform scores."
+        about={[
+          { heading: HEADING.shows, body: 'The grid of cells the platform scores the Earth on, around your sourcing plots. A filled cell carries its own hazard reading: the worst scored location inside it. An outlined cell is part of the grid with no reading yet. Zoom in and the cells get finer.' },
+          { heading: HEADING.read, body: `Colours follow the platform's four bands: ${bandRanges().map(b => b.label).join(', ')}. Click a filled cell for its reading and the plots inside it; click a plot to open it. Scroll to zoom, drag to pan.` },
+        ]} />
 
       <div className="flex flex-wrap items-center gap-4 text-[12px] text-[var(--color-mute)]">
-        <Legend c="#34d399" l="low (<40)" /><Legend c="#f59e0b" l="medium (40–60)" />
-        <Legend c="#fb7185" l="high (≥60)" /><Legend c="#64748b" l="not yet scored" />
-        <span className="text-[var(--color-faint)]">· filled hexagon = hazard scored here · outline = grid coverage</span>
+        {bandRanges().map(b => <Legend key={b.key} c={b.hex} l={b.label} />)}
+        <Legend c={NOT_SCORED_HEX} l="Not scored yet" />
+        <span className="ml-auto tabular-nums text-[var(--color-faint)]">{q.data?.plots.length ?? 0} plots</span>
       </div>
 
       <Card className="p-0 overflow-hidden">
@@ -266,7 +268,7 @@ export default function RiskMap() {
                     <div className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: '#7f9cc0' }}>Grid cell · hazard</div>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-[26px] font-semibold leading-none" style={{ color: '#f1f5f9' }}>{Math.round(selected.score as number)}</span>
-                      <span className="text-[12px] font-medium" style={{ color: hazardColor(selected.score) }}>{bandLabel(selected.score)}</span>
+                      <span className="text-[12px] font-medium" style={{ color: hazardColor(selected.score) }}>{bandName(selected.score)}</span>
                     </div>
                   </div>
                   <button onClick={() => setSelected(null)} aria-label="Close"
@@ -290,13 +292,11 @@ export default function RiskMap() {
                     })}
                   </div>
                 ) : null}
-                <div className="mt-3 mono text-[9px]" style={{ color: '#5b7396' }}>{selected.cell}</div>
               </div>
             </div>
           )}
         </div>
       </Card>
-      <div className="text-[11px] text-[var(--color-faint)] mono">{q.data?.plots.length ?? 0} plots · scroll to zoom · drag to pan</div>
     </div>
   )
 }

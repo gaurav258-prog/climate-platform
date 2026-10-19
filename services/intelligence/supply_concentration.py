@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from core import messages
+
 
 def _g(c, k, default=None):
     """Read a field from a CommodityRisk object OR its asdict() dict."""
@@ -39,7 +41,7 @@ def supply_concentration(commodities: list) -> dict:
     concentration decomposition of the sourcing book by crop and by hazard."""
     total_spend = sum(_g(c, "annual_spend_eur") or 0 for c in commodities)
     if not total_spend:
-        return {"available": False, "reason": "no_sourcing_spend"}
+        return {"available": False, "reason": messages.render("agri.concentration.no_spend")}
 
     def _published_at_risk(c):   # € only where the crop is event-backtested; else None (never fabricated)
         if _g(c, "status") != "scored":
@@ -80,13 +82,17 @@ def supply_concentration(commodities: list) -> dict:
     # the single largest common shock — one hazard across every crop it drives
     common_shock = hazard_rows[0] if hazard_rows else None
 
+    # each flag a catalogue message (label for the screen, detail for its pop-up), the hazard by its name
     flags = []
     if top_commodity and top_commodity["pct_of_spend"] > _TOP_COMMODITY_PCT:
-        flags.append(f"Crop concentration: {top_commodity['pct_of_spend']}% of spend in {top_commodity['commodity']}")
+        flags.append(messages.render("agri.concentration.crop", pct=top_commodity["pct_of_spend"],
+                                     crop=top_commodity["commodity"], limit=f"{_TOP_COMMODITY_PCT:g}"))
     if common_shock and common_shock["pct_of_spend"] > _TOP_HAZARD_PCT:
-        flags.append(f"Peril concentration: {common_shock['pct_of_spend']}% of spend exposed to {common_shock['hazard']}")
+        flags.append(messages.render("agri.concentration.peril", pct=common_shock["pct_of_spend"],
+                                     hazard=messages.name("hazard", common_shock["hazard"]), limit=f"{_TOP_HAZARD_PCT:g}"))
     if eff_commodities is not None and eff_commodities < _LOW_DIVERSIFICATION_N:
-        flags.append(f"Low diversification: only {eff_commodities} effective independent crops")
+        flags.append(messages.render("agri.concentration.diversification", n=eff_commodities,
+                                     floor=f"{_LOW_DIVERSIFICATION_N:g}"))
 
     return {
         "available": True,
@@ -100,9 +106,5 @@ def supply_concentration(commodities: list) -> dict:
         "by_commodity": commodity_rows[:10],
         "by_hazard": hazard_rows,
         "flags": flags,
-        "method": ("Concentration decomposes the sourcing book by crop and by climate hazard on SPEND (exposure, "
-                   "always known); published COGS-at-risk is shown only where the crop is event-backtested, never "
-                   "fabricated for a held/pending crop. HHI is the Herfindahl index over spend shares; effective "
-                   "count = 1/HHI. A common shock is one hazard across the crops it drives — the sourcing a single "
-                   "bad season would hit together. Structural, not a fitted correlation matrix."),
+        "method": messages.render("agri.concentration.method"),
     }

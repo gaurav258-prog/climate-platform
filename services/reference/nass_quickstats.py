@@ -28,19 +28,23 @@ from pathlib import Path
 
 import requests
 
+from services.reference import publisher_errors as P
 from services.reference.yield_sources import SetAside, store_round
 
 REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "nass_quickstats.json"
 SOURCE = "USDA NASS Quick Stats"
+PUBLISHER = "USDA NASS"
 BASE = "https://quickstats.nass.usda.gov/api"
 PARSER_VERSION = "usda-nass-quickstats-v1"
 _FILTER = [("source_desc", "SURVEY"), ("freq_desc", "ANNUAL"), ("domain_desc", "TOTAL"),
            ("agg_level_desc", "NATIONAL"), ("agg_level_desc", "STATE")]
 _PERIODS = {"year": ("reference_period_desc", "YEAR"), "forecast": ("reference_period_desc__LIKE", "FORECAST")}
+# where each row comes from, in plain words (the store's source column names the series)
+NOTE = ("USDA NASS Quick Stats survey, the year's estimate; the crop as the crop registry defines it; "
+        "yield = production ÷ area")
 
 
-class FetchError(RuntimeError):
-    pass
+FetchError = P.PublisherError                           # a code of the catalogue (agri.feed.*), never raw text
 
 
 @lru_cache(maxsize=1)
@@ -79,16 +83,16 @@ def _get(endpoint: str, params: list[tuple[str, str]]) -> dict:
     from core.config import settings
     key = settings.NASS_API_KEY
     if not key:
-        raise FetchError("NASS_API_KEY is not set — the Quick Stats key goes in the environment (.env)")
+        raise P.no_key(PUBLISHER, "NASS_API_KEY")
     try:
         r = requests.get(f"{BASE}/{endpoint}/", params=[("key", key), ("format", "JSON"), *params],
                          headers={"User-Agent": "Tellumen reference refresh"}, timeout=180)
     except requests.RequestException as e:
-        # the exception text carries the URL, and the URL carries the key: rebuilt, never chained
-        raise FetchError(f"USDA NASS could not be reached ({type(e).__name__})") from None
+        # the exception text carries the URL, and the URL carries the key: rebuilt, never chained — and still the
+        # provider's side (E215: the unreachable kind is a SourceUnreachable itself)
+        raise P.unreachable(PUBLISHER, e) from None
     if r.status_code != 200:
-        body = r.text[:200].replace(key, "<key>")
-        raise FetchError(f"USDA NASS answered {r.status_code} on {endpoint}: {body}")
+        raise P.answered(PUBLISHER, r.status_code, endpoint)
     return r.json()
 
 
@@ -174,20 +178,21 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
                      "production_tonnes": store_round(prod, 1), "area_harvested_ha": store_round(area, 1),
                      "yield_tonnes_ha": store_round(prod / area, 4) if area else None,
                      "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if prev else None,
-                     "note": "USDA NASS Quick Stats SURVEY, annual 'YEAR'; definition per the crop registry's nass_label; "
-                             "yield = production ÷ area"})
+                     "note": NOTE})
     return rows, aside.counts()
 
 
 def _factor(ref: dict, commodity: str, field: str, unit: str) -> float:
+    """The factor to tonnes or hectares of a NASS unit, from the reviewed unit list (REF) — an unknown unit, or a
+    bushel of a crop without its stated weight, is refused, never guessed."""
     u = ref["units"].get(unit)
     if u is None or u["field"] != field:
-        raise FetchError(f"{commodity}: NASS unit '{unit}' for {field} is not in data/reference/nass_quickstats.json — "
-                         "refused, never guessed")
+        raise FetchError("agri.feed.unknown_unit", source=PUBLISHER, crop=commodity, unit=unit,
+                         where="production" if field == "prod" else "area")
     if u.get("per_crop"):
         lb = ref["bushel_lb"].get(commodity)
         if lb is None:
-            raise FetchError(f"{commodity}: no bushel weight stated in data/reference/nass_quickstats.json — refused")
+            raise FetchError("agri.feed.no_bushel_weight", source=PUBLISHER, crop=commodity)
         return lb * ref["lb_to_t"]
     return u["factor"]
 

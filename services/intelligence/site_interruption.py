@@ -11,11 +11,12 @@ from core.types import score_to_bucket
 
 
 def bi_at_risk(method, throughput_eur: float | None, hazard: str | None, score: float | None) -> dict:
-    """{'bi_at_risk_eur': x} — or {'bi_at_risk_eur': None, 'reason': 'no_throughput' | 'unscored'} — or a 'gap'."""
+    """{'bi_at_risk_eur': x} — or {'bi_at_risk_eur': None, 'not_assessed': 'no_throughput' | 'unscored'} (a status
+    code, never shown) — or a 'gap' in the method-gap format the screens name (web lib/methodGap.ts)."""
     if not throughput_eur:
-        return {"bi_at_risk_eur": None, "reason": "no_throughput"}
+        return {"bi_at_risk_eur": None, "not_assessed": "no_throughput"}
     if score is None or hazard is None:
-        return {"bi_at_risk_eur": None, "reason": "unscored"}
+        return {"bi_at_risk_eur": None, "not_assessed": "unscored"}
     band = score_to_bucket(score).value
     share = method.per_peril("method.bi_downtime_share", hazard, band)
     if share is None:

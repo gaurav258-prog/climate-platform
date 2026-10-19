@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { bandHex } from '../lib/bands'
 
 // Where the book actually sits. Every located asset in the current list is a dot coloured by its headline
 // severity; the open asset is ringed and the map flies to it. Fits to whatever the list shows — a hazard
 // filter therefore also filters the map. Keyless Esri Canvas tiles, light or dark to match the theme.
 export interface SitePoint { id: string; name: string; lat: number; lon: number; score: number | null; sub?: string; value?: string }
 
-// default dot colour by 0-100 severity — plain hex, because leaflet writes SVG attributes (a CSS var() would not resolve)
-export const severityHex = (s: number | null) => s == null ? '#8a94a6' : s >= 75 ? '#d23b3b' : s >= 50 ? '#e9744a' : s >= 28 ? '#e8b24c' : '#5fb98c'
+// default dot colour by the platform's score bands (lib/bands — the one definition every map uses)
+export const severityHex = (s: number | null) => bandHex(s)
 
 const LIGHT = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
 const DARK = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
@@ -65,8 +66,9 @@ export default function SiteMap({ points, selectedId, onSelect, color, noun = 's
           )
         })}
       </MapContainer>
-      <div className="absolute left-2 bottom-2 z-[500] mono text-[10px] px-2 py-1 rounded-md bg-[var(--color-panel)]/90 text-[var(--color-faint)] border border-[var(--color-line)]">
-        {located.length} of {points.length} {noun} located · click a dot to open it
+      <div className="absolute left-2 bottom-2 z-[500] text-[11px] tabular-nums px-2 py-1 rounded-md bg-[var(--color-panel)]/90 text-[var(--color-faint)] border border-[var(--color-line)]"
+        title={onSelect ? 'Click a dot to open it' : undefined}>
+        {located.length} of {points.length} {noun} on the map
       </div>
     </div>
   )

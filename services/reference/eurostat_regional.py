@@ -124,7 +124,8 @@ def _read(data: bytes, regions_: tuple[tuple[str, str], ...]) -> tuple[list[dict
             rows.append({"commodity": commodity, "country": region_map[geo], "region_code": geo, "season_year": year,
                          "production_tonnes": store_round(prod, 1), "area_harvested_ha": store_round(area, 1),
                          "yield_tonnes_ha": store_round(yld, 4),
-                         "note": f"Eurostat apro_cpshr crops={'+'.join(codes)} geo={geo}; EU standard humidity; "
+                         "note": f"Eurostat crop production by region in EU standard humidity, crop "
+                                 f"{' + '.join(codes)} in {geo}; "
                                  + ("yield as published" if len(codes) == 1 else "yield = production ÷ area")})
         for r in rows:
             if r["commodity"] == commodity:

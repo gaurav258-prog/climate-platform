@@ -54,7 +54,7 @@ export default function DataHub() {
         </Link>
       </div>
       <FactConflicts />
-      <div className="mono text-[10px] text-[var(--color-faint)]">Bringing a figure calculated on your side (a certified footprint, an audited number)? Provide it under “Provided &amp; reconciled data” inside your reports.</div>
+      <div className="text-[12px] text-[var(--color-faint)]">Your own calculated figures go under “Provided &amp; reconciled data” in your reports.</div>
     </div>
   )
   const r = summary.data?.rollup
@@ -151,7 +151,7 @@ function Step({ n, title, tone, flush, children }: { n: number; title: string; t
   )
 }
 function Flow({ children }: { children: React.ReactNode }) {
-  return <div className="mono text-[10px] text-[var(--color-faint)] pl-5 flex items-center gap-2"><span>↓</span><span>{children}</span></div>
+  return <div className="text-[11.5px] text-[var(--color-faint)] pl-5 flex items-center gap-2"><span>↓</span><span>{children}</span></div>
 }
 function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return <div><div className="display text-[24px] leading-none" style={accent ? { color: 'var(--color-warn)' } : undefined}>{value}</div><div className="text-[12px] text-[var(--color-mute)] mt-1.5">{label}</div></div>

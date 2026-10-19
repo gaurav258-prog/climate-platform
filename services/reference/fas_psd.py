@@ -18,14 +18,17 @@ from pathlib import Path
 
 import requests
 
+from services.reference import publisher_errors as P
 from services.reference.yield_sources import store_round
 
 REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "fas_psd.json"
 PARSER_VERSION = "usda-fas-psd-v1"
 
 
-class FetchError(RuntimeError):
-    pass
+FetchError = P.PublisherError                           # a code of the catalogue (agri.feed.*), never raw text
+PUBLISHER = "USDA FAS"
+# where each row comes from, in plain words (the store's source column names the series)
+NOTE = "USDA FAS production, supply and distribution, by marketing year; the crop as the crop registry defines it"
 
 
 @lru_cache(maxsize=1)
@@ -61,14 +64,14 @@ def reader(country_map: dict[str, str]) -> str:
 def _get(path: str):
     from core.config import settings
     if not settings.USDA_FAS_API_KEY:
-        raise FetchError("USDA_FAS_API_KEY is not set — the api.data.gov key goes in the environment (.env)")
+        raise P.no_key(PUBLISHER, "USDA_FAS_API_KEY")
     try:
         r = requests.get(f"{BASE}/{path}", headers={"X-Api-Key": settings.USDA_FAS_API_KEY,
                                                     "User-Agent": "Tellumen reference refresh"}, timeout=120)
     except requests.RequestException as e:
-        raise FetchError(f"USDA FAS could not be reached: {e}") from e
+        raise P.unreachable(PUBLISHER, e) from e
     if r.status_code != 200:
-        raise FetchError(f"USDA FAS answered {r.status_code} for {path}")
+        raise P.answered(PUBLISHER, r.status_code, path)
     return r.json()
 
 
@@ -109,9 +112,9 @@ def parse(data: bytes, country_map: dict[str, str]) -> list[dict]:
             if field is None or iso is None:
                 continue                                         # another attribute, or not a country
             u = units.get(str(r["unitId"]))
-            if u is None:
-                raise FetchError(f"{commodity} {r['countryCode']} {r['marketYear']}: unit {r['unitId']} is not in "
-                                 "data/reference/fas_psd.json — refused, never guessed")
+            if u is None:                                        # refused, never guessed
+                raise FetchError("agri.feed.unknown_unit", source=PUBLISHER, crop=commodity, unit=str(r["unitId"]),
+                                 where=f"{r['countryCode']} {r['marketYear']}")
             if u["dim"] != ref["field_dims"][field]:
                 continue                                         # a known unit of another kind (trees for area): not read
             factor = u["factor"]
@@ -127,5 +130,5 @@ def parse(data: bytes, country_map: dict[str, str]) -> list[dict]:
                     "production_tonnes": store_round(prod, 1), "area_harvested_ha": store_round(area, 1),
                     "yield_tonnes_ha": store_round(yld, 4),
                     "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if (prod and prev) else None,
-                    "note": "USDA FAS PSD — MARKET year; definition per the crop registry's fas_label"})
+                    "note": NOTE})
     return out

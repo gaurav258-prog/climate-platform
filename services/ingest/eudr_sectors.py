@@ -133,7 +133,7 @@ def _mv_build(ctx: dict, row: dict) -> dict:
     kind = _vocab(row, "movement_kind", "eudr_movement")
     role = _vocab(row, "actor_role", "eudr_role")
     if not kind or not role:
-        raise RowIssue("say whether it is a placing, making_available or export, and your role in it")
+        raise RowIssue("say whether it is placing on the market, making available or export, and your role in it")
     hs = (_s(row, "hs_code") or "").replace(" ", "").replace(".", "")
     if not re.fullmatch(r"[0-9]{4}([0-9]{2}){0,3}", hs):
         raise RowIssue(f"HS code '{_s(row, 'hs_code')}' is not 4, 6, 8 or 10 digits")

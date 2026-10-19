@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, useMapEvents }
 import { latLngToCell } from 'h3-js'
 import 'leaflet/dist/leaflet.css'
 import { api } from '../lib/api'
+import { bandHex, bandName } from '../lib/bands'
 
 // Interactive H3 drill-down beneath the overview globe: a real pan/zoom basemap with this org's assets
 // pinned to their H3 res-8 hexagons, coloured by their real worst-hazard score. Zoom out to roam the
@@ -15,10 +16,7 @@ interface A { id: string; name: string; lat: number; lon: number; region?: strin
 interface HexCell { cell: string; is_center: boolean; rings: [number, number][][]; on_land: boolean; score: number | null }
 interface HexResp { center: string; n_cells: number; n_scored: number; computing: boolean; center_score: number | null; cells: HexCell[] }
 
-function col(l: number): [number, number, number] {
-  return l < 28 ? [207, 232, 255] : l < 50 ? [232, 178, 76] : l < 75 ? [233, 116, 74] : [210, 59, 59]
-}
-function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l < 75 ? 'high' : 'severe' }
+// a score's colour and name are the platform's bands (lib/bands), the same on every map
 
 function ZoomWatch({ onZoom }: { onZoom: (z: number) => void }) {
   const m = useMapEvents({ zoomend: () => onZoom(m.getZoom()) })
@@ -69,19 +67,18 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
             <Polygon key={c.cell} positions={c.rings}
               pathOptions={{ color: '#33415580', weight: 0.8, fill: false, dashArray: '3 4' }} />
           )
-          const [r, g, b] = col(c.score)
+          const hex = bandHex(c.score)
           return (
             <Polygon key={c.cell} positions={c.rings}
-              pathOptions={{ color: `rgb(${r},${g},${b})`, weight: 0.8, fillColor: `rgb(${r},${g},${b})`, fillOpacity: 0.16 }}>
-              <Tooltip sticky>neighbour cell · {Math.round(c.score)}/100 · {stateName(c.score)}</Tooltip>
+              pathOptions={{ color: hex, weight: 0.8, fillColor: hex, fillOpacity: 0.16 }}>
+              <Tooltip sticky>Nearby cell · {Math.round(c.score)}/100 · {bandName(c.score)}</Tooltip>
             </Polygon>
           )
         })}
 
         {/* The book: every asset on its own cell, coloured by its real worst-hazard score. */}
         {cells.map(c => {
-          const [r, g, b] = col(c.score)
-          const stroke = `rgb(${r},${g},${b})`
+          const stroke = bandHex(c.score)
           return asHex && c.rings.length ? (
             <Polygon key={c.id} positions={c.rings}
               pathOptions={{ color: stroke, weight: c.sel ? 3 : 1.4, fillColor: stroke, fillOpacity: c.sel ? 0.5 : 0.3 }}>
@@ -98,20 +95,18 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
 
       {/* still-scoring chip */}
       {ring.data?.computing && (
-        <div className="absolute right-3 top-3 z-[500] mono text-[10.5px] text-[#cdd7e6] bg-[#070b13cc] backdrop-blur border border-[#26344f] rounded-lg px-3 py-1.5 flex items-center gap-2 pointer-events-none">
+        <div className="absolute right-3 top-3 z-[500] text-[11.5px] tabular-nums text-[#cdd7e6] bg-[#070b13cc] backdrop-blur border border-[#26344f] rounded-lg px-3 py-1.5 flex items-center gap-2 pointer-events-none">
           <span className="w-1.5 h-1.5 rounded-full bg-[#6bb1ff] animate-pulse" />
-          scoring the surrounding cells… {ring.data.n_scored}/{ring.data.n_cells}
+          Scoring nearby cells {ring.data.n_scored}/{ring.data.n_cells}
         </div>
       )}
 
-      <div className="absolute left-3 bottom-3 z-[500] mono text-[10.5px] text-[#cdd7e6] bg-[#070b13cc] backdrop-blur border border-[#26344f] rounded-lg px-3 py-2 leading-relaxed pointer-events-none">
-        ~0.7 km hexagonal grid · {assets.length} asset{assets.length !== 1 ? 's' : ''} on the book<br />
-        {selCell
-          ? <>selected: <b className="text-[#F4EFE6]">{Math.round(selCell.score)}/100</b> · {stateName(selCell.score)} · {horizon}
-              {asHex
-                ? <><br /><span className="text-[#8ea3c0]">surrounding cells: heat · seismic · storm, scored live from the baselines</span></>
-                : ' · zoom in for local texture'}</>
-          : 'scroll to zoom · drag to pan'}
+      {/* the legend: what is selected, in the platform's band names; how the grid is built stays with the page */}
+      <div className="absolute left-3 bottom-3 z-[500] text-[11.5px] tabular-nums text-[#cdd7e6] bg-[#070b13cc] backdrop-blur border border-[#26344f] rounded-lg px-3 py-2 leading-relaxed pointer-events-none">
+        {assets.length} asset{assets.length !== 1 ? 's' : ''}
+        {selCell && <> · selected <b className="text-[#F4EFE6]">{Math.round(selCell.score)}/100</b> · {bandName(selCell.score)}</>}
+        <br />
+        <span className="text-[#8ea3c0]">{asHex ? 'Nearby cells by their worst scored hazard' : 'Zoom in for the nearby cells'}</span>
       </div>
     </div>
   )

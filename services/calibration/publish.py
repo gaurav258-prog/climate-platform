@@ -17,6 +17,7 @@ import json
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
 from services.calibration.gates import downside_pass
 from services.calibration.runner import spec as get_spec
 
@@ -26,7 +27,12 @@ _FIGURES = ("n_years", "baseline_from", "baseline_to", "slope", "intercept", "r2
 
 
 class PublishError(ValueError):
-    pass
+    """The step cannot be taken as asked — a code of the message catalogue (agri.calibration.*) with its values; its
+    text is the customer label, and the approvals path passes the code's words on (api/routers/approvals._not_applied)."""
+
+    def __init__(self, code: str, **params) -> None:
+        self.code, self.params = code, params
+        super().__init__(messages.label(code, **params))
 
 
 def _run(session: Session, run_id: str) -> dict:
@@ -36,7 +42,7 @@ def _run(session: Session, run_id: str) -> dict:
                for c in _FIGURES)}
         FROM crop_calibration_runs WHERE run_id = CAST(:r AS uuid)"""), {"r": run_id}).mappings().first()
     if r is None:
-        raise PublishError(f"calibration run {run_id} not found")
+        raise PublishError("agri.calibration.run_not_found")
     return dict(r)
 
 
@@ -84,7 +90,7 @@ def propose(session: Session, run_ids: list[str], reason: str, maker_user_id: st
     if human_approvers(session, REQUEST_TYPE) == 1:
         maker_user_id = SYSTEM_USER
     if maker_user_id is None:
-        raise PublishError("a person proposes when the policy states two approvers")
+        raise PublishError("agri.calibration.person_proposes")         # the policy states two approvers
     ids = [c["run_id"] for c in pending]
     summary = summarise(session, ids)
     replaced = [c["replaces"] for c in pending if c.get("replaces")]
@@ -143,7 +149,7 @@ def _publish(session: Session, run_id: str, checker: str, reason: str | None) ->
     sp = get_spec(session, run["spec_id"])
     cid = session.execute(text("SELECT commodity_id FROM sc_commodities WHERE name = :n"), {"n": sp["commodity"]}).scalar()
     if cid is None:
-        raise PublishError(f"'{sp['commodity']}' is not a modelled commodity (sc_commodities)")
+        raise PublishError("agri.calibration.not_modelled", commodity=sp["commodity"])
     months = list(sp["season_months"])
     note = (f"{sp['protocol']} run {run_id}: OLS of the climate anomaly on the {sp['driver']} score, {sp['weather_kind']} "
             f"'{sp['weather_key']}', months {months}" + (f" (+ previous-year {list(sp['season_prev_months'])})"
@@ -194,7 +200,7 @@ def apply_decision(session: Session, payload: dict, decision: str, checker_user_
     ids = [rid for rid in (payload or {}).get("run_ids") or []
            if _run(session, rid)["status"] == "proposed"]           # a run replaced before the decision is not published
     if not ids:
-        raise PublishError("no run of this batch still awaits a decision — newer runs replaced them")
+        raise PublishError("agri.calibration.nothing_awaiting")        # newer runs replaced them
     if decision != "approved":
         session.execute(text("""UPDATE crop_calibration_runs SET status = 'rejected', decided_by = CAST(:u AS uuid),
                                 decided_at = now(), decision_reason = :w WHERE run_id = ANY(CAST(:ids AS uuid[]))"""),

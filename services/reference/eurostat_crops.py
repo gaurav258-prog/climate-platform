@@ -15,6 +15,7 @@ from functools import lru_cache
 
 import requests
 
+from services.reference import publisher_errors as P
 from services.reference.yield_sources import store_round
 
 BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/apro_cpsh1"
@@ -25,8 +26,8 @@ ALIASES = {"EL": "GR", "UK": "GB"}          # Eurostat's codes for Greece and th
 _UA = {"User-Agent": "Tellumen reference refresh (+https://tellumen.io)"}
 
 
-class FetchError(RuntimeError):
-    pass
+FetchError = P.PublisherError                           # a code of the catalogue (agri.feed.*), never raw text
+PUBLISHER = "Eurostat"
 
 
 def crops() -> dict[str, str]:
@@ -60,15 +61,16 @@ def fetch(url: str, params: dict, attempts: int = 6, wait_s: float = 20.0) -> di
         try:
             r = requests.get(url, params={"format": "JSON", **params}, headers=_UA, timeout=180)
         except requests.RequestException as e:
-            raise FetchError(f"Eurostat could not be reached: {e}") from e
+            raise P.unreachable(PUBLISHER, e) from e
         if r.status_code == 413 and "ASYNCHRONOUS_RESPONSE" in r.text and attempt < attempts - 1:
             time.sleep(wait_s)
             continue
+        if r.status_code == 413:
+            raise FetchError("agri.feed.preparing", source=PUBLISHER, attempts=attempts)
         if r.status_code != 200:
-            raise FetchError(f"Eurostat answered {r.status_code}" + (" (still preparing the data after "
-                                                                     f"{attempts} attempts)" if r.status_code == 413 else ""))
+            raise P.answered(PUBLISHER, r.status_code, url)
         return r.json()
-    raise FetchError("Eurostat: no answer")          # not reached: the last attempt returns or raises
+    raise FetchError("agri.feed.preparing", source=PUBLISHER, attempts=attempts)   # not reached: the last attempt returns or raises
 
 
 def _get(params: dict) -> dict:
@@ -135,5 +137,6 @@ def parse(data: bytes, country_map: dict[str, str]) -> list[dict]:
                          "area_harvested_ha": store_round(area * 1000, 1) if area is not None else None,
                          "yield_tonnes_ha": store_round(s.get("yield", {}).get((geo, year)), 4),
                          "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if (prod and prev) else None,
-                         "note": f"Eurostat apro_cpsh1 crop={code} geo={geo}; yield as published (EU standard humidity)"})
+                         "note": f"Eurostat crop production in EU standard humidity, crop {code} in {geo}; "
+                                 "yield as published"})
     return rows

@@ -19,6 +19,7 @@ import zipfile
 from functools import lru_cache
 from pathlib import Path
 
+from services.reference import publisher_errors as P
 from services.reference.yield_sources import store_round
 
 REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "faostat_crops.json"
@@ -39,8 +40,8 @@ def url() -> str:
     return reference()["url"]
 
 
-class FetchError(RuntimeError):
-    pass
+FetchError = P.PublisherError                           # a code of the catalogue (agri.feed.*), never raw text
+PUBLISHER = "FAOSTAT"
 
 
 def published(last_modified: str | None, etag: str | None, timeout: int = 60) -> dict:
@@ -49,9 +50,9 @@ def published(last_modified: str | None, etag: str | None, timeout: int = 60) ->
     try:
         r = requests.head(url(), headers=_UA, timeout=timeout, allow_redirects=True)
     except requests.RequestException as e:
-        raise FetchError(f"FAOSTAT could not be reached: {e}") from e
+        raise P.unreachable(PUBLISHER, e) from e
     if r.status_code >= 400:
-        raise FetchError(f"FAOSTAT answered {r.status_code} to the file check")
+        raise P.answered(PUBLISHER, r.status_code, "the file check")
     lm, et = r.headers.get("Last-Modified"), r.headers.get("ETag")
     same = (et and et == etag) or (not et and lm and lm == last_modified)
     return {"changed": not same, "last_modified": lm, "etag": et}
@@ -62,9 +63,9 @@ def download(timeout: int = 900) -> bytes:
     try:
         r = requests.get(url(), headers=_UA, timeout=timeout)
     except requests.RequestException as e:
-        raise FetchError(f"FAOSTAT could not be reached: {e}") from e
+        raise P.unreachable(PUBLISHER, e) from e
     if r.status_code != 200 or not r.content:
-        raise FetchError(f"FAOSTAT answered {r.status_code} to the download")
+        raise P.answered(PUBLISHER, r.status_code, "the download")
     return r.content
 
 
@@ -98,7 +99,7 @@ def parse(zip_bytes: bytes, countries: dict[str, str]) -> list[dict]:
     from ml.features.crop_registry import fao_items
     ref = reference()
     if not countries:
-        raise FetchError("the country reference is empty — load it (feed reference_countries) before reading FAOSTAT")
+        raise FetchError("agri.feed.no_countries", source=PUBLISHER)
     item_to_commodity = fao_items()
     world = int(ref["world_area_code"])
     elements = ref["elements"]
@@ -113,10 +114,10 @@ def parse(zip_bytes: bytes, countries: dict[str, str]) -> list[dict]:
     try:
         z = zipfile.ZipFile(io.BytesIO(zip_bytes))
     except zipfile.BadZipFile as e:
-        raise FetchError("the FAOSTAT file is not a zip archive") from e
+        raise FetchError("agri.feed.not_an_archive", source=PUBLISHER) from e
     members = [n for n in z.namelist() if n.endswith("(Normalized).csv")]
     if not members:
-        raise FetchError("the FAOSTAT archive holds no '(Normalized).csv'")
+        raise FetchError("agri.feed.no_table", source=PUBLISHER)         # its '(Normalized).csv'
     raw: dict = {}
     with z.open(members[0]) as f:
         for rec in csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig", errors="strict")):

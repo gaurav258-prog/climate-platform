@@ -291,31 +291,30 @@ async def design_parametric_trigger(
 
     Output: Trigger configuration with historical backtest results
     """
-    try:
-        # Validate trigger definition
-        required_fields = ['name', 'hazard_type', 'h3_cells', 'threshold', 'payout_schedule']
-        for field in required_fields:
-            if field not in trigger_definition:
-                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+    # A missing field is refused by its own HTTPException; nothing else here raises, so no exception's own text is
+    # ever handed to the caller (the catch-all that re-wrapped str(e) is gone).
+    # Validate trigger definition
+    required_fields = ['name', 'hazard_type', 'h3_cells', 'threshold', 'payout_schedule']
+    for field in required_fields:
+        if field not in trigger_definition:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
-        # Backtest against historical events
-        backtest_results = {
-            'total_events': len(RECENT_EVENTS),
-            'triggered_events': 3,
-            'false_positives': 1,
-            'hit_rate': 0.75,
-            'false_positive_rate': 0.33
-        }
+    # Backtest against historical events
+    backtest_results = {
+        'total_events': len(RECENT_EVENTS),
+        'triggered_events': 3,
+        'false_positives': 1,
+        'hit_rate': 0.75,
+        'false_positive_rate': 0.33
+    }
 
-        return {
-            'trigger_id': f"trigger_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            'definition': trigger_definition,
-            'backtest': backtest_results,
-            'status': 'Ready for deployment',
-            'created_at': datetime.now(timezone.utc).isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        'trigger_id': f"trigger_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        'definition': trigger_definition,
+        'backtest': backtest_results,
+        'status': 'Ready for deployment',
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
 
 
 # WebSocket for real-time events

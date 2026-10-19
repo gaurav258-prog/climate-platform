@@ -49,7 +49,8 @@ def _files():
     held = sorted(landed().items(), key=lambda kv: kv[1].start)
     years = [y for _p, r in held for y in r]
     if not years or years[0] > BASELINE[0] or years != list(range(years[0], years[-1] + 1)):
-        raise RuntimeError("the global ERA5-Land files must run without a gap from 1991 — scripts/fetch_era5_land_global")
+        raise RuntimeError("the global ERA5-Land weather files do not run without a gap from 1991 — the monthly weather "
+                           "refresh fetches the missing years")
     if years[-1] < BASELINE[1]:
         raise RuntimeError(f"the global ERA5-Land files end in {years[-1]} — the 1991–2020 normal needs 2020")
     return held

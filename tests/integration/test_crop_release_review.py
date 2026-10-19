@@ -241,9 +241,10 @@ def test_usda_fas_is_read_by_its_units_table_and_genc_codes():
     rows = U.parse(doc(), {"BRA": "BR"})
     assert [(r["commodity"], r["country"], r["season_year"], r["production_tonnes"], r["area_harvested_ha"], r["yield_tonnes_ha"])
             for r in rows] == [("Coffee", "BR", 2024, 60000.0, 2000.0, 30.0)]
-    with pytest.raises(U.FetchError, match="refused"):
+    with pytest.raises(U.FetchError) as e:                 # refused, never guessed — in customer words
         U.parse(doc(extra=({"countryCode": "BR", "marketYear": "2023", "attributeId": 28, "unitId": 999, "value": 1.0},)),
                 {"BRA": "BR"})
+    assert e.value.code == "agri.feed.unknown_unit" and str(e.value) == "Unit not on the reviewed list"
 
 
 def _nass(desc, level, state, year, value, load, period="YEAR", unit=None, where=None):
@@ -297,8 +298,9 @@ def test_usda_nass_refuses_an_unknown_unit_and_never_shows_its_key(monkeypatch):
     P = "CORN, GRAIN - PRODUCTION, MEASURED IN BU"
     data = _json.dumps({"data": {f"{P}|year": [_nass(P, "STATE", "IA", "2025", "1", "t", unit="BOXES")],
                                  f"{P}|forecast": []}}).encode()
-    with pytest.raises(N.FetchError, match="refused"):
+    with pytest.raises(N.FetchError) as e:                 # refused, never guessed — in customer words
         N.parse(data, {"IA": "US-IA"})
+    assert e.value.code == "agri.feed.unknown_unit"
     monkeypatch.setattr(settings, "NASS_API_KEY", "SECRET-KEY-123")
 
     def boom(url, params=None, **kw):
@@ -307,6 +309,9 @@ def test_usda_nass_refuses_an_unknown_unit_and_never_shows_its_key(monkeypatch):
     with pytest.raises(N.FetchError) as e:
         N._count([("short_desc", P)])
     assert "SECRET-KEY-123" not in str(e.value) and e.value.__suppress_context__ and e.value.__cause__ is None
+    # unchained, and still the provider's side (E215)
+    from services.data.feeds import source_unreachable
+    assert e.value.code == "agri.feed.unreachable" and source_unreachable(e.value)
 
 
 def test_a_region_outside_the_region_reference_is_refused(api, monkeypatch):

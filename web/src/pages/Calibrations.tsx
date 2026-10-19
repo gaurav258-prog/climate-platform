@@ -4,6 +4,10 @@ import { FlaskConical, RefreshCw } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, PageHeader, SectionHead } from '../components/ui'
+import { HEADING, InfoButton, type Details } from '../components/Details'
+import { StatusChip } from '../components/StatusChip'
+import { hazardLabel } from '../lib/hazards'
+import { countryName } from '../lib/countries'
 
 // Crop calibrations (E162) — every calibration is a recipe fixed before it is fitted (yield series, weather, season,
 // driver); the pipeline records every run with its ledger entry. The runs that would change what customers see are
@@ -26,10 +30,27 @@ const season = (r: Pick<Recipe, 'season_months' | 'season_prev_months'>) =>
   [...(r.season_prev_months ?? []).map(m => `${MONTH[m - 1]}*`), ...r.season_months.map(m => MONTH[m - 1])].join(' ')
 const oos = (v: number | null | undefined) => v == null ? '—' : v.toFixed(3)
 const day = (s: string | null) => s ? s.slice(0, 10) : '—'
+// where a recipe reads its weather: a named area (equal weights) or the crop's own growing area
+const WEATHER: Record<string, string> = { box: 'Named area', crop_area: "Crop's growing area" }
+const weather = (kind: string) => WEATHER[kind] ?? 'Another area'
+const origin = (code: string, region?: string) => `${countryName(code)}${region ? ` · ${region}` : ''}`
+
+// A recipe's own record, one click away: why it is what it is.
+const recipeDetails = (r: Recipe): Details => ({
+  title: `${r.commodity} · ${countryName(r.origin)}`, sections: [{ heading: 'Why this recipe', body: r.basis }],
+})
+// The tests every calibration is judged by (the protocol the server states), one click away.
+const gatesDetails = (pr: Protocol): Details => ({
+  title: 'The tests a calibration must pass',
+  sections: [
+    { heading: 'Loss range', body: pr.downside.gate },
+    { heading: 'Gain range', body: <>Judged on {pr.upside.judged_on}.<ul className="list-disc pl-5 mt-1 space-y-0.5">{pr.upside.rules.map(r => <li key={r}>{r}</li>)}</ul></> },
+  ],
+})
 
 function Verdict({ ok, held }: { ok: boolean | null | undefined; held?: string }) {
   if (ok == null) return <span className="text-[var(--color-faint)]">—</span>
-  return <span className="mono text-[10px] uppercase tracking-wide border rounded px-1.5 py-0.5"
+  return <span className="text-[10.5px] font-medium border rounded px-1.5 py-0.5 whitespace-nowrap"
     style={{ color: ok ? 'var(--color-good)' : 'var(--color-faint)', borderColor: ok ? 'var(--color-good)' : 'var(--color-line-2)' }}>{ok ? 'publishes' : held ?? 'held'}</span>
 }
 
@@ -49,7 +70,11 @@ export default function Calibrations() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Platform · calibrations" title="Crop calibrations"
-        lead="Every calibration is a recipe fixed before it is fitted — its yield series, weather, season and driver. Each run is recorded with its audit-ledger entry; a run that would change what customers see publishes only when approved." />
+        lead="Recipes fixed before they are fitted; changes publish on approval."
+        about={[
+          { heading: HEADING.shows, body: 'Every calibration is a recipe fixed before it is fitted — its yield series, weather, season and driver. Each run is recorded with its audit-ledger entry.' },
+          { heading: HEADING.read, body: 'A run that would change what customers see is proposed in a batch and publishes only when a second person approves it.' },
+        ]} />
       {q.isLoading ? <Card className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</Card>
         : !d ? <Card className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Could not load the calibrations.')}</Card>
         : <>
@@ -57,13 +82,9 @@ export default function Calibrations() {
             ? <Card className="p-5 text-[13px] text-[var(--color-mute)]">No calibration batch is awaiting a decision.</Card>
             : d.pending.map(b => <BatchReview key={b.approval_request_id} b={b} mine={!!myId && b.maker_id === myId} onDone={() => qc.invalidateQueries({ queryKey: ['calibrations'] })} />)}
 
-          <Card className="p-5">
-            <SectionHead icon={FlaskConical} className="mb-2">The gates ({d.protocol.protocol})</SectionHead>
-            <div className="text-[12.5px] text-[var(--color-mute)] max-w-[100ch] space-y-1.5">
-              <div><span className="text-[var(--color-ink)]">Downside:</span> {d.protocol.downside.gate}.</div>
-              <div><span className="text-[var(--color-ink)]">Upside</span> ({d.protocol.upside.judged_on}):</div>
-              <ul className="list-disc pl-5 space-y-0.5">{d.protocol.upside.rules.map(r => <li key={r}>{r}</li>)}</ul>
-            </div>
+          <Card className="p-5 flex flex-wrap items-center gap-3">
+            <SectionHead icon={FlaskConical}>The tests a calibration must pass</SectionHead>
+            <InfoButton details={gatesDetails(d.protocol)} label="Read the tests" />
           </Card>
 
           <Card className="p-0 overflow-hidden">
@@ -73,26 +94,26 @@ export default function Calibrations() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full tabular-nums text-[12px]">
-                <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left">
-                  {['Crop', 'Origin', 'Driver', 'Weather', 'Season', 'Yield series', 'Latest run', 'r²oos', 'Downside', 'Upside'].map(h => <th key={h} className="font-normal px-3 py-2">{h}</th>)}
+                <thead><tr className="text-[var(--color-faint)] text-[11px] text-left">
+                  {['Crop', 'Origin', 'Driver', 'Weather', 'Season', 'Yield series', 'Latest run', 'Out-of-sample fit (r²)', 'Loss range', 'Gain range'].map(h => <th key={h} className="font-medium px-3 py-2">{h}</th>)}
                 </tr></thead>
                 <tbody>{d.recipes.map(r => (
-                  <tr key={r.spec_id} className="border-t border-[var(--color-line)] align-top" title={r.basis}>
-                    <td className="px-3 py-1.5 text-[var(--color-ink)]">{r.commodity}</td>
-                    <td className="px-3 mono">{r.origin}{r.yield_region ? ` · ${r.yield_region}` : ''}</td>
-                    <td className="px-3">{r.driver.replace('_', ' ')}</td>
-                    <td className="px-3 mono text-[11px]">{r.weather_kind === 'box' ? r.weather_key : `crop area · ${r.weather_key}`}</td>
-                    <td className="px-3 mono text-[11px]">{season(r)}</td>
+                  <tr key={r.spec_id} className="border-t border-[var(--color-line)] align-top tabular-nums">
+                    <td className="px-3 py-1.5 text-[var(--color-ink)] whitespace-nowrap">{r.commodity} <InfoButton compact details={recipeDetails(r)} /></td>
+                    <td className="px-3">{origin(r.origin, r.yield_region)}</td>
+                    <td className="px-3">{hazardLabel(r.driver)}</td>
+                    <td className="px-3 text-[11.5px]">{weather(r.weather_kind)}</td>
+                    <td className="px-3 text-[11.5px]">{season(r)}</td>
                     <td className="px-3 text-[11px] text-[var(--color-mute)]">{r.yield_source}{r.allow_cycle ? ' · cycle removed' : ''}</td>
-                    <td className="px-3 mono text-[11px]">{day(r.latest_run_at)} · {r.latest_status ?? '—'}</td>
-                    <td className="px-3 mono">{oos(r.published_r2_oos ?? r.latest_r2_oos)}</td>
+                    <td className="px-3 text-[11.5px] whitespace-nowrap">{day(r.latest_run_at)} {r.latest_status && <StatusChip value={r.latest_status} />}</td>
+                    <td className="px-3">{oos(r.published_r2_oos ?? r.latest_r2_oos)}</td>
                     <td className="px-3"><Verdict ok={r.published_run_id ? r.published_downside : r.latest_downside} /></td>
                     <td className="px-3"><Verdict ok={r.published_run_id ? r.published_upside : r.latest_upside}
                       held={(r.latest_downside ?? r.published_downside) ? 'held' : 'not judged'} /></td>
                   </tr>))}</tbody>
               </table>
             </div>
-            <div className="px-5 py-2 text-[11px] text-[var(--color-faint)] border-t border-[var(--color-line)]">* a month of the previous calendar year (a season crossing the new year). Hover a row for why its recipe is what it is.</div>
+            <div className="px-5 py-2 text-[11px] text-[var(--color-faint)] border-t border-[var(--color-line)]">* a month of the previous calendar year</div>
           </Card>
         </>}
     </div>
@@ -115,12 +136,13 @@ function BatchReview({ b, mine, onDone }: { b: Batch; mine: boolean; onDone: () 
   return (
     <Card className="p-0 overflow-hidden">
       <div className="px-5 py-3 border-b border-[var(--color-line)] flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px]">
-        <span className="mono text-[10px] uppercase tracking-wide border rounded px-1.5 py-0.5" style={{ color: 'var(--color-sky)', borderColor: 'var(--color-sky)' }}>awaiting decision</span>
-        <span className="text-[var(--color-ink)]">{b.title}</span>
+        <StatusChip value="pending" label="Awaiting decision" />
+        <span className="text-[var(--color-ink)] inline-flex items-center gap-1">{b.title}
+          {b.review && <InfoButton compact details={{ title: b.title, sections: [{ heading: 'Why it was proposed', body: b.review }] }} />}</span>
         <span className="text-[var(--color-mute)]">proposed {day(b.created_at)} by {b.maker ?? 'the platform'}</span>
-        {s && <span className="text-[var(--color-mute)]">{s.downside_passes} pass the downside gate · {s.upside_passes} pass the upside rules{s.gate_flips.length ? ` · gate changes: ${s.gate_flips.join(', ')}` : ' · no gate changes'}</span>}
+        {s && <span className="text-[var(--color-mute)] inline-flex items-center gap-1">{s.downside_passes} pass the loss test · {s.upside_passes} pass the gain rules · {s.gate_flips.length ? `${s.gate_flips.length} change a test's result` : 'no test result changes'}
+          {s.gate_flips.length > 0 && <InfoButton compact details={{ title: "Runs that change a test's result", sections: [{ heading: 'Crop, origin and driver', body: s.gate_flips.join(' · ') }] }} />}</span>}
       </div>
-      {b.review && <div className="px-5 pt-3 text-[12px] text-[var(--color-mute)]">{b.review}</div>}
       {b.withdrawn.length > 0 && <details className="px-5 pt-2 text-[12px] text-[var(--color-mute)]">
         <summary className="cursor-pointer">
           {b.proposed_runs - b.withdrawn.length} of the {b.proposed_runs} runs proposed await this decision · {b.withdrawn.length} withdrawn since, never published — show why
@@ -128,24 +150,26 @@ function BatchReview({ b, mine, onDone }: { b: Batch; mine: boolean; onDone: () 
         <div className="mt-2 max-h-48 overflow-y-auto">
           <table className="w-full text-[11.5px]"><tbody>{b.withdrawn.map(w => (
             <tr key={`${w.commodity}-${w.origin}-${w.driver}`} className="border-t border-[var(--color-line)] align-top">
-              <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{w.commodity}</td><td className="pr-3 mono">{w.origin}</td>
-              <td className="pr-3">{w.driver.replace('_', ' ')}</td><td>{w.reason}</td>
+              <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{w.commodity}</td><td className="pr-3">{countryName(w.origin)}</td>
+              <td className="pr-3">{hazardLabel(w.driver)}</td>
+              <td>{w.reason && <InfoButton compact details={{ title: `${w.commodity} · ${countryName(w.origin)}`, sections: [{ heading: 'Why it was withdrawn', body: w.reason }] }} />}</td>
             </tr>))}</tbody></table>
         </div>
       </details>}
       {s && <div className="overflow-x-auto max-h-96 overflow-y-auto">
         <table className="w-full tabular-nums text-[12px]">
-          <thead className="sticky top-0 bg-[var(--color-bg-1,var(--color-bg))]"><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left">
-            {['Crop', 'Origin', 'Driver', 'Recipe', 'r²oos published → this run', 'Downside', 'Upside', 'Upside held because'].map(h => <th key={h} className="font-normal px-3 py-2">{h}</th>)}
+          <thead className="sticky top-0 bg-[var(--color-bg-1,var(--color-bg))]"><tr className="text-[var(--color-faint)] text-[11px] text-left">
+            {['Crop', 'Origin', 'Driver', 'Weather', 'Out-of-sample fit: published → this run', 'Loss range', 'Gain range'].map(h => <th key={h} className="font-medium px-3 py-2">{h}</th>)}
           </tr></thead>
           <tbody>{s.runs.map(r => (
-            <tr key={r.run_id} className="border-t border-[var(--color-line)]">
-              <td className="px-3 py-1 text-[var(--color-ink)]">{r.commodity}</td><td className="px-3 mono">{r.origin}</td>
-              <td className="px-3">{r.driver.replace('_', ' ')}</td><td className="px-3 mono text-[11px]">{r.recipe}</td>
-              <td className="px-3 mono">{oos(r.published_r2_oos)} → <span className={r.published_r2_oos != null && r.r2_oos !== r.published_r2_oos ? 'text-[var(--color-warn)]' : ''}>{oos(r.r2_oos)}</span></td>
+            <tr key={r.run_id} className="border-t border-[var(--color-line)] tabular-nums">
+              <td className="px-3 py-1 text-[var(--color-ink)]">{r.commodity}</td><td className="px-3">{countryName(r.origin)}</td>
+              <td className="px-3">{hazardLabel(r.driver)}</td><td className="px-3 text-[11.5px]">{weather(r.recipe)}</td>
+              <td className="px-3">{oos(r.published_r2_oos)} → <span className={r.published_r2_oos != null && r.r2_oos !== r.published_r2_oos ? 'text-[var(--color-warn)]' : ''}>{oos(r.r2_oos)}</span></td>
               <td className="px-3"><Verdict ok={r.downside_pass} /></td>
-              <td className="px-3"><Verdict ok={r.upside_pass} held={r.downside_pass ? 'held' : 'not judged'} /></td>
-              <td className="px-3 text-[11px] text-[var(--color-mute)]">{r.upside_pass || !r.downside_pass ? '' : (r.upside_failed ?? []).join('; ')}</td>
+              <td className="px-3 whitespace-nowrap"><Verdict ok={r.upside_pass} held={r.downside_pass ? 'held' : 'not judged'} />
+                {!r.upside_pass && r.downside_pass && (r.upside_failed ?? []).length > 0 &&
+                  <InfoButton compact className="ml-1" details={{ title: `${r.commodity} · ${countryName(r.origin)}`, sections: [{ heading: 'Gain range held because', body: (r.upside_failed ?? []).join('; ') }] }} />}</td>
             </tr>))}</tbody>
         </table>
       </div>}

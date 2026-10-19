@@ -11991,6 +11991,241 @@
     "why": "A third party is scored where it is, so a place is never assumed.",
     "next": "Give its coordinates, or an address that can be found."
    }
+  },
+  "agri.location.no_changes": {
+   "status": 400,
+   "label": "Nothing to change",
+   "detail": {
+    "what": "The edit names no field to change.",
+    "next": "Change at least one field, then save."
+   }
+  },
+  "agri.location.unknown_commodity": {
+   "status": 422,
+   "label": "Not a commodity we model",
+   "detail": {
+    "what": "'{commodity}' is not one of the commodities a plot can be tagged to.",
+    "next": "Choose a commodity from the list."
+   }
+  },
+  "agri.location.not_located": {
+   "status": 422,
+   "label": "The location could not be found",
+   "detail": {
+    "what": "The address could not be placed on the map, and no coordinates were given, so the location cannot be scored.",
+    "next": "Give the latitude and longitude, or a fuller address."
+   }
+  },
+  "agri.location.currency_missing": {
+   "status": 422,
+   "label": "Say which currency the amounts are in",
+   "detail": {
+    "what": "An amount was given without its currency. A currency is never assumed.",
+    "next": "Choose the currency of the amounts."
+   }
+  },
+  "agri.location.book_date_missing": {
+   "status": 422,
+   "label": "Say which date the amounts describe",
+   "detail": {
+    "what": "An amount was given without the date it describes (the book date). Amounts convert at that date's rates.",
+    "next": "Enter the book date."
+   }
+  },
+  "agri.location.not_converted": {
+   "status": 422,
+   "label": "The amount could not be converted to euros",
+   "detail": {
+    "what": "There is no exchange rate the platform can use for {currency} on {date}, or your organisation's own rate for {currency} differs from the official rate by more than your tolerance.",
+    "next": "Check the currency and the date. If you use your own rates, correct the rate or have the tolerance reviewed."
+   }
+  },
+  "agri.location.held_order": {
+   "status": 422,
+   "label": "Held until must be after held from",
+   "detail": {
+    "what": "The date your undertaking stopped holding the site must come after the date it started holding it.",
+    "next": "Correct one of the two dates."
+   }
+  },
+  "agri.location.entity_not_yours": {
+   "status": 422,
+   "label": "Not one of your entities",
+   "detail": {
+    "what": "The holding entity chosen is not one of your organisation's legal entities.",
+    "next": "Choose one of your organisation's entities."
+   }
+  },
+  "agri.site.has_year_end_values": {
+   "status": 409,
+   "label": "This site has year-end values",
+   "detail": {
+    "what": "Year-end values are stated for this site for a reporting period, so it is part of your reporting history and cannot be deleted.",
+    "why": "Comparatives and restatements read the site's history.",
+    "next": "Set the date your undertaking stopped holding it (held until) instead."
+   }
+  },
+  "agri.site.bi_basis": {
+   "label": "Business interruption on your downtime share",
+   "detail": {
+    "what": "Business interruption is a site's annual throughput times the share of the year you expect it to be down from its headline hazard, at that hazard's band."
+   }
+  },
+  "agri.plot.irrigated": {
+   "label": "Irrigated: the water score is an upper bound",
+   "detail": {
+    "what": "This plot is declared irrigated. Irrigation can buffer drought and soil-water stress, so the water score here is an upper bound.",
+    "why": "The published crop figure reflects the origin's national mix of irrigated and rain-fed land and is not adjusted per plot: a per-plot adjustment would need a fitted coefficient the platform does not yet hold."
+   }
+  },
+  "agri.plot.rain_fed": {
+   "label": "Rain-fed: fully exposed to water stress",
+   "detail": {
+    "what": "This plot is declared rain-fed, so it is fully exposed to the drought and soil-water score, with no irrigation buffer."
+   }
+  },
+  "agri.map.cell_count": {
+   "status": 422,
+   "label": "Choose between 1 and 2,000 map cells",
+   "detail": {
+    "what": "A request names between 1 and 2,000 map cells."
+   }
+  },
+  "agri.map.not_a_cell": {
+   "status": 422,
+   "label": "Not a map cell",
+   "detail": {
+    "what": "'{cell}' is not the identifier of a cell of the platform's map grid."
+   }
+  },
+  "agri.concentration.no_spend": {
+   "label": "No sourcing spend on file",
+   "detail": {
+    "what": "Concentration is measured on the spend of your sourcing plots, and none is on file."
+   }
+  },
+  "agri.concentration.crop": {
+   "label": "{pct}% of spend in {crop}",
+   "detail": {
+    "what": "{crop} carries {pct}% of your sourcing spend — more than the {limit}% that marks a concentration in one crop."
+   }
+  },
+  "agri.concentration.peril": {
+   "label": "{pct}% of spend exposed to {hazard}",
+   "detail": {
+    "what": "{pct}% of your sourcing spend is in crops whose main hazard is {hazard} — more than the {limit}% that marks a concentration in one hazard. One bad season of it would hit them together."
+   }
+  },
+  "agri.concentration.diversification": {
+   "label": "Only {n} effective independent crops",
+   "detail": {
+    "what": "Weighted by spend, your sourcing behaves like {n} equally sized crops — fewer than the {floor} that marks low diversification."
+   }
+  },
+  "agri.concentration.method": {
+   "label": "How concentration is measured",
+   "detail": {
+    "what": "Your sourcing book is split by crop and by each crop's main climate hazard, on spend, which is always known. The effective number of independent crops (or hazards) is one divided by the sum of the squared spend shares (the Herfindahl index).",
+    "why": "A common shock is one hazard across every crop it drives: the sourcing a single bad season would hit together. It is structural — no fitted correlation between crops is assumed.",
+    "next": "A euro at risk is shown only for a crop whose calibration publishes one; a held crop counts by its spend alone."
+   }
+  },
+  "agri.calibration.run_not_found": {
+   "status": 404,
+   "label": "Calibration run not found",
+   "detail": {
+    "what": "There is no calibration run with this reference."
+   }
+  },
+  "agri.calibration.person_proposes": {
+   "status": 409,
+   "label": "A person must propose this batch",
+   "detail": {
+    "what": "The approval rule for publishing calibrations states two approvers, so a person proposes the batch and a second person decides it."
+   }
+  },
+  "agri.calibration.not_modelled": {
+   "status": 409,
+   "label": "{commodity} is not a modelled commodity",
+   "detail": {
+    "what": "The recipe's crop, {commodity}, is not among the commodities the platform models, so its calibration cannot be published."
+   }
+  },
+  "agri.calibration.nothing_awaiting": {
+   "status": 409,
+   "label": "No run of this batch awaits a decision",
+   "detail": {
+    "what": "Newer runs of these recipes replaced every run of this batch before the decision.",
+    "next": "Decide the newer batch instead."
+   }
+  },
+  "agri.feed.no_key": {
+   "label": "No access key for {source}",
+   "detail": {
+    "what": "The platform holds no access key for {source}, so its data cannot be fetched.",
+    "next": "A platform operator adds the key to the platform's configuration; the next refresh then fetches the data."
+   }
+  },
+  "agri.feed.unreachable": {
+   "label": "{source} could not be reached",
+   "detail": {
+    "what": "The connection to {source} failed or timed out. This is on the publisher's side, not a fault in the platform.",
+    "next": "The refresh runs again on its schedule; nothing changes until it succeeds."
+   }
+  },
+  "agri.feed.unavailable": {
+   "label": "{source} is unavailable ({status})",
+   "detail": {
+    "what": "{source} answered that its service is unavailable (status {status}). This is on the publisher's side, not a fault in the platform.",
+    "next": "The refresh runs again on its schedule; nothing changes until it succeeds."
+   }
+  },
+  "agri.feed.refused": {
+   "label": "{source} answered with an error ({status})",
+   "detail": {
+    "what": "{source} answered with status {status} instead of its data.",
+    "next": "A platform operator checks the request against the publisher's current service."
+   }
+  },
+  "agri.feed.preparing": {
+   "label": "{source} is still preparing the data",
+   "detail": {
+    "what": "{source} was still preparing the data after {attempts} requests, so nothing was read.",
+    "next": "The refresh runs again on its schedule; nothing changes until it succeeds."
+   }
+  },
+  "agri.feed.unknown_unit": {
+   "label": "Unit not on the reviewed list",
+   "detail": {
+    "what": "{source} gives {crop} ({where}) in a unit, {unit}, that the platform's reviewed unit list does not hold, so the file is refused. A unit is never guessed.",
+    "next": "A platform operator adds the unit, with its published conversion, to the reviewed list."
+   }
+  },
+  "agri.feed.no_bushel_weight": {
+   "label": "No bushel weight for {crop}",
+   "detail": {
+    "what": "{source} gives {crop} in bushels, and the reviewed list states no bushel weight for it, so the file is refused. A weight is never guessed.",
+    "next": "A platform operator adds the crop's standard bushel weight to the reviewed list."
+   }
+  },
+  "agri.feed.no_countries": {
+   "label": "The country list is not loaded",
+   "detail": {
+    "what": "{source} is read against the platform's country list, and that list is empty.",
+    "next": "Refresh the country reference first, then this source."
+   }
+  },
+  "agri.feed.not_an_archive": {
+   "label": "The {source} file is not a zip archive",
+   "detail": {
+    "what": "The file downloaded from {source} is not the zip archive it publishes, so nothing was read."
+   }
+  },
+  "agri.feed.no_table": {
+   "label": "The {source} archive holds no data table",
+   "detail": {
+    "what": "The archive downloaded from {source} does not hold the table the platform reads, so nothing was read."
+   }
   }
  },
  "names": {

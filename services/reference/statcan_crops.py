@@ -25,6 +25,7 @@ import re
 import zipfile
 from functools import lru_cache
 
+from services.reference import publisher_errors as P
 from services.reference.yield_sources import SetAside, store_round
 
 SOURCE = "STATCAN 32-10-0359-01"
@@ -39,8 +40,8 @@ _PROVINCE = re.compile(r"^\d{4}A0002(\d{2})$")
 _UA = {"User-Agent": "Tellumen reference refresh (+https://tellumen.io)"}
 
 
-class FetchError(RuntimeError):
-    pass
+FetchError = P.PublisherError                           # a code of the catalogue (agri.feed.*), never raw text
+PUBLISHER = "Statistics Canada"
 
 
 def crops() -> dict[str, str]:
@@ -69,9 +70,9 @@ def published(last_modified: str | None, etag: str | None, timeout: int = 60) ->
     try:
         r = requests.head(BASE, headers=_UA, timeout=timeout, allow_redirects=True)
     except requests.RequestException as e:
-        raise FetchError(f"Statistics Canada could not be reached: {e}") from e
+        raise P.unreachable(PUBLISHER, e) from e
     if r.status_code >= 400:
-        raise FetchError(f"Statistics Canada answered {r.status_code} to the file check")
+        raise P.answered(PUBLISHER, r.status_code, "the file check")
     lm, et = r.headers.get("Last-Modified"), r.headers.get("ETag")
     same = (et and et == etag) or (not et and lm and lm == last_modified)
     return {"changed": not same, "last_modified": lm, "etag": et}
@@ -82,9 +83,9 @@ def download(timeout: int = 600) -> bytes:
     try:
         r = requests.get(BASE, headers=_UA, timeout=timeout)
     except requests.RequestException as e:
-        raise FetchError(f"Statistics Canada could not be reached: {e}") from e
+        raise P.unreachable(PUBLISHER, e) from e
     if r.status_code != 200 or not r.content:
-        raise FetchError(f"Statistics Canada answered {r.status_code} to the download")
+        raise P.answered(PUBLISHER, r.status_code, "the download")
     return r.content
 
 
@@ -122,8 +123,8 @@ def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dic
                 skip("season_preliminary")   # released before the November survey's final production
                 continue
             if r["UOM"] not in ("Hectares", "Metric tonnes", "Kilograms per hectare") or r["SCALAR_FACTOR"] != "units":
-                raise FetchError(f"{commodity} {r['GEO']} {year}: unit '{r['UOM']}' scale '{r['SCALAR_FACTOR']}' "
-                                 "is not the table's metric units — refused, never guessed")
+                raise FetchError("agri.feed.unknown_unit", source=PUBLISHER, crop=commodity,    # refused, never guessed
+                                 unit=f"{r['UOM']} ({r['SCALAR_FACTOR']})", where=f"{r['GEO']} {year}")
             vals.setdefault((commodity, region, year), {})[field] = float(r["VALUE"])
     rows = []
     for (commodity, region, year), v in sorted(vals.items()):
@@ -137,8 +138,8 @@ def _read(data: bytes, provinces: tuple[tuple[str, str], ...]) -> tuple[list[dic
                      "production_tonnes": store_round(prod, 1), "area_harvested_ha": store_round(area, 1),
                      "yield_tonnes_ha": store_round(v["yield"] / 1000, 4) if v.get("yield") is not None else None,
                      "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if prev else None,
-                     "note": "Statistics Canada 32-10-0359-01, metric units as published; definition per the crop "
-                             "registry's statcan_label"})
+                     "note": "Statistics Canada table 32-10-0359-01, metric units as published; the crop as the "
+                             "crop registry defines it"})
     return rows, aside.counts()
 
 

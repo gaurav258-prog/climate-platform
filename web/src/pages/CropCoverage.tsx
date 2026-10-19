@@ -5,7 +5,10 @@ import 'leaflet/dist/leaflet.css'
 import { Sprout } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { Card, PageHeader, SectionHead } from '../components/ui'
+import { HEADING, InfoButton } from '../components/Details'
 import ReviewTabs from '../components/ReviewTabs'
+import { hazardLabel } from '../lib/hazards'
+import { countryName } from '../lib/countries'
 
 // Crop calibration coverage (E165) — for each crop, every country its crop map holds and what the platform publishes
 // there: a loss and a gain range, a loss range, tested and held (no number), or not calibrated with the reason.
@@ -39,7 +42,11 @@ export default function CropCoverage() {
     <div className="fadeup space-y-5">
       <ReviewTabs />
       <PageHeader eyebrow="Review · crop coverage" title="Where each crop is calibrated"
-        lead="Every country a crop's map shows it growing in, and what the platform publishes there. A range is published only where its calibration passed its gate; elsewhere the figure is held or the country is not calibrated yet, and the reason is given." />
+        lead="What the platform publishes in each country a crop grows in."
+        about={[
+          { heading: HEADING.shows, body: "Every country a crop's map shows it growing in, and what the platform publishes there." },
+          { heading: HEADING.read, body: 'A range is published only where its calibration passed its test. Elsewhere the figure is held, or the country is not calibrated yet; each country gives its reason.' },
+        ]} />
       {q.isLoading ? <Card className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</Card>
         : !d ? <Card className="p-8 text-[13px] text-[var(--color-bad)]">{apiMessage(q.error, 'Could not load the coverage.')}</Card>
         : <>
@@ -52,10 +59,10 @@ export default function CropCoverage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {(Object.keys(d.categories) as Cat[]).map(k => (
               <Card key={k} className="p-4">
-                <div className="flex items-center gap-2 mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">
+                <div className="flex items-center gap-2 text-[11.5px] font-medium text-[var(--color-faint)]">
                   <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: COLOR[k] }} />{d.categories[k]}</div>
-                <div className="mono text-[20px] text-[var(--color-ink)] mt-1 tabular-nums">{d.area_share_pct[k].toFixed(1)}%</div>
-                <div className="text-[11px] text-[var(--color-faint)]">of {d.commodity}'s mapped harvested area</div>
+                <div className="display text-[22px] text-[var(--color-ink)] mt-1 tabular-nums">{d.area_share_pct[k].toFixed(1)}%</div>
+                <div className="text-[11px] text-[var(--color-faint)]">of the crop's mapped harvested area</div>
               </Card>))}
           </div>
           <div className="relative w-full rounded-xl overflow-hidden border border-[var(--color-line)]" style={{ height: 420 }}>
@@ -65,24 +72,24 @@ export default function CropCoverage() {
               <GeoJSON key={`${d.commodity}-${fc.features.length}-${dark}`} data={fc}
                 style={(f) => { const r = f?.properties as Row; return { color: COLOR[r.category], weight: 0.8, fillColor: COLOR[r.category], fillOpacity: 0.5 } }}
                 onEachFeature={(f, layer) => { const r = f.properties as Row
-                  layer.bindTooltip(`<b>${r.origin}</b> · ${r.label}<br/>${(r.area_share * 100).toFixed(1)}% of the mapped area` + (r.why ? `<br/><span style="opacity:.75">${r.why}</span>` : ''), { sticky: true }) }} />
+                  layer.bindTooltip(`<b>${countryName(r.origin)}</b> · ${r.label}<br/>${(r.area_share * 100).toFixed(1)}% of the mapped area`, { sticky: true }) }} />
             </MapContainer>
           </div>
           <Card className="p-0 overflow-hidden">
             <SectionHead icon={Sprout} className="px-5 py-3 border-b border-[var(--color-line)]">{d.commodity} · {d.rows.length} countries</SectionHead>
             <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
               <table className="w-full text-[12px] tabular-nums">
-                <thead className="sticky top-0 bg-[var(--color-panel)]"><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left">
-                  {['Country', 'Share of mapped area', 'Published', 'Driver', 'r²oos', 'Why'].map(h => <th key={h} className="font-normal px-3 py-2">{h}</th>)}
+                <thead className="sticky top-0 bg-[var(--color-panel)]"><tr className="text-[var(--color-faint)] text-[11px] text-left">
+                  {['Country', 'Share of mapped area', 'Published', 'Driver', 'Out-of-sample fit (r²)'].map(h => <th key={h} className="font-medium px-3 py-2">{h}</th>)}
                 </tr></thead>
                 <tbody>{d.rows.map(r => (
                   <tr key={r.origin} className="border-t border-[var(--color-line)]">
-                    <td className="px-3 py-1 mono text-[var(--color-ink)]">{r.origin}</td>
-                    <td className="px-3 mono">{(r.area_share * 100).toFixed(2)}%</td>
-                    <td className="px-3"><span className="inline-flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-sm" style={{ background: COLOR[r.category] }} />{r.label}</span></td>
-                    <td className="px-3">{r.drivers ?? '—'}</td>
-                    <td className="px-3 mono">{r.r2_oos == null ? '—' : r.r2_oos.toFixed(2)}</td>
-                    <td className="px-3 text-[11px] text-[var(--color-mute)]">{r.why ?? ''}</td>
+                    <td className="px-3 py-1 text-[var(--color-ink)]">{countryName(r.origin)}</td>
+                    <td className="px-3">{(r.area_share * 100).toFixed(2)}%</td>
+                    <td className="px-3"><span className="inline-flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-sm" style={{ background: COLOR[r.category] }} />{r.label}
+                      {r.why && <InfoButton compact details={{ title: `${d.commodity} · ${countryName(r.origin)}`, sections: [{ heading: 'Why', body: r.why }] }} />}</span></td>
+                    <td className="px-3">{driverNames(r.drivers)}</td>
+                    <td className="px-3">{r.r2_oos == null ? '—' : r.r2_oos.toFixed(2)}</td>
                   </tr>))}</tbody>
               </table>
             </div>
@@ -91,3 +98,6 @@ export default function CropCoverage() {
     </div>
   )
 }
+
+// the drivers a country's calibrations read ('drought, heat_acute'), by their names
+const driverNames = (drivers: string | null) => drivers ? drivers.split(/\s*[,+]\s*/).map(hazardLabel).join(', ') : '—'

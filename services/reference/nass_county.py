@@ -118,8 +118,8 @@ def _read(data: bytes, locations: tuple[tuple[str, str], ...]) -> tuple[list[dic
                     "production_tonnes": store_round(prod, 1), "area_harvested_ha": store_round(area, 1),
                     "yield_tonnes_ha": store_round(prod / area, 4) if area else None,
                     "yoy_change_pct": store_round((prod - prev) / prev * 100, 2) if prev else None,
-                    "note": "USDA NASS Quick Stats SURVEY county estimate, annual 'YEAR'; definition per the crop "
-                            "registry's nass_label; yield = production ÷ area"})
+                    "note": "USDA NASS Quick Stats survey, the county's estimate for the year; the crop as the crop "
+                            "registry defines it; yield = production ÷ area"})
     return out, aside.counts()
 
 

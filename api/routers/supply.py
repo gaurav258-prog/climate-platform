@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import uuid
 from dataclasses import asdict
 from datetime import date
 from typing import Annotated, Optional
 
 import h3
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
@@ -32,6 +33,8 @@ from api.deps import (
     tenant_resolver,
 )
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
 from services.ingest.templates import PLOT_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.intelligence.company_sites import (
     SITE_TYPES,
@@ -54,6 +57,7 @@ router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
 
 DEMO_ORG = "55555555-5555-4555-8555-555555555555"   # Terra Foods (demo) — was the REIT demo by mistake
 _bearer = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 def _valid_id(v: str) -> str:
@@ -63,7 +67,7 @@ def _valid_id(v: str) -> str:
         uuid.UUID(str(v))
         return v
     except (ValueError, TypeError, AttributeError):
-        raise HTTPException(status_code=404, detail="not found")
+        raise UserError("error.not_found")
 
 
 resolve_org = tenant_resolver(DEMO_ORG)             # one implementation for every sector API (api/deps.py)
@@ -283,8 +287,7 @@ def sites(session: DbSession, org_id: OrgId):
     gaps = sorted({g for g in (bi.get("gap"), None if level is not None else "not stated: method.at_risk_level") if g})
     return {"org_id": org_id, "sites": rows, "site_types": sorted(SITE_TYPES), "totals": totals,
             **({"gap": "not stated: " + ", ".join(g.removeprefix("not stated: ") for g in gaps)} if gaps else {}),
-            "bi_note": "Business interruption = annual throughput × your stated downtime share for the site's headline hazard "
-                       "and band (method.bi_downtime_share)."}
+            "bi_note": messages.render("agri.site.bi_basis")["detail"]["what"]}
 
 
 @router.get("/site/{site_id}", summary="One operational site — record + all hazards + adaptation actions")
@@ -301,7 +304,7 @@ def site_detail(site_id: str, session: DbSession, caller_org: OrgId):
         FROM sc_company_sites s WHERE s.site_id = :id
     """), {"id": site_id}).mappings().first()
     if not row:
-        raise HTTPException(status_code=404, detail="site not found")
+        raise UserError("error.not_found")
     hazards = site_hazards(session, site_id)
     method = for_org(session, caller_org)
     level = method.get("method.at_risk_level")
@@ -319,10 +322,14 @@ def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
     org_id = ctx["org"]["org_id"]
     from services.intake.money import MoneyError
     from services.intelligence.company_sites import site_amounts
+    _declared(session, (body.annual_value_eur, body.annual_throughput_eur), body.currency, body.book_date)
     try:
         v, tp, ms = site_amounts(session, body.annual_value_eur, body.annual_throughput_eur, body.currency, body.book_date, org_id)
     except MoneyError as e:
-        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
+        raise _not_converted(e, body.currency, body.book_date) from e
+    if body.held_from and body.held_until and body.held_until <= body.held_from:
+        raise UserError("agri.location.held_order")
+    _own_entity(session, org_id, body.entity_id)
     try:
         site = add_site(session, org_id, body.name, body.site_type, address=body.address,
                         lat=body.latitude, lon=body.longitude, country=body.country,
@@ -330,9 +337,7 @@ def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
                         area_ha=body.area_ha, held_from=body.held_from, held_until=body.held_until,
                         entity_id=body.entity_id, external_ref=body.external_ref)
     except SiteLocationError as e:
-        raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid_site", "message": str(e)})
+        raise UserError("agri.location.not_located") from e
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.site.add",
                 target_type="company_site", target_id=site["site_id"], detail={"name": body.name, "type": site["site_type"]})
     return {"ok": True, "site": site}
@@ -362,14 +367,9 @@ def irrigation_context(irrigation_status: Optional[str], elevated_hazards: list)
     upper bound; the published crop € still reflects the origin's national irrigated/rain-fed mix."""
     water = [h for h in (elevated_hazards or []) if h in ("drought", "soil_water")]
     if irrigation_status == "irrigated" and water:
-        return {"status": "irrigated", "buffers": water,
-                "note": ("Declared irrigated — irrigation can buffer drought/soil-water stress, so the water "
-                         "score at this plot is an UPPER BOUND. The published crop € reflects the origin's "
-                         "national irrigated/rain-fed mix and is not adjusted per-plot (a per-plot buffer "
-                         "would need a fitted coefficient we don't yet have).")}
+        return {"status": "irrigated", "buffers": water, **_said("agri.plot.irrigated")}
     if irrigation_status == "rain_fed" and water:
-        return {"status": "rain_fed", "buffers": [],
-                "note": "Declared rain-fed — fully exposed to the drought/soil-water score (no irrigation buffer)."}
+        return {"status": "rain_fed", "buffers": [], **_said("agri.plot.rain_fed")}
     if irrigation_status:
         return {"status": irrigation_status, "buffers": []}
     return None
@@ -398,16 +398,17 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
     commodity_id = session.execute(text("SELECT commodity_id::text FROM sc_commodities WHERE name=:n"),
                                    {"n": body.commodity}).scalar()
     if not commodity_id:
-        raise HTTPException(status_code=422, detail={"error": "unknown_commodity", "message": f"'{body.commodity}' is not a known commodity."})
+        raise UserError("agri.location.unknown_commodity", commodity=body.commodity[:80])
     try:
         loc = resolve_location(body.address, body.latitude, body.longitude, session=session)
     except LocErr as e:
-        raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
+        raise UserError("agri.location.not_located") from e
     from services.intake.money import MoneyError, convert_amount, source_record
+    _declared(session, (body.annual_spend_eur,), body.currency, body.book_date)
     try:
         spend = convert_amount(session, body.annual_spend_eur, body.currency, body.book_date, flow=True, label="annual spend", org_id=org_id)
     except MoneyError as e:
-        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
+        raise _not_converted(e, body.currency, body.book_date) from e
     # the country: given (any spelling), else the geocoder's country name — both through the country reference
     from services.ingest.fields import norm_token
     from services.intake.values import lookup as vocab_lookup
@@ -476,12 +477,60 @@ class PlotUpdate(BaseModel):
 
 
 def _money_changes(session, org_id: str, kind: str, changes: dict):
-    from services.governance.location_governance import LocationMoneyError, convert_money_changes
+    from services.governance.location_governance import (
+        MONEY_FIELDS,
+        LocationMoneyError,
+        convert_money_changes,
+    )
     currency, book_date = changes.pop("currency", None), changes.pop("book_date", None)
+    _declared(session, tuple(v for k, v in changes.items() if k in MONEY_FIELDS[kind]), currency, book_date)
     try:
         return convert_money_changes(session, org_id, kind, changes, currency, book_date)
     except LocationMoneyError as e:
-        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
+        raise _not_converted(e, currency, book_date) from e
+
+
+def _declared(session, amounts: tuple, currency: Optional[str], book_date) -> None:
+    """An amount needs its currency and the date it describes, and both must be ones the platform converts — refused
+    before anything converts, each in its own customer words (never assumed, never the conversion's raw text)."""
+    from services.intake.money import DeclarationError, validate_declaration
+    if all(a is None for a in amounts):
+        return
+    if not (currency or "").strip():
+        raise UserError("agri.location.currency_missing")
+    if not book_date:
+        raise UserError("agri.location.book_date_missing")
+    try:
+        validate_declaration(session, currency, str(book_date))
+    except DeclarationError as e:
+        raise UserError(e.code, **e.params) from e
+
+
+def _not_converted(e: Exception, currency: Optional[str], book_date) -> UserError:
+    """A declared amount that still could not be converted: no usable rate for the currency and date, or the
+    organisation's own rate outside its tolerance. The conversion's own text goes to the log."""
+    logger.info("amount not converted: %s", e)
+    return UserError("agri.location.not_converted", currency=(currency or "").strip().upper(), date=str(book_date))
+
+
+def _own_entity(session, org_id: str, entity_id: Optional[str]) -> None:
+    """A holding entity must be one of the organisation's own — checked before the location service is asked."""
+    if not entity_id:
+        return
+    try:
+        uuid.UUID(str(entity_id))
+    except ValueError as e:
+        raise UserError("agri.location.entity_not_yours") from e
+    if not session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) "
+                                "AND org_id = CAST(:o AS uuid)"), {"e": entity_id, "o": org_id}).first():
+        raise UserError("agri.location.entity_not_yours")
+
+
+def _said(code: str) -> dict:
+    """A catalogue message for a screen: `note` its explanation as one text (as the plot page reads it), `message`
+    the label and detail."""
+    m = messages.render(code)
+    return {"note": " ".join(m["detail"][k] for k in ("what", "why") if m["detail"].get(k)), "message": m}
 
 
 @router.patch("/site/{site_id}", summary="Edit an operational site (material edits need 4-eyes approval)")
@@ -492,9 +541,10 @@ def update_site(site_id: str, body: SiteUpdate, session: DbSession,
     own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     changes.pop("commodity", None)  # not a site field
+    _own_entity(session, org_id, changes.get("entity_id"))
     changes, ms = _money_changes(session, org_id, "site", changes)
     if not changes:
-        raise HTTPException(status_code=400, detail={"error": "no_changes", "message": "No fields to update."})
+        raise UserError("agri.location.no_changes")
     return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                            request_type="supply.site.update", target_id=site_id, changes=changes,
                            title=f"Edit site {site_id[:8]}", money_source=ms)
@@ -510,8 +560,8 @@ def delete_site(site_id: str, session: DbSession,
     try:
         return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                                request_type="supply.site.delete", target_id=site_id, title=f"Delete site {site_id[:8]}")
-    except LocationChangeError as e:
-        raise HTTPException(status_code=409, detail={"error": "reporting_history", "message": str(e)})
+    except LocationChangeError as e:            # the one block on deleting a site: its year-end values
+        raise UserError("agri.site.has_year_end_values") from e
 
 
 @router.patch("/plot/{plot_id}", summary="Edit a sourcing plot (material edits need 4-eyes approval)")
@@ -522,9 +572,10 @@ def update_plot(plot_id: str, body: PlotUpdate, session: DbSession,
     own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
     data = body.model_dump(exclude_unset=True, exclude_none=True)
     commodity = data.pop("commodity", None)
+    _own_entity(session, org_id, data.get("entity_id"))
     data, ms = _money_changes(session, org_id, "plot", data)
     if not data and not commodity:
-        raise HTTPException(status_code=400, detail={"error": "no_changes", "message": "No fields to update."})
+        raise UserError("agri.location.no_changes")
     return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                            request_type="supply.plot.update", target_id=plot_id, changes=data,
                            commodity=commodity, title=f"Edit plot {plot_id[:8]}", money_source=ms)
@@ -635,7 +686,7 @@ def plot_detail(plot_id: str, session: DbSession, caller_org: OrgId):
         WHERE p.plot_id=:id
     """), {"id": plot_id}).mappings().first()
     if not p:
-        return {"error": "plot not found"}
+        raise UserError("error.not_found")
     from services.eudr.reading import current
     reading = current(session, [plot_id])[plot_id]
     risks = session.execute(text("""
@@ -651,8 +702,7 @@ def plot_detail(plot_id: str, session: DbSession, caller_org: OrgId):
                 if r["scenario"] == "baseline" and r["time_horizon"] == "current" and (r["score"] or 0) >= 40]
     return {"kind": "plot", "plot": dict(p), "eudr_reading": reading, "impact_version": IMPACT_VERSION,
             "risks": [dict(r) for r in risks], "adaptation": actions_for(elevated),
-            "irrigation_context": irrigation_context(p["irrigation_status"], elevated),
-            "note": "€ impact is v0 (uncalibrated); see docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md"}
+            "irrigation_context": irrigation_context(p["irrigation_status"], elevated)}
 
 
 @router.get("/commodity/{commodity_id}", summary="One commodity — analytics: exposure, plots, calibration/validation, projections, adaptation")
@@ -661,7 +711,7 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
     co = session.execute(text("SELECT name, eudr_covered FROM sc_commodities WHERE commodity_id=:id"),
                          {"id": commodity_id}).mappings().first()
     if not co:
-        raise HTTPException(status_code=404, detail="commodity not found")
+        raise UserError("error.not_found")
     name = co["name"]
 
     r = project_org_supply(session, org_id)
@@ -710,7 +760,7 @@ def commodity_world_crop(commodity_id: str, session: DbSession, org_id: OrgId):
     commodity_id = _valid_id(commodity_id)
     name = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :id"), {"id": commodity_id}).scalar()
     if not name:
-        raise HTTPException(status_code=404, detail="commodity not found")
+        raise UserError("error.not_found")
     from services.intelligence.world_crop import world_crop
     return world_crop(session, name)
 
@@ -722,7 +772,7 @@ def commodity_outlook(commodity_id: str, session: DbSession, org_id: OrgId):
     commodity_id = _valid_id(commodity_id)
     name = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :id"), {"id": commodity_id}).scalar()
     if not name:
-        raise HTTPException(status_code=404, detail="commodity not found")
+        raise UserError("error.not_found")
     own = [r[0] for r in session.execute(text("""
         SELECT DISTINCT country FROM sc_sourcing_plots WHERE org_id = :o AND commodity_id = :c AND country IS NOT NULL"""),
         {"o": org_id, "c": commodity_id}).all()]
@@ -893,7 +943,7 @@ def get_report_snapshot(snapshot_id: str, session: DbSession,
     from services.governance.report_snapshots import get_snapshot
     snap = get_snapshot(session, ctx["org"]["org_id"], snapshot_id)
     if not snap:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such snapshot for this organization."})
+        raise UserError("error.not_found")
     return snap
 
 
@@ -904,7 +954,7 @@ def assurance_pack(snapshot_id: str, session: DbSession,
     org_id = ctx["org"]["org_id"]
     out = build_assurance_pack(session, org_id, snapshot_id)
     if not out:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such snapshot for this organization."})
+        raise UserError("error.not_found")
     fname, data = out
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
                 target_type="report_snapshot", target_id=snapshot_id, detail={"file": fname})
@@ -1051,10 +1101,11 @@ def override_commodity_cogs(commodity_id: str, body: CogsOverrideRequest, sessio
     mandatory reason, fully audited. Scoped to (org, commodity) since sc_commodities is a
     small shared reference table, not per-org."""
     if "pricing.approve" not in ctx["permissions"]:
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    commodity = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :c"), {"c": commodity_id}).scalar()
+        raise UserError("error.forbidden")
+    commodity = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :c"),
+                                {"c": _valid_id(commodity_id)}).scalar()
     if not commodity:
-        raise HTTPException(status_code=404, detail="commodity not found")
+        raise UserError("error.not_found")
     org_id = ctx["org"]["org_id"]
     result = apply_commodity_override(session, org_id, commodity_id, body.override_cogs_at_risk_p50_eur,
                                        ctx["user"]["id"], body.reason)
@@ -1070,9 +1121,9 @@ def override_commodity_cogs(commodity_id: str, body: CogsOverrideRequest, sessio
 @router.delete("/commodity/{commodity_id}/override", summary="Clear a commodity's COGS-at-risk override, revert to the model figure (audited)")
 def clear_commodity_cogs_override(commodity_id: str, session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+        raise UserError("error.forbidden")
     org_id = ctx["org"]["org_id"]
-    cleared = clear_commodity_override(session, org_id, commodity_id)
+    cleared = clear_commodity_override(session, org_id, _valid_id(commodity_id))
     if cleared:
         write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                     action="commodity.cogs_at_risk.override_cleared", target_type="sc_commodity", target_id=commodity_id,
