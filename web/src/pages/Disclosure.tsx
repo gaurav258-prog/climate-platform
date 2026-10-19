@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts'
-import { Satellite, AlertTriangle, Percent, FileCheck2 } from 'lucide-react'
+import { Satellite, AlertTriangle, Percent, FileCheck2, Shuffle, ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, StatusPill, PageHeader, HeroBanner, SectionHead } from '../components/ui'
+import { HEADING, InfoButton } from '../components/Details'
+import { StatusChip } from '../components/StatusChip'
 import Lineage from '../components/Lineage'
 import RealizedExposure from '../components/RealizedExposure'
 import ReportTabs from '../components/ReportTabs'
@@ -48,7 +50,11 @@ export default function Disclosure() {
       <ReportTabs />
       <PageHeader eyebrow="Agriculture · Disclosure"
         title="Supply disclosure"
-        lead="Physical volume-at-risk from your sourcing book, and each EUDR plot's satellite reading — a risk your assessment weighs, never a verdict. Statements are prepared per shipment on the EUDR page." />
+        lead="Volume at risk, and each plot's satellite reading."
+        about={[
+          { heading: HEADING.shows, body: 'The physical volume at risk in your sourcing book, by commodity, and what the forest dataset shows inside each plot covered by the EU Deforestation Regulation.' },
+          { heading: HEADING.read, body: 'A satellite reading is a risk your assessment weighs, never a verdict. Statements are prepared per shipment on the EUDR page.' },
+        ]} />
 
       {/* stat row — lead with the answer */}
       <HeroBanner
@@ -56,7 +62,7 @@ export default function Disclosure() {
         title={t.plots === 0 ? 'No EUDR plots in this book.'
           : t.unread === 0 ? `All ${t.plots} EUDR plots have a current satellite reading.`
           : `${t.plots - t.unread} of ${t.plots} EUDR plots have a current satellite reading.`}
-        lead="Physical volume-at-risk from your sourcing book, and what the forest dataset shows inside each EUDR plot after 31 December 2020."
+        lead="Volume at risk from your sourcing book, and what the forest dataset shows inside each plot."
         stat={[
           { label: 'Volume at risk (physical)', value: flow(d.rollup.volume_at_risk_eur), icon: AlertTriangle, tone: '#E8853C' },
           { label: 'of COGS', value: `${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent, tone: 'var(--color-sky)' },
@@ -75,7 +81,7 @@ export default function Disclosure() {
         <Card className="p-5">
           <SectionHead hint={`${displaySymbol().trim()}m, physical`} className="mb-3">Volume-at-risk by commodity</SectionHead>
           <div className="h-[240px]">
-            {chart.length === 0 ? <Empty>No published € yet — commodities still validating.</Empty> :
+            {chart.length === 0 ? <Empty>No figures published yet — the commodities are still being validated.</Empty> :
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chart} margin={{ left: -18, right: 8, top: 6 }}>
                   <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#1e2a40' }} tickLine={false} />
@@ -92,8 +98,14 @@ export default function Disclosure() {
         </Card>
 
         <Card className="p-5 flex flex-col">
-          <SectionHead icon={Satellite} className="mb-1">EUDR plot readings</SectionHead>
-          <p className="text-[12.5px] text-[var(--color-mute)] mb-4">What the forest dataset shows inside each plot after the cut-off (Art. 2(13)). Tree-cover loss is a risk your assessment weighs (Art. 10) — the dataset shows neither land use nor tree height.</p>
+          <div className="flex items-center gap-2 mb-4">
+            <SectionHead icon={Satellite}>EUDR plot readings</SectionHead>
+            <InfoButton compact details={{ title: 'EUDR plot readings', sections: [
+              { heading: HEADING.shows, body: 'What the forest dataset shows inside each plot after the cut-off date of 31 December 2020.' },
+              { heading: HEADING.read, body: 'Tree-cover loss is a risk your assessment weighs; the dataset shows neither land use nor tree height.' },
+              { heading: 'Legal basis', body: 'Regulation (EU) 2023/1115: Article 2(13) (the cut-off date) and Article 10 (risk assessment).' }] }} />
+          </div>
+          
           <div className="grid grid-cols-2 gap-2 mb-4">
             <Mini n={t.no_loss_detected} label="no loss read" tone="good" />
             <Mini n={t.loss_after_cutoff} label="loss after 2020" tone="warn" />
@@ -124,9 +136,10 @@ export default function Disclosure() {
                   <td className="py-2.5 pr-3"><Link to={`/detail/plot/${p.plot_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline">{p.plot}</Link></td>
                   <td className="pr-3 text-[var(--color-mute)]">{p.commodity}</td>
                   <td className="pr-3 mono text-[12px] text-[var(--color-mute)]">{p.country ?? '—'}</td>
-                  <td className="pr-3"><span className="mono text-[11px] text-[var(--color-faint)]">{p.eudr_declared ?? '—'}</span></td>
+                  <td className="pr-3"><StatusChip tone={p.eudr_declared === 'compliant' ? 'good' : 'neutral'} label={DECLARED[p.eudr_declared ?? ''] ?? 'Not declared'} /></td>
                   <td className="pr-3"><StatusPill status={p.reading?.outcome ?? 'unread'} /></td>
-                  <td className="text-[12px] text-[var(--color-mute)]">{readingNote(p.reading)}</td>
+                  <td className="text-[12px] text-[var(--color-mute)]"><span className="inline-flex items-center gap-1">{readingNote(p.reading)}
+                    {p.reading?.outcome === 'not_assessable' && p.reading.reason && <InfoButton compact details={{ title: 'Why it could not be read', sections: [{ heading: HEADING.limits, body: p.reading.reason }] }} />}</span></td>
                 </tr>
               ))}
               {covered.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-[var(--color-faint)]">No EUDR-covered plots in this book.</td></tr>}
@@ -141,11 +154,15 @@ export default function Disclosure() {
   )
 }
 
+// what the plot's declaration says (sc_sourcing_plots eudr_status, the customer's own flag)
+const DECLARED: Record<string, string> = { compliant: 'Declared compliant', unknown: 'Not declared' }
+const day = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+
 function readingNote(r: Reading | null): string {
-  if (!r) return 'no reading of its current geometry'
-  if (r.outcome === 'loss_after_cutoff') return `loss first ${r.first_loss_year ?? '—'} · ${r.loss_ha ?? 0} ha · read ${r.assessed_at.slice(0, 10)}`
-  if (r.outcome === 'not_assessable') return r.reason ?? 'not assessable'
-  return `no loss after 2020 · read ${r.assessed_at.slice(0, 10)}`
+  if (!r) return 'Not read for its current outline'
+  if (r.outcome === 'loss_after_cutoff') return `Loss first seen ${r.first_loss_year ?? '—'} · ${r.loss_ha ?? 0} ha · read ${day(r.assessed_at)}`
+  if (r.outcome === 'not_assessable') return 'Could not be read'
+  return `No loss after 2020 · read ${day(r.assessed_at)}`
 }
 
 function Mini({ n, label, tone }: { n: number; label: string; tone: 'good' | 'bad' | 'warn' | 'slate' }) {
@@ -162,41 +179,45 @@ const Empty = ({ children }: { children: React.ReactNode }) => <div className="h
 
 function ResourcingCard({ rs }: { rs?: Resourcing }) {
   if (!rs || !rs.available || (rs.n_opportunities === 0 && rs.single_origin_commodities.length === 0)) return null
+  const max = Math.max(1, ...rs.opportunities.map(o => o.avoidable_eur))
   return (
-    <Card className="p-5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <div className="text-[13px] font-semibold">Re-sourcing opportunities</div>
-        <span className="text-[12px] text-[var(--color-mute)]">cut COGS-at-risk by shifting to a lower-risk origin you already source</span>
-        {rs.total_avoidable_eur > 0 && (
-          <span className="mono text-[11px] ml-auto" style={{ color: 'var(--color-good)' }}>
-            up to {flow(rs.total_avoidable_eur)} avoidable ({rs.avoidable_pct_of_current}%) · ≤{rs.reallocation_cap_pct}% reallocation
-          </span>
-        )}
+    <Card className="p-5 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <SectionHead icon={Shuffle}>Re-sourcing opportunities</SectionHead>
+        <InfoButton compact details={{ title: 'Re-sourcing opportunities', sections: [
+          { heading: HEADING.shows, body: 'How much of the volume at risk you could avoid by shifting spend to a lower-risk origin you already source from.' },
+          { heading: HEADING.read, body: `Each commodity shifts at most ${rs.reallocation_cap_pct}% of its spend from its highest-risk to its lowest-risk existing origin; the avoided volume at risk is the shift times the gap between their yield shocks.` },
+          { heading: HEADING.limits, body: 'Only origins you already source from. A single-origin commodity is flagged, never given an alternative we would have to invent.' }] }} />
+        {rs.total_avoidable_eur > 0 && <StatusChip tone="good" label={`Up to ${flow(rs.total_avoidable_eur)} avoidable · ${rs.avoidable_pct_of_current}%`} />}
       </div>
       {rs.opportunities.length > 0 ? (
         <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
           {rs.opportunities.map(o => (
-            <div key={o.commodity} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[12.5px]">
-              <span className="font-semibold text-[var(--color-ink)] w-24">{o.commodity}</span>
-              <span className="text-[var(--color-mute)]">
-                shift {flow(o.shift_spend_eur)} from <b className="text-[var(--color-ink)]">{o.from_origin}</b> ({o.from_yield_shock_pct}% shock) → <b className="text-[var(--color-ink)]">{o.to_origin}</b> ({o.to_yield_shock_pct}%)
+            <div key={o.commodity} className="grid grid-cols-1 md:grid-cols-[7rem_1fr_9rem] items-center gap-x-4 gap-y-1 py-2 text-[12.5px]">
+              <span className="font-medium text-[var(--color-ink)]">{o.commodity}</span>
+              <span className="flex flex-wrap items-center gap-1.5 text-[var(--color-mute)]">
+                <StatusChip tone="bad" label={`${o.from_origin} · ${o.from_yield_shock_pct}% shock`} />
+                <ArrowRight size={13} className="text-[var(--color-faint)]" />
+                <StatusChip tone="good" label={`${o.to_origin} · ${o.to_yield_shock_pct}%`} />
+                <span className="text-[11.5px] text-[var(--color-faint)]">shift {flow(o.shift_spend_eur)}</span>
               </span>
-              <span className="mono text-[11px] ml-auto" style={{ color: 'var(--color-good)' }}>avoid {flow(o.avoidable_eur)} ({o.avoidable_pct}%)</span>
+              <span className="flex items-center gap-2 md:justify-end">
+                <span className="h-1.5 rounded-full" style={{ width: `${Math.max(6, (o.avoidable_eur / max) * 64)}px`, background: 'var(--color-good)' }} />
+                <span className="tabular-nums text-[var(--color-good)]">{flow(o.avoidable_eur)}</span>
+              </span>
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-[12.5px] text-[var(--color-mute)] py-2">No in-book reallocation available — the opportunities below need a genuinely new origin.</div>
+        <div className="text-[12.5px] text-[var(--color-mute)]">No shift within the origins you already source from.</div>
       )}
       {rs.single_origin_commodities.length > 0 && (
-        <div className="mt-3 text-[11.5px] text-[var(--color-faint)]">
-          <span className="mono uppercase tracking-wide text-[10px]">Single-origin — diversification needs a new supplier region:</span>{' '}
-          {rs.single_origin_commodities.map(c => `${c.commodity} (${c.origin})`).join(' · ')}
+        <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-[var(--color-faint)]">
+          <span>Single origin</span>
+          <InfoButton compact details={{ title: 'Single origin', sections: [{ heading: HEADING.read, body: 'These commodities come from one region only: diversifying them needs a new supplier region.' }] }} />
+          {rs.single_origin_commodities.map(c => <StatusChip key={c.commodity} tone="warn" label={`${c.commodity} · ${c.origin}`} />)}
         </div>
       )}
-      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
-        Reallocates a bounded share (≤{rs.reallocation_cap_pct}%) of each commodity's spend from its highest- to its lowest-risk EXISTING origin; avoided COGS-at-risk = shift × the yield-shock gap. Only origins you already source — a single-origin commodity is flagged, never given a fabricated alternative.
-      </div>
     </Card>
   )
 }

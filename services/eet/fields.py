@@ -22,7 +22,12 @@ USE_LABEL = {"periodic": "SFDR periodic", "precontractual": "SFDR pre-contractua
 
 
 class EETValueError(ValueError):
-    pass
+    """What a field takes, refused: the sentence (the API's reason) and the same as a catalogue message — code and params
+    of data/reference/messages.en.json (disclose.eet.answer.*) — for a screen."""
+
+    def __init__(self, message: str, code: str = "disclose.eet.answer.format", **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 @lru_cache(maxsize=1)
@@ -92,23 +97,24 @@ def check(name: str, value) -> str:
     """The value as it goes into the file, or EETValueError saying what the field takes."""
     f = by_name().get(name)
     if f is None:
-        raise EETValueError(f"'{name}' is not an EET {version()} field")
+        raise EETValueError(f"'{name}' is not an EET {version()} field", "disclose.eet.answer.unknown_field",
+                            version=version())
     s = str(value).strip() if value is not None else ""
     if not s:
-        raise EETValueError("empty")
+        raise EETValueError("empty", "disclose.eet.answer.empty")
     k = kind(f)
     try:
         if k == "proportion":
             v = float(s.replace(",", "."))
             if not 0 <= v <= 1:
-                raise EETValueError("a proportion is a decimal from 0 to 1 (0.5 = 50%)")
+                raise EETValueError("a proportion is a decimal from 0 to 1 (0.5 = 50%)", "disclose.eet.answer.proportion")
             return _num(v)
         if k == "number":
             return _num(float(s.replace(",", ".")))
         if k == "integer":
             v = int(s)
             if v < 0:
-                raise EETValueError("must not be negative")
+                raise EETValueError("must not be negative", "disclose.eet.answer.negative")
             return str(v)
         if k == "date":
             return date.fromisoformat(s[:10]).isoformat()
@@ -116,12 +122,12 @@ def check(name: str, value) -> str:
             return ";".join(date.fromisoformat(x.strip()[:10]).isoformat() for x in s.split(";") if x.strip())
         if k == "currency":
             if not re.fullmatch(r"[A-Z]{3}", s.upper()):
-                raise EETValueError("an ISO 4217 code, e.g. EUR")
+                raise EETValueError("an ISO 4217 code, e.g. EUR", "disclose.eet.answer.currency")
             return s.upper()
         if k == "codes2":
             codes = [x.strip().upper() for x in s.split(";") if x.strip()]
             if not all(re.fullmatch(r"[A-Z]{2}", x) for x in codes):
-                raise EETValueError("two-letter codes separated by ';' (e.g. FR;DE)")
+                raise EETValueError("two-letter codes separated by ';' (e.g. FR;DE)", "disclose.eet.answer.countries")
             return ";".join(codes)
         if k == "choice":
             allowed, multi = choices(f)
@@ -129,15 +135,17 @@ def check(name: str, value) -> str:
             letters = {t for a in allowed for t in a.split(";")}
             bad = [x for x in picked if x not in allowed and x not in letters]
             if bad or not picked:
-                raise EETValueError(f"one of {' / '.join(sorted(allowed))}" + (" (several separated by ';')" if multi else ""))
+                raise EETValueError(f"one of {' / '.join(sorted(allowed))}" + (" (several separated by ';')" if multi else ""),
+                                    "disclose.eet.answer.choice", choices=" / ".join(sorted(allowed)))
             return ";".join(picked)
     except ValueError as e:
         if isinstance(e, EETValueError):
             raise
-        raise EETValueError(f"expected {_first(f['codification'])}") from e
+        raise EETValueError(f"expected {_first(f['codification'])}", "disclose.eet.answer.format",
+                            expected=_first(f["codification"])) from e
     limit = 255 if "max 255" in (f["codification"] or "") else 500 if "max 500" in (f["codification"] or "") else 2000
     if len(s) > limit:
-        raise EETValueError(f"at most {limit} characters")
+        raise EETValueError(f"at most {limit} characters", "disclose.eet.answer.length", n=limit)
     return s
 
 

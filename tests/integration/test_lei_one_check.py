@@ -65,4 +65,4 @@ def test_a_new_tenant_and_a_fund_take_the_same_check(api, registry):
     analyst = _login(api, "analyst@nordkap.demo", "Demo!analyst1")
     fund = api.get("/v1/funds", headers=analyst).json()["funds"][0]["fund_id"]
     r = api.put(f"/v1/funds/{fund}/lei", headers=analyst, json={"lei": "LEI0000000000000GOLD"})
-    assert r.status_code == 422 and "not a valid LEI" in r.text
+    assert r.status_code == 422 and r.json()["error"]["error"] == "disclose.fund.lei.invalid"

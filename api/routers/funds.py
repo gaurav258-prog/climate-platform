@@ -15,13 +15,15 @@ from datetime import date
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from api.deps import DbSession, attachment, own_or_404, require_permission, tenant_resolver
+from core import messages
+from core.errors import UserError
 from ml.regulatory.sfdr_pai import (
     entity_narratives,
     entity_pai_statement,
@@ -32,6 +34,7 @@ from ml.regulatory.sfdr_pai import (
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
 from ml.regulatory.voluntary_pai import catalog as voluntary_catalog
 from ml.regulatory.voluntary_pai import validate_keys
+from services import fund_messages as W
 from services.asset_manager_engine import (
     fund_positions_with_risk,
     issuer_physical_scores,
@@ -113,22 +116,18 @@ def create_fund(body: FundCreate, session: DbSession, ctx: dict = Depends(requir
     name = body.name.strip()
     ccy = body.base_currency.strip().upper()
     if ccy not in iso4217.codes():
-        raise _fail(422, f"'{body.base_currency}' is not an ISO 4217 currency in circulation", code="bad_currency")
+        raise UserError("disclose.fund.refused.currency", currency=body.base_currency)
     if session.execute(text("SELECT 1 FROM funds WHERE org_id = :o AND lower(name) = lower(:n)"),
                        {"o": org_id, "n": name}).first():
-        raise _fail(409, f"a fund named '{name}' already exists", code="duplicate_fund")
+        raise UserError("disclose.fund.refused.duplicate", name=name)
     parent = str(body.parent_fund_id) if body.parent_fund_id else None
     if (body.fund_type == "sub_portfolio") != (parent is not None):
-        raise _fail(422, "a sub-portfolio names the fund it belongs to (parent_fund_id); another fund type has none",
-                    code="bad_parent")
+        raise UserError("disclose.fund.refused.parent")
     if parent:
         own_or_404(session, "funds", "fund_id", parent, org_id, "Parent fund")
     lei = None
     if (body.lei or "").strip():
-        try:
-            lei = gleif.verified_lei(body.lei).lei
-        except gleif.LeiError as e:
-            raise _fail(422, str(e), code="invalid_lei") from e
+        lei = _verified_lei(body.lei).lei
     fid = session.execute(text("""
         INSERT INTO funds (org_id, name, fund_type, sfdr_classification, base_currency, parent_fund_id, lei)
         VALUES (:o, :n, :t, :a, :c, CAST(:p AS uuid), :lei) RETURNING fund_id::text"""),
@@ -381,12 +380,14 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         for key, val in h.voluntary_pai.items():
             entry = _VOLUNTARY_CATALOG.get(key)
             if entry is None:
-                wrote.setdefault("voluntary_rejected", []).append({"key": key, "reason": "not an adoptable indicator"})
+                wrote.setdefault("voluntary_rejected", []).append({"key": key, "reason": "not an adoptable indicator",
+                                                                   "code": "disclose.fund.onboard.indicator_unknown"})
                 continue
             wants_flag = entry["agg"] == "share"
             if wants_flag != isinstance(val, bool) or (not wants_flag and not isinstance(val, (int, float))):
                 wrote.setdefault("voluntary_rejected", []).append(
-                    {"key": key, "reason": "needs yes/no (true/false)" if wants_flag else "needs a number"})
+                    {"key": key, "reason": "needs yes/no (true/false)" if wants_flag else "needs a number",
+                     "code": "disclose.fund.onboard.indicator_flag" if wants_flag else "disclose.fund.onboard.indicator_number"})
                 continue
             num = val if not wants_flag else None
             flag = val if wants_flag else None
@@ -451,7 +452,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     """
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     if not body.holdings:
-        raise _fail(422, "No holdings supplied.")
+        raise UserError("disclose.fund.refused.no_holdings")
 
     as_of = body.as_of_date or date.today()
 
@@ -572,8 +573,9 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     if body.complete_book:
         failed = [r["isin"] for r in resolutions if r["status"] not in ("resolved", "cached")] + fx_errors
         if failed or len(positioned) != len(by_isin):
-            raise _fail(422, "A complete book must position every line — nothing was changed. Not positioned: "
-                             + ", ".join(map(str, failed or ["a line without a security"])), code="incomplete_book")
+            raise UserError("disclose.fund.refused.incomplete_book", n=len(failed) or 1,
+                            items=", ".join(r["isin"] for r in resolutions if r["status"] not in ("resolved", "cached"))
+                            or "—")
         removed = [dict(r) for r in session.execute(text("""
             DELETE FROM fund_positions p USING securities s
             WHERE p.fund_id = :f AND p.as_of_date = :d AND s.security_id = p.security_id
@@ -593,7 +595,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     from services.eet.share_classes import resolve_isin as own_share_class
     own_classes = [{"isin": i, **sc} for i in by_isin if (sc := own_share_class(session, org_id, i))]
     sector_gaps = [r["isin"] for r in resolutions if r["status"] in ("resolved", "cached") and not r["sector_known"]]
-    return {
+    out = {
         "fund_id": fund_id, "as_of_date": as_of.isoformat(),
         "holdings_submitted": len(body.holdings), "distinct_isins": len(by_isin),
         "positions_created": positions_created,
@@ -619,6 +621,8 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
                 "enrichment inputs — supply them per holding (optional columns) to "
                 "fill the SFDR statement; surfaced, never fabricated.",
     }
+    out["messages"] = W.onboarding(out)         # the outcome in customer words (services.fund_messages)
+    return out
 
 
 @router.post("/funds/{fund_id}/sfdr-statement/file", summary="Freeze the fund's PAI analytics as its record for a reference year (not a filing)")
@@ -628,10 +632,11 @@ def file_sfdr_statement(fund_id: str, session: DbSession, org_id: WriterOrgId):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     st = sfdr_pai_statement(session, fund_id)
     if st.get("error"):
-        return st
+        code, params = W.reason(st["error"])
+        raise UserError(code, 409, **params)
     ref_year = st["summary"].get("reference_year")
     if not ref_year:
-        raise _fail(422, "No reference year — supply issuer emissions with a reporting year before freezing.")
+        raise UserError("disclose.fund.refused.no_reference_year")
     import json
     session.execute(text("""
         INSERT INTO fund_sfdr_filings (fund_id, org_id, reference_year, period_start, period_end,
@@ -644,7 +649,8 @@ def file_sfdr_statement(fund_id: str, session: DbSession, org_id: WriterOrgId):
            "snap": json.dumps(st), "narr": st["coverage_summary"]["filing_readiness"],
            "by": st["entity"].get("manager_legal_name") or st["entity"]["manager"]})
     return {"ok": True, "reference_year": ref_year,
-            "filed": f"FY{ref_year} PAI analytics frozen as the record of {st['entity']['fund_name']} (not a filing)"}
+            "filed": f"FY{ref_year} PAI analytics frozen as the record of {st['entity']['fund_name']} (not a filing)",
+            "msg": messages.render("disclose.fund.frozen", year=ref_year)}
 
 
 # The SFDR pre-contractual and periodic templates (Annexes II–V) are served item by item from the governing
@@ -670,7 +676,7 @@ def entity_sfdr_statement(session: DbSession, org_id: OrgId, period_end: Optiona
     try:
         return entity_pai_statement(session, org_id, period_end)
     except PeriodError as e:
-        raise _fail(422, str(e), code="invalid_period")
+        raise UserError("disclose.pai.refused.period", date=str(period_end)) from e
 
 
 def _statement_period(session, org_id: str, period_end: Optional[date]) -> date:
@@ -696,9 +702,10 @@ def pai_statement_answers(session: DbSession, org_id: OrgId, period_end: Optiona
     try:
         st = entity_pai_statement(session, org_id, pe)
     except PeriodError as e:
-        raise _fail(422, str(e), code="invalid_period")
+        raise UserError("disclose.pai.refused.period", date=str(period_end)) from e
     if st.get("error"):
-        raise _fail(409, st["error"], code="no_statement")
+        code, params = W.reason(st["error"])
+        raise UserError(code, 409, **params)
     spec = R.governing(A.FAMILY, period_end=pe)
     sections = [{"id": sid, "title": R.template(spec, sid)["title"], "ref": R.template(spec, sid)["ref"],
                  "items": [{**i, "binding": A.SECTION_BINDING[sid].get(i["id"])} for i in R.template(spec, sid)["items"]]}
@@ -711,6 +718,8 @@ def pai_statement_answers(session: DbSession, org_id: OrgId, period_end: Optiona
         "rows": [{**r, **st["rows"].get(r["key"], {})} for r in A.impact_rows(st)],
         "prior_period": st["prior_period"], "historical_comparison": st["historical_comparison"],
         "missing": st["filing_readiness"]["missing"], "ready_to_file": st["filing_readiness"]["ready_to_file"],
+        "gaps": W.statement_view(st)["readiness"],         # what is missing, as messages (services.fund_messages)
+        "prior_source": W.source(st["prior_period"]),
         "legacy_narratives": legacy or None,
     }
 
@@ -731,11 +740,14 @@ def save_pai_statement_answers(body: PaiAnswers, session: DbSession,
     try:
         out = A.save(session, org_id, body.period_end, body.answers, ctx["user"]["id"])
     except PeriodError as e:
-        raise _fail(422, str(e), code="invalid_period")
+        raise UserError("disclose.pai.refused.period", date=body.period_end.isoformat()) from e
     except A.AnswerError as e:
-        raise _fail(409, str(e), code="no_statement")
+        if e.code:
+            raise UserError(e.code, 409, **e.params) from e
+        raise UserError("filing.gap.sfdr_unavailable", 409) from e
     if out["refused"]:                  # all or nothing: the error rolls back the answers stored before the refusal
-        raise _fail(422, "; ".join(r["reason"] for r in out["refused"]), code="invalid_answers", refused=out["refused"])
+        first = out["refused"][0]
+        raise UserError("disclose.answers.refused_all", n=len(out["refused"]), first=first["msg"]["label"])
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="sfdr_pai.answers_saved",
                 target_type="template_answers", target_id=f"sfdr_pai/pai_statement/{body.period_end.isoformat()}",
                 detail={"items": out["saved"]})
@@ -792,7 +804,7 @@ def vendor_ingest(body: VendorIngest, session: DbSession, org_id: WriterOrgId):
     """Map a vendor's columns to our fields, match rows to issuers by ISIN/LEI, and
     store as source='vendor' (own > vendor > global precedence). Honest reconciliation."""
     if not body.rows:
-        raise _fail(422, "No rows supplied.")
+        raise UserError("disclose.fund.refused.no_rows")
     return ingest_vendor_extract(session, org_id, body.rows, profile=body.profile,
                                  mapping=body.mapping, reporting_year=body.reporting_year)
 
@@ -806,7 +818,7 @@ def set_voluntary_pai(fund_id: str, body: VoluntaryPaiSelection, session: DbSess
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     bad = validate_keys(body.indicator_keys)
     if bad:
-        raise _fail(422, f"Not an adoptable indicator: {', '.join(bad)}.", code="unknown_indicator", catalog=list(_VOLUNTARY_CATALOG))
+        raise UserError("disclose.fund.refused.indicator", n=len(bad))
     session.execute(text("DELETE FROM fund_voluntary_pai WHERE fund_id = :f"), {"f": fund_id})
     for key in dict.fromkeys(body.indicator_keys):   # de-dup, preserve order
         session.execute(text("""
@@ -816,7 +828,8 @@ def set_voluntary_pai(fund_id: str, body: VoluntaryPaiSelection, session: DbSess
     return {
         "fund_id": fund_id, "selected": body.indicator_keys,
         "adoption_compliant": "environmental" in kinds and "social" in kinds,
-        "note": "Adopted. Supply per-issuer values (voluntary_pai on the holding upload) to populate the roll-up.",
+        "note": "Adopted. Add each investee's values for these indicators to the holdings upload to fill the roll-up.",
+        "msg": messages.render("disclose.fund.voluntary.saved", n=len(dict.fromkeys(body.indicator_keys))),
     }
 
 
@@ -840,9 +853,9 @@ def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession,
           AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = :f)
     """), {"f": fund_id, "i": isin}).mappings().first()
     if not pos:
-        raise _fail(422, f"{isin} is not a current holding of this fund.")
+        raise UserError("disclose.fund.refused.not_held", isin=isin)
     if not body.constituents:
-        raise _fail(422, "No constituents supplied.")
+        raise UserError("disclose.fund.refused.no_constituents")
 
     wrapper_value = pos["mv"]
     # Scale constituents so their values sum to the wrapper's value (preserve exposure).
@@ -874,12 +887,17 @@ def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession,
     }
 
 
-_CODES = {404: "not_found", 403: "forbidden", 422: "invalid"}
+def _verified_lei(lei: str):
+    """An LEI checked against GLEIF (services.reference.gleif.verified_lei), or the refusal in the catalogue's words:
+    malformed, not in the register, or the register unreachable."""
+    try:
+        return gleif.verified_lei(lei)
+    except gleif.LeiError as e:
+        raise UserError(_LEI_REFUSAL.get(e.kind, "disclose.fund.lei.invalid"), lei=(lei or "").strip().upper()) from e
 
 
-def _fail(status: int, message: str, code: str | None = None, **extra) -> HTTPException:
-    """A refusal as a real HTTP error ({error, message}), never a 200 carrying an 'error' field."""
-    return HTTPException(status, {"error": code or _CODES.get(status, "error"), "message": message, **extra})
+_LEI_REFUSAL = {"invalid": "disclose.fund.lei.invalid", "unknown": "disclose.fund.lei.unknown",
+                "unreachable": "disclose.fund.lei.unreachable"}
 
 
 @router.get("/funds/{fund_id}/sfdr-statement", summary="A fund's PAI analytics — the frozen record for the current year if one exists, else live (not a filing)")
@@ -888,6 +906,7 @@ def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
     statement, is_frozen = frozen_or_live_statement(session, fund_id)
     if not statement.get("error"):
         statement["filing_status"] = "filed" if is_frozen else "draft_not_yet_filed"
+    statement["view"] = W.statement_view(statement)        # its words for the screen (services.fund_messages)
     return statement
 
 
@@ -917,7 +936,7 @@ _SFDR_XBRL_RETIRED = ("Retired: no official SFDR PAI XBRL taxonomy is held, and 
 
 
 def _sfdr_xbrl_retired():
-    raise HTTPException(status_code=410, detail={"error": "retired", "message": _SFDR_XBRL_RETIRED})
+    raise UserError("disclose.fund.refused.xbrl_retired", 410)
 
 
 @router.get("/funds/{fund_id}/sfdr-statement.xbrl", summary="Retired — SFDR PAI XBRL", description=_SFDR_XBRL_RETIRED,
@@ -951,7 +970,7 @@ def get_filing_profile(session: DbSession, org_id: OrgId):
         "SELECT name, legal_name, lei, filing_contact_email, country "
         "FROM organizations WHERE org_id = :o"), {"o": org_id}).mappings().first()
     if not row:
-        return {"error": "org not found"}
+        raise UserError("error.not_found")
     return dict(row)
 
 
@@ -960,13 +979,9 @@ def set_filing_profile(body: FilingProfile, session: DbSession,
                        ctx: dict = Depends(require_permission("approvals.create"))):
     org_id = ctx["org"]["org_id"]
     lei = (body.lei or "").strip().upper()
-    try:
-        rec = gleif.verified_lei(lei)
-    except gleif.LeiError as e:
-        raise _fail(422, str(e), code="invalid_lei") from e
+    rec = _verified_lei(lei)
     if body.narratives is not None:     # one set for every period answered nothing the Regulation asks, item by item
-        raise _fail(422, "The PAI statement is answered per reference period, item by item as Articles 5 to 9 of "
-                         "Delegated Regulation (EU) 2022/1288 require — use the statement's answers.", code="retired")
+        raise UserError("disclose.fund.refused.narratives")
     # A legal name not given keeps the one on file for the same LEI; only a new LEI (or none on file) takes GLEIF's
     # name — a narratives save re-sends the LEI alone and must not overwrite the manager's legal name.
     session.execute(text("""
@@ -985,10 +1000,7 @@ def set_filing_profile(body: FilingProfile, session: DbSession,
 def set_fund_lei(fund_id: str, body: FilingProfile, session: DbSession, org_id: WriterOrgId):
     own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
     lei = (body.lei or "").strip().upper()
-    try:
-        rec = gleif.verified_lei(lei)
-    except gleif.LeiError as e:
-        raise _fail(422, str(e), code="invalid_lei") from e
+    rec = _verified_lei(lei)
     session.execute(text("UPDATE funds SET lei = :lei, updated_at = now() WHERE fund_id = :f"),
                     {"lei": lei, "f": fund_id})
     return {"ok": True, "lei": lei, "validated_name": rec.name}
@@ -1002,11 +1014,11 @@ class WithdrawBody(BaseModel):
              summary="Withdraw the data your organisation stated about an issuer (audited, with the reason)")
 def withdraw_issuer_data(issuer_id: UUID, body: WithdrawBody, session: DbSession,
                          ctx: dict = Depends(require_permission("approvals.create"))):
-    from services import issuer_client_data as W
+    from services import issuer_client_data as C
     try:
-        return W.withdraw(session, ctx["org"]["org_id"], str(issuer_id), body.reason, ctx["user"]["id"])
-    except W.WithdrawError as e:
-        raise _fail(404 if isinstance(e, W.NothingToWithdraw) else 422, str(e), code="withdraw") from e
+        return C.withdraw(session, ctx["org"]["org_id"], str(issuer_id), body.reason, ctx["user"]["id"])
+    except C.WithdrawError as e:
+        raise UserError(e.code, **e.params) from e
 
 
 @router.get("/issuers/{issuer_id}", summary="One issuer — full facility footprint + physical + transition detail")
@@ -1020,7 +1032,7 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
         WHERE s.issuer_id = :i AND f.org_id = :o LIMIT 1
     """), {"i": issuer_id, "o": org_id}).first()
     if not held:
-        raise _fail(404, "That issuer is not in your holdings.")
+        raise UserError("disclose.fund.issuer_not_held")
 
     issuer = session.execute(text("""
         SELECT issuer_id::text AS issuer_id, lei, name, issuer_type, country, sector, nace_code

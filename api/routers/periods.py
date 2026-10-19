@@ -5,11 +5,12 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
+from core.errors import UserError
 from services.governance import csrd_roles as CR
 from services.governance import period_close as PC
 
@@ -52,7 +53,7 @@ def request_role(body: RoleBody, session: DbSession, ctx: dict = Depends(require
     try:
         return CR.request_role(session, ctx["org"]["org_id"], ctx["user"]["id"], **body.model_dump())
     except CR.RoleError as e:
-        raise HTTPException(409, {"error": "invalid_role", "message": str(e)})
+        raise UserError(e.code, 409, **e.params) from e
 
 
 @router.get("", summary="The organisation's closed reporting periods")
@@ -63,7 +64,8 @@ def list_closes(session: DbSession, ctx: dict = Depends(require_permission("repo
 @router.get("/close/blockers", summary="What stops a period from closing now")
 def blockers(period_end: date, session: DbSession, entity_id: Optional[str] = None,
              ctx: dict = Depends(require_permission("reports.view"))):
-    return {"blockers": PC.close_blockers(session, ctx["org"]["org_id"], entity_id, period_end)}
+    items = PC.close_blocker_items(session, ctx["org"]["org_id"], entity_id, period_end)
+    return {"blockers": [b["text"] for b in items], "messages": [b["msg"] for b in items]}
 
 
 @router.post("/close", status_code=202, summary="Ask to close a reporting period (a second person approves)")
@@ -72,7 +74,7 @@ def request_close(body: CloseBody, session: DbSession, ctx: dict = Depends(requi
         out = PC.request_close(session, ctx["org"]["org_id"], ctx["user"]["id"], entity_id=body.entity_id,
                                period_end=body.period_end, note=body.note)
     except PC.PeriodError as e:
-        raise HTTPException(409, {"error": "cannot_close", "message": str(e)})
+        raise UserError(e.code, 409, **e.params) from e
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="period.close.request",
                 target_type="period", target_id=None, detail={"period_end": body.period_end.isoformat(), "entity_id": body.entity_id})
     return out
@@ -86,7 +88,7 @@ def restate_site_value(body: RestateSiteValue, session: DbSession, ctx: dict = D
                                                 period_end=body.period_end, measure=body.measure, amount=body.amount,
                                                 currency=body.currency, reason=body.reason)
     except PC.PeriodError as e:
-        raise HTTPException(409, {"error": "cannot_restate", "message": str(e)})
+        raise UserError(e.code, 409, **e.params) from e
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="period.restate.request",
                 target_type="company_site", target_id=body.site_id,
                 detail={"period_end": body.period_end.isoformat(), "measure": body.measure})

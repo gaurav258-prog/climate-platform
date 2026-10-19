@@ -89,4 +89,4 @@ def test_the_year_end_close_and_the_restatement_of_a_closed_period(api):
     r = api.post("/v1/periods/restatements/site-value", headers=maker, json={
         "site_id": site, "period_end": "2024-12-31", "measure": "carrying_amount", "amount": 1, "currency": "EUR",
         "reason": "this period was never closed"})
-    assert r.status_code == 409 and "the period is open" in r.text
+    assert r.status_code == 409 and r.json()["error"]["error"] == "disclose.period.open"

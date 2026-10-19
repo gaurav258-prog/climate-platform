@@ -20,7 +20,12 @@ MIN_REASON = 10
 
 
 class WithdrawError(ValueError):
-    """The request cannot be done as asked (e.g. no reason)."""
+    """The request cannot be done as asked (e.g. no reason). code and params are its catalogue message
+    (data/reference/messages.en.json, disclose.fund.withdraw.*) — a screen shows that, never the sentence."""
+
+    def __init__(self, message: str, code: str = "disclose.fund.withdraw.reason", **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 class NothingToWithdraw(WithdrawError):
@@ -51,10 +56,11 @@ def withdraw(session: Session, org_id: str, issuer_id: str, reason: str, actor_u
     from api.services.rbac import write_audit
     why = (reason or "").strip()
     if len(why) < MIN_REASON:
-        raise WithdrawError(f"say why the data is withdrawn (at least {MIN_REASON} characters)")
+        raise WithdrawError(f"say why the data is withdrawn (at least {MIN_REASON} characters)",
+                            "disclose.fund.withdraw.reason", n=MIN_REASON)
     name = session.execute(text("SELECT name FROM issuers WHERE issuer_id = CAST(:i AS uuid)"), {"i": issuer_id}).scalar()
     if name is None:
-        raise NothingToWithdraw("issuer not found")
+        raise NothingToWithdraw("issuer not found", "disclose.fund.issuer_not_held")
     from services import issuer_taxonomy
     gone: dict[str, list] = {}
     tax = issuer_taxonomy.withdraw_org(session, org_id, issuer_id)
@@ -66,7 +72,8 @@ def withdraw(session: Session, org_id: str, issuer_id: str, reason: str, actor_u
         if rows:
             gone[t] = rows
     if not gone:
-        raise NothingToWithdraw(f"your organisation holds no data of its own about {name}")
+        raise NothingToWithdraw(f"your organisation holds no data of its own about {name}", "disclose.fund.withdraw.nothing",
+                                issuer=name)
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action="issuer.client_data_withdrawn",
                 target_type="issuer", target_id=issuer_id,
                 detail={"issuer": name, "reason": why, "rows": json.loads(json.dumps(gone, default=str))})

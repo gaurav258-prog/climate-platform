@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, FileSpreadsheet, Check } from 'lucide-react'
-import { api, apiMessage, download } from '../lib/api'
+import { Upload, FileSpreadsheet, ListPlus, PackagePlus } from 'lucide-react'
+import { api, apiMessage, apiDetail, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
+import { HEADING, InfoButton, MessageLine, type Message } from './Details'
+import { StatusChip } from './StatusChip'
+import { Meter, SidePanel } from './sfdr/visuals'
 
-// Two write actions on a fund: onboard holdings by ISIN (the golden source resolves + locates + value-weights
-// each one), and choose the voluntary PAI indicators the fund adopts (≥1 environmental + ≥1 social).
+// Two write actions on a fund: add holdings by ISIN (each matched to its issuer, located and weighted by value into the
+// fund), and choose the additional adverse-impact indicators the fund adopts (at least one environmental and one social).
 
 // Minimal RFC-4180-ish CSV parser (handles quoted fields + escaped quotes) — the holdings endpoint takes
 // JSON, so we parse the template CSV client-side rather than shipping a half-broken split(',').
@@ -32,55 +35,58 @@ function coerce(v: string): string | number | boolean | undefined {
   return v.trim() !== '' && isFinite(n) ? n : v
 }
 
-interface OnboardResp { holdings_submitted: number; distinct_isins: number; positions_created: number
-  coverage: { matched: number; match_rate_pct: number; unmatched: string[] }; note?: string; voluntary_rejected?: { isin: string; key: string; reason: string }[] }
+interface OnboardResp {
+  holdings_submitted: number; distinct_isins: number; positions_created: number; coverage: { matched: number; match_rate_pct: number }
+  messages: { summary: Message } & Partial<Record<'unmatched' | 'errored' | 'fx' | 'sector' | 'located' | 'own' | 'refused', Message>>
+}
+type Problem = { label: string; detail: ReturnType<typeof apiDetail> } | null
 
 export function OnboardHoldings({ fundId, onDone }: { fundId: string; onDone: () => void }) {
-  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState<OnboardResp | null>(null)
-  const [err, setErr] = useState<string | null>(null)
+  const [err, setErr] = useState<Problem>(null)
 
   const send = async (file: File) => {
     setBusy(true); setErr(null); setRes(null)
     try {
       const rows = parseCsv(await file.text())
-      if (!rows.length) { setErr('The CSV had no data rows.'); return }
+      if (!rows.length) { setErr({ label: 'The file has no rows.', detail: { what: 'The file holds a header but no holdings.', next: 'Fill the template with one row per holding.' } }); return }
       const holdings = rows.map(r => { const o: Record<string, unknown> = {}; for (const k in r) { const c = coerce(r[k]); if (c !== undefined) o[k] = c } return o }).filter(h => h.isin)
-      if (!holdings.length) { setErr('No rows had an ISIN.'); return }
+      if (!holdings.length) { setErr({ label: 'No row has an ISIN.', detail: { what: 'Each holding is matched to its issuer by its ISIN.', next: 'Fill the ISIN column of the template.' } }); return }
       const r = await api.post<OnboardResp>(`/v1/funds/${fundId}/holdings`, { holdings })
       setRes(r); onDone()
-    } catch (e) { setErr(apiMessage(e, 'Could not onboard the holdings.')) }
+    } catch (e) { setErr({ label: apiMessage(e, 'Could not add the holdings.'), detail: apiDetail(e) }) }
     finally { setBusy(false) }
   }
+  const extra = res ? (['unmatched', 'errored', 'fx', 'sector', 'located', 'own', 'refused'] as const).map(k => res.messages[k]).filter(Boolean) as Message[] : []
 
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Onboard holdings by ISIN</div>
-        <button onClick={() => setOpen(o => !o)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">{open ? 'close' : 'add holdings'}</button>
-      </div>
-      {open && (
-        <div className="mt-3 space-y-2">
-          <p className="text-[12px] text-[var(--color-mute)]">Upload a CSV of ISINs (+ market value). Each is resolved to its issuer, located on our hexagonal grid and value-weighted into the fund — filling the SFDR statement automatically. Start from the template.</p>
-          {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
-          {res && (
-            <div className="text-[12px] text-[var(--color-good)]">
-              Onboarded {res.positions_created} position{res.positions_created === 1 ? '' : 's'} · {res.coverage.matched}/{res.distinct_isins} ISINs matched ({Math.round(res.coverage.match_rate_pct)}%).
-              {res.coverage.unmatched?.length ? <span className="text-[var(--color-warn)]"> Unmatched: {res.coverage.unmatched.slice(0, 6).join(', ')}{res.coverage.unmatched.length > 6 ? '…' : ''}</span> : null}
-              {res.voluntary_rejected?.length ? <span className="text-[var(--color-warn)]"> {res.voluntary_rejected.length} indicator value{res.voluntary_rejected.length === 1 ? '' : 's'} refused: {res.voluntary_rejected.slice(0, 3).map(v => `${v.isin} ${v.key} (${v.reason})`).join('; ')}{res.voluntary_rejected.length > 3 ? '…' : ''}</span> : null}
-            </div>
-          )}
-          <div className="flex items-center gap-3">
-            <label className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-medium cursor-pointer transition ${busy ? 'bg-[var(--color-panel)] text-[var(--color-faint)]' : 'bg-[var(--color-sky)] text-[#08111f] hover:bg-[var(--color-blue)]'}`}>
-              <Upload size={14} /> {busy ? 'onboarding…' : 'Upload CSV'}
-              <input type="file" accept=".csv" className="hidden" disabled={busy} onChange={e => { const f = e.target.files?.[0]; if (f) send(f); e.target.value = '' }} />
-            </label>
-            <button onClick={() => download('/v1/holdings/template.csv', 'tellumen_holdings_template.csv').catch(() => toast.error('Could not download the template.'))}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-4 py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><FileSpreadsheet size={14} /> Template</button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <SectionHead icon={PackagePlus}>Add holdings</SectionHead>
+          <InfoButton compact details={{ title: 'Add holdings', sections: [
+            { heading: HEADING.shows, body: 'Upload a file of ISINs with their market value. Each is matched to its issuer, located on the map and weighted by value into the fund, which fills its figures.' },
+            { heading: HEADING.read, body: 'Start from the template. Optional columns carry what you hold about each issuer — industry, emissions, revenue, Taxonomy shares — and fill the figures investees do not report.' }] }} />
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <button onClick={() => download('/v1/holdings/template.csv', 'tellumen_holdings_template.csv').catch(() => toast.error('Could not download the template.'))}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12.5px] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><FileSpreadsheet size={14} /> Template</button>
+          <label className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium cursor-pointer transition ${busy ? 'bg-[var(--color-panel)] text-[var(--color-faint)]' : 'bg-[var(--color-sky)] text-[#08111f] hover:bg-[var(--color-blue)]'}`}>
+            <Upload size={14} /> {busy ? 'Adding…' : 'Upload'}
+            <input type="file" accept=".csv" className="hidden" disabled={busy} onChange={e => { const f = e.target.files?.[0]; if (f) send(f); e.target.value = '' }} />
+          </label>
+        </div>
+      </div>
+      {err && <MessageLine m={err} className="mt-3 text-[12.5px] text-[var(--color-bad)]" />}
+      {res && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-[auto_1fr] items-start">
+          <div className="space-y-1.5">
+            <MessageLine m={res.messages.summary} className="text-[13px] text-[var(--color-good)]" />
+            <div className="flex items-center gap-2 text-[11.5px] text-[var(--color-faint)]">ISINs matched <Meter value={res.coverage.match_rate_pct} width="w-24" /></div>
+          </div>
+          {extra.length > 0 && <div className="flex flex-wrap gap-x-4 gap-y-1 sm:justify-end">{extra.map((m, i) => <MessageLine key={i} m={m} className="text-[12px] text-[var(--color-warn)]" />)}</div>}
+        </div>)}
     </Card>
   )
 }
@@ -91,54 +97,62 @@ export function VoluntaryPai({ fundId, selected, onDone }: { fundId: string; sel
   const cat = useQuery({ queryKey: ['vpai-catalog'], queryFn: () => api.get<{ indicators: Cat[] }>('/v1/voluntary-pai/catalog') })
   const [open, setOpen] = useState(false)
   const [sel, setSel] = useState<string[]>(selected)
-  const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null); const [ok, setOk] = useState(false)
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState<Problem>(null)
   const inds = cat.data?.indicators ?? []
   const env = inds.filter(i => i.kind === 'environmental'), soc = inds.filter(i => i.kind === 'social')
   const toggle = (k: string) => setSel(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
-  const nEnv = sel.filter(k => env.some(e => e.key === k)).length
-  const nSoc = sel.filter(k => soc.some(e => e.key === k)).length
+  const nEnv = (list: string[]) => list.filter(k => env.some(e => e.key === k)).length
+  const nSoc = (list: string[]) => list.filter(k => soc.some(e => e.key === k)).length
 
   const save = async () => {
-    setBusy(true); setErr(null); setOk(false)
+    setBusy(true); setErr(null)
     try {
-      await api.put(`/v1/funds/${fundId}/voluntary-pai`, { indicator_keys: sel })
-      setOk(true); qc.invalidateQueries({ queryKey: ['fund-sfdr', fundId] }); onDone()
-    } catch (e) { setErr(apiMessage(e, 'Could not save.')) }
+      const r = await api.put<{ msg: Message }>(`/v1/funds/${fundId}/voluntary-pai`, { indicator_keys: sel })
+      toast.success(r.msg.label); qc.invalidateQueries({ queryKey: ['fund-sfdr', fundId] }); onDone(); setOpen(false)
+    } catch (e) { setErr({ label: apiMessage(e, 'Could not save.'), detail: apiDetail(e) }) }
     finally { setBusy(false) }
   }
 
   const group = (title: string, list: Cat[]) => (
     <div>
-      <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1">{title}</div>
-      <div className="space-y-1">
+      <div className="text-[12.5px] font-medium text-[var(--color-ink)] mb-1.5">{title}</div>
+      <div className="space-y-1.5">
         {list.map(i => (
-          <label key={i.key} className="flex items-start gap-2 text-[12px] cursor-pointer">
+          <label key={i.key} className="flex items-start gap-2 text-[12.5px] cursor-pointer">
             <input type="checkbox" checked={sel.includes(i.key)} onChange={() => toggle(i.key)} className="mt-0.5" />
-            <span className="text-[var(--color-mute)]" title={i.metric}><span className="mono text-[10px] text-[var(--color-faint)]">T{i.table}·{i.row}</span> {i.name} <span className="text-[var(--color-faint)] mono text-[10px]">{i.unit}</span></span>
+            <span className="text-[var(--color-mute)]">{i.name} <span className="text-[var(--color-faint)] text-[11px]">{i.unit}</span></span>
+            <InfoButton compact details={{ title: i.name, sections: [{ heading: 'Metric', body: i.metric }, { heading: 'Where the Regulation prints it', body: `Annex I, Table ${i.table}, indicator ${i.row}` }] }} />
           </label>
         ))}
       </div>
     </div>
   )
+  const ok = (list: string[]) => nEnv(list) >= 1 && nSoc(list) >= 1
 
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Voluntary PAI indicators <span className="text-[var(--color-mute)]">· {selected.length} adopted</span></div>
-        <button onClick={() => { setSel(selected); setOpen(o => !o); setOk(false); setErr(null) }} className="mono text-[11px] text-[var(--color-sky)] hover:underline">{open ? 'close' : 'choose'}</button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <SectionHead icon={ListPlus}>Additional indicators</SectionHead>
+          <StatusChip tone={ok(selected) ? 'good' : 'warn'} label={`${nEnv(selected)} environmental · ${nSoc(selected)} social`} />
+          <InfoButton compact details={{ title: 'Additional indicators', sections: [
+            { heading: HEADING.shows, body: 'Besides the mandatory indicators, a fund adopts at least one more environmental and one more social indicator.' },
+            { heading: HEADING.limits, body: 'Indicators for government bonds, real estate and green bonds need data not held per issuer, so they are not offered.' },
+            { heading: 'Legal basis', body: 'Delegated Regulation (EU) 2022/1288, Annex I, Tables 2 and 3.' }] }} />
+        </div>
+        <Button variant="ghost" onClick={() => { setSel(selected); setErr(null); setOpen(true) }}>Choose</Button>
       </div>
       {open && (
-        <div className="mt-3 space-y-3">
-          <p className="text-[11.5px] text-[var(--color-mute)]">SFDR requires adopting at least one additional environmental and one additional social indicator (RTS Annex I, Tables 2 &amp; 3, numbered as in the regulation). Rows for sovereigns, real estate and green bonds need data we do not hold per issuer and are not offered.</p>
-          {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
-          {ok && <div className="text-[12px] text-[var(--color-good)] inline-flex items-center gap-1"><Check size={13} /> Saved.</div>}
-          <div className="grid sm:grid-cols-2 gap-4">{group('Environmental', env)}{group('Social', soc)}</div>
-          <div className="flex items-center gap-3">
-            <Button variant="primary" onClick={save} disabled={busy || nEnv < 1 || nSoc < 1}>Save selection</Button>
-            <span className="mono text-[10.5px]" style={{ color: nEnv >= 1 && nSoc >= 1 ? 'var(--color-good)' : 'var(--color-faint)' }}>{nEnv} env · {nSoc} social</span>
+        <SidePanel title="Additional indicators" onClose={() => setOpen(false)}>
+          <div className="space-y-4">
+            {err && <MessageLine m={err} className="text-[12px] text-[var(--color-bad)]" />}
+            {group('Environmental', env)}{group('Social', soc)}
+            <div className="flex items-center gap-3 pt-2 border-t border-[var(--color-line)]">
+              <Button variant="primary" onClick={save} disabled={busy || !ok(sel)}>Save selection</Button>
+              <StatusChip tone={ok(sel) ? 'good' : 'warn'} label={`${nEnv(sel)} environmental · ${nSoc(sel)} social`} />
+            </div>
           </div>
-        </div>
-      )}
+        </SidePanel>)}
     </Card>
   )
 }

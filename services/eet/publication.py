@@ -24,6 +24,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
 from services.eet import fields as F
 from services.eet.generator import build, computed_names
 
@@ -31,7 +32,12 @@ VOLATILE = {"00050_EET_File_Generation_Date_And_Time"}
 
 
 class EETError(ValueError):
-    pass
+    """A step refused: its sentence (logs, other callers) and the same as a catalogue message — code and params of
+    data/reference/messages.en.json (disclose.eet.*) — which the API answers (core/errors.py UserError)."""
+
+    def __init__(self, message: str, code: str = "disclose.eet.refused.general", status: int = 422, **params):
+        super().__init__(message)
+        self.code, self.status, self.params = code, status, params
 
 
 # ───────────────────────────── answers ─────────────────────────────
@@ -54,23 +60,26 @@ def set_answers(session: Session, org_id: str, fund_id: Optional[str], values: d
     """values: {field_name: value | None}. Returns {saved, removed, refused: [{field, reason}]}."""
     if fund_id and not session.execute(text("SELECT 1 FROM funds WHERE fund_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
                                        {"f": fund_id, "o": org_id}).first():
-        raise EETError("fund not found")
+        raise EETError("fund not found", "filing.refused.fund_not_found", 404)
     computed = computed_names()
     saved, removed, refused, from_book = [], [], [], []
     for name, raw in (values or {}).items():
         if name not in F.by_name():
-            refused.append({"field": name, "reason": f"not an EET {F.version()} field"})
+            refused.append({"field": name, "reason": f"not an EET {F.version()} field",
+                            "msg": messages.render("disclose.eet.answer.unknown_field", version=F.version())})
             continue
         from services.eet.sfdr_items import names as template_fields
         if name in template_fields():            # stated once, in the product's SFDR pre-contractual template
             refused.append({"field": name, "reason": "answered in the fund's SFDR pre-contractual template "
-                                                     "(Annex II / III) — the EET reads it from there"})
+                                                     "(Annex II / III) — the EET reads it from there",
+                            "msg": messages.render("disclose.eet.answer.in_template")})
             continue
         if name in computed:     # accepted, but a figure from the book takes precedence whenever the book has one
             from_book.append(name)
         scope = _scope(name)
         if scope == "fund" and not fund_id:
-            refused.append({"field": name, "reason": "a product field — answer it for a fund"})
+            refused.append({"field": name, "reason": "a product field — answer it for a fund",
+                            "msg": messages.render("disclose.eet.answer.fund_field")})
             continue
         table, key, kid = (("org_eet_answers", "org_id", org_id) if scope == "organisation"
                            else ("fund_eet_answers", "fund_id", fund_id))
@@ -83,7 +92,7 @@ def set_answers(session: Session, org_id: str, fund_id: Optional[str], values: d
         try:
             v = F.check(name, raw)
         except F.EETValueError as e:
-            refused.append({"field": name, "reason": str(e)})
+            refused.append({"field": name, "reason": str(e), "msg": messages.render(e.code, **e.params)})
             continue
         session.execute(text(f"""
             INSERT INTO {table} ({key}, field_name, value, updated_by) VALUES (CAST(:k AS uuid), :n, :v, CAST(:u AS uuid))
@@ -108,19 +117,21 @@ def _comparable(rows: list[dict]) -> dict:
 def prepare(session: Session, org_id: str, user_id: Optional[str], uses: list[str], note: Optional[str] = None) -> dict:
     bad = [u for u in uses if u not in F.USES]
     if bad or not uses:
-        raise EETError(f"choose the uses the file is for: {', '.join(F.USES)}")
+        raise EETError(f"choose the uses the file is for: {', '.join(F.USES)}", "disclose.eet.refused.uses")
     out = build(session, org_id, tuple(uses))
     comp = out["completeness"]
     if not out["rows"]:
-        raise EETError("no active share classes — register the share classes the EET is for first")
+        raise EETError("no active share classes — register the share classes the EET is for first",
+                       "disclose.eet.refused.no_share_classes")
     if comp.get("n_data_checks"):
         dc = out["data_checks"][0]
         raise EETError(f"{comp['n_data_checks']} company figure(s) look like a unit slip (e.g. {dc['issuer']}: {dc['label']} "
-                       f"{dc['reported']:g} — {dc['why']}). Correct them, or confirm each as right, before preparing a version")
+                       f"{dc['reported']:g} — {dc['why']}). Correct them, or confirm each as right, before preparing a version",
+                       "disclose.eet.refused.data_checks", n=comp["n_data_checks"], issuer=dc["issuer"], figure=dc["label"])
     if not comp["ready"]:
         eg = ", ".join(b["field"] for b in comp["blocking"][:5])
         raise EETError(f"{comp['n_blocking']} mandatory field(s) are still empty ({eg}{', …' if comp['n_blocking'] > 5 else ''}) — "
-                       f"answer them before preparing a version")
+                       f"answer them before preparing a version", "disclose.eet.refused.blocking", n=comp["n_blocking"])
     payload = {k: out[k] for k in ("eet_version", "uses", "generated_at", "field_names", "rows", "funds", "notes")}
     sha = hashlib.sha256(_canonical(payload).encode()).hexdigest()
     version = session.execute(text("SELECT COALESCE(MAX(version), 0) + 1 FROM eet_publications WHERE org_id = CAST(:o AS uuid)"),
@@ -153,7 +164,7 @@ def apply_decision(session: Session, org_id: str, payload: dict, decision: str, 
         WHERE publication_id = CAST(:p AS uuid) AND org_id = CAST(:o AS uuid) AND status = 'pending'
     """), {"s": status, "u": actor, "r": reason, "p": pid, "o": org_id}).rowcount
     if not n:
-        raise EETError("that EET version is not awaiting a decision")
+        raise EETError("that EET version is not awaiting a decision", "disclose.eet.refused.not_pending", 409)
     return {"publication_id": pid, "status": status}
 
 
@@ -186,7 +197,7 @@ def list_versions(session: Session, org_id: str) -> list[dict]:
 def get(session: Session, org_id: str, publication_id: str, with_payload: bool = True) -> dict:
     r = session.execute(text(_SELECT + " AND p.publication_id = CAST(:p AS uuid)"), {"o": org_id, "p": publication_id}).mappings().first()
     if not r:
-        raise EETError("EET version not found")
+        raise EETError("EET version not found", "error.not_found", 404)
     return _row(r, with_payload)
 
 
@@ -213,7 +224,8 @@ def changes(session: Session, org_id: str) -> dict:
 def export(session: Session, org_id: str, publication_id: str, fmt: str) -> tuple[str, str, bytes]:
     pub = get(session, org_id, publication_id)
     if not pub["hash_verified"]:
-        raise EETError("this EET version no longer matches its content hash — it can't be sent")
+        raise EETError("this EET version no longer matches its content hash — it can't be sent",
+                       "disclose.eet.refused.tampered", 409)
     p = pub["payload"]
     names, rows = p["field_names"], [r["values"] for r in p["rows"]]
     stem = f"EET_{p['eet_version']}_v{pub['version']}_{pub['reference_date']}" + ("" if pub["status"] == "published" else f"_{pub['status'].upper()}")
@@ -235,7 +247,7 @@ def export(session: Session, org_id: str, publication_id: str, fmt: str) -> tupl
         buf = io.BytesIO()
         wb.save(buf)
         return f"{stem}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.getvalue()
-    raise EETError("format is xlsx or csv")
+    raise EETError("format is xlsx or csv", "disclose.eet.refused.format")
 
 
 def _cell(name: str, v):

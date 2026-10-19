@@ -45,7 +45,7 @@ def test_anonymous_access_is_read_only_and_refusals_are_http_errors(api):
     assert r.status_code in (401, 403)                                # anonymous: no writes
     mgr = login(api, "admin@nordkap.demo", "Demo!admin1")
     bad = api.put(f"/v1/funds/{fund}/voluntary-pai", headers=mgr, json={"indicator_keys": ["t2_6_1", "water_consumption_m3_per_meur"]})
-    assert bad.status_code == 422 and "Not an adoptable indicator" in bad.json()["error"]["message"]
+    assert bad.status_code == 422 and bad.json()["error"]["error"] == "disclose.fund.refused.indicator"
     ok = api.put(f"/v1/funds/{fund}/voluntary-pai", headers=mgr, json={"indicator_keys": ["t2_6_1", "t3_5"]})
     assert ok.status_code == 200 and ok.json()["adoption_compliant"] is True
     other_fund = _one(s, "SELECT fund_id::text FROM funds WHERE org_id <> CAST(:o AS uuid) LIMIT 1", o=AM_DEMO)

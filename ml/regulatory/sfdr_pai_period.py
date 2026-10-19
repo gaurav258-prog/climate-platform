@@ -35,6 +35,11 @@ def reference_dates(period_end) -> list[date]:
 def holdings_gaps(session, fund_ids: list[str], dates: list[date]) -> list[str]:
     """For each date, the funds holding positions on some date of the year but none on that one — their impact on that
     date is not known (a fund with no holdings on file for the date is a gap, never read as holding nothing)."""
+    return [f"{g['fund']}: no holdings dated {', '.join(g['dates'])}" for g in holdings_gap_items(session, fund_ids, dates)]
+
+
+def holdings_gap_items(session, fund_ids: list[str], dates: list[date]) -> list[dict]:
+    """holdings_gaps() as {fund, dates}: the fund's name and the dates it has no holdings on file for."""
     if not fund_ids:
         return []
     rows = session.execute(text("""
@@ -46,7 +51,7 @@ def holdings_gaps(session, fund_ids: list[str], dates: list[date]) -> list[str]:
     for name, held in rows:
         missing = [d.isoformat() for d in dates if d not in set(held)]
         if missing:
-            out.append(f"{name}: no holdings dated {', '.join(missing)}")
+            out.append({"fund": name, "dates": missing})
     return out
 
 

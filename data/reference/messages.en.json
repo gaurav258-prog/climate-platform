@@ -6267,6 +6267,1558 @@
    "detail": {
     "what": "The share was already revoked or has expired."
    }
+  },
+  "disclose.identity.lei": {
+   "label": "Manager LEI not set",
+   "detail": {
+    "what": "Every statement names the manager by its legal entity identifier (LEI).",
+    "next": "Set it under Filing identity on the Funds page; it is checked against the global LEI register."
+   }
+  },
+  "disclose.identity.legal_name": {
+   "label": "Manager legal name not set",
+   "detail": {
+    "what": "Every statement names the manager by its registered legal name.",
+    "next": "Set it under Filing identity on the Funds page, or let the LEI register fill it."
+   }
+  },
+  "disclose.identity.contact": {
+   "label": "Filing contact e-mail not set",
+   "detail": {
+    "what": "A statement names the person the regulator can contact about it.",
+    "next": "Add the filing contact e-mail under Filing identity on the Funds page."
+   }
+  },
+  "disclose.fund.ready.reference_year": {
+   "label": "No reference year yet",
+   "detail": {
+    "what": "The year of the figures comes from the investees' emissions, and none are stated with a reporting year.",
+    "next": "Add the investees' emissions with their reporting year to the holdings upload."
+   }
+  },
+  "disclose.fund.no_positions": {
+   "label": "No holdings to report on",
+   "detail": {
+    "what": "This fund holds no positions yet, so there are no figures to compute.",
+    "next": "Add the fund's holdings by ISIN."
+   }
+  },
+  "disclose.fund.taxonomy.not_asserted": {
+   "label": "No {basis} alignment claimed",
+   "detail": {
+    "what": "No investee has stated its {basis}-based Taxonomy-aligned share, so no alignment is claimed for the fund.",
+    "why": "Alignment is taken only from what investees report; it is never estimated.",
+    "next": "Add each investee's reported {basis}-based aligned share to the holdings upload."
+   }
+  },
+  "disclose.fund.taxonomy.aligned": {
+   "label": "Aligned share of the reporting investees",
+   "detail": {
+    "what": "The aligned share is weighted by value over the {coverage}% of the fund whose investees report a {basis}-based aligned share and pass the do-no-significant-harm and minimum-safeguards test.",
+    "why": "Where an investee reports no figure, no alignment is claimed; we never assess those tests ourselves."
+   }
+  },
+  "disclose.fund.taxonomy.excluded": {
+   "label": "Some reported alignment left out",
+   "detail": {
+    "what": "The aligned share is weighted by value over the {coverage}% of the fund whose investees report a {basis}-based aligned share. A further {excluded}% reports aligned {basis} but is left out.",
+    "why": "Those investees' do-no-significant-harm or minimum-safeguards statement is marked as failing, and a failing statement outweighs the reported share."
+   }
+  },
+  "disclose.pai.need.emissions_evic": {
+   "label": "Emissions and enterprise value needed for {rest}%",
+   "detail": {
+    "what": "The figure counts the investees that state scope 1, 2 and 3 emissions and their enterprise value including cash. The other {rest}% of the fund's value has no such figures.",
+    "next": "Add those investees' emissions and enterprise value to the holdings upload."
+   }
+  },
+  "disclose.pai.need.emissions_revenue": {
+   "label": "Emissions and revenue needed for {rest}%",
+   "detail": {
+    "what": "The figure counts the investees that state scope 1, 2 and 3 emissions and their revenue. The other {rest}% of the fund's value has no such figures.",
+    "next": "Add those investees' emissions and revenue to the holdings upload."
+   }
+  },
+  "disclose.pai.need.evic": {
+   "label": "Enterprise value needed to attribute emissions",
+   "detail": {
+    "what": "Emissions are shown as the investees state them, not yet attributed to the fund.",
+    "why": "Attributing them needs each investee's enterprise value including cash: the fund's share of a company is its investment divided by that value.",
+    "next": "Add the investees' enterprise value to the holdings upload."
+   }
+  },
+  "disclose.pai.need.industry": {
+   "label": "Industry needed for {rest}% of value",
+   "detail": {
+    "what": "Exposure to the fossil fuel sector is read from each investee's industry. The other {rest}% of the fund's value has no industry on file.",
+    "next": "Add the investees' industry code to the holdings upload."
+   }
+  },
+  "disclose.pai.need.issuer_data": {
+   "label": "{data} missing for {rest}% of value",
+   "detail": {
+    "what": "{data} is not reported, or only estimated, for {rest}% of the value this indicator applies to.",
+    "next": "Add the investees' reported figures to the holdings upload, or through a data feed."
+   }
+  },
+  "disclose.pai.need.issuer_data_none": {
+   "label": "{data} not reported",
+   "detail": {
+    "what": "No investee of the fund has {data} on file, so this indicator cannot be computed yet.",
+    "next": "Add the investees' reported figures to the holdings upload, or through a data feed."
+   }
+  },
+  "disclose.pai.need.sovereign_countries": {
+   "label": "Some countries have no published figure",
+   "detail": {
+    "what": "The average leaves out {countries}: no public greenhouse-gas intensity is held for them.",
+    "why": "A country without a published figure is left out, never estimated."
+   }
+  },
+  "disclose.pai.need.sovereign_holdings": {
+   "label": "No government bonds with a country",
+   "detail": {
+    "what": "The fund holds no government bonds whose issuing country is known, so there is nothing to measure."
+   }
+  },
+  "disclose.pai.need.sovereign_violations": {
+   "label": "No list of violating countries held",
+   "detail": {
+    "what": "Counting investee countries subject to social violations needs a list of those countries under international treaties and conventions, United Nations principles or national law.",
+    "why": "No such list is held, so the figure is not computed."
+   }
+  },
+  "disclose.pai.need.real_estate_not_held": {
+   "label": "Applies to property, not held",
+   "detail": {
+    "what": "This indicator applies to real estate held directly. The fund holds securities, not property, so it does not apply."
+   }
+  },
+  "disclose.pai.need.real_estate_data": {
+   "label": "{data} not on file",
+   "detail": {
+    "what": "The fund holds real estate, but {data} is not on file for it.",
+    "next": "Add it for each property the fund holds."
+   }
+  },
+  "disclose.pai.gap.item": {
+   "label": "{section_name}: an item to answer",
+   "detail": {
+    "what": "The statement must contain: {wording}.",
+    "why": "Required by {ref} of Delegated Regulation (EU) 2022/1288.",
+    "next": "Open {section_name} and answer it."
+   }
+  },
+  "disclose.pai.gap.summary": {
+   "label": "Summary not written",
+   "detail": {
+    "what": "The statement opens with a summary of the principal adverse impacts.",
+    "why": "Required by {ref} of Delegated Regulation (EU) 2022/1288.",
+    "next": "Open Summary and write it, one text per language."
+   }
+  },
+  "disclose.pai.gap.language_home": {
+   "label": "Summary: home-country language missing",
+   "detail": {
+    "what": "The summary must be given in an official language of your home Member State.",
+    "why": "Required by {ref} of Delegated Regulation (EU) 2022/1288.",
+    "next": "Add the summary in that language, or mark a language you have as meeting it."
+   }
+  },
+  "disclose.pai.gap.language_finance": {
+   "label": "Summary: international-finance language missing",
+   "detail": {
+    "what": "The summary must also be given in a language customary in international finance, unless the home-country text already is.",
+    "why": "Required by {ref} of Delegated Regulation (EU) 2022/1288.",
+    "next": "Add the summary in such a language, or mark the home-country text as one."
+   }
+  },
+  "disclose.pai.gap.best_efforts": {
+   "label": "Policies: say how missing data is sought",
+   "detail": {
+    "what": "{n} indicator(s) are not computed in full. Where information is not readily available, the statement describes the best efforts made to obtain it.",
+    "why": "Required by {ref} of Delegated Regulation (EU) 2022/1288.",
+    "next": "Open Policies and describe those efforts."
+   }
+  },
+  "disclose.pai.gap.table": {
+   "label": "{n} explanations or actions to write",
+   "detail": {
+    "what": "Each indicator needs an explanation, and the actions taken and planned with targets for the next period. {n} of these are still empty, the first for {first}.",
+    "why": "Required by {ref} of Delegated Regulation (EU) 2022/1288.",
+    "next": "Open Explanations and actions and complete them."
+   }
+  },
+  "disclose.pai.gap.no_spec": {
+   "label": "No template governs this period",
+   "detail": {
+    "what": "No adopted version of the statement's template governs this reference period, so its sections cannot be shown.",
+    "next": "Raise a request in Support."
+   }
+  },
+  "disclose.pai.gap.holdings": {
+   "label": "Holdings missing on a quarter end",
+   "detail": {
+    "what": "{fund} has no holdings on file dated {dates}.",
+    "why": "Each impact is the average of the impacts on the four quarter ends of the year, so every quarter end needs the holdings held on it.",
+    "next": "Upload the fund's holdings as of those dates."
+   }
+  },
+  "disclose.pai.gap.period": {
+   "label": "Choose a reference period",
+   "detail": {
+    "what": "A statement covers one calendar year; this view shows the latest holdings instead.",
+    "next": "Choose a year."
+   }
+  },
+  "disclose.pai.prior.none": {
+   "label": "No previous statement reported",
+   "detail": {
+    "what": "No statement for the previous period was filed or uploaded, so there is no previous figure to compare with.",
+    "next": "Upload the previous statement under Prior filings, naming whom it is for and its period end."
+   }
+  },
+  "disclose.pai.prior.uploaded": {
+   "label": "Previous figures as uploaded for {period}",
+   "detail": {
+    "what": "The previous period's figures are those of the statement for {period} you uploaded and confirmed."
+   }
+  },
+  "disclose.pai.prior.filed": {
+   "label": "Previous figures as filed for {period}",
+   "detail": {
+    "what": "The previous period's figures are those of the statement for {period} filed here, now {status}."
+   }
+  },
+  "disclose.pai.refused.period": {
+   "status": 422,
+   "label": "A statement covers a calendar year",
+   "detail": {
+    "what": "A principal adverse impacts statement covers 1 January to 31 December, so its period ends on a 31 December, not {date}.",
+    "why": "Delegated Regulation (EU) 2022/1288, Article 4(1).",
+    "next": "Choose a year."
+   }
+  },
+  "disclose.pai.answer.approval_date": {
+   "label": "Give the approval date",
+   "detail": {
+    "what": "Give the date the governing body approved the policies, as a date."
+   }
+  },
+  "disclose.pai.answer.future_date": {
+   "label": "Approval date is in the future",
+   "detail": {
+    "what": "The policies' approval date cannot be later than today.",
+    "next": "Enter the date the governing body approved them."
+   }
+  },
+  "disclose.pai.answer.scenario_used": {
+   "label": "Say whether a scenario is used",
+   "detail": {
+    "what": "State whether a forward-looking climate scenario is used: used, or not used."
+   }
+  },
+  "disclose.pai.answer.scenario_named": {
+   "label": "Name the scenario used",
+   "detail": {
+    "what": "A scenario used is named with its provider and when it was designed.",
+    "next": "Add its name, its provider and the date of its design."
+   }
+  },
+  "disclose.pai.answer.summary": {
+   "label": "Write the summary",
+   "detail": {
+    "what": "The summary is given as one text per language.",
+    "next": "Add a language and write its text."
+   }
+  },
+  "disclose.pai.answer.language": {
+   "label": "Summary {row}: not a language code",
+   "detail": {
+    "what": "{language} is not a two-letter language code.",
+    "next": "Use the two-letter code of the language, for example en, fr or de."
+   }
+  },
+  "disclose.pai.answer.meets": {
+   "label": "Summary {row}: say which requirement it meets",
+   "detail": {
+    "what": "Each language of the summary meets at least one requirement: the home country's official language, a language customary in international finance, or a host country's official language.",
+    "next": "Tick the requirement or requirements it meets."
+   }
+  },
+  "disclose.pai.answer.host": {
+   "label": "Summary {row}: name the host country",
+   "detail": {
+    "what": "A language given as a host country's official language names that country, and only then.",
+    "next": "Enter the host country's two-letter code, or untick that requirement."
+   }
+  },
+  "disclose.pai.answer.country": {
+   "label": "Summary {row}: not a country code",
+   "detail": {
+    "what": "{country} is not a two-letter country code.",
+    "next": "Use the country's two-letter code, for example DE or FR."
+   }
+  },
+  "disclose.pai.answer.summary_text": {
+   "label": "Summary {row}: write its text",
+   "detail": {
+    "what": "Each language of the summary needs its text."
+   }
+  },
+  "disclose.answers.invalid": {
+   "label": "This answer was not saved",
+   "detail": {
+    "what": "The answer does not have the form this item asks for.",
+    "next": "Check the answer and save it again."
+   }
+  },
+  "disclose.answers.percent": {
+   "label": "A percentage between 0 and 100",
+   "detail": {
+    "what": "This item asks for a percentage between 0 and 100."
+   }
+  },
+  "disclose.answers.text": {
+   "label": "The answer needs its text",
+   "detail": {
+    "what": "An answer to this item needs its text, or, where it asks for one, a percentage."
+   }
+  },
+  "disclose.answers.tick": {
+   "label": "Say whether the box is ticked",
+   "detail": {
+    "what": "This item is a box: say whether it is ticked."
+   }
+  },
+  "disclose.answers.not_answerable": {
+   "label": "This item is not answered here",
+   "detail": {
+    "what": "The item is printed wording, or a figure computed from your data; it is not answered by hand."
+   }
+  },
+  "disclose.answers.no_item": {
+   "label": "Not an item of this template",
+   "detail": {
+    "what": "The template that governs this document has no such item.",
+    "next": "Reload the page: the template may have changed."
+   }
+  },
+  "disclose.answers.refused_all": {
+   "status": 422,
+   "label": "Answers not saved",
+   "detail": {
+    "what": "{n} answer(s) could not be saved, so none were. The first: {first}.",
+    "next": "Correct them and save again."
+   }
+  },
+  "disclose.fund.onboard.done": {
+   "label": "{n} holdings added",
+   "detail": {
+    "what": "{matched} of the {isins} ISINs in the file were matched to their issuer and added to the fund, weighted by value."
+   }
+  },
+  "disclose.fund.onboard.unmatched": {
+   "label": "{n} ISINs not matched",
+   "detail": {
+    "what": "These ISINs could not be matched to a security and issuer: {isins}. They are not in the fund.",
+    "next": "Check the ISINs, then upload those lines again."
+   }
+  },
+  "disclose.fund.onboard.errored": {
+   "label": "{n} ISINs could not be looked up",
+   "detail": {
+    "what": "The register could not be reached for: {isins}. They are not in the fund.",
+    "next": "Upload those lines again in a few minutes."
+   }
+  },
+  "disclose.fund.onboard.fx": {
+   "label": "{n} lines not converted to euro",
+   "detail": {
+    "what": "{n} line(s) give a market value without a currency, or in a currency with no rate for the date. They are not in the fund.",
+    "next": "Give each line its currency, or its value in euro."
+   }
+  },
+  "disclose.fund.onboard.sector": {
+   "label": "{n} issuers without an industry",
+   "detail": {
+    "what": "These issuers have no industry on file: {isins}. The EU Taxonomy and fossil-fuel figures leave them out.",
+    "next": "Add the industry code to their lines in the holdings upload."
+   }
+  },
+  "disclose.fund.onboard.not_located": {
+   "label": "{n} issuers not located",
+   "detail": {
+    "what": "{n} issuer(s) could not be placed on the map, so their physical risk is not scored.",
+    "next": "Add the locations of their sites, or an LEI the register knows."
+   }
+  },
+  "disclose.fund.onboard.own_classes": {
+   "label": "{n} holdings are your own funds",
+   "detail": {
+    "what": "These ISINs are share classes of your own funds: {isins}.",
+    "next": "Look through them to their holdings, so the fund's figures count the companies they hold."
+   }
+  },
+  "disclose.fund.onboard.refused": {
+   "label": "{n} indicator values refused",
+   "detail": {
+    "what": "These additional-indicator values were not stored: {items}.",
+    "next": "Correct them in the holdings upload."
+   }
+  },
+  "disclose.fund.onboard.indicator_unknown": {
+   "label": "Not an indicator you can adopt",
+   "detail": {
+    "what": "The value names an indicator that is not one of the additional indicators a fund can adopt."
+   }
+  },
+  "disclose.fund.onboard.indicator_flag": {
+   "label": "Needs yes or no",
+   "detail": {
+    "what": "This indicator is a share of investees, so each investee's value is yes or no."
+   }
+  },
+  "disclose.fund.onboard.indicator_number": {
+   "label": "Needs a number",
+   "detail": {
+    "what": "This indicator's value is a number."
+   }
+  },
+  "disclose.fund.refused.currency": {
+   "status": 422,
+   "label": "Not a currency in circulation",
+   "detail": {
+    "what": "{currency} is not the code of a currency in circulation.",
+    "next": "Enter the fund's base currency as three letters, for example EUR or USD."
+   }
+  },
+  "disclose.fund.refused.duplicate": {
+   "status": 409,
+   "label": "A fund with this name exists",
+   "detail": {
+    "what": "Your organisation already has a fund named {name}.",
+    "next": "Choose another name, or open the fund that exists."
+   }
+  },
+  "disclose.fund.refused.parent": {
+   "status": 422,
+   "label": "Name the fund this belongs to",
+   "detail": {
+    "what": "A sub-portfolio belongs to one of your funds; a fund of another type stands on its own.",
+    "next": "Choose the fund it is part of, or choose another type."
+   }
+  },
+  "disclose.fund.refused.no_holdings": {
+   "status": 422,
+   "label": "No holdings in the file",
+   "detail": {
+    "what": "The upload held no holdings to add.",
+    "next": "Fill the template with one row per holding and upload it again."
+   }
+  },
+  "disclose.fund.refused.incomplete_book": {
+   "status": 422,
+   "label": "Every line must be matched",
+   "detail": {
+    "what": "A complete book replaces the fund's holdings on its date, so every line must be matched. {n} line(s) were not: {items}. Nothing was changed.",
+    "next": "Correct those lines, or upload without marking the book complete."
+   }
+  },
+  "disclose.fund.refused.no_reference_year": {
+   "status": 422,
+   "label": "No reference year yet",
+   "detail": {
+    "what": "The year cannot be kept as a record until the investees have emissions stated for a reporting year.",
+    "next": "Add the investees' emissions with their reporting year to the holdings upload."
+   }
+  },
+  "disclose.fund.refused.no_rows": {
+   "status": 422,
+   "label": "No rows in the file",
+   "detail": {
+    "what": "The file held no rows to read.",
+    "next": "Upload a file with one row per issuer."
+   }
+  },
+  "disclose.fund.refused.indicator": {
+   "status": 422,
+   "label": "Not indicators you can adopt",
+   "detail": {
+    "what": "{n} of the indicators chosen are not additional indicators a fund can adopt.",
+    "next": "Reload the page and choose again."
+   }
+  },
+  "disclose.fund.refused.not_held": {
+   "status": 422,
+   "label": "Not a holding of this fund",
+   "detail": {
+    "what": "{isin} is not a current holding of this fund, so it cannot be looked through.",
+    "next": "Choose one of the fund's current holdings."
+   }
+  },
+  "disclose.fund.refused.no_constituents": {
+   "status": 422,
+   "label": "No holdings to look through to",
+   "detail": {
+    "what": "The look-through named none of the held fund's own holdings.",
+    "next": "Give the held fund's holdings, one per line."
+   }
+  },
+  "disclose.fund.refused.narratives": {
+   "status": 422,
+   "label": "Answer the statement per period",
+   "detail": {
+    "what": "The principal adverse impacts statement is answered for each reference period, item by item.",
+    "next": "Use the statement on the Funds page."
+   }
+  },
+  "disclose.fund.refused.xbrl_retired": {
+   "status": 410,
+   "label": "This download is retired",
+   "detail": {
+    "what": "No official XBRL taxonomy exists for this statement, so it is not offered in that format.",
+    "next": "Download the statement as a workbook, or export the filing."
+   }
+  },
+  "disclose.fund.lei.invalid": {
+   "status": 422,
+   "label": "Not a valid LEI",
+   "detail": {
+    "what": "{lei} is not a legal entity identifier: an LEI has 20 letters and digits, ending in two check digits.",
+    "next": "Check the code and enter it again."
+   }
+  },
+  "disclose.fund.lei.unknown": {
+   "status": 422,
+   "label": "LEI not in the register",
+   "detail": {
+    "what": "{lei} is not in the global LEI register.",
+    "next": "Check the code, or ask the entity for its registered LEI."
+   }
+  },
+  "disclose.fund.lei.unreachable": {
+   "status": 422,
+   "label": "The LEI register could not be reached",
+   "detail": {
+    "what": "The identifier could not be checked against the global LEI register. Nothing was changed.",
+    "next": "Try again in a few minutes."
+   }
+  },
+  "disclose.fund.frozen": {
+   "label": "{year} kept as the fund's record",
+   "detail": {
+    "what": "The fund's {year} figures are kept as its record, so next year's figures can be compared with them. This is not a filing."
+   }
+  },
+  "disclose.fund.voluntary.saved": {
+   "label": "{n} additional indicators adopted",
+   "detail": {
+    "what": "The fund adopts {n} additional indicator(s).",
+    "next": "Add each investee's values for them to the holdings upload."
+   }
+  },
+  "disclose.fund.withdraw.reason": {
+   "status": 422,
+   "label": "Say why the data is withdrawn",
+   "detail": {
+    "what": "The reason is kept with the record of what was withdrawn; it needs at least {n} characters."
+   }
+  },
+  "disclose.fund.withdraw.nothing": {
+   "status": 404,
+   "label": "No data of yours to withdraw",
+   "detail": {
+    "what": "Your organisation holds no data of its own about {issuer}."
+   }
+  },
+  "disclose.fund.issuer_not_held": {
+   "status": 404,
+   "label": "Not one of your holdings",
+   "detail": {
+    "what": "This company is not held by any of your funds."
+   }
+  },
+  "disclose.sfdr.refused.document": {
+   "label": "Not a document of this fund",
+   "detail": {
+    "what": "A fund's product disclosures are its pre-contractual and its periodic document.",
+    "next": "Choose one of the two."
+   }
+  },
+  "disclose.sfdr.refused.no_spec": {
+   "label": "No template governs today",
+   "detail": {
+    "what": "No adopted version of the product disclosure templates governs today, so the document cannot be shown.",
+    "next": "Raise a request in Support."
+   }
+  },
+  "disclose.sfdr.need.answer": {
+   "label": "Needs your answer",
+   "detail": {
+    "what": "Only the fund's manager can say this; it is not computed."
+   }
+  },
+  "disclose.sfdr.need.holdings": {
+   "label": "No holdings in the period",
+   "detail": {
+    "what": "The fund has no holdings on file in the reference period, so there is nothing to show here.",
+    "next": "Add the fund's holdings for the period."
+   }
+  },
+  "disclose.sfdr.need.lei": {
+   "label": "Fund LEI not set",
+   "detail": {
+    "what": "The document names the product by its own legal entity identifier.",
+    "next": "Set the fund's LEI."
+   }
+  },
+  "disclose.sfdr.need.fossil_nuclear": {
+   "label": "Fossil gas and nuclear parts not stated",
+   "detail": {
+    "what": "The answer reads the fossil gas and nuclear parts of every investee's Taxonomy-aligned share, and some are not stated.",
+    "why": "An aligned share without its parts is never read as having none.",
+    "next": "Add the fossil gas and nuclear parts of each investee's aligned share to the holdings upload."
+   }
+  },
+  "disclose.sfdr.need.data": {
+   "label": "No data on file",
+   "detail": {
+    "what": "The data this item is computed from is not on file."
+   }
+  },
+  "disclose.eet.answer.unknown_field": {
+   "label": "Not a field of the template",
+   "detail": {
+    "what": "The European ESG Template version {version} has no such field."
+   }
+  },
+  "disclose.eet.answer.empty": {
+   "label": "Enter a value",
+   "detail": {
+    "what": "The answer is empty. To clear an answer, remove it."
+   }
+  },
+  "disclose.eet.answer.proportion": {
+   "label": "A decimal from 0 to 1",
+   "detail": {
+    "what": "This field takes a proportion as a decimal from 0 to 1: 0.5 means 50%."
+   }
+  },
+  "disclose.eet.answer.negative": {
+   "label": "Cannot be negative",
+   "detail": {
+    "what": "This field takes a whole number of zero or more."
+   }
+  },
+  "disclose.eet.answer.currency": {
+   "label": "A three-letter currency code",
+   "detail": {
+    "what": "This field takes a currency's three-letter code, for example EUR."
+   }
+  },
+  "disclose.eet.answer.countries": {
+   "label": "Two-letter country codes",
+   "detail": {
+    "what": "This field takes two-letter country codes separated by semicolons, for example FR;DE."
+   }
+  },
+  "disclose.eet.answer.choice": {
+   "label": "Choose one of the allowed values",
+   "detail": {
+    "what": "This field takes one of: {choices}."
+   }
+  },
+  "disclose.eet.answer.format": {
+   "label": "Not in the field's format",
+   "detail": {
+    "what": "This field takes {expected}."
+   }
+  },
+  "disclose.eet.answer.length": {
+   "label": "Too long for the field",
+   "detail": {
+    "what": "This field takes at most {n} characters."
+   }
+  },
+  "disclose.eet.answer.in_template": {
+   "label": "Answered in the pre-contractual document",
+   "detail": {
+    "what": "This field is the fund's commitment as stated in its pre-contractual document; the template reads it from there.",
+    "next": "Answer it in the fund's pre-contractual document."
+   }
+  },
+  "disclose.eet.answer.fund_field": {
+   "label": "Answer it for a fund",
+   "detail": {
+    "what": "This field describes a product, so it is answered for each fund, not for the organisation."
+   }
+  },
+  "disclose.eet.refused.general": {
+   "label": "The template could not be prepared",
+   "detail": {
+    "what": "The European ESG Template step could not be completed.",
+    "next": "Try again. If it keeps happening, raise a request in Support."
+   }
+  },
+  "disclose.eet.refused.uses": {
+   "status": 422,
+   "label": "Choose what the file is for",
+   "detail": {
+    "what": "Choose at least one use the file serves: the principal adverse impacts statement, the periodic or pre-contractual documents, investment advice or insurance distribution."
+   }
+  },
+  "disclose.eet.refused.no_share_classes": {
+   "label": "No share classes yet",
+   "detail": {
+    "what": "The template has one row per share class, and none is active.",
+    "next": "Add the share classes on each fund's page."
+   }
+  },
+  "disclose.eet.refused.data_checks": {
+   "label": "{n} company figures to check first",
+   "detail": {
+    "what": "{n} company figure(s) look like a unit slip, for example {issuer}: {figure}. A version is not prepared while they stand.",
+    "next": "Correct each in the holdings upload or data feed, or confirm it is right, with the reason."
+   }
+  },
+  "disclose.eet.refused.blocking": {
+   "label": "{n} mandatory fields still empty",
+   "detail": {
+    "what": "A version is prepared only when every mandatory field has a value; {n} are still empty.",
+    "next": "Answer them, then prepare the version."
+   }
+  },
+  "disclose.eet.refused.not_pending": {
+   "label": "This version awaits no decision",
+   "detail": {
+    "what": "The version has already been approved or rejected."
+   }
+  },
+  "disclose.eet.refused.tampered": {
+   "label": "This version has been altered",
+   "detail": {
+    "what": "The version's content no longer matches the fingerprint taken when it was prepared, so it is not sent.",
+    "next": "Prepare a new version, and raise a request in Support."
+   }
+  },
+  "disclose.eet.refused.format": {
+   "label": "Download as a workbook or CSV",
+   "detail": {
+    "what": "The template downloads as an Excel workbook or a CSV file."
+   }
+  },
+  "disclose.eet.class.isin": {
+   "label": "Not a valid ISIN",
+   "detail": {
+    "what": "{isin} is not a valid ISIN: two letters for the country, nine characters, then a check digit."
+   }
+  },
+  "disclose.eet.class.name": {
+   "label": "Name the share class",
+   "detail": {
+    "what": "A share class needs a name of at most 255 characters."
+   }
+  },
+  "disclose.eet.class.currency": {
+   "label": "Not a currency we can convert",
+   "detail": {
+    "what": "{currency} is not a currency code we hold rates for.",
+    "next": "Enter its three-letter code, for example EUR or USD."
+   }
+  },
+  "disclose.eet.class.distribution": {
+   "label": "Accumulating or distributing",
+   "detail": {
+    "what": "A share class either reinvests its income (accumulating) or pays it out (distributing)."
+   }
+  },
+  "disclose.eet.class.launch_date": {
+   "label": "Give the launch date as a date",
+   "detail": {
+    "what": "The launch date is a calendar date."
+   }
+  },
+  "disclose.eet.class.launch_future": {
+   "label": "Launch date is in the future",
+   "detail": {
+    "what": "A share class's launch date cannot be later than today."
+   }
+  },
+  "disclose.eet.class.duplicate": {
+   "status": 409,
+   "label": "This ISIN is already registered",
+   "detail": {
+    "what": "{isin} is already one of your share classes."
+   }
+  },
+  "disclose.eet.class.status": {
+   "label": "Active or closed",
+   "detail": {
+    "what": "A share class is active or closed."
+   }
+  },
+  "disclose.eet.class.nothing": {
+   "label": "Nothing to change",
+   "detail": {
+    "what": "The request changed nothing."
+   }
+  },
+  "disclose.eet.confirm.field": {
+   "status": 422,
+   "label": "Not a figure that can be confirmed",
+   "detail": {
+    "what": "Only an energy figure flagged as a possible unit slip can be confirmed here."
+   }
+  },
+  "disclose.eet.confirm.reason": {
+   "status": 422,
+   "label": "Say why the figure is right",
+   "detail": {
+    "what": "A confirmed figure keeps the reason, for example the report and page it was checked against."
+   }
+  },
+  "disclose.eet.check.unit": {
+   "label": "{ratio} times the sector average",
+   "detail": {
+    "what": "The reported energy intensity is {ratio} times the average of the company's sector.",
+    "why": "A figure this far from its sector often comes from a unit slip: gigawatt hours, per million euro of revenue.",
+    "next": "Correct it in the holdings upload or data feed, or confirm it is right, with the reason."
+   }
+  },
+  "disclose.eet.check.fraction": {
+   "label": "A fraction where a percentage is meant?",
+   "detail": {
+    "what": "The reported share is {reported}% against a country average of {estimate}%.",
+    "why": "A figure like 0.6 often means 60%.",
+    "next": "Correct it in the holdings upload or data feed, or confirm it is right, with the reason."
+   }
+  },
+  "disclose.eet.note.method": {
+   "label": "How {field} is derived",
+   "detail": {
+    "what": "{note}"
+   }
+  },
+  "disclose.eet.note.estimated": {
+   "label": "{field}: {pct}% rests on estimates",
+   "detail": {
+    "what": "For {field}, {pct}% of the fund's value rests on estimates, where no company or vendor figure is on file.",
+    "why": "Estimates used: {bases}."
+   }
+  },
+  "disclose.esrs.check.no_version": {
+   "label": "No version of the standards governs the year",
+   "detail": {
+    "what": "No version of the European Sustainability Reporting Standards governs this financial year, or the statement could not be built.",
+    "next": "Check the reporting period under Basis."
+   }
+  },
+  "disclose.esrs.check.version": {
+   "label": "A version governs the year",
+   "detail": {
+    "what": "The statement follows {act}."
+   }
+  },
+  "disclose.esrs.check.per_undertaking": {
+   "label": "File for an undertaking, not the organisation",
+   "detail": {
+    "what": "Your organisation has legal entities, so a statement is filed by a reporting undertaking, not by the organisation as a whole.",
+    "next": "Choose the undertaking or group at the top of the page."
+   }
+  },
+  "disclose.esrs.check.role_missing": {
+   "label": "State the reporting role",
+   "detail": {
+    "what": "The undertaking's reporting role for this financial year is not stated: an individual statement, a group's consolidated statement, an exempt subsidiary, or a voluntary statement.",
+    "next": "State it under Who reports; a second person approves it."
+   }
+  },
+  "disclose.esrs.check.exempt": {
+   "label": "Exempt: included in the parent's report",
+   "detail": {
+    "what": "An exempt subsidiary files no statement of its own: it is included in {parent}'s consolidated report ({report}).",
+    "why": "Directive 2013/34/EU, Articles 19a(9) and 29a(8)."
+   }
+  },
+  "disclose.esrs.check.not_required": {
+   "label": "Not required for this year",
+   "detail": {
+    "what": "The Directive does not require a statement from the undertaking for this year.",
+    "next": "If you file one anyway, state the role as voluntary."
+   }
+  },
+  "disclose.esrs.check.undeterminable": {
+   "label": "Whether it is required is not known",
+   "detail": {
+    "what": "Whether a statement is required cannot be determined yet. Still to state: {facts}.",
+    "next": "State them under Figures you state."
+   }
+  },
+  "disclose.esrs.check.required": {
+   "label": "A statement is required",
+   "detail": {
+    "what": "The Directive requires a statement for this year under point {point}."
+   }
+  },
+  "disclose.esrs.check.voluntary_required": {
+   "label": "Required, but stated as voluntary",
+   "detail": {
+    "what": "The Directive requires a statement for this year, yet the role is stated as voluntary.",
+    "next": "State the role as individual or consolidated."
+   }
+  },
+  "disclose.esrs.check.materiality": {
+   "label": "State whether the topic is material",
+   "detail": {
+    "what": "The materiality assessment does not yet say whether {standard} is material.",
+    "next": "Answer it under Material topics."
+   }
+  },
+  "disclose.esrs.check.items": {
+   "label": "{n} required items to answer or omit",
+   "detail": {
+    "what": "{n} required item(s) are neither answered nor omitted with a reason: {items}.",
+    "next": "Answer each, or omit it with its reason, under The statement."
+   }
+  },
+  "disclose.esrs.check.figures": {
+   "label": "{n} figures cannot be computed yet",
+   "detail": {
+    "what": "{n} item(s) need figures that cannot be computed from what is on file: {items}.",
+    "next": "Open each item to see what it needs."
+   }
+  },
+  "disclose.esrs.check.phase_in": {
+   "label": "{n} phase-ins claimed do not apply",
+   "detail": {
+    "what": "A phase-in claimed for {items} does not apply to this undertaking in this year.",
+    "next": "Report those items, or omit them with another reason."
+   }
+  },
+  "disclose.esrs.check.phase_in_open": {
+   "label": "{n} phase-ins cannot be confirmed yet",
+   "detail": {
+    "what": "Whether the phase-in claimed for {items} applies cannot be confirmed: a fact it depends on is not stated, or the text leaves it open.",
+    "next": "State the undertaking's first reporting year, net turnover and employees under Figures you state."
+   }
+  },
+  "disclose.esrs.check.period_open": {
+   "label": "The reporting period is not closed",
+   "detail": {
+    "what": "The undertaking's year-end values can still change without a restatement.",
+    "next": "Ask to close the period under Who reports; a second person approves it."
+   }
+  },
+  "disclose.esrs.check.cmp_facts": {
+   "label": "Comparatives need the first reporting year",
+   "detail": {
+    "what": "Whether a first-year relief from comparative information applies needs {facts}. {n} figure(s) have no comparative.",
+    "next": "State it under Figures you state."
+   }
+  },
+  "disclose.esrs.check.cmp_missing": {
+   "label": "{n} comparatives incomplete",
+   "detail": {
+    "what": "{n} figure(s) have no comparative for the previous period, or a revision without its reasons.",
+    "next": "Complete them under Comparative information."
+   }
+  },
+  "disclose.esrs.check.cmp_relief": {
+   "label": "No comparatives required this year",
+   "detail": {
+    "what": "A first-year relief applies, so no comparative information is required."
+   }
+  },
+  "disclose.esrs.check.cmp_ok": {
+   "label": "{n} figures with their comparative",
+   "detail": {
+    "what": "Every figure has its comparative, a stated revision, a relief or a stated reason it is impracticable."
+   }
+  },
+  "disclose.esrs.check.sum.ok": {
+   "label": "A total equals its parts",
+   "detail": {
+    "what": "{total} ({value}) equals the sum of its parts ({parts})."
+   }
+  },
+  "disclose.esrs.check.sum.fail": {
+   "label": "A total does not equal its parts",
+   "detail": {
+    "what": "{total} is {value}, but its parts add up to {parts}.",
+    "next": "Correct the total or a part under Figures you state."
+   }
+  },
+  "disclose.esrs.check.at_most.ok": {
+   "label": "A part is within its total",
+   "detail": {
+    "what": "{part} ({value}) is not more than {total} ({limit})."
+   }
+  },
+  "disclose.esrs.check.at_most.fail": {
+   "label": "A part exceeds its total",
+   "detail": {
+    "what": "{part} is {value}, more than {total} ({limit}).",
+    "next": "Correct one of them under Figures you state."
+   }
+  },
+  "disclose.esrs.check.assets.ok": {
+   "label": "Assets at risk within total assets",
+   "detail": {
+    "what": "Assets at material physical risk ({value} euro) are within the balance-sheet total ({limit} euro)."
+   }
+  },
+  "disclose.esrs.check.assets.fail": {
+   "label": "Assets at risk exceed total assets",
+   "detail": {
+    "what": "Assets at material physical risk ({value} euro) exceed the balance-sheet total ({limit} euro).",
+    "next": "Check the sites' carrying amounts and the stated total assets."
+   }
+  },
+  "disclose.esrs.scope.organisation": {
+   "label": "The organisation as the undertaking",
+   "detail": {
+    "what": "The statement covers the organisation as one undertaking, with all its sites."
+   }
+  },
+  "disclose.esrs.scope.own": {
+   "label": "The undertaking's own sites",
+   "detail": {
+    "what": "The statement covers this undertaking's own sites."
+   }
+  },
+  "disclose.esrs.scope.group": {
+   "label": "The group",
+   "detail": {
+    "what": "The statement covers the group: subsidiaries in full, joint operations at the share recognised, associates and joint ventures as part of the value chain.",
+    "why": "ESRS 1, paragraph 62."
+   }
+  },
+  "disclose.esrs.scope.exempt": {
+   "label": "Exempt subsidiary",
+   "detail": {
+    "what": "Included in {parent}'s consolidated report, so no statement of its own.",
+    "why": "Directive 2013/34/EU, Articles 19a(9) and 29a(8)."
+   }
+  },
+  "disclose.esrs.scope.voluntary": {
+   "label": "Reporting voluntarily",
+   "detail": {
+    "what": "The undertaking states that it reports voluntarily."
+   }
+  },
+  "disclose.esrs.scope.role_needed": {
+   "label": "State the reporting role",
+   "detail": {
+    "what": "Whether a statement is required depends on the undertaking's reporting role for the year: individual or consolidated.",
+    "next": "State the role; a second person approves it."
+   }
+  },
+  "disclose.esrs.scope.before": {
+   "label": "Not required for this year",
+   "detail": {
+    "what": "{reading}"
+   }
+  },
+  "disclose.esrs.scope.required": {
+   "label": "Required",
+   "detail": {
+    "what": "On the undertaking's stated facts, the Directive requires a statement for this year."
+   }
+  },
+  "disclose.esrs.scope.not_required": {
+   "label": "Not required",
+   "detail": {
+    "what": "On the undertaking's stated facts, the Directive does not require a statement for this year."
+   }
+  },
+  "disclose.esrs.scope.facts_missing": {
+   "label": "Not known yet",
+   "detail": {
+    "what": "Whether a statement is required cannot be determined until these are stated: {facts}.",
+    "next": "State them under Figures you state."
+   }
+  },
+  "disclose.esrs.scope.derogation_applied": {
+   "label": "Exempted by the Member State",
+   "detail": {
+    "what": "The undertaking states that its Member State exempted it for this financial year."
+   }
+  },
+  "disclose.esrs.scope.derogation_unstated": {
+   "label": "State the Member State's choice",
+   "detail": {
+    "what": "The undertaking's Member State may exempt it for 2025 and 2026. Whether it did is not stated.",
+    "next": "Set it in calculation settings."
+   }
+  },
+  "disclose.esrs.scope.fact_missing": {
+   "label": "{fact}: not stated",
+   "detail": {
+    "what": "{fact} is not stated for this year.",
+    "next": "State it under Figures you state."
+   }
+  },
+  "disclose.esrs.scope.fact_stated": {
+   "label": "{fact}: {value}",
+   "detail": {
+    "what": "{fact} is stated as {value}; the point applied asks for {want}."
+   }
+  },
+  "disclose.esrs.scope.fact_currency": {
+   "label": "{fact}: stated in {currency}",
+   "detail": {
+    "what": "{fact} is stated in {currency}. The threshold of {threshold} euro has a national equivalent set by the Member State, so it is not compared.",
+    "why": "Directive 2013/34/EU, Article 3(9)."
+   }
+  },
+  "disclose.esrs.scope.fact_over": {
+   "label": "{fact}: above the threshold",
+   "detail": {
+    "what": "{fact} is {value}, above the threshold of {threshold}."
+   }
+  },
+  "disclose.esrs.scope.fact_under": {
+   "label": "{fact}: not above the threshold",
+   "detail": {
+    "what": "{fact} is {value}, not above the threshold of {threshold}."
+   }
+  },
+  "disclose.esrs.gap.joint_arrangement": {
+   "label": "Say how {entity} is held",
+   "detail": {
+    "what": "{entity} is consolidated proportionally, so it is either a joint operation or a joint venture, and that decides how its sites count.",
+    "next": "State which under Admin, Entities."
+   }
+  },
+  "disclose.esrs.gap.risk_level": {
+   "label": "State your material-risk level",
+   "detail": {
+    "what": "The level at which a physical climate risk is material for the undertaking is not stated, so no site can be counted as at material risk.",
+    "next": "State it under Figures you state, Method."
+   }
+  },
+  "disclose.esrs.gap.carrying": {
+   "label": "{n} sites without a carrying amount",
+   "detail": {
+    "what": "No carrying amount is on file at {date} for: {sites}.",
+    "next": "Add each site's carrying amount for the year end."
+   }
+  },
+  "disclose.esrs.gap.horizon": {
+   "label": "No projection year for a time horizon",
+   "detail": {
+    "what": "No projection year falls inside the {terms} term, so that horizon cannot be shown."
+   }
+  },
+  "disclose.esrs.gap.unprojected": {
+   "label": "Some hazards not projected",
+   "detail": {
+    "what": "For the {term} term, the {scenario} projection does not score: {items}."
+   }
+  },
+  "disclose.esrs.gap.attested": {
+   "label": "A total is not attested",
+   "detail": {
+    "what": "The share needs {figure}, attested by a second person.",
+    "next": "State it under Figures you state."
+   }
+  },
+  "disclose.esrs.gap.adapted": {
+   "label": "Adaptation not stated for some sites",
+   "detail": {
+    "what": "The carrying amount addressed by adaptation is not stated for: {sites}."
+   }
+  },
+  "disclose.esrs.gap.site_revenue": {
+   "label": "Revenue not stated for some sites",
+   "detail": {
+    "what": "Net revenue is not stated for: {sites}."
+   }
+  },
+  "disclose.esrs.gap.needs": {
+   "label": "Needs two stated figures",
+   "detail": {
+    "what": "This ratio needs {figures}.",
+    "next": "State them under Figures you state."
+   }
+  },
+  "disclose.esrs.prior.filed": {
+   "label": "Previous statement as filed",
+   "detail": {
+    "what": "The previous period's figures are those of the statement filed here, now {status}."
+   }
+  },
+  "disclose.esrs.prior.uploaded": {
+   "label": "Previous statement as uploaded",
+   "detail": {
+    "what": "The previous period's figures are those of the statement you uploaded and confirmed."
+   }
+  },
+  "disclose.esrs.prior.none": {
+   "label": "No previous statement held",
+   "detail": {
+    "what": "No statement for the previous period was filed or uploaded.",
+    "next": "Upload it under Prior filings, or state each previous figure under Figures you state."
+   }
+  },
+  "disclose.esrs.relief.first_year": {
+   "label": "First year: no comparatives required",
+   "detail": {
+    "what": "This is the undertaking's first year of reporting under the standards, so no comparative information is required.",
+    "why": "{ref}."
+   }
+  },
+  "disclose.esrs.relief.new_metric": {
+   "label": "A new metric: no comparative required",
+   "detail": {
+    "what": "In the first year under the revised standards, a metric the earlier set did not require needs no comparative.",
+    "why": "ESRS 1 (2026), paragraph 124."
+   }
+  },
+  "disclose.esrs.relief.new_topic": {
+   "label": "A new topic: no comparative required",
+   "detail": {
+    "what": "The previous statement did not report this topic, so it needs no comparative information.",
+    "why": "ESRS 1 (2026), paragraph 87(b)."
+   }
+  },
+  "disclose.esrs.relief.new_topic_stated": {
+   "label": "A new topic, as you state",
+   "detail": {
+    "what": "You state this topic is reported for the first time, so it needs no comparative information.",
+    "why": "ESRS 1 (2026), paragraph 87(b)."
+   }
+  },
+  "disclose.esrs.relief.phase_in": {
+   "label": "First year after a phase-in",
+   "detail": {
+    "what": "This is the first year the requirement applies after its phase-in, so no comparative is required.",
+    "why": "{rule}; ESRS 1 (2023), paragraph 136."
+   }
+  },
+  "disclose.esrs.relief.needs": {
+   "label": "Needs the first reporting year",
+   "detail": {
+    "what": "Whether a first-year relief applies depends on: {facts}.",
+    "next": "State it under Figures you state."
+   }
+  },
+  "disclose.esrs.answer.significant": {
+   "label": "Say whether it differs significantly",
+   "detail": {
+    "what": "State whether the revised comparative differs significantly from the figure reported: yes or no."
+   }
+  },
+  "disclose.esrs.answer.comparative": {
+   "label": "Give a reason or say it is impracticable",
+   "detail": {
+    "what": "State the reasons for the revision, whether the difference is significant, or that a comparative is impracticable to provide."
+   }
+  },
+  "disclose.esrs.answer.not_first": {
+   "label": "Already reported last period",
+   "detail": {
+    "what": "The previous statement reports ESRS {standard}, so it is not reported for the first time."
+   }
+  },
+  "disclose.esrs.answer.figures": {
+   "label": "Its figures are stated elsewhere",
+   "detail": {
+    "what": "This item's figures are computed, or stated under Figures you state. Here you give only its narrative, or omit it with a reason."
+   }
+  },
+  "disclose.esrs.answer.reason": {
+   "label": "Choose the reason for omitting",
+   "detail": {
+    "what": "An omitted item states why: not material, its condition does not apply, or a phase-in."
+   }
+  },
+  "disclose.esrs.answer.no_condition": {
+   "label": "This item has no condition",
+   "detail": {
+    "what": "The item prints no condition, so it cannot be omitted as not applicable.",
+    "next": "Choose another reason."
+   }
+  },
+  "disclose.esrs.answer.phase_in": {
+   "label": "Choose the phase-in used",
+   "detail": {
+    "what": "An item omitted under a phase-in names the phase-in."
+   }
+  },
+  "disclose.esrs.answer.why": {
+   "label": "Say why it is omitted",
+   "detail": {
+    "what": "An item omitted as not material, or as not applicable, says why."
+   }
+  },
+  "disclose.esrs.answer.material": {
+   "label": "Material or not material",
+   "detail": {
+    "what": "State whether the topic is material."
+   }
+  },
+  "disclose.esrs.answer.climate_explanation": {
+   "label": "Explain why climate is not material",
+   "detail": {
+    "what": "Concluding that climate change is not material needs a detailed explanation of the materiality assessment.",
+    "why": "ESRS 1 (2023), paragraph 32; ESRS 2 (2026), paragraph 37(b)."
+   }
+  },
+  "disclose.esrs.refused.no_version": {
+   "label": "No version governs this year",
+   "detail": {
+    "what": "No version of the standards governs the financial year ending {date}.",
+    "next": "Check the reporting period under Basis."
+   }
+  },
+  "disclose.esrs.refused.standard": {
+   "label": "Not a standard of this version",
+   "detail": {
+    "what": "ESRS {standard} is not part of the version that governs the year."
+   }
+  },
+  "disclose.esrs.role.invalid": {
+   "label": "Choose a reporting role",
+   "detail": {
+    "what": "The role is an individual statement, a group's consolidated statement, an exempt subsidiary, or a voluntary statement."
+   }
+  },
+  "disclose.esrs.role.parent": {
+   "label": "Name the parent and its report",
+   "detail": {
+    "what": "An exempt subsidiary names its parent, the parent's registered office and the consolidated report it is included in.",
+    "why": "Directive 2013/34/EU, Articles 19a(9) and 29a(8)."
+   }
+  },
+  "disclose.esrs.role.not_entity": {
+   "label": "Not one of your entities",
+   "detail": {
+    "what": "That undertaking is not one of your organisation's entities."
+   }
+  },
+  "disclose.esrs.role.no_subsidiaries": {
+   "label": "This entity has no subsidiaries",
+   "detail": {
+    "what": "A consolidated statement is filed by the parent of a group, and this entity has no subsidiaries.",
+    "next": "Choose the individual role, or the group's parent."
+   }
+  },
+  "disclose.period.refused": {
+   "label": "The period could not be changed",
+   "detail": {
+    "what": "The request to close or restate the period could not be completed."
+   }
+  },
+  "disclose.period.closed": {
+   "label": "Already closed",
+   "detail": {
+    "what": "The reporting period is already closed. A change now is a restatement."
+   }
+  },
+  "disclose.period.pending_values": {
+   "label": "{n} values await attestation",
+   "detail": {
+    "what": "{n} figure(s) for the period still await their second person.",
+    "next": "Ask an approver to attest them under Approvals."
+   }
+  },
+  "disclose.period.pending_request": {
+   "label": "A request already awaits approval",
+   "detail": {
+    "what": "A close or restatement of this period already awaits its second person."
+   }
+  },
+  "disclose.period.cannot_close": {
+   "status": 409,
+   "label": "The period cannot close yet",
+   "detail": {
+    "what": "The period cannot close yet: {reasons}."
+   }
+  },
+  "disclose.period.measure": {
+   "label": "Not a value that can be restated",
+   "detail": {
+    "what": "A site's carrying amount, its adapted carrying amount or its net revenue can be restated."
+   }
+  },
+  "disclose.period.reason": {
+   "label": "Say why the period is restated",
+   "detail": {
+    "what": "A restatement of a closed period says why, in at least 10 characters."
+   }
+  },
+  "disclose.period.amount": {
+   "label": "The amount cannot be negative",
+   "detail": {
+    "what": "The amount must be zero or more."
+   }
+  },
+  "disclose.period.open": {
+   "label": "The period is still open",
+   "detail": {
+    "what": "The period is not closed, so the value is a year-end value, not a restatement.",
+    "next": "Send it as the year-end value."
+   }
+  },
+  "disclose.period.currency": {
+   "label": "The amount could not be converted",
+   "detail": {
+    "what": "The amount in {currency} could not be converted to euro for the period end.",
+    "next": "Check the currency, or give the amount in euro."
+   }
+  },
+  "disclose.provided.refused": {
+   "status": 400,
+   "label": "The value was not saved",
+   "detail": {
+    "what": "The value could not be recorded as given.",
+    "next": "Check the figure, its unit and its period, and send it again."
+   }
+  },
+  "disclose.provided.period": {
+   "status": 400,
+   "label": "Say which period the value is for",
+   "detail": {
+    "what": "A value belongs to a reporting period; without one it never reaches a filing."
+   }
+  },
+  "disclose.provided.not_stated_here": {
+   "status": 400,
+   "label": "Not a figure you state for this year",
+   "detail": {
+    "what": "The version of the standards that governs the year ending {date} does not ask the undertaking for this figure."
+   }
+  },
+  "disclose.provided.part_needed": {
+   "status": 400,
+   "label": "Say which part the value is for",
+   "detail": {
+    "what": "{figure} is stated part by part.",
+    "next": "Choose the part the value is for."
+   }
+  },
+  "disclose.provided.part_unknown": {
+   "status": 400,
+   "label": "Not one of the figure's parts",
+   "detail": {
+    "what": "{part} is not one of the parts {figure} is stated by."
+   }
+  },
+  "disclose.provided.single": {
+   "status": 400,
+   "label": "A single figure, not by part",
+   "detail": {
+    "what": "{figure} is one figure; it is not stated part by part."
+   }
+  },
+  "disclose.provided.number": {
+   "status": 400,
+   "label": "Give a number",
+   "detail": {
+    "what": "{figure} is a figure: give its value as a number."
+   }
+  },
+  "disclose.provided.range": {
+   "status": 400,
+   "label": "The value is out of range",
+   "detail": {
+    "what": "{figure} must be {range}."
+   }
+  },
+  "disclose.provided.whole": {
+   "status": 400,
+   "label": "Give a whole number",
+   "detail": {
+    "what": "{figure} is a whole number."
+   }
+  },
+  "disclose.provided.currency": {
+   "status": 400,
+   "label": "Say the amount's currency",
+   "detail": {
+    "what": "{figure} is an amount: give the currency it is stated in. A currency is never assumed."
+   }
+  },
+  "disclose.provided.no_currency": {
+   "status": 400,
+   "label": "Not an amount: no currency",
+   "detail": {
+    "what": "{figure} is not an amount, so it has no currency."
+   }
+  },
+  "disclose.provided.source": {
+   "status": 400,
+   "label": "Your data or your vendor's",
+   "detail": {
+    "what": "A provided value comes from your organisation or from your data vendor."
+   }
+  },
+  "disclose.provided.value": {
+   "status": 400,
+   "label": "Enter the value",
+   "detail": {
+    "what": "A provided value needs a number or a text."
+   }
+  },
+  "disclose.provided.closed": {
+   "status": 400,
+   "label": "The period is closed: say why",
+   "detail": {
+    "what": "The period ending {date} is closed for this undertaking, so a new value is a restatement.",
+    "next": "Say why it is restated, in at least 10 characters."
+   }
+  },
+  "disclose.provided.not_per_entity": {
+   "status": 400,
+   "label": "Stated for the organisation",
+   "detail": {
+    "what": "These values are stated for the organisation as a whole, not for one entity."
+   }
+  },
+  "disclose.provided.future": {
+   "status": 400,
+   "label": "The period has not ended yet",
+   "detail": {
+    "what": "The period ends on {date}, in the future. An amount is converted at its date's rate, so it is stated once that date has passed."
+   }
+  },
+  "disclose.provided.not_a_parameter": {
+   "status": 400,
+   "label": "Not a method choice the platform reads",
+   "detail": {
+    "what": "The value names no method choice the platform's calculations read.",
+    "next": "Choose one of the method choices listed."
+   }
+  },
+  "disclose.provided.not_a_cell": {
+   "status": 400,
+   "label": "Not a cell of the template",
+   "detail": {
+    "what": "The value names no cell of the template that governs the period."
+   }
+  },
+  "disclose.provided.unknown": {
+   "status": 400,
+   "label": "Not a figure of this report",
+   "detail": {
+    "what": "The value names no figure this report takes."
+   }
+  },
+  "disclose.provided.computed": {
+   "status": 400,
+   "label": "This figure is computed",
+   "detail": {
+    "what": "{figure} is computed by the platform; it is not stated by hand."
+   }
+  },
+  "disclose.provided.published_source": {
+   "status": 400,
+   "label": "Name the published source",
+   "detail": {
+    "what": "{figure} is read from a published source: give the source's name and its year."
+   }
   }
  },
  "names": {
@@ -6919,6 +8471,28 @@
    "accept": "marked accepted",
    "supersede": "superseded",
    "withdraw": "withdrawn"
+  },
+  "disclose.pai_data": {
+   "5": "Energy mix",
+   "6": "Energy consumption",
+   "7": "Activity near biodiversity-sensitive areas",
+   "8": "Emissions to water",
+   "9": "Hazardous and radioactive waste",
+   "10": "Breaches of global ethics principles",
+   "11": "Processes to monitor those principles",
+   "12": "The gender pay gap",
+   "13": "Board gender diversity",
+   "14": "Involvement in controversial weapons",
+   "17": "Fossil fuel involvement of the property",
+   "18": "The energy rating of each property"
+  },
+  "disclose.pai_section": {
+   "S1": "Summary",
+   "S4": "Policies",
+   "S5": "Engagement policies",
+   "S6": "International standards",
+   "S7": "Historical comparison",
+   "T1": "Explanations and actions"
   }
  }
 }

@@ -110,7 +110,7 @@ def test_sfdr_pai_has_no_xbrl_until_an_official_taxonomy_exists():
     for path in ("/v1/funds/00000000-0000-0000-0000-000000000000/sfdr-statement.xbrl",
                  "/v1/funds/00000000-0000-0000-0000-000000000000/sfdr-statement.ixbrl", "/v1/entity/sfdr-statement.xbrl"):
         r = c.get(path)
-        assert r.status_code == 410 and "no official SFDR PAI XBRL taxonomy is held" in r.text, path
+        assert r.status_code == 410 and r.json()["error"]["error"] == "disclose.fund.refused.xbrl_retired", path
 
 
 TERRA_ORG = "55555555-5555-4555-8555-555555555555"

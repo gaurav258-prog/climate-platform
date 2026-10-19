@@ -32,6 +32,8 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+
 _REF_DIR = Path(__file__).resolve().parents[2] / "data" / "reference" / "esrs"
 HORIZONS = ("short", "medium", "long")
 
@@ -72,16 +74,17 @@ def scope(session: Session, org_id: str, entity_id: str | None, period_end: date
     from services.governance.csrd_roles import live_role
     role = live_role(session, org_id, entity_id, period_end)
     if entity_id is None:
-        return {"entity_id": None, "role": role, "weights": None, "gaps": [], "basis": "the organisation as the undertaking"}
+        return {"entity_id": None, "role": role, "weights": None, "gaps": [], "basis": "the organisation as the undertaking",
+                "basis_msg": messages.render("disclose.esrs.scope.organisation"), "gap_msgs": []}
     if not (role and role["role"] == "consolidated"):
         return {"entity_id": entity_id, "role": role, "weights": {entity_id: 1.0}, "gaps": [],
-                "basis": "the undertaking's own sites"}
+                "basis": "the undertaking's own sites", "basis_msg": messages.render("disclose.esrs.scope.own"), "gap_msgs": []}
     rows = session.execute(text("""
         SELECT entity_id::text, parent_entity_id::text, name, ownership_pct::float, consolidation_method, joint_arrangement
         FROM reporting_entities WHERE org_id = CAST(:o AS uuid)
     """), {"o": org_id}).all()
     parent = {r[0]: r[1] for r in rows}
-    factor, gaps, basis = {}, [], {}
+    factor, gaps, basis, gap_msgs = {}, [], {}, []
     for eid, _, name, pct, method, ja in rows:
         if method == "full" or method is None:
             factor[eid] = 1.0
@@ -94,6 +97,7 @@ def scope(session: Session, org_id: str, entity_id: str | None, period_end: date
         else:
             factor[eid] = None
             gaps.append(f"{name} is proportionally consolidated: state whether it is a joint operation or a joint venture")
+            gap_msgs.append(messages.render("disclose.esrs.gap.joint_arrangement", entity=name))
     weights = {}
     for eid in parent:
         w, cur, hops, unknown = 1.0, eid, 0, False
@@ -107,7 +111,8 @@ def scope(session: Session, org_id: str, entity_id: str | None, period_end: date
             weights[eid] = w
     return {"entity_id": entity_id, "role": role, "weights": weights, "gaps": gaps, "treatment": basis,
             "basis": "the group (ESRS 1 §62): subsidiaries in full, joint operations at the share recognised, associates "
-                     "and joint ventures as value chain"}
+                     "and joint ventures as value chain", "basis_msg": messages.render("disclose.esrs.scope.group"),
+            "gap_msgs": gap_msgs}
 
 
 def sites_at(session: Session, org_id: str, sc: dict, period_end: date) -> list[dict]:
@@ -199,12 +204,21 @@ def compute(session: Session, org_id: str, *, entity_id: str | None, period_end:
         v = provided.get(key)
         return None if v is None else (v["value_eur"] if v.get("currency") else v["value"])
 
-    base_gaps = list(sc["gaps"])
+    # what a figure lacks: each a sentence (gap, joined) and the same as a catalogue message (gap_msgs) for a screen
+    base_gaps, base_msgs = list(sc["gaps"]), list(sc.get("gap_msgs") or [])
     if level is None:
         base_gaps.append("the undertaking has not stated the level at which a physical climate risk is material "
                          "(esrs.method.physical_risk_level)")
-    base_gaps += [f"no carrying amount at {period_end} for {s['name']}" for s in sites if s["carrying"] is None]
+        base_msgs.append(messages.render("disclose.esrs.gap.risk_level"))
+    no_carrying = [s["name"] for s in sites if s["carrying"] is None]
+    base_gaps += [f"no carrying amount at {period_end} for {n}" for n in no_carrying]
+    if no_carrying:
+        base_msgs.append(messages.render("disclose.esrs.gap.carrying", n=len(no_carrying), sites=", ".join(no_carrying),
+                                         date=period_end.isoformat()))
     concepts: dict = {}
+
+    def hazard(z: str) -> str:
+        return messages.names().get("hazard", {}).get(z) or z.replace("_", " ")
 
     def unprojected(h):
         """'<hazard> at <site>' for each hazard scored today that the horizon's projection does not score."""
@@ -219,32 +233,45 @@ def compute(session: Session, org_id: str, *, entity_id: str | None, period_end:
     def amt(h, key="carrying", flag=None):
         return round(sum(s["weight"] * (s[key] or 0) for s in at(h) if flag is None or risk["by_site"][s["site_id"]][h][flag]), 2)
 
+    def unprojected_named(h):
+        return [f"{hazard(z)} at {s['name']}" for s in sites for z in risk["by_site"][s["site_id"]][h].get("unprojected") or []]
+
     def put(key, values, extra_gaps=()):
-        gaps = base_gaps + [g for g in extra_gaps if g]
+        gaps = base_gaps + [g for g, _ in extra_gaps if g]
+        msgs = base_msgs + [m for g, m in extra_gaps if g]
         missing_h = [h for h in HORIZONS if hz[h] is None]
         if missing_h:
             gaps = gaps + [f"no projection year inside the {', '.join(missing_h)}-term interval"]
-        gaps += [f"{h} term: no {hz[h]['scenario']} projection for {', '.join(unprojected(h))}" for h in HORIZONS
-                 if hz[h] is not None and level is not None and unprojected(h)]
+            msgs = msgs + [messages.render("disclose.esrs.gap.horizon", terms=", ".join(missing_h))]
+        for h in HORIZONS:
+            if hz[h] is not None and level is not None and unprojected(h):
+                gaps.append(f"{h} term: no {hz[h]['scenario']} projection for {', '.join(unprojected(h))}")
+                msgs.append(messages.render("disclose.esrs.gap.unprojected", term=h,
+                                            scenario=messages.names().get("scenario", {}).get(hz[h]["scenario"]) or hz[h]["scenario"],
+                                            items=", ".join(unprojected_named(h))))
         concepts[key] = {"value": values.get("short"), "by_horizon": values, "status": "gap" if gaps else "computed",
-                         **({"gap": "; ".join(gaps)} if gaps else {})}
+                         **({"gap": "; ".join(gaps), "gap_msgs": msgs} if gaps else {})}
     put("e1.physrisk.assets.amount", horizon_values(amt))
     put("e1.physrisk.assets.acute", horizon_values(lambda h: amt(h, flag="acute")))
     put("e1.physrisk.assets.chronic", horizon_values(lambda h: amt(h, flag="chronic")))
     put("e1.physrisk.assets.pct", horizon_values(lambda h: _share(amt(h), eur("fs.total_assets"))),
-        [None if eur("fs.total_assets") else "total assets (balance sheet) not attested"])
+        [(None if eur("fs.total_assets") else "total assets (balance sheet) not attested",
+          messages.render("disclose.esrs.gap.attested", figure=_concept_label("fs.total_assets")))])
     unstated = lambda h: [s["name"] for s in at(h) if s["adapted"] is None]          # noqa: E731
     adapted = horizon_values(lambda h: None if unstated(h) else _share(amt(h, "adapted"), amt(h)) if at(h) else 0.0)
     put("e1.physrisk.assets.addressed_pct", adapted,
-        [f"the carrying amount addressed by adaptation is not stated for {', '.join(unstated('short'))}"
-         if level is not None and unstated("short") else None])
+        [(f"the carrying amount addressed by adaptation is not stated for {', '.join(unstated('short'))}"
+          if level is not None and unstated("short") else None,
+          messages.render("disclose.esrs.gap.adapted", sites=", ".join(unstated("short")) if level is not None else ""))])
     concepts["e1.physrisk.assets.addressed_pct.v2026"] = {**concepts["e1.physrisk.assets.addressed_pct"],
                                                           "value": adapted.get("short")}      # at the reporting date
     no_rev = [s["name"] for s in (at("short") if level is not None else []) if s["revenue"] is None]
     put("e1.physrisk.revenue.amount", horizon_values(lambda h: amt(h, "revenue")),
-        [f"net revenue not stated for {', '.join(no_rev)}" if no_rev else None])
+        [(f"net revenue not stated for {', '.join(no_rev)}" if no_rev else None,
+          messages.render("disclose.esrs.gap.site_revenue", sites=", ".join(no_rev)))])
     put("e1.physrisk.revenue.pct", horizon_values(lambda h: _share(amt(h, "revenue"), eur("fs.net_revenue"))),
-        [None if eur("fs.net_revenue") else "net revenue (financial statements) not attested"])
+        [(None if eur("fs.net_revenue") else "net revenue (financial statements) not attested",
+          messages.render("disclose.esrs.gap.attested", figure=_concept_label("fs.net_revenue")))])
     concepts.update(_derived(provided))
     return {"period_end": period_end.isoformat(), "esrs_version": esrs_version, "scope": sc, "concepts": concepts,
             "assessment": {**risk, "unscored_sites": [s["name"] for s in sites if level is not None and not any(
@@ -285,6 +312,13 @@ def _water(session: Session, sites: list[dict], esrs_version: str) -> dict:
                        **classify(session, s["latitude"], s["longitude"], esrs_version)} for s in sites]}
 
 
+def _concept_label(key: str) -> str:
+    """A figure's name inside a sentence: 'Net revenue …' → 'net revenue …' (an acronym such as 'GHG …' stays)."""
+    from services.governance.esrs_binding import label
+    t = label(key)
+    return t[:1].lower() + t[1:] if t[1:2].islower() else t
+
+
 def _derived(provided: dict) -> dict:
     """The ratios the application requirements define, in the unit they name, from attested figures."""
     def v(key, eur=False):
@@ -297,7 +331,8 @@ def _derived(provided: dict) -> dict:
     def ratio(key, num, den, scale=1.0, unit=None, den_eur=False, num_eur=False):
         n, d = v(num, num_eur), v(den, den_eur)
         if n is None or not d:
-            return {key: {"value": None, "status": "gap", "gap": f"needs {num} and {den}"}}
+            return {key: {"value": None, "status": "gap", "gap": f"needs {num} and {den}",
+                          "gap_msgs": [messages.render("disclose.esrs.gap.needs", figures=f"{_concept_label(num)} and {_concept_label(den)}")]}}
         return {key: {"value": round(n / d * scale, 10), "status": "derived", "unit": unit}}
     out = {}
     # shares of attested totals: numerator and denominator in EUR (each converted by its own period rule)
@@ -312,7 +347,9 @@ def _derived(provided: dict) -> dict:
         {"value": {"location": loc["value"], "market": mkt["value"]}, "status": "derived",
          "unit": f"tCO2eq/{ccy('fs.net_revenue') or 'monetary unit'}"}
         if loc["value"] is not None and mkt["value"] is not None
-        else {"value": None, "status": "gap", "gap": "needs total GHG (location- and market-based) and net revenue"})
+        else {"value": None, "status": "gap", "gap": "needs total GHG (location- and market-based) and net revenue",
+              "gap_msgs": [messages.render("disclose.esrs.gap.needs", figures="total greenhouse gas emissions (location- and "
+                                           "market-based) and net revenue")]})
     # 'm3 per million EUR net revenue' (2023 E3 §29)
     out.update(ratio("e3.water.intensity", "e3.water.consumption", "fs.net_revenue", 1e6, "m3/EURm", den_eur=True))
     return out

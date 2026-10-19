@@ -18,6 +18,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from core import messages
+
 _REF = Path(__file__).resolve().parents[2] / "data" / "reference" / "esrs"
 
 
@@ -40,8 +42,23 @@ def identities(version: str) -> list[dict]:
     return d[v] if isinstance(v, str) else v
 
 
-def _f(rule, category, severity, passed, message, ref=None):
-    return {"rule": rule, "category": category, "severity": severity, "passed": bool(passed), "message": message, "ref": ref}
+def _f(rule, category, severity, passed, message, ref=None, code=None, **params):
+    """A finding: its sentence (the exception monitor, the filing's task) and, as `msg`, the same as a catalogue message
+    (data/reference/messages.en.json disclose.esrs.check.*) — its label for a checklist, its detail behind the ⓘ."""
+    out = {"rule": rule, "category": category, "severity": severity, "passed": bool(passed), "message": message, "ref": ref}
+    if code:
+        out["msg"] = messages.render(code, **params)
+    return out
+
+
+def _point(p: str | None) -> str:
+    """A point of Art. 5(2) as the Directive numbers it: 'a_ii' → '(a)(ii)'."""
+    return "".join(f"({x})" for x in (p or "").split("_")) or "—"
+
+
+def _label(key: str) -> str:
+    from services.governance.esrs_binding import label
+    return label(key.split(" (")[0])
 
 
 def facts_of(provided: dict) -> dict:
@@ -104,31 +121,40 @@ def checks(payload: dict) -> list[dict]:
     spec_rec = (payload.get("_specs") or {}).get("esrs") or {}
     if not spec_rec.get("version") or not doc:
         return [_f("specification", "completeness", "blocking", False,
-                   "no ESRS version governs this financial year (or the statement was not built)")]
-    out = [_f("specification", "completeness", "info", True, f"governed by {spec_rec.get('act')} ({spec_rec['version']})")]
+                   "no ESRS version governs this financial year (or the statement was not built)", code="disclose.esrs.check.no_version")]
+    out = [_f("specification", "completeness", "info", True, f"governed by {spec_rec.get('act')} ({spec_rec['version']})",
+              code="disclose.esrs.check.version", act=spec_rec.get("act") or "—")]
     scope, role, st = doc.get("scope_check") or {}, doc.get("role"), doc.get("statement") or {}
     if doc.get("org_has_entities") and doc.get("reporting_entity_id") is None:
         out.append(_f("undertaking", "scope", "blocking", False, "this organisation has legal entities: an ESRS statement "
-                      "is filed by the reporting undertaking (an entity), not by the organisation as a whole"))
+                      "is filed by the reporting undertaking (an entity), not by the organisation as a whole",
+                      code="disclose.esrs.check.per_undertaking"))
     if role is None:
-        out.append(_f("csrd_role", "scope", "blocking", False, "state the undertaking's CSRD role for this financial year"))
+        out.append(_f("csrd_role", "scope", "blocking", False, "state the undertaking's CSRD role for this financial year",
+                      code="disclose.esrs.check.role_missing"))
     elif role["role"] == "exempt_subsidiary":
         out.append(_f("csrd_role", "scope", "blocking", False, f"an exempt subsidiary files no statement — included in "
-                      f"{role['parent_name']}'s consolidated report ({role['parent_report_ref']})", "Directive 2013/34/EU Art. 19a(9) / 29a(8)"))
+                      f"{role['parent_name']}'s consolidated report ({role['parent_report_ref']})", "Directive 2013/34/EU Art. 19a(9) / 29a(8)",
+                      code="disclose.esrs.check.exempt", parent=role.get("parent_name") or "—",
+                      report=role.get("parent_report_ref") or "—"))
         return out                                   # no statement: nothing else in it to check (E139)
     req = scope.get("required")
     if role and role["role"] in ("individual", "consolidated"):
         if req is False:
             out.append(_f("csrd_scope", "scope", "warning", False, "Art. 5(2) does not require a statement for this year "
-                          f"({scope.get('reason') or scope.get('point')}) — state the role as voluntary if it is filed", scope.get("ref")))
+                          f"({scope.get('reason') or scope.get('point')}) — state the role as voluntary if it is filed", scope.get("ref"),
+                          code="disclose.esrs.check.not_required"))
         elif req is None:
             out.append(_f("csrd_scope", "scope", "warning", False, "whether a statement is required cannot be determined: "
-                          + (scope.get("reason") or "missing " + ", ".join(scope.get("missing") or [])), scope.get("ref")))
+                          + (scope.get("reason") or "missing " + ", ".join(scope.get("missing") or [])), scope.get("ref"),
+                          code="disclose.esrs.check.undeterminable",
+                          facts=", ".join(_label(k) for k in scope.get("missing") or []) or "the undertaking's role"))
         else:
-            out.append(_f("csrd_scope", "scope", "info", True, f"required under Art. 5(2) point {scope.get('point')}", scope.get("ref")))
+            out.append(_f("csrd_scope", "scope", "info", True, f"required under Art. 5(2) point {scope.get('point')}", scope.get("ref"),
+                          code="disclose.esrs.check.required", point=_point(scope.get("point"))))
     elif role and role["role"] == "voluntary" and req is True:
         out.append(_f("csrd_scope", "scope", "warning", False, "Art. 5(2) requires a statement for this year — the role is "
-                      "stated as voluntary", scope.get("ref")))
+                      "stated as voluntary", scope.get("ref"), code="disclose.esrs.check.voluntary_required"))
 
     fy_year = int(str(scope.get("fy_start") or st.get("period_end"))[:4])
     facts = facts_of({k: v for k, v in (doc.get("provided") or {}).items()})
@@ -137,7 +163,8 @@ def checks(payload: dict) -> list[dict]:
     for sec in doc.get("sections") or []:
         if sec["topic"] is None:
             out.append(_f(f"materiality_{sec['standard']}", "completeness", "blocking", False,
-                          f"state whether ESRS {sec['standard']} is material (the undertaking's materiality assessment)"))
+                          f"state whether ESRS {sec['standard']} is material (the undertaking's materiality assessment)",
+                          code="disclose.esrs.check.materiality", standard=f"{sec['standard']} {sec.get('title') or ''}".strip()))
             continue
         if sec["topic"].get("material") is False:
             continue
@@ -160,20 +187,25 @@ def checks(payload: dict) -> list[dict]:
                 (gaps if gap else missing).append(f"{i['id']}" + (f" — {gap}" if gap else ""))
     if missing:
         out.append(_f("items_answered", "completeness", "blocking", False,
-                      f"{len(missing)} required item(s) neither filled nor omitted with a reason: " + "; ".join(missing[:12])))
+                      f"{len(missing)} required item(s) neither filled nor omitted with a reason: " + "; ".join(missing[:12]),
+                      code="disclose.esrs.check.items", n=len(missing), items=", ".join(m.split(" — ")[0] for m in missing[:12])))
     if gaps:
         out.append(_f("figures_computed", "completeness", "blocking", False,
-                      f"{len(gaps)} item(s) the platform cannot compute yet: " + "; ".join(gaps[:8])))
+                      f"{len(gaps)} item(s) the platform cannot compute yet: " + "; ".join(gaps[:8]),
+                      code="disclose.esrs.check.figures", n=len(gaps), items=", ".join(g.split(" — ")[0] for g in gaps[:8])))
     if bad_claims:
-        out.append(_f("phase_ins", "completeness", "blocking", False, "a phase-in claimed does not apply: " + "; ".join(bad_claims[:8])))
+        out.append(_f("phase_ins", "completeness", "blocking", False, "a phase-in claimed does not apply: " + "; ".join(bad_claims[:8]),
+                      code="disclose.esrs.check.phase_in", n=len(bad_claims), items=", ".join(b.split(": ")[0] for b in bad_claims[:8])))
     if unclear:
-        out.append(_f("phase_ins_open", "completeness", "warning", False, "; ".join(unclear[:8])))
+        out.append(_f("phase_ins_open", "completeness", "warning", False, "; ".join(unclear[:8]),
+                      code="disclose.esrs.check.phase_in_open", n=len(unclear), items=", ".join(u.split(": ")[0] for u in unclear[:8])))
     out += _comparatives(doc.get("comparatives"))
     out += _identities(spec_rec["version"], doc.get("provided") or {})
     out += _arithmetic(st, doc.get("provided") or {})
     if not doc.get("period_closed"):
         out.append(_f("period_closed", "governance", "warning", False, "the reporting period is not closed for this "
-                      "undertaking — its year-end values can still change without a restatement"))
+                      "undertaking — its year-end values can still change without a restatement",
+                      code="disclose.esrs.check.period_open"))
     return out
 
 
@@ -184,15 +216,18 @@ def _comparatives(c: dict | None) -> list[dict]:
         return []
     if c.get("needs") and any(r["status"] == "missing" for r in c["rows"]):
         return [_f("comparatives", "completeness", "blocking", False, "whether a first-year relief applies needs the attested "
-                   + ", ".join(c["needs"]) + f"; {len(c['missing'])} figure(s) have no comparative", "ESRS 1 chapter 7.1")]
+                   + ", ".join(c["needs"]) + f"; {len(c['missing'])} figure(s) have no comparative", "ESRS 1 chapter 7.1",
+                   code="disclose.esrs.check.cmp_facts", facts=", ".join(_label(k) for k in c["needs"]), n=len(c["missing"]))]
     if c["missing"]:
         return [_f("comparatives", "completeness", "blocking", False, f"{len(c['missing'])} comparative(s) incomplete: "
-                   + "; ".join(c["missing"][:8]) + (" …" if len(c["missing"]) > 8 else ""), "ESRS 1 chapter 7.1")]
+                   + "; ".join(c["missing"][:8]) + (" …" if len(c["missing"]) > 8 else ""), "ESRS 1 chapter 7.1",
+                   code="disclose.esrs.check.cmp_missing", n=len(c["missing"]))]
     n = len(c["rows"])
     relief = c["reliefs"].get("all")
     return [_f("comparatives", "completeness", "info", True,
                f"no comparative information required: {relief}" if relief else
-               f"{n} figure(s) with their comparative, revision, relief or stated impracticability", "ESRS 1 chapter 7.1")]
+               f"{n} figure(s) with their comparative, revision, relief or stated impracticability", "ESRS 1 chapter 7.1",
+               code="disclose.esrs.check.cmp_relief" if relief else "disclose.esrs.check.cmp_ok", n=n)]
 
 
 def _identities(version: str, provided: dict) -> list[dict]:
@@ -208,13 +243,18 @@ def _identities(version: str, provided: dict) -> list[dict]:
             tol = (len(parts) + 1) * 0.5
             ok = abs(total - sum(parts)) <= tol
             out.append(_f(f"identity_{r['id']}", "consistency", "blocking", ok,
-                          f"{r['total']} {total:,.0f} {'=' if ok else '≠'} sum of its parts {sum(parts):,.0f}", r["ref"]))
+                          f"{r['total']} {total:,.0f} {'=' if ok else '≠'} sum of its parts {sum(parts):,.0f}", r["ref"],
+                          code=f"disclose.esrs.check.sum.{'ok' if ok else 'fail'}", total=_label(r["total"]),
+                          value=f"{total:,.0f}", parts=f"{sum(parts):,.0f}"))
         elif r["kind"] == "at_most":
             part, total = v(r["part"]), v(r["total"])
             if part is None or total is None:
                 continue
-            out.append(_f(f"identity_{r['id']}", "consistency", "blocking", part <= total + 0.5,
-                          f"{r['part']} {part:,.0f} {'≤' if part <= total + 0.5 else '>'} {r['total']} {total:,.0f}", r["ref"]))
+            ok = part <= total + 0.5
+            out.append(_f(f"identity_{r['id']}", "consistency", "blocking", ok,
+                          f"{r['part']} {part:,.0f} {'≤' if ok else '>'} {r['total']} {total:,.0f}", r["ref"],
+                          code=f"disclose.esrs.check.at_most.{'ok' if ok else 'fail'}", part=_label(r["part"]),
+                          total=_label(r["total"]), value=f"{part:,.0f}", limit=f"{total:,.0f}"))
     return out
 
 
@@ -229,4 +269,6 @@ def _arithmetic(st: dict, provided: dict) -> list[dict]:
         return []
     ok = worst <= float(ta["value_eur"]) + 0.5
     return [_f("assets_within_total", "consistency", "blocking", ok,
-               f"assets at material physical risk {worst:,.0f} {'≤' if ok else '>'} total assets {float(ta['value_eur']):,.0f} (EUR)")]
+               f"assets at material physical risk {worst:,.0f} {'≤' if ok else '>'} total assets {float(ta['value_eur']):,.0f} (EUR)",
+               code=f"disclose.esrs.check.assets.{'ok' if ok else 'fail'}", value=f"{worst:,.0f}",
+               limit=f"{float(ta['value_eur']):,.0f}")]

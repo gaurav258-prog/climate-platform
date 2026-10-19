@@ -32,6 +32,7 @@ from datetime import date, timedelta
 
 from sqlalchemy import text
 
+from core import messages
 from services.governance import template_answers as TA
 
 FAMILY, DOCUMENT = "esrs", "comparatives"
@@ -71,13 +72,16 @@ def _reported(session, org_id: str, entity_id: str | None, prev_end: date) -> di
                     v = d.get("by_horizon") or d.get("value")
                     if isinstance(d.get("concept"), str) and _numeric(v):
                         figs[d["concept"]] = v
-        return {"source": f"statement filed ({row['status']})", "filing_id": row["fid"], "figures": figs, "topics": topics}
+        return {"source": f"statement filed ({row['status']})", "filing_id": row["fid"], "figures": figs, "topics": topics,
+                "source_msg": messages.render("disclose.esrs.prior.filed", status=messages.name("filing.status", row["status"]))}
     from services.governance.prior_filings import reported_figures
     up = reported_figures(session, org_id, "esrs_pack", entity_id, prev_end)
     if up:
         return {"source": "previous statement uploaded and confirmed", "filing_id": next(iter(up.values()))["filing_id"],
-                "figures": {k: v["value"] for k, v in up.items() if _numeric(v["value"])}, "topics": None}
-    return {"source": None, "filing_id": None, "figures": {}, "topics": None}
+                "figures": {k: v["value"] for k, v in up.items() if _numeric(v["value"])}, "topics": None,
+                "source_msg": messages.render("disclose.esrs.prior.uploaded")}
+    return {"source": None, "filing_id": None, "figures": {}, "topics": None,
+            "source_msg": messages.render("disclose.esrs.prior.none")}
 
 
 def _attested(session, org_id: str, entity_id: str | None, prev_end: date) -> dict:
@@ -121,17 +125,20 @@ def _reliefs(session, org_id: str, spec: dict, period_end: date, facts: dict) ->
     from services.regspec import fy_start
     version, fy = spec["version"], fy_start(period_end).year
     first = facts.get("first_year")
-    out = {"all": None, "not_same_as_first_set": None, "needs": []}
+    # each relief as a sentence (the filed form prints it) and its catalogue message (*_msg) for a screen
+    out = {"all": None, "not_same_as_first_set": None, "needs": [], "all_msg": None, "first_set_msg": None}
     if first is None:
         out["needs"].append("csrd.first_reporting_year")
         return out
     if not is_2026(version):
         if fy == int(first):
             out["all"] = "first year of preparation of the sustainability statement under the ESRS (2023 ESRS 1 §136)"
+            out["all_msg"] = messages.render("disclose.esrs.relief.first_year", ref="2023 ESRS 1 §136")
         return out
     if first > 2026:                                        # 'other undertakings' (2026/1563 ESRS 1 §122)
         if fy == int(first):
             out["all"] = "first financial year of reporting (2026 ESRS 1 §124, other undertakings)"
+            out["all_msg"] = messages.render("disclose.esrs.relief.first_year", ref="2026 ESRS 1 §124")
         return out
     try:
         prev_version = governing(session, org_id, previous_end(period_end))["version"]
@@ -140,6 +147,7 @@ def _reliefs(session, org_id: str, spec: dict, period_end: date, facts: dict) ->
     if not (prev_version or "").startswith("dr_2026"):     # wave one's first year under 2026/1563
         out["not_same_as_first_set"] = ("first year of reporting under Delegated Regulation (EU) 2026/1563, a metric not "
                                         "the same as one the first set required (2026 ESRS 1 §124, wave one)")
+        out["first_set_msg"] = messages.render("disclose.esrs.relief.new_metric")
     return out
 
 
@@ -165,12 +173,14 @@ def compute(session, org_id: str, entity_id: str | None, period_end: date, spec:
         std, topic = sec["standard"], sec.get("topic") or {}
         if topic.get("material") is False:
             continue
-        topic_first = None
+        topic_first = topic_msg = None
         if is_2026(spec["version"]):
             if rep["topics"] is not None and rep["topics"].get(std) is not True:
                 topic_first = "a topic reported for the first time (2026 ESRS 1 §87(b))"
+                topic_msg = messages.render("disclose.esrs.relief.new_topic")
             elif (ans.get(f"topic.{std}") or {}).get("first_time") and rep["topics"] is None:
                 topic_first = "a topic reported for the first time, as the undertaking states (2026 ESRS 1 §87(b))"
+                topic_msg = messages.render("disclose.esrs.relief.new_topic_stated")
         dr = None
         for i in sec["items"]:
             if i["kind"] == "heading":
@@ -187,20 +197,22 @@ def compute(session, org_id: str, entity_id: str | None, period_end: date, spec:
                 a = ans.get(f"cmp.{c}") or {}
                 row = {"concept": c, "item": i["id"], "standard": std, "current": cur, "reported": reported,
                        "comparative": comparative, "source": "attested" if attested is not None else rep["source"],
-                       "answer": a or None}
-                relief = rel["all"] or topic_first or (rel["not_same_as_first_set"] if first_set is not None and c not in first_set
-                                                       else None)
+                       "answer": a or None, "label": _label(c)}
+                new_metric = first_set is not None and c not in first_set
+                relief = rel["all"] or topic_first or (rel["not_same_as_first_set"] if new_metric else None)
+                relief_msg = rel["all_msg"] or topic_msg or (rel["first_set_msg"] if new_metric else None)
                 if relief is None and rules:                 # 2023 §136: a phased-in DR's first year of mandatory application
                     for r in rules:
                         was, _ = phase_in_holds(r, i["id"], dr, std, i["kind"], fy - 1, facts)
                         now, _ = phase_in_holds(r, i["id"], dr, std, i["kind"], fy, facts)
                         if was is True and now is False:
                             relief = f"first year of mandatory application of a phased-in requirement ({r['id']}; 2023 ESRS 1 §136)"
+                            relief_msg = messages.render("disclose.esrs.relief.phase_in", rule=r.get("ref") or "—")
                             break
                 if comparative is None:
                     if relief:
                         row["status"] = "relief"
-                        row["relief"] = relief
+                        row["relief"], row["relief_msg"] = relief, relief_msg
                     elif a.get("impracticable"):
                         row["status"] = "impracticable"
                     else:
@@ -225,30 +237,38 @@ def compute(session, org_id: str, entity_id: str | None, period_end: date, spec:
                 else:
                     row["status"] = "comparative"
                 rows.append(row)
-    return {"previous_period_end": prev_end.isoformat(), "reported": {k: rep[k] for k in ("source", "filing_id")},
-            "reliefs": {k: rel[k] for k in ("all", "not_same_as_first_set")}, "needs": rel["needs"], "rows": rows,
+    return {"previous_period_end": prev_end.isoformat(), "reported": {k: rep[k] for k in ("source", "filing_id", "source_msg")},
+            "reliefs": {k: rel[k] for k in ("all", "not_same_as_first_set", "all_msg")}, "needs": rel["needs"],
+            "needs_msg": messages.render("disclose.esrs.relief.needs", facts=", ".join(_label(k) for k in rel["needs"]))
+            if rel["needs"] else None, "rows": rows,
             "missing": missing, "topics_first_time": {k: v for k, v in ans.items() if k.startswith("topic.")}}
+
+
+def _label(concept: str) -> str:
+    from services.governance.esrs_binding import label
+    return label(concept)
 
 
 def _validate(item: dict, value) -> dict:
     iid = item["id"]
     if not isinstance(value, dict):
-        raise TA.AnswerError(f"{iid}: an answer is an object")
+        raise TA.AnswerError(f"{iid}: an answer is an object", "disclose.answers.invalid")
     if iid.startswith("topic."):
         if value.get("first_time") is not True:
-            raise TA.AnswerError(f"{iid}: state {{'first_time': true}} for a topic reported for the first time")
+            raise TA.AnswerError(f"{iid}: state {{'first_time': true}} for a topic reported for the first time",
+                                 "disclose.answers.invalid")
         return {"first_time": True}
     out = {}
     if "significant" in value:
         if not isinstance(value["significant"], bool):
-            raise TA.AnswerError(f"{iid}: significant is true or false")
+            raise TA.AnswerError(f"{iid}: significant is true or false", "disclose.esrs.answer.significant")
         out["significant"] = value["significant"]
     for k in ("reason", "impracticable"):
         if str(value.get(k) or "").strip():
             out[k] = str(value[k]).strip()
     if not out:
         raise TA.AnswerError(f"{iid}: state the reasons, whether the difference is significant, or that a comparative is "
-                             "impracticable")
+                             "impracticable", "disclose.esrs.answer.comparative")
     return out
 
 
@@ -263,7 +283,8 @@ def save(session, org_id: str, user_id: str, *, entity_id: str | None, period_en
     for k, v in (answers or {}).items():
         if k.startswith("topic.") and v and prev["topics"] is not None and prev["topics"].get(k[6:]) is True:
             raise TA.AnswerError(f"{k}: the statement reported for {previous_end(period_end)} ({prev['source']}) reports "
-                                 f"ESRS {k[6:]} — it is not reported for the first time")
+                                 f"ESRS {k[6:]} — it is not reported for the first time", "disclose.esrs.answer.not_first",
+                                 standard=k[6:])
     tmpl = {"items": list({i["id"]: i for i in items + topics}.values())}
     return TA.save(session, org_id, FAMILY, DOCUMENT, tmpl, {i["id"]: "input" for i in tmpl["items"]}, answers, user_id,
                    entity_id=entity_id, period_end=period_end, label="the statement's comparative information",

@@ -75,7 +75,7 @@ def test_the_eet_workflow_end_to_end(am):
     # share classes: a bad ISIN is refused, two good ones registered
     bad = c.post(f"/v1/funds/{c.fund}/share-classes", headers=c.maker,
                  json={"isin": "LU0274208693", "name": "x", "currency": "EUR", "distribution": "accumulating"})
-    assert bad.status_code == 422 and "not a valid ISIN" in bad.json()["error"]["message"]
+    assert bad.status_code == 422 and bad.json()["error"]["error"] == "disclose.eet.class.isin"
     for isin, name, ccy, hedged, dist in ((ISINS[0], "A EUR Acc", "EUR", False, "accumulating"),
                                           (ISINS[1], "B USD Dis Hedged", "USD", True, "distributing")):
         r = c.post(f"/v1/funds/{c.fund}/share-classes", headers=c.maker,
@@ -83,7 +83,7 @@ def test_the_eet_workflow_end_to_end(am):
         assert r.status_code == 201, r.text
     dup = c.post(f"/v1/funds/{c.fund}/share-classes", headers=c.maker,
                  json={"isin": ISINS[0], "name": "again", "currency": "EUR", "distribution": "accumulating"})
-    assert dup.status_code == 422 and "already registered" in dup.text
+    assert dup.status_code == 422 and dup.json()["error"]["error"] == "disclose.eet.class.duplicate"
 
     uses = "entity,periodic,mifid"
     d = c.get(f"/v1/eet/draft?uses={uses}", headers=c.maker).json()
@@ -97,7 +97,7 @@ def test_the_eet_workflow_end_to_end(am):
 
     # can't prepare while mandatory fields are empty
     r = c.post("/v1/eet/versions", headers=c.maker, json={"uses": uses.split(",")})
-    assert r.status_code == 422 and "mandatory field" in r.json()["error"]["message"]
+    assert r.status_code == 422 and r.json()["error"]["error"] == "disclose.eet.refused.blocking"
 
     # answers: format-checked, computed fields refused, then every blocking field answered
     r = c.put("/v1/eet/answers", headers=c.maker, json={"fund_id": c.fund, "values": {

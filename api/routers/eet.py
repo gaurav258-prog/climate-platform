@@ -13,11 +13,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 
 from api.deps import DbSession, attachment, require_permission
 from api.services.rbac import write_audit
+from core.errors import UserError
 from services.eet import fields as F
 from services.eet import publication as P
 from services.eet import share_classes as S
@@ -26,15 +27,18 @@ from services.eet.generator import build, computed_names
 router = APIRouter(prefix="/v1", tags=["European ESG Template (EET)"])
 
 
-def _err(e: Exception, code: str = "eet_error", status: int = 422):
-    raise HTTPException(status, {"error": code, "message": str(e)})
+def _err(e: Exception):
+    """A refused step in the catalogue's words (core/errors.py): an EETError or a share-class / confirmation refusal
+    carries its code; the sentence goes to the log."""
+    raise UserError(getattr(e, "code", None) or "disclose.eet.refused.general", getattr(e, "status", None),
+                    **getattr(e, "params", {})) from e
 
 
 def _uses(uses: str) -> tuple[str, ...]:
     got = tuple(u.strip() for u in (uses or "").split(",") if u.strip())
     bad = [u for u in got if u not in F.USES]
     if bad or not got:
-        _err(ValueError(f"uses must be one or more of: {', '.join(F.USES)}"), "bad_uses")
+        raise UserError("disclose.eet.refused.uses")
     return got
 
 
@@ -88,7 +92,7 @@ def add_share_class(fund_id: str, body: ShareClassBody, session: DbSession,
     try:
         sc = S.create(session, ctx["org"]["org_id"], fund_id, body.model_dump(exclude_none=True), ctx["user"]["id"])
     except S.ShareClassError as e:
-        _err(e, "share_class_error")
+        _err(e)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.share_class.create",
                 target_type="fund_share_class", target_id=sc["share_class_id"], detail={"isin": sc["isin"], "fund_id": fund_id})
     session.commit()
@@ -102,7 +106,7 @@ def edit_share_class(share_class_id: str, body: ShareClassBody, session: DbSessi
     try:
         sc = S.update(session, ctx["org"]["org_id"], share_class_id, changes, ctx["user"]["id"])
     except S.ShareClassError as e:
-        _err(e, "share_class_error")
+        _err(e)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.share_class.update",
                 target_type="fund_share_class", target_id=share_class_id, detail={"changes": changes})
     session.commit()
@@ -136,7 +140,7 @@ def put_answers(body: AnswersBody, session: DbSession, ctx: dict = Depends(requi
 @router.get("/eet/draft", summary="What an EET would hold now, and what is still missing")
 def draft(session: DbSession, uses: str = Query("entity"), ctx: dict = Depends(require_permission("reports.view"))):
     out = build(session, ctx["org"]["org_id"], _uses(uses))
-    return {**{k: out[k] for k in ("eet_version", "uses", "funds", "notes", "data_checks", "completeness")},
+    return {**{k: out[k] for k in ("eet_version", "uses", "funds", "notes", "note_msgs", "data_checks", "completeness")},
             "rows": [{"fund_id": r["fund_id"], "isin": r["isin"], "n_filled": len(r["values"]), "values": r["values"]}
                      for r in out["rows"]]}
 
@@ -154,7 +158,7 @@ def confirm_figure(body: ConfirmBody, session: DbSession, ctx: dict = Depends(re
     try:
         out = confirm(session, ctx["org"]["org_id"], body.issuer_id, body.field, body.value, body.reason, ctx["user"]["id"])
     except ValueError as e:
-        _err(e, "bad_confirmation")
+        _err(e)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.data_check.confirm",
                 target_type="issuer", target_id=body.issuer_id,
                 detail={"field": body.field, "value": body.value, "reason": body.reason})
@@ -172,7 +176,7 @@ def prepare(body: PrepareBody, session: DbSession, ctx: dict = Depends(require_p
     try:
         v = P.prepare(session, ctx["org"]["org_id"], ctx["user"]["id"], body.uses, body.note)
     except P.EETError as e:
-        _err(e, "not_ready")
+        _err(e)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.version.prepare",
                 target_type="eet_publication", target_id=v["publication_id"],
                 detail={"version": v["version"], "uses": v["uses"], "sha256": v["payload_sha256"]})
@@ -190,7 +194,7 @@ def version(publication_id: str, session: DbSession, ctx: dict = Depends(require
     try:
         return P.get(session, ctx["org"]["org_id"], publication_id)
     except P.EETError as e:
-        _err(e, "not_found", 404)
+        _err(e)
 
 
 @router.get("/eet/versions/{publication_id}/export", summary="The EET file — xlsx or csv, from the frozen version")
@@ -199,7 +203,7 @@ def export(publication_id: str, session: DbSession, format: str = Query("xlsx"),
     try:
         name, media, data = P.export(session, ctx["org"]["org_id"], publication_id, format)
     except P.EETError as e:
-        _err(e, "export_error")
+        _err(e)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.version.export",
                 target_type="eet_publication", target_id=publication_id, detail={"format": format})
     session.commit()

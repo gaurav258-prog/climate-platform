@@ -19,7 +19,12 @@ DISTRIBUTION = ("accumulating", "distributing")
 
 
 class ShareClassError(ValueError):
-    pass
+    """A share class refused: the sentence (logs) and the same as a catalogue message (data/reference/messages.en.json,
+    disclose.eet.class.*) which the API answers."""
+
+    def __init__(self, message: str, code: str, status: int = 422, **params):
+        super().__init__(message)
+        self.code, self.status, self.params = code, status, params
 
 
 def isin_valid(isin: str) -> bool:
@@ -44,32 +49,35 @@ def _clean(session: Session, body: dict, partial: bool = False) -> dict:
     if "isin" in body or not partial:
         isin = (body.get("isin") or "").strip().upper()
         if not isin_valid(isin):
-            raise ShareClassError(f"'{isin}' is not a valid ISIN (2-letter country, 9 characters, check digit)")
+            raise ShareClassError(f"'{isin}' is not a valid ISIN (2-letter country, 9 characters, check digit)",
+                                  "disclose.eet.class.isin", isin=isin)
         out["isin"] = isin
     if "name" in body or not partial:
         name = (body.get("name") or "").strip()
         if not name or len(name) > 255:
-            raise ShareClassError("a share class needs a name (at most 255 characters)")
+            raise ShareClassError("a share class needs a name (at most 255 characters)", "disclose.eet.class.name")
         out["name"] = name
     if "currency" in body or not partial:
         ccy = (body.get("currency") or "").strip().upper()
         if ccy not in set(supported_currencies(session)):
-            raise ShareClassError(f"'{ccy}' is not a currency we can convert (ISO 4217, e.g. EUR, USD)")
+            raise ShareClassError(f"'{ccy}' is not a currency we can convert (ISO 4217, e.g. EUR, USD)",
+                                  "disclose.eet.class.currency", currency=ccy)
         out["currency"] = ccy
     if "hedged" in body or not partial:
         out["hedged"] = bool(body.get("hedged"))
     if "distribution" in body or not partial:
         dist = (body.get("distribution") or "").strip().lower()
         if dist not in DISTRIBUTION:
-            raise ShareClassError("distribution is 'accumulating' (income reinvested) or 'distributing' (paid out)")
+            raise ShareClassError("distribution is 'accumulating' (income reinvested) or 'distributing' (paid out)",
+                                  "disclose.eet.class.distribution")
         out["distribution"] = dist
     if body.get("launch_date"):
         try:
             d = date.fromisoformat(str(body["launch_date"])[:10])
         except ValueError:
-            raise ShareClassError("launch_date must be YYYY-MM-DD")
+            raise ShareClassError("launch_date must be YYYY-MM-DD", "disclose.eet.class.launch_date")
         if d > date.today():
-            raise ShareClassError("launch_date can't be in the future")
+            raise ShareClassError("launch_date can't be in the future", "disclose.eet.class.launch_future")
         out["launch_date"] = d
     return out
 
@@ -77,7 +85,7 @@ def _clean(session: Session, body: dict, partial: bool = False) -> dict:
 def _fund_of_org(session: Session, org_id: str, fund_id: str) -> None:
     if not session.execute(text("SELECT 1 FROM funds WHERE fund_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
                            {"f": fund_id, "o": org_id}).first():
-        raise ShareClassError("fund not found")
+        raise ShareClassError("fund not found", "filing.refused.fund_not_found", 404)
 
 
 def list_classes(session: Session, org_id: str, fund_id: Optional[str] = None) -> list[dict]:
@@ -105,7 +113,8 @@ def create(session: Session, org_id: str, fund_id: str, body: dict, user_id: Opt
                 RETURNING share_class_id::text
             """), {"o": org_id, "f": fund_id, "u": user_id, "launch_date": None, **v}).scalar()
     except IntegrityError:
-        raise ShareClassError(f"ISIN {v['isin']} is already registered as one of your share classes")
+        raise ShareClassError(f"ISIN {v['isin']} is already registered as one of your share classes",
+                              "disclose.eet.class.duplicate", 422, isin=v["isin"])
     return next(c for c in list_classes(session, org_id, fund_id) if c["share_class_id"] == sid)
 
 
@@ -113,10 +122,10 @@ def update(session: Session, org_id: str, share_class_id: str, body: dict, user_
     v = _clean(session, body, partial=True)
     if "status" in body:
         if body["status"] not in ("active", "closed"):
-            raise ShareClassError("status is 'active' or 'closed'")
+            raise ShareClassError("status is 'active' or 'closed'", "disclose.eet.class.status")
         v["status"] = body["status"]
     if not v:
-        raise ShareClassError("nothing to change")
+        raise ShareClassError("nothing to change", "disclose.eet.class.nothing")
     sets = ", ".join(f"{k} = :{k}" for k in v)
     try:
         with session.begin_nested():
@@ -125,9 +134,10 @@ def update(session: Session, org_id: str, share_class_id: str, body: dict, user_
                 WHERE share_class_id = CAST(:s AS uuid) AND org_id = CAST(:o AS uuid)
             """), {**v, "u": user_id, "s": share_class_id, "o": org_id}).rowcount
     except IntegrityError:
-        raise ShareClassError(f"ISIN {v.get('isin')} is already registered as one of your share classes")
+        raise ShareClassError(f"ISIN {v.get('isin')} is already registered as one of your share classes",
+                              "disclose.eet.class.duplicate", 422, isin=v.get("isin"))
     if not n:
-        raise ShareClassError("share class not found")
+        raise ShareClassError("share class not found", "error.not_found", 404)
     return next(c for c in list_classes(session, org_id) if c["share_class_id"] == share_class_id)
 
 

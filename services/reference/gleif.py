@@ -187,7 +187,12 @@ def fetch_lei(lei: str) -> Optional[GleifRecord]:
 
 
 class LeiError(ValueError):
-    """An LEI that cannot be stored: malformed, failing its check digits, not in GLEIF, or GLEIF unreachable."""
+    """An LEI that cannot be stored: malformed, failing its check digits, not in GLEIF, or GLEIF unreachable. kind names
+    which (invalid / unknown / unreachable), for a screen's message (data/reference/messages.en.json disclose.fund.lei.*)."""
+
+    def __init__(self, message: str, kind: str = "invalid"):
+        super().__init__(message)
+        self.kind = kind
 
 
 def lei_check_digits_ok(lei: str) -> bool:
@@ -203,13 +208,13 @@ def verified_lei(lei: str) -> GleifRecord:
     digits, and a record in GLEIF. GLEIF unreachable is refused, never stored unverified (E143)."""
     code = (lei or "").strip().upper()
     if not lei_check_digits_ok(code):
-        raise LeiError(f"'{code}' is not a valid LEI — 20 characters with ISO 17442 check digits")
+        raise LeiError(f"'{code}' is not a valid LEI — 20 characters with ISO 17442 check digits", "invalid")
     try:
         rec = fetch_lei(code)
     except GleifError as e:
-        raise LeiError("GLEIF could not be reached to verify the LEI — nothing was changed; try again") from e
+        raise LeiError("GLEIF could not be reached to verify the LEI — nothing was changed; try again", "unreachable") from e
     if rec is None:
-        raise LeiError(f"LEI {code} is not in GLEIF")
+        raise LeiError(f"LEI {code} is not in GLEIF", "unknown")
     return rec
 
 

@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, own_or_404, require_permission
+from core.errors import UserError
 from services.governance import esrs_document as D
 
 router = APIRouter(prefix="/v1/esrs", tags=["ESRS statement"])
@@ -32,7 +33,7 @@ def statement(session: DbSession, entity_id: Optional[str] = Query(None),
         spec = D.governing(session, org_id, pe)
         out = D.freeze(session, org_id, entity_ids=[entity_id] if entity_id else None, period_end=pe)
     except D.DocumentError as e:
-        raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
+        raise UserError(e.code, 422, **e.params) from e
     rec = {"version": spec["version"], "act": spec["act"]["short"]}
     return {**out, "spec": rec, "checks": checks({**out, "_specs": {"esrs": rec}}),
             "phase_ins": [{"id": r["id"], "ref": r["ref"], "quote": r["quote"]} for r in phase_ins(spec["version"])]}
@@ -53,9 +54,8 @@ def put_answers(body: Answers, session: DbSession, ctx: dict = Depends(require_p
         out = D.save(session, org_id, ctx["user"]["id"], entity_id=body.entity_id, period_end=_period_end(session, org_id),
                      standard=body.standard, answers=body.answers)
     except (D.DocumentError, D.TA.AnswerError) as e:
-        raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
+        raise UserError(e.code or "disclose.answers.invalid", 422, **e.params) from e
     session.commit()
     if out["refused"] and not out["saved"]:
-        raise HTTPException(status_code=422, detail={"error": "refused", "message": out["refused"][0]["reason"],
-                                                     "refused": out["refused"]})
+        raise UserError("disclose.answers.refused_all", n=len(out["refused"]), first=out["refused"][0]["msg"]["label"])
     return out

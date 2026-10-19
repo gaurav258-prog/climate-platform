@@ -201,7 +201,7 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     post = {"framework": "method", "datapoint_key": T1.INTENSITY, "value_num": INTENSITY, "reporting_period_end": pe,
             "breakdown_member": "C24"}
     r = api.post("/v1/provided", headers=h, json=post)
-    assert r.status_code == 400 and "source" in r.text                         # a published figure names its source
+    assert r.status_code == 400 and r.json()["error"]["error"] == "disclose.provided.published_source"   # names its source
     r = api.post("/v1/provided", headers=h, json={**post, "provider_name": "Source X sector averages", "data_vintage": "2024-12-31"})
     assert r.status_code == 201, r.text
     _approve(api, checker, r.json()["approval_request_id"])

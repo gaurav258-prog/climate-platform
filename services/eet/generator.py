@@ -122,8 +122,16 @@ def _nace_shares(session: Session, fund_id: str) -> dict[str, float]:
     return out
 
 
-def _pai_fields(st: dict, nace_shares: Optional[dict] = None) -> tuple[dict, list[str]]:
-    """PAI value / coverage / eligible-asset fields from one SFDR statement, as the version's rules map them."""
+def _field_words(stem: str) -> str:
+    """An EET field stem in words ('GHG_Emissions_Scope_1' → 'GHG Emissions Scope 1'); a leading field number is dropped."""
+    parts = stem.split("_")
+    return " ".join(parts[1:] if parts and parts[0].isdigit() else parts)
+
+
+def _pai_fields(st: dict, nace_shares: Optional[dict] = None) -> tuple[dict, list[dict]]:
+    """PAI value / coverage / eligible-asset fields from one SFDR statement, as the version's rules map them. Each note
+    is {text (the file's note), msg (the same as a catalogue message, for a screen)}."""
+    from core import messages
     stems, out, notes = _field_by_stem(), {}, []
     inds = {i["number"]: i for i in (st.get("indicators") or []) + (st.get("sovereign_indicators") or [])
             + (st.get("real_estate_indicators") or [])}
@@ -149,7 +157,8 @@ def _pai_fields(st: dict, nace_shares: Optional[dict] = None) -> tuple[dict, lis
             cov = (inds.get(spec["indicator"]) or {}).get("coverage_pct")
             put(base, v, cov / 100.0 if cov is not None else None, eligible[group])
             if spec.get("note"):
-                notes.append(spec["note"])
+                notes.append({"text": spec["note"], "msg": messages.render(
+                    "disclose.eet.note.method", field=_field_words(spec["stem"][:-len("_Value")]), note=spec["note"])})
             continue
         ind = inds.get(spec["indicator"]) or {}
         cells = ({s: (ind.get(spec["cells"]) or {}).get(s) for s in spec["sections"]} if "sections" in spec
@@ -168,8 +177,11 @@ def _pai_fields(st: dict, nace_shares: Optional[dict] = None) -> tuple[dict, lis
             put(base, cell["value"] * scale if cell.get("value") is not None else None,
                 cell["coverage_pct"] / 100.0 if cell.get("value") is not None else None, cell["eligible_pct"] / 100.0)
             if cell.get("estimated_pct"):
-                notes.append(f"{base.replace('_', ' ')}: {cell['estimated_pct']}% of fund value rests on estimates "
-                             f"({'; '.join(cell.get('bases') or [])}).")
+                notes.append({"text": f"{base.replace('_', ' ')}: {cell['estimated_pct']}% of fund value rests on estimates "
+                                      f"({'; '.join(cell.get('bases') or [])}).",
+                              "msg": messages.render("disclose.eet.note.estimated", field=_field_words(base),
+                                                     pct=f"{cell['estimated_pct']:g}",
+                                                     bases="; ".join(cell.get("bases") or []) or "—")})
     return out, notes
 
 
@@ -217,13 +229,13 @@ def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Option
     """), {"o": org_id, "f": fund_ids}).mappings().all()
     header = {"00010_EET_Version": F.version(), "00050_EET_File_Generation_Date_And_Time": now.strftime("%Y-%m-%d %H:%M:%S"),
               **{flag: ("Y" if u in uses else "N") for u, flag in R.use_flags().items()}}
-    rows, per_fund, notes, checks = [], {}, set(), []
+    rows, per_fund, notes, checks = [], {}, {}, []
     for c in classes:
         if c["fund_id"] not in per_fund:
             st, frozen = frozen_or_live_statement(session, c["fund_id"])
             ent = st.get("entity") or {}
             pai, pnotes = ({}, []) if st.get("error") else _pai_fields(st, _nace_shares(session, c["fund_id"]))
-            notes.update(pnotes)
+            notes.update({n["text"]: n["msg"] for n in pnotes})
             ref_year = (st.get("summary") or {}).get("reference_year")
             general = c["as_of"].isoformat() if c["as_of"] else None
             fund_vals = {
@@ -258,7 +270,8 @@ def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Option
     return {"eet_version": F.version(), "uses": list(uses), "generated_at": now.isoformat(),
             "field_names": [f["name"] for f in F.fields()], "rows": rows,
             "funds": {k: {kk: v[kk] for kk in ("statement", "reference_year", "fund_name")} for k, v in per_fund.items()},
-            "notes": sorted(notes), "data_checks": checks, "completeness": completeness(rows, uses, checks)}
+            "notes": sorted(notes), "note_msgs": [notes[k] for k in sorted(notes)],
+            "data_checks": checks, "completeness": completeness(rows, uses, checks)}
 
 
 def _not_applicable(values: dict, name: str) -> bool:

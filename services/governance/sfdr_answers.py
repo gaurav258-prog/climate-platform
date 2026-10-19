@@ -20,19 +20,19 @@ DOCUMENTS = {"precontractual": "sfdr_precontractual", "periodic": "sfdr_periodic
 
 def _context(session: Session, org_id: str, fund_id: str, document: str, on: date | None = None) -> tuple[dict, dict, dict, date | None]:
     if document not in DOCUMENTS:
-        raise AnswerError("document is 'precontractual' or 'periodic'")
+        raise AnswerError("document is 'precontractual' or 'periodic'", "disclose.sfdr.refused.document")
     fund = P.fund_of(session, org_id, fund_id)
     if fund is None:
-        raise AnswerError("fund not found")
+        raise AnswerError("fund not found", "filing.refused.fund_not_found")
     try:
         P.check(session, org_id, DOCUMENTS[document], None, fund_id)
     except P.ProductScopeError as e:
-        raise AnswerError(str(e)) from e
+        raise AnswerError(str(e), e.code, **e.params) from e
     from services.governance.filings import reporting_period_end
     period = reporting_period_end(session, org_id) if document == "periodic" else None
     spec = R.governing(S.FAMILY, period_end=period or date.today(), disclosure_date=on)
     if spec is None:
-        raise AnswerError("no adopted SFDR template specification governs today")
+        raise AnswerError("no adopted SFDR template specification governs today", "disclose.sfdr.refused.no_spec")
     t = R.template(spec, P.annex(DOCUMENTS[document], fund["sfdr_classification"]))
     return fund, spec, t, period
 

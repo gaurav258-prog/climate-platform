@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from api.deps import DbSession, own_or_404, require_permission
 from api.routers.funds import OrgId
+from core.errors import UserError
 from services.governance import sfdr_answers as A
 
 router = APIRouter(prefix="/v1", tags=["Asset Management — Funds"])
@@ -20,7 +21,12 @@ def _doc(session, org_id: str, fund_id: str, document: str) -> dict:
     try:
         return A.live(session, org_id, fund_id, document)
     except A.AnswerError as e:
-        raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
+        raise _refusal(e) from e
+
+
+def _refusal(e: Exception) -> UserError:
+    """A document that cannot be read or answered, in the catalogue's words (core/errors.py)."""
+    return UserError(getattr(e, "code", None) or "disclose.sfdr.refused.document", 422, **getattr(e, "params", {}))
 
 
 @router.get("/funds/{fund_id}/sfdr-documents/{document}",
@@ -52,9 +58,8 @@ def put_answers(fund_id: str, document: str, body: Answers, session: DbSession,
     try:
         out = A.save(session, org_id, fund_id, document, body.answers, ctx["user"]["id"])
     except A.AnswerError as e:
-        raise HTTPException(status_code=422, detail={"error": "not_applicable", "message": str(e)}) from e
+        raise _refusal(e) from e
     session.commit()
     if out["refused"] and not out["saved"]:
-        raise HTTPException(status_code=422, detail={"error": "refused", "message": "no answer could be saved",
-                                                     "refused": out["refused"]})
+        raise UserError("disclose.answers.refused_all", n=len(out["refused"]), first=out["refused"][0]["msg"]["label"])
     return {**out, "document": A.live(session, org_id, fund_id, document)}

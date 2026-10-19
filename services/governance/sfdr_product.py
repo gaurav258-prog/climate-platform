@@ -22,6 +22,7 @@ from __future__ import annotations
 from datetime import date
 
 import services.regspec as R
+from core import messages
 
 FAMILY = "sfdr_product"
 BASES = ("turnover", "capex", "opex")
@@ -224,13 +225,26 @@ def build(spec: dict, template_id: str, book: dict) -> list[dict]:
         elif src == "computed":
             v = _computed(i["id"], book, tax)
             row.update(source="computed", value=v, status="filled" if v is not None else "missing",
-                       needs=None if v is not None else _needs(i["id"]))
+                       needs=None if v is not None else _needs(i["id"]),
+                       need=None if v is not None else _need(i["id"]))
         else:
             v = book["answers"].get(i["id"])
             row.update(source="input", value=v, status="filled" if v is not None else "missing",
-                       needs=None if v is not None else "the manager's answer")
+                       needs=None if v is not None else "the manager's answer",
+                       need=None if v is not None else messages.render("disclose.sfdr.need.answer"))
         out.append(row)
     return out
+
+
+def _need(item_id: str) -> dict:
+    """_needs() as a catalogue message (data/reference/messages.en.json disclose.sfdr.need.*), for a screen."""
+    if item_id in _FROM_HOLDINGS:
+        return messages.render("disclose.sfdr.need.holdings")
+    if item_id == "lei":
+        return messages.render("disclose.sfdr.need.lei")
+    if item_id.startswith("q_taxonomy.fossil_nuclear"):
+        return messages.render("disclose.sfdr.need.fossil_nuclear")
+    return messages.render("disclose.sfdr.need.data")
 
 
 def _needs(item_id: str) -> str:

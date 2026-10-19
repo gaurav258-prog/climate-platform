@@ -34,6 +34,13 @@ def concepts() -> dict[str, dict]:
     return registry()["concepts"]
 
 
+def label(concept: str) -> str:
+    """A concept by its name in the registry ('csrd.net_turnover' → 'Net turnover'): its short name where its label quotes
+    the law that defines it, else its label; never the key itself."""
+    c = concepts().get(concept, {})
+    return c.get("short") or c.get("label") or "a figure"
+
+
 def binding(version: str) -> dict[str, object]:
     """datapoint ref ('<item id>:<datapoint key>') → concept key, or {'same_as': [concept keys]}."""
     b = registry()["bindings"][version]
@@ -122,7 +129,7 @@ def provided_catalog(spec: dict) -> dict[str, dict]:
     """The undertaking's own figures a version needs: concept → label, unit, period, breakdown, and whether it is only a
     denominator (input_only). What provided_data accepts for an ESRS report under this version."""
     cs = concepts()
-    return {k: {"label": cs[k]["label"], "unit": cs[k]["unit"], "period": cs[k].get("period"),
+    return {k: {"label": cs[k]["label"], "short": cs[k].get("short"), "unit": cs[k]["unit"], "period": cs[k].get("period"),
                 "breakdown": cs[k].get("breakdown"), "input_only": bool(cs[k].get("input_only")),
                 "reconcile": cs[k].get("reconcile")}
             for k in sorted(concepts_of(spec) | {k for k, c in cs.items() if c.get("always")}) if cs[k]["lane"] == "provided"}

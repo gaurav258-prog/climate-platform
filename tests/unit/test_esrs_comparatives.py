@@ -27,7 +27,7 @@ def world(monkeypatch):
     w = {"reported": {}, "topics": None, "attested": {}, "answers": {}, "prev_version": V2026}
     monkeypatch.setattr(C, "_reported", lambda s, o, e, pe: {
         "source": "statement filed (submitted)" if w["reported"] or w["topics"] else None, "filing_id": "f",
-        "figures": w["reported"], "topics": w["topics"]})
+        "figures": w["reported"], "topics": w["topics"], "source_msg": None})
     monkeypatch.setattr(C, "_attested", lambda s, o, e, pe: w["attested"])
     monkeypatch.setattr(C, "read", lambda s, o, e, pe: w["answers"])
     monkeypatch.setattr(D, "governing", lambda s, o, pe: {"version": w["prev_version"]})

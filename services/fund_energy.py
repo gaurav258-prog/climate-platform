@@ -73,6 +73,23 @@ def energy_facts(rows: list[dict]) -> list[dict]:
     return out
 
 
+class ConfirmError(ValueError):
+    """A confirmation refused: its sentence and the same as a catalogue message (disclose.eet.confirm.*)."""
+
+    def __init__(self, message: str, code: str, **params):
+        super().__init__(message)
+        self.code, self.params = code, params
+
+
+def _check_msg(field: str, reported: float, estimate: float) -> dict:
+    """Why a figure was flagged (_implausible), as a catalogue message: far from its sector's average, or a fraction
+    where a percentage is meant."""
+    from core import messages
+    if field == "energy_intensity":
+        return messages.render("disclose.eet.check.unit", ratio=f"{(reported / estimate if reported else 0.0):.1f}")
+    return messages.render("disclose.eet.check.fraction", reported=f"{reported:g}", estimate=f"{estimate:.0f}")
+
+
 def _implausible(field: str, reported: float, estimate: float, band: float = 10.0) -> Optional[str]:
     if field == "energy_intensity":
         if estimate <= 0:
@@ -112,7 +129,7 @@ def outliers(session, org_id: Optional[str], rows: list[dict], energy: list[dict
                 continue
             out.append({"issuer_id": r.get("issuer_id"), "issuer": r.get("issuer_name"), "field": field,
                         "label": FIELD_LABEL[field], "reported": round(rep, 6), "estimate": round(est, 6),
-                        "basis": basis, "why": why})
+                        "basis": basis, "why": why, "msg": _check_msg(field, rep, est)})
     return out
 
 
@@ -155,9 +172,10 @@ def energy_pais(rows: list[dict], total_mv: float, energy: list[dict]) -> dict:
 def confirm(session, org_id: str, issuer_id: str, field: str, value: float, reason: str, user_id: Optional[str]) -> dict:
     """A person confirms a flagged figure as right (for this exact value)."""
     if field not in FIELD_LABEL:
-        raise ValueError(f"field must be one of: {', '.join(FIELD_LABEL)}")
+        raise ConfirmError(f"field must be one of: {', '.join(FIELD_LABEL)}", "disclose.eet.confirm.field")
     if not (reason or "").strip():
-        raise ValueError("say why the figure is right (e.g. 'checked against the 2024 annual report, p. 112')")
+        raise ConfirmError("say why the figure is right (e.g. 'checked against the 2024 annual report, p. 112')",
+                           "disclose.eet.confirm.reason")
     session.execute(text("""
         INSERT INTO issuer_data_confirmations (org_id, issuer_id, field, value, reason, confirmed_by)
         VALUES (CAST(:o AS uuid), CAST(:i AS uuid), :f, :v, :r, CAST(:u AS uuid))

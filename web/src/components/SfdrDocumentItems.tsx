@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from './ui'
-import { HEADING, InfoButton } from './Details'
+import { HEADING, InfoButton, MessageLine, type Message } from './Details'
 
 // One SFDR product template (RTS 2022/1288 Annexes II–V) rendered item by item, in the order the regulation prints
 // it: headings, questions, tick-boxes with their blanks, charts, tables, margin definitions. Every item comes from
@@ -10,7 +10,11 @@ import { HEADING, InfoButton } from './Details'
 export interface DocItem {
   id: string; kind: string; label: string; parent: string | null; instruction?: string | null; blank?: string | null
   source: 'fixed' | 'computed' | 'input'; status: 'printed' | 'filled' | 'missing'; value?: any; needs?: string | null; note?: string | null
+  need?: Message | null          // what would fill it, as a catalogue message (services/governance/sfdr_product.py _need)
 }
+
+// a sector as the document lists it ('C Manufacture of …'): its name, without the classification code before it
+export const sectorName = (s: string) => { const t = s.replace(/^(?:[A-Z](?:\.?\d+)*|\d+(?:\.\d+)*)\.?\s+/, ''); return t.charAt(0).toUpperCase() + t.slice(1) }
 
 const SOURCE: Record<string, { c: string; label: string }> = {
   computed: { c: 'var(--color-good)', label: 'computed' },
@@ -46,7 +50,12 @@ function Graph({ v }: { v: any }) {
 
 function Value({ it, items }: { it: DocItem; items: DocItem[] }) {
   const v = it.value
-  if (v == null) return it.needs ? <div className="text-[11px] text-[var(--color-warn)] mt-1">Needed: {it.needs}</div> : null
+  if (v == null) {
+    if (it.source === 'input') return null                       // its badge says it needs an answer
+    if (it.need) return <MessageLine m={it.need} className="text-[11.5px] text-[var(--color-warn)] mt-1" />
+    return it.needs ? <span className="inline-flex items-center gap-1 text-[11.5px] text-[var(--color-warn)] mt-1">Needs data
+      <InfoButton compact details={{ title: it.label || 'This item', sections: [{ heading: 'What is needed', body: it.needs }] }} /></span> : null
+  }
   if (v.graph) return <Graph v={v} />
   if (v.table) return (   // a computed table that carries its own columns (an ORSA impact analysis, a recovery-plan stress)
     <div className="overflow-x-auto mt-1 flex items-start gap-2">
@@ -68,7 +77,7 @@ function Value({ it, items }: { it: DocItem; items: DocItem[] }) {
   }
   if (v.sectors) return (
     <div className="text-[12px] text-[var(--color-mute)] mt-1">
-      {v.sectors.map((s: any) => <div key={s.sector}>{s.sector}: {s.pct}%</div>)}
+      {v.sectors.map((s: { sector: string; pct: number }) => <div key={s.sector}>{sectorName(s.sector)}: {s.pct}%</div>)}
       {v.fossil_fuel_pct != null && <div className="mt-1">Investments in the fossil fuel sector: {v.fossil_fuel_pct}%</div>}
     </div>
   )

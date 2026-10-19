@@ -102,17 +102,20 @@ def test_the_statement_for_a_reference_period(api):
     assert {"Article 5(d)", "Article 7(1)(a)", "Article 9(2)(c)"} <= {m.split(":")[0] for m in a["missing"]}
     assert [sec["id"] for sec in a["sections"]] == ["S1", "S4", "S5", "S6", "S7"]
 
-    # refusals: nothing is stored
-    for wrong, why in (({"S1.a_name": {"text": "x"}}, "computed"),
-                       ({"S4.a_approval_date": {"text": "2999-01-01"}}, "future"),
-                       ({"S6.2c_scenario": {"ticked": True}}, "name, its provider"),
-                       ({"S1.d_summary": {"rows": [{"d_language": "de", "d_meets": ["host_official"], "d_text": "x"}]}},
-                        "host Member State"),
-                       ({"S1.d_summary": {"rows": [{"d_language": "xx", "d_meets": ["home_official"], "d_text": "x"}]}},
-                        "not an ISO 639-1 language code"),
-                       ({"S9.anything": {"text": "x"}}, "no such item")):
+    # refusals: nothing is stored; each says why in the catalogue's words (the first refused answer's label)
+    from core import messages
+    for wrong, code in (({"S1.a_name": {"text": "x"}}, "disclose.answers.not_answerable"),
+                        ({"S4.a_approval_date": {"text": "2999-01-01"}}, "disclose.pai.answer.future_date"),
+                        ({"S6.2c_scenario": {"ticked": True}}, "disclose.pai.answer.scenario_named"),
+                        ({"S1.d_summary": {"rows": [{"d_language": "de", "d_meets": ["host_official"], "d_text": "x"}]}},
+                         "disclose.pai.answer.host"),
+                        ({"S1.d_summary": {"rows": [{"d_language": "xx", "d_meets": ["home_official"], "d_text": "x"}]}},
+                         "disclose.pai.answer.language"),
+                        ({"S9.anything": {"text": "x"}}, "disclose.answers.no_item")):
         r = api.put("/v1/entity/pai-statement/answers", headers=maker, json={"period_end": "2025-12-31", "answers": wrong})
-        assert r.status_code == 422 and why in r.text, (wrong, r.text)
+        body = r.json()["error"]
+        assert r.status_code == 422 and body["error"] == "disclose.answers.refused_all", (wrong, r.text)
+        assert messages.label(code, row=1, language="xx") in body["detail"]["what"], (wrong, r.text)
     assert T.read(s, NORDKAP, "sfdr_pai", "pai_statement", period_end=date(2025, 12, 31)) == {}
 
     # the previous period: a statement published for 2024, uploaded, stated as the organisation's, confirmed
@@ -207,7 +210,7 @@ def test_the_statement_for_a_reference_period(api):
 def test_the_old_narratives_are_retired_and_shown_only_for_reference(api):
     maker = _login(api, "admin@nordkap.demo", "Demo!admin1")
     r = api.put("/v1/manager/filing-profile", headers=maker, json={"lei": "9695003YCOLOMW6OMD54", "narratives": {"policies": "x"}})
-    assert r.status_code == 422 and "per reference period" in r.text
+    assert r.status_code == 422 and r.json()["error"]["error"] == "disclose.fund.refused.narratives"
     assert "sfdr_narratives" not in api.get("/v1/manager/filing-profile", headers=maker).json()
     T.save(api.s, NORDKAP, "sfdr_pai", "pai_statement", {"items": [{"id": "policies", "kind": "field"}]},
            {"policies": "input"}, {"policies": {"text": "An earlier text."}}, None)

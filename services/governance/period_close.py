@@ -25,7 +25,12 @@ MEASURES = {"carrying_amount": False, "carrying_amount_adapted": False, "net_rev
 
 
 class PeriodError(ValueError):
-    pass
+    """A close or restatement refused: its sentence and the same as a catalogue message (data/reference/messages.en.json
+    disclose.period.*) the API answers."""
+
+    def __init__(self, message: str, code: str = "disclose.period.refused", **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 def is_closed(session: Session, org_id: str, entity_id: str | None, period_end: date | str) -> bool:
@@ -36,37 +41,46 @@ def is_closed(session: Session, org_id: str, entity_id: str | None, period_end: 
 def _entity(session: Session, org_id: str, entity_id: str | None) -> str | None:
     if entity_id and not session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) "
                                               "AND org_id = CAST(:o AS uuid)"), {"e": entity_id, "o": org_id}).first():
-        raise PeriodError("that undertaking is not one of this organisation's entities")
+        raise PeriodError("that undertaking is not one of this organisation's entities", "disclose.esrs.role.not_entity")
     return entity_id
 
 
 def close_blockers(session: Session, org_id: str, entity_id: str | None, period_end: date) -> list[str]:
     """Why the period cannot close yet: a value for it still awaiting its second person, or already closed."""
+    return [b["text"] for b in close_blocker_items(session, org_id, entity_id, period_end)]
+
+
+def close_blocker_items(session: Session, org_id: str, entity_id: str | None, period_end: date) -> list[dict]:
+    """close_blockers(), each {text, msg}: its sentence and the same as a catalogue message for a screen."""
+    from core import messages
     out = []
     if is_closed(session, org_id, entity_id, period_end):
-        out.append("the period is already closed")
+        out.append({"text": "the period is already closed", "msg": messages.render("disclose.period.closed")})
     pending = session.execute(text("""
         SELECT count(*) FROM provided_datapoint WHERE org_id = CAST(:o AS uuid) AND status = 'pending'
           AND reporting_period_end = CAST(:pe AS date) AND reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid)
     """), {"o": org_id, "pe": period_end, "e": entity_id}).scalar()
     if pending:
-        out.append(f"{pending} provided value(s) for the period await attestation")
+        out.append({"text": f"{pending} provided value(s) for the period await attestation",
+                    "msg": messages.render("disclose.period.pending_values", n=pending)})
     waiting = session.execute(text("""
         SELECT count(*) FROM approval_requests WHERE org_id = CAST(:o AS uuid) AND status = 'pending'
           AND request_type IN ('period.close', 'period.restate') AND payload->>'period_end' = :pe
           AND payload->>'entity_id' IS NOT DISTINCT FROM :e
     """), {"o": org_id, "pe": period_end.isoformat(), "e": entity_id}).scalar()
     if waiting:
-        out.append("a close or restatement of this period already awaits its second person")
+        out.append({"text": "a close or restatement of this period already awaits its second person",
+                    "msg": messages.render("disclose.period.pending_request")})
     return out
 
 
 def request_close(session: Session, org_id: str, user_id: str, *, entity_id: str | None, period_end: date,
                   note: str | None = None) -> dict:
     entity_id = _entity(session, org_id, entity_id)
-    blockers = close_blockers(session, org_id, entity_id, period_end)
+    blockers = close_blocker_items(session, org_id, entity_id, period_end)
     if blockers:
-        raise PeriodError("cannot close: " + "; ".join(blockers))
+        raise PeriodError("cannot close: " + "; ".join(b["text"] for b in blockers), "disclose.period.cannot_close",
+                          reasons="; ".join(b["msg"]["label"].lower() for b in blockers))
     payload = {"kind": "close", "entity_id": entity_id, "period_end": period_end.isoformat(), "note": note}
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
@@ -82,21 +96,21 @@ def request_site_value_restatement(session: Session, org_id: str, user_id: str, 
     amount, the year's average for revenue) so the approver sees the figure that will be stored."""
     from services.intake.money import MoneyError, convert_amount, field_entry
     if measure not in MEASURES:
-        raise PeriodError(f"measure must be one of {sorted(MEASURES)}")
+        raise PeriodError(f"measure must be one of {sorted(MEASURES)}", "disclose.period.measure")
     if not (reason or "").strip() or len(reason.strip()) < 10:
-        raise PeriodError("say why the closed period is restated (at least 10 characters)")
+        raise PeriodError("say why the closed period is restated (at least 10 characters)", "disclose.period.reason")
     if amount is None or amount < 0:
-        raise PeriodError("the amount must be zero or more")
+        raise PeriodError("the amount must be zero or more", "disclose.period.amount")
     site = session.execute(text("SELECT entity_id::text AS entity_id FROM sc_company_sites WHERE site_id = CAST(:s AS uuid) "
                                 "AND org_id = CAST(:o AS uuid)"), {"s": site_id, "o": org_id}).mappings().first()
     if not site:
-        raise PeriodError("site not found")
+        raise PeriodError("site not found", "error.not_found")
     if not is_closed(session, org_id, site["entity_id"], period_end):
-        raise PeriodError("the period is open — send the value as a year-end value, not a restatement")
+        raise PeriodError("the period is open — send the value as a year-end value, not a restatement", "disclose.period.open")
     try:
         conv = convert_amount(session, amount, currency, period_end, flow=MEASURES[measure], label=measure, org_id=org_id)
     except MoneyError as e:
-        raise PeriodError(str(e)) from e
+        raise PeriodError(str(e), "disclose.period.currency", currency=currency) from e
     entry = field_entry(conv["native"], conv["currency"], period_end, conv["eur"], conv["rate"], origin="restatement")
     payload = {"kind": "site_value", "site_id": site_id, "entity_id": site["entity_id"], "period_end": period_end.isoformat(),
                "measure": measure, "amount": conv["native"], "currency": conv["currency"], "amount_eur": conv["eur"],
@@ -117,10 +131,11 @@ def apply_decision(session: Session, org_id: str, request_id: str, payload: dict
                             {"r": request_id}).scalar()
     if payload.get("kind") == "close":
         pe = date.fromisoformat(payload["period_end"])
-        blockers = [b for b in close_blockers(session, org_id, payload.get("entity_id"), pe)
-                    if not b.startswith("a close or restatement")]          # this request itself is the one waiting
+        blockers = [b for b in close_blocker_items(session, org_id, payload.get("entity_id"), pe)
+                    if b["msg"]["code"] != "disclose.period.pending_request"]   # this request itself is the one waiting
         if blockers:
-            raise PeriodError("cannot close: " + "; ".join(blockers))
+            raise PeriodError("cannot close: " + "; ".join(b["text"] for b in blockers), "disclose.period.cannot_close",
+                              reasons="; ".join(b["msg"]["label"].lower() for b in blockers))
         session.execute(text("""
             INSERT INTO reporting_period_close (org_id, reporting_entity_id, period_end, requested_by, approved_by,
                                                 approval_request_id, note)
@@ -139,7 +154,7 @@ def apply_decision(session: Session, org_id: str, request_id: str, payload: dict
                "m": payload["measure"], "a": payload["amount"], "c": payload["currency"], "eur": payload["amount_eur"],
                "ms": json.dumps(payload["money_source"], default=str), "why": payload["reason"], "by": maker})
         return {"applied": True, "restated": payload["measure"]}
-    raise PeriodError(f"unknown period request '{payload.get('kind')}'")
+    raise PeriodError(f"unknown period request '{payload.get('kind')}'", "disclose.period.refused")
 
 
 def closes(session: Session, org_id: str) -> list[dict]:

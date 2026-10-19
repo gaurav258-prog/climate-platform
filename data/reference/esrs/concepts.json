@@ -1,5 +1,5 @@
 {
- "_about": "The ESRS quantities this platform holds, one concept per quantity, and where each version's printed datapoint (data/reference/regspec/esrs/<version>.json, item id : datapoint key) is filled from. A concept keeps its key across versions, so a figure reported under one version is the comparative under the next (ESRS 1 §83). Lanes: computed = the platform's engine; provided = the undertaking's own figure, attested by a second person (provided_datapoint, per undertaking and period); derived = a ratio the application requirements define from other concepts; same_as = a summary point whose figures are the concepts listed. input_only concepts are denominators from the financial statements, never printed by themselves. Every field datapoint of every version must be bound here (services.governance.esrs_binding.coverage). A concept bound in two versions is the same quantity by the texts (same quantity, boundary and qualifiers — noted in same_across_versions where the wording differs); a quantity the later version redefines is its own concept (redefined_from, why_separate), so it is never shown as the other's comparative (ESRS 1 §95).",
+ "_about": "The ESRS quantities this platform holds, one concept per quantity, and where each version's printed datapoint (data/reference/regspec/esrs/<version>.json, item id : datapoint key) is filled from. A concept keeps its key across versions, so a figure reported under one version is the comparative under the next (ESRS 1 §83). Lanes: computed = the platform's engine; provided = the undertaking's own figure, attested by a second person (provided_datapoint, per undertaking and period); derived = a ratio the application requirements define from other concepts; same_as = a summary point whose figures are the concepts listed. input_only concepts are denominators from the financial statements, never printed by themselves. Every field datapoint of every version must be bound here (services.governance.esrs_binding.coverage). A concept bound in two versions is the same quantity by the texts (same quantity, boundary and qualifiers — noted in same_across_versions where the wording differs); a quantity the later version redefines is its own concept (redefined_from, why_separate), so it is never shown as the other's comparative (ESRS 1 §95). A concept whose label quotes the law it is defined in also has a short name (short), which screens show; the label is its definition, one click away.",
  "concepts": {
   "fs.total_assets": {
    "label": "Total assets in the balance sheet",
@@ -795,6 +795,7 @@
   },
   "csrd.net_turnover": {
    "label": "Net turnover (Directive 2013/34/EU Art. 2(5); on a consolidated basis for a group)",
+   "short": "Net turnover",
    "unit": "monetary",
    "period": "flow",
    "lane": "provided",
@@ -804,6 +805,7 @@
   },
   "csrd.large_undertaking": {
    "label": "A large undertaking within the meaning of Art. 3(4) of Directive 2013/34/EU (1 = yes, 0 = no)",
+   "short": "A large undertaking",
    "unit": "boolean",
    "period": null,
    "lane": "provided",
@@ -813,6 +815,7 @@
   },
   "csrd.public_interest_entity": {
    "label": "A public-interest entity as defined in point (1) of Art. 2 of Directive 2013/34/EU (1 = yes, 0 = no)",
+   "short": "A public-interest entity",
    "unit": "boolean",
    "period": null,
    "lane": "provided",
@@ -822,6 +825,7 @@
   },
   "csrd.large_group_parent": {
    "label": "The parent undertaking of a large group within the meaning of Art. 3(7) of Directive 2013/34/EU (1 = yes, 0 = no)",
+   "short": "The parent of a large group",
    "unit": "boolean",
    "period": null,
    "lane": "provided",
@@ -831,6 +835,7 @@
   },
   "csrd.first_reporting_year": {
    "label": "The first financial year (its start year) for which the undertaking was required to report under Art. 5(2) of Directive (EU) 2022/2464",
+   "short": "First reporting year",
    "unit": "year",
    "period": null,
    "lane": "provided",
@@ -840,6 +845,7 @@
   },
   "csrd.transparency_issuer": {
    "label": "An issuer that must make public an annual financial report under Art. 4 of Directive 2004/109/EC — not exempted by its Art. 8 (1 = yes, 0 = no)",
+   "short": "An issuer that publishes an annual financial report",
    "unit": "boolean",
    "period": null,
    "lane": "provided",

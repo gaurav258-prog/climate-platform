@@ -27,14 +27,19 @@ _MATERIALITY = {"id": "materiality", "items": [{"id": t, "kind": "question", "la
 
 
 class DocumentError(ValueError):
-    pass
+    """The statement cannot be built or answered: its sentence and the same as a catalogue message (code, params)."""
+
+    def __init__(self, message: str, code: str = "disclose.esrs.refused.no_version", **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 def governing(session, org_id: str, period_end: date) -> dict:
     from services.calc_settings import get_calc_settings
     spec = R.governing(FAMILY, period_end=period_end, elections=get_calc_settings(session, org_id))
     if spec is None:
-        raise DocumentError(f"no ESRS version governs the financial year ending {period_end}")
+        raise DocumentError(f"no ESRS version governs the financial year ending {period_end}", "disclose.esrs.refused.no_version",
+                            date=str(period_end))
     return spec
 
 
@@ -46,26 +51,28 @@ def _validate(item: dict, value) -> dict | None:
         if isinstance(value, dict) and str(value.get("text") or "").strip():
             return {"text": str(value["text"]).strip()}       # the narrative part of a field that also asks to explain
         raise TA.AnswerError(f"{item['id']}: its figures are computed or stated as provided values (family 'esrs') — "
-                             "here only its narrative or its omission and reason")
+                             "here only its narrative or its omission and reason", "disclose.esrs.answer.figures")
     om = value["omitted"]
     if not isinstance(om, dict) or om.get("reason") not in REASONS:
-        raise TA.AnswerError(f"{item['id']}: an omission states its reason — one of {REASONS}")
+        raise TA.AnswerError(f"{item['id']}: an omission states its reason — one of {REASONS}", "disclose.esrs.answer.reason")
     if om["reason"] == "condition_not_applicable" and not item.get("conditional"):
-        raise TA.AnswerError(f"{item['id']}: the item has no printed condition — it cannot be 'not applicable'")
+        raise TA.AnswerError(f"{item['id']}: the item has no printed condition — it cannot be 'not applicable'",
+                             "disclose.esrs.answer.no_condition")
     if om["reason"] == "phase_in" and not om.get("phase_in"):
-        raise TA.AnswerError(f"{item['id']}: name the phase-in used")
+        raise TA.AnswerError(f"{item['id']}: name the phase-in used", "disclose.esrs.answer.phase_in")
     if om["reason"] in ("not_material", "condition_not_applicable") and not str(om.get("statement") or "").strip():
-        raise TA.AnswerError(f"{item['id']}: say why ({om['reason'].replace('_', ' ')})")
+        raise TA.AnswerError(f"{item['id']}: say why ({om['reason'].replace('_', ' ')})", "disclose.esrs.answer.why")
     return {"omitted": {k: om.get(k) for k in ("reason", "phase_in", "statement") if om.get(k) is not None}}
 
 
 def _validate_topic(item: dict, value) -> dict:
     if not isinstance(value, dict) or not isinstance(value.get("material"), bool):
-        raise TA.AnswerError(f"{item['id']}: state whether the topic is material (true / false)")
+        raise TA.AnswerError(f"{item['id']}: state whether the topic is material (true / false)",
+                             "disclose.esrs.answer.material")
     expl = str(value.get("explanation") or "").strip()
     if item["id"] == "E1" and value["material"] is False and not expl:
         raise TA.AnswerError("E1: omitting climate change needs a detailed explanation of the materiality assessment "
-                             "(2023 ESRS 1 §32; 2026 ESRS 2 §37(b))")
+                             "(2023 ESRS 1 §32; 2026 ESRS 2 §37(b))", "disclose.esrs.answer.climate_explanation")
     return {"material": value["material"], **({"explanation": expl} if expl else {})}
 
 
@@ -85,7 +92,8 @@ def save(session, org_id: str, user_id: str, *, entity_id: str | None, period_en
                        period_end=period_end, entity_id=entity_id, label="the materiality statement", validate=_validate_topic)
     t = next((x for x in spec["templates"] if x["id"] == standard), None)
     if t is None:
-        raise DocumentError(f"ESRS {standard} is not in {spec['act']['short']}")
+        raise DocumentError(f"ESRS {standard} is not in {spec['act']['short']}", "disclose.esrs.refused.standard",
+                            standard=standard)
     bound = {i["id"]: "input" for i in R.items_to_fill(t)}
     return TA.save(session, org_id, FAMILY, standard, t, bound, answers, user_id, period_end=period_end,
                    entity_id=entity_id, label=f"ESRS {standard}", validate=_validate)
@@ -134,19 +142,21 @@ def build(spec: dict, statement: dict, provided: dict, ans: dict) -> list[dict]:
 
 
 def _datapoint(d: dict, concepts: dict, provided: dict) -> dict:
+    from services.governance.esrs_binding import label
     out = {"key": d["key"], "lane": d["lane"]}
     if d["lane"] == "same_as":
         parts = [provided.get(c) or concepts.get(c) for c in d["same_as"]]
-        out.update(concept=d["same_as"], value=[p and (p.get("value")) for p in parts],
+        out.update(concept=d["same_as"], label=" · ".join(label(c) for c in d["same_as"]),
+                   value=[p and (p.get("value")) for p in parts],
                    status="filled" if all(p and p.get("value") is not None for p in parts) else "missing")
         return out
     c = d["concept"]
-    out["concept"] = c
+    out["concept"], out["label"] = c, label(c)
     if d["lane"] in ("computed", "derived"):
         v = concepts.get(c) or {}
         out.update(value=v.get("value"), by_horizon=v.get("by_horizon"), unit=v.get("unit"),
                    status=("gap" if v.get("status") == "gap" or v.get("value") is None else v.get("status")),
-                   gap=v.get("gap"))
+                   gap=v.get("gap"), gap_msgs=v.get("gap_msgs") or [])
         return out
     members = [p for k, p in provided.items() if k.startswith(c + "@")]
     p = provided.get(c)

@@ -137,7 +137,8 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     # ── materiality, then every item of E1 ──
     refused = api.put("/v1/esrs/answers", headers=maker, json={"standard": "materiality", "entity_id": foods,
                                                                  "answers": {"E1": {"material": False}}})
-    assert refused.status_code == 422 and "detailed explanation" in refused.text              # climate change: explain
+    assert refused.status_code == 422 and refused.json()["error"]["error"] == "disclose.answers.refused_all"
+    assert "Explain why climate is not material" in refused.json()["error"]["detail"]["what"]  # climate change: explain
     _answer(api, maker, "materiality", {"E1": {"material": True},
                                         "E3": {"material": False, "explanation": "no water-intensive operations"},
                                         "E4": {"material": False, "explanation": "no sites in or near sensitive areas"}})
@@ -147,7 +148,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
                for i in x["items"] if i["status"] != "printed")
     bad = api.put("/v1/esrs/answers", headers=maker, json={"standard": "E1", "entity_id": foods, "answers": {
         "E1-6.44c": {"omitted": {"reason": "condition_not_applicable", "statement": "x"}}}})
-    assert bad.status_code == 422 and "no printed condition" in bad.text
+    assert bad.status_code == 422 and "This item has no condition" in bad.json()["error"]["detail"]["what"]
     _answer(api, maker, "E1", {"E1-6.44c": {"omitted": {"reason": "phase_in", "phase_in": "e1_6_scope3_total_wave1"}}})
     assert "750 employees" in _failing(_statement(api, maker))["phase_ins"]                  # 1 200 employees: it does not apply
     todo = [i for i in e1["items"] if i["status"] == "missing"]
@@ -259,7 +260,7 @@ def test_an_undertaking_states_files_and_carries_forward_its_esrs_statement(api)
     early = api.post("/v1/provided", headers=maker, json={"framework": "esrs", "datapoint_key": "csrd.net_turnover",
                                                           "value_num": 500e6, "currency": "EUR", "reporting_period_end": "2027-12-31",
                                                           "reporting_entity_id": foods})
-    assert early.status_code == 400 and "in the future" in early.text           # an amount is stated once its date has passed
+    assert early.status_code == 400 and early.json()["error"]["error"] == "disclose.provided.future"   # stated once its date has passed
 
 
 def test_an_exempt_subsidiary_files_no_statement(api):

@@ -137,13 +137,19 @@ def _pai_basis() -> str:
 
 
 def _row(num, area, metric, unit, *, value=None, coverage=None, source=None,
-         method="not_available", input_required=None):
-    """One indicator line. method ∈ computed / partial / estimated / not_available."""
+         method="not_available", input_required=None, need=None):
+    """One indicator line. method ∈ computed / partial / estimated / not_available. input_required says in a sentence
+    what would complete it (the workbook prints it); need says the same as a catalogue message — {code, params} of
+    data/reference/messages.en.json (disclose.pai.need.*) — for a screen (api/routers/funds.py statement_view)."""
     return {
         "number": num, "area": area, "metric": metric, "unit": unit,
         "value": value, "coverage_pct": coverage, "source": source,
-        "method": method, "input_required": input_required,
+        "method": method, "input_required": input_required, "need": need,
     }
+
+
+def _need(kind: str, **params) -> dict:
+    return {"code": f"disclose.pai.need.{kind}", "params": params}
 
 
 def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=None) -> dict:
@@ -308,10 +314,13 @@ def _sovereign_indicators(comp: dict) -> list[dict]:
                      "Eurostat carries it, else EC-JRC EDGAR; World Bank WDI; ECB)") if si is not None else None,
              method=("partial" if missing else "computed") if si is not None else "not_available",
              input_required=(f"GHG intensity for {', '.join(missing)} (no public figure — excluded from the average)"
-                             if missing else None) if si is not None else "sovereign-bond holdings with issuer country"),
+                             if missing else None) if si is not None else "sovereign-bond holdings with issuer country",
+             need=(_need("sovereign_countries", countries=", ".join(missing)) if missing else None)
+             if si is not None else _need("sovereign_holdings")),
         _row(16, "Sovereign", "Investee countries subject to social violations", "count",
              method="not_available",
-             input_required="country social-violation list (UN/OECD sanctions & breaches)"),
+             input_required="country social-violation list (UN/OECD sanctions & breaches)",
+             need=_need("sovereign_violations")),
     ]
 
 
@@ -322,9 +331,11 @@ def _real_estate_indicators(comp: dict) -> list[dict]:
     method = "not_applicable" if not comp["has_real_estate"] else "not_available"
     return [
         _row(17, "Real estate", "Exposure to fossil fuels through real-estate assets", "% of RE value",
-             method=method, input_required=applic or "real-estate asset fossil-fuel involvement"),
+             method=method, input_required=applic or "real-estate asset fossil-fuel involvement",
+             need=_need("real_estate_not_held") if applic else _need("real_estate_data", indicator=17)),
         _row(18, "Real estate", "Exposure to energy-inefficient real-estate assets", "% of RE value",
-             method=method, input_required=applic or "real-estate asset EPC ratings"),
+             method=method, input_required=applic or "real-estate asset EPC ratings",
+             need=_need("real_estate_not_held") if applic else _need("real_estate_data", indicator=18)),
     ]
 
 
@@ -429,6 +440,11 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
             return "not_available", rest(100.0)
         return ("computed", None) if cov >= 99.9 else ("partial", rest(round(100 - cov, 1)))
 
+    def _needed(value, cov, kind):        # the same as _status's sentence, as a catalogue message
+        if value is None:
+            return _need(kind, rest=100.0)
+        return None if cov >= 99.9 else _need(kind, rest=round(100 - cov, 1))
+
     filled: dict[int, dict] = {}
     if fin:
         cov = fin["coverage_pct"]["total"]
@@ -438,7 +454,7 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                          value={"scope_1": fin["scope_1"], "scope_2": fin["scope_2"],
                                 "scope_3": fin["scope_3"], "total": fin["total"]},
                          coverage=cov, source=_GOLDEN_SOURCE + " · PCAF attribution (investment ÷ EVIC)",
-                         method=method, input_required=need)
+                         method=method, input_required=need, need=_needed(fin["total"], cov, "emissions_evic"))
         filled[1]["coverage_by_scope"] = fin["coverage_pct"]
     else:
         filled[1] = _row(1, "Climate & environment",
@@ -447,7 +463,7 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                                 "scope_3": inv["scope_3"], "total": inv.get("total")},
                          coverage=inv["coverage_pct"]["total"], source=_GOLDEN_SOURCE, method="partial",
                          input_required="issuer EVIC (enterprise value incl. cash) to attribute "
-                                        "financed emissions per PCAF")
+                                        "financed emissions per PCAF", need=_need("evic"))
         filled[1]["coverage_by_scope"] = inv["coverage_pct"]
     cf = p.get("pai_2_carbon_footprint_tco2e_per_meur")
     cov2 = fin["coverage_pct"]["total"] if fin else 0.0
@@ -456,14 +472,15 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                      "Carbon footprint (financed emissions per €M invested)", "tCO₂e/€M",
                      value=cf, coverage=cov2 if cf is not None else None,
                      source=_GOLDEN_SOURCE + " · PCAF" if cf is not None else None,
-                     method=method, input_required=need)
+                     method=method, input_required=need, need=_needed(cf, cov2, "emissions_evic"))
     waci_src = _GOLDEN_SOURCE + (f" · {emis_est}% of covered value estimated" if emis_est else "")
     waci, cov3 = p["pai_3_waci_tco2e_per_meur"], p.get("pai_3_coverage_pct", 0.0)
     method, need = _status(waci, cov3, lambda r: f"issuer scope 1, 2 and 3 emissions and revenue on the remaining {r}% by value")
     filled[3] = _row(3, "Climate & environment",
                      "GHG intensity of investee companies (WACI)", "tCO₂e/€M revenue",
                      value=waci, coverage=cov3 if waci is not None else None,
-                     source=waci_src if waci is not None else None, method=method, input_required=need)
+                     source=waci_src if waci is not None else None, method=method, input_required=need,
+                     need=_needed(waci, cov3, "emissions_revenue"))
     filled[3]["value_scope_1_2"] = p.get("pai_3_waci_s12_tco2e_per_meur")   # EET 30300 asks Scope 1+2 separately
     filled[3]["coverage_scope_1_2"] = p.get("pai_3_s12_coverage_pct")
     filled[4] = _row(4, "Climate & environment",
@@ -472,7 +489,8 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                      source="issuer NACE division (golden source)",
                      method="computed" if p.get("pai_4_coverage_pct", 100.0) >= 99.9 else "partial",
                      input_required=None if p.get("pai_4_coverage_pct", 100.0) >= 99.9
-                     else f"issuer NACE on the remaining {round(100 - p.get('pai_4_coverage_pct', 100.0), 1)}% by value")
+                     else f"issuer NACE on the remaining {round(100 - p.get('pai_4_coverage_pct', 100.0), 1)}% by value",
+                     need=_needed(p["pai_4_fossil_fuel_exposure_pct"], p.get("pai_4_coverage_pct", 100.0), "industry"))
 
     remaining_inputs = {
         5: "issuer energy mix (renewable vs non-renewable share)",
@@ -499,7 +517,8 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                                value=cell["value"], coverage=cell["coverage_pct"], source=src,
                                method="estimated" if est else ("computed" if short <= 0.1 else "partial"),
                                input_required=None if short <= 0.1 and not est
-                               else f"{remaining_inputs[num]} on the {short}% by value not reported")
+                               else f"{remaining_inputs[num]} on the {short}% by value not reported",
+                               need=None if short <= 0.1 and not est else _need("issuer_data", indicator=num, rest=short))
     if esg and 5 in filled:           # the European ESG Template asks PAI 5 split, and PAI 6 per high-impact section
         filled[5]["consumption"], filled[5]["production"] = esg.get("pai_5_consumption"), esg.get("pai_5_production")
     if esg and 6 in filled:
@@ -510,7 +529,8 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
         if num in filled:
             indicators.append(filled[num])
         else:
-            indicators.append(_row(num, area, metric, unit, input_required=remaining_inputs.get(num)))
+            indicators.append(_row(num, area, metric, unit, input_required=remaining_inputs.get(num),
+                                   need=_need("issuer_data_none", indicator=num)))
 
     computed = sum(1 for i in indicators if i["method"] == "computed")
     partial = sum(1 for i in indicators if i["method"] == "partial")
@@ -573,15 +593,10 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     manager_lei = fund.get("manager_lei")
     # Filing-readiness: the reporting-entity identity SFDR's Annex I header needs.
     # NB: keep this list name distinct from the `missing` indicator COUNT above.
-    filing_missing = []
-    if not manager_lei:
-        filing_missing.append("manager LEI")
-    if not fund.get("manager_legal_name"):
-        filing_missing.append("manager legal name")
-    if not fund.get("filing_contact_email"):
-        filing_missing.append("filing contact email")
+    filing_missing, filing_gaps = _identity_gaps(fund)
     if not ref_year:
         filing_missing.append("reference period (supply issuer emissions with a reporting year)")
+        filing_gaps.append({"code": "disclose.fund.ready.reference_year", "params": {}})
     # the sections of Articles 5 to 10 belong to the manager's entity-level statement (answered per reference period),
     # not to a fund: a fund's consideration of principal adverse impacts is disclosed in its SFDR product documents
     ready_to_file = not filing_missing
@@ -615,6 +630,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         "filing_readiness": {
             "ready_to_file": ready_to_file,
             "missing": filing_missing,
+            "gaps": filing_gaps,                    # the same, as catalogue messages {code, params}
             "note": "Ready to file." if ready_to_file
                     else "Not yet submittable — supply the reporting-entity identity above.",
         },
@@ -741,7 +757,7 @@ def entity_pai_statement(session, org_id: str, period_end=None) -> dict:
     the manager answers for that period, the previous period's figures (column 'Impact [year n-1]') and the historical
     comparison (Article 10) (services.governance.sfdr_pai_answers). Without it: a live view on each fund's latest
     holdings — not a statement for any period, and never filed."""
-    from ml.regulatory.sfdr_pai_period import average_books, holdings_gaps, reference_dates
+    from ml.regulatory.sfdr_pai_period import average_books, holdings_gap_items, reference_dates
     org = session.execute(text("""
         SELECT o.org_id::text AS org_id, o.name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
                o.filing_contact_email, o.country AS manager_domicile
@@ -759,7 +775,7 @@ def entity_pai_statement(session, org_id: str, period_end=None) -> dict:
     dates = reference_dates(period_end) if period_end is not None else None      # PeriodError on a non-31-December end
     if dates:
         book = average_books({d: _entity_book(session, scope, as_of=d) for d in dates})
-        gaps = holdings_gaps(session, fund_ids, dates)
+        gaps = holdings_gap_items(session, fund_ids, dates)
     else:
         book, gaps = _entity_book(session, scope), []
     if book.get("positions", 0) == 0:
@@ -788,14 +804,12 @@ def entity_pai_statement(session, org_id: str, period_end=None) -> dict:
         })
 
     manager_lei = org.get("manager_lei")
-    filing_missing = []
-    if not manager_lei:
-        filing_missing.append("manager LEI")
-    if not org.get("manager_legal_name"):
-        filing_missing.append("manager legal name")
-    if not org.get("filing_contact_email"):
-        filing_missing.append("filing contact email")
-    filing_missing += [f"holdings: {g}" for g in gaps]
+    # what the statement still lacks: each a sentence (missing — services.governance.filings.sfdr_missing reads them)
+    # and, at the same position, a catalogue message for a screen (gaps: {code, params})
+    filing_missing, filing_gaps = _identity_gaps(org)
+    for g in gaps:
+        filing_missing.append(f"holdings: {g['fund']}: no holdings dated {', '.join(g['dates'])}")
+        filing_gaps.append({"code": "disclose.pai.gap.holdings", "params": {"fund": g["fund"], "dates": ", ".join(g["dates"])}})
 
     st = {
         "level": "entity",
@@ -855,14 +869,31 @@ def entity_pai_statement(session, org_id: str, period_end=None) -> dict:
     }
     if dates:          # the sections the manager answers, the previous periods' figures (Articles 5-10)
         from services.governance import sfdr_pai_answers as A
-        filing_missing += A.attach(session, org_id, dates[-1], st)
+        for g in A.attach(session, org_id, dates[-1], st):
+            filing_missing.append(g["text"])
+            filing_gaps.append({"code": g["code"], "params": g["params"]})
+    else:
+        filing_missing.append("a reference period (a statement covers 1 January to 31 December of one year)")
+        filing_gaps.append({"code": "disclose.pai.gap.period", "params": {}})
     st["filing_readiness"] = {
         "ready_to_file": bool(dates) and not filing_missing,
-        "missing": filing_missing if dates else filing_missing + ["a reference period (a statement covers 1 January to "
-                                                                   "31 December of one year)"],
+        "missing": filing_missing,
+        "gaps": filing_gaps,
         "note": "Ready to file." if dates and not filing_missing else "Not yet submittable — see what is missing.",
     }
     return st
+
+
+def _identity_gaps(who: dict) -> tuple[list[str], list[dict]]:
+    """The reporting entity's identity the statement's header needs: (sentences, catalogue messages), one each."""
+    out, gaps = [], []
+    for field, sentence, kind in (("manager_lei", "manager LEI", "lei"),
+                                  ("manager_legal_name", "manager legal name", "legal_name"),
+                                  ("filing_contact_email", "filing contact email", "contact")):
+        if not who.get(field):
+            out.append(sentence)
+            gaps.append({"code": f"disclose.identity.{kind}", "params": {}})
+    return out, gaps
 
 
 # ── Downloadable filing document (.xlsx in the mandated table shape) ──

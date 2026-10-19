@@ -22,7 +22,19 @@ DEFAULT_TOL_PCT = 5.0     # a provided value within ±5% of our baseline reconci
 
 
 class ProvidedError(ValueError):
-    pass
+    """A provided value refused: its sentence (logs, the API's other callers) and, where it is coded, the same as a
+    catalogue message — code and params of data/reference/messages.en.json (disclose.provided.*) — the API answers.
+    A refusal raised without a code reads as the general one (disclose.provided.refused)."""
+
+    def __init__(self, message: str, code: str | None = None, **params):
+        super().__init__(message)
+        self.code, self.params = code, params
+
+
+def _figure(key: str) -> str:
+    """An ESRS figure by its name in the concept registry, never its key."""
+    from services.governance.esrs_binding import label
+    return label(key)
 
 
 def _catalog_dp(framework: str, key: str) -> dict | None:
@@ -40,7 +52,8 @@ def esrs_providable(session: Session, org_id: str, period_end) -> dict:
     from services.governance import esrs_binding as B
     spec = R.governing(ESRS, period_end=period_end, elections=get_calc_settings(session, org_id))
     if spec is None:
-        raise ProvidedError(f"no ESRS version governs the financial year ending {period_end}")
+        raise ProvidedError(f"no ESRS version governs the financial year ending {period_end}", "disclose.esrs.refused.no_version",
+                            date=str(period_end))
     bds = _json.loads((Path(__file__).resolve().parents[2] / "data/reference/esrs/breakdowns.json").read_text())
     items = [{"key": k, **c, "members": (bds[c["breakdown"]].get("members") if c["breakdown"] else None),
               "currency_required": c["unit"] in _MONETARY} for k, c in B.provided_catalog(spec).items()]
@@ -95,24 +108,27 @@ def _esrs_target(key: str, member: str | None, period_end, elections: dict | Non
     import services.regspec as R
     from services.governance import esrs_binding as B
     if period_end is None:
-        raise ProvidedError("an ESRS figure is for a financial year: state its period end")
+        raise ProvidedError("an ESRS figure is for a financial year: state its period end", "disclose.provided.period")
     spec = R.governing(ESRS, period_end=period_end, elections=elections)
     if spec is None:
-        raise ProvidedError(f"no ESRS version governs the financial year ending {period_end}")
+        raise ProvidedError(f"no ESRS version governs the financial year ending {period_end}", "disclose.esrs.refused.no_version",
+                            date=str(period_end))
     c = B.provided_catalog(spec).get(key)
     if c is None:
         raise ProvidedError(f"'{key}' is not a figure the undertaking provides under {spec['act']['short']} "
-                            f"(financial year ending {period_end})")
+                            f"(financial year ending {period_end})", "disclose.provided.not_stated_here", date=str(period_end))
     label = c["label"]
     if c["breakdown"]:
         ref = _json.loads((Path(__file__).resolve().parents[2] / "data/reference/esrs/breakdowns.json").read_text())[c["breakdown"]]
         if not (member or "").strip():
-            raise ProvidedError(f"'{key}' is reported per {c['breakdown'].replace('_', ' ')}: say which one")
+            raise ProvidedError(f"'{key}' is reported per {c['breakdown'].replace('_', ' ')}: say which one",
+                                "disclose.provided.part_needed", figure=_figure(key))
         if ref.get("closed") and member not in ref["members"]:
-            raise ProvidedError(f"'{member}' is not a {c['breakdown'].replace('_', ' ')} (one of {', '.join(ref['members'])})")
+            raise ProvidedError(f"'{member}' is not a {c['breakdown'].replace('_', ' ')} (one of {', '.join(ref['members'])})",
+                                "disclose.provided.part_unknown", figure=_figure(key), part=member)
         label = f"{label} — {ref['members'][member] if ref.get('closed') else member}"
     elif member:
-        raise ProvidedError(f"'{key}' is a single figure, not a breakdown")
+        raise ProvidedError(f"'{key}' is a single figure, not a breakdown", "disclose.provided.single", figure=_figure(key))
     from services.governance.esrs_binding import concepts
     return {"key": key, "label": label, "lane": "provided", "unit": c["unit"], "period": c["period"], "recon_tol": None,
             "esrs_version": spec["version"], "signed": bool(concepts()[key].get("signed")), "member": member or None}
@@ -120,19 +136,23 @@ def _esrs_target(key: str, member: str | None, period_end, elections: dict | Non
 
 def _esrs_check(dp: dict, value_num: float | None, currency: str | None) -> None:
     if value_num is None:
-        raise ProvidedError(f"'{dp['key']}' is a figure: give a number")
+        raise ProvidedError(f"'{dp['key']}' is a figure: give a number", "disclose.provided.number", figure=_figure(dp["key"]))
     lo, hi = _ESRS_RANGE.get(dp["unit"], (None, None))
     if dp.get("signed"):
         lo = None
     if (lo is not None and value_num < lo) or (hi is not None and value_num > hi):
         raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}: the value must be "
-                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"))
+                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"),
+                            "disclose.provided.range", figure=_figure(dp["key"]),
+                            range=f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}")
     if dp["unit"] in ("count", "year", "boolean") and value_num != int(value_num):
-        raise ProvidedError(f"'{dp['key']}' is a whole number")
+        raise ProvidedError(f"'{dp['key']}' is a whole number", "disclose.provided.whole", figure=_figure(dp["key"]))
     if dp["unit"] in _MONETARY and not (currency or "").strip():
-        raise ProvidedError(f"'{dp['key']}' is an amount: say its currency (ISO 4217) — never assumed")
+        raise ProvidedError(f"'{dp['key']}' is an amount: say its currency (ISO 4217) — never assumed",
+                            "disclose.provided.currency", figure=_figure(dp["key"]))
     if dp["unit"] not in _MONETARY and currency:
-        raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}, not an amount: it has no currency")
+        raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}, not an amount: it has no currency",
+                            "disclose.provided.no_currency", figure=_figure(dp["key"]))
 
 
 def _method_target(key: str, member: str | None) -> dict:
@@ -140,27 +160,33 @@ def _method_target(key: str, member: str | None) -> dict:
     from services.money.params import members, parameters
     p = parameters().get(key)
     if p is None:
-        raise ProvidedError(f"'{key}' is not a method parameter the platform reads (data/reference/money/parameters.json)")
+        raise ProvidedError(f"'{key}' is not a method parameter the platform reads (data/reference/money/parameters.json)",
+                            "disclose.provided.not_a_parameter")
     if p.get("breakdown"):
         if not (member or "").strip():
-            raise ProvidedError(f"'{key}' is stated per {p['breakdown'].replace('_', ' ')}: say which one")
+            raise ProvidedError(f"'{key}' is stated per {p['breakdown'].replace('_', ' ')}: say which one",
+                                "disclose.provided.part_needed", figure=p["label"])
         if member not in members(p["breakdown"]):
-            raise ProvidedError(f"'{member}' is not a {p['breakdown'].replace('_', ' ')} (e.g. {members(p['breakdown'])[0]})")
+            raise ProvidedError(f"'{member}' is not a {p['breakdown'].replace('_', ' ')} (e.g. {members(p['breakdown'])[0]})",
+                                "disclose.provided.part_unknown", figure=p["label"], part=member)
     elif member:
-        raise ProvidedError(f"'{key}' is a single figure, not a breakdown")
+        raise ProvidedError(f"'{key}' is a single figure, not a breakdown", "disclose.provided.single", figure=p["label"])
     return {"key": key, "label": p["label"] + (f" — {member}" if member else ""), "lane": "provided", "unit": p["unit"],
             "recon_tol": None, "member": member or None, "requires_source": bool(p.get("requires_source"))}
 
 
 def _method_check(dp: dict, value_num: float | None, currency: str | None) -> None:
     if value_num is None:
-        raise ProvidedError(f"'{dp['key']}' is a figure: give a number")
+        raise ProvidedError(f"'{dp['key']}' is a figure: give a number", "disclose.provided.number", figure=dp["label"])
     if currency:
-        raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}, not an amount: it has no currency")
+        raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}, not an amount: it has no currency",
+                            "disclose.provided.no_currency", figure=dp["label"])
     lo, hi = _METHOD_RANGE[dp["unit"]]
     if value_num < lo or (hi is not None and value_num > hi):
         raise ProvidedError(f"'{dp['key']}' is in {dp['unit']}: the value must be "
-                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"))
+                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"),
+                            "disclose.provided.range", figure=dp["label"],
+                            range=f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}")
 
 
 def method_providable() -> dict:
@@ -184,19 +210,20 @@ def _target(framework: str, key: str, period_end, elections: dict | None = None,
     if framework == METHOD:
         return _method_target(key, member)
     if member:
-        raise ProvidedError("only an ESRS figure is reported per breakdown member")
+        raise ProvidedError("only an ESRS figure is reported per breakdown member", "disclose.provided.single",
+                            figure="This value")
     if key.count(".") == 2:
         import services.regspec as R
         if period_end is None:
-            raise ProvidedError("a template cell value needs the reporting period it is for")
+            raise ProvidedError("a template cell value needs the reporting period it is for", "disclose.provided.period")
         try:
             cell = R.supplied_cell(framework, key, period_end, elections=elections)
         except R.SpecError as e:
-            raise ProvidedError(str(e)) from e
+            raise ProvidedError(str(e), "disclose.provided.not_a_cell") from e
         return {"key": key, "label": cell["label"], "lane": "provided", "recon_tol": None, "cell": cell, "unit": cell.get("unit")}
     dp = _catalog_dp(framework, key)
     if not dp:
-        raise ProvidedError(f"unknown datapoint '{key}' for {framework}")
+        raise ProvidedError(f"unknown datapoint '{key}' for {framework}", "disclose.provided.unknown")
     return dp
 
 
@@ -213,9 +240,12 @@ def _check_unit(dp: dict, value_num: float | None) -> None:
     lo, hi = _UNIT_RANGE[unit]
     if value_num < lo or (hi is not None and value_num > hi):
         raise ProvidedError(f"'{dp.get('key')}' is in {unit}: the value must be "
-                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"))
+                            + (f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}"),
+                            "disclose.provided.range", figure=dp.get("label") or "This value",
+                            range=f"between {lo:g} and {hi:g}" if hi is not None else f"at least {lo:g}")
     if unit == "count" and value_num != int(value_num):
-        raise ProvidedError(f"'{dp.get('key')}' is a count: give a whole number")
+        raise ProvidedError(f"'{dp.get('key')}' is a count: give a whole number", "disclose.provided.whole",
+                            figure=dp.get("label") or "This value")
 
 
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
@@ -228,32 +258,39 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     reason (the database refuses it otherwise — services.governance.period_close)."""
     from datetime import date
     if not reporting_period_end:
-        raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing")
+        raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing",
+                            "disclose.provided.period")
     pe = date.fromisoformat(str(reporting_period_end)[:10])
     from services.governance.filings import retirement_refusal
     why = retirement_refusal(framework)
     if why:
-        raise ProvidedError(why)
+        from services.governance.filings import retirement_error
+        e = retirement_error(framework)
+        raise ProvidedError(why, e.code, **e.params)
     from services.calc_settings import get_calc_settings
     dp = _target(framework, datapoint_key, pe, get_calc_settings(session, org_id), member=breakdown_member)
     if dp["lane"] != "provided" and not dp.get("reconcilable"):
-        raise ProvidedError(f"datapoint '{datapoint_key}' cannot be provided (lane={dp['lane']}); it is computed by Tellumen")
+        raise ProvidedError(f"datapoint '{datapoint_key}' cannot be provided (lane={dp['lane']}); it is computed by Tellumen",
+                            "disclose.provided.computed", figure=dp.get("label") or "This figure")
     period_label = period_label or (f"FY{pe.year}" if pe and (pe.month, pe.day) == (12, 31) else pe.isoformat() if pe else None)
     if source not in ("client", "vendor"):
-        raise ProvidedError("source must be 'client' or 'vendor'")
+        raise ProvidedError("source must be 'client' or 'vendor'", "disclose.provided.source")
     if value_num is None and not (value_text or "").strip():
-        raise ProvidedError("a value (numeric or text) is required")
+        raise ProvidedError("a value (numeric or text) is required", "disclose.provided.value")
     money = None
     if framework == ESRS:
         _esrs_check(dp, value_num, currency)
         unit = dp["unit"]
         if unit in _MONETARY:           # kept as sent; converted by the period's rule (closing for a position, average for a flow)
             from services.intake.money import MoneyError, convert_amount, field_entry
+            if pe > date.today():       # converted at its date's rate: stated once that date has passed
+                raise ProvidedError(f"'{datapoint_key}': the period ending {pe} is in the future — an amount is stated once "
+                                    "its date has passed", "disclose.provided.future", date=pe.isoformat())
             try:
                 conv = convert_amount(session, value_num, currency, pe, flow=dp.get("period") == "flow",
                                       label=datapoint_key, org_id=org_id)
             except MoneyError as e:
-                raise ProvidedError(str(e)) from e
+                raise ProvidedError(str(e), "disclose.period.currency", currency=currency or "—") from e
             money = {"currency": conv["currency"], "eur": conv["eur"],
                      "source": field_entry(conv["native"], conv["currency"], pe, conv["eur"], conv["rate"], origin="provided")}
     elif framework == METHOD:
@@ -261,16 +298,17 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
         unit = dp["unit"]
         if dp.get("requires_source") and not ((provider_name or "").strip() and data_vintage):
             raise ProvidedError(f"'{datapoint_key}' is read from a published source: say the source's name (provider) and "
-                                "its year (data vintage)")
+                                "its year (data vintage)", "disclose.provided.published_source", figure=dp["label"])
     else:
         if currency or breakdown_member:
-            raise ProvidedError("a currency or breakdown member is stated only with an ESRS figure or a method parameter")
+            raise ProvidedError("a currency or breakdown member is stated only with an ESRS figure or a method parameter",
+                                "disclose.provided.no_currency", figure=dp.get("label") or "This value")
         _check_unit(dp, value_num)
     entity = _entity_scope(session, org_id, framework, reporting_entity_id)
     from services.governance.period_close import is_closed
     if is_closed(session, org_id, entity, pe) and len((restatement_reason or "").strip()) < 10:
         raise ProvidedError(f"the period ending {pe} is closed for this undertaking — a new value is a restatement: "
-                            "say why (at least 10 characters)")
+                            "say why (at least 10 characters)", "disclose.provided.closed", date=pe.isoformat())
 
     # reconcile against our baseline where one exists
     base = (_baseline(session, org_id, framework, datapoint_key)
@@ -341,11 +379,12 @@ def _entity_scope(session: Session, org_id: str, framework: str, reporting_entit
         return None
     from services.governance.datapoint_catalog import PER_ENTITY_REPORTS
     if framework not in PER_ENTITY_REPORTS:
-        raise ProvidedError(f"{framework} values are stated for the organisation as a whole, not per entity")
+        raise ProvidedError(f"{framework} values are stated for the organisation as a whole, not per entity",
+                            "disclose.provided.not_per_entity")
     ok = session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) AND org_id = :o"),
                          {"e": reporting_entity_id, "o": org_id}).first()
     if not ok:
-        raise ProvidedError("no such reporting entity in this organisation")
+        raise ProvidedError("no such reporting entity in this organisation", "disclose.esrs.role.not_entity")
     return str(reporting_entity_id)
 
 

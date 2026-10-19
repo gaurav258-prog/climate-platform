@@ -16,7 +16,12 @@ ROLES = ("individual", "consolidated", "exempt_subsidiary", "voluntary")
 
 
 class RoleError(ValueError):
-    pass
+    """A role refused: its sentence and the same as a catalogue message (data/reference/messages.en.json
+    disclose.esrs.role.*) the API answers."""
+
+    def __init__(self, message: str, code: str = "disclose.esrs.role.invalid", **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 def live_role(session: Session, org_id: str, entity_id: str | None, period_end: date) -> dict | None:
@@ -32,16 +37,17 @@ def request_role(session: Session, org_id: str, user_id: str, *, entity_id: str 
                  parent_name: str | None = None, parent_registered_office: str | None = None,
                  parent_report_ref: str | None = None, basis: str | None = None) -> dict:
     if role not in ROLES:
-        raise RoleError(f"role must be one of {ROLES}")
+        raise RoleError(f"role must be one of {ROLES}", "disclose.esrs.role.invalid")
     if role == "exempt_subsidiary" and not all((parent_name, parent_registered_office, parent_report_ref)):
         raise RoleError("an exempt subsidiary states the parent's name, registered office and consolidated report "
-                        "(Art. 19a(9) / 29a(8))")
+                        "(Art. 19a(9) / 29a(8))", "disclose.esrs.role.parent")
     if entity_id and not session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) "
                                               "AND org_id = CAST(:o AS uuid)"), {"e": entity_id, "o": org_id}).first():
-        raise RoleError("that undertaking is not one of this organisation's entities")
+        raise RoleError("that undertaking is not one of this organisation's entities", "disclose.esrs.role.not_entity")
     if role == "consolidated" and entity_id and not session.execute(text(
             "SELECT 1 FROM reporting_entities WHERE parent_entity_id = CAST(:e AS uuid)"), {"e": entity_id}).first():
-        raise RoleError("a consolidated statement is filed by the parent of a group — this entity has no subsidiaries")
+        raise RoleError("a consolidated statement is filed by the parent of a group — this entity has no subsidiaries",
+                        "disclose.esrs.role.no_subsidiaries")
     payload = {"entity_id": entity_id, "period_end": period_end.isoformat(), "role": role, "parent_name": parent_name,
                "parent_registered_office": parent_registered_office, "parent_report_ref": parent_report_ref, "basis": basis}
     rid = session.execute(text("""

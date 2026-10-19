@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 import services.governance.provided_data as P
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/provided", tags=["Provided data (Lane 2)"])
 
@@ -36,11 +37,11 @@ def catalog(framework: str, session: DbSession, period_end: Optional[str] = None
     """For ESRS (framework=esrs) the figures depend on the version governing the financial year: give period_end."""
     if framework == P.ESRS:
         if not period_end:
-            raise HTTPException(400, {"error": "bad_request", "message": "ESRS figures depend on the financial year: give period_end"})
+            raise UserError("disclose.provided.period", 400)
         try:
             return {"framework": framework, **P.esrs_providable(session, ctx["org"]["org_id"], period_end)}
         except P.ProvidedError as e:
-            raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+            raise _refusal(e) from e
     if framework == P.METHOD:
         return {"framework": framework, **P.method_providable()}
     return {"framework": framework, "datapoints": P.providable(framework)}
@@ -90,4 +91,9 @@ def submit(body: SubmitBody, session: DbSession, ctx: dict = Depends(require_per
                         restatement_reason=body.restatement_reason, currency=body.currency,
                         breakdown_member=body.breakdown_member)
     except P.ProvidedError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+        raise _refusal(e) from e
+
+
+def _refusal(e) -> UserError:
+    """A provided value refused, in the catalogue's words (core/errors.py); its sentence goes to the log."""
+    return UserError(e.code or "disclose.provided.refused", 400, **e.params)

@@ -18,9 +18,9 @@ def test_a_manager_creates_a_fund_as_it_states_it(api):
         assert api.post("/v1/funds", headers=analyst, json={k: v for k, v in body.items() if k != missing}).status_code == 422
     assert api.post("/v1/funds", headers=analyst, json={**body, "sfdr_classification": "article_7"}).status_code == 422
     r = api.post("/v1/funds", headers=analyst, json={**body, "base_currency": "XYZ"})
-    assert r.status_code == 422 and "ISO 4217" in r.text
+    assert r.status_code == 422 and r.json()["error"]["error"] == "disclose.fund.refused.currency"
     r = api.post("/v1/funds", headers=analyst, json={**body, "lei": "LEI0000000000000GOLD"})
-    assert r.status_code == 422 and "not a valid LEI" in r.text
+    assert r.status_code == 422 and r.json()["error"]["error"] == "disclose.fund.lei.invalid"
 
     r = api.post("/v1/funds", headers=analyst, json=body)
     assert r.status_code == 201, r.text
@@ -30,7 +30,7 @@ def test_a_manager_creates_a_fund_as_it_states_it(api):
     assert api.s.execute(text("SELECT 1 FROM access_audit_log WHERE action = 'fund.created' AND target_id = :f"),
                          {"f": f["fund_id"]}).first()
     dup = api.post("/v1/funds", headers=analyst, json={**body, "name": "test nordic credit fund"})
-    assert dup.status_code == 409 and "already exists" in dup.text
+    assert dup.status_code == 409 and dup.json()["error"]["error"] == "disclose.fund.refused.duplicate"
 
     sub = {**body, "name": "Test sleeve", "fund_type": "sub_portfolio"}
     assert api.post("/v1/funds", headers=analyst, json=sub).status_code == 422                        # names no fund
@@ -62,7 +62,7 @@ def test_a_complete_book_removes_what_was_sold_and_only_when_every_line_is_posit
     assert r0.status_code == 200 and isinstance(r0.json(), dict), r0.text[:600]
     assert r0.json()["positions_removed"] == [] and held() == {"DE00ENERGY01", "NL00LOGIS001", "ES00FOODS001"}
     bad = up(["ES00FOODS001", "NOT-AN-ISIN"], complete_book=True)
-    assert bad.status_code == 422 and "nothing was changed" in bad.text and len(held()) == 3
+    assert bad.status_code == 422 and bad.json()["error"]["error"] == "disclose.fund.refused.incomplete_book" and len(held()) == 3
     r = up(["ES00FOODS001"], complete_book=True)
     assert r.status_code == 200 and {x["isin"] for x in r.json()["positions_removed"]} == {"DE00ENERGY01", "NL00LOGIS001"}
     assert held() == {"ES00FOODS001"}

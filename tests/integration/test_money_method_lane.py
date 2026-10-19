@@ -30,13 +30,13 @@ def test_a_stated_method_parameter_is_what_the_engine_reads(api):
     m = Method(api.s, TERRA, date(2025, 12, 31))
     assert m.get("method.damage_ratio", "flood/H") is None and "method.damage_ratio (flood/H)" in m.gap_text()
 
-    for body, why in ((("method.not_a_parameter", 0.1), "not a method parameter"),
-                      (("method.damage_ratio", 0.2), "say which one"),
-                      (("method.damage_ratio", 0.2, "flood/Z"), "is not a peril band"),
-                      (("method.damage_ratio", 1.5, "flood/H"), "between 0 and 1"),
-                      (("method.at_risk_level", 50, "flood/H"), "single figure")):
+    for body, code in ((("method.not_a_parameter", 0.1), "disclose.provided.not_a_parameter"),
+                       (("method.damage_ratio", 0.2), "disclose.provided.part_needed"),
+                       (("method.damage_ratio", 0.2, "flood/Z"), "disclose.provided.part_unknown"),
+                       (("method.damage_ratio", 1.5, "flood/H"), "disclose.provided.range"),
+                       (("method.at_risk_level", 50, "flood/H"), "disclose.provided.single")):
         r = _post(api, maker, *body)
-        assert r.status_code == 400 and why in r.text, (body, r.text)
+        assert r.status_code == 400 and r.json()["error"]["error"] == code, (body, r.text)
 
     r = _post(api, maker, "method.damage_ratio", 0.2, "flood/H")
     assert r.status_code == 201, r.text

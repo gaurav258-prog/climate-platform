@@ -105,27 +105,30 @@ def _validate(item: dict, value) -> dict | None:
     """The stored answer for items whose shape is more than their kind's; None → the kind's shape."""
     iid = item["id"]
     if not isinstance(value, dict):
-        raise AnswerError(f"{iid}: an answer is an object")
+        raise AnswerError(f"{iid}: an answer is an object", "disclose.answers.invalid")
     if iid in ("S5.a_srd", "S5.b_other") and value.get("applicable") is False:
         return {"applicable": False}                 # 'where applicable' / 'any other': the manager states there is none
     if iid == "S4.a_approval_date":
         try:
             d = date.fromisoformat(str(value.get("text") or "")[:10])
         except ValueError:
-            raise AnswerError(f"{iid}: the date the governing body approved the policies (YYYY-MM-DD)")
+            raise AnswerError(f"{iid}: the date the governing body approved the policies (YYYY-MM-DD)",
+                              "disclose.pai.answer.approval_date")
         if d > date.today():
-            raise AnswerError(f"{iid}: an approval date cannot be in the future")
+            raise AnswerError(f"{iid}: an approval date cannot be in the future", "disclose.pai.answer.future_date")
         return {"text": d.isoformat()}
     if iid == "S6.2c_scenario":
         if not isinstance(value.get("ticked"), bool):
-            raise AnswerError(f"{iid}: state whether a forward-looking climate scenario is used (true / false)")
+            raise AnswerError(f"{iid}: state whether a forward-looking climate scenario is used (true / false)",
+                              "disclose.pai.answer.scenario_used")
         if value["ticked"] and not str(value.get("text") or "").strip():
-            raise AnswerError(f"{iid}: a scenario used needs its name, its provider and when it was designed")
+            raise AnswerError(f"{iid}: a scenario used needs its name, its provider and when it was designed",
+                              "disclose.pai.answer.scenario_named")
         return {"ticked": value["ticked"], **({"text": str(value["text"]).strip()} if value["ticked"] else {})}
     if iid == "S1.d_summary":
         rows = value.get("rows")
         if not isinstance(rows, list) or not rows:
-            raise AnswerError(f"{iid}: the summary, one row per language")
+            raise AnswerError(f"{iid}: the summary, one row per language", "disclose.pai.answer.summary")
         out = []
         from services.reference.iso639 import is_language
         from services.reference.iso_country import is_valid_country
@@ -135,16 +138,19 @@ def _validate(item: dict, value) -> dict | None:
             ms = str(r.get("d_member_state") or "").strip().upper() or None
             body = str(r.get("d_text") or "").strip()
             if not is_language(lang):
-                raise AnswerError(f"{iid}: row {n} — '{lang}' is not an ISO 639-1 language code")
+                raise AnswerError(f"{iid}: row {n} — '{lang}' is not an ISO 639-1 language code",
+                                  "disclose.pai.answer.language", row=n, language=lang)
             if not isinstance(meets, list) or not meets or set(meets) - set(LANGUAGE_MEETS):
-                raise AnswerError(f"{iid}: row {n} — which requirement the language meets: {', '.join(LANGUAGE_MEETS)}")
+                raise AnswerError(f"{iid}: row {n} — which requirement the language meets: {', '.join(LANGUAGE_MEETS)}",
+                                  "disclose.pai.answer.meets", row=n)
             if ("host_official" in meets) != bool(ms):
                 raise AnswerError(f"{iid}: row {n} — a host Member State is stated exactly when the language is a host "
-                                  "Member State's official language")
+                                  "Member State's official language", "disclose.pai.answer.host", row=n)
             if ms and not is_valid_country(ms):
-                raise AnswerError(f"{iid}: row {n} — '{ms}' is not an ISO 3166-1 country code")
+                raise AnswerError(f"{iid}: row {n} — '{ms}' is not an ISO 3166-1 country code",
+                                  "disclose.pai.answer.country", row=n, country=ms)
             if not body:
-                raise AnswerError(f"{iid}: row {n} — the summary text")
+                raise AnswerError(f"{iid}: row {n} — the summary text", "disclose.pai.answer.summary_text", row=n)
             out.append({"d_language": lang, "d_meets": sorted(set(meets)), "d_member_state": ms, "d_text": body})
         return {"rows": out}
     return None
@@ -162,7 +168,9 @@ def save(session, org_id: str, period_end, answers: dict, user_id: str | None) -
     from services.governance import template_answers as T
     st = entity_pai_statement(session, org_id, period_end)        # PeriodError on a non-31-December end
     if st.get("error"):
-        raise AnswerError(st["error"])
+        from services.fund_messages import reason
+        code, params = reason(st["error"])
+        raise AnswerError(st["error"], code, **params)
     pe = date.fromisoformat(str(period_end)[:10])
     spec = R.governing(FAMILY, period_end=pe)
     tmpl = template(spec, st)
@@ -179,6 +187,18 @@ def _has(a: dict | None) -> bool:
 
 def missing(spec: dict, answers: dict, statement: dict) -> list[str]:
     """The answers the text requires and the manager has not given — each named by its Article point."""
+    return [m["text"] for m in missing_items(spec, answers, statement)]
+
+
+def _gap(text_: str, kind: str, **params) -> dict:
+    """One thing the statement still lacks: its sentence (the filing readiness 'missing' list, which
+    services.governance.filings.sfdr_missing reads) and the same as a catalogue message for a screen."""
+    return {"text": text_, "code": f"disclose.pai.gap.{kind}", "params": params}
+
+
+def missing_items(spec: dict, answers: dict, statement: dict) -> list[dict]:
+    """missing(), item by item: {text, code, params} — params name the section (S1/S4/S5/S6/T1), the item as the
+    Regulation words it and the Article point."""
     import services.regspec as R
     out = []
 
@@ -187,24 +207,29 @@ def missing(spec: dict, answers: dict, statement: dict) -> list[str]:
             sid, iid = item_id.split(".", 1)
             it = next((i for i in R.template(spec, sid)["items"] if i["id"] == iid), {})
             label = re.sub(r"^(\d+\.|\([a-z]\))\s*", "", it.get("label") or iid)
-            out.append(f"{ref}: {label[:90]}")
+            out.append(_gap(f"{ref}: {label[:90]}", "item", section=sid, item=iid, wording=label.rstrip(";. "), ref=ref))
 
     rows = (answers.get("S1.d_summary") or {}).get("rows") or []
     if not rows:
-        out.append("Article 5(d): the summary of the principal adverse impacts")
+        out.append(_gap("Article 5(d): the summary of the principal adverse impacts", "summary", section="S1",
+                        ref="Article 5(d)"))
     else:
         meets = {m for r in rows for m in r.get("d_meets") or []}
         if "home_official" not in meets:
-            out.append("Article 5, languages (a): the summary in an official language of the home Member State")
+            out.append(_gap("Article 5, languages (a): the summary in an official language of the home Member State",
+                            "language_home", section="S1", ref="Article 5, languages (a)"))
         if "international_finance" not in meets:
-            out.append("Article 5, languages (a): the summary in a language customary in the sphere of international "
-                       "finance (or state that the home-language text is in one)")
+            out.append(_gap("Article 5, languages (a): the summary in a language customary in the sphere of international "
+                            "finance (or state that the home-language text is in one)", "language_finance", section="S1",
+                            ref="Article 5, languages (a)"))
     for iid, pt in (("policies", "(1)"), ("a_approval_date", "(1)(a)"), ("b_responsibility", "(1)(b)"),
                     ("c_methodologies", "(1)(c)"), ("d_margin_of_error", "(1)(d)"), ("e_data_sources", "(1)(e)")):
         need(f"S4.{iid}", f"Article 7{pt}")
     not_ready = [i for i in statement.get("indicators") or [] if i.get("method") != "computed"]
-    if not_ready:                         # Article 7(2): 'Where information relating to any of the indicators … is not
-        need("S4.best_efforts", f"Article 7(2) ({len(not_ready)} indicator(s) not computed in full)")   # readily available'
+    if not_ready and not _has(answers.get("S4.best_efforts")):   # Article 7(2): 'Where information relating to any of
+        out.append(_gap(f"Article 7(2) ({len(not_ready)} indicator(s) not computed in full): "     # the indicators … is
+                        + _wording(spec, "S4", "best_efforts")[:90],                               # not readily available'
+                        "best_efforts", section="S4", n=len(not_ready), ref="Article 7(2)"))
     need("S5.a_srd", "Article 8(1)(a)")
     need("S5.b_other", "Article 8(1)(b)")
     summaries = [answers.get("S5.a_srd") or {}, answers.get("S5.b_other") or {}]
@@ -219,9 +244,16 @@ def missing(spec: dict, answers: dict, statement: dict) -> list[str]:
     unanswered = [r["label"] for r in impact_rows(statement)
                   for col in ("expl", "action") if not _has(answers.get(f"{r['key']}.{col}"))]
     if unanswered:
-        out.append(f"Article 6(1)-(2), Table 1 columns 'Explanation' / 'Actions taken …': {len(unanswered)} field(s) "
-                   f"to complete — first: {unanswered[0][:80]}")
+        out.append(_gap(f"Article 6(1)-(2), Table 1 columns 'Explanation' / 'Actions taken …': {len(unanswered)} field(s) "
+                        f"to complete — first: {unanswered[0][:80]}", "table", section="T1", n=len(unanswered),
+                        first=unanswered[0], ref="Article 6(1) and (2)"))
     return out
+
+
+def _wording(spec: dict, sid: str, iid: str) -> str:
+    import services.regspec as R
+    it = next((i for i in R.template(spec, sid)["items"] if i["id"] == iid), {})
+    return re.sub(r"^(\d+\.|\([a-z]\))\s*", "", it.get("label") or iid)
 
 
 # ── the previous periods ─────────────────────────────────────────────────────────────────────────────────────────
@@ -240,25 +272,25 @@ def previous(session, org_id: str, period_end: date) -> list[dict]:
             ORDER BY f.seq DESC LIMIT 1"""), {"o": org_id, "pe": pe, "st": list(REPORTED)}).mappings().first()
         if row:
             out.append({"period_end": pe.isoformat(), "source": f"statement filed ({row['status']})",
-                        "filing_id": row["filing_id"],
+                        "source_kind": "filed", "status": row["status"], "filing_id": row["filing_id"],
                         "figures": {r["key"]: r["value"] for r in impact_rows(row["payload"] or {})}})
             continue
         figs = reported_figures(session, org_id, "sfdr_pai", None, pe)
         if figs:
             out.append({"period_end": pe.isoformat(), "source": "previous statement uploaded and confirmed",
-                        "filing_id": next(iter(figs.values()))["filing_id"],
+                        "source_kind": "uploaded", "filing_id": next(iter(figs.values()))["filing_id"],
                         "figures": {k_: v["value"] for k_, v in figs.items()}})
     return out
 
 
-def attach(session, org_id: str, period_end: date, statement: dict) -> list[str]:
+def attach(session, org_id: str, period_end: date, statement: dict) -> list[dict]:
     """Add to a period's statement: the governing sections with their answers, the previous period's figure on every
     impact row (column 'Impact [year n-1]'), the explanation and actions answered per row, and the historical
-    comparison. Returns what is still missing (for the statement's filing readiness)."""
+    comparison. Returns what is still missing (for the statement's filing readiness), as missing_items() gives it."""
     import services.regspec as R
     spec = R.governing(FAMILY, period_end=period_end)
     if spec is None:
-        return ["no adopted specification of Delegated Regulation (EU) 2022/1288 governs this statement"]
+        return [_gap("no adopted specification of Delegated Regulation (EU) 2022/1288 governs this statement", "no_spec")]
     answers = read(session, org_id, period_end)
     prev = previous(session, org_id, period_end)
     last = prev[0] if prev and prev[0]["period_end"] == date(period_end.year - 1, 12, 31).isoformat() else None
@@ -279,12 +311,13 @@ def attach(session, org_id: str, period_end: date, statement: dict) -> list[str]
         "answers": {k: v for k, v in answers.items() if "." in k and k.split(".", 1)[0] in SECTIONS},
     }
     statement["rows"] = rows
-    statement["prior_period"] = ({"period_end": last["period_end"], "source": last["source"], "filing_id": last["filing_id"]}
-                                 if last else None)
+    statement["prior_period"] = ({"period_end": last["period_end"], "source": last["source"], "filing_id": last["filing_id"],
+                                  "source_kind": last["source_kind"], "status": last.get("status")} if last else None)
     statement["historical_comparison"] = {
         "applies": bool(prev),
-        "periods": [{"period_end": p["period_end"], "source": p["source"], "filing_id": p["filing_id"]} for p in prev],
+        "periods": [{"period_end": p["period_end"], "source": p["source"], "filing_id": p["filing_id"],
+                     "source_kind": p["source_kind"], "status": p.get("status")} for p in prev],
         "rows": [{"period": p["period_end"], "indicator": key, "impact": val, "source": p["source"]}
                  for p in prev for key, val in p["figures"].items() if val is not None],
     }
-    return missing(spec, answers, statement)
+    return missing_items(spec, answers, statement)
