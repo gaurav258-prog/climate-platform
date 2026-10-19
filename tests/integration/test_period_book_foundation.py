@@ -78,7 +78,7 @@ def test_year_end_values_are_append_only_and_the_latest_is_live(book):
     with pytest.raises(LocationChangeError):
         submit_or_apply(s, org_id=ORG, actor_user_id=_user(s, "maker"), request_type="supply.site.delete",
                         target_id=site, title="delete")
-    with pytest.raises(EntityError, match="reporting history"):
+    with pytest.raises(EntityError, match="onboarding.entity.history_kept"):
         delete_entity(s, ORG, ent)
 
 

@@ -74,7 +74,7 @@ def test_circular_parent_reference_is_refused_before_creating_anything():
             {"name": "Loop B", "parent_ref": "Loop A"},
         ]
         imp = ESI.create_import(s, EMPTY_BANK_ORG, u, "manual_csv", rows)
-        with pytest.raises(ESI.ImportError_, match="circular"):
+        with pytest.raises(ESI.ImportError_, match="onboarding.structure.cycle"):
             ESI.confirm_import(s, EMPTY_BANK_ORG, imp["import_id"], u)
         n = s.execute(text("SELECT count(*) FROM reporting_entities WHERE org_id=CAST(:o AS uuid) AND name LIKE 'Loop%'"),
                       {"o": EMPTY_BANK_ORG}).scalar()
@@ -88,7 +88,7 @@ def test_dangling_parent_reference_is_refused():
         u = _actor(s)
         rows = [{"name": "Orphan Corp", "parent_ref": "Nonexistent Parent Ltd"}]
         imp = ESI.create_import(s, EMPTY_BANK_ORG, u, "manual_csv", rows)
-        with pytest.raises(ESI.ImportError_, match="neither another row"):
+        with pytest.raises(ESI.ImportError_, match="onboarding.structure.parent_unknown"):
             ESI.confirm_import(s, EMPTY_BANK_ORG, imp["import_id"], u)
         s.rollback()
 
@@ -148,6 +148,6 @@ def test_duplicate_entity_reference_in_one_batch_is_refused():
         u = _actor(s)
         rows = [{"name": "Dup Ltd", "country": "NL"}, {"name": "Dup Ltd", "country": "BE"}]
         imp = ESI.create_import(s, EMPTY_BANK_ORG, u, "manual_csv", rows)
-        with pytest.raises(ESI.ImportError_, match="duplicate"):
+        with pytest.raises(ESI.ImportError_, match="onboarding.structure.duplicates"):
             ESI.confirm_import(s, EMPTY_BANK_ORG, imp["import_id"], u)
         s.rollback()

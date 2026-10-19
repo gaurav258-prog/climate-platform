@@ -142,10 +142,8 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
         read = filing_import.extract(framework, filename, data, targets)
         for c in read["cells"]:
             c["unit"] = resolve_declared(c["unit"], ccy)
-    except ValueError as e:                          # the importer names why: its own short reason
-        raise FilingError({"unsupported_format": "intake.prior.refused.unsupported_format",
-                           "unreadable": "intake.prior.refused.unreadable",
-                           "unknown_framework": "intake.prior.refused.unknown_report"}.get(str(e), "intake.prior.refused.unreadable")) from e
+    except ValueError as e:                          # the importer names why: its own catalogue code
+        raise FilingError(e.code if isinstance(e, filing_import.ReadError) else "intake.prior.refused.unreadable") from e
 
     sha = hashlib.sha256(data).hexdigest()
     fid = session.execute(text("""

@@ -160,7 +160,7 @@ def _method_target(key: str, member: str | None) -> dict:
     from services.money.params import members, parameters
     p = parameters().get(key)
     if p is None:
-        raise ProvidedError(f"'{key}' is not a method parameter the platform reads (data/reference/money/parameters.json)",
+        raise ProvidedError(f"'{key}' is not a method parameter the platform reads",       # services.money.params register
                             "disclose.provided.not_a_parameter")
     if p.get("breakdown"):
         if not (member or "").strip():
@@ -453,6 +453,8 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
         ORDER BY p.submitted_at DESC
     """), {"o": org_id, "f": framework}).mappings().all()
     labels = {d["key"]: d["label"] for fw in CATALOG.values() for d in fw}
+    from core.messages import names as _names
+    names = _names()                                  # customer words for the status and the source (UI standard)
     for r in rows:
         if r["datapoint_key"].count(".") == 2 and r["datapoint_key"] not in labels and r["reporting_period_end"]:
             try:
@@ -467,6 +469,8 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
              "data_vintage": r["data_vintage"].isoformat() if r["data_vintage"] else None,
              "tellumen_value": r["tellumen_value"], "delta_pct": r["delta_pct"],
              "within_tolerance": r["within_tolerance"], "recon_note": r["recon_note"], "status": r["status"],
+             "status_label": names["onboarding.provided_status"].get(r["status"]),
+             "source_label": names["admin.approval_value"].get(r["source"]),
              "submitted_by": r["submitted_by"], "decided_by": r["decided_by"],
              "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None,
              "period_label": r["period_label"],

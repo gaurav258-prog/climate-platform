@@ -152,7 +152,7 @@ def test_mapping_profile_renames_scales_and_converts(intake_client, tag):
     pv = intake_client.post("/v1/bank/assets/validate", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
                      data={**DECL, "mapping_profile_id": pid})
     assert pv.status_code == 200, pv.text
-    assert {"field": "appraised_value_eur", "kind": "currency", "currency": "USD"} in pv.json()["mapping"]["conversions"]
+    assert {"field": "appraised_value_eur", "label": "Appraised value", "kind": "currency", "currency": "USD"} in pv.json()["mapping"]["conversions"]
     cur = pv.json()["controls"]["currency"]
     used = next(u for u in cur["rates"] if u["currency"] == "USD")
     assert used["policy"] == "closing" and used["book_date"] == DECL["book_date"]    # a balance, at the book date

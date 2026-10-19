@@ -1,10 +1,12 @@
 import { modelLabel } from '../lib/hazards'
 import { balance } from '../lib/money'
+import { day } from './intake/parts'
 // Static audit-trail graph — renders a filing cell's lineage as a branching node tree:
-//   Reported figure → contributing assets → the golden source → the source feeds.
-// Deterministic SVG (positions computed in JS, so no fragile measurement), colour-coded by node type.
+//   Reported figure → contributing assets → the scored hazard record → the source feeds.
+// Deterministic SVG (positions computed in JS, so no fragile measurement), colour-coded by node type. A feed's state is
+// its dot's colour; under its name, the day it was last updated (never the state's code).
 
-interface Source { key: string; name: string; status: string | null }
+interface Source { key: string; name: string; status: string | null; last_refresh?: string | null }
 interface Contributor { asset_id: string; asset_name: string; value_eur: number | null; granular: { model_version: string | null } | null }
 interface Props { hazardLabel: string; exposed: number | null; contributors: Contributor[]; sources: Source[] }
 
@@ -13,7 +15,7 @@ const feedDot = (s: string | null) => s === 'fresh' || s === 'live' ? '#34d399' 
 const NODE_W = 168
 const NODE_H = 30
 const GAP_Y = 10
-const COL_X = [8, 220, 432, 620]   // reported · assets · golden · feeds
+const COL_X = [8, 220, 432, 620]   // reported · assets · hazard score · feeds
 
 export default function LineageGraph({ hazardLabel, exposed, contributors, sources }: Props) {
   const assets = contributors.slice(0, 6)
@@ -56,7 +58,7 @@ export default function LineageGraph({ hazardLabel, exposed, contributors, sourc
         ))}
 
         {/* column labels */}
-        {['Reported', 'Assets', 'Golden source', 'Feeds'].map((l, i) => (
+        {['Reported', 'Assets', 'Hazard score', 'Data feeds'].map((l, i) => (
           <text key={l} x={cx(i)} y={12} className="mono" fontSize={8} fill="var(--color-faint)" style={{ letterSpacing: '.1em', textTransform: 'uppercase' }}>{l}</text>
         ))}
 
@@ -65,12 +67,13 @@ export default function LineageGraph({ hazardLabel, exposed, contributors, sourc
         {/* assets */}
         {assets.map((a, i) => <Node key={a.asset_id} x={cx(1)} y={aY[i]} fill="var(--color-panel-2)" stroke="var(--color-line-2)" label={a.asset_name} sub={balance(a.value_eur)} />)}
         {moreAssets > 0 && <Node x={cx(1)} y={aY[assets.length]} fill="transparent" stroke="var(--color-line)" label={`+ ${moreAssets} more`} sub="" />}
-        {/* golden source */}
+        {/* the scored hazard record */}
         <Node x={cx(2)} y={goldY} fill="#15803d22" stroke="#34d399" label="Scored hazard record" sub={modelLabel(model)} />
         {/* feeds */}
         {sources.length === 0
-          ? <Node x={cx(3)} y={sY[0]} fill="transparent" stroke="var(--color-line)" label="not mapped" sub="" />
-          : sources.map((s, i) => <Node key={s.key} x={cx(3)} y={sY[i]} fill="var(--color-panel-2)" stroke={feedDot(s.status)} label={s.name} sub={s.status ?? ''} dot={feedDot(s.status)} />)}
+          ? <Node x={cx(3)} y={sY[0]} fill="transparent" stroke="var(--color-line)" label="No feed named" sub="" />
+          : sources.map((s, i) => <Node key={s.key} x={cx(3)} y={sY[i]} fill="var(--color-panel-2)" stroke={feedDot(s.status)} label={s.name}
+              sub={s.last_refresh ? `Updated ${day(s.last_refresh)}` : ''} dot={feedDot(s.status)} />)}
       </svg>
     </div>
   )

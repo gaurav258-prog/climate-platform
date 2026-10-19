@@ -165,5 +165,5 @@ def test_storage_is_write_once_content_addressed_and_tamper_evident(tmp_path, mo
 
 def test_unknown_storage_backend_fails_loudly(monkeypatch):
     monkeypatch.setattr(storage.settings, "INTAKE_STORAGE_BACKEND", "s3")
-    with pytest.raises(storage.StorageError, match="not available"):
+    with pytest.raises(storage.StorageError, match="onboarding.storage.unavailable"):
         storage.put(CSV)

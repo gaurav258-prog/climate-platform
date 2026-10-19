@@ -42,30 +42,32 @@ def fingerprint(columns: list[str]) -> str:
 def validate_profile(column_map: dict, transforms: dict, specs: list[dict]) -> None:
     names = {s["name"] for s in specs}
     kinds = {s["name"]: s.get("kind") for s in specs}
+    labels = {s["name"]: s.get("label") or s["name"] for s in specs}
     if not isinstance(column_map, dict) or not column_map:
-        raise MappingError("The mapping must name at least one source column.")
+        raise MappingError("The mapping must name at least one source column.", "onboarding.mapping.no_columns")
     bad = [t for t in column_map if t not in names]
     if bad:
-        raise MappingError(f"Not fields of this template: {', '.join(bad)}")
+        raise MappingError(f"Not fields of this template: {', '.join(bad)}", "onboarding.mapping.not_fields")
     srcs = [v for v in column_map.values() if v]
     if len(srcs) != len(set(srcs)):
-        raise MappingError("One source column is mapped to two fields.")
+        raise MappingError("One source column is mapped to two fields.", "onboarding.mapping.column_twice")
     for t, spec in (transforms or {}).items():
         if t not in names:
-            raise MappingError(f"Transform for unknown field '{t}'.")
+            raise MappingError(f"Transform for unknown field '{t}'.", "onboarding.mapping.not_fields")
         if not isinstance(spec, dict) or not set(spec) <= {"multiply", "currency", "currency_column", "values"}:
-            raise MappingError(f"Transform for '{t}' is not recognised.")
+            raise MappingError(f"Transform for '{t}' is not recognised.", "onboarding.mapping.bad_transform")
         if ("currency" in spec or "currency_column" in spec or "multiply" in spec) and kinds.get(t) != "money":
-            raise MappingError(f"'{t}' is not a money field, so it can't be scaled or converted.")
+            raise MappingError(f"'{t}' is not a money field, so it can't be scaled or converted.", "onboarding.mapping.not_money",
+                               field=labels[t])
         if "multiply" in spec and not isinstance(spec["multiply"], (int, float)):
-            raise MappingError(f"Scale for '{t}' must be a number.")
+            raise MappingError(f"Scale for '{t}' must be a number.", "onboarding.mapping.scale_number", field=labels[t])
 
 
 def save(session: Session, org_id: str, template: str, name: str, column_map: dict, transforms: dict,
          user_id: str, specs: list[dict], source_columns: Optional[list[str]] = None) -> dict:
     name = (name or "").strip()
     if not name:
-        raise MappingError("Give the mapping a name (for example the source system).")
+        raise MappingError("Give the mapping a name (for example the source system).", "onboarding.mapping.name_required")
     validate_profile(column_map, transforms or {}, specs)
     v = (session.execute(text("""SELECT COALESCE(MAX(version), 0) FROM intake_mapping_profiles
                                  WHERE org_id = CAST(:o AS uuid) AND template = :t AND name = :n"""),
@@ -125,6 +127,12 @@ def latest(session: Session, org_id: str, template: Optional[str] = None) -> lis
     return [{**dict(r), "created_at": str(r["created_at"])[:19]} for r in rows]
 
 
+def _label(field: str) -> str:
+    """A field's customer name, for the report the screen shows (services/ingest/fields.py)."""
+    from services.ingest.sector_contract import field_name
+    return field_name(field)
+
+
 def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[date] = None) -> tuple[pd.DataFrame, dict]:
     """Rename and transform source columns into template columns. Returns (canonical dataframe, report).
     A currency transform does NOT convert here: it says which currency a field's amounts are in — a fixed code
@@ -149,16 +157,16 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
         if "values" in spec:
             vm = {norm_token(k): v for k, v in spec["values"].items()}
             out[t] = [(vm[norm_token(v)] or None) if not is_blank(v) and norm_token(v) in vm else v for v in col]
-            report["conversions"].append({"field": t, "kind": "vocabulary", "n_values": len(vm)})
+            report["conversions"].append({"field": t, "label": _label(t), "kind": "vocabulary", "n_values": len(vm)})
             col = out[t]
         if "multiply" in spec:
             m = float(spec["multiply"])
             out[t] = [(parse_money(v) * m if parse_money(v) is not None else v) for v in col]
-            report["conversions"].append({"field": t, "kind": "scale", "factor": m})
+            report["conversions"].append({"field": t, "label": _label(t), "kind": "scale", "factor": m})
         if "currency" in spec:
             report["field_currency"][t] = str(spec["currency"]).upper()
-            report["conversions"].append({"field": t, "kind": "currency", "currency": report["field_currency"][t]})
+            report["conversions"].append({"field": t, "label": _label(t), "kind": "currency", "currency": report["field_currency"][t]})
         elif "currency_column" in spec:
             out[hidden_column(t)] = df[spec["currency_column"]].values
-            report["conversions"].append({"field": t, "kind": "currency", "currency_column": spec["currency_column"]})
+            report["conversions"].append({"field": t, "label": _label(t), "kind": "currency", "currency_column": spec["currency_column"]})
     return out, report

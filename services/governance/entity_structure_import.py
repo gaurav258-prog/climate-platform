@@ -25,10 +25,13 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+from core.messages import name, render
 from services.governance.entities import (
     METHODS,
     EntityError,
     _consolidation_needs_basis,
+    basis_needed,
     create_entity,
 )
 
@@ -36,8 +39,9 @@ VALID_SOURCES = {"manual_csv", "document_extraction"}
 VALID_STATUSES = {"proposed", "edited", "rejected"}
 
 
-class ImportError_(ValueError):
-    """A staged-import rule was violated (bad source, cycle, dangling parent reference)."""
+class ImportError_(UserError):
+    """A staged-import rule was violated (bad source, cycle, dangling parent reference), in the catalogue's words
+    (onboarding.structure.*) — a core.errors.UserError, so a route lets it through to the screen as it is."""
 
 
 def _row_dict(r) -> dict:
@@ -58,9 +62,10 @@ def create_import(session: Session, org_id: str, actor_user_id: str | None, sour
     Stages everything as-is; validation (cycles, dangling parents, ownership range) runs at confirm time,
     not here, so a reviewer can see and fix a bad row rather than have the whole upload silently rejected."""
     if source not in VALID_SOURCES:
-        raise ImportError_(f"source must be one of {sorted(VALID_SOURCES)}")
+        raise ImportError_("onboarding.structure.source_unknown")
+    rows = [r for r in rows if (r.get("name") or "").strip()]   # an unnamed row can't be staged — skipped, not guessed
     if not rows:
-        raise ImportError_("no rows to stage")
+        raise ImportError_("onboarding.structure.no_rows")       # never an empty import to review
 
     import_id = str(uuid.uuid4())
     session.execute(text("""
@@ -68,10 +73,8 @@ def create_import(session: Session, org_id: str, actor_user_id: str | None, sour
         VALUES (CAST(:i AS uuid), CAST(:o AS uuid), :src, :doc, 'staged', CAST(:u AS uuid))
     """), {"i": import_id, "o": org_id, "src": source, "doc": source_document_name, "u": actor_user_id})
 
-    for idx, r in enumerate(rows):
-        name = (r.get("name") or "").strip()
-        if not name:
-            continue   # an unnamed row can't be staged at all — skipped, not guessed
+    for r in rows:
+        name = r["name"].strip()
         row_ref = (r.get("row_ref") or name).strip()
         session.execute(text("""
             INSERT INTO entity_structure_import_rows
@@ -94,7 +97,7 @@ def get_import(session: Session, org_id: str, import_id: str) -> dict:
         FROM entity_structure_imports WHERE org_id = CAST(:o AS uuid) AND import_id = CAST(:i AS uuid)
     """), {"o": org_id, "i": import_id}).mappings().first()
     if not imp:
-        raise ImportError_("import not found")
+        raise ImportError_("onboarding.structure.not_found")
     rows = session.execute(text("""
         SELECT row_id::text, row_ref, parent_ref, parent_entity_id::text, name, kind, country,
                ownership_pct, consolidation_method, source_note, confidence, status, created_entity_id::text
@@ -119,13 +122,13 @@ def update_row(session: Session, org_id: str, import_id: str, row_id: str, **fie
         SELECT status FROM entity_structure_imports WHERE org_id = CAST(:o AS uuid) AND import_id = CAST(:i AS uuid)
     """), {"o": org_id, "i": import_id}).scalar()
     if status is None:
-        raise ImportError_("import not found")
+        raise ImportError_("onboarding.structure.not_found")
     if status != "staged":
-        raise ImportError_(f"cannot edit a row in an import that is '{status}'")
+        raise ImportError_("onboarding.structure.closed", state=name("onboarding.import_state", status))
     row = session.execute(text("SELECT 1 FROM entity_structure_import_rows WHERE row_id = CAST(:r AS uuid) AND import_id = CAST(:i AS uuid)"),
                           {"r": row_id, "i": import_id}).first()
     if not row:
-        raise ImportError_("row not found")
+        raise ImportError_("onboarding.structure.row_not_found")
 
     allowed = {"name", "kind", "country", "ownership_pct", "consolidation_method", "parent_ref",
               "parent_entity_id", "status", "source_note"}
@@ -134,11 +137,11 @@ def update_row(session: Session, org_id: str, import_id: str, row_id: str, **fie
         if k not in allowed:
             continue
         if k == "status" and v not in VALID_STATUSES:
-            raise ImportError_(f"status must be one of {sorted(VALID_STATUSES)}")
+            raise ImportError_("onboarding.structure.row_status")
         sets.append(f"{k} = CAST(:{k} AS uuid)" if k == "parent_entity_id" else f"{k} = :{k}")
         params[k] = v
     if not sets:
-        raise ImportError_("nothing to update")
+        raise ImportError_("onboarding.structure.nothing_to_update")
     # an edited field (other than a plain status flip) marks the row 'edited' so a reviewer can see what
     # changed from the original proposal, unless the caller explicitly set status themselves
     if "status" not in fields:
@@ -153,7 +156,7 @@ def discard_import(session: Session, org_id: str, import_id: str) -> dict:
         WHERE org_id = CAST(:o AS uuid) AND import_id = CAST(:i AS uuid) AND status = 'staged'
     """), {"o": org_id, "i": import_id}).rowcount
     if not n:
-        raise ImportError_("import not found or not in a discardable state")
+        raise ImportError_("onboarding.structure.not_discardable")
     return {"ok": True}
 
 
@@ -173,8 +176,7 @@ def _topological_order(rows: list[dict]) -> list[dict]:
         if state == "done":
             return
         if state == "visiting":
-            cycle = " -> ".join(path + [ref])
-            raise ImportError_(f"circular parent reference: {cycle}")
+            raise ImportError_("onboarding.structure.cycle", chain=" → ".join(path + [ref]))
         visited[ref] = "visiting"
         if r.get("parent_ref"):
             visit(r["parent_ref"], path + [ref])
@@ -193,17 +195,17 @@ def confirm_import(session: Session, org_id: str, import_id: str, actor_user_id:
     Refuses (names the exact problem) rather than partially creating a broken tree."""
     imp = get_import(session, org_id, import_id)
     if imp["status"] != "staged":
-        raise ImportError_(f"cannot confirm an import that is '{imp['status']}'")
+        raise ImportError_("onboarding.structure.closed", state=name("onboarding.import_state", imp["status"]))
 
     live_rows = [r for r in imp["rows"] if r["status"] != "rejected"]
     if not live_rows:
-        raise ImportError_("every row in this import is rejected — nothing to create")
+        raise ImportError_("onboarding.structure.all_rejected")
 
     # duplicate row_ref (typically the entity name) inside one batch is ambiguous for parent resolution
     refs = [r["row_ref"] for r in live_rows]
     dupes = {x for x in refs if refs.count(x) > 1}
     if dupes:
-        raise ImportError_(f"duplicate entity reference(s) in this batch: {sorted(dupes)}")
+        raise ImportError_("onboarding.structure.duplicates", names=", ".join(sorted(dupes)))
 
     # every parent_ref must resolve to another live row in THIS batch, or the row must instead carry a real
     # parent_entity_id already in reporting_entities — never a dangling reference
@@ -214,14 +216,13 @@ def confirm_import(session: Session, org_id: str, import_id: str, actor_user_id:
     for r in live_rows:
         if r.get("parent_entity_id"):
             if r["parent_entity_id"] not in existing_ids:
-                raise ImportError_(f"'{r['name']}': parent_entity_id does not exist in this organisation")
+                raise ImportError_("onboarding.structure.parent_missing", entity=r["name"])
         elif r.get("parent_ref") and r["parent_ref"] not in by_ref:
-            raise ImportError_(f"'{r['name']}': parent '{r['parent_ref']}' is neither another row in this "
-                              "batch nor an existing entity — reject or correct this row before confirming")
+            raise ImportError_("onboarding.structure.parent_unknown", entity=r["name"], parent=r["parent_ref"])
         if r.get("ownership_pct") is not None and not (0 <= r["ownership_pct"] <= 100):
-            raise ImportError_(f"'{r['name']}': ownership_pct must be between 0 and 100")
+            raise ImportError_("onboarding.structure.ownership_range", entity=r["name"])
         if r.get("consolidation_method") and r["consolidation_method"] not in METHODS:
-            raise ImportError_(f"'{r['name']}': consolidation_method must be one of {sorted(METHODS)}")
+            raise ImportError_("onboarding.structure.method_unknown", entity=r["name"])
         # same C2 guardrail create_entity() enforces one row at a time — checked here too so a batch fails
         # validation up front (naming the row) rather than partway through topological creation. The row's
         # source_note stands in for consolidation_basis: it's already where an import row explains "why" —
@@ -229,9 +230,8 @@ def confirm_import(session: Session, org_id: str, import_id: str, actor_user_id:
         eff_pct = r.get("ownership_pct") if r.get("ownership_pct") is not None else 100.0
         eff_method = r.get("consolidation_method") or "full"
         if _consolidation_needs_basis(eff_pct, eff_method) and not (r.get("source_note") or "").strip():
-            raise ImportError_(
-                f"'{r['name']}': consolidation_method={eff_method!r} at {eff_pct}% ownership runs counter to "
-                "the IFRS 10 control presumption from ownership alone — set source_note to say why")
+            b = basis_needed(eff_pct, eff_method, "onboarding.structure.basis_needed", entity=r["name"])
+            raise ImportError_(b.code, **b.params)
 
     ordered = _topological_order(live_rows)   # raises on a cycle before anything is created
 
@@ -245,9 +245,10 @@ def confirm_import(session: Session, org_id: str, import_id: str, actor_user_id:
             e = create_entity(session, org_id, name=r["name"], kind=r["kind"] or "legal_entity",
                               parent_entity_id=parent_id, ownership_pct=r.get("ownership_pct") or 100.0,
                               consolidation_method=r.get("consolidation_method") or "full",
-                              consolidation_basis=r.get("source_note"))
-        except EntityError as exc:
-            raise ImportError_(f"'{r['name']}': {exc}") from exc
+                              consolidation_basis=r.get("source_note"), country=r.get("country"))
+        except EntityError as exc:                    # the entity's own refusal, naming the row it came from
+            raise ImportError_("onboarding.structure.row_refused", entity=r["name"],
+                               reason=render(exc.code, **exc.params)["detail"]["what"]) from exc
         r["created_entity_id"] = e["entity_id"]
         session.execute(text("UPDATE entity_structure_import_rows SET created_entity_id = CAST(:e AS uuid) WHERE row_id = CAST(:r AS uuid)"),
                         {"e": e["entity_id"], "r": r["row_id"]})

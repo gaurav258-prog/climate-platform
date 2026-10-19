@@ -22,7 +22,11 @@ MIN_RSA_BITS = 3072
 
 
 class SftpKeyError(ValueError):
-    pass
+    """A key refused: its sentence (logs) and the catalogue message the screen shows (code, params; onboarding.sftp.*)."""
+
+    def __init__(self, text: str, code: str = "onboarding.sftp.malformed", **params):
+        super().__init__(text)
+        self.code, self.params = code, params
 
 
 def _read_string(blob: bytes, off: int) -> tuple[bytes, int]:
@@ -38,10 +42,11 @@ def parse(line: str) -> dict:
     """An OpenSSH public-key line → {key_type, public_key (type + base64, no comment), fingerprint, bits, comment}."""
     parts = (line or "").strip().split()
     if len(parts) < 2:
-        raise SftpKeyError("Paste the whole public key line, e.g. 'ssh-ed25519 AAAAC3Nza… name@host'.")
+        raise SftpKeyError("Paste the whole public key line, e.g. 'ssh-ed25519 AAAAC3Nza… name@host'.", "onboarding.sftp.whole_line")
     ktype, b64 = parts[0], parts[1]
     if ktype not in ACCEPTED:
-        raise SftpKeyError(f"Key type '{ktype}' is not accepted. Use ssh-ed25519 (preferred), ECDSA, or RSA ≥ {MIN_RSA_BITS} bits.")
+        raise SftpKeyError(f"Key type '{ktype}' is not accepted. Use ssh-ed25519 (preferred), ECDSA, or RSA ≥ {MIN_RSA_BITS} bits.",
+                           "onboarding.sftp.type_refused", type=ktype, min_bits=MIN_RSA_BITS)
     try:
         blob = base64.b64decode(b64, validate=True)
     except (binascii.Error, ValueError):
@@ -55,7 +60,8 @@ def parse(line: str) -> dict:
         n, off = _read_string(blob, off)
         bits = int.from_bytes(n, "big").bit_length()
         if bits < MIN_RSA_BITS:
-            raise SftpKeyError(f"This RSA key is {bits} bits; at least {MIN_RSA_BITS} is required (or use ssh-ed25519).")
+            raise SftpKeyError(f"This RSA key is {bits} bits; at least {MIN_RSA_BITS} is required (or use ssh-ed25519).",
+                               "onboarding.sftp.rsa_short", bits=bits, min_bits=MIN_RSA_BITS)
     elif ktype == "ssh-ed25519":
         pk, off = _read_string(blob, off)
         if len(pk) != 32:
@@ -69,12 +75,12 @@ def parse(line: str) -> dict:
 def add(session: Session, org_id: str, label: str, line: str, user_id: str) -> dict:
     label = (label or "").strip()
     if not label:
-        raise SftpKeyError("Give the key a label (which system uses it).")
+        raise SftpKeyError("Give the key a label (which system uses it).", "onboarding.sftp.label_required")
     k = parse(line)
     taken = session.execute(text("SELECT 1 FROM intake_sftp_keys WHERE fingerprint = :f AND revoked_at IS NULL"),
                             {"f": k["fingerprint"]}).first()
     if taken:
-        raise SftpKeyError("This key is already registered. Each system should have its own key.")
+        raise SftpKeyError("This key is already registered. Each system should have its own key.", "onboarding.sftp.taken")
     kid = session.execute(text("""
         INSERT INTO intake_sftp_keys (org_id, label, key_type, public_key, fingerprint, bits, created_by)
         VALUES (CAST(:o AS uuid), :l, :t, :p, :f, :b, CAST(:u AS uuid)) RETURNING key_id::text

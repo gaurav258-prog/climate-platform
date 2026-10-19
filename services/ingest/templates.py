@@ -7,7 +7,21 @@ same definition. To add a sector: list its fields here and register it in servic
 """
 from __future__ import annotations
 
+from core import messages
 from services.ingest.fields import FIELDS, VALIDATION_KIND, VOCABS, vocab_values
+
+# A fixed list's values in customer words (the message catalogue's names): its own block, or the EUDR names it shares.
+# A list whose values are already words (EPC ratings A–G) has none — the value is its own name.
+VALUE_NAMES = {"eudr_movement": "eudr.kind", "eudr_role": "eudr.actor", "eudr_supplier_role": "eudr.actor"}
+WORDS_ALREADY = {"epc_rating"}
+
+
+def value_labels(vocab: str) -> dict[str, str] | None:
+    """{value: customer name} for a fixed list; None where the values are already words."""
+    if vocab in WORDS_ALREADY:
+        return None
+    block = messages.names()[VALUE_NAMES.get(vocab, f"onboarding.vocab.{vocab}")]
+    return {v: block[v] for v in VOCABS[vocab].values}
 
 
 def _template(*entries: tuple) -> list[dict]:
@@ -23,6 +37,7 @@ def _template(*entries: tuple) -> list[dict]:
             d["vocab"] = f.vocab
             if not VOCABS[f.vocab].dynamic:
                 d["allowed"] = list(VOCABS[f.vocab].values)
+                d["value_labels"] = value_labels(f.vocab)
         if f.range:
             d["range"] = list(f.range)
         if f.kind == "money":
@@ -47,9 +62,10 @@ ASSET_TEMPLATE_FIELDS = _template(
     ("outstanding_loan_balance_eur", False), ("loan_origination_date", False), ("region", False), ("country", False),
     ("borrower_entity_id", False), ("minimum_safeguards_status", False), ("counterparty_govt_level", False),
     ("no_stated_maturity", False), ("counterparty_sector", False), ("immovable_collateral", False),
-    ("building_value_eur", False, {"description": "The collateral building's own value, land excluded — what a damage "
-                                                  "curve's share is taken of. Without it a flood loss on the loan's "
-                                                  "collateral is a named gap (its appraised value includes the land)."}),
+    ("building_value_eur", False, {"description": "The collateral building's own value, land excluded — the part a flood "
+                                                  "or storm can damage. Without it, the flood loss on the loan's collateral "
+                                                  "is reported as missing, with the reason (its appraised value includes the "
+                                                  "land)."}),
     ("occupancy", False),
     ("external_ref", False, _ref("loan / facility")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
@@ -57,7 +73,8 @@ ASSET_TEMPLATE_FIELDS = _template(
 
 POLICY_TEMPLATE_FIELDS = _template(
     ("policy_name", True), ("latitude", True, {"example": "39.4699"}), ("longitude", True, {"example": "-0.3763"}),
-    ("building_value_eur", False, {"description": "TIV component. Provide this + contents + BI, OR sum_insured_eur directly."}),
+    ("building_value_eur", False, {"description": "Part of the total insured value. Give it with the contents and business "
+                                                  "interruption values, or give the sum insured instead."}),
     ("contents_value_eur", False), ("business_interruption_value_eur", False), ("sum_insured_eur", False),
     ("construction_type", False), ("year_built", False), ("number_of_stories", False), ("deductible_pct", False),
     ("occupancy", False),
@@ -71,9 +88,9 @@ PROPERTY_TEMPLATE_FIELDS = _template(
     ("property_value_eur", True), ("annual_noi_eur", True), ("annual_gross_rental_revenue_eur", False),
     ("sum_insured_eur", False, {"description": "The property's insured value (buildings sum insured) — the base of what "
                                               "its insurance costs; never assumed equal to its market value."}),
-    ("building_value_eur", False, {"description": "The building's own value, land excluded — what a damage curve's share "
-                                                  "is taken of. Without it a flood loss is a named gap (the property "
-                                                  "value includes the land).", "example": "8000000"}),
+    ("building_value_eur", False, {"description": "The building's own value, land excluded — the part a flood or storm "
+                                                  "can damage. Without it, the flood loss is reported as missing, with the "
+                                                  "reason (the property value includes the land).", "example": "8000000"}),
     ("occupancy", False),
     ("property_type", True), ("construction_type", False), ("year_built", False, {"example": "2011"}),
     ("number_of_stories", False, {"example": "1"}), ("region", False, {"example": "South Holland"}),
@@ -94,8 +111,10 @@ HOLDING_TEMPLATE_FIELDS = _template(
 
 PLOT_TEMPLATE_FIELDS = _template(
     ("plot_name", True),
-    ("latitude", True, {"description": "Decimal degrees, 6 d.p. (EUDR point). Leave blank if you give plot_geojson.", "example": "6.694400"}),
-    ("longitude", True, {"description": "Decimal degrees, 6 d.p. Leave blank if you give plot_geojson.", "example": "-1.605500"}),
+    ("latitude", True, {"description": "Decimal degrees, to 6 decimal places (the plot's EUDR point). Leave blank if you give "
+                                       "the plot boundary.", "example": "6.694400"}),
+    ("longitude", True, {"description": "Decimal degrees, to 6 decimal places. Leave blank if you give the plot boundary.",
+                         "example": "-1.605500"}),
     ("commodity", True), ("annual_spend_eur", True), ("plot_geojson", False), ("plot_area_ha", False),
     ("region", False, {"example": "Ashanti"}), ("country", False, {"example": "GH"}), ("irrigation_status", False),
     ("postal_address", False),

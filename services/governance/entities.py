@@ -12,6 +12,9 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+from core.messages import name as _name
+
 
 def entity_tree(session: Session, org_id: str) -> list[dict]:
     """Every reporting entity for the org (flat, with parent refs + book size), newest-kind first.
@@ -119,8 +122,12 @@ def subtree_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
     return [r[0] for r in rows]
 
 
-class EntityError(ValueError):
-    pass
+class EntityError(UserError):
+    """A change to the entity structure refused, in the catalogue's words (onboarding.entity.*, status 409; a missing
+    entity 404) — a core.errors.UserError, so a route lets it through to the screen as it is."""
+
+    def __init__(self, code: str, status: int | None = None, **params):
+        super().__init__(code, status or 409, **params)
 
 
 METHODS = {"full", "proportional", "equity"}
@@ -132,13 +139,13 @@ _UNSET = object()
 
 def _validate(name=None, kind=None, ownership_pct=None, consolidation_method=None):
     if name is not None and not name.strip():
-        raise EntityError("name is required")
+        raise EntityError("onboarding.entity.name_required")
     if kind is not None and not kind.strip():
-        raise EntityError("kind is required")
+        raise EntityError("onboarding.entity.kind_required")
     if ownership_pct is not None and not (0 <= ownership_pct <= 100):
-        raise EntityError("ownership_pct must be between 0 and 100")
+        raise EntityError("onboarding.entity.ownership_range")
     if consolidation_method is not None and consolidation_method not in METHODS:
-        raise EntityError(f"consolidation_method must be one of {sorted(METHODS)}")
+        raise EntityError("onboarding.entity.method_unknown")
 
 
 def _consolidation_needs_basis(ownership_pct: float, consolidation_method: str) -> bool:
@@ -154,6 +161,12 @@ def _consolidation_needs_basis(ownership_pct: float, consolidation_method: str) 
     if consolidation_method in ("proportional", "equity") and ownership_pct > 50:
         return True
     return False
+
+
+def basis_needed(ownership_pct: float, consolidation_method: str, code: str = "onboarding.entity.basis_needed",
+                 **params) -> EntityError:
+    """The refusal when the method runs counter to ownership's presumption of control and no basis says why."""
+    return EntityError(code, pct=f"{ownership_pct:g}", method=_name("onboarding.method", consolidation_method), **params)
 
 
 def _parent_in_org(session, org_id, parent_entity_id) -> bool:
@@ -188,16 +201,11 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
     if requires_solo_filing is None:
         requires_solo_filing = (kind.strip().lower() != "branch")
     if solo_waiver_reason and requires_solo_filing:
-        raise EntityError("a waiver reason implies requires_solo_filing=false — set both consistently")
+        raise EntityError("onboarding.entity.waiver_inconsistent")
     if _consolidation_needs_basis(ownership_pct, consolidation_method) and not (consolidation_basis or "").strip():
-        raise EntityError(
-            f"consolidation_method={consolidation_method!r} at {ownership_pct}% ownership runs counter to the "
-            "IFRS 10 control presumption from ownership alone — set consolidation_basis to say why (e.g. a "
-            "majority voting agreement or de facto control under IFRS 10.B41-45 for 'full' below 50%; the "
-            "joint-control or associate arrangement that justifies 'proportional'/'equity' despite majority "
-            "ownership)")
+        raise basis_needed(ownership_pct, consolidation_method)
     if parent_entity_id and not _parent_in_org(session, org_id, parent_entity_id):
-        raise EntityError("parent entity not found in your organisation")
+        raise EntityError("onboarding.entity.parent_not_found")
     _currency(session, functional_currency)            # checked before anything is written
     eid = session.execute(text("""
         INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct,
@@ -218,7 +226,7 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
                   functional_currency=_UNSET, lei=_UNSET, country=_UNSET, joint_arrangement=_UNSET) -> dict:
     current = get_entity(session, org_id, entity_id)
     if not current:
-        raise EntityError("entity not found")
+        raise EntityError("onboarding.entity.not_found", 404)
     _validate(name, kind, ownership_pct, consolidation_method)
     if ownership_pct is not None or consolidation_method is not None:
         eff_pct = ownership_pct if ownership_pct is not None else current["ownership_pct"]
@@ -226,9 +234,7 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
         eff_basis = (consolidation_basis if consolidation_basis is not _UNSET
                     else current.get("consolidation_basis"))
         if _consolidation_needs_basis(eff_pct, eff_method) and not (eff_basis or "").strip():
-            raise EntityError(
-                f"consolidation_method={eff_method!r} at {eff_pct}% ownership runs counter to the IFRS 10 "
-                "control presumption from ownership alone — set consolidation_basis to say why")
+            raise basis_needed(eff_pct, eff_method)
     sets, params = [], {"o": org_id, "e": entity_id}
     if name is not None: sets.append("name = :n"); params["n"] = name.strip()
     if kind is not None: sets.append("kind = :k"); params["k"] = kind.strip()
@@ -249,20 +255,20 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
     if joint_arrangement is not _UNSET:     # a joint venture is value chain, a joint operation's share own operations (ESRS)
         ja = (joint_arrangement or "").strip() or None
         if ja is not None and ja not in ("joint_operation", "joint_venture"):
-            raise EntityError("joint_arrangement is 'joint_operation' or 'joint_venture'")
+            raise EntityError("onboarding.entity.joint_kind")
         method = consolidation_method or current["consolidation_method"]
         if ja is not None and method not in ("proportional", "equity"):
-            raise EntityError("only a proportionally consolidated or equity-accounted entity is a joint arrangement")
+            raise EntityError("onboarding.entity.joint_method")
         sets.append("joint_arrangement = :ja"); params["ja"] = ja
     if parent_entity_id is not _UNSET:
         if parent_entity_id == entity_id:
-            raise EntityError("an entity can't be its own parent")
+            raise EntityError("onboarding.entity.own_parent")
         if parent_entity_id is not None:
             if not _parent_in_org(session, org_id, parent_entity_id):
-                raise EntityError("parent entity not found in your organisation")
+                raise EntityError("onboarding.entity.parent_not_found")
             # cycle guard: the new parent must not be the entity's own descendant
             if parent_entity_id in subtree_ids(session, org_id, entity_id):
-                raise EntityError("can't reparent an entity under one of its own descendants")
+                raise EntityError("onboarding.entity.under_descendant")
         sets.append("parent_entity_id = :p"); params["p"] = parent_entity_id
     if sets:
         session.execute(text(f"UPDATE reporting_entities SET {', '.join(sets)} WHERE org_id=:o AND entity_id=:e"), params)
@@ -276,7 +282,7 @@ def _country(code) -> Optional[str]:
     if not c:
         return None
     if not is_valid_country(c):
-        raise EntityError(f"'{code}' is not an ISO 3166 country code (e.g. DE, FR)")
+        raise EntityError("onboarding.entity.country_unknown", country=str(code).strip())
     return c
 
 
@@ -294,11 +300,11 @@ def _lei(session: Session, org_id: str, lei, entity_id: Optional[str] = None) ->
     if not s:
         return None
     if not lei_valid(s):
-        raise EntityError(f"'{s}' is not a valid LEI (20 characters, ISO 17442 check digits)")
+        raise EntityError("onboarding.entity.lei_invalid", lei=s)
     other = session.execute(text("SELECT name FROM reporting_entities WHERE org_id = :o AND lei = :l AND entity_id::text <> :e"),
                             {"o": org_id, "l": s, "e": entity_id or ""}).scalar()
     if other:
-        raise EntityError(f"LEI {s} is already on {other}")
+        raise EntityError("onboarding.entity.lei_taken", lei=s, other=other)
     return s
 
 
@@ -306,11 +312,11 @@ def _currency(session: Session, code) -> Optional[str]:
     """A functional currency must be one we can convert; blank means 'inherit'."""
     if not (code or "").strip():
         return None
-    from services.intake.money import MoneyError, validate_declaration
+    from services.intake.money import DeclarationError, validate_declaration
     try:
         return validate_declaration(session, code, None)[0]
-    except MoneyError as e:
-        raise EntityError(str(e))
+    except DeclarationError as e:                     # its own catalogue code (intake.refused.currency_unknown)
+        raise EntityError(e.code, **e.params) from e
 
 
 def effective_currencies(session: Session, org_id: str) -> dict[str, dict]:
@@ -336,17 +342,16 @@ def effective_currencies(session: Session, org_id: str) -> dict[str, dict]:
 
 def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
     if not get_entity(session, org_id, entity_id):
-        raise EntityError("entity not found")
+        raise EntityError("onboarding.entity.not_found", 404)
     kids = session.execute(text("SELECT count(*) FROM reporting_entities WHERE org_id=:o AND parent_entity_id=:e"),
                            {"o": org_id, "e": entity_id}).scalar()
     if kids:
-        raise EntityError("remove or reparent this entity's child entities first")
+        raise EntityError("onboarding.entity.has_children")
     held = session.execute(text("""
         SELECT (SELECT count(*) FROM reporting_period_close WHERE reporting_entity_id = CAST(:e AS uuid))
              + (SELECT count(*) FROM site_period_values WHERE reporting_entity_id = CAST(:e AS uuid))"""), {"e": entity_id}).scalar()
     if held:
-        raise EntityError("this undertaking has closed reporting periods or year-end values — its reporting history "
-                          "is kept, so it cannot be deleted")
+        raise EntityError("onboarding.entity.history_kept")
     # unassign its book everywhere (fall back to whole-org) so nothing dangles
     session.execute(text("UPDATE portfolio_entities SET reporting_entity_id = NULL WHERE org_id=:o AND reporting_entity_id=:e"),
                     {"o": org_id, "e": entity_id})
@@ -368,7 +373,7 @@ def regime_for(framework: str) -> str:
     """The consolidation regime that governs a framework's group filing (the text's rule, or Tellumen's declared reading)."""
     entry = consolidation_regimes()["frameworks"].get(framework)
     if entry is None:
-        raise ValueError(f"no consolidation regime is declared for '{framework}' (data/reference/consolidation/regimes.json)")
+        raise ValueError(f"no consolidation regime is declared for '{framework}'")   # the register: consolidation_regimes()
     return entry["regime"]
 
 

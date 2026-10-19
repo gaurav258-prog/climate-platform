@@ -193,7 +193,7 @@ def test_an_entity_filing_is_identified_by_the_entitys_own_lei(session_rolled_ba
     from services.governance.filing_export import ExportError, _identity
     s = session_rolled_back
     _, _, leasing, _ = _tree(s)
-    with pytest.raises(E.EntityError, match="not a valid LEI"):
+    with pytest.raises(E.EntityError, match="onboarding.entity.lei_invalid"):
         E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001KJTIIGC8Y1R13")          # check digits wrong
     E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001kjtiigc8y1r12")              # stored upper-case
     s.execute(text("UPDATE organizations SET lei = '5493001KJTIIGC8Y1R12' WHERE org_id = CAST(:o AS uuid)"), {"o": BANK_ORG})

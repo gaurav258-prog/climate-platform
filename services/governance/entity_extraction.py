@@ -25,7 +25,12 @@ What the real implementation belongs here, once a key exists:
 """
 from __future__ import annotations
 
+import logging
 import os
+
+from core.errors import UserError
+
+logger = logging.getLogger(__name__)
 
 
 def available() -> bool:
@@ -35,17 +40,17 @@ def available() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY")) and False   # implementation pending — see docstring
 
 
-class ExtractionUnavailable(RuntimeError):
-    pass
+class ExtractionUnavailable(UserError):
+    """Reading a structure from a document is not built (onboarding.structure.extraction_unavailable, 503)."""
+
+    def __init__(self):
+        super().__init__("onboarding.structure.extraction_unavailable")
 
 
 def extract_from_document(file_bytes: bytes, filename: str) -> list[dict]:
     """Would return entity_structure_import.create_import()-shaped rows extracted from the document.
     Raises honestly — this deployment has no ANTHROPIC_API_KEY configured and the extraction call itself
     isn't implemented yet — rather than returning a fabricated or mocked structure."""
-    raise ExtractionUnavailable(
-        "Document-based entity-structure extraction isn't available: this deployment has no "
-        "ANTHROPIC_API_KEY configured, and the extraction call itself isn't implemented yet (see this "
-        "module's docstring for exactly what belongs here once it is). Use the manual CSV template "
-        "instead — GET /v1/entity-structure/template.csv."
-    )
+    logger.info("entity-structure extraction refused for %s: not implemented (API key configured: %s); the manual CSV "
+                "template is GET /v1/entity-structure/template.csv", filename, bool(os.environ.get("ANTHROPIC_API_KEY")))
+    raise ExtractionUnavailable()

@@ -48,7 +48,7 @@ def _build(ctx: dict, row: dict) -> dict:
     if tl is not None or rev is not None:
         raw = _s(row, "book_date")
         if raw is None:
-            raise RowIssue("say the end of the financial year the figures are taken from (book_date)")
+            raise RowIssue("say the end of the financial year the figures are taken from (Financial year end)")
         try:
             d = date.fromisoformat(raw[:10]).isoformat()
         except ValueError:

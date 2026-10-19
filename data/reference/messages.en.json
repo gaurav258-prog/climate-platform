@@ -11152,6 +11152,486 @@
     "what": "Weekly EU prices the World Bank series lacks, for olive oil, wine and dairy, averaged to a monthly EU figure (European Commission agri-food data portal).",
     "why": "It is published weekly and refreshed automatically. Almond prices are not yet included."
    }
+  },
+  "onboarding.entity.not_found": {
+   "status": 404,
+   "label": "Entity not found",
+   "detail": {
+    "what": "The entity is not in your organisation's structure, or it was removed."
+   }
+  },
+  "onboarding.entity.name_required": {
+   "status": 409,
+   "label": "Give the entity a name",
+   "detail": {
+    "what": "An entity needs a name."
+   }
+  },
+  "onboarding.entity.kind_required": {
+   "status": 409,
+   "label": "Choose the kind of entity",
+   "detail": {
+    "what": "An entity needs a kind, for example a legal entity, a branch or a fund."
+   }
+  },
+  "onboarding.entity.ownership_range": {
+   "status": 409,
+   "label": "Ownership must be 0 to 100 per cent",
+   "detail": {
+    "what": "The ownership share is a percentage from 0 to 100."
+   }
+  },
+  "onboarding.entity.method_unknown": {
+   "status": 409,
+   "label": "Choose a consolidation method",
+   "detail": {
+    "what": "An entity is consolidated in full, proportionally, or by the equity method."
+   }
+  },
+  "onboarding.entity.waiver_inconsistent": {
+   "status": 409,
+   "label": "A waiver needs the entity's own filing off",
+   "detail": {
+    "what": "A reason for waiving the entity's own filing was given, but the entity is still marked as filing on its own.",
+    "next": "Mark the entity as not filing on its own, or remove the waiver reason."
+   }
+  },
+  "onboarding.entity.basis_needed": {
+   "status": 409,
+   "label": "Say why this consolidation method applies",
+   "detail": {
+    "what": "The entity is set to {method} at {pct}% ownership. Its ownership alone points the other way.",
+    "why": "Under IFRS 10, owning more than half usually means control and full consolidation, and owning less usually does not. Control is a judgement, so another method is allowed, but its reason must be recorded.",
+    "next": "Record the basis, for example a voting agreement or de facto control, or the joint arrangement or associate status that explains the method."
+   }
+  },
+  "onboarding.entity.parent_not_found": {
+   "status": 409,
+   "label": "Parent entity not found",
+   "detail": {
+    "what": "The parent chosen is not an entity of your organisation."
+   }
+  },
+  "onboarding.entity.joint_kind": {
+   "status": 409,
+   "label": "Choose joint operation or joint venture",
+   "detail": {
+    "what": "A joint arrangement is either a joint operation or a joint venture."
+   }
+  },
+  "onboarding.entity.joint_method": {
+   "status": 409,
+   "label": "Only proportional or equity entities are joint arrangements",
+   "detail": {
+    "what": "A joint arrangement is consolidated proportionally or by the equity method.",
+    "next": "Change the consolidation method first, or leave the joint arrangement unstated."
+   }
+  },
+  "onboarding.entity.own_parent": {
+   "status": 409,
+   "label": "An entity cannot be its own parent",
+   "detail": {
+    "what": "An entity's parent must be another entity."
+   }
+  },
+  "onboarding.entity.under_descendant": {
+   "status": 409,
+   "label": "Cannot move an entity below itself",
+   "detail": {
+    "what": "The new parent sits below this entity in the structure, which would make a loop.",
+    "next": "Choose a parent above or beside it."
+   }
+  },
+  "onboarding.entity.country_unknown": {
+   "status": 409,
+   "label": "Country code not recognised",
+   "detail": {
+    "what": "'{country}' is not a country code.",
+    "next": "Use the two-letter code, for example DE or FR."
+   }
+  },
+  "onboarding.entity.lei_invalid": {
+   "status": 409,
+   "label": "Not a valid LEI",
+   "detail": {
+    "what": "'{lei}' is not a legal entity identifier: an LEI has 20 characters, and its two check digits must agree with the rest.",
+    "next": "Copy the LEI exactly as the global LEI register shows it."
+   }
+  },
+  "onboarding.entity.lei_taken": {
+   "status": 409,
+   "label": "This LEI is already on another entity",
+   "detail": {
+    "what": "The LEI {lei} is already recorded for {other}. Each entity has its own LEI."
+   }
+  },
+  "onboarding.entity.has_children": {
+   "status": 409,
+   "label": "Remove or move its child entities first",
+   "detail": {
+    "what": "Other entities sit below this one. Deleting it would leave them without a parent.",
+    "next": "Delete them, or move them under another parent, then try again."
+   }
+  },
+  "onboarding.entity.history_kept": {
+   "status": 409,
+   "label": "This entity has reporting history",
+   "detail": {
+    "what": "It has closed reporting periods or year-end values. Its reporting history is kept, so it cannot be deleted."
+   }
+  },
+  "onboarding.structure.not_found": {
+   "status": 404,
+   "label": "Import not found",
+   "detail": {
+    "what": "The structure import is not in your organisation."
+   }
+  },
+  "onboarding.structure.row_not_found": {
+   "status": 404,
+   "label": "Row not found",
+   "detail": {
+    "what": "The row is not part of this structure import."
+   }
+  },
+  "onboarding.structure.source_unknown": {
+   "status": 400,
+   "label": "Unknown way to stage a structure",
+   "detail": {
+    "what": "A structure is staged from the structure template or from a document."
+   }
+  },
+  "onboarding.structure.unreadable": {
+   "status": 422,
+   "label": "The file could not be read",
+   "detail": {
+    "what": "The file is not a readable CSV file.",
+    "next": "Download the structure template, fill it in and upload it again."
+   }
+  },
+  "onboarding.structure.no_rows": {
+   "status": 422,
+   "label": "No rows to stage",
+   "detail": {
+    "what": "The file has no rows with an entity name.",
+    "next": "Fill in one row per entity, using the template's columns."
+   }
+  },
+  "onboarding.structure.ownership_number": {
+   "status": 422,
+   "label": "Ownership is not a number",
+   "detail": {
+    "what": "The ownership given for {entity}, '{value}', is not a number.",
+    "next": "Write the ownership as a percentage from 0 to 100, without the % sign."
+   }
+  },
+  "onboarding.structure.closed": {
+   "status": 409,
+   "label": "This import can no longer change",
+   "detail": {
+    "what": "The import is {state}. A confirmed or discarded import is final."
+   }
+  },
+  "onboarding.structure.row_status": {
+   "status": 409,
+   "label": "Not a status a row can have",
+   "detail": {
+    "what": "A row is proposed, edited or rejected."
+   }
+  },
+  "onboarding.structure.nothing_to_update": {
+   "status": 409,
+   "label": "Nothing to change",
+   "detail": {
+    "what": "The request changes none of the row's fields."
+   }
+  },
+  "onboarding.structure.not_discardable": {
+   "status": 409,
+   "label": "Only imports under review can be discarded",
+   "detail": {
+    "what": "The import is already confirmed or discarded."
+   }
+  },
+  "onboarding.structure.all_rejected": {
+   "status": 409,
+   "label": "Every row is rejected",
+   "detail": {
+    "what": "There is nothing to create: every row of this import is rejected.",
+    "next": "Keep at least one row, or discard the import."
+   }
+  },
+  "onboarding.structure.duplicates": {
+   "status": 409,
+   "label": "Two rows share a name",
+   "detail": {
+    "what": "These names appear on more than one row: {names}. A parent is found by its name, so each name must be unique.",
+    "next": "Rename or reject the extra rows."
+   }
+  },
+  "onboarding.structure.parent_missing": {
+   "status": 409,
+   "label": "Parent entity not found",
+   "detail": {
+    "what": "The parent recorded for {entity} is not an entity of your organisation.",
+    "next": "Correct or reject this row before confirming."
+   }
+  },
+  "onboarding.structure.parent_unknown": {
+   "status": 409,
+   "label": "Parent not found",
+   "detail": {
+    "what": "The parent '{parent}' named for {entity} is neither another row of this file nor an existing entity.",
+    "next": "Correct or reject this row before confirming."
+   }
+  },
+  "onboarding.structure.ownership_range": {
+   "status": 409,
+   "label": "Ownership must be 0 to 100 per cent",
+   "detail": {
+    "what": "The ownership given for {entity} is outside 0 to 100.",
+    "next": "Correct or reject this row before confirming."
+   }
+  },
+  "onboarding.structure.method_unknown": {
+   "status": 409,
+   "label": "Choose a consolidation method",
+   "detail": {
+    "what": "The consolidation method given for {entity} is not one we know.",
+    "next": "Use full, proportional or equity."
+   }
+  },
+  "onboarding.structure.basis_needed": {
+   "status": 409,
+   "label": "Say why this consolidation method applies",
+   "detail": {
+    "what": "{entity} is set to {method} at {pct}% ownership. Its ownership alone points the other way.",
+    "why": "Under IFRS 10, owning more than half usually means control and full consolidation, and owning less usually does not. Control is a judgement, so another method is allowed, but its reason must be recorded.",
+    "next": "Give the reason in the row's consolidation basis, for example a voting agreement or de facto control."
+   }
+  },
+  "onboarding.structure.cycle": {
+   "status": 409,
+   "label": "Parents form a loop",
+   "detail": {
+    "what": "These rows name each other as parents in a loop: {chain}.",
+    "next": "Correct one of the parents so the structure has a top."
+   }
+  },
+  "onboarding.structure.row_refused": {
+   "status": 409,
+   "label": "A row could not be created",
+   "detail": {
+    "what": "{entity}: {reason}",
+    "next": "Correct or reject this row before confirming."
+   }
+  },
+  "onboarding.structure.extraction_unavailable": {
+   "status": 503,
+   "label": "Reading structures from documents is not available",
+   "detail": {
+    "what": "A structure cannot yet be read from an annual report or another document.",
+    "next": "Use the structure template: one row per entity."
+   }
+  },
+  "onboarding.template.unknown": {
+   "status": 404,
+   "label": "Upload template not found",
+   "detail": {
+    "what": "The upload template asked for does not exist."
+   }
+  },
+  "onboarding.mapping.no_columns": {
+   "status": 400,
+   "label": "Map at least one column",
+   "detail": {
+    "what": "The mapping names none of your file's columns."
+   }
+  },
+  "onboarding.mapping.not_fields": {
+   "status": 400,
+   "label": "The mapping names fields this upload lacks",
+   "detail": {
+    "what": "Some fields in the mapping are not fields of this upload.",
+    "next": "Open the mapping again and save it from the editor."
+   }
+  },
+  "onboarding.mapping.column_twice": {
+   "status": 400,
+   "label": "One column is mapped to two fields",
+   "detail": {
+    "what": "Each of your columns can feed only one field.",
+    "next": "Choose a different column for one of them."
+   }
+  },
+  "onboarding.mapping.bad_transform": {
+   "status": 400,
+   "label": "A conversion in the mapping is not recognised",
+   "detail": {
+    "what": "A field's conversion is not one a mapping can apply.",
+    "next": "Open the mapping again and save it from the editor."
+   }
+  },
+  "onboarding.mapping.not_money": {
+   "status": 400,
+   "label": "Only amounts can be scaled or converted",
+   "detail": {
+    "what": "{field} is not an amount, so it cannot be scaled or given a currency."
+   }
+  },
+  "onboarding.mapping.scale_number": {
+   "status": 400,
+   "label": "The scale must be a number",
+   "detail": {
+    "what": "The scale given for {field} is not a number."
+   }
+  },
+  "onboarding.mapping.name_required": {
+   "status": 400,
+   "label": "Name the mapping",
+   "detail": {
+    "what": "A mapping needs a name.",
+    "next": "Use the name of the system the file comes from, for example Core banking."
+   }
+  },
+  "onboarding.dropfolder.other_sector": {
+   "status": 400,
+   "label": "This book is not for your organisation",
+   "detail": {
+    "what": "The {book} upload is for another kind of organisation."
+   }
+  },
+  "onboarding.dropfolder.sender_unknown": {
+   "status": 400,
+   "label": "Choose a sender from your organisation",
+   "detail": {
+    "what": "The sender must be a person in your organisation.",
+    "why": "A file that fails a check goes to a second person, who must not be the sender."
+   }
+  },
+  "onboarding.dropfolder.currency_missing": {
+   "status": 400,
+   "label": "Choose the currency of the files",
+   "detail": {
+    "what": "A drop folder needs the currency its files' amounts are in. A currency column in a file overrides it."
+   }
+  },
+  "onboarding.dropfolder.exists": {
+   "status": 400,
+   "label": "This drop folder already exists",
+   "detail": {
+    "what": "A drop folder for your {book} is already open."
+   }
+  },
+  "onboarding.dropfolder.unavailable": {
+   "status": 503,
+   "label": "Drop folders are not set up",
+   "detail": {
+    "what": "Drop folders are not available on this installation.",
+    "next": "Upload your files on the data pages, or raise a request in Support."
+   }
+  },
+  "onboarding.dropfolder.imported": {
+   "label": "Imported",
+   "detail": {
+    "what": "The file passed every check and its rows were saved."
+   }
+  },
+  "onboarding.dropfolder.awaiting_approval": {
+   "label": "Waiting for approval",
+   "detail": {
+    "what": "A check needs a second person's decision before the rows are saved.",
+    "next": "A person other than the sender approves or rejects it in Approvals."
+   }
+  },
+  "onboarding.dropfolder.held": {
+   "label": "Waiting for a malware scan",
+   "detail": {
+    "what": "The file is held until it can be scanned for malware. Nothing is saved before that."
+   }
+  },
+  "onboarding.dropfolder.busy": {
+   "label": "Already being picked up",
+   "detail": {
+    "what": "Another pick-up of this folder is running. Each file is taken once.",
+    "next": "Look again in a minute."
+   }
+  },
+  "onboarding.dropfolder.file_error": {
+   "label": "Left in the folder",
+   "detail": {
+    "what": "The file could not be processed, so it was left where it is. Nothing is lost.",
+    "next": "It is tried again at the next pick-up. If it keeps failing, raise a request in Support."
+   }
+  },
+  "onboarding.sftp.private_key": {
+   "status": 400,
+   "label": "That is a private key",
+   "detail": {
+    "what": "A private key must never be shared. Only the public key goes here.",
+    "next": "Paste the single line of the key's .pub file."
+   }
+  },
+  "onboarding.sftp.whole_line": {
+   "status": 400,
+   "label": "Paste the whole public key line",
+   "detail": {
+    "what": "A public key line starts with its type, then the key itself, for example ssh-ed25519 AAAAC3Nza… name@host."
+   }
+  },
+  "onboarding.sftp.type_refused": {
+   "status": 400,
+   "label": "This key type is not accepted",
+   "detail": {
+    "what": "Keys of type {type} are not accepted.",
+    "next": "Use an ssh-ed25519 key (preferred), an ECDSA key, or an RSA key of at least {min_bits} bits."
+   }
+  },
+  "onboarding.sftp.malformed": {
+   "status": 400,
+   "label": "The key is not valid",
+   "detail": {
+    "what": "The key's encoded part is damaged or does not match its type.",
+    "next": "Copy the line from the .pub file again, in full."
+   }
+  },
+  "onboarding.sftp.rsa_short": {
+   "status": 400,
+   "label": "This RSA key is too short",
+   "detail": {
+    "what": "The key has {bits} bits; at least {min_bits} are needed.",
+    "next": "Create a longer RSA key, or use ssh-ed25519."
+   }
+  },
+  "onboarding.sftp.label_required": {
+   "status": 400,
+   "label": "Give the key a label",
+   "detail": {
+    "what": "A label says which system uses the key, for example Core banking nightly."
+   }
+  },
+  "onboarding.sftp.taken": {
+   "status": 400,
+   "label": "This key is already registered",
+   "detail": {
+    "what": "Each system that sends files should have its own key.",
+    "next": "Create a new key pair for this system."
+   }
+  },
+  "onboarding.sftp.not_found": {
+   "status": 404,
+   "label": "Key not found",
+   "detail": {
+    "what": "The key is not active in your organisation: it does not exist or was already revoked."
+   }
+  },
+  "onboarding.storage.unavailable": {
+   "status": 503,
+   "label": "File storage is not set up",
+   "detail": {
+    "what": "Uploaded files cannot be stored on this installation.",
+    "next": "Raise a request in Support."
+   }
   }
  },
  "names": {
@@ -12226,6 +12706,84 @@
    "in_review": "In review",
    "provisioned": "Workspace created",
    "rejected": "Declined"
+  },
+  "onboarding.method": {
+   "full": "full consolidation",
+   "proportional": "proportional consolidation",
+   "equity": "the equity method"
+  },
+  "onboarding.import_state": {
+   "staged": "waiting for review",
+   "confirmed": "confirmed",
+   "discarded": "discarded"
+  },
+  "onboarding.sweep_state": {
+   "imported": "Imported",
+   "awaiting_approval": "Waiting for approval",
+   "held": "Waiting for a malware scan",
+   "refused": "Refused",
+   "error": "Left in the folder",
+   "busy": "Already being picked up"
+  },
+  "onboarding.provided_status": {
+   "pending": "Waiting for a second person",
+   "attested": "Attested",
+   "rejected": "Rejected"
+  },
+  "onboarding.vocab.construction_type": {
+   "frame": "Frame",
+   "joisted_masonry": "Joisted masonry",
+   "non_combustible": "Non-combustible",
+   "masonry_non_combustible": "Masonry non-combustible",
+   "fire_resistive": "Fire resistive"
+  },
+  "onboarding.vocab.safeguards_status": {
+   "compliant": "Compliant",
+   "non_compliant": "Not compliant"
+  },
+  "onboarding.vocab.govt_level": {
+   "central": "Central government",
+   "regional": "Regional government",
+   "local": "Local government"
+  },
+  "onboarding.vocab.counterparty_sector": {
+   "central_bank": "Central bank",
+   "general_government": "General government",
+   "credit_institution": "Credit institution",
+   "other_financial_corporation": "Other financial corporation",
+   "non_financial_corporation": "Non-financial corporation",
+   "household": "Household"
+  },
+  "onboarding.vocab.immovable_collateral": {
+   "residential": "Residential property",
+   "commercial": "Commercial property",
+   "repossessed": "Repossessed property",
+   "none": "None"
+  },
+  "onboarding.vocab.irrigation": {
+   "irrigated": "Irrigated",
+   "rain_fed": "Rain-fed",
+   "mixed": "Mixed"
+  },
+  "onboarding.vocab.occupancy": {
+   "residential": "Residential",
+   "commercial": "Commercial",
+   "industrial": "Industrial",
+   "transport": "Transport",
+   "infrastructure": "Infrastructure",
+   "agriculture": "Agriculture"
+  },
+  "onboarding.vocab.site_type": {
+   "hq": "Headquarters",
+   "factory": "Factory",
+   "warehouse": "Warehouse",
+   "distribution_centre": "Distribution centre",
+   "office": "Office",
+   "other": "Other"
+  },
+  "onboarding.vocab.boolean": {
+   "true": "Yes",
+   "false": "No"
   }
  }
 }

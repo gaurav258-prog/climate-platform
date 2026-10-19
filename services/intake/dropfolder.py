@@ -19,6 +19,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
 from core.config import settings
 from services.intake import inbox
 from services.intake.catalog import TEMPLATES
@@ -27,28 +28,34 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelError(ValueError):
-    pass
+    """A drop folder that cannot be opened: its sentence (logs) and the catalogue message the screen shows (code, params)."""
+
+    def __init__(self, text: str, code: str, **params):
+        super().__init__(text)
+        self.code, self.params = code, params
 
 
 def create_channel(session: Session, org_id: str, template: str, owner_user_id: str, created_by: str,
                    mapping_profile_id: Optional[str] = None, currency: Optional[str] = None) -> dict:
     tpl = TEMPLATES.get(template)
     if tpl is None:
-        raise ChannelError(f"No template '{template}'.")
+        raise ChannelError(f"No template '{template}'.", "onboarding.template.unknown")
     org_type = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).scalar()
     if org_type != tpl.org_type:
-        raise ChannelError(f"The {tpl.label} template is for '{tpl.org_type}' organisations, not '{org_type}'.")
+        raise ChannelError(f"The {tpl.label} template is for '{tpl.org_type}' organisations, not '{org_type}'.",
+                           "onboarding.dropfolder.other_sector", book=tpl.label)
     owner = session.execute(text("SELECT 1 FROM users WHERE user_id = CAST(:u AS uuid) AND org_id = CAST(:o AS uuid)"),
                             {"u": owner_user_id, "o": org_id}).first()
     if not owner:
-        raise ChannelError("The owner must be a user of this organisation.")
-    from services.intake.money import MoneyError, validate_declaration
+        raise ChannelError("The owner must be a user of this organisation.", "onboarding.dropfolder.sender_unknown")
+    from services.intake.money import DeclarationError, validate_declaration
     try:
         ccy, _ = validate_declaration(session, currency, None)
-    except MoneyError as e:
-        raise ChannelError(str(e))
+    except DeclarationError as e:                     # its own catalogue code (intake.refused.currency_unknown)
+        raise ChannelError(str(e), e.code, **e.params) from e
     if not ccy:
-        raise ChannelError("Declare the currency of this folder's files (a file's own currency column overrides it).")
+        raise ChannelError("Declare the currency of this folder's files (a file's own currency column overrides it).",
+                           "onboarding.dropfolder.currency_missing")
     folder = f"{org_id}/{template}"
     row = session.execute(text("""
         INSERT INTO intake_channels (org_id, template, folder, owner_user_id, mapping_profile_id, created_by, currency)
@@ -56,7 +63,7 @@ def create_channel(session: Session, org_id: str, template: str, owner_user_id: 
         ON CONFLICT (org_id, template, kind) DO NOTHING RETURNING channel_id::text
     """), {"o": org_id, "t": template, "f": folder, "u": owner_user_id, "m": mapping_profile_id, "c": created_by, "ccy": ccy}).scalar()
     if not row:
-        raise ChannelError(f"A drop folder for {tpl.label} already exists.")
+        raise ChannelError(f"A drop folder for {tpl.label} already exists.", "onboarding.dropfolder.exists", book=tpl.label)
     inbox.backend().ensure(folder)
     return get_channel(session, org_id, row)
 
@@ -104,7 +111,7 @@ def sweep_channel(channel: dict, org_id: str, min_age: Optional[float] = None) -
     with get_session() as guard:
         got = guard.execute(text("SELECT pg_try_advisory_lock(hashtext(:k))"), {"k": f"dropfolder:{channel['channel_id']}"}).scalar()
         if not got:
-            return [{"file": None, "state": "busy", "reason": "another pick-up of this folder is running"}]
+            return [_said({"file": None, "state": "busy", "reason": "another pick-up of this folder is running"})]
         try:
             for e in box.ready(channel["folder"], age):
                 results.append(_take(box, channel, org_id, e.name, get_session, submit, IntakeError))
@@ -126,20 +133,26 @@ def _take(box, channel: dict, org_id: str, name: str, get_session, submit, Intak
                          mapping_profile_id=channel.get("mapping_profile_id"), channel_id=channel["channel_id"],
                          currency=channel.get("currency"))   # book date: each file's own book_date column
             s.commit()
-            return {"file": name, "state": out["state"], "batch_id": out.get("batch_id"),
-                    "moved_to": "processed/" + box.file_away(folder, name, "processed")}
+            return _said({"file": name, "state": out["state"], "batch_id": out.get("batch_id"),
+                          "moved_to": "processed/" + box.file_away(folder, name, "processed")})
         except IntakeError as e:
             if e.body.get("batch_id"):
                 s.commit()   # the refused attempt stays on the ledger
             else:
                 s.rollback()
             msg = e.sentence
-            return {"file": name, "state": "refused", "batch_id": e.body.get("batch_id"), "reason": msg,
-                    "moved_to": "refused/" + box.file_away(folder, name, "refused", msg)}
+            return _said({"file": name, "state": "refused", "batch_id": e.body.get("batch_id"), "reason": msg,
+                          "moved_to": "refused/" + box.file_away(folder, name, "refused", msg)}, e.body["msg"])
         except Exception as e:  # noqa: BLE001 — never lose a file: leave it in place and report
             s.rollback()
             logger.exception("drop-folder: %s/%s failed", folder, name)
-            return {"file": name, "state": "error", "reason": type(e).__name__}
+            return _said({"file": name, "state": "error", "reason": type(e).__name__})
+
+
+def _said(result: dict, msg: Optional[dict] = None) -> dict:
+    """A file's outcome in the screen's words: the state's name and its message — a refusal's own, else the state's."""
+    code = {"error": "onboarding.dropfolder.file_error"}.get(result["state"], f"onboarding.dropfolder.{result['state']}")
+    return {**result, "state_label": messages.name("onboarding.sweep_state", result["state"]), "msg": msg or messages.render(code)}
 
 
 def sweep_all() -> dict:

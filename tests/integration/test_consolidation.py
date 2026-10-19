@@ -177,7 +177,7 @@ def test_functional_currency_is_own_else_inherited_else_the_organisation():
         assert eff[uk["entity_id"]] == {"currency": "GBP", "inherited_from": None}
         assert eff[uk_sub["entity_id"]] == {"currency": "GBP", "inherited_from": uk["entity_id"]}
         assert eff[top["entity_id"]]["inherited_from"] == "organisation"
-        with pytest.raises(E.EntityError, match="not a currency"):
+        with pytest.raises(E.EntityError, match="intake.refused.currency_unknown"):
             E.update_entity(s, org, uk_sub["entity_id"], functional_currency="ZZZ")
         E.update_entity(s, org, uk["entity_id"], functional_currency=None)          # back to inheriting
         assert E.effective_currencies(s, org)[uk_sub["entity_id"]]["inherited_from"] == "organisation"

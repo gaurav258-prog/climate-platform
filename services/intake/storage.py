@@ -11,20 +11,33 @@ fails loudly rather than silently writing somewhere else.
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 
 from core.config import settings
+from core.errors import UserError
+
+logger = logging.getLogger(__name__)
 
 
 class StorageError(RuntimeError):
     pass
 
 
+class StorageUnavailable(UserError, StorageError):
+    """This installation's storage backend is not one the build has: the screen gets the catalogue's words
+    (onboarding.storage.unavailable, 503), the log the backend asked for."""
+
+    def __init__(self):
+        UserError.__init__(self, "onboarding.storage.unavailable")
+
+
 def _root() -> Path:
     if settings.INTAKE_STORAGE_BACKEND != "local":
-        raise StorageError(f"Intake storage backend '{settings.INTAKE_STORAGE_BACKEND}' is not available in this build "
-                           "(only 'local'). See docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md.")
+        logger.error("intake storage backend %r is not available in this build (only 'local'): a go-live dependency "
+                     "(docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md)", settings.INTAKE_STORAGE_BACKEND)
+        raise StorageUnavailable()
     root = Path(settings.INTAKE_STORAGE_DIR)
     if not root.is_absolute():
         root = Path(__file__).resolve().parents[2] / root

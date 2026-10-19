@@ -6,6 +6,10 @@ import { toast } from '../lib/toast'
 import { Card, Button, PageHeader } from '../components/ui'
 import OperatorTabs from '../components/OperatorTabs'
 import { Dialog, CloseButton } from '../components/Dialog'
+import { StatusChip } from '../components/StatusChip'
+
+// The operator's client-intake queue. Every code it shows is named by the server: a client's sector and its modules
+// from the tenants catalogue (the same list the intake accepts), a roster member's role as role_label.
 
 interface IntakeRow {
   intake_id: string; company_name: string; org_type: string; country: string | null; region: string
@@ -13,22 +17,28 @@ interface IntakeRow {
   created_at: string | null; submitted_at: string | null; provisioned_at: string | null
   roster_count: number; document_count: number
 }
-interface RosterMember { roster_id: string; email: string; full_name: string | null; role: string; created_user_id: string | null }
+interface RosterMember { roster_id: string; email: string; full_name: string | null; role: string; role_label?: string | null; created_user_id: string | null }
+interface Catalog { org_types: string[]; sector_names: Record<string, string>; offering_names: Record<string, string> }
+// the sectors and modules in customer words (GET /v1/admin/tenants/catalog — platform operators hold its permission)
+function useCatalog() {
+  const q = useQuery({ queryKey: ['tenants-catalog'], queryFn: () => api.get<Catalog>('/v1/admin/tenants/catalog'), staleTime: Infinity })
+  return q.data ?? { org_types: [], sector_names: {}, offering_names: {} }
+}
 interface DocRow { document_id: string; kind: string; title: string | null; filename: string | null; size_bytes: number; to_vault: boolean; contract_type: string | null }
 interface IntakeDetail extends IntakeRow { legal_name: string | null; lei: string | null; filing_contact_email: string | null; modules: string[]; roster: RosterMember[]; documents: DocRow[]; notes: string | null }
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  draft: { label: 'Draft', cls: 'text-[var(--color-faint)] border-[var(--color-line-2)]' },
-  invited: { label: 'Invited', cls: 'text-[var(--color-sky)] border-[var(--color-sky)]' },
-  submitted: { label: 'Submitted', cls: 'text-[var(--color-warn)] border-[var(--color-warn)]' },
-  in_review: { label: 'In review', cls: 'text-[var(--color-warn)] border-[var(--color-warn)]' },
-  provisioned: { label: 'Provisioned', cls: 'text-[var(--color-good)] border-[var(--color-good)]' },
-  rejected: { label: 'Rejected', cls: 'text-[var(--color-bad)] border-[var(--color-bad)]' },
+const STATUS: Record<string, { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' }> = {
+  draft: { label: 'Draft', tone: 'neutral' }, invited: { label: 'Invited', tone: 'neutral' },
+  submitted: { label: 'Submitted', tone: 'warn' }, in_review: { label: 'In review', tone: 'warn' },
+  provisioned: { label: 'Provisioned', tone: 'good' }, rejected: { label: 'Rejected', tone: 'bad' },
 }
 function Pill({ status }: { status: string }) {
   const s = STATUS[status] ?? STATUS.draft
-  return <span className={`mono text-[10px] uppercase tracking-wide border rounded px-1.5 py-0.5 ${s.cls}`}>{s.label}</span>
+  return <StatusChip label={s.label} tone={s.tone} />
 }
+// a client's sector and residency, e.g. "Asset manager · EU/NL"
+const where = (cat: Catalog, r: { org_type: string; region: string; country: string | null }) =>
+  [cat.sector_names[r.org_type], `${r.region}${r.country ? `/${r.country}` : ''}`].filter(Boolean).join(' · ')
 function msg(e: unknown, fallback: string): string {
   if (e instanceof ApiError) return (e.body as { error?: { message?: string } })?.error?.message ?? fallback
   return fallback
@@ -36,6 +46,7 @@ function msg(e: unknown, fallback: string): string {
 
 export default function IntakeReview() {
   const qc = useQueryClient()
+  const cat = useCatalog()
   const q = useQuery({ queryKey: ['intakes'], queryFn: () => api.get<{ intakes: IntakeRow[] }>('/v1/onboarding/intakes') })
   const [showNew, setShowNew] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -59,7 +70,7 @@ export default function IntakeReview() {
             <Building2 size={17} className="shrink-0 text-[var(--color-faint)]" />
             <div className="flex-1 min-w-0">
               <div className="text-[14px] text-[var(--color-ink)] truncate">{r.company_name}
-                <span className="text-[var(--color-faint)] mono text-[11px]"> · {r.org_type.replace('_', ' ')} · {r.region}{r.country ? `/${r.country}` : ''}</span>
+                <span className="text-[var(--color-faint)] text-[11.5px]"> · {where(cat, r)}</span>
               </div>
               <div className="text-[12px] text-[var(--color-mute)]">{r.contact_email}</div>
             </div>
@@ -73,13 +84,13 @@ export default function IntakeReview() {
         ))}
       </Card>
 
-      {showNew && <CreateIntakeModal onClose={() => setShowNew(false)} onCreated={refetch} />}
-      {openId && <IntakeDrawer intakeId={openId} onClose={() => setOpenId(null)} onChanged={refetch} />}
+      {showNew && <CreateIntakeModal cat={cat} onClose={() => setShowNew(false)} onCreated={refetch} />}
+      {openId && <IntakeDrawer cat={cat} intakeId={openId} onClose={() => setOpenId(null)} onChanged={refetch} />}
     </div>
   )
 }
 
-function CreateIntakeModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateIntakeModal({ cat, onClose, onCreated }: { cat: Catalog; onClose: () => void; onCreated: () => void }) {
   const [f, setF] = useState({ company_name: '', org_type: 'bank', contact_email: '', contact_name: '', region: 'EU' })
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<{ form_url: string } | null>(null)
@@ -110,7 +121,7 @@ function CreateIntakeModal({ onClose, onCreated }: { onClose: () => void; onCrea
             <Field label="Company name"><input className={inp} value={f.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Meridian Capital Partners" /></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sector"><select className={inp} value={f.org_type} onChange={e => set('org_type', e.target.value)}>
-                {['bank', 'insurer', 'asset_manager', 'reit', 'manufacturer'].map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                {cat.org_types.map(t => <option key={t} value={t}>{cat.sector_names[t] ?? t}</option>)}
               </select></Field>
               <Field label="Data residency"><select className={inp} value={f.region} onChange={e => set('region', e.target.value)}>
                 <option value="EU">EU</option><option value="US">US</option>
@@ -129,10 +140,10 @@ function CreateIntakeModal({ onClose, onCreated }: { onClose: () => void; onCrea
   )
 }
 
-function IntakeDrawer({ intakeId, onClose, onChanged }: { intakeId: string; onClose: () => void; onChanged: () => void }) {
+function IntakeDrawer({ cat, intakeId, onClose, onChanged }: { cat: Catalog; intakeId: string; onClose: () => void; onChanged: () => void }) {
   const q = useQuery({ queryKey: ['intake', intakeId], queryFn: () => api.get<IntakeDetail>(`/v1/onboarding/intakes/${intakeId}`) })
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ org_name: string; region: string; users: { email: string; role: string; activation_url: string }[]; contracts_filed: number } | null>(null)
+  const [result, setResult] = useState<{ org_name: string; region: string; users: { email: string; role: string; role_label?: string | null; activation_url: string }[]; contracts_filed: number } | null>(null)
   const d = q.data
 
   async function provision() {
@@ -145,13 +156,13 @@ function IntakeDrawer({ intakeId, onClose, onChanged }: { intakeId: string; onCl
 
   return (
     <Overlay title={d ? `Client intake · ${d.company_name}` : 'Client intake'} onClose={onClose} wide>
-      {!d ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : result ? (
+      {!d ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">Loading…</div> : result ? (
         <div>
           <div className="flex items-center gap-2 mb-1"><Rocket size={20} className="text-[var(--color-good)]" /><h2 className="display text-lg font-semibold m-0">{result.org_name} is live</h2></div>
           <p className="text-[13px] text-[var(--color-mute)] mb-4">Region {result.region} · {result.contracts_filed} contract{result.contracts_filed !== 1 ? 's' : ''} filed to the vault · each user emailed a secure activation link.</p>
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Activation links</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-faint)] mb-2">Activation links</div>
           <div className="space-y-2">{result.users.map(u => (
-            <div key={u.email} className="text-[12px]"><span className="text-[var(--color-ink)]">{u.email}</span> <span className="text-[var(--color-faint)]">· {u.role}</span><CopyField value={u.activation_url} small /></div>
+            <div key={u.email} className="text-[12px]"><span className="text-[var(--color-ink)]">{u.email}</span>{u.role_label && <span className="text-[var(--color-faint)]"> · {u.role_label}</span>}<CopyField value={u.activation_url} small /></div>
           ))}</div>
           <div className="flex justify-end mt-5"><Button onClick={onClose}>Done</Button></div>
         </div>
@@ -160,33 +171,33 @@ function IntakeDrawer({ intakeId, onClose, onChanged }: { intakeId: string; onCl
           <div className="flex items-center justify-between mb-1">
             <h2 className="display text-lg font-semibold m-0 pr-8">{d.company_name}</h2>
           </div>
-          <div className="flex items-center gap-2 mb-4"><Pill status={d.status} /><span className="mono text-[11px] text-[var(--color-faint)]">{d.org_type.replace('_', ' ')} · {d.region}{d.country ? `/${d.country}` : ' · country pending'}</span></div>
+          <div className="flex items-center gap-2 mb-4"><Pill status={d.status} /><span className="text-[11.5px] text-[var(--color-faint)]">{where(cat, d)}{d.country ? '' : ' · country pending'}</span></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px] mb-4">
             <KV k="Legal name" v={d.legal_name} /><KV k="LEI" v={d.lei} />
             <KV k="Contact" v={d.contact_email} /><KV k="Filing email" v={d.filing_contact_email} />
-            <KV k="Modules" v={(d.modules || []).join(', ') || '—'} />
+            <KV k="Modules" v={(d.modules || []).map(m => cat.offering_names[m]).filter(Boolean).join(', ') || '—'} />
           </div>
 
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center gap-1"><Users size={12} /> Roster ({d.roster.length})</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center gap-1"><Users size={12} /> Roster ({d.roster.length})</div>
           <Card className="p-0 mb-4">
             {d.roster.length === 0 && <div className="px-3 py-3 text-[12px] text-[var(--color-faint)]">No users yet — the client adds these on the intake form.</div>}
             {d.roster.map((m, i) => (
               <div key={m.roster_id} className={`flex items-center gap-3 px-3 py-2 text-[12px] ${i > 0 ? 'border-t border-[var(--color-line)]' : ''}`}>
                 <span className="flex-1 text-[var(--color-ink)]">{m.full_name || m.email}</span>
                 <span className="text-[var(--color-faint)]">{m.email}</span>
-                <span className="mono text-[10px] uppercase border border-[var(--color-line-2)] rounded px-1.5 py-0.5 text-[var(--color-mute)]">{m.role}</span>
+                {m.role_label && <span className="text-[11px] border border-[var(--color-line-2)] rounded px-1.5 py-0.5 text-[var(--color-mute)]">{m.role_label}</span>}
               </div>
             ))}
           </Card>
 
           {d.documents.length > 0 && <>
-            <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center gap-1"><FileText size={12} /> Documents ({d.documents.length})</div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center gap-1"><FileText size={12} /> Documents ({d.documents.length})</div>
             <Card className="p-0 mb-4">{d.documents.map((doc, i) => (
               <div key={doc.document_id} className={`flex items-center gap-3 px-3 py-2 text-[12px] ${i > 0 ? 'border-t border-[var(--color-line)]' : ''}`}>
                 <FileText size={13} className="text-[var(--color-faint)]" />
                 <span className="flex-1 text-[var(--color-ink)] truncate">{doc.title || doc.filename}</span>
-                {doc.to_vault && <span className="mono text-[10px] text-[var(--color-good)]">→ vault{doc.contract_type ? ` · ${doc.contract_type}` : ''}</span>}
+                {doc.to_vault && <span className="text-[11px] text-[var(--color-good)]">→ Contract vault</span>}
                 <span className="text-[var(--color-faint)]">{(doc.size_bytes / 1024).toFixed(0)} KB</span>
               </div>
             ))}</Card>
@@ -213,7 +224,7 @@ function IntakeDrawer({ intakeId, onClose, onChanged }: { intakeId: string; onCl
 // ── small shared bits ────────────────────────────────────────────────────────
 const inp = 'w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)]'
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><label className="block text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-1.5">{label}</label>{children}</div>
+  return <div><label className="block text-[11.5px] font-medium text-[var(--color-mute)] mb-1.5">{label}</label>{children}</div>
 }
 function KV({ k, v }: { k: string; v: string | null }) {
   return <div><span className="text-[var(--color-faint)]">{k}: </span><span className="text-[var(--color-ink)]">{v || '—'}</span></div>

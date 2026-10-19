@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from api.deps import CurrentUser, DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/intake", tags=["Integration"])
 
@@ -26,7 +27,7 @@ def get_batch(batch_id: str, session: DbSession, ctx: CurrentUser):
     except Exception:   # a malformed id
         b = None
     if not b:
-        raise HTTPException(404, {"error": "not_found", "message": "Batch not found."})
+        raise UserError("error.not_found")
     return b
 
 
@@ -44,7 +45,7 @@ def rescan(batch_id: str, session: DbSession, ctx: dict = Depends(require_permis
 def _template_or_404(template: str):
     from services.intake.catalog import TEMPLATES
     if template not in TEMPLATES:
-        raise HTTPException(404, {"error": "unknown_template", "message": f"No template '{template}'."})
+        raise UserError("onboarding.template.unknown")
     return TEMPLATES[template]
 
 
@@ -94,8 +95,8 @@ def save_mapping(body: MappingIn, session: DbSession, ctx: dict = Depends(requir
     try:
         out = save(session, ctx["org"]["org_id"], body.template, body.name, {k: v for k, v in body.column_map.items() if v},
                    body.transforms, ctx["user"]["id"], _fields(body.template), body.source_columns)
-    except MappingError as e:
-        raise HTTPException(400, {"error": "bad_mapping", "message": str(e)}) from e
+    except MappingError as e:                         # its sentence to the log, the catalogue's words to the screen
+        raise UserError(e.code or "intake.refused.mapping_failed", 400, **e.params) from e
     session.commit()
     return out
 
@@ -124,7 +125,7 @@ def create_channel(body: ChannelIn, session: DbSession, ctx: dict = Depends(requ
         out = _create(session, ctx["org"]["org_id"], body.template, body.owner_user_id, ctx["user"]["id"], body.mapping_profile_id,
                       body.currency)
     except ChannelError as e:
-        raise HTTPException(400, {"error": "bad_channel", "message": str(e)}) from e
+        raise UserError(e.code, 400, **e.params) from e
     session.commit()
     return out
 
@@ -138,7 +139,7 @@ def sweep_channel(channel_id: str, session: DbSession, ctx: dict = Depends(requi
     except Exception:   # a malformed id
         ch = None
     if not ch:
-        raise HTTPException(404, {"error": "not_found", "message": "Channel not found."})
+        raise UserError("error.not_found")
     session.rollback()   # the sweep uses its own transaction per file
     return {"channel_id": channel_id, "files": _sweep(ch, ctx["org"]["org_id"])}
 
@@ -160,11 +161,11 @@ def list_sftp_keys(session: DbSession, ctx: dict = Depends(require_permission("a
 def add_sftp_key(body: SftpKeyIn, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from services.intake.sftp_keys import SftpKeyError, add
     if "PRIVATE KEY" in body.public_key:
-        raise HTTPException(400, {"error": "private_key", "message": "That is a PRIVATE key — never share it. Paste the .pub file's line."})
+        raise UserError("onboarding.sftp.private_key")
     try:
         out = add(session, ctx["org"]["org_id"], body.label, body.public_key, ctx["user"]["id"])
     except SftpKeyError as e:
-        raise HTTPException(400, {"error": "bad_key", "message": str(e)}) from e
+        raise UserError(e.code, 400, **e.params) from e
     session.commit()
     return out
 
@@ -177,7 +178,7 @@ def revoke_sftp_key(key_id: str, session: DbSession, ctx: dict = Depends(require
     except Exception:   # a malformed id
         ok = False
     if not ok:
-        raise HTTPException(404, {"error": "not_found", "message": "Active key not found."})
+        raise UserError("onboarding.sftp.not_found")
     session.commit()
     return {"key_id": key_id, "revoked": True}
 
@@ -205,7 +206,7 @@ def fx_coverage(session: DbSession, ctx: CurrentUser, on: Optional[str] = Query(
     try:
         d = _date.fromisoformat(on) if on else None
     except ValueError as e:
-        raise HTTPException(400, {"error": "bad_date", "message": "Use YYYY-MM-DD."}) from e
+        raise UserError("intake.refused.book_date_format", 400) from e
     return coverage(session, d)
 
 

@@ -1,23 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Columns3 } from 'lucide-react'
+import { AlertTriangle, Columns3 } from 'lucide-react'
 import { api, upload as uploadFile } from '../lib/api'
+import { HEADING, InfoButton } from './Details'
+import { errMessage } from './intake/parts'
+import { conversionText, type MappingReport } from './mappingWords'
 
 // Map a customer's own file layout onto any sector's template. We read the file on the server (CSV or Excel), propose
 // which of their columns feeds each field — from the names and the values, with how sure we are — and propose our
 // value for each of their values in fixed-list fields. The customer confirms or corrects, and it is saved as a named,
 // versioned mapping (services/intake/mapping.py) that remembers this layout: next time the same layout is used
-// automatically. Nothing here is sector-specific; it all comes from the field catalogue.
+// automatically. Nothing here is sector-specific; it all comes from the field catalogue. Why we proposed a column, the
+// checks on its amounts and how currencies convert sit one click away (the UI standard's pop-up), never inline.
 
-export interface Field { name: string; label: string; required?: boolean; kind?: string; field_kind?: string; description?: string; vocab?: string; allowed?: string[] }
+export interface Field { name: string; label: string; required?: boolean; kind?: string; field_kind?: string; description?: string; vocab?: string; allowed?: string[]; value_labels?: Record<string, string> | null }
 type Transform = { multiply?: number; currency?: string; currency_column?: string; values?: Record<string, string> }
 export interface SavedMapping { profile_id: string; name: string; version: number; column_map: Record<string, string>; transforms: Record<string, Transform> }
-export interface MappingReport {
-  profile: string; auto?: boolean; unmapped_source_columns: string[]; warnings?: string[]
-  conversions: { field: string; kind: string; factor?: number; rates?: Record<string, FxUsed> }[]
-}
-interface FxUsed { rate: number; units_per_eur?: number | null; rate_date: string | null; source: string; basis: string; stale?: boolean; note?: string | null }
-const FX_SOURCE: Record<string, string> = { ecb: 'ECB daily', imf: 'IMF month-end', peg: 'fixed by law', seed: 'setup rate', fallback: 'offline fallback' }
-const fxText = (ccy: string, r: FxUsed) => `${ccy} ${r.units_per_eur ?? (r.rate ? +(1 / r.rate).toPrecision(6) : '?')} per EUR (${FX_SOURCE[r.source] ?? r.source}${r.rate_date ? `, ${r.rate_date}` : ''})`
+export type { MappingReport }
 
 interface Proposal { column: string; confidence: 'high' | 'medium' | 'low'; reasons: string[]; transform?: Transform }
 interface Inspect {
@@ -32,8 +30,16 @@ interface Inspect {
 
 const SCALES = [{ v: 1, l: 'as is' }, { v: 1e3, l: '× 1,000' }, { v: 1e6, l: '× 1,000,000' }]
 const CONF: Record<string, { l: string; c: string }> = {
-  high: { l: 'sure', c: 'var(--color-good)' }, medium: { l: 'likely', c: 'var(--color-sky)' }, low: { l: 'check', c: 'var(--color-warn)' },
+  high: { l: 'Sure', c: 'var(--color-good)' }, medium: { l: 'Likely', c: 'var(--color-sky)' }, low: { l: 'Check', c: 'var(--color-warn)' },
 }
+const ABOUT = [
+  { heading: HEADING.shows, body: 'Which of your columns feeds each field of the upload. We read your file and propose a match from your column names and their values, with how sure we are.' },
+  { heading: HEADING.read, body: <>
+    <p>Check each proposal and correct it where needed. Fields marked * are required. The mapping is saved under its name and used automatically the next time a file has the same columns.</p>
+    <p className="mt-2">A field’s amounts are in the file’s currency unless you set one here, or name a column that gives a currency per row. Everything converts to euro at the book date: balances at that day’s official rate, yearly figures at the average of the 12 months to it — from the European Central Bank, a rate fixed by law, or the IMF. A rate too old for its source goes to a second person.</p></> },
+]
+// Why a column was proposed, as a pop-up: the reasons the server gives in your column's own words.
+const why = (title: string, reasons: string[]) => ({ title, sections: [{ heading: HEADING.read, body: <ul className="list-disc pl-4 space-y-1">{reasons.map((r, i) => <li key={i}>{r}</li>)}</ul> }] })
 const inputCls = 'rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-[12px] text-[var(--color-ink)] min-w-0'
 
 export function useTemplateMappings(template?: string) {
@@ -67,7 +73,7 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
       const units = Object.fromEntries(Object.entries(r.suggestion.fields).filter(([, p]) => p.transform).map(([f, p]) => [f, p.transform!]))
       setTr({ ...units, ...(start?.transforms ?? {}) })
       if (!base && r.closest_mapping) setName(r.closest_mapping.name)
-    }).catch((e: unknown) => setErr((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'We could not read the file.'))
+    }).catch((e: unknown) => setErr(errMessage(e, 'We could not read the file.').label))
   }, [template, file, base])
 
   const fields = ins?.fields ?? []
@@ -91,7 +97,7 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
       const r = await api.post<{ profile_id: string }>('/v1/intake/mappings', { template, name, column_map: cmap, transforms, source_columns: ins.columns })
       onSaved(r.profile_id)
     } catch (e: unknown) {
-      setErr((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'The mapping could not be saved.')
+      setErr(errMessage(e, 'The mapping could not be saved.').label)
     } finally { setBusy(false) }
   }
 
@@ -99,10 +105,11 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
     <div className="mt-3 rounded-xl border border-[var(--color-line)] overflow-hidden">
       <div className="flex items-center gap-2 flex-wrap px-4 py-2.5 bg-[var(--color-bg-2)] border-b border-[var(--color-line)]">
         <Columns3 size={14} className="text-[var(--color-faint)]" />
-        <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)]">Map your columns</span>
-        <span className="text-[11.5px] text-[var(--color-mute)]">— we’ve proposed a match from your column names and values. Check it; it’s used automatically next time.</span>
+        <span className="text-[13px] font-medium text-[var(--color-ink)]">Map your columns</span>
+        <InfoButton compact details={{ title: 'Map your columns', sections: ABOUT }} />
+        <span className="text-[11.5px] text-[var(--color-mute)]">Check our proposal. It is used again next time.</span>
       </div>
-      {!ins && !err && <div className="px-4 py-3 mono text-[11px] text-[var(--color-faint)]">reading your columns…</div>}
+      {!ins && !err && <div className="px-4 py-3 text-[12px] text-[var(--color-faint)]">Reading your columns…</div>}
       {ins && ins.closest_mapping && !base && <div className="px-4 pt-2 text-[11.5px] text-[var(--color-mute)]">Started from your mapping “{ins.closest_mapping.name}” — {Math.round(ins.closest_mapping.overlap * 100)}% of its columns are still in this file.</div>}
       {ins && (
         <div className="px-4 py-3 space-y-2 max-h-[460px] overflow-y-auto">
@@ -113,25 +120,31 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
             const vm = f.vocab ? valueMatches(f) : null
             return (
               <div key={f.name} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-2 gap-y-1 items-start text-[12px]">
-                <span className="text-[var(--color-ink)] truncate pt-1" title={f.description}>{f.label}{f.required && <span style={{ color: 'var(--color-warn)' }}> *</span>}</span>
+                <span className="flex items-center gap-1 min-w-0 pt-1">
+                  <span className="text-[var(--color-ink)] truncate">{f.label}{f.required && <span style={{ color: 'var(--color-warn)' }}> *</span>}</span>
+                  {f.description && <InfoButton compact details={{ title: f.label, sections: [{ heading: HEADING.shows, body: f.description }] }} />}
+                </span>
                 <span className="flex flex-col gap-1 min-w-0">
                   <span className="flex items-center gap-1.5 min-w-0">
                     <select value={col ?? ''} onChange={e => setCmap(m => ({ ...m, [f.name]: e.target.value }))} className={inputCls + ' flex-1'}>
                       <option value="">{f.required ? '— choose your column —' : '— not in my file —'}</option>
                       {ins.columns.map(c => <option key={c} value={c} disabled={used.has(c) && col !== c}>{c}</option>)}
                     </select>
-                    {p && col === p.column && <span className="mono text-[9.5px] px-1.5 py-0.5 rounded-full shrink-0" title={p.reasons.join(' · ')}
-                      style={{ color: CONF[p.confidence].c, background: `color-mix(in oklab, ${CONF[p.confidence].c} 14%, transparent)` }}>{CONF[p.confidence].l}</span>}
+                    {p && col === p.column && <span className="inline-flex items-center gap-1 shrink-0">
+                      <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded-full"
+                        style={{ color: CONF[p.confidence].c, background: `color-mix(in oklab, ${CONF[p.confidence].c} 14%, transparent)` }}>{CONF[p.confidence].l}</span>
+                      <InfoButton compact details={why('Why we proposed this column', p.reasons)} /></span>}
                   </span>
-                  {p && p.confidence === 'low' && col !== p.column && <span className="text-[11px]" style={{ color: 'var(--color-warn)' }}>Maybe “{p.column}”? {p.reasons.slice(1).join('; ')}</span>}
+                  {p && p.confidence === 'low' && col !== p.column && <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-warn)' }}>
+                    Maybe “{p.column}”? <InfoButton compact details={why(`Why “${p.column}” may be this field`, p.reasons)} /></span>}
                   {samples.length > 0 && <span className="mono text-[10px] text-[var(--color-faint)] truncate">e.g. {samples.slice(0, 3).join(' · ')}</span>}
                   {f.kind === 'money' && col && (
                     <span className="flex flex-wrap items-center gap-1.5">
-                      <span className="mono text-[10px] text-[var(--color-faint)]">scale</span>
+                      <span className="text-[11px] text-[var(--color-faint)]">Scale</span>
                       <select value={tr[f.name]?.multiply ?? 1} onChange={e => setT(f.name, { multiply: Number(e.target.value) })} className={inputCls}>
                         {SCALES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
                       </select>
-                      <span className="mono text-[10px] text-[var(--color-faint)]">currency</span>
+                      <span className="text-[11px] text-[var(--color-faint)]">Currency</span>
                       <select value={tr[f.name]?.currency_column ? `col:${tr[f.name]?.currency_column}` : 'fixed'}
                         onChange={e => setT(f.name, e.target.value.startsWith('col:') ? { currency_column: e.target.value.slice(4), currency: undefined } : { currency_column: undefined })} className={inputCls}>
                         <option value="fixed">{tr[f.name]?.currency ? 'this currency' : 'as the file'}</option>
@@ -139,7 +152,8 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
                       </select>
                       {!tr[f.name]?.currency_column && <input value={tr[f.name]?.currency ?? ''} placeholder="file" onChange={e => setT(f.name, { currency: e.target.value.slice(0, 3) })}
                         aria-label={`${f.label} currency`} className={inputCls + ' w-14 mono uppercase'} />}
-                      {(ins.suggestion.hints[f.name] ?? []).map((h, i) => <span key={i} className="w-full text-[11px] text-[var(--color-mute)]">{h}</span>)}
+                      {(ins.suggestion.hints[f.name] ?? []).length > 0 && <span className="w-full inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-warn)' }}>
+                        <AlertTriangle size={11} /> Check the amounts <InfoButton compact details={why('Check the amounts', ins.suggestion.hints[f.name])} /></span>}
                     </span>
                   )}
                 </span>
@@ -151,15 +165,14 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
         </div>
       )}
       <div className="flex items-end gap-2.5 flex-wrap px-4 py-3 border-t border-[var(--color-line-2)]">
-        <label className="text-[11px] text-[var(--color-mute)]">name this mapping (usually the source system)
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Core banking export" className={inputCls + ' block mt-0.5 w-64 py-1.5'} /></label>
+        <label className="text-[11px] text-[var(--color-mute)]">Mapping name
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="The source system, e.g. Core banking export" className={inputCls + ' block mt-0.5 w-64 py-1.5'} /></label>
         <button onClick={save} disabled={busy || !ins || !name.trim() || missing.length > 0}
-          className="mono text-[11.5px] px-3.5 py-2 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition disabled:opacity-45">
-          {busy ? 'saving…' : 'Save mapping & check the file'}</button>
-        <button onClick={onCancel} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)]">cancel</button>
+          className="text-[12px] font-medium px-3.5 py-2 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition disabled:opacity-45">
+          {busy ? 'Saving…' : 'Save mapping & check the file'}</button>
+        <button onClick={onCancel} className="text-[11.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)]">Cancel</button>
         {ins && missing.length > 0 && <span className="w-full text-[11.5px]" style={{ color: 'var(--color-warn)' }}>Still to map: {missing.map(f => f.label).join(', ')}</span>}
         {err && <span className="w-full text-[11.5px]" style={{ color: 'var(--color-warn)' }}>{err}</span>}
-        <span className="w-full mono text-[9.5px] text-[var(--color-faint)]">A field’s amounts are in the file’s currency unless you set one here. Everything converts to EUR at the book date: balances at that day’s official rate, yearly figures at the average of the 12 months to it (ECB, rates fixed by law, or IMF). A rate too old for its source goes to a second person.</span>
       </div>
     </div>
   )
@@ -172,20 +185,21 @@ function ValueMap({ field, matches, chosen, onChange }: {
 }) {
   const theirs = Object.keys(matches)
   const open = theirs.filter(v => matches[v] == null)
+  const ours = (v: string) => field.value_labels?.[v] ?? v          // our value in words (a list of words names itself)
   return (
     <details className="rounded-md border border-[var(--color-line-2)] px-2 py-1.5" open={open.some(v => !(v in chosen))}>
       <summary className="cursor-pointer text-[11px] text-[var(--color-mute)]">
-        values: {theirs.length - open.length} of {theirs.length} match ours{open.length ? <span style={{ color: 'var(--color-warn)' }}> · {open.length} to map</span> : ''}</summary>
+        Values: {theirs.length - open.length} of {theirs.length} match ours{open.length ? <span style={{ color: 'var(--color-warn)' }}> · {open.length} to map</span> : ''}</summary>
       <div className="mt-1.5 space-y-1">
         {theirs.map(v => (
           <div key={v} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 items-center">
             <span className="mono text-[11px] text-[var(--color-ink)] truncate">{v}</span>
             {matches[v] != null && !(v in chosen)
-              ? <span className="mono text-[11px] text-[var(--color-good)] truncate">→ {matches[v]}</span>
+              ? <span className="text-[11px] text-[var(--color-good)] truncate">→ {ours(matches[v]!)}</span>
               : <select value={chosen[v] ?? '__unset'} onChange={e => { const n = { ...chosen }; if (e.target.value === '__unset') delete n[v]; else n[v] = e.target.value; onChange(n) }} className={inputCls}>
                   <option value="__unset">— not mapped (left blank, flagged) —</option>
-                  <option value="">leave blank on purpose</option>
-                  {(field.allowed ?? []).map(a => <option key={a} value={a}>{a}</option>)}
+                  <option value="">Leave blank on purpose</option>
+                  {(field.allowed ?? []).map(a => <option key={a} value={a}>{ours(a)}</option>)}
                 </select>}
           </div>
         ))}
@@ -195,15 +209,13 @@ function ValueMap({ field, matches, chosen, onChange }: {
 }
 
 export function MappingNote({ report }: { report: MappingReport }) {
-  const conv = report.conversions.map(c => c.kind === 'scale' ? `${c.field} × ${c.factor?.toLocaleString()}`
-    : c.kind === 'currency' ? `${c.field}: ${Object.entries(c.rates ?? {}).map(([k, r]) => fxText(k, r)).join(', ')}` : `${c.field}: your values → ours`)
+  const conv = report.conversions.map(conversionText)
   return (
     <div className="flex items-start gap-2 px-4 py-2 border-b border-[var(--color-line-2)] text-[12px]">
       <Columns3 size={14} className="mt-0.5 shrink-0 text-[var(--color-faint)]" />
-      <div><b className="text-[var(--color-ink)]">Read with your mapping “{report.profile}”</b>{report.auto && <span className="text-[var(--color-mute)]"> — used automatically: same layout as last time</span>}
+      <div><b className="text-[var(--color-ink)]">Read with your mapping “{report.profile}”</b>{report.auto && <span className="text-[var(--color-mute)]"> — used automatically: same columns as last time</span>}
         {conv.length > 0 && <span className="text-[var(--color-mute)]"> — {conv.join(' · ')}</span>}
-        {report.unmapped_source_columns.length > 0 && <div className="text-[var(--color-faint)]">Not used: {report.unmapped_source_columns.join(', ')}</div>}
-        {report.warnings?.map((w, i) => <div key={i} style={{ color: 'var(--color-warn)' }}>{w}</div>)}</div>
+        {report.unmapped_source_columns.length > 0 && <div className="text-[var(--color-faint)]">Not used: {report.unmapped_source_columns.join(', ')}</div>}</div>
     </div>
   )
 }

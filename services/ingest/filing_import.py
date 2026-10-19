@@ -124,6 +124,15 @@ def _with_label(value: Optional[float], unit: Optional[str], scale: float, label
     return (value * scale if value is not None else None), unit
 
 
+class ReadError(ValueError):
+    """A filed report this importer cannot read. `code` is the catalogue message (core/messages.py) the prior-filings
+    screen shows — intake.prior.refused.unsupported_format, .unknown_report or .unreadable; its text is the code."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
 def detect_format(filename: str, data: bytes) -> str:
     name = (filename or "").lower()
     head = data[:4096].lstrip()[:400].lower()
@@ -137,7 +146,7 @@ def detect_format(filename: str, data: bytes) -> str:
         return "ixbrl"
     if name.endswith(".xml"):
         return "xbrl"
-    raise ValueError("unsupported_format")
+    raise ReadError("intake.prior.refused.unsupported_format")
 
 
 def _local(tag: str) -> str:
@@ -290,10 +299,10 @@ _READERS = {"xbrl": _read_xbrl, "ixbrl": _read_xbrl, "excel": _read_excel, "pdf"
 def extract(framework: str, filename: str, data: bytes, targets: Optional[dict[str, str]] = None) -> dict:
     """Read a filed report → {format, cells:[...], n_mapped, n_total}. targets: the datapoints a line may be (key →
     label), matched exactly — the ESRS statement's concepts for the filing's year; without them the framework's
-    catalog keywords. Raises ValueError('unsupported_format') for an unknown file, or ValueError('unreadable') if the
-    reader found no figures."""
+    catalog keywords. Raises ReadError (a ValueError) naming its catalogue code: an unknown file, an unknown report, or
+    no figures found."""
     if targets is None and catalog(framework) is None:
-        raise ValueError("unknown_framework")
+        raise ReadError("intake.prior.refused.unknown_report")
     fmt = detect_format(filename, data)
 
     def match(label):
@@ -304,8 +313,8 @@ def extract(framework: str, filename: str, data: bytes, targets: Optional[dict[s
     except ValueError:
         raise
     except Exception:  # a corrupt/empty workbook, malformed XML, unreadable PDF → one clean error, not a 500
-        raise ValueError("unreadable")
+        raise ReadError("intake.prior.refused.unreadable")
     if not cells:
-        raise ValueError("unreadable")
+        raise ReadError("intake.prior.refused.unreadable")
     n_mapped = sum(1 for c in cells if c["datapoint_key"])
     return {"format": fmt, "cells": cells, "n_total": len(cells), "n_mapped": n_mapped}

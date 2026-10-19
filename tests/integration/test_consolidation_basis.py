@@ -25,7 +25,7 @@ def _actor(session):
 @pytest.mark.integration
 def test_full_below_majority_needs_basis():
     with get_session() as s:
-        with pytest.raises(E.EntityError, match="IFRS 10"):
+        with pytest.raises(E.EntityError, match="onboarding.entity.basis_needed"):
             E.create_entity(s, EMPTY_BANK_ORG, name="Test C2 Minority Full", kind="legal_entity",
                             ownership_pct=30, consolidation_method="full")
         # with a stated basis, it's allowed
@@ -39,7 +39,7 @@ def test_full_below_majority_needs_basis():
 @pytest.mark.integration
 def test_proportional_above_majority_needs_basis():
     with get_session() as s:
-        with pytest.raises(E.EntityError, match="IFRS 10"):
+        with pytest.raises(E.EntityError, match="onboarding.entity.basis_needed"):
             E.create_entity(s, EMPTY_BANK_ORG, name="Test C2 Majority Proportional", kind="legal_entity",
                             ownership_pct=80, consolidation_method="proportional")
         e = E.create_entity(s, EMPTY_BANK_ORG, name="Test C2 Majority Proportional OK", kind="legal_entity",
@@ -73,7 +73,7 @@ def test_update_entity_checks_effective_values_not_just_changed_field():
     with get_session() as s:
         e = E.create_entity(s, EMPTY_BANK_ORG, name="Test C2 Update Drop", kind="legal_entity",
                             ownership_pct=100, consolidation_method="full")
-        with pytest.raises(E.EntityError, match="IFRS 10"):
+        with pytest.raises(E.EntityError, match="onboarding.entity.basis_needed"):
             E.update_entity(s, EMPTY_BANK_ORG, e["entity_id"], ownership_pct=20)
         # providing the basis in the same call satisfies it
         e2 = E.update_entity(s, EMPTY_BANK_ORG, e["entity_id"], ownership_pct=20,
@@ -90,7 +90,7 @@ def test_entity_structure_import_enforces_the_same_guardrail():
         u = _actor(s)
         rows_bad = [{"name": "Test C2 Import Bad", "ownership_pct": 25, "consolidation_method": "full"}]
         imp = ESI.create_import(s, EMPTY_BANK_ORG, u, "manual_csv", rows_bad)
-        with pytest.raises(ESI.ImportError_, match="IFRS 10"):
+        with pytest.raises(ESI.ImportError_, match="onboarding.structure.basis_needed"):
             ESI.confirm_import(s, EMPTY_BANK_ORG, imp["import_id"], u)
 
         rows_ok = [{"name": "Test C2 Import OK", "ownership_pct": 25, "consolidation_method": "full",

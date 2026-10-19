@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { pressable } from '../lib/pressable'
 import { balance } from '../lib/money'
 import { Dialog } from './Dialog'
+import { HEADING, InfoButton } from './Details'
 import ValidatedUpload from './ValidatedUpload'
 
 // The loan book's counterparties (E119): what is a fact of the counterparty — its total liabilities (accounting
@@ -14,6 +15,11 @@ import ValidatedUpload from './ValidatedUpload'
 // and blocks Template 1 until the one figure is stated.
 
 interface Statement { entity_id: string; eur: number; date: string; source?: { amount?: number; currency?: string } | null }
+
+const ABOUT = [
+  { heading: HEADING.shows, body: 'The counterparties of your loan book, each with the figures stated once for it: its total liabilities and equity, and its revenue, with the end of the financial year they are taken from. Pillar 3 Template 1, column i, compares your exposures towards a counterparty with its total liabilities (accounting liabilities and shareholders’ equity); where you use a sector-average scope 3 intensity per EUR million of revenue, it multiplies the counterparty’s revenue.' },
+  { heading: HEADING.read, body: 'Each counterparty is matched to its exposures by the counterparty id your loan tape gives it: its LEI or your own id. Exposures without an id cannot enter the counterparty columns. Where exposures of one counterparty used to state different figures, none was picked: the conflict is shown, and it blocks Template 1 until the one figure is stated.' },
+]
 interface Cp {
   counterparty_ref: string; counterparty_name: string | null; total_liabilities_eur: number | null
   total_liabilities_date: string | null; liabilities_conflict: Statement[] | null; issuer_name: string | null
@@ -33,20 +39,16 @@ export default function BankCounterparties() {
   return (
     <div className="px-5 pt-2 pb-5 border-t border-[var(--color-line)] mt-2 space-y-3">
       <div>
-        <div className="text-[13px] text-[var(--color-ink)] font-medium mb-0.5 flex items-center gap-1.5"><Building2 size={14} /> Counterparties — one figure each</div>
-        <p className="text-[12px] text-[var(--color-mute)] max-w-3xl">
-          Pillar 3 Template 1 column i compares your exposures towards a counterparty with the counterparty&rsquo;s total liabilities
-          (accounting liabilities and shareholders&rsquo; equity); where you use a sector-average scope 3 intensity per EUR million of revenue,
-          it multiplies the counterparty&rsquo;s revenue. State each figure once per counterparty, with the end of the financial year it is
-          taken from, using the counterparty id your loan tape gives it (its LEI or your own id).
-        </p>
+        <div className="text-[13px] text-[var(--color-ink)] font-medium mb-0.5 flex items-center gap-1.5"><Building2 size={14} /> Counterparties — one figure each
+          <InfoButton compact details={{ title: 'Counterparties', sections: ABOUT }} /></div>
+        <p className="text-[12px] text-[var(--color-mute)]">Each counterparty&rsquo;s total liabilities and revenue, stated once.</p>
       </div>
       {(noId > 0 || unstated > 0 || conflicts > 0) && (
         <div className="rounded-lg border border-[var(--color-warn)]/40 px-3 py-2 text-[12px] text-[var(--color-ink)] flex flex-wrap gap-x-4 gap-y-1">
           <AlertTriangle size={13} className="text-[var(--color-warn)] self-center" />
-          {noId > 0 && <span>{noId} exposures carry no counterparty id — they cannot enter Template 1 columns i–k</span>}
-          {unstated > 0 && <span>{unstated} counterparties have no total liabilities stated</span>}
-          {conflicts > 0 && <span>{conflicts} counterparties have conflicting figures — none was picked</span>}
+          {noId > 0 && <span><b>{noId}</b> exposures without a counterparty id</span>}
+          {unstated > 0 && <span><b>{unstated}</b> counterparties without total liabilities</span>}
+          {conflicts > 0 && <span><b>{conflicts}</b> counterparties with conflicting figures</span>}
         </div>
       )}
       {rows.length > 0 && (
@@ -76,7 +78,7 @@ export default function BankCounterparties() {
         </div>
       )}
       <ValidatedUpload
-        intro={<>One row per counterparty: its id as on the loan tape, its total liabilities and equity, its revenue, and the <b className="text-[var(--color-ink)]">financial year end</b> (book_date) they are taken from. Total liabilities convert at that date&rsquo;s closing rate, revenue at the average rate of the year to it. Checked like the loan tape; a failed check goes to a second person.</>}
+        intro={<>One row per counterparty: its id as on the loan tape, its total liabilities and equity, its revenue, and the financial year end they are taken from. Total liabilities convert at that date&rsquo;s closing rate, revenue at the average rate of the year to it. Checked like the loan tape; a failed check goes to a second person.</>}
         dropLabel="counterparties file" template="bank_counterparties"
         endpoints={{ validate: '/v1/bank/counterparties/validate', upload: '/v1/bank/counterparties/upload', template: '/v1/bank/counterparties/template.xlsx', templateFile: 'tellumen_counterparties_template.xlsx' }}
         onDone={() => qc.invalidateQueries({ queryKey: ['bank-counterparties'] })}

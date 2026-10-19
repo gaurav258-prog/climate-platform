@@ -93,6 +93,7 @@ def test_unusable_file_is_refused_with_the_reason_beside_it(channel):
     res = dropfolder.sweep_channel(channel, BANK_ORG)
     assert res[0]["state"] == "refused" and "Required columns missing" in res[0]["reason"]
     assert "map your columns" in res[0]["reason"]          # the reason file carries what to do, not only the label
+    assert res[0]["state_label"] == "Refused" and res[0]["msg"]["code"] == "intake.refused.missing_columns"   # the screen's words
     names = sorted(p.name for p in channel["dirs"]["refused"].iterdir())
     assert len(names) == 2 and names[1].endswith(".reason.txt")
 
@@ -121,7 +122,7 @@ def test_two_pickups_at_once_never_take_the_same_file(channel):
 def test_an_unavailable_inbox_backend_fails_loudly(monkeypatch):
     from services.intake import inbox
     monkeypatch.setattr(settings, "INTAKE_DROP_BACKEND", "s3")
-    with pytest.raises(inbox.InboxError, match="not available"):
+    with pytest.raises(inbox.InboxError, match="onboarding.dropfolder.unavailable"):
         inbox.backend()
 
 
@@ -137,9 +138,10 @@ def test_sftp_keys_register_refuse_and_revoke(intake_client):
         assert r.status_code == 201, r.text
         kid = r.json()["key_id"]
         assert c.post("/v1/intake/sftp-keys", headers=h, json={"label": "again", "public_key": ED}).status_code == 400
-        assert "2048 bits" in c.post("/v1/intake/sftp-keys", headers=h, json={"label": "old", "public_key": RSA2048}).text
+        old = c.post("/v1/intake/sftp-keys", headers=h, json={"label": "old", "public_key": RSA2048}).json()["error"]
+        assert old["error"] == "onboarding.sftp.rsa_short" and "2048 bits" in old["detail"]["what"]
         bad = c.post("/v1/intake/sftp-keys", headers=h, json={"label": "oops", "public_key": "-----BEGIN OPENSSH PRIVATE KEY----- abc"})
-        assert bad.status_code == 400 and "PRIVATE key" in bad.text
+        assert bad.status_code == 400 and bad.json()["error"]["error"] == "onboarding.sftp.private_key"
         assert [k["label"] for k in c.get("/v1/intake/sftp-keys", headers=h).json()["keys"]][:1] == ["Core banking"]
         with get_session() as s:
             assert f"tellumen-key:{kid}" in authorized_keys(s, BANK_ORG)

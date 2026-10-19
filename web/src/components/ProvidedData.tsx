@@ -1,18 +1,26 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Check, Clock, AlertTriangle } from 'lucide-react'
+import { Upload, Check, AlertTriangle } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, SectionHead } from './ui'
+import { HEADING, InfoButton } from './Details'
+import { StatusChip } from './StatusChip'
 
 // Lane 2 — provided datapoints. A value calculated on the customer's or a vendor's side (own-operations GHG
 // from a carbon tool, a Taxonomy alignment %, an audited PCAF figure) is submitted here, reconciled against
-// Tellumen's own number where one exists, and attested through 4-eyes before it can land in a filing.
+// Tellumen's own number where one exists, and attested through 4-eyes before it can land in a filing. A value's status
+// and source come in the server's words (status_label, source_label); where a figure comes from sits in its pop-up.
 
 interface Req { framework: string; official_name?: string; label: string }
 interface Providable { key: string; label: string; provider: string | null; note: string | null; kind: string }
-interface Provided { provided_id: string; framework: string; datapoint_key: string; label: string; value_num: number | null; value_text: string | null; unit: string | null; source: string; provider_name: string | null; data_vintage: string | null; period_label?: string | null; reporting_period_end?: string | null; tellumen_value: number | null; delta_pct: number | null; within_tolerance: boolean | null; recon_note: string | null; status: string; submitted_by: string | null; decided_by: string | null }
+interface Provided { provided_id: string; framework: string; datapoint_key: string; label: string; value_num: number | null; value_text: string | null; unit: string | null; source: string; provider_name: string | null; data_vintage: string | null; period_label?: string | null; reporting_period_end?: string | null; tellumen_value: number | null; delta_pct: number | null; within_tolerance: boolean | null; recon_note: string | null; status: string; status_label: string | null; source_label: string | null; submitted_by: string | null; decided_by: string | null }
+
+const ABOUT = [
+  { heading: HEADING.shows, body: 'Figures calculated on your side or by a data vendor — for example greenhouse gas emissions from your carbon tool, or your own Taxonomy alignment — that a report needs.' },
+  { heading: HEADING.read, body: 'Each value is compared with our own figure where we compute one, and the difference is shown. A second person attests the value before it can be used in a filing.' },
+]
 
 export default function ProvidedData() {
   const { profile } = useAuth()
@@ -26,6 +34,7 @@ export default function ProvidedData() {
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
         <Upload size={15} className="text-[var(--color-sky)]" />
         <SectionHead hint="your inputs and vendor figures">Provided &amp; reconciled data</SectionHead>
+        <InfoButton compact details={{ title: 'Provided and reconciled data', sections: ABOUT }} />
       </div>
       <div className="divide-y divide-[var(--color-line)]">
         {frameworks.map(f => <FrameworkBlock key={f.framework} framework={f.framework} label={f.official_name || f.label}
@@ -74,38 +83,43 @@ function Row({ framework, dp, current, canAct }: { framework: string; dp: Provid
   return (
     <div className="text-[12px]">
       <div className="flex items-start gap-3">
-        <span className="mono text-[8px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 w-16 text-center"
+        <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded shrink-0 w-20 text-center"
           style={dp.kind === 'required' ? { color: '#f0a860', background: 'color-mix(in oklab, #f0a860 14%, transparent)' } : { color: 'var(--color-sky)', background: 'color-mix(in oklab, var(--color-sky) 14%, transparent)' }}>
-          {dp.kind === 'required' ? 'provide' : 'reconcile'}
+          {dp.kind === 'required' ? 'Provide' : 'Cross-check'}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[var(--color-mute)]">{dp.label}</div>
+          <div className="text-[var(--color-mute)] flex items-center gap-1">{dp.label}
+            {(dp.provider || dp.note) && <InfoButton compact details={{ title: dp.label, sections: [
+              ...(dp.provider ? [{ heading: HEADING.sources, body: dp.provider }] : []),
+              ...(dp.note ? [{ heading: HEADING.read, body: dp.note }] : [])] }} />}
+          </div>
           {current
             ? <div className="mono text-[10px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-[var(--color-ink)]">{fmtNum(current.value_num, current.unit)}</span>
-                <span className="text-[var(--color-faint)]">{current.source}{current.provider_name ? ` · ${current.provider_name}` : ''}{current.reporting_period_end ? ` · for ${current.period_label ?? current.reporting_period_end}` : ' · period not stated'}{current.data_vintage ? ` · ${current.data_vintage}` : ''}</span>
+                <span className="text-[var(--color-faint)]">{current.source_label ?? '—'}{current.provider_name ? ` · ${current.provider_name}` : ''}{current.reporting_period_end ? ` · for ${current.period_label ?? current.reporting_period_end}` : ' · period not stated'}{current.data_vintage ? ` · ${current.data_vintage}` : ''}</span>
                 {current.delta_pct != null && <span style={{ color: current.within_tolerance ? 'var(--color-good)' : 'var(--color-bad)' }}>{current.within_tolerance ? <Check size={10} className="inline" /> : <AlertTriangle size={10} className="inline" />} {current.delta_pct > 0 ? '+' : ''}{current.delta_pct}% vs ours</span>}
-                <span className="inline-flex items-center gap-1" style={{ color: st === 'attested' ? 'var(--color-good)' : st === 'rejected' ? 'var(--color-bad)' : 'var(--color-warn)' }}>{st === 'attested' ? <Check size={10} /> : <Clock size={10} />} {st}{st === 'pending' ? ' · awaiting 4-eyes' : current.decided_by ? ` · ${current.decided_by.split('@')[0]}` : ''}</span>
+                <StatusChip value={st} label={current.status_label ?? undefined} />
+                {st !== 'pending' && current.decided_by && <span className="text-[var(--color-faint)]">by {current.decided_by}</span>}
               </div>
-            : <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">{dp.provider}</div>}
+            : <div className="text-[11px] text-[var(--color-faint)] mt-0.5">Not provided yet</div>}
         </div>
-        {canAct && <button onClick={() => setOpen(o => !o)} className="mono text-[10px] text-[var(--color-sky)] hover:underline shrink-0">{current ? 'replace' : 'provide'}</button>}
+        {canAct && <button onClick={() => setOpen(o => !o)} className="text-[11.5px] text-[var(--color-sky)] hover:underline shrink-0">{current ? 'Replace' : 'Provide'}</button>}
       </div>
       {open && canAct && (
-        <div className="mt-2 ml-[76px] flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] p-2.5">
-          <input value={val} onChange={e => setVal(e.target.value)} type="number" step="any" placeholder="value"
+        <div className="mt-2 ml-[92px] flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] p-2.5">
+          <input value={val} onChange={e => setVal(e.target.value)} type="number" step="any" placeholder="Value"
             className="w-28 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] mono outline-none focus:border-[var(--color-sky)]" />
-          <input value={unit} onChange={e => setUnit(e.target.value)} placeholder="unit"
+          <input value={unit} onChange={e => setUnit(e.target.value)} placeholder="Unit"
             className="w-20 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] mono outline-none" />
-          <select value={source} onChange={e => setSource(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] outline-none"><option value="client">client</option><option value="vendor">vendor</option></select>
-          <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="source name (e.g. carbon tool)"
+          <select value={source} onChange={e => setSource(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] outline-none"><option value="client">Your organisation</option><option value="vendor">A data vendor</option></select>
+          <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="Source name, e.g. your carbon tool"
             className="flex-1 min-w-[140px] bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] outline-none" />
           <input value={periodEnd} onChange={e => setPeriod(e.target.value)} type="date" title="Reporting period end the value is for"
             className="w-[140px] rounded-md border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px] text-[var(--color-ink)] outline-none" />
           <input value={vintage} onChange={e => setVintage(e.target.value)} type="date" title="Data vintage"
             className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] mono outline-none" />
-          <Button variant="primary" onClick={save} disabled={busy || !val.trim()}><Check size={12} /> submit for attest</Button>
-          <button onClick={() => setOpen(false)} className="text-[11px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">cancel</button>
+          <Button variant="primary" onClick={save} disabled={busy || !val.trim()}><Check size={12} /> Send for attestation</Button>
+          <button onClick={() => setOpen(false)} className="text-[11px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Cancel</button>
         </div>
       )}
     </div>

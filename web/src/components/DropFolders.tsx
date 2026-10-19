@@ -4,9 +4,13 @@ import { FolderInput, KeyRound, RefreshCw, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button } from './ui'
+import { HEADING, InfoButton, messageDetails, type Message } from './Details'
+import { StatusChip } from './StatusChip'
+import { Said, day, errMessage } from './intake/parts'
 
 // Drop-folder channels — where a customer's SFTP feed lands. One folder per template; every finished file runs
 // through the same intake pipeline as an upload (services/intake/dropfolder.py). Works the same for every sector.
+// What the screen says comes from the server: a file's outcome is its state's name and its message (onboarding.*).
 
 export const SECTOR_TEMPLATES: Record<string, { key: string; label: string }[]> = {
   bank: [{ key: 'bank_assets', label: 'loan tape' }],
@@ -17,9 +21,17 @@ export const SECTOR_TEMPLATES: Record<string, { key: string; label: string }[]> 
 }
 
 interface Channel { channel_id: string; template: string; label: string; currency: string | null; sftp_path: string; owner_email: string; n_waiting: number; last_swept_at: string | null; enabled: boolean }
-interface SweepResult { file: string; state: string; reason?: string; moved_to?: string }
+interface SweepResult { file: string | null; state: string; state_label: string; msg: Message; moved_to?: string }
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
-const STATE_TONE: Record<string, string> = { imported: 'var(--color-good)', awaiting_approval: 'var(--color-warn)', held: 'var(--color-warn)', refused: 'var(--color-bad, #e0574a)', error: 'var(--color-bad, #e0574a)' }
+const STATE_TONE: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = { imported: 'good', awaiting_approval: 'warn', held: 'warn', refused: 'bad', error: 'bad', busy: 'neutral' }
+const ABOUT = [
+  { heading: HEADING.shows, body: 'Folders your systems send files to by SFTP, instead of uploading them here or calling the API. There is one folder per book.' },
+  { heading: HEADING.read, body: 'Every file that has finished arriving is picked up every five minutes and checked exactly like an upload; your saved column mapping is used automatically. Each file needs a Book date column: the date its figures describe. A refused file is moved aside with the reason next to it. The sender is the person a folder’s files are sent as: a file that fails a check goes to someone else for approval, never to the sender.' },
+]
+const KEYS_ABOUT = [
+  { heading: HEADING.shows, body: 'The public keys your systems use to log in to the drop folders by SFTP. There is one login per organisation, by key only, never by password. Every key is checked, fingerprinted, and recorded on the audit trail when it is added or revoked.' },
+  { heading: HEADING.read, body: 'Paste the public key: the single line of the key’s .pub file. An ssh-ed25519 key is preferred; an RSA key must have at least 3,072 bits. Never paste a private key.' },
+]
 
 export default function DropFolders({ sector }: { sector: string }) {
   const q = useQuery({ queryKey: ['intake-channels'], queryFn: () => api.get<{ channels: Channel[] }>('/v1/intake/channels') })
@@ -38,7 +50,7 @@ export default function DropFolders({ sector }: { sector: string }) {
     if (!template || !owner || ccy.trim().length !== 3) { toast.error('Choose the sender and the currency of the files.'); return }
     setBusy(true)
     try { await api.post('/v1/intake/channels', { template, owner_user_id: owner, currency: ccy.trim().toUpperCase() }); q.refetch() }
-    catch (e: unknown) { toast.error((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'Could not open the folder.') }
+    catch (e: unknown) { toast.error(errMessage(e, 'Could not open the folder.').label) }
     finally { setBusy(false) }
   }
   const sweep = async (id: string) => {
@@ -51,8 +63,9 @@ export default function DropFolders({ sector }: { sector: string }) {
 
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2"><FolderInput size={15} className="text-[var(--color-sky)]" /><h3 className="text-[14px] font-semibold text-[var(--color-ink)]">Drop folders (SFTP)</h3></div>
-      <p className="text-[12.5px] text-[var(--color-mute)] mt-1 max-w-2xl">Your system sends files to a folder instead of calling the API. Every file that has finished arriving is picked up every 5 minutes and checked exactly like an upload — your saved column mapping is used automatically. Each file must carry a book_date column (the date its figures describe). A file that fails a check goes to a second person; a refused file is moved aside with the reason next to it.</p>
+      <div className="flex items-center gap-2"><FolderInput size={15} className="text-[var(--color-sky)]" /><h3 className="text-[14px] font-semibold text-[var(--color-ink)]">Drop folders</h3>
+        <InfoButton compact details={{ title: 'Drop folders', sections: ABOUT }} /></div>
+      <p className="text-[12.5px] text-[var(--color-mute)] mt-1">Files your systems send by SFTP, checked like an upload.</p>
 
       {channels.length > 0 && (
         <div className="mt-3 divide-y divide-[var(--color-line)] border border-[var(--color-line)] rounded-lg">
@@ -61,12 +74,16 @@ export default function DropFolders({ sector }: { sector: string }) {
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-[var(--color-ink)] capitalize">{c.label}</span>
                 <code className="mono text-[11px] text-[var(--color-mute)]">{c.sftp_path}</code>
-                <span className="text-[11.5px] text-[var(--color-faint)]">sender: {c.owner_email} · amounts in {c.currency ?? '—'}</span>
-                <span className="text-[11.5px] text-[var(--color-faint)]">{c.n_waiting} waiting · last picked up {c.last_swept_at ? c.last_swept_at.replace('T', ' ') : 'never'}</span>
+                <span className="text-[11.5px] text-[var(--color-faint)]">Sender {c.owner_email} · amounts in {c.currency ?? '—'}</span>
+                <span className="text-[11.5px] text-[var(--color-faint)]">{c.n_waiting} waiting · last picked up {c.last_swept_at ? day(c.last_swept_at) : 'never'}</span>
                 <button onClick={() => sweep(c.channel_id)} className="ml-auto inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><RefreshCw size={12} /> Pick up now</button>
               </div>
               {(results[c.channel_id] ?? []).map((r, i) => (
-                <div key={i} className="mt-1 text-[11.5px]"><span className="mono">{r.file}</span> — <span style={{ color: STATE_TONE[r.state] }}>{r.state.replace('_', ' ')}</span>{r.reason ? `: ${r.reason}` : ''}</div>
+                <div key={i} className="mt-1.5 flex items-center gap-2 flex-wrap text-[11.5px]">
+                  {r.file && <span className="mono text-[var(--color-ink)]">{r.file}</span>}
+                  <StatusChip label={r.state_label} tone={STATE_TONE[r.state] ?? 'neutral'} />
+                  {r.state === 'refused' ? <Said m={r.msg} className="text-[var(--color-mute)]" /> : <InfoButton compact details={messageDetails(r.msg)} />}
+                </div>
               ))}
             </div>
           ))}
@@ -77,7 +94,7 @@ export default function DropFolders({ sector }: { sector: string }) {
         <div className="mt-3 flex flex-wrap items-end gap-3">
           {open.length > 1 && <label className="min-w-[180px]"><span className="text-[11.5px] text-[var(--color-mute)]">Book</span>
             <select value={tpl} onChange={e => setTpl(e.target.value)} className={inp + ' mt-1'}>{open.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></label>}
-          <label className="flex-1 min-w-[220px]"><span className="text-[11.5px] text-[var(--color-mute)]">Sender (a failed check goes to someone else)</span>
+          <label className="flex-1 min-w-[220px]"><span className="text-[11.5px] text-[var(--color-mute)]">Sender</span>
             <select value={owner} onChange={e => setOwner(e.target.value)} className={inp + ' mt-1'}>
               <option value="">— choose a person —</option>
               {(uq.data ?? []).filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
@@ -105,7 +122,7 @@ function SftpKeys() {
   const add = async () => {
     setBusy(true)
     try { await api.post('/v1/intake/sftp-keys', { label: label.trim(), public_key: key.trim() }); setLabel(''); setKey(''); q.refetch(); toast.success('Key added.') }
-    catch (e: unknown) { toast.error((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'Could not add the key.') }
+    catch (e: unknown) { toast.error(errMessage(e, 'Could not add the key.').label) }
     finally { setBusy(false) }
   }
   const revoke = async (id: string) => {
@@ -114,16 +131,17 @@ function SftpKeys() {
   }
   return (
     <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-      <div className="flex items-center gap-2"><KeyRound size={14} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold text-[var(--color-ink)]">SFTP access keys</span></div>
-      <p className="text-[12px] text-[var(--color-mute)] mt-1 max-w-2xl">Paste the <b>public</b> key (the <code className="mono">.pub</code> file) of each system that sends files. ssh-ed25519 is preferred; RSA must be at least 3072 bits. Never paste a private key.</p>
+      <div className="flex items-center gap-2"><KeyRound size={14} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold text-[var(--color-ink)]">Access keys</span>
+        <InfoButton compact details={{ title: 'Access keys', sections: KEYS_ABOUT }} /></div>
+      <p className="text-[12px] text-[var(--color-mute)] mt-1">The <b>public</b> key of each system that sends files.</p>
       {keys.length > 0 && (
         <div className="mt-2 divide-y divide-[var(--color-line)] border border-[var(--color-line)] rounded-lg">
           {keys.map(k => (
             <div key={k.key_id} className="flex items-center gap-3 flex-wrap px-3.5 py-2 text-[12.5px]" style={k.revoked_at ? { opacity: 0.55 } : undefined}>
               <span className="text-[var(--color-ink)]">{k.label}</span>
               <code className="mono text-[10.5px] text-[var(--color-mute)] break-all">{k.fingerprint}</code>
-              <span className="text-[11px] text-[var(--color-faint)]">{k.key_type}{k.bits ? ` · ${k.bits} bits` : ''} · added {k.created_at.slice(0, 10)}{k.created_by ? ` by ${k.created_by}` : ''}</span>
-              {k.revoked_at ? <span className="ml-auto mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">revoked {k.revoked_at.slice(0, 10)}</span>
+              <span className="text-[11px] text-[var(--color-faint)]">{k.key_type}{k.bits ? ` · ${k.bits} bits` : ''} · added {day(k.created_at)}{k.created_by ? ` by ${k.created_by}` : ''}</span>
+              {k.revoked_at ? <span className="ml-auto text-[11px] text-[var(--color-faint)]">Revoked {day(k.revoked_at)}</span>
                 : <button onClick={() => revoke(k.key_id)} className="ml-auto inline-flex items-center gap-1 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-bad)]"><Trash2 size={12} /> Revoke</button>}
             </div>
           ))}

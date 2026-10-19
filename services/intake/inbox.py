@@ -11,6 +11,7 @@ backend exists today; asking for another fails loudly (go-live #12 / #13), never
 """
 from __future__ import annotations
 
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -19,6 +20,9 @@ from pathlib import Path
 from typing import Optional
 
 from core.config import settings
+from core.errors import UserError
+
+logger = logging.getLogger(__name__)
 
 SKIP_SUFFIXES = (".part", ".tmp", ".filepart", ".partial", ".reason.txt")
 AREAS = ("incoming", "processed", "refused")
@@ -26,6 +30,14 @@ AREAS = ("incoming", "processed", "refused")
 
 class InboxError(RuntimeError):
     pass
+
+
+class InboxUnavailable(UserError, InboxError):
+    """This installation's drop-folder backend is not one the build has: the screen gets the catalogue's words
+    (onboarding.dropfolder.unavailable, 503), the log the backend asked for."""
+
+    def __init__(self):
+        UserError.__init__(self, "onboarding.dropfolder.unavailable")
 
 
 @dataclass(frozen=True)
@@ -84,6 +96,7 @@ class LocalInbox:
 def backend() -> LocalInbox:
     kind = settings.INTAKE_DROP_BACKEND
     if kind != "local":
-        raise InboxError(f"Drop-folder backend '{kind}' is not available in this build (only 'local'). "
-                         "See docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md #12 and #13.")
+        logger.error("drop-folder backend %r is not available in this build (only 'local'): go-live dependencies "
+                     "#12 and #13 (docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md)", kind)
+        raise InboxUnavailable()
     return LocalInbox(settings.INTAKE_DROP_DIR)
