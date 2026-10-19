@@ -18,10 +18,10 @@ function errCode(e: unknown): string | undefined {
 // The demo picker exists only on a development server or a build marked as a demo (VITE_DEMO_LOGIN=true); its
 // passwords load from lib/demoLogin.ts only then, so a production bundle never carries them (E185).
 const DEMO_LOGIN = import.meta.env.DEV || import.meta.env.VITE_DEMO_LOGIN === 'true'
-const ROLES: { key: string; label: string; hint: string }[] = [
-  { key: 'admin', label: 'Admin', hint: 'setup, users, everything' },
-  { key: 'approver', label: 'Approver', hint: 'the 2nd pair of eyes — approve / reject / send back / assign' },
-  { key: 'analyst', label: 'Analyst', hint: 'data & filings, raises approvals' },
+const ROLES: { key: string; label: string; does: string }[] = [
+  { key: 'admin', label: 'Administrator', does: 'Set-up, people and everything else' },
+  { key: 'approver', label: 'Approver', does: 'The second person: approves, rejects, sends back and routes' },
+  { key: 'analyst', label: 'Analyst', does: 'Data and filings; asks for approval' },
 ]
 const DEMOS = [
   { label: 'Bank', sub: 'financed assets', tenant: 'meridian' },
@@ -95,7 +95,7 @@ export default function Login() {
       const { DEMO_ROLE_PASSWORDS } = await import('../lib/demoLogin')
       await login(`${role}@${tenant}.demo`, DEMO_ROLE_PASSWORDS[role])   // login() reloads on success
     }
-    catch { setErr(`Could not open the demo tenant as ${role}.`); setBusy(false) }
+    catch { setErr('The demo workspace could not be opened.'); setBusy(false) }
   }
 
   return (
@@ -105,7 +105,7 @@ export default function Login() {
           <BrandMark size={40} />
           <div>
             <Wordmark className="block text-2xl leading-none" />
-            <div className="mono text-[10px] tracking-[0.25em] text-[var(--color-blue)] mt-1">LIGHT ON THE EARTH</div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-blue)] mt-1">Light on the Earth</div>
           </div>
         </div>
 
@@ -182,24 +182,25 @@ export default function Login() {
         </div>
 
         {DEMO_LOGIN && <div className="mt-5">
-          <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-2">Jump into a demo sector</div>
+          <div className="text-[12px] text-[var(--color-mute)] mb-2">Open a demo workspace</div>
           {/* pick the role first — approver reaches the maker-checker decision + assignment flow */}
           <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line)] mb-1">
             {ROLES.map(rr => (
               <button key={rr.key} onClick={() => setRole(rr.key)} type="button"
-                className={`flex-1 rounded-md py-1.5 mono text-[11px] transition ${role === rr.key ? 'bg-[var(--color-bg-2)] text-[var(--color-sky)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{rr.label}</button>
+                aria-pressed={role === rr.key}
+                className={`flex-1 rounded-md py-1.5 text-[12px] transition ${role === rr.key ? 'bg-[var(--color-bg-2)] text-[var(--color-sky)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{rr.label}</button>
             ))}
           </div>
-          <div className="mono text-[10px] text-[var(--color-faint)] mb-2.5 h-3.5">{ROLES.find(r => r.key === role)?.hint}</div>
+          <div className="text-[11.5px] text-[var(--color-faint)] mb-2.5 min-h-3.5">{ROLES.find(r => r.key === role)?.does}</div>
           <div className="flex flex-col gap-2">
             {DEMOS.map(d => (
               <button key={d.tenant} onClick={() => demoLogin(d.tenant)} disabled={busy}
                 className="w-full text-left card px-4 py-2.5 hover:border-[var(--color-sky)] transition disabled:opacity-60 flex items-center justify-between gap-3">
                 <span>
                   <span className="text-[13px] text-[var(--color-ink)]">{d.label}</span>
-                  <span className="text-[var(--color-faint)] mono text-[11px]"> · {d.sub}</span>
+                  <span className="text-[var(--color-faint)] text-[11.5px]"> · {d.sub}</span>
                 </span>
-                <span className="mono text-[11px] text-[var(--color-sky)] shrink-0">open as {role} →</span>
+                <span className="text-[11.5px] text-[var(--color-sky)] shrink-0">Open as {ROLES.find(r => r.key === role)?.label.toLowerCase()} →</span>
               </button>
             ))}
           </div>

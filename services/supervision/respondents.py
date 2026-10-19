@@ -14,6 +14,7 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core.errors import UserError
 from services.governance.tenant_provisioning import role_templates_for
 
 
@@ -22,9 +23,10 @@ def create_respondent(session, *, regulator_org_id: str, cfg: dict, name: str, o
     """Organisation (plan 'respondent') + respondent role + scope + invited contact. Refuses a sector outside the profile."""
     from services.supervision.scope import add as add_scope
     if org_type not in cfg["sectors"]:
-        raise ValueError(f"{org_type} is outside your profile ({cfg['label']}).")
+        from services.supervision.profiles import sector_label
+        raise UserError("admin.supervision.sector_outside", sector=sector_label(org_type) or "This sector", profile=cfg["label"])
     if session.execute(text("SELECT 1 FROM organizations WHERE lower(name) = lower(:n)"), {"n": name.strip()}).first():
-        raise ValueError("An organisation with this name already exists on the platform — add it to your population instead.")
+        raise UserError("admin.supervision.name_exists", name=name.strip())
     org_id = str(uuid.uuid4())
     session.execute(text("""INSERT INTO organizations (org_id, name, type, country, legal_name, lei, plan, created_at, updated_at)
                             VALUES (CAST(:o AS uuid), :n, :t, :c, :ln, :lei, 'respondent', now(), now())"""),
@@ -48,7 +50,7 @@ def invite_contact(session, *, regulator_org_id: str, supervised_org_id: str, em
     email = email.strip().lower()
     existing = session.execute(text("SELECT user_id::text, status FROM users WHERE org_id = CAST(:o AS uuid) AND lower(email) = :e"), {"o": supervised_org_id, "e": email}).mappings().first()
     if existing and existing["status"] == "active":
-        raise ValueError("This person already has an active account at the entity.")
+        raise UserError("admin.supervision.contact_active", email=email)
     if existing:
         user_id = existing["user_id"]
         session.execute(text("UPDATE users SET full_name = COALESCE(:fn, full_name) WHERE user_id = CAST(:u AS uuid)"), {"fn": full_name, "u": user_id})

@@ -14,7 +14,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.services.rbac import write_audit
+from core import messages
 from core.config import settings
+from core.errors import UserError
 
 # The price book's currency: every plan price and every invoice is in it. Amounts are in its minor units (ISO 4217
 # minor_units: cents for EUR) — the screen formats them from the invoice's own currency, never assumes €.
@@ -30,8 +32,8 @@ PLANS = {
 }
 
 
-class BillingError(ValueError):
-    pass
+class BillingError(UserError):
+    """A plan or seat refusal in customer words: a catalogue code with its values (core/errors.py)."""
 
 
 def _now() -> datetime:
@@ -62,7 +64,7 @@ def enforce_seat(session: Session, org_id: str) -> None:
     if not sub:
         return
     if _active_users(session, org_id) >= sub[0]:
-        raise BillingError(f"seat limit reached ({sub[0]} seats). Upgrade your plan to add more users.")
+        raise BillingError("admin.users.seat_limit", seats=sub[0])
 
 
 def get_billing(session: Session, org_id: str) -> dict:
@@ -72,25 +74,30 @@ def get_billing(session: Session, org_id: str) -> dict:
         SELECT number, amount_cents, currency, status, created_at FROM invoice
         WHERE org_id = CAST(:o AS uuid) ORDER BY created_at DESC, invoice_id LIMIT 24
     """), {"o": org_id}).mappings().all()
+    status = messages.names()["admin.subscription_status"]
+    provider = "stripe" if settings.STRIPE_API_KEY else "manual"
     return {
-        "subscription": dict(sub) if sub else None,
+        "subscription": ({**dict(sub), "plan_label": PLANS.get(sub["plan"], {}).get("label"),
+                          "status_label": status.get(sub["status"])} if sub else None),
         "seats_used": _active_users(session, org_id),
         "plans": [{"key": k, **v} for k, v in PLANS.items()],
         "price_currency": PRICE_CURRENCY,
-        "invoices": [dict(i) for i in invoices],
-        "billing_provider": "stripe" if settings.STRIPE_API_KEY else "manual",
+        "invoices": [{**dict(i), "status_label": messages.name("admin.invoice_status", i["status"])} for i in invoices],
+        "billing_provider": provider,
+        "billing_note": messages.render(f"admin.billing.{provider}"),
+        "plan_note": None if sub else messages.render("admin.billing.no_plan"),
     }
 
 
 def change_plan(session: Session, org_id: str, *, plan: str, actor_user_id: str) -> dict:
     if plan not in PLANS:
-        raise BillingError(f"unknown plan '{plan}'")
+        raise BillingError("admin.billing.unknown_plan")
     p = PLANS[plan]
     if not p["self_serve"]:
-        raise BillingError(f"The {p['label']} plan is agreed with our team. Raise a request in Support and we'll be in touch.")
+        raise BillingError("admin.billing.agreed", plan=p["label"])
     used = _active_users(session, org_id)
     if used > p["seats"]:
-        raise BillingError(f"your {used} users exceed the {p['label']} plan's {p['seats']} seats — remove users or pick a larger plan")
+        raise BillingError("admin.billing.too_many_users", plan=p["label"], used=used, seats=p["seats"])
     ensure_subscription(session, org_id, plan=plan)
     session.execute(text("""
         UPDATE subscription SET plan = :plan, seats = :seats, status = :st, updated_at = now()

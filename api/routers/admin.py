@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, Pagination, require_permission
 from api.security import hash_password
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
+from services.governance import admin_view as V
 
 router = APIRouter(prefix="/v1/admin", tags=["Admin"])
 
@@ -48,7 +51,7 @@ def _list_users(session, org_id: str) -> list[dict]:
     """), {"o": org_id}).mappings().all()
     return [{
         "id": str(r["user_id"]), "email": r["email"], "full_name": r["full_name"],
-        "status": r["status"],
+        "status": r["status"], "status_label": messages.name("admin.user_status", r["status"]),
         "last_login_at": r["last_login_at"].isoformat() if r["last_login_at"] else None,
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         "roles": list(r["roles"]),
@@ -77,13 +80,10 @@ def create_user(body: UserCreate, session: DbSession,
         "SELECT 1 FROM users WHERE org_id = :o AND lower(email) = lower(:e)"
     ), {"o": org_id, "e": body.email}).first()
     if exists:
-        raise HTTPException(409, {"error": "email_taken", "message": "A user with that email already exists."})
+        raise UserError("admin.users.email_taken", email=body.email)
 
     from services.governance import billing
-    try:
-        billing.enforce_seat(session, org_id)   # no-op for tenants without a subscription (legacy)
-    except billing.BillingError as e:
-        raise HTTPException(402, {"error": "seat_limit", "message": str(e)})
+    billing.enforce_seat(session, org_id)   # no-op for tenants without a subscription (legacy); full: a catalogue error
 
     role_ids = _valid_role_ids(session, org_id, body.role_ids)
     primary_role = session.execute(text(
@@ -116,7 +116,7 @@ def patch_user(user_id: str, body: UserPatch, session: DbSession,
         "SELECT full_name, status FROM users WHERE user_id = :u AND org_id = :o"
     ), {"u": user_id, "o": org_id}).mappings().first()
     if not before:
-        raise HTTPException(404, {"error": "not_found", "message": "User not found in your organization."})
+        raise UserError("admin.users.not_found")
 
     if body.full_name is not None:
         session.execute(text("UPDATE users SET full_name = :v WHERE user_id = :u"),
@@ -160,7 +160,9 @@ def list_roles(session: DbSession, ctx: dict = Depends(require_permission("admin
         GROUP  BY r.role_id
         ORDER  BY r.name
     """), {"o": ctx["org"]["org_id"]}).mappings().all()
-    return [{"id": str(r["role_id"]), "name": r["name"], "description": r["description"],
+    from services.supervision.profiles import role_templates
+    sup = role_templates()
+    return [{"id": str(r["role_id"]), "name": r["name"], "label": V.role_label(r["name"], sup),
              "is_system": r["is_system"], "permissions": list(r["perms"])} for r in rows]
 
 
@@ -169,7 +171,7 @@ def list_permissions(session: DbSession, ctx: dict = Depends(require_permission(
     rows = session.execute(text(
         "SELECT code, description FROM permissions ORDER BY code"
     )).mappings().all()
-    return [{"code": r["code"], "description": r["description"]} for r in rows]
+    return [V.permission_view(r["code"], r["description"]) for r in rows]
 
 
 @router.patch("/roles/{role_id}/permissions", summary="Replace a role's permissions")
@@ -180,7 +182,7 @@ def set_role_permissions(role_id: str, body: RolePermsPatch, session: DbSession,
         "SELECT name FROM roles WHERE role_id = :r AND org_id = :o"
     ), {"r": role_id, "o": org_id}).scalar()
     if not role:
-        raise HTTPException(404, {"error": "not_found", "message": "Role not found in your organization."})
+        raise UserError("admin.roles.not_found")
 
     session.execute(text("DELETE FROM role_permissions WHERE role_id = :r"), {"r": role_id})
     for code in body.permission_codes:
@@ -225,17 +227,9 @@ def audit(session: DbSession, page: Pagination,
 
 # ── Approval matrix ────────────────────────────────────────────────────
 
-_POLICY_LABELS = {
-    "supply.site.update": "Edit an operational site",
-    "supply.site.delete": "Delete an operational site",
-    "supply.plot.update": "Edit a sourcing plot",
-    "supply.plot.delete": "Delete a sourcing plot",
-    # calc/reporting config changes drive what a filing shows — governable with 4-eyes (audit T6)
-    "config.reporting_settings": "Change the reporting basis (scenario / horizon / materiality / period)",
-    "config.calc_settings": "Change a calculation method (VaR / severity / return-period)",
-    "config.kri_appetite": "Change a risk-appetite band (amber / red / direction on a KRI)",
-    "risk.decision": "Act on a forward-risk exposure (reprice / engage / disclose)",
-}
+# The changes the matrix governs, each named by the catalogue (names "admin.policy"): site and plot edits, the config
+# changes that drive what a filing shows (reporting basis, methodology choices, appetite bands — audit T6) and
+# forward-risk decisions. An action the catalogue does not name cannot be set.
 # actions that support a value THRESHOLD (only decisions above the line need a second approval)
 _POLICY_THRESHOLD_ACTIONS = {"risk.decision"}
 
@@ -258,9 +252,10 @@ def get_approval_policy(session: DbSession, ctx: dict = Depends(require_permissi
         ORDER  BY action_key, org_id NULLS LAST
     """), {"o": org_id}).mappings().all()
     return [{
-        "action_key": r["action_key"], "label": _POLICY_LABELS.get(r["action_key"], r["action_key"]),
+        "action_key": r["action_key"], "label": V.policy_label(r["action_key"]),
         "requires_approval": bool(r["requires_approval"]),
         "material_fields": list(r["material_fields"] or []),
+        "material": V.material_view(list(r["material_fields"] or [])),
         "supports_threshold": r["action_key"] in _POLICY_THRESHOLD_ACTIONS,
         "threshold_eur": float(r["threshold_eur"]) if r["threshold_eur"] is not None else None,
         "org_override": bool(r["org_override"]),
@@ -272,8 +267,8 @@ def set_approval_policy(body: PolicyPatch, session: DbSession,
                         ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
     import json
     org_id = ctx["org"]["org_id"]
-    if body.action_key not in _POLICY_LABELS:
-        raise HTTPException(422, {"error": "unknown_action", "message": f"Unknown action: {body.action_key}"})
+    if body.action_key not in V.policy_actions():
+        raise UserError("admin.matrix.unknown_action")
     mats = body.material_fields if body.material_fields is not None else []
     thr = body.threshold_eur if body.action_key in _POLICY_THRESHOLD_ACTIONS else None
     session.execute(text("""
@@ -291,10 +286,12 @@ def set_approval_policy(body: PolicyPatch, session: DbSession,
     # pending requests this rule no longer governs are withdrawn (flagged + audited, never applied, never decidable)
     from services.governance.approval_policy_sweep import withdraw_moot_requests
     withdrawn = withdraw_moot_requests(session, org_id=org_id, action_key=body.action_key, actor_user_id=ctx["user"]["id"],
-                                      label=_POLICY_LABELS[body.action_key])
+                                      label=V.policy_label(body.action_key))
     return {"action_key": body.action_key, "requires_approval": body.requires_approval,
             "material_fields": mats, "threshold_eur": thr, "org_override": True,
-            "withdrawn_request_ids": withdrawn}
+            "withdrawn_request_ids": withdrawn,
+            "withdrawn": (messages.render("admin.matrix.withdrawn", n=len(withdrawn), action=V.policy_label(body.action_key))
+                          if withdrawn else None)}
 
 
 # ── Decision playbook: which decision → which automated downstream actions (on approval) ──────────────────
@@ -335,7 +332,7 @@ def set_decision_playbook(body: PlaybookPatch, session: DbSession,
     try:
         row = set_playbook(session, ctx["org"]["org_id"], ctx["user"]["id"], body.action, patch)
     except DecisionError as e:
-        raise HTTPException(422, {"error": "bad_request", "message": str(e)})
+        raise UserError("admin.playbook.refused") from e
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="decision_playbook.update",
                 target_type="decision_playbook", target_id=body.action, detail=patch)
     return {"action": body.action, **row}
@@ -367,7 +364,7 @@ def get_kri_appetite(session: DbSession, framework: Optional[str] = None,
     from services.governance.kri import kri_frameworks
     fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: Taxonomy + Pillar 3 ESG)
     if not fws:
-        return {"supported": False, "message": "No KRI dashboard for this organisation type."}
+        return {"supported": False, "about": messages.render("admin.appetite.unsupported")}
     fw = framework if framework in {f["framework"] for f in fws} else fws[0]["framework"]
     data = build_kri(session, ctx["org"]["org_id"], fw)      # live KRIs, already graded against current bands
     kpis = [{"key": k["key"], "label": k["label"], "fmt": k["fmt"], "value": k.get("value"),
@@ -384,7 +381,7 @@ def set_kri_appetite(body: KriThresholdPatch, session: DbSession,
     from services.governance import kri_thresholds
     fw = body.framework or _KRI_FRAMEWORK.get(ctx["org"].get("type"))
     if not fw:
-        raise HTTPException(422, {"error": "bad_request", "message": "No KRI framework for this organisation type."})
+        raise UserError("admin.appetite.no_framework")
     patch = {k: v for k, v in body.model_dump().items() if k not in ("kri_key", "framework", "reason") and v is not None}
     from services.governance.config_governance import submit_or_apply_config
     out = submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], request_type="config.kri_appetite",
@@ -461,7 +458,9 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
         WHERE u.org_id=:o AND u.status='active' AND p.code='approvals.decide'
     """), {"o": org_id}).scalar()
     pending = session.execute(text("SELECT count(*) FROM approval_requests WHERE org_id=:o AND status='pending'"), {"o": org_id}).scalar()
-    audit_30d = session.execute(text("SELECT count(*) FROM access_audit_log WHERE org_id=:o AND created_at > now() - interval '30 days'"), {"o": org_id}).scalar()
+    audit_window_days = 30                   # the audit tile counts the changes of this many days (sent with the count)
+    audit_30d = session.execute(text("SELECT count(*) FROM access_audit_log WHERE org_id=:o AND created_at > now() - make_interval(days => :d)"),
+                                {"o": org_id, "d": audit_window_days}).scalar()
     entitlements = session.execute(text("SELECT offering_id FROM org_entitlements WHERE org_id=:o ORDER BY offering_id"), {"o": org_id}).scalars().all()
 
     # readiness checklist — the "is my house in order" signal (each item pass/fail + a hint).
@@ -471,7 +470,8 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
     return {
         "organization": {
             "name": org["name"] if org else None, "legal_name": org["legal_name"] if org else None,
-            "type": org["type"] if org else None, "country": org["country"] if org else None,
+            "type": org["type"] if org else None, "type_label": V.sector_label(org["type"]) if org else None,
+            "country": org["country"] if org else None,
             "lei": org["lei"] if org else None, "eori": org["eori"] if org else None,
             "filing_contact_email": org["filing_contact_email"] if org else None,
             "operator_address": org["operator_address"] if org else None,
@@ -481,9 +481,11 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
             "sites": {"total": sites["n"], "scored": sites["scored"], "elevated": sites["elevated"], "value_eur": float(sites["value_eur"] or 0)},
             "plots": {"total": plots["n"], "eudr_covered": plots["eudr_covered"], "eudr_read": eudr_read, "needs_polygon": plots["needs_polygon"]},
         },
-        "governance": {"pending_approvals": pending, "audit_events_30d": audit_30d, "second_approver": (n_approvers or 0) >= 2},
+        "governance": {"pending_approvals": pending, "audit_events_30d": audit_30d, "audit_window_days": audit_window_days,
+                       "second_approver": (n_approvers or 0) >= 2},
         "access": {"users": users["n"], "active": users["active"], "ever_logged_in": users["ever_logged_in"]},
         "entitlements": list(entitlements),
+        "offerings": V.offering_view(list(entitlements)),
     }
 
 
@@ -498,7 +500,7 @@ class ReportingSettingsPatch(BaseModel):
 @router.get("/reporting-settings", summary="The org's reporting basis (period, scenario, horizon, currency)")
 def get_reporting_settings(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from services.governance.reporting_settings import get_settings
-    return get_settings(session, ctx["org"]["org_id"])
+    return {**get_settings(session, ctx["org"]["org_id"]), "options": V.basis_options()}
 
 
 @router.patch("/reporting-settings", summary="Set the org's reporting basis (audited; 4-eyes if the matrix requires it)")
@@ -507,13 +509,14 @@ def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
     org_id = ctx["org"]["org_id"]
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     if not changes:
-        raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+        raise UserError("admin.basis.no_changes")
+    V.check_basis(changes)                   # a scenario or horizon the platform computes — never a free string
     if "presentation_currency" in changes:   # checked before it can go to an approver
         from services.intake.money import MoneyError, validate_declaration
         try:
             changes["presentation_currency"], _ = validate_declaration(session, changes["presentation_currency"], None)
         except MoneyError as e:
-            raise HTTPException(400, {"error": "bad_currency", "message": str(e)}) from e
+            raise UserError("admin.basis.bad_currency", currency=changes["presentation_currency"].upper()) from e
     # the r²≥0.40 publish gate is intentionally NOT settable here — it's an honesty constant, not a knob.
     # Governed through the same audit + 4-eyes machinery as location edits (audit T6). Direct-apply by
     # default; needs a second approver only if the org toggles 'config.reporting_settings' in the matrix.
@@ -539,7 +542,7 @@ def refresh_feed(feed_key: str, session: DbSession, ctx: dict = Depends(require_
     try:
         res = refresh_one(session, feed_key, actor_user_id=ctx["user"]["id"])
     except ValueError as e:
-        raise HTTPException(422, {"error": "unknown_feed", "message": str(e)})
+        raise UserError("admin.feeds.unknown") from e
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="data_feed.refresh", target_type="data_feed", target_id=feed_key,
                 detail={"invalidates_basis": res["invalidates_basis"]})
@@ -558,8 +561,7 @@ def registry_search(q: str, session: DbSession, ctx: dict = Depends(require_perm
     try:
         recs = gleif.search_entities(q, limit=8)
     except gleif.GleifError as e:
-        raise HTTPException(502, {"error": "registry_unreachable",
-                                  "message": f"The LEI registry (GLEIF) could not be reached: {e}"})
+        raise UserError("admin.identity.registry_unreachable") from e
     return {"query": q, "source": "GLEIF", "results": [
         {"lei": r.lei, "legal_name": r.name, "country": r.country, "jurisdiction": r.jurisdiction,
          "status": r.entity_status, "address": gleif.registered_address(r)}
@@ -572,13 +574,7 @@ def patch_organization(body: OrgPatch, session: DbSession,
     org_id = ctx["org"]["org_id"]
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     if not changes:
-        raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
-    if "presentation_currency" in changes:   # checked before it can go to an approver
-        from services.intake.money import MoneyError, validate_declaration
-        try:
-            changes["presentation_currency"], _ = validate_declaration(session, changes["presentation_currency"], None)
-        except MoneyError as e:
-            raise HTTPException(400, {"error": "bad_currency", "message": str(e)}) from e
+        raise UserError("admin.identity.no_changes")
     if "lei" in changes:                     # the one LEI check (E143): as the filing profile and a fund's LEI
         from services.reference import gleif
         held = session.execute(text("SELECT lei FROM organizations WHERE org_id = :o"), {"o": org_id}).scalar()
@@ -591,7 +587,7 @@ def patch_organization(body: OrgPatch, session: DbSession,
             try:
                 changes["lei"] = gleif.verified_lei(new).lei
             except gleif.LeiError as e:
-                raise HTTPException(422, {"error": "invalid_lei", "message": str(e)}) from e
+                raise V.lei_refusal(new, e) from e
         if not changes:
             return {"ok": True, "changes": {}}
     cols = {"legal_name", "lei", "eori", "filing_contact_email", "operator_address"}
@@ -611,7 +607,7 @@ def patch_organization(body: OrgPatch, session: DbSession,
 
 class TenantCreate(BaseModel):
     name:                 str = Field(..., min_length=2, max_length=200)
-    org_type:             str = Field(..., pattern="^(bank|insurer|asset_manager|reit|manufacturer)$")
+    org_type:             str = Field(..., max_length=40)   # one of tenant_provisioning.VALID_ORG_TYPES, checked there
     country:              Optional[str] = Field(None, max_length=2)
     legal_name:           Optional[str] = Field(None, max_length=255)
     lei:                  Optional[str] = Field(None, max_length=20)
@@ -625,8 +621,10 @@ class TenantCreate(BaseModel):
 @router.get("/tenants/catalog", summary="Sector types + offering catalog for the tenant-create form")
 def tenants_catalog(ctx: dict = Depends(require_permission("platform.admin"))):
     from services.governance.tenant_provisioning import DEFAULT_ENTITLEMENTS, VALID_ORG_TYPES
-    return {"org_types": sorted(VALID_ORG_TYPES), "default_entitlements": DEFAULT_ENTITLEMENTS,
-            "offerings": sorted({o for offs in DEFAULT_ENTITLEMENTS.values() for o in offs})}
+    offerings = sorted({o for offs in DEFAULT_ENTITLEMENTS.values() for o in offs})
+    return {"org_types": sorted(VALID_ORG_TYPES), "default_entitlements": DEFAULT_ENTITLEMENTS, "offerings": offerings,
+            "sector_names": {t: V.sector_label(t) for t in VALID_ORG_TYPES},
+            "offering_names": {o["key"]: o["label"] for o in V.offering_view(offerings)}}
 
 
 @router.get("/tenants", summary="Every client tenant (platform view)")
@@ -644,15 +642,16 @@ def list_tenants(session: DbSession, ctx: dict = Depends(require_permission("pla
 
 @router.post("/tenants", status_code=201, summary="Provision a new client tenant")
 def create_tenant_ep(body: TenantCreate, session: DbSession, ctx: dict = Depends(require_permission("platform.admin"))):
-    from services.governance.tenant_provisioning import TenantError, create_tenant
-    try:
-        return create_tenant(
-            session, actor_user_id=ctx["user"]["id"], name=body.name, org_type=body.org_type, country=body.country,
-            legal_name=body.legal_name, lei=body.lei, filing_contact_email=body.filing_contact_email,
-            entitlements=body.entitlements, admin_email=body.admin_email, admin_full_name=body.admin_full_name,
-            admin_password=body.admin_password)
-    except TenantError as e:
-        raise HTTPException(status_code=409, detail={"error": "tenant_error", "message": str(e)})
+    from services.governance.tenant_provisioning import create_tenant
+    # a refusal (no name or country, a name or e-mail already taken, an LEI the registry does not hold) is a
+    # catalogue error: TenantError
+    out = create_tenant(
+        session, actor_user_id=ctx["user"]["id"], name=body.name, org_type=body.org_type, country=body.country,
+        legal_name=body.legal_name, lei=body.lei, filing_contact_email=body.filing_contact_email,
+        entitlements=body.entitlements, admin_email=body.admin_email, admin_full_name=body.admin_full_name,
+        admin_password=body.admin_password)
+    return {**out, "type_label": V.sector_label(out["type"]), "offerings": V.offering_view(out["entitlements"]),
+            "role_labels": [V.role_label(r) for r in out["roles"]]}
 
 
 # ── Onboarding tracker — the guided go-live checklist for a tenant ──────────────────────────────────────────
@@ -661,7 +660,7 @@ def onboarding(session: DbSession, ctx: CurrentUser, org_id: Optional[str] = Que
     """An org admin sees their own tenant's onboarding; a platform admin may pass ?org_id to inspect any tenant."""
     perms = ctx["permissions"]
     if "admin.users.manage" not in perms and "platform.admin" not in perms:
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission"})
+        raise UserError("error.forbidden")
     target = org_id if (org_id and "platform.admin" in perms) else ctx["org"]["org_id"]
     from services.governance.onboarding import onboarding_status
     return onboarding_status(session, target)

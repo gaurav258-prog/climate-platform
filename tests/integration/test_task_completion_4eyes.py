@@ -54,8 +54,9 @@ def test_direct_move_to_done_is_refused():
     with get_session() as s:
         u = _actor(s)
         tid = _task_in_review(s, u)
-        with pytest.raises(T.TaskError, match="4-eyes approval"):
+        with pytest.raises(T.TaskError) as refused:
             T.move_task(s, BANK_ORG, tid, u, "done", ["reviewed by a second person", "recorded"])
+        assert refused.value.code == "admin.tasks.done_needs_approval"
         s.rollback()
 
 
@@ -80,12 +81,14 @@ def test_request_completion_needs_a_note_and_task_in_review():
     with get_session() as s:
         u = _actor(s)
         tid = _task_in_review(s, u)
-        with pytest.raises(T.TaskError, match="Record what the outcome"):
+        with pytest.raises(T.TaskError) as refused:
             T.request_completion(s, BANK_ORG, tid, u, "   ")
+        assert refused.value.code == "admin.tasks.no_outcome"
         # not in Review yet
         t2 = T.create_task(s, BANK_ORG, u, title="Still in todo")
-        with pytest.raises(T.TaskError, match="must be in Review"):
+        with pytest.raises(T.TaskError) as refused:
             T.request_completion(s, BANK_ORG, t2["task_id"], u, "done")
+        assert refused.value.code == "admin.tasks.not_in_review"
         s.rollback()
 
 
@@ -95,8 +98,9 @@ def test_duplicate_completion_request_refused():
         u = _actor(s)
         tid = _task_in_review(s, u)
         T.request_completion(s, BANK_ORG, tid, u, "first request")
-        with pytest.raises(T.TaskError, match="already pending"):
+        with pytest.raises(T.TaskError) as refused:
             T.request_completion(s, BANK_ORG, tid, u, "second request")
+        assert refused.value.code == "admin.tasks.already_pending"
         s.rollback()
 
 
@@ -131,8 +135,9 @@ def test_complete_via_approval_refuses_if_task_moved_away_from_review():
         tid = _task_in_review(s, maker)
         T.request_completion(s, BANK_ORG, tid, maker, "Filed and accepted.")
         T.move_task(s, BANK_ORG, tid, maker, "doing")   # dragged back before the checker acts
-        with pytest.raises(T.TaskError, match="no longer in Review"):
+        with pytest.raises(T.TaskError) as refused:
             T._complete_via_approval(s, BANK_ORG, tid, checker, "Filed and accepted.")
+        assert refused.value.code == "admin.tasks.stale_completion"
         s.rollback()
 
 

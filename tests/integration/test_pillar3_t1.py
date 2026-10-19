@@ -138,12 +138,13 @@ def _set_aside_and_state(api) -> dict:
 def test_the_switches_are_offered_with_their_quotes_and_refuse_anything_else(api):
     h = _login(api, *ADMIN)
     cat = {c["key"]: c for c in api.get("/v1/calc-settings/catalog", headers=h).json()["interpretation"]}
+    # the statement's quoted instructions travel with it, one click away on the screen (its "law")
     assert cat[T1.ATTRIBUTION]["default"] is None and cat[T1.ATTRIBUTION]["allowed"] == ["exposure_over_total_liabilities"]
-    assert "total liabilities (accounting liabilities and shareholders’ equity)" in cat[T1.ATTRIBUTION]["description"]
+    assert "total liabilities (accounting liabilities and shareholders’ equity)" in " ".join(cat[T1.ATTRIBUTION]["law"])
     assert cat[T1.ESTIMATION]["allowed"] == ["scope_1_2_3", "scope_1_2", "not_yet_estimating"]
     assert cat[T1.K_READING]["default"] is None and cat[T1.K_READING]["allowed"] == ["scopes_estimated", "all_three_scopes"]
-    assert "scope 1, 2 and 3 emissions" in cat[T1.K_READING]["description"]
-    assert cat[T1.S3_BASIS]["default"] is None and "sector-average emissions intensity" in cat[T1.S3_BASIS]["description"]
+    assert "scope 1, 2 and 3 emissions" in " ".join(cat[T1.K_READING]["law"])
+    assert cat[T1.S3_BASIS]["default"] is None and "sector-average emissions intensity" in " ".join(cat[T1.S3_BASIS]["law"])
     for key, bad in ((T1.ATTRIBUTION, "pcaf"), (T1.S3_BASIS, "revenue")):
         assert api.patch("/v1/calc-settings", headers=h, json={"interpretation": {key: bad}}).status_code == 422
 

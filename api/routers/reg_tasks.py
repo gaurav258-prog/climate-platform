@@ -5,7 +5,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -143,12 +143,9 @@ def exceptions(session: DbSession, ctx: dict = Depends(require_permission("repor
 @router.post("/exceptions/spin-task", status_code=201, summary="Turn an exception into a task")
 def spin_task(body: SpinTask, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
     from services.governance.exception_monitor import spin_task as _spin
-    try:
-        return _spin(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id=body.filing_id,
-                     rule=body.rule, message=body.message, severity=body.severity,
-                     assignee_user_id=body.assignee_user_id)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return _spin(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id=body.filing_id,
+                 rule=body.rule, message=body.message, severity=body.severity,
+                 assignee_user_id=body.assignee_user_id)
 
 
 class KriTask(BaseModel):
@@ -199,13 +196,10 @@ def supply_spin_task(body: SupplyTask, session: DbSession, ctx: dict = Depends(r
             + (f"{body.detail}\n" if body.detail else "")
             + f"Action: {body.action}. Raised from the agriculture early-warning / COGS-at-risk surface — "
               "assess re-sourcing, supplier engagement, or mitigation.")
-    try:
-        # source='decision' (an allowed task source): an agri supply signal → a decision to act. source_ref
-        # namespaced 'supply:' so it never collides with a financial-vertical forward-risk decision.
-        task = T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
-                             criticality="high", source="decision", source_ref=f"supply:{body.commodity}:{body.action}")
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    # source='decision' (an allowed task source): an agri supply signal → a decision to act. source_ref
+    # namespaced 'supply:' so it never collides with a financial-vertical forward-risk decision.
+    task = T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
+                         criticality="high", source="decision", source_ref=f"supply:{body.commodity}:{body.action}")
     return task
 
 
@@ -231,13 +225,10 @@ def members(session: DbSession, ctx: dict = Depends(require_permission("reports.
 
 @router.post("", status_code=201, summary="Create a task")
 def create(body: TaskCreate, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        return T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=body.title,
-                             description=body.description, criticality=body.criticality,
-                             assignee_user_id=body.assignee_user_id, filing_id=body.filing_id,
-                             due_date=body.due_date, depends_on=body.depends_on)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=body.title,
+                         description=body.description, criticality=body.criticality,
+                         assignee_user_id=body.assignee_user_id, filing_id=body.filing_id,
+                         due_date=body.due_date, depends_on=body.depends_on)
 
 
 @router.get("/mentions", summary="My unread @mentions across the board")
@@ -249,56 +240,41 @@ def mentions(session: DbSession, ctx: dict = Depends(require_permission("reports
 def get(task_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     t = T.get_task(session, ctx["org"]["org_id"], task_id)
     if not t:
-        raise HTTPException(404, {"error": "not_found", "message": "Task not found."})
+        raise UserError("admin.tasks.not_found")
     return t
 
 
 @router.post("/{task_id}/move", summary="Move a task to another column")
 def move(task_id: str, body: TaskMove, session: DbSession,
          ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        return T.move_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.status, body.attestations)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.move_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.status, body.attestations)
 
 
 @router.post("/{task_id}/request-completion", status_code=201,
             summary="Request 4-eyes sign-off to move a Review task to Done (see POST /v1/approvals/{id}/decide)")
 def request_completion(task_id: str, body: TaskCompletionRequest, session: DbSession,
                        ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        return T.request_completion(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.note)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.request_completion(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.note)
 
 
 @router.patch("/{task_id}", summary="Edit a task's fields")
 def update(task_id: str, body: TaskUpdate, session: DbSession,
            ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        return T.update_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], title=body.title,
-                             description=body.description, criticality=body.criticality,
-                             due_date=body.due_date, clear_due=body.clear_due)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.update_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], title=body.title,
+                         description=body.description, criticality=body.criticality,
+                         due_date=body.due_date, clear_due=body.clear_due)
 
 
 @router.post("/{task_id}/comment", summary="Add a comment to a task")
 def comment(task_id: str, body: TaskComment, session: DbSession,
             ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        return T.comment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.body, body.mentions)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.comment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.body, body.mentions)
 
 
 @router.post("/{task_id}/assign", summary="Assign (or unassign) a task")
 def assign(task_id: str, body: TaskAssign, session: DbSession,
            ctx: dict = Depends(require_permission("approvals.create"))):
-    try:
-        return T.assign_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.assignee_user_id)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.assign_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.assignee_user_id)
 
 
 # ── attachments ──────────────────────────────────────────────────────────────────────────────────────────
@@ -306,11 +282,8 @@ def assign(task_id: str, body: TaskAssign, session: DbSession,
 async def upload_attachment(task_id: str, session: DbSession, file: UploadFile = File(...),
                             ctx: dict = Depends(require_permission("approvals.create"))):
     data = await file.read()
-    try:
-        return T.add_attachment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"],
-                                filename=file.filename or "file", content_type=file.content_type, data=data)
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return T.add_attachment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"],
+                            filename=file.filename or "file", content_type=file.content_type, data=data)
 
 
 @router.get("/{task_id}/attachments", summary="List a task's attachments")
@@ -323,7 +296,7 @@ def download_attachment(task_id: str, attachment_id: str, session: DbSession,
                         ctx: dict = Depends(require_permission("reports.view"))):
     a = T.get_attachment(session, ctx["org"]["org_id"], task_id, attachment_id)
     if not a:
-        raise HTTPException(404, {"error": "not_found", "message": "Attachment not found."})
+        raise UserError("admin.tasks.attachment_not_found")
     disp = attachment(a["filename"])
     return Response(content=a["data"], media_type=a["content_type"], headers={"Content-Disposition": disp})
 

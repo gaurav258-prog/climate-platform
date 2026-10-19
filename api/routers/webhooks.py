@@ -6,11 +6,13 @@ approval-decide tap in api/routers/approvals.py).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
 from services.integrations import webhooks as wh
 
 router = APIRouter(prefix="/v1/webhooks", tags=["Integration"])
@@ -21,26 +23,25 @@ class EndpointCreate(BaseModel):
     name:   str = Field(..., min_length=2, max_length=80)
     events: list[str] = Field(default_factory=list, description="Event types to receive; empty = all.")
 
-    @field_validator("url")
-    @classmethod
-    def _http(cls, v: str) -> str:
-        if not (v.startswith("https://") or v.startswith("http://")):
-            raise ValueError("url must start with http:// or https://")
-        return v
+
+def _event_name(event_type: str) -> str:
+    """An event's short customer name (names "admin.event"); its long description is the catalogue entry's label."""
+    return messages.name("admin.event", event_type)
 
 
 @router.get("/events", summary="The catalogue of webhook event types")
 def events(ctx: dict = Depends(require_permission("admin.users.manage"))):
-    return {"events": wh.KNOWN_EVENTS}
+    return {"events": [{**e, "name": _event_name(e["type"])} for e in wh.KNOWN_EVENTS]}
 
 
 @router.post("", status_code=201, summary="Register a webhook endpoint (signing secret shown once)")
 def create_endpoint(body: EndpointCreate, session: DbSession,
                     ctx: dict = Depends(require_permission("admin.users.manage"))):
+    if not (body.url.startswith("https://") or body.url.startswith("http://")):
+        raise UserError("admin.integrations.bad_url")
     known = {e["type"] for e in wh.KNOWN_EVENTS}
-    bad = [e for e in body.events if e not in known]
-    if bad:
-        raise HTTPException(422, {"error": "unknown_events", "message": f"Unknown event type(s): {bad}"})
+    if any(e not in known for e in body.events):
+        raise UserError("admin.integrations.unknown_events")
     res = wh.create_endpoint(session, ctx["org"]["org_id"], body.url, body.name, body.events, ctx["user"]["id"])
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="webhook.endpoint.create", target_type="webhook_endpoint", target_id=res["endpoint_id"],
@@ -50,14 +51,14 @@ def create_endpoint(body: EndpointCreate, session: DbSession,
 
 @router.get("", summary="List your organization's webhook endpoints")
 def list_endpoints(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
-    return wh.list_endpoints(session, ctx["org"]["org_id"])
+    return [{**e, "event_names": [_event_name(x) for x in e["events"]]} for e in wh.list_endpoints(session, ctx["org"]["org_id"])]
 
 
 @router.delete("/{endpoint_id}", summary="Revoke a webhook endpoint")
 def revoke_endpoint(endpoint_id: str, session: DbSession,
                     ctx: dict = Depends(require_permission("admin.users.manage"))):
     if not wh.revoke_endpoint(session, endpoint_id, ctx["org"]["org_id"]):
-        raise HTTPException(404, {"error": "not_found", "message": "Endpoint not found or already revoked."})
+        raise UserError("admin.integrations.endpoint_not_found")
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="webhook.endpoint.revoke", target_type="webhook_endpoint", target_id=endpoint_id)
     return {"revoked": True}
@@ -69,10 +70,12 @@ def test_endpoint(endpoint_id: str, session: DbSession,
     res = wh.deliver_to_endpoint(session, endpoint_id, ctx["org"]["org_id"], "test.ping",
                                  {"message": "This is a Tellumen webhook test.", "org": ctx["org"]["org_id"]})
     if res is None:
-        raise HTTPException(404, {"error": "not_found", "message": "Endpoint not found or inactive."})
+        raise UserError("admin.integrations.endpoint_not_found")
     return res
 
 
 @router.get("/deliveries", summary="Recent webhook delivery attempts (the ledger)")
 def deliveries(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
-    return wh.list_deliveries(session, ctx["org"]["org_id"])
+    known = {e["type"] for e in wh.KNOWN_EVENTS}
+    return [{**d, "event_name": _event_name(d["event_type"]) if d["event_type"] in known else None}
+            for d in wh.list_deliveries(session, ctx["org"]["org_id"])]

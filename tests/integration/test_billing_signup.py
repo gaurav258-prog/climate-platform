@@ -59,8 +59,9 @@ def test_signup_creates_trial_and_billing_enforces_seats():
                 billing.change_plan(s, oid, plan="nonsense", actor_user_id=res["admin_user_id"])
 
             # E182: Enterprise is agreed with our team — a customer can never switch to it themselves
-            with pytest.raises(billing.BillingError, match="agreed with our team"):
+            with pytest.raises(billing.BillingError) as refused:
                 billing.change_plan(s, oid, plan="enterprise", actor_user_id=res["admin_user_id"])
+            assert refused.value.code == "admin.billing.agreed"
             assert billing.get_billing(s, oid)["subscription"]["plan"] == "growth"
             assert {p["key"]: p["self_serve"] for p in billing.get_billing(s, oid)["plans"]}["enterprise"] is False
     finally:

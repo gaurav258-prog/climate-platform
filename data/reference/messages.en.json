@@ -9064,6 +9064,1207 @@
     "what": "This year's figures are in different units ({units}), so they are not added together.",
     "next": "Correct the units or the figures they map to when confirming."
    }
+  },
+  "admin.identity.invalid_lei": {
+   "status": 422,
+   "label": "Not a valid legal entity identifier",
+   "detail": {
+    "what": "{lei} is not a legal entity identifier.",
+    "why": "An identifier has 20 letters and digits, the last two being check digits.",
+    "next": "Check the identifier, or search the registry by legal name."
+   }
+  },
+  "admin.identity.lei_not_found": {
+   "status": 422,
+   "label": "Identifier not in the LEI registry",
+   "detail": {
+    "what": "{lei} is not held by the global LEI registry.",
+    "why": "Only an identifier the registry holds is saved, so a filing never carries an unknown one.",
+    "next": "Check the identifier, or search the registry by legal name."
+   }
+  },
+  "admin.identity.registry_unreachable": {
+   "status": 502,
+   "label": "The LEI registry could not be reached",
+   "detail": {
+    "what": "The global LEI registry did not answer, so nothing was changed.",
+    "next": "Try again in a moment, or fill in the details by hand."
+   }
+  },
+  "admin.identity.lei_unverifiable": {
+   "status": 422,
+   "label": "The identifier could not be checked",
+   "detail": {
+    "what": "The global LEI registry did not answer, so {lei} could not be checked and nothing was saved.",
+    "why": "An identifier is never saved unchecked.",
+    "next": "Try again in a moment."
+   }
+  },
+  "admin.identity.no_changes": {
+   "status": 400,
+   "label": "Nothing to save",
+   "detail": {
+    "what": "No field was changed."
+   }
+  },
+  "admin.basis.bad_scenario": {
+   "status": 422,
+   "label": "Not a scenario the platform models",
+   "detail": {
+    "what": "The scenario chosen is not one of the climate scenarios the platform computes.",
+    "next": "Choose one of the scenarios offered."
+   }
+  },
+  "admin.basis.bad_horizon": {
+   "status": 422,
+   "label": "Not a horizon the platform models",
+   "detail": {
+    "what": "The horizon chosen is not one of the years the platform projects to.",
+    "next": "Choose one of the horizons offered."
+   }
+  },
+  "admin.basis.bad_currency": {
+   "status": 400,
+   "label": "Not a currency the platform converts",
+   "detail": {
+    "what": "{currency} is not a currency the platform can convert.",
+    "next": "Use a three-letter currency code, such as EUR, USD or GBP."
+   }
+  },
+  "admin.basis.no_changes": {
+   "status": 400,
+   "label": "Nothing to save",
+   "detail": {
+    "what": "No field of the reporting basis was changed."
+   }
+  },
+  "admin.feeds.unknown": {
+   "status": 422,
+   "label": "Unknown data source",
+   "detail": {
+    "what": "There is no data source with that name."
+   }
+  },
+  "admin.users.email_taken": {
+   "status": 409,
+   "label": "That e-mail already has an account",
+   "detail": {
+    "what": "A person with {email} already has an account in your workspace.",
+    "next": "Find them in the list instead."
+   }
+  },
+  "admin.users.not_found": {
+   "status": 404,
+   "label": "Person not found",
+   "detail": {
+    "what": "That person is not in your organisation."
+   }
+  },
+  "admin.users.seat_limit": {
+   "status": 402,
+   "label": "No seat left on your plan",
+   "detail": {
+    "what": "Your plan has {seats} seats and every one is taken.",
+    "next": "Disable someone who no longer needs access, or choose a larger plan under Plan and billing."
+   }
+  },
+  "admin.roles.not_found": {
+   "status": 404,
+   "label": "Role not found",
+   "detail": {
+    "what": "That role is not in your organisation."
+   }
+  },
+  "admin.matrix.unknown_action": {
+   "status": 422,
+   "label": "Not a change the matrix governs",
+   "detail": {
+    "what": "That change is not in the approval matrix."
+   }
+  },
+  "admin.matrix.withdrawn": {
+   "label": "Waiting requests withdrawn",
+   "detail": {
+    "what": "{n} requests for “{action}” were withdrawn because this change no longer needs approval.",
+    "why": "Nothing was applied.",
+    "next": "The people who asked can make the change again directly."
+   }
+  },
+  "admin.playbook.refused": {
+   "status": 422,
+   "label": "That step could not be saved",
+   "detail": {
+    "what": "The playbook was not changed.",
+    "next": "Check the owner and the number of days, then try again."
+   }
+  },
+  "admin.appetite.unsupported": {
+   "label": "No risk indicators for your sector",
+   "detail": {
+    "what": "Key risk indicators are not computed for this kind of organisation."
+   }
+  },
+  "admin.appetite.no_framework": {
+   "status": 422,
+   "label": "No risk indicators for your sector",
+   "detail": {
+    "what": "Key risk indicators are not computed for this kind of organisation."
+   }
+  },
+  "admin.methodology.unknown": {
+   "status": 422,
+   "label": "Not a choice the platform offers",
+   "detail": {
+    "what": "That setting does not exist."
+   }
+  },
+  "admin.methodology.invalid": {
+   "status": 422,
+   "label": "Not an allowed value",
+   "detail": {
+    "what": "The value is outside what this choice allows.",
+    "next": "Pick one of the values offered."
+   }
+  },
+  "admin.methodology.no_option": {
+   "label": "Nothing can be chosen yet",
+   "detail": {
+    "what": "No option for this choice is usable yet: none has passed its test on observed losses.",
+    "next": "Until one is, the figures that need it are reported as missing."
+   }
+  },
+  "admin.rates.empty_file": {
+   "status": 422,
+   "label": "The file has no rows",
+   "detail": {
+    "what": "The file holds no rate.",
+    "next": "Use one row per rate: currency, date and units per euro."
+   }
+  },
+  "admin.rates.none_usable": {
+   "status": 422,
+   "label": "No usable rate in the file",
+   "detail": {
+    "what": "None of the rows could be used.",
+    "next": "Open a refused row to see why, correct the file and upload it again."
+   }
+  },
+  "admin.rates.row.currency": {
+   "label": "Not a currency other than the euro",
+   "detail": {
+    "what": "Row {row}: the currency must be a three-letter code other than EUR."
+   }
+  },
+  "admin.rates.row.date": {
+   "label": "Not a past date",
+   "detail": {
+    "what": "Row {row}: the rate date must be a past date, written year-month-day."
+   }
+  },
+  "admin.rates.row.rate": {
+   "label": "Not a positive rate",
+   "detail": {
+    "what": "Row {row}: the rate must be a positive number of units of the currency per euro."
+   }
+  },
+  "admin.rates.row.basis": {
+   "label": "Not a closing or average rate",
+   "detail": {
+    "what": "Row {row}: the basis must be closing or period average."
+   }
+  },
+  "admin.rates.row.period": {
+   "label": "The average has no start",
+   "detail": {
+    "what": "Row {row}: an average rate needs the first day of its period, before the rate date."
+   }
+  },
+  "admin.integrations.token_not_found": {
+   "status": 404,
+   "label": "Token not found",
+   "detail": {
+    "what": "The token does not exist or is already revoked."
+   }
+  },
+  "admin.integrations.bad_url": {
+   "status": 422,
+   "label": "Not a web address",
+   "detail": {
+    "what": "The address must start with http:// or https://."
+   }
+  },
+  "admin.integrations.unknown_events": {
+   "status": 422,
+   "label": "Unknown event",
+   "detail": {
+    "what": "One of the events chosen does not exist."
+   }
+  },
+  "admin.integrations.endpoint_not_found": {
+   "status": 404,
+   "label": "Address not found",
+   "detail": {
+    "what": "The address does not exist or is already revoked."
+   }
+  },
+  "admin.integrations.bad_link": {
+   "status": 422,
+   "label": "Not a usable link",
+   "detail": {
+    "what": "The link must be a secure web address (https) holding {{id}} where the record's number goes."
+   }
+  },
+  "admin.switch.pml_return_period": {
+   "label": "Catastrophe loss return period",
+   "detail": {
+    "what": "The return period of the probable maximum loss your catastrophe figures show, in years.",
+    "why": "Solvency II sets the capital requirement at the 1-in-200-year loss (a 99.5 % value at risk over one year); rating agencies commonly use 1-in-250.",
+    "next": "Not set, the probable maximum loss is reported as missing."
+   }
+  },
+  "admin.switch.orsa_below_two": {
+   "label": "Own-risk scenario below 2 °C",
+   "detail": {
+    "what": "The climate scenario your own risk and solvency assessment uses where warming stays below 2 °C.",
+    "why": "Solvency II Directive, Article 45a(2)(a). Only a scenario whose long-term warming (IPCC best estimate) is below 2.0 °C qualifies.",
+    "next": "Left at the reference default, the assessment uses the scenario the reference names."
+   }
+  },
+  "admin.switch.orsa_above_two": {
+   "label": "Own-risk scenario well above 2 °C",
+   "detail": {
+    "what": "The climate scenario your own risk and solvency assessment uses where warming is significantly higher than 2 °C.",
+    "why": "Solvency II Directive, Article 45a(2)(b). Only a scenario whose long-term warming is at least 2.5 °C qualifies.",
+    "next": "Left at the reference default, the assessment uses the scenario the reference names."
+   }
+  },
+  "admin.switch.sii_natcat_uk_other_regions": {
+   "label": "Natural catastrophe risk in the United Kingdom",
+   "detail": {
+    "what": "Whether risks in the United Kingdom carry only the regional catastrophe charge, or the regional charge plus the premium-based charge for regions outside the European list.",
+    "why": "The United Kingdom is a windstorm and flood region of Delegated Regulation 2015/35 (Annexes V and VII) but is not listed in Annex XIII.",
+    "next": "The regional charge only is applied until you choose otherwise."
+   }
+  },
+  "admin.switch.taxonomy_first_year": {
+   "label": "EU Taxonomy rules for the 2025 year",
+   "detail": {
+    "what": "Which version of the EU Taxonomy templates applies to the financial year starting in 2025.",
+    "why": "Delegated Regulation (EU) 2026/73, Article 4, lets an undertaking apply the Taxonomy rules as they stood on 31 December 2025 for that year: the templates as amended by Delegated Regulation 2023/2486. Other years are unaffected.",
+    "next": "The amended rules apply until you choose otherwise."
+   }
+  },
+  "admin.switch.esrs_version": {
+   "label": "ESRS version for the 2026 year",
+   "detail": {
+    "what": "Which version of the European Sustainability Reporting Standards applies to the financial year starting in 2026; your statement says which one.",
+    "why": "Delegated Regulation (EU) 2026/1563, Article 2: the standards as amended in 2025, the simplified standards of 2026, or the 2025 standards with the reliefs of Article 2(1)(b) (ESRS 1 paragraphs 27, 32-33, 74-75, 90-92, 106 and 110). Other years are unaffected.",
+    "next": "The standards as amended in 2025 apply until you choose otherwise."
+   }
+  },
+  "admin.switch.csrd_member_state_derogation": {
+   "label": "Member State exemption for 2025 and 2026",
+   "detail": {
+    "what": "Whether your Member State used its option to exempt you from sustainability reporting for the financial years starting in 2025 and 2026.",
+    "why": "Directive (EU) 2022/2464, Article 5(2), as amended by Directive (EU) 2026/470: Member States may exempt first-wave undertakings with no more than EUR 450 million net turnover or 1 000 employees. It is national law, so you state it.",
+    "next": "Not stated, the platform does not assume either way."
+   }
+  },
+  "admin.switch.loss_curve_family_flood": {
+   "label": "Flood damage curves",
+   "detail": {
+    "what": "The family of damage curves your flood losses are computed with: each asset's use and country select the curve within it.",
+    "why": "Each family's test on observed losses decides whether a figure is published, held or shown as untested.",
+    "next": "Not set, every flood loss is reported as missing."
+   }
+  },
+  "admin.switch.loss_curve_family_storm": {
+   "label": "Tropical cyclone damage curves",
+   "detail": {
+    "what": "The family of tropical cyclone damage curves your losses are computed with.",
+    "why": "Only a family that passed its test on observed losses is offered.",
+    "next": "Not set, every cyclone loss is reported as missing."
+   }
+  },
+  "admin.switch.loss_flood_dependence": {
+   "label": "How flood losses add up across the book",
+   "detail": {
+    "what": "How each asset's flood loss is combined into the book's loss at a return period.",
+    "why": "Flood maps give each asset's loss at a return period, not which assets flood together. Fully dependent adds every asset's 1-in-N loss as if all flooded at that level at once: the most each return period could cost.",
+    "next": "Not set, the book's flood loss curve is reported as missing; each asset's figures stand."
+   }
+  },
+  "admin.switch.loss_flood_headline": {
+   "label": "Which flood loss leads",
+   "detail": {
+    "what": "Whether your reporting leads with the flood loss with defences or without them. Both are always shown.",
+    "why": "Without defences uses the flood maps as published. With defences sets to zero the losses from floods more frequent than the local protection level, from the European Commission's map of protection standards; where that level is unknown only the loss without defences exists.",
+    "next": "Not set, both are shown and neither leads."
+   }
+  },
+  "admin.switch.climate_var_dependence": {
+   "label": "How physical and transition losses combine",
+   "detail": {
+    "what": "How a holding's physical and transition losses are combined into one climate value at risk.",
+    "why": "As independent risks, by adding them (a cautious stack), or by taking the larger of the two.",
+    "next": "Not set, the combined value at risk is reported as missing."
+   }
+  },
+  "admin.switch.financed_emissions_scope": {
+   "label": "Which counterparty emissions you estimate",
+   "detail": {
+    "what": "Which of your counterparties' emissions you estimate for the financed emissions template: scopes 1, 2 and 3, scopes 1 and 2, or none yet.",
+    "why": "The quoted instructions of the Pillar 3 ESG templates are shown below.",
+    "next": "Not stated, the financed emissions columns are missing and the filing is held."
+   }
+  },
+  "admin.switch.financed_emissions_attribution": {
+   "label": "How emissions are attributed to an exposure",
+   "detail": {
+    "what": "How a counterparty's emissions are attributed to your exposure: the exposure compared to the counterparty's total liabilities and equity, as the instructions name.",
+    "why": "The quoted instructions of the Pillar 3 ESG templates are shown below.",
+    "next": "Not stated, the financed emissions columns are missing and the filing is held."
+   }
+  },
+  "admin.switch.financed_emissions_share": {
+   "label": "What the estimated share counts",
+   "detail": {
+    "what": "When you estimate scopes 1 and 2 but not yet scope 3, whether the share of exposures with estimated emissions counts the scopes you estimate, or only exposures with all three scopes.",
+    "why": "The quoted instructions of the Pillar 3 ESG templates are shown below.",
+    "next": "Needed when you estimate scopes 1 and 2; not stated then, that column is missing and the filing is held."
+   }
+  },
+  "admin.switch.financed_emissions_sector_average": {
+   "label": "Sector-average scope 3 basis",
+   "detail": {
+    "what": "Where a counterparty's scope 3 is not gathered from it, whether the sector-average intensity you state is applied to its total liabilities and equity or to its revenue.",
+    "why": "The quoted instructions of the Pillar 3 ESG templates are shown below.",
+    "next": "Needed when you estimate all three scopes; not stated then, an exposure without gathered scope 3 is left out and the filing is held."
+   }
+  },
+  "admin.switch.fx_flow_rate": {
+   "label": "Exchange rate for yearly figures",
+   "detail": {
+    "what": "The exchange rate for a year's flows — income, spend, revenue, premiums: the average rate of the twelve months to the book date, or the book date's closing rate.",
+    "why": "Balances always convert at the closing rate of the book date (IAS 21); for flows the average rate is common practice.",
+    "next": "The average rate for the period applies until you choose otherwise."
+   }
+  },
+  "admin.switch.fx_client_rate_tolerance_pct": {
+   "label": "Allowed gap to the official rate",
+   "detail": {
+    "what": "How far, in per cent, one of your own exchange rates may sit from the official rate for the same day before a second person must accept it.",
+    "why": "The official rate is the European Central Bank's, a rate fixed by law, or the International Monetary Fund's.",
+    "next": "Between 0.1 % and 10 %."
+   }
+  },
+  "admin.switch.esg_energy_intensity_check_factor": {
+   "label": "When a company's energy intensity is checked",
+   "detail": {
+    "what": "How many times above or below its sector's average a company's reported energy intensity may be before it is flagged as a possible unit slip, until someone corrects it or confirms it with a reason.",
+    "why": "A unit slip such as megawatt-hours typed as gigawatt-hours is a factor of 1 000; ordinary differences are expected, so set it wide.",
+    "next": "Between 2 and 1 000 times."
+   }
+  },
+  "admin.switch.retention_minimum_years": {
+   "label": "Your own minimum record keeping",
+   "detail": {
+    "what": "A longer period than the law requires for keeping filed reports, if your own policy asks for one.",
+    "why": "Each filed report is kept at least as long as the law requires for it, shown on the filing with its legal source; this can never shorten that period. It counts from the end of the year the filing was frozen.",
+    "next": "Zero keeps the legal periods only."
+   }
+  },
+  "admin.billing.about": {
+   "label": "Your plan and invoices",
+   "detail": {
+    "what": "Your plan, how many of its seats are taken, the plans you can move to and your invoices.",
+    "why": "A seat is a person who can sign in. A plan agreed with our team is arranged through Support.",
+    "next": "Switch to a plan with enough seats for your team."
+   }
+  },
+  "admin.billing.manual": {
+   "label": "Invoiced for manual payment",
+   "detail": {
+    "what": "Invoices are issued for payment by bank transfer.",
+    "why": "Card payment is switched on once the payment provider is connected."
+   }
+  },
+  "admin.billing.stripe": {
+   "label": "Billed by card",
+   "detail": {
+    "what": "Invoices are charged to the card on file."
+   }
+  },
+  "admin.billing.unknown_plan": {
+   "status": 400,
+   "label": "Not a plan we offer",
+   "detail": {
+    "what": "That plan does not exist."
+   }
+  },
+  "admin.billing.agreed": {
+   "status": 400,
+   "label": "Agreed with our team",
+   "detail": {
+    "what": "The {plan} plan is agreed with our team, not switched to here.",
+    "next": "Raise a request in Support and we will be in touch."
+   }
+  },
+  "admin.billing.too_many_users": {
+   "status": 400,
+   "label": "Too many people for that plan",
+   "detail": {
+    "what": "You have {used} people and the {plan} plan has {seats} seats.",
+    "next": "Disable people who no longer need access, or choose a larger plan."
+   }
+  },
+  "admin.billing.switched": {
+   "label": "Plan changed",
+   "detail": {
+    "what": "You are now on the {plan} plan."
+   }
+  },
+  "admin.billing.no_plan": {
+   "label": "No plan on record",
+   "detail": {
+    "what": "Your workspace has no plan on record, so no seat limit applies.",
+    "next": "Choose a plan to start invoicing."
+   }
+  },
+  "admin.platform.not_found": {
+   "status": 404,
+   "label": "Workspace not found",
+   "detail": {
+    "what": "There is no such workspace."
+   }
+  },
+  "admin.platform.not_a_tenant": {
+   "status": 422,
+   "label": "Not a customer workspace",
+   "detail": {
+    "what": "The platform's own workspace cannot be opened this way."
+   }
+  },
+  "admin.platform.no_user": {
+   "status": 409,
+   "label": "No one to view as",
+   "detail": {
+    "what": "This workspace has no active person to open it as.",
+    "next": "Provision a first administrator for it."
+   }
+  },
+  "admin.tenant.no_name": {
+   "status": 409,
+   "label": "A workspace needs a name",
+   "detail": {
+    "what": "Give the organisation's name."
+   }
+  },
+  "admin.tenant.no_country": {
+   "status": 409,
+   "label": "A workspace needs a country",
+   "detail": {
+    "what": "Give the country as its two-letter code, such as DE or ES."
+   }
+  },
+  "admin.tenant.bad_sector": {
+   "status": 409,
+   "label": "Not a sector the platform serves",
+   "detail": {
+    "what": "Choose one of the sectors offered."
+   }
+  },
+  "admin.tenant.name_taken": {
+   "status": 409,
+   "label": "That name is taken",
+   "detail": {
+    "what": "A workspace named {name} already exists.",
+    "next": "Open it from the list, or choose another name."
+   }
+  },
+  "admin.tenant.email_taken": {
+   "status": 409,
+   "label": "That e-mail already has an account",
+   "detail": {
+    "what": "{email} already signs in to a workspace.",
+    "next": "Use another e-mail for the first administrator."
+   }
+  },
+  "admin.tenant.no_password": {
+   "status": 409,
+   "label": "The first administrator needs a password",
+   "detail": {
+    "what": "Give a temporary password of at least six characters."
+   }
+  },
+  "admin.support.not_found": {
+   "status": 404,
+   "label": "Request not found",
+   "detail": {
+    "what": "There is no such support request."
+   }
+  },
+  "admin.integrations.unknown_system": {
+   "status": 404,
+   "label": "System not registered",
+   "detail": {
+    "what": "No system of record with that name is registered.",
+    "next": "Register it under Integrations first."
+   }
+  },
+  "admin.supervision.unknown_profile": {
+   "status": 422,
+   "label": "Not a supervision profile",
+   "detail": {
+    "what": "Choose one of the profiles offered."
+   }
+  },
+  "admin.supervision.outside_profile": {
+   "status": 422,
+   "label": "Outside your supervision profile",
+   "detail": {
+    "what": "{entity} is in {sector}; your profile, {profile}, covers {covers}.",
+    "next": "Switch to a profile that covers this sector first."
+   }
+  },
+  "admin.supervision.sector_outside": {
+   "status": 422,
+   "label": "Outside your supervision profile",
+   "detail": {
+    "what": "{sector} is not covered by your profile, {profile}.",
+    "next": "Choose a sector your profile covers, or switch profile."
+   }
+  },
+  "admin.supervision.name_exists": {
+   "status": 422,
+   "label": "That entity is already on the platform",
+   "detail": {
+    "what": "An organisation named {name} already exists.",
+    "next": "Add it to your population from the list instead."
+   }
+  },
+  "admin.supervision.contact_active": {
+   "status": 422,
+   "label": "That person already has an account",
+   "detail": {
+    "what": "{email} already signs in for this entity."
+   }
+  },
+  "admin.approvals.not_found": {
+   "status": 404,
+   "label": "Request not found",
+   "detail": {
+    "what": "There is no such approval request."
+   }
+  },
+  "admin.approvals.already_decided": {
+   "status": 409,
+   "label": "Already decided",
+   "detail": {
+    "what": "This request is already {status}.",
+    "next": "Refresh the list to see where it stands."
+   }
+  },
+  "admin.approvals.own_request": {
+   "status": 422,
+   "label": "You cannot approve your own request",
+   "detail": {
+    "what": "The person who asked for a change cannot approve it: a second person must."
+   }
+  },
+  "admin.approvals.retired": {
+   "status": 410,
+   "label": "This kind of request is retired",
+   "detail": {
+    "what": "The separate release of a bank disclosure is retired: a disclosure is filed through its filing — frozen, approved by a second person, submitted and amended there."
+   }
+  },
+  "admin.approvals.retired_decide": {
+   "status": 410,
+   "label": "This kind of request is retired",
+   "detail": {
+    "what": "The separate release of a bank disclosure is retired, so it cannot be approved.",
+    "next": "Reject it to close it; its draft closes with it."
+   }
+  },
+  "admin.approvals.needs_permission": {
+   "status": 403,
+   "label": "You cannot decide this request",
+   "detail": {
+    "what": "Deciding it needs the permission to {permission}.",
+    "next": "Ask an administrator to give one of your roles that permission."
+   }
+  },
+  "admin.approvals.assign_forbidden": {
+   "status": 403,
+   "label": "Only the requester or an approver routes this",
+   "detail": {
+    "what": "Routing a request to an approver is for the person who asked or for an approver."
+   }
+  },
+  "admin.approvals.maker_assignee": {
+   "status": 422,
+   "label": "Choose a different approver",
+   "detail": {
+    "what": "The person who asked cannot approve their own request."
+   }
+  },
+  "admin.approvals.not_an_approver": {
+   "status": 422,
+   "label": "Not an approver",
+   "detail": {
+    "what": "The person chosen cannot decide approvals in your organisation.",
+    "next": "Choose someone with the Approver role."
+   }
+  },
+  "admin.approvals.not_applied": {
+   "status": 409,
+   "label": "Decision not recorded",
+   "detail": {
+    "what": "Your decision was not recorded and the request is still waiting: {reason}",
+    "why": "The change could not be applied, so nothing was changed.",
+    "next": "Resolve the cause, then decide again."
+   }
+  },
+  "admin.approvals.apply_failed": {
+   "label": "the change could not be applied",
+   "detail": {
+    "what": "The approved change could not be applied to the data it changes."
+   }
+  },
+  "admin.approvals.a_report": {
+   "label": "A report",
+   "detail": {
+    "what": "A report the platform no longer offers."
+   }
+  },
+  "admin.approvals.a_template": {
+   "label": "A data template",
+   "detail": {
+    "what": "A data template the platform no longer offers."
+   }
+  },
+  "admin.approvals.a_choice": {
+   "label": "A recorded choice",
+   "detail": {
+    "what": "A choice recorded with the request."
+   }
+  },
+  "admin.approvals.an_indicator": {
+   "label": "An indicator no longer reported",
+   "detail": {
+    "what": "A key risk indicator the platform no longer computes."
+   }
+  },
+  "admin.approvals.policy_off": {
+   "label": "Withdrawn: approval no longer needed",
+   "detail": {
+    "what": "The approval matrix stopped requiring approval for this change while the request was waiting, so the platform withdrew it.",
+    "why": "Nothing was applied, and it cannot be decided.",
+    "next": "The person who asked can make the change again directly."
+   }
+  },
+  "admin.tasks.not_found": {
+   "status": 404,
+   "label": "Task not found",
+   "detail": {
+    "what": "There is no such task in your organisation."
+   }
+  },
+  "admin.tasks.attachment_not_found": {
+   "status": 404,
+   "label": "File not found",
+   "detail": {
+    "what": "The file is not attached to this task."
+   }
+  },
+  "admin.tasks.assignee_unknown": {
+   "status": 409,
+   "label": "Not someone in your organisation",
+   "detail": {
+    "what": "The person chosen is not in your organisation."
+   }
+  },
+  "admin.tasks.assignee_cannot_act": {
+   "status": 409,
+   "label": "That person cannot work tasks",
+   "detail": {
+    "what": "The person's roles do not allow them to move, comment on or complete a task.",
+    "next": "Choose someone whose role can ask for approval, or give them such a role."
+   }
+  },
+  "admin.tasks.no_title": {
+   "status": 409,
+   "label": "A task needs a title",
+   "detail": {
+    "what": "Write what the task is."
+   }
+  },
+  "admin.tasks.bad_criticality": {
+   "status": 409,
+   "label": "Not a criticality",
+   "detail": {
+    "what": "Choose low, normal, high or critical."
+   }
+  },
+  "admin.tasks.filing_unknown": {
+   "status": 409,
+   "label": "Filing not found",
+   "detail": {
+    "what": "The linked filing is not in your organisation."
+   }
+  },
+  "admin.tasks.bad_status": {
+   "status": 409,
+   "label": "Not a column of the board",
+   "detail": {
+    "what": "Choose one of the board's columns."
+   }
+  },
+  "admin.tasks.done_needs_approval": {
+   "status": 409,
+   "label": "Done needs a second person",
+   "detail": {
+    "what": "A task reaches Done only when a different colleague approves its completion.",
+    "next": "Move it to Review and ask for completion."
+   }
+  },
+  "admin.tasks.gate.owner": {
+   "status": 409,
+   "label": "Assign an owner first",
+   "detail": {
+    "what": "A task enters Doing only with an owner."
+   }
+  },
+  "admin.tasks.gate.dependencies": {
+   "status": 409,
+   "label": "Tasks it depends on are open",
+   "detail": {
+    "what": "{n} tasks this one depends on are still open.",
+    "next": "Finish them before starting this one."
+   }
+  },
+  "admin.tasks.gate.description": {
+   "status": 409,
+   "label": "Record the work first",
+   "detail": {
+    "what": "A task enters Review only once the work done is written in it.",
+    "next": "Add a description."
+   }
+  },
+  "admin.tasks.gate.filing": {
+   "status": 409,
+   "label": "The filing still has blocking errors",
+   "detail": {
+    "what": "The linked filing still has {n} blocking validation errors: {first}",
+    "next": "Resolve them on the filing, then move the task."
+   }
+  },
+  "admin.tasks.gate.checklist": {
+   "status": 409,
+   "label": "Confirm the checklist",
+   "detail": {
+    "what": "Confirm the checks for {stage} before moving the task there."
+   }
+  },
+  "admin.tasks.not_in_review": {
+   "status": 409,
+   "label": "Move it to Review first",
+   "detail": {
+    "what": "Completion is asked for a task in Review."
+   }
+  },
+  "admin.tasks.no_outcome": {
+   "status": 409,
+   "label": "Say what the outcome is",
+   "detail": {
+    "what": "Write the outcome, or where it is filed, before asking for completion."
+   }
+  },
+  "admin.tasks.already_pending": {
+   "status": 409,
+   "label": "Already waiting for approval",
+   "detail": {
+    "what": "A completion request for this task is already waiting.",
+    "next": "See Approvals."
+   }
+  },
+  "admin.tasks.stale_completion": {
+   "status": 409,
+   "label": "The task left Review",
+   "detail": {
+    "what": "This task is no longer in Review; it is in {stage}.",
+    "next": "Ask for completion again once it is back in Review."
+   }
+  },
+  "admin.tasks.no_comment": {
+   "status": 409,
+   "label": "The comment is empty",
+   "detail": {
+    "what": "Write a comment first."
+   }
+  },
+  "admin.tasks.file.no_name": {
+   "status": 409,
+   "label": "The file has no name",
+   "detail": {
+    "what": "Choose a file with a name."
+   }
+  },
+  "admin.tasks.file.empty": {
+   "status": 409,
+   "label": "The file is empty",
+   "detail": {
+    "what": "Choose a file with content."
+   }
+  },
+  "admin.tasks.file.too_large": {
+   "status": 409,
+   "label": "The file is too large",
+   "detail": {
+    "what": "A file may be at most {mb} MB."
+   }
+  },
+  "admin.tasks.event.created": {
+   "label": "Created",
+   "detail": {
+    "what": "The task was created."
+   }
+  },
+  "admin.tasks.event.moved": {
+   "label": "Moved from {frm} to {to}",
+   "detail": {
+    "what": "The task moved from {frm} to {to}."
+   }
+  },
+  "admin.tasks.event.gated": {
+   "label": "Moved from {frm} to {to}",
+   "detail": {
+    "what": "The task moved from {frm} to {to} with its checks confirmed: {checks}."
+   }
+  },
+  "admin.tasks.event.approved": {
+   "label": "Completed, approved by a second person",
+   "detail": {
+    "what": "A different colleague approved the completion and the task moved to Done. Outcome: {note}"
+   }
+  },
+  "admin.tasks.event.thread": {
+   "label": "Moved to {to} by the supervisor's thread",
+   "detail": {
+    "what": "The supervisor's request thread moved the task to {to}: {note}"
+   }
+  },
+  "admin.tasks.event.assigned": {
+   "label": "Owner changed",
+   "detail": {
+    "what": "The task's owner was changed."
+   }
+  },
+  "admin.tasks.event.edited": {
+   "label": "Details edited",
+   "detail": {
+    "what": "The task's title, description, criticality or due date was changed."
+   }
+  },
+  "admin.tasks.event.attached": {
+   "label": "Attached {file}",
+   "detail": {
+    "what": "{file} was attached."
+   }
+  },
+  "admin.tasks.event.removed": {
+   "label": "Removed {file}",
+   "detail": {
+    "what": "{file} was removed."
+   }
+  },
+  "admin.tasks.event.completion": {
+   "label": "Asked a second person to approve completion",
+   "detail": {
+    "what": "Outcome: {note}"
+   }
+  },
+  "admin.tasks.event.commented": {
+   "label": "Commented",
+   "detail": {
+    "what": "A colleague commented on the task."
+   }
+  },
+  "admin.tasks.event.other": {
+   "label": "Updated",
+   "detail": {
+    "what": "The task was updated."
+   }
+  },
+  "admin.transmission.case_not_found": {
+   "status": 404,
+   "label": "Case not found",
+   "detail": {
+    "what": "There is no such case in your organisation."
+   }
+  },
+  "admin.transmission.no_regulator": {
+   "status": 409,
+   "label": "A case needs an authority",
+   "detail": {
+    "what": "Name the authority the case is with."
+   }
+  },
+  "admin.transmission.bad_stage": {
+   "status": 409,
+   "label": "Not a stage of a case",
+   "detail": {
+    "what": "Choose one of the case's stages."
+   }
+  },
+  "admin.transmission.bad_direction": {
+   "status": 409,
+   "label": "Not a direction",
+   "detail": {
+    "what": "A message is either sent or received."
+   }
+  },
+  "admin.transmission.empty_message": {
+   "status": 409,
+   "label": "The message is empty",
+   "detail": {
+    "what": "Write the message first."
+   }
+  },
+  "admin.transmission.filing_not_found": {
+   "status": 422,
+   "label": "Filing not found",
+   "detail": {
+    "what": "There is no such filing in your organisation."
+   }
+  },
+  "admin.transmission.not_attested": {
+   "status": 422,
+   "label": "Only an attested filing can be sent",
+   "detail": {
+    "what": "This filing is not attested yet.",
+    "next": "Approve and attest it in the filing register first."
+   }
+  },
+  "admin.transmission.unknown_channel": {
+   "status": 422,
+   "label": "Not a channel",
+   "detail": {
+    "what": "There is no such channel to the authority."
+   }
+  },
+  "admin.transmission.not_a_credential": {
+   "status": 422,
+   "label": "Not a sign-in detail of this channel",
+   "detail": {
+    "what": "This channel does not use that sign-in detail."
+   }
+  },
+  "admin.transmission.bad_format": {
+   "status": 422,
+   "label": "Not a format of this filing",
+   "detail": {
+    "what": "The filing cannot be sent in that format."
+   }
+  },
+  "admin.transmission.not_prepared": {
+   "status": 422,
+   "label": "The file could not be prepared",
+   "detail": {
+    "what": "The filing's file for the authority could not be produced, so nothing was sent.",
+    "next": "Try again; if it keeps failing, raise a request in Support."
+   }
+  },
+  "admin.transmission.tx_not_found": {
+   "status": 404,
+   "label": "Transmission not found",
+   "detail": {
+    "what": "There is no such transmission."
+   }
+  },
+  "admin.transmission.thread.opened": {
+   "label": "Case opened with {regulator}",
+   "detail": {
+    "what": "The case was opened with {regulator}."
+   }
+  },
+  "admin.transmission.thread.stage": {
+   "label": "Moved from {frm} to {to}",
+   "detail": {
+    "what": "The case moved from {frm} to {to}."
+   }
+  },
+  "admin.transmission.thread.other": {
+   "label": "Updated by the platform",
+   "detail": {
+    "what": "The platform recorded a step on the case."
+   }
+  },
+  "admin.transmission.thread.receipted": {
+   "label": "Receipted, reference {ref}",
+   "detail": {
+    "what": "The authority received the filing and issued its receipt, reference {ref}."
+   }
+  },
+  "admin.transmission.tx.acknowledged": {
+   "label": "Receipted",
+   "detail": {
+    "what": "The authority received the filing and issued its receipt."
+   }
+  },
+  "admin.transmission.tx.sent": {
+   "label": "Sent, awaiting the receipt",
+   "detail": {
+    "what": "The filing was delivered; the authority's receipt has not arrived yet."
+   }
+  },
+  "admin.transmission.tx.queued": {
+   "label": "Queued",
+   "detail": {
+    "what": "The transmission waits its turn to be sent."
+   }
+  },
+  "admin.transmission.tx.awaiting_receipt": {
+   "label": "Record the authority's reference",
+   "detail": {
+    "what": "The file was prepared for a channel outside the platform.",
+    "next": "Send it to the authority and record the reference it gives you."
+   }
+  },
+  "admin.transmission.tx.awaiting_credentials": {
+   "label": "Not sent: sign-in details missing",
+   "detail": {
+    "what": "The channel's sign-in details for the authority's portal are not set, so nothing was sent.",
+    "next": "Set them, then send again."
+   }
+  },
+  "admin.transmission.tx.rejected": {
+   "label": "Rejected by the authority",
+   "detail": {
+    "what": "The authority's portal refused the file.",
+    "next": "Check the filing and the portal's answer, then send again."
+   }
+  },
+  "admin.transmission.tx.failed": {
+   "label": "Failed, will retry",
+   "detail": {
+    "what": "The transmission did not go through; it is tried again automatically."
+   }
+  },
+  "admin.transmission.tx.stuck_queued": {
+   "label": "Worker unavailable, queued since {since}",
+   "detail": {
+    "what": "The service that sends transmissions is not running, so this one has waited since {since}.",
+    "next": "It is sent as soon as the service is back; raise a request in Support if it stays down."
+   }
+  },
+  "admin.transmission.tx.stuck_retry": {
+   "label": "Worker unavailable, retry waiting since {since}",
+   "detail": {
+    "what": "The service that sends transmissions is not running, so the retry has waited since {since}.",
+    "next": "It is retried as soon as the service is back; raise a request in Support if it stays down."
+   }
+  },
+  "admin.transmission.tx.other": {
+   "label": "In progress",
+   "detail": {
+    "what": "The transmission is in progress."
+   }
+  },
+  "admin.sso.bad_role": {
+   "status": 400,
+   "label": "Not a role for new people",
+   "detail": {
+    "what": "Choose viewer, analyst, approver or administrator."
+   }
+  },
+  "admin.sso.bad_protocol": {
+   "status": 400,
+   "label": "Not a sign-in standard",
+   "detail": {
+    "what": "Choose OpenID Connect or SAML."
+   }
+  },
+  "admin.sso.saml_incomplete": {
+   "status": 400,
+   "label": "SAML needs its sign-in address and certificate",
+   "detail": {
+    "what": "Single sign-on cannot be switched on without your identity provider's sign-in address and signing certificate.",
+    "next": "Add both, then switch it on."
+   }
+  },
+  "admin.sso.oidc_incomplete": {
+   "status": 400,
+   "label": "OpenID Connect needs its issuer and client",
+   "detail": {
+    "what": "Single sign-on cannot be switched on without your identity provider's issuer address and client identifier.",
+    "next": "Add both, then switch it on."
+   }
+  },
+  "admin.sso.not_enabled": {
+   "status": 400,
+   "label": "Single sign-on is not switched on",
+   "detail": {
+    "what": "Your organisation has not switched single sign-on on.",
+    "next": "Sign in with your password, or ask your administrator."
+   }
+  },
+  "admin.sso.not_configured": {
+   "status": 400,
+   "label": "Single sign-on is not fully set up",
+   "detail": {
+    "what": "Your organisation's identity provider is not fully set up here.",
+    "next": "Ask your administrator to complete it."
+   }
+  },
+  "admin.sso.unverified": {
+   "status": 400,
+   "label": "The sign-in could not be verified",
+   "detail": {
+    "what": "The answer from your identity provider could not be verified, so you were not signed in.",
+    "next": "Try again; if it keeps failing, your administrator can check the identity provider's set-up."
+   }
+  },
+  "admin.sso.no_email": {
+   "status": 400,
+   "label": "Your e-mail was not sent",
+   "detail": {
+    "what": "Your identity provider did not send your e-mail address, so you could not be signed in.",
+    "next": "Ask your administrator to release it."
+   }
+  },
+  "admin.sso.replay": {
+   "status": 400,
+   "label": "That sign-in was already used",
+   "detail": {
+    "what": "A sign-in answer can be used only once.",
+    "next": "Start the sign-in again."
+   }
+  },
+  "admin.sso.domain": {
+   "status": 400,
+   "label": "Your e-mail domain is not allowed",
+   "detail": {
+    "what": "Single sign-on here is limited to another e-mail domain.",
+    "next": "Sign in with your work e-mail, or ask your administrator."
+   }
+  },
+  "admin.sso.no_account": {
+   "status": 400,
+   "label": "You have no account yet",
+   "detail": {
+    "what": "There is no account for you, and accounts are not created at first sign-in.",
+    "next": "Ask your administrator to add you."
+   }
+  },
+  "admin.sso.unreachable": {
+   "status": 502,
+   "label": "The identity provider did not answer",
+   "detail": {
+    "what": "Your identity provider could not be reached.",
+    "next": "Try again in a moment."
+   }
   }
  },
  "names": {
@@ -9827,6 +11028,304 @@
    "estimated": "Derived estimate",
    "planned": "Not yet available",
    "release": "Pinned dataset release"
+  },
+  "admin.permission": {
+   "admin.approval_policy.manage": "Set the approval matrix",
+   "admin.audit.view": "See the audit trail",
+   "admin.roles.manage": "Edit roles and permissions",
+   "admin.users.manage": "Manage people",
+   "approvals.create": "Ask for approval",
+   "approvals.decide": "Approve or reject",
+   "approvals.view": "See approvals",
+   "board.attest": "Attest a board pack",
+   "calibration.review": "Decide crop model publication",
+   "contracts.manage": "Manage contracts",
+   "contracts.view": "See contracts",
+   "decisions.view": "Work decisions",
+   "modules.view": "Use the analysis pages",
+   "onboarding.manage": "Onboard clients",
+   "ops.oversee": "Run the control tower",
+   "oversight.view": "See the supervisory view",
+   "platform.admin": "Operate the platform",
+   "portal.use": "Raise support requests",
+   "pricing.approve": "Approve pricing",
+   "pricing.view": "See pricing",
+   "reference.release_review": "Review reference data",
+   "reports.publish": "Publish reports",
+   "reports.view": "See reports",
+   "respondent.portal": "Answer the supervisor",
+   "submissions.release": "Release a submission",
+   "supervisor.assignments.manage": "Assign entities to people",
+   "supervisor.benchmark.view": "See peer benchmarks",
+   "supervisor.dashboard.view": "See the division dashboard",
+   "supervisor.deadlines.manage": "Set filing deadlines",
+   "supervisor.entity.file": "Open an entity file",
+   "supervisor.entity.view": "See an entity's filings",
+   "supervisor.evidence.export": "Export evidence packs",
+   "supervisor.export": "Export population analyses",
+   "supervisor.findings.manage": "Record findings",
+   "supervisor.intake.manage": "Work the filing intake",
+   "supervisor.mandates.manage": "Adapt mandates",
+   "supervisor.methodology.view": "See methodology",
+   "supervisor.population.view": "See the population",
+   "supervisor.remit": "Share evidence with another authority",
+   "supervisor.requests.manage": "Send information requests",
+   "supervisor.scope.manage": "Add or end supervision",
+   "supervisor.sites.view": "See granted sites",
+   "supervisor.validation.manage": "Run submission checks",
+   "supply.locations.write": "Edit sites and plots"
+  },
+  "admin.permission_area": {
+   "admin": "People and access",
+   "approvals": "Approvals",
+   "board": "Reporting",
+   "calibration": "Platform",
+   "contracts": "Contracts",
+   "decisions": "Analysis",
+   "modules": "Analysis",
+   "onboarding": "Platform",
+   "ops": "Controls",
+   "oversight": "Controls",
+   "platform": "Platform",
+   "portal": "Support",
+   "pricing": "Analysis",
+   "reference": "Platform",
+   "reports": "Reporting",
+   "respondent": "Supervision",
+   "submissions": "Reporting",
+   "supervisor": "Supervision",
+   "supply": "Data"
+  },
+  "admin.policy": {
+   "supply.site.update": "Edit an operating site",
+   "supply.site.delete": "Delete an operating site",
+   "supply.plot.update": "Edit a sourcing plot",
+   "supply.plot.delete": "Delete a sourcing plot",
+   "config.reporting_settings": "Change the reporting basis",
+   "config.calc_settings": "Change a methodology choice",
+   "config.kri_appetite": "Change a risk-appetite band",
+   "risk.decision": "Act on a forward-risk exposure",
+   "calibration.publish": "Publish crop calibrations",
+   "reference.release_land": "Land a reference data release"
+  },
+  "admin.field": {
+   "latitude": "Latitude",
+   "longitude": "Longitude",
+   "annual_spend_eur": "Annual spend",
+   "annual_value_eur": "Annual value",
+   "annual_throughput_eur": "Annual throughput",
+   "amber": "Warning level",
+   "red": "Breach level",
+   "direction": "Direction"
+  },
+  "admin.sector": {
+   "bank": "Bank",
+   "insurer": "Insurer",
+   "asset_manager": "Asset manager",
+   "reit": "Real estate",
+   "manufacturer": "Agriculture and food",
+   "regulator": "Supervisory authority",
+   "platform": "Platform operator"
+  },
+  "admin.offering": {
+   "physical-risk": "Physical risk",
+   "reporting": "Regulatory reporting",
+   "trust": "Governance and audit",
+   "underwriting": "Underwriting",
+   "parametric": "Parametric cover",
+   "portfolio-var": "Portfolio value at risk",
+   "securities": "Securities",
+   "portfolio-risk": "Portfolio risk",
+   "supply-chain": "Supply chain",
+   "supervision": "Supervision"
+  },
+  "admin.source_kind": {
+   "core_banking": "Core banking",
+   "gl": "General ledger",
+   "los": "Loan origination",
+   "warehouse": "Data warehouse",
+   "gis": "Mapping",
+   "other": "Other system"
+  },
+  "admin.subscription_status": {
+   "trialing": "Trial",
+   "active": "Active"
+  },
+  "admin.invoice_status": {
+   "open": "Awaiting payment",
+   "paid": "Paid"
+  },
+  "admin.user_status": {
+   "active": "Active",
+   "disabled": "Disabled",
+   "invited": "Invited"
+  },
+  "admin.support_category": {
+   "data": "Data",
+   "report": "Report",
+   "onboarding": "Onboarding",
+   "bug": "Something is wrong",
+   "question": "Question",
+   "other": "Other"
+  },
+  "admin.support_status": {
+   "open": "Open",
+   "in_progress": "In progress",
+   "resolved": "Resolved"
+  },
+  "admin.support_priority": {
+   "low": "Low",
+   "normal": "Normal",
+   "high": "High",
+   "urgent": "Urgent"
+  },
+  "admin.event": {
+   "approval.decided": "Approval decided",
+   "filing.status_changed": "Filing moved on",
+   "filing.frozen": "Disclosure frozen",
+   "disclosure.flag_raised": "Flagged for filing",
+   "kri.breached": "Indicator breached",
+   "notification.raised": "Notifiable incident",
+   "notification.sent": "Notification sent",
+   "risk.decision.approved": "Decision approved",
+   "risk.watch.deteriorated": "Watched exposure worse",
+   "test.ping": "Test"
+  },
+  "admin.capacity": {
+   "lead": "Lead"
+  },
+  "admin.band": {
+   "L": "Low",
+   "M": "Elevated",
+   "H": "High",
+   "VH": "Severe"
+  },
+  "admin.axis": {
+   "band": "Hazard band",
+   "peril": "Peril",
+   "epc": "Energy grade",
+   "division": "Sector",
+   "scenario": "Scenario",
+   "horizon": "Horizon"
+  },
+  "admin.member": {
+   "any": "Any other",
+   "parameter": "A method value"
+  },
+  "admin.approval_status": {
+   "pending": "waiting for a decision",
+   "approved": "approved",
+   "rejected": "rejected",
+   "returned": "sent back",
+   "withdrawn": "withdrawn"
+  },
+  "admin.approval_field": {
+   "review": "Review note",
+   "red": "Breach level",
+   "amber": "Warning level",
+   "direction": "Direction",
+   "reason": "Reason",
+   "kri_key": "Indicator",
+   "framework": "Report",
+   "role": "Reporting role",
+   "basis": "Basis",
+   "period_end": "Period end",
+   "parent_name": "Parent",
+   "parent_report_ref": "Parent's report",
+   "parent_registered_office": "Parent's registered office",
+   "path": "Assessment",
+   "criteria": "Criterion",
+   "circumvention_mixing": "Circumvention or mixing",
+   "conclusion": "Conclusion",
+   "mitigation": "Mitigation",
+   "eori": "Customs number",
+   "address": "Address",
+   "country": "Country",
+   "size_class": "Size",
+   "other_system": "Other system",
+   "effective_from": "From",
+   "established_on": "Established on",
+   "is_registration": "Registration",
+   "primary_own_produce": "Own primary produce",
+   "label": "Data",
+   "n_valid": "Valid rows",
+   "reasons": "Why it needs approval",
+   "filename": "File",
+   "matching": "Rows",
+   "new": "New rows",
+   "update": "Updated rows",
+   "unchanged": "Unchanged rows",
+   "template": "Template",
+   "n_rejected": "Refused rows",
+   "maker_reason": "Requester's reason",
+   "kind": "Step",
+   "note": "Note",
+   "source": "Source",
+   "value_num": "Value",
+   "value_text": "Value",
+   "reporting_period_end": "Period end",
+   "horizon": "Horizon",
+   "n_assets": "Assets",
+   "scenario": "Scenario",
+   "value_at_risk_eur": "Value at risk",
+   "period": "Period",
+   "report": "Report",
+   "fund": "Fund",
+   "action": "Decision",
+   "rationale": "Rationale",
+   "entity_name": "Exposure",
+   "period_label": "Period",
+   "period_start": "Period start",
+   "changes": "Change",
+   "reporting_settings": "Reporting basis",
+   "presentation_currency": "Presentation currency"
+  },
+  "admin.approval_value": {
+   "higher_worse": "Higher is worse",
+   "lower_worse": "Lower is worse",
+   "close": "Close the period",
+   "restate": "Restate a closed period",
+   "full": "Full",
+   "simplified": "Simplified",
+   "individual": "Individual",
+   "consolidated": "Consolidated",
+   "exempt_subsidiary": "Exempt subsidiary",
+   "voluntary": "Voluntary",
+   "client": "Your organisation",
+   "vendor": "A data vendor",
+   "small": "Small",
+   "large": "Large",
+   "medium": "Medium",
+   "micro": "Micro",
+   "reprice": "Reprice",
+   "engage": "Engage",
+   "disclose": "Disclose",
+   "monitor": "Monitor",
+   "accept": "Accept",
+   "esrs": "ESRS figures",
+   "method": "Your stated method",
+   "TCFD_EU_TAXONOMY": "EU Taxonomy disclosure"
+  },
+  "admin.task_stage": {
+   "icebox": "Icebox",
+   "todo": "To do",
+   "blocked": "Blocked",
+   "doing": "Doing",
+   "review": "Review",
+   "done": "Done",
+   "cancelled": "Cancelled"
+  },
+  "admin.case_stage": {
+   "ready": "Ready to submit",
+   "submitted": "Submitted",
+   "query": "Authority's query",
+   "answered": "Answer given",
+   "closed": "Closed"
+  },
+  "admin.credential": {
+   "url": "Portal address",
+   "user": "User name",
+   "password": "Password"
   }
  }
 }

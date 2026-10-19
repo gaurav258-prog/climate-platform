@@ -42,8 +42,10 @@ def catalog(framework: str, session: DbSession, period_end: Optional[str] = None
             return {"framework": framework, **P.esrs_providable(session, ctx["org"]["org_id"], period_end)}
         except P.ProvidedError as e:
             raise _refusal(e) from e
-    if framework == P.METHOD:
-        return {"framework": framework, **P.method_providable()}
+    if framework == P.METHOD:                # named for the screen (services/governance/admin_view.method_view)
+        from services.governance.admin_view import method_view
+        cat = P.method_providable()
+        return {"framework": framework, **cat, "datapoints": method_view(cat["datapoints"])}
     return {"framework": framework, "datapoints": P.providable(framework)}
 
 
@@ -70,8 +72,9 @@ def method_needed(session: DbSession, ctx: dict = Depends(require_permission("re
             m.get("method.reallocation_cap")
         m.get("method.at_risk_level")
         rec = m.record()
+    from services.governance.admin_view import needed_view
     return {"period_end": rec["period_end"], "basis": {"scenario": s["scenario"], "horizon": s["horizon"]},
-            "needed": rec["gaps"], "used": [u for u in rec["used"] if u]}
+            "needed": needed_view(rec["gaps"]), "used": [u for u in rec["used"] if u]}
 
 
 @router.get("", summary="Provided values with their reconciliation + attestation status")

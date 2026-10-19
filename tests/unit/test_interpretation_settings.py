@@ -40,9 +40,10 @@ def test_catalog_is_sector_scoped():
     reit = {c["key"] for c in interpretation_catalog("reit")}
     assert "pml_return_period" in ins and "pml_return_period" not in reit
     assert "sii_natcat_uk_other_regions" in ins and "sii_natcat_uk_other_regions" not in reit
-    # every catalog entry carries the UI fields
+    # every catalog entry carries the UI fields: its name and explanation from the message catalogue, its options named
     for c in interpretation_catalog():
-        assert c["label"] and c["description"] and "default" in c
+        assert c["name"] and c["about"]["detail"]["what"] and "default" in c
+        assert all(o["label"] for o in c["options"])
 
 
 def test_schema_defaults_and_catalog_are_consistent():

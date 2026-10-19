@@ -16,6 +16,8 @@ from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/source-systems", tags=["Drill-through"])
 
@@ -26,16 +28,7 @@ class SystemIn(BaseModel):
     key: str
     name: str
     kind: str = "other"
-    deep_link_template: str
-
-    @field_validator("deep_link_template")
-    @classmethod
-    def _tmpl(cls, v: str) -> str:
-        if "{id}" not in v:
-            raise ValueError("deep_link_template must contain the '{id}' placeholder for the source record id")
-        if not v.startswith("https://"):
-            raise ValueError("deep_link_template must be an https:// URL")
-        return v
+    deep_link_template: str      # an https address holding {id} where the record's number goes — checked in the route
 
     @field_validator("kind")
     @classmethod
@@ -56,13 +49,17 @@ def list_systems(session: DbSession, ctx: dict = Depends(require_permission("mod
         SELECT key, name, kind, deep_link_template, active, created_at
         FROM source_systems WHERE org_id = CAST(:o AS uuid) ORDER BY name
     """), {"o": org_id}).mappings().all()
-    return {"systems": [dict(r) for r in rows],
+    kinds = messages.names()["admin.source_kind"]
+    return {"systems": [{**dict(r), "kind_label": kinds.get(r["kind"], kinds["other"])} for r in rows],
+            "kinds": [{"value": k, "label": v} for k, v in kinds.items()],
             "can_configure": "admin.approval_policy.manage" in ctx["permissions"]}
 
 
 @router.post("", summary="Register / update an external system of record (admin)")
 def register_system(body: SystemIn, session: DbSession,
                     ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    if "{id}" not in body.deep_link_template or not body.deep_link_template.startswith("https://"):
+        raise UserError("admin.integrations.bad_link")
     org_id = ctx["org"]["org_id"]
     session.execute(text("""
         INSERT INTO source_systems (source_system_id, org_id, key, name, kind, deep_link_template, active, created_by, created_at)
@@ -85,7 +82,7 @@ def link_entity(body: LinkIn, session: DbSession,
     sys_ok = session.execute(text("SELECT 1 FROM source_systems WHERE org_id = CAST(:o AS uuid) AND key = :k"),
                              {"o": org_id, "k": body.source_system_key}).first()
     if not sys_ok:
-        return {"ok": False, "reason": "unknown_source_system"}
+        raise UserError("admin.integrations.unknown_system")
     session.execute(text("""
         INSERT INTO entity_source_refs (ref_id, org_id, entity_id, source_system_key, source_record_id, created_at)
         VALUES (:id, CAST(:o AS uuid), CAST(:e AS uuid), :k, :rid, now())

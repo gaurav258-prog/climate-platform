@@ -9,7 +9,9 @@ Two kinds of setting live here, resolved into one flat dict by `get_calc_setting
     schema — no migration, no new column.
 
 Every switch has a documented default that reproduces today's behaviour, an allowed set / range that is
-validated on write, and a human label + description for the settings UI. Changes route through
+validated on write, and a label printed with a frozen filing's elections. What each switch decides, and the rule
+behind it, are customer words in the message catalogue (admin.switch.<key>, data/reference/messages.en.json) — the
+Methodology screen reads them through services.governance.admin_view. Changes route through
 services.governance.config_governance (audit + optional 4-eyes), and the RESOLVED settings are stamped onto
 every frozen filing snapshot (report_snapshots.engine_versions), so a regulator can see exactly which
 interpretation produced each filed number.
@@ -57,25 +59,21 @@ INTERPRETATION_SCHEMA: dict = {
         "frameworks": ["insurer_solvency"],
         "default": None, "kind": "int", "allowed": [100, 200, 250, 500],
         "label": "Catastrophe PML return period (years)",
-        "description": "Return period for the probable maximum loss. Solvency II SCR is 1-in-200 (99.5% VaR); "
-                       "rating agencies commonly use 1-in-250. Your choice — not set, the PML is a named gap (E69).",
         "sectors": ["insurer"],
     },
-    # Directive 2009/138/EC Art. 45a(2): the undertaking's two long-term climate scenarios (data/reference/orsa_climate_scenarios.json)
+    # Directive 2009/138/EC Art. 45a(2): the undertaking's two long-term climate scenarios (data/reference/orsa_climate_scenarios.json).
+    # Below 2 °C: orderly_1_5c (SSP1-2.6, 1.8 °C). Well above: hot_house_3_5c (SSP5-8.5, 4.4 °C), disorderly_2c (SSP2-4.5,
+    # 2.7 °C). 'orsa_default' = the reference file's default.
     "orsa_scenario_below_2c": {
         "frameworks": ["insurer_orsa_climate"],
         "default": "orsa_default", "kind": "enum", "allowed": ["orsa_default", *_orsa_qualifying("below_2c")],
         "label": "ORSA climate — the scenario where warming remains below 2 °C",
-        "description": "Art. 45a(2)(a). Only scenarios whose long-term warming (IPCC AR6 best estimate) is below 2.0 °C qualify: "
-                       "orderly_1_5c (SSP1-2.6, 1.8 °C). 'orsa_default' = the reference file's default.",
         "sectors": ["insurer"],
     },
     "orsa_scenario_above_2c": {
         "frameworks": ["insurer_orsa_climate"],
         "default": "orsa_default", "kind": "enum", "allowed": ["orsa_default", *_orsa_qualifying("above_2c")],
         "label": "ORSA climate — the scenario where warming is significantly higher than 2 °C",
-        "description": "Art. 45a(2)(b). Scenarios with long-term warming of at least 2.5 °C qualify: hot_house_3_5c (SSP5-8.5, "
-                       "4.4 °C) or disorderly_2c (SSP2-4.5, 2.7 °C). 'orsa_default' = the reference file's default.",
         "sectors": ["insurer"],
     },
     # Solvency II nat-cat: the United Kingdom is an Annex V / VII region but, since it left the Union, not in Annex XIII
@@ -84,22 +82,15 @@ INTERPRETATION_SCHEMA: dict = {
         "frameworks": ["insurer_solvency"],
         "default": "region_only", "kind": "enum", "allowed": ["region_only", "region_and_premium"],
         "label": "Solvency II nat-cat — risks in the United Kingdom",
-        "description": "The UK is a windstorm and flood region of Del. Reg. 2015/35 (Annexes V, VII) but is not listed in "
-                       "Annex XIII. 'region_only' = the regional charge only (the Annex gives the region a factor); "
-                       "'region_and_premium' = the literal reading, adding the premium-based charge for regions outside "
-                       "Annex XIII.",
         "sectors": ["insurer"],
     },
     # EU Taxonomy Art. 8: the undertaking's own election under Art. 4 of Delegated Regulation (EU) 2026/73. The switch
     # name and value are the ones the specification's transitional_option declares; regspec.governing() applies it.
+    # 'amended_rules' = the 2026/73 templates; 'pre_amendment_rules' = the templates as amended by 2023/2486.
     "taxonomy_2026_73_article_4": {
         "frameworks": ["bank_tcfd", "reit_taxonomy"],
         "default": "amended_rules", "kind": "enum", "allowed": ["amended_rules", "pre_amendment_rules"],
         "label": "EU Taxonomy — financial year starting in 2025",
-        "description": "Delegated Regulation (EU) 2026/73, Art. 4: undertakings may apply the Taxonomy delegated "
-                       "regulations as applicable on 31 December 2025 for the financial year that starts in 2025. "
-                       "'amended_rules' = the 2026/73 templates; 'pre_amendment_rules' = the templates as amended by "
-                       "2023/2486. Other financial years are unaffected.",
         "sectors": ["bank", "reit"],
     },
     # ESRS: the undertaking's version for the financial year starting in 2026 (Art. 2 of Delegated Regulation (EU)
@@ -111,11 +102,6 @@ INTERPRETATION_SCHEMA: dict = {
         "default": "dr_2023_2772_as_2025_1416", "kind": "enum",
         "allowed": ["dr_2023_2772_as_2025_1416", "dr_2026_1563", "dr_2023_2772_as_2025_1416_with_2026_1563_reliefs"],
         "label": "ESRS — financial year starting in 2026",
-        "description": "Delegated Regulation (EU) 2026/1563, Art. 2: for the financial year starting in 2026 the "
-                       "undertaking may apply (a) the ESRS as amended by 2025/1416, or the ESRS as amended by 2026/1563, "
-                       "or (b) the ESRS as amended by 2025/1416 with the reliefs of Art. 2(1)(b) (ESRS 1 §27, 32-33, "
-                       "74-75, 90, 91, 92, 106, 110). The sustainability statement states which. Other financial years "
-                       "are unaffected.",
         "sectors": ["manufacturer"],
     },
     # CSRD: whether the undertaking's Member State used the derogation of Art. 5(2) of Directive (EU) 2022/2464 (added by
@@ -125,9 +111,6 @@ INTERPRETATION_SCHEMA: dict = {
         "frameworks": ["esrs_pack"],
         "default": "not_stated", "kind": "enum", "allowed": ["not_stated", "exempted", "not_exempted"],
         "label": "CSRD — Member State derogation for FY 2025-2026",
-        "description": "Directive (EU) 2022/2464 Art. 5(2) as amended by Directive (EU) 2026/470: Member States may exempt "
-                       "wave-one undertakings not exceeding EUR 450m net turnover or 1 000 employees for the financial "
-                       "years starting in 2025 and 2026. 'exempted' = the undertaking's Member State applied it.",
         "sectors": ["manufacturer"],
     },
     # The loss foundation (E171): which published or measured damage-curve family the institution adopts per peril —
@@ -135,25 +118,16 @@ INTERPRETATION_SCHEMA: dict = {
     "loss_curve_family_flood": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("flood"),
         "label": "Flood damage curves (loss figures)",
-        "description": "The family of damage curves your flood losses are computed with: each asset's use and country "
-                       "select the curve within it, and the family's test on observed losses decides whether a figure "
-                       "is published, held or shown as untested. Not set, every flood loss is a named gap.",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
     "loss_curve_family_storm": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("storm"),
         "label": "Tropical-cyclone damage curves (loss figures)",
-        "description": "The family of tropical-cyclone damage curves your losses are computed with. Not set, every "
-                       "cyclone loss is a named gap.",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
     "loss_flood_dependence": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": ["comonotonic"],
         "label": "How flood losses across the book combine",
-        "description": "Flood maps give each asset's loss at a return period, not which assets flood together. "
-                       "'comonotonic' adds every asset's 1-in-N loss as if all flood at their own 1-in-N level at once "
-                       "— the most each return period could cost. Not set, the book's flood exceedance curve is a "
-                       "named gap; each asset's figures stand regardless.",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
     # Flood defences (product owner's decisions, 2026-10-16): both figures are always shown; the institution states
@@ -161,20 +135,12 @@ INTERPRETATION_SCHEMA: dict = {
     "loss_flood_headline": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": ["defended", "undefended"],
         "label": "Which flood loss leads: defended or undefended",
-        "description": "Each flood loss is shown twice: undefended (the flood maps as published, with no dikes or walls) "
-                       "and defended (losses from floods more frequent than the local protection level set to zero, "
-                       "from the JRC map of European protection standards). Choose which one your reporting leads with. "
-                       "Where the protection level is unknown, only the undefended figure exists and is labelled so. "
-                       "Not set, both are shown and neither leads.",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
     "climate_var_dependence": {
         "frameworks": ["sfdr_pai"],
         "default": None, "kind": "enum", "allowed": ["independent", "additive", "max"],
         "label": "Physical × transition loss dependence (combined VaR)",
-        "description": "How physical and transition losses combine on a holding: 'independent' = "
-                       "1−(1−physical)(1−transition); 'additive' = min(1, physical+transition), a conservative "
-                       "stack; 'max' = the larger driver only. Your choice — not set, the combined VaR is a named gap (E69).",
         "sectors": ["asset_manager"],
     },
     # Pillar 3 ESG Template 1 columns i-k: the institution's own statements, quoted and offered from
@@ -188,32 +154,22 @@ INTERPRETATION_SCHEMA: dict = {
         "frameworks": ["bank_tcfd", "bank_p3esg", "sfdr_pai", "reit_taxonomy", "insurer_solvency", "esrs_pack", "csrd_e1"],
         "default": "period_average", "kind": "enum", "allowed": ["period_average", "closing"],
         "label": "Exchange rate for yearly figures (income, spend, revenue, premiums)",
-        "description": "'period_average' = the average rate of the 12 months to the book date (IAS 21 practice — a "
-                       "year's income at the year's rates); 'closing' = the book date's rate, like balances.",
     },
     "fx_client_rate_tolerance_pct": {
         "frameworks": ["bank_tcfd", "bank_p3esg", "sfdr_pai", "reit_taxonomy", "insurer_solvency", "esrs_pack", "csrd_e1"],
         "default": 1.0, "kind": "float", "min": 0.1, "max": 10.0,
         "label": "Own exchange rates: allowed difference from the official rate (%)",
-        "description": "Your own (treasury) rates are used when you supply them; one further than this from the ECB / "
-                       "IMF rate for the same day needs a second person to accept it.",
     },
     "esg_energy_intensity_check_factor": {
         "frameworks": ["sfdr_pai"],
         "default": 10.0, "kind": "float", "min": 2.0, "max": 1000.0,
         "label": "Company energy intensity: how far from the sector average before it is checked (×)",
-        "description": "A reported energy intensity more than this many times above — or below — the sector average for "
-                       "its activity is flagged as a possible unit slip (MWh typed as GWh is 1,000×) until someone "
-                       "corrects it or confirms it with a reason. Ordinary differences are expected: set it wide.",
     },
     "retention_minimum_years": {          # retired report types stay listed: their filings are still kept
         "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
                        "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
         "default": 0, "kind": "int", "min": 0, "max": 50,
         "label": "Your own minimum record retention (years)",
-        "description": "Filed reports are kept at least as long as the law requires for each one (shown on every filing, "
-                       "with its legal source). Set a longer period here if your own policy requires it; it can never "
-                       "shorten a legal period. Counted from the end of the year the filing was frozen.",
     },
 }
 
@@ -295,17 +251,16 @@ def upsert_calc_settings(session, org_id: str, updates: dict, updated_by: str) -
 
 
 def interpretation_catalog(org_type: str | None = None) -> list[dict]:
-    """The schema as a UI catalog — each switch's key, label, description, default, allowed/range, and current
-    applicability. Filtered to a sector when given (a switch with no 'sectors' applies to all)."""
+    """The schema as a UI catalog — each switch's key, its name and explanation (the catalogue's admin.switch.<key>),
+    default, options named, range, and applicability. Filtered to a sector when given (a switch with no 'sectors'
+    applies to all)."""
+    from services.governance.admin_view import switch_view
     out = []
     for key, spec in INTERPRETATION_SCHEMA.items():
         sectors = spec.get("sectors")
         if org_type and sectors and org_type not in sectors:
             continue
-        out.append({"key": key, "label": spec["label"], "description": spec["description"],
-                    "default": spec["default"], "kind": spec["kind"],
-                    "allowed": spec.get("allowed"), "min": spec.get("min"), "max": spec.get("max"),
-                    "sectors": sectors})
+        out.append({**switch_view({"key": key, **spec}), "sectors": sectors})
     return out
 
 

@@ -8,6 +8,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from core import messages
+from core.errors import UserError
 from services.governance import filings as F
 from services.governance.filing_export import export_filing, formats_for
 from services.supervision.mandates import mandates_for, registry
@@ -33,8 +35,17 @@ def channels_for(session, org_id: str) -> list[dict]:
             cs = credentials_status(cid, ch, settings.get(cid))
             options.append({"channel_id": cid, **ch, "configured": cs["configured"] if ch["kind"] == "portal_upload" else True, "missing": cs["missing"], "prescribed": True})
         options.append({"channel_id": "nca_manual", **chans["nca_manual"], "configured": True, "missing": [], "prescribed": False})
-        out.append({"framework": fw["framework"], "label": fw["label"], "mandate_id": (m or {}).get("id"), "formats": list(formats_for(fw["framework"])), "channels": options})
+        out.append({"framework": fw["framework"], "label": fw["label"], "name": report_name(fw["framework"]),
+                    "mandate_id": (m or {}).get("id"), "formats": list(formats_for(fw["framework"])),
+                    "channels": [{**o, "missing_labels": [messages.name("admin.credential", k) for k in o["missing"]]} for o in options]})
     return {"on_tellumen": on_tellumen, "frameworks": out}
+
+
+def report_name(framework: str | None) -> str | None:
+    """A report in customer words with no legal reference on it (the short names of services.governance.kri, else the
+    report's own name)."""
+    from services.governance.admin_view import report_name as _name
+    return _name(framework)
 
 
 def _org_channel_settings(session, org_id: str) -> dict:
@@ -50,11 +61,11 @@ def set_channel_credentials(session, *, org_id: str, channel_id: str, values: di
     from core.security.crypto import encrypt
     ch = registry()["channels"].get(channel_id)
     if not ch:
-        raise ValueError("Unknown channel.")
+        raise UserError("admin.transmission.unknown_channel")
     allowed = set(ch.get("credentials") or [])
     for k, v in values.items():
         if k not in allowed:
-            raise ValueError(f"{k} is not a credential this channel uses ({', '.join(sorted(allowed)) or 'none'}).")
+            raise UserError("admin.transmission.not_a_credential")
         if v is None or v == "":
             session.execute(text("DELETE FROM org_channel_credential WHERE org_id = CAST(:o AS uuid) AND channel_id = :c AND key = :k"), {"o": org_id, "c": channel_id, "k": k})
         else:
@@ -67,17 +78,17 @@ def set_channel_credentials(session, *, org_id: str, channel_id: str, values: di
 def create(session, *, org_id: str, filing_id: str, channel_id: str, fmt: Optional[str], by_user_id: str) -> dict:
     filing = F.get_filing(session, org_id, filing_id)
     if not filing:
-        raise ValueError("Filing not found.")
+        raise UserError("admin.transmission.filing_not_found")
     if filing["status"] not in ("attested", "submitted", "accepted"):
-        raise ValueError("Only an attested filing can be transmitted — approve and attest it first.")
+        raise UserError("admin.transmission.not_attested")
     chans = registry()["channels"]
     ch = chans.get(channel_id)
     if not ch:
-        raise ValueError("Unknown channel.")
+        raise UserError("admin.transmission.unknown_channel")
     fmts = [f for f in formats_for(filing["framework"]) if f in ch["formats"]] or list(formats_for(filing["framework"]))
     fmt = fmt or fmts[0]
     if fmt not in formats_for(filing["framework"]):
-        raise ValueError(f"'{fmt}' is not an available format for this filing.")
+        raise UserError("admin.transmission.bad_format")
     filename, media_type, payload = export_filing(session, org_id, filing_id, fmt)
     tid = session.execute(text("""
         INSERT INTO filing_transmission (org_id, filing_id, framework, period_label, channel_id, channel_kind, format, status, payload_sha256, payload_bytes, filename, created_by)
@@ -195,8 +206,20 @@ def _rows(session, where: str, params: dict) -> list[dict]:
     from services.tasks.jobs import worker_state
     ws = worker_state(_worker_status(session)) if any(r["status"] in WAITING_ON_WORKER for r in rows) else None
     return [dict(r) | {k: (r[k].isoformat() if r[k] else None) for k in ("sent_at", "receipt_at", "created_at")}
-            | {"channel_label": chans.get(r["channel_id"], {}).get("label", r["channel_id"]), "worker_state": ws if r["status"] in WAITING_ON_WORKER else None}
+            | {"channel_label": chans.get(r["channel_id"], {}).get("label", r["channel_id"]), "worker_state": ws if r["status"] in WAITING_ON_WORKER else None,
+               "framework_name": report_name(r["framework"]), "format_label": (r["format"] or "").upper(),
+               "status_message": _status_message(r["status"], ws if r["status"] in WAITING_ON_WORKER else None, r["created_at"])}
             for r in rows]
+
+
+def _status_message(status: str, worker_state: str | None, since) -> dict:
+    """Where a transmission stands, as a catalogue message: a transmission waiting on a worker that is not running says
+    so ("worker unavailable — queued since …"), never a bare "queued" forever."""
+    if worker_state == "unavailable":
+        return messages.render(f"admin.transmission.tx.stuck_{'queued' if status == 'queued' else 'retry'}",
+                               since=since.strftime("%Y-%m-%d %H:%M") if since else "—")
+    return messages.render(f"admin.transmission.tx.{status}" if f"admin.transmission.tx.{status}" in messages.catalogue()
+                           else "admin.transmission.tx.other")
 
 
 WAITING_ON_WORKER = ("queued", "failed")

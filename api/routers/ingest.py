@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from api.deps import DbSession, IngestOrg, require_permission
 from api.services.rbac import write_audit
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/ingest", tags=["Integration"])
 
@@ -106,6 +107,19 @@ def create_ingest_token(body: TokenCreate, session: DbSession,
     return res
 
 
+@router.get("/connection", summary="The addresses a system calls with an ingest token: the check, and the push per template")
+def connection(ctx: dict = Depends(require_permission("admin.users.manage"))):
+    """For the admin wiring up an integration: this platform's own addresses for the token check and for pushing each
+    of the organisation's templates — the screen copies them, it never types a path. The base is the platform's
+    configured address (core.config APP_BASE_URL, as for the single sign-on addresses), not the host a proxy reached."""
+    from core.config import settings
+    from services.intake.catalog import templates_for
+    base = settings.APP_BASE_URL.rstrip("/")
+    return {"check": f"{base}{router.url_path_for('ping')}",
+            "books": [{"label": t.label, "url": f"{base}{router.url_path_for('ingest_book', template=t.key)}"}
+                      for t in templates_for(ctx["org"].get("type") or "")]}
+
+
 @router.get("/tokens", summary="List your organization's ingest tokens")
 def list_ingest_tokens(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from api.services.ingest_tokens import list_tokens
@@ -117,7 +131,7 @@ def revoke_ingest_token(token_id: str, session: DbSession,
                         ctx: dict = Depends(require_permission("admin.users.manage"))):
     from api.services.ingest_tokens import revoke_token
     if not revoke_token(session, token_id, ctx["org"]["org_id"]):
-        raise HTTPException(404, {"error": "not_found", "message": "Token not found or already revoked."})
+        raise UserError("admin.integrations.token_not_found")
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="ingest.token.revoke", target_type="ingest_token", target_id=token_id)
     return {"revoked": True}

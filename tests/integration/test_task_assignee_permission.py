@@ -32,8 +32,9 @@ def test_assigning_to_a_read_only_role_is_refused():
         u = _actor(s)
         t = T.create_task(s, BANK_ORG, u, title="Needs a real owner")
         auditor = _user(s, "auditor@meridian.demo")   # real role: reports.view only, no approvals.create
-        with pytest.raises(T.TaskError, match="can't act on tasks"):
+        with pytest.raises(T.TaskError) as refused:
             T.assign_task(s, BANK_ORG, t["task_id"], u, auditor)
+        assert refused.value.code == "admin.tasks.assignee_cannot_act"
         s.rollback()
 
 
@@ -55,8 +56,9 @@ def test_create_task_with_an_unassignable_user_is_also_refused():
     with get_session() as s:
         u = _actor(s)
         auditor = _user(s, "auditor@meridian.demo")
-        with pytest.raises(T.TaskError, match="can't act on tasks"):
+        with pytest.raises(T.TaskError) as refused:
             T.create_task(s, BANK_ORG, u, title="Pre-assigned at creation", assignee_user_id=auditor)
+        assert refused.value.code == "admin.tasks.assignee_cannot_act"
         s.rollback()
 
 

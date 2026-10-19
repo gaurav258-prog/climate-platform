@@ -46,7 +46,7 @@
    "unit": "tCO2e/EUR m",
    "breakdown": "nace_division",
    "requires_source": true,
-   "used_for": "Pillar 3 Template 1 columns i-j, where the institution states the revenue basis (p3esg_t1_scope3_sector_average = intensity_x_revenue): the scope 3 of a counterparty whose scope 3 is not gathered from it (Annex XL: 'Institutions shall base the estimation of scope 3 emissions on the information on emissions gathered from their counterparties and on the information on sector-average emissions intensity.')"
+   "used_for": "Pillar 3 Template 1 columns i-j, where the institution states the revenue basis for the sector-average scope 3 (Methodology): the scope 3 of a counterparty whose scope 3 is not gathered from it (Annex XL: 'Institutions shall base the estimation of scope 3 emissions on the information on emissions gathered from their counterparties and on the information on sector-average emissions intensity.')"
   },
   "method.at_risk_level": {
    "short": "Your at-risk threshold",

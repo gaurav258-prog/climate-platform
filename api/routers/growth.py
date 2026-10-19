@@ -52,7 +52,5 @@ class PlanIn(BaseModel):
 
 @router.put("/billing/plan", summary="Change plan")
 def change_plan(body: PlanIn, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
-    try:
-        return billing.change_plan(session, ctx["org"]["org_id"], plan=body.plan, actor_user_id=ctx["user"]["id"])
-    except billing.BillingError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    # a refusal (unknown plan, a plan agreed with our team, more users than seats) is a catalogue error: BillingError
+    return billing.change_plan(session, ctx["org"]["org_id"], plan=body.plan, actor_user_id=ctx["user"]["id"])

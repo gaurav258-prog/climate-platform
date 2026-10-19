@@ -9,15 +9,19 @@ platform (services/governance/approval_policy_sweep.py) — flagged, audited, ne
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/approvals", tags=["Approvals"])
 
 
@@ -27,12 +31,21 @@ class ApprovalCreate(BaseModel):
     payload:      dict = Field(default_factory=dict)
 
 
-# a request type whose mechanism is retired: no new request, and a pending one can only be rejected (closed)
-RETIRED_TYPES = {
-    "submission.release": "The separate bank disclosure submission mechanism is retired (E99): it froze the bank's whole "
-                          "disclosure snapshot outside the filing lifecycle. A disclosure is filed through /v1/filings "
-                          "(freeze, four eyes, submit, amend), and its period-over-period comparison is the filing's variance.",
-}
+# a request type whose mechanism is retired: no new request, and a pending one can only be rejected (closed). The
+# separate bank disclosure submission (E99) froze the whole disclosure outside the filing lifecycle; a disclosure is
+# filed through the filing (freeze, four eyes, submit, amend) and compared period over period by its variance.
+RETIRED_TYPES = {"submission.release"}
+
+
+def _not_applied(e: Exception) -> UserError:
+    """A decision whose change could not be applied. The session rolls back on the error, so the decision is NOT
+    recorded and the request stays pending — the words must say so (they claimed the decision was recorded). A refusal
+    already in customer words passes its label on; any other cause goes to the log."""
+    code = getattr(e, "code", None)          # a UserError, or an error that carries a catalogue code (a release)
+    if isinstance(code, str) and code in messages.catalogue():
+        return UserError("admin.approvals.not_applied", reason=messages.render(code, **(getattr(e, "params", None) or {}))["label"])
+    logger.warning("approval not applied: %s", e)
+    return UserError("admin.approvals.not_applied", reason=messages.label("admin.approvals.apply_failed"))
 
 
 class ApprovalDecision(BaseModel):
@@ -46,18 +59,31 @@ class ApprovalAssign(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+def _title(stored):
+    from services.governance.approval_view import title
+    return title(stored)
+
+
+def _details(request_type: str, payload: dict) -> list[dict]:
+    from services.governance.approval_view import details
+    return details(request_type, payload)
+
+
 def _serialize(r) -> dict:
     return {
         "id": str(r["request_id"]), "request_type": r["request_type"],
-        "title": r["title"], "payload": r["payload"], "status": r["status"],
+        "title": r["title"], "title_label": _title(r["title"]), "payload": r["payload"], "status": r["status"],
         "maker_email": r["maker_email"], "checker_email": r["checker_email"],
         "assignee_email": r.get("assignee_email"),
         "assignee_user_id": str(r["assigned_to_user_id"]) if r.get("assigned_to_user_id") else None,
-        "reason": r["reason"],
+        "reason": r["reason"], "status_label": messages.name("admin.approval_status", r["status"]),
+        "details": _details(r["request_type"], r["payload"] or {}),
         # 'withdrawn' = closed by the platform, not a checker: the org's policy stopped governing the action while the
         # request was pending. Never applied. policy_off is the UI flag; withdrawn_cause the machine cause.
         "withdrawn_cause": r.get("withdrawn_cause"),
         "policy_off": r.get("withdrawn_cause") == "policy_no_longer_requires_approval",
+        "policy_off_message": (messages.render("admin.approvals.policy_off")
+                               if r.get("withdrawn_cause") == "policy_no_longer_requires_approval" else None),
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         "decided_at": r["decided_at"].isoformat() if r["decided_at"] else None,
     }
@@ -68,7 +94,7 @@ def create_approval(body: ApprovalCreate, session: DbSession,
                     ctx: dict = Depends(require_permission("approvals.create"))):
     import json
     if body.request_type in RETIRED_TYPES:
-        raise HTTPException(410, {"error": "retired", "message": RETIRED_TYPES[body.request_type]})
+        raise UserError("admin.approvals.retired")
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (:o, :t, :ti, CAST(:p AS jsonb), :m)
@@ -128,17 +154,15 @@ def assign(request_id: str, body: ApprovalAssign, session: DbSession,
         SELECT maker_user_id, status FROM approval_requests WHERE request_id = :r AND org_id = :o
     """), {"r": request_id, "o": org_id}).mappings().first()
     if not row:
-        raise HTTPException(404, {"error": "not_found", "message": "Approval request not found."})
+        raise UserError("admin.approvals.not_found")
     if row["status"] != "pending":
-        raise HTTPException(409, {"error": "already_decided", "message": f"Request is already {row['status']}."})
+        raise UserError("admin.approvals.already_decided", status=messages.name("admin.approval_status", row["status"]))
     # only the maker or a decider may route the request (assignment ≠ deciding, but it shouldn't be open to all)
     if str(row["maker_user_id"]) != ctx["user"]["id"] and "approvals.decide" not in ctx["permissions"]:
-        raise HTTPException(403, {"error": "forbidden",
-                                  "message": "Only the requester or an approver can assign this request."})
+        raise UserError("admin.approvals.assign_forbidden")
     assignee = body.assignee_user_id
     if assignee and str(row["maker_user_id"]) == assignee:
-        raise HTTPException(422, {"error": "maker_cannot_be_assignee",
-                                  "message": "The maker can't approve their own request (4-eyes) — assign it to a different approver."})
+        raise UserError("admin.approvals.maker_assignee")
     if assignee:
         ok = session.execute(text("""
             SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.user_id
@@ -147,8 +171,7 @@ def assign(request_id: str, body: ApprovalAssign, session: DbSession,
             WHERE u.user_id = CAST(:a AS uuid) AND u.org_id = :o AND p.code = 'approvals.decide'
         """), {"a": assignee, "o": org_id}).first()
         if not ok:
-            raise HTTPException(422, {"error": "invalid_assignee",
-                                      "message": "The assignee must be an approver in this organisation."})
+            raise UserError("admin.approvals.not_an_approver")
     session.execute(text("UPDATE approval_requests SET assigned_to_user_id = CAST(:a AS uuid) WHERE request_id = :r"),
                     {"a": assignee, "r": request_id})
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.assign",
@@ -165,23 +188,17 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         WHERE  request_id = :r AND org_id = :o
     """), {"r": request_id, "o": org_id}).mappings().first()
     if not row:
-        raise HTTPException(404, {"error": "not_found", "message": "Approval request not found."})
+        raise UserError("admin.approvals.not_found")
     if row["status"] != "pending":
-        raise HTTPException(409, {"error": "already_decided",
-                                  "message": f"Request is already {row['status']}."})
+        raise UserError("admin.approvals.already_decided", status=messages.name("admin.approval_status", row["status"]))
     if str(row["maker_user_id"]) == ctx["user"]["id"]:
-        raise HTTPException(422, {"error": "maker_checker_violation",
-                                  "message": "The maker cannot approve their own request (4-eyes)."})
+        raise UserError("admin.approvals.own_request")
     if row["request_type"] in RETIRED_TYPES and body.decision == "approved":
-        raise HTTPException(410, {"error": "retired", "message": RETIRED_TYPES[row["request_type"]]
-                                  + " Reject this request to close it; its draft is closed with it."})
-    if row["request_type"] == "reference.release_land" and "reference.release_review" not in ctx["permissions"]:
-        raise HTTPException(403, {"error": "forbidden", "message": "Missing permission: reference.release_review"})
-    if row["request_type"] == "calibration.publish" and "calibration.review" not in ctx["permissions"]:
-        raise HTTPException(403, {"error": "forbidden", "message": "Missing permission: calibration.review"})
-    if row["request_type"] == "submission.release" and "submissions.release" not in ctx["permissions"]:
-        raise HTTPException(403, {"error": "forbidden",
-                                  "message": "Missing permission: submissions.release"})
+        raise UserError("admin.approvals.retired_decide")
+    for rtype, perm in (("reference.release_land", "reference.release_review"), ("calibration.publish", "calibration.review"),
+                        ("submission.release", "submissions.release")):
+        if row["request_type"] == rtype and perm not in ctx["permissions"]:
+            raise UserError("admin.approvals.needs_permission", permission=messages.name("admin.permission", perm))
 
     session.execute(text("""
         UPDATE approval_requests
@@ -197,8 +214,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
                 WHERE  approval_request_id = :r
             """), {"c": ctx["user"]["id"], "r": request_id})
         except Exception as e:
-            raise HTTPException(409, {"error": "submission_transition_failed",
-                                      "message": f"Could not reject the linked submission: {e}"})
+            raise _not_applied(e) from e
 
     # Governed location changes: apply the mutation on approval (shares the exact same apply path
     # the direct edit uses, so an approved change is identical to a direct one). Audited within.
@@ -209,16 +225,14 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
             applied = apply_location_change(session, row["request_type"], row["payload"],
                                             actor_user_id=ctx["user"]["id"], org_id=org_id)
         except Exception as e:
-            raise HTTPException(409, {"error": "apply_failed",
-                                      "message": f"Approved, but could not apply the change: {e}"})
+            raise _not_applied(e) from e
     elif body.decision == "approved" and row["request_type"].startswith("config."):
         from services.governance.config_governance import apply_config_change
         try:
             applied = apply_config_change(session, row["request_type"], row["payload"],
                                           actor_user_id=ctx["user"]["id"], org_id=org_id)
         except Exception as e:
-            raise HTTPException(409, {"error": "apply_failed",
-                                      "message": f"Approved, but could not apply the change: {e}"})
+            raise _not_applied(e) from e
     # Filing approval: a filing.approve request clearing (or being sent back) drives the filing lifecycle.
     # 4-eyes is already enforced above (checker ≠ maker), so an approved filing is one a second pair of eyes signed.
     elif row["request_type"] == "filing.approve":
@@ -232,8 +246,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
             else:  # rejected
                 applied = mark_returned(session, org_id, fid, ctx["user"]["id"], reason=body.reason, rejected=True)
         except FilingError as e:
-            raise HTTPException(409, {"error": "apply_failed",
-                                      "message": f"Decision recorded, but could not update the filing: {e}"})
+            raise _not_applied(e) from e
     # Cell-level manual override on the final form: on approval it takes effect over the frozen snapshot;
     # 4-eyes (checker ≠ maker) is enforced above, so an approved override carries a second person's sign-off.
     # European ESG Template version: approved → published (the file distributors receive); otherwise rejected.
@@ -243,7 +256,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         try:
             applied = apply_eet(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
         except EETError as e:
-            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
+            raise _not_applied(e) from e
     elif row["request_type"] == "filing.cell_override":
         from services.governance.filing_overrides import apply_decision
         applied = apply_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
@@ -267,7 +280,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         try:
             applied = apply_release(session, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
         except ReleaseError as e:
-            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
+            raise _not_applied(e) from e
     # A batch of crop calibration runs (E162): approved → each publishes (fit, calibration row, recipe named); otherwise
     # the runs close unpublished. The platform's system account proposed it; the operator here is the reviewer.
     elif row["request_type"] == "calibration.publish":
@@ -276,7 +289,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         try:
             applied = apply_calibration(session, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
         except PublishError as e:
-            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
+            raise _not_applied(e) from e
     elif row["request_type"] == "intake.conflict":
         from services.intake.conflicts import apply_decision as apply_conflict
         applied = apply_conflict(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
@@ -297,7 +310,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         try:
             applied = apply_period(session, org_id, request_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
         except PeriodError as e:
-            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
+            raise _not_applied(e) from e
     elif row["request_type"] == "provided.datapoint":
         from services.governance.provided_data import attest as attest_provided
         applied = attest_provided(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
@@ -313,7 +326,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
             applied = decide_batch(session, org_id, (row["payload"] or {}).get("batch_id"), body.decision,
                                    ctx["user"]["id"], body.reason)
         except IntakeError as e:
-            raise HTTPException(e.status, {**e.body, "message": f"Decision not applied: {e.body.get('message')}"}) from e
+            raise _not_applied(e) from e
     elif row["request_type"] == "task.complete" and body.decision == "approved":
         from services.governance.tasks import TaskError, _complete_via_approval
         payload = row["payload"] or {}
@@ -321,8 +334,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
             applied = _complete_via_approval(session, org_id, payload.get("task_id"), ctx["user"]["id"],
                                              payload.get("note"))
         except TaskError as e:
-            raise HTTPException(409, {"error": "apply_failed",
-                                      "message": f"Approved, but could not complete the task: {e}"})
+            raise _not_applied(e) from e
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

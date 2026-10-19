@@ -33,7 +33,7 @@ def test_a_release_request_is_refused_and_a_pending_one_can_only_be_closed(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
     checker = _login(api, "approver@meridian.demo", "Demo!approve1")
     r = api.post("/v1/approvals", headers=maker, json={"request_type": "submission.release", "payload": {}})
-    assert r.status_code == 410 and "filing lifecycle" in r.text
+    assert r.status_code == 410 and r.json()["error"]["error"] == "admin.approvals.retired"
 
     s = api.s
     mk = s.execute(text("SELECT user_id FROM users WHERE email = 'admin@meridian.demo'")).scalar()
@@ -47,7 +47,7 @@ def test_a_release_request_is_refused_and_a_pending_one_can_only_be_closed(api):
                     {"o": BANK_ORG, "snap": json.dumps({"rollup": {}}), "m": mk, "r": rid}).scalar()
 
     r = api.post(f"/v1/approvals/{rid}/decide", headers=checker, json={"decision": "approved"})
-    assert r.status_code == 410 and "Reject this request" in r.text
+    assert r.status_code == 410 and r.json()["error"]["error"] == "admin.approvals.retired_decide"
     status = lambda q: s.execute(text(q), {"x": sub if "submission" in q else rid}).scalar()   # noqa: E731
     assert status("SELECT status FROM bank_disclosure_submissions WHERE submission_id = CAST(:x AS uuid)") == "draft"
     assert status("SELECT status FROM approval_requests WHERE request_id = CAST(:x AS uuid)") == "pending"

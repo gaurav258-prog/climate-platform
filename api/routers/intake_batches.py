@@ -223,6 +223,14 @@ def list_client_rates(session: DbSession, ctx: dict = Depends(require_permission
     return {"rates": latest_rates(session, ctx["org"]["org_id"])}
 
 
+@router.get("/fx/client-rates/template.csv", summary="The file your own exchange rates are uploaded in: its columns")
+def client_rates_template(ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from fastapi.responses import Response
+    body = "currency,rate_date,units_per_eur,basis,period_start,note\r\n"   # headers only: an example row uploaded
+    #                                                                          unchanged would be stored as a real rate
+    return Response(body, media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="exchange-rates-template.csv"'})
+
+
 @router.post("/fx/client-rates", status_code=201, summary="Submit your own exchange rates (JSON rows)")
 def submit_client_rates(body: ClientRatesIn, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     return _submit_rates(session, ctx, body.rows, "json")
@@ -233,20 +241,20 @@ async def upload_client_rates(session: DbSession, ctx: dict = Depends(require_pe
                               file: UploadFile = File(...)):
     import csv
     import io
+
+    from core.errors import UserError
     rows = list(csv.DictReader(io.StringIO((await file.read()).decode("utf-8-sig", errors="replace"))))
     if not rows:
-        raise HTTPException(422, {"error": "empty", "message": "No rows — columns: currency, rate_date, units_per_eur, "
-                                                                "basis (optional), period_start (for an average)."})
+        raise UserError("admin.rates.empty_file")
     return _submit_rates(session, ctx, rows, file.filename or "csv")
 
 
 def _submit_rates(session, ctx: dict, rows: list[dict], via: str) -> dict:
     from api.services.rbac import write_audit
-    from services.reference.client_fx import submit
+    from services.reference.client_fx import NoUsableRates, submit
     out = submit(session, ctx["org"]["org_id"], rows, ctx["user"]["id"])
     if not out["n_accepted"]:
-        raise HTTPException(422, {"error": "no_valid_rates", "refused": out["refused"],
-                                  "message": "No usable rates. " + (out["refused"][0]["reason"] if out["refused"] else "")})
+        raise NoUsableRates(out["refused"])
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="fx.client_rates.submit",
                 target_type="fx_client_rates", target_id=None,
                 detail={"via": via, "n_accepted": out["n_accepted"], "n_refused": out["n_refused"],

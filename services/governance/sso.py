@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -26,13 +27,20 @@ from sqlalchemy.orm import Session
 
 from api.security import create_access_token
 from api.services.rbac import write_audit
+from core import messages
 from core.config import settings
+from core.errors import UserError
 
+logger = logging.getLogger(__name__)
 VALID_ROLES = {"admin", "analyst", "approver", "viewer"}
 
 
-class SsoError(ValueError):
-    """A client-facing SSO configuration or login failure."""
+class SsoError(UserError):
+    """A client-facing SSO configuration or login failure: a catalogue code (admin.sso.*) with its values. The refusal
+    is exactly as before; only its words come from the catalogue. str() is the explanation."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
 
 
 def _hash(token: str) -> str:
@@ -60,9 +68,9 @@ def get_config(session: Session, org_id: str, *, include_secret: bool = False) -
 def upsert_config(session: Session, org_id: str, *, actor_user_id: str | None, **fields) -> dict:
     """Create or update a tenant's SSO config. Only the provided fields are changed."""
     if "default_role" in fields and fields["default_role"] not in VALID_ROLES:
-        raise SsoError(f"default_role must be one of {sorted(VALID_ROLES)}")
+        raise SsoError("admin.sso.bad_role")
     if "protocol" in fields and fields["protocol"] not in ("oidc", "saml"):
-        raise SsoError("protocol must be 'oidc' or 'saml'")
+        raise SsoError("admin.sso.bad_protocol")
     allowed = {"protocol", "enabled", "oidc_issuer", "oidc_client_id", "oidc_client_secret",
                "allowed_email_domain", "jit_provisioning", "default_role", "scim_enabled",
                "saml_idp_entity_id", "saml_idp_sso_url", "saml_idp_slo_url", "saml_idp_x509_cert",
@@ -86,9 +94,9 @@ def upsert_config(session: Session, org_id: str, *, actor_user_id: str | None, *
     """), {"o": org_id}).mappings().first()
     if cfg["enabled"]:
         if cfg["protocol"] == "saml" and not (cfg["saml_idp_sso_url"] and cfg["saml_idp_x509_cert"]):
-            raise SsoError("SAML IdP SSO URL and signing certificate are required before enabling SSO")
+            raise SsoError("admin.sso.saml_incomplete")
         if cfg["protocol"] != "saml" and not (cfg["oidc_issuer"] and cfg["oidc_client_id"]):
-            raise SsoError("issuer and client_id are required before enabling SSO")
+            raise SsoError("admin.sso.oidc_incomplete")
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action="sso.config_updated",
                 target_type="tenant_sso_config", target_id=org_id, detail={"fields": list(cols)})
     session.commit()
@@ -119,8 +127,10 @@ def org_for_scim_token(session: Session, token: str) -> str | None:
 
 
 # ── OIDC login round-trip ────────────────────────────────────────────────────
-def _redirect_uri() -> str:
+def redirect_uri() -> str:
+    """The OIDC redirect the provider must be given — the one every code exchange sends (and the screen shows)."""
     return f"{settings.APP_BASE_URL.rstrip('/')}/sso/callback"
+
 
 
 def discover(issuer: str) -> dict:
@@ -137,10 +147,10 @@ def authorize_url(session: Session, org_id: str, state: str) -> str:
         SELECT enabled, oidc_issuer, oidc_client_id FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)
     """), {"o": org_id}).mappings().first()
     if not cfg or not cfg["enabled"]:
-        raise SsoError("SSO is not enabled for this organization")
+        raise SsoError("admin.sso.not_enabled")
     meta = discover(cfg["oidc_issuer"])
     q = urlencode({"response_type": "code", "client_id": cfg["oidc_client_id"],
-                   "redirect_uri": _redirect_uri(), "scope": "openid email profile", "state": state})
+                   "redirect_uri": redirect_uri(), "scope": "openid email profile", "state": state})
     return f"{meta['authorization_endpoint']}?{q}"
 
 
@@ -153,20 +163,21 @@ def validate_id_token(id_token: str, *, issuer: str, client_id: str, jwks: list[
     keyset = jwks
     if keyset is None:
         if not jwks_uri:
-            raise SsoError("no JWKS available to validate the token")
+            raise SsoError("admin.sso.unverified")       # no signing keys to check the token against
         import requests
         keyset = requests.get(jwks_uri, timeout=10).json().get("keys", [])
     match = next((k for k in keyset if k.get("kid") == kid), None) or (keyset[0] if keyset else None)
     if not match:
-        raise SsoError("no matching signing key for this token")
+        raise SsoError("admin.sso.unverified")           # no signing key matches the token
     public_key = RSAAlgorithm.from_jwk(json.dumps(match))
     try:
         claims = jwt.decode(id_token, public_key, algorithms=["RS256"], audience=client_id,
                             issuer=issuer, leeway=leeway)
     except jwt.InvalidTokenError as e:
-        raise SsoError(f"invalid ID token: {e}") from e
+        logger.warning("sso: the identity token was refused: %s", e)
+        raise SsoError("admin.sso.unverified") from e
     if not claims.get("email"):
-        raise SsoError("the IdP did not return an email claim")
+        raise SsoError("admin.sso.no_email")
     return claims
 
 
@@ -220,19 +231,19 @@ def login_redirect_url(session: Session, org_id: str, state: str) -> str:
         FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)
     """), {"o": org_id}).mappings().first()
     if not cfg or not cfg["enabled"]:
-        raise SsoError("SSO is not enabled for this organization")
+        raise SsoError("admin.sso.not_enabled")
     if cfg["protocol"] == "saml":
         from services.governance import saml as saml_svc
         if not cfg["saml_idp_sso_url"]:
-            raise SsoError("this organization's SAML IdP is not fully configured")
+            raise SsoError("admin.sso.not_configured")
         return saml_svc.build_authn_request(idp_sso_url=cfg["saml_idp_sso_url"], relay_state=state or org_id)
     # OIDC
     from urllib.parse import urlencode as _q
     if not (cfg["oidc_issuer"] and cfg["oidc_client_id"]):
-        raise SsoError("this organization's OIDC IdP is not fully configured")
+        raise SsoError("admin.sso.not_configured")
     meta = discover(cfg["oidc_issuer"])
     return f"{meta['authorization_endpoint']}?" + _q({
-        "response_type": "code", "client_id": cfg["oidc_client_id"], "redirect_uri": _redirect_uri(),
+        "response_type": "code", "client_id": cfg["oidc_client_id"], "redirect_uri": redirect_uri(),
         "scope": "openid email profile", "state": state or org_id})
 
 
@@ -243,15 +254,16 @@ def handle_saml_acs(session: Session, saml_response_b64: str, relay_state: str) 
     cfg = session.execute(text("SELECT * FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
                           {"o": org_id}).mappings().first()
     if not cfg or not cfg["enabled"] or cfg["protocol"] != "saml":
-        raise SsoError("SAML SSO is not enabled for this organization")
+        raise SsoError("admin.sso.not_enabled")
     if not cfg["saml_idp_x509_cert"]:
-        raise SsoError("this organization's SAML signing certificate is not configured")
+        raise SsoError("admin.sso.not_configured")
     try:
         claims = saml_svc.validate_saml_response(
             saml_response_b64, sp_entity_id=saml_svc.sp_entity_id(), sp_acs_url=saml_svc.acs_url(),
             idp_cert=cfg["saml_idp_x509_cert"])
     except saml_svc.SamlError as e:
-        raise SsoError(str(e)) from e
+        logger.warning("sso: the SAML response was refused: %s", e)
+        raise SsoError("admin.sso.unverified") from e
     # replay protection: an assertion ID may be consumed exactly once per tenant
     aid = claims.get("assertion_id")
     if aid:
@@ -261,15 +273,15 @@ def handle_saml_acs(session: Session, saml_response_b64: str, relay_state: str) 
             session.flush()
         except IntegrityError:
             session.rollback()
-            raise SsoError("this SAML assertion has already been used (replay rejected)")
+            raise SsoError("admin.sso.replay")
     email = claims["email"]
     if cfg["allowed_email_domain"] and not email.endswith("@" + cfg["allowed_email_domain"].lower()):
-        raise SsoError("this email domain is not permitted for single sign-on here")
+        raise SsoError("admin.sso.domain")
     if not cfg["jit_provisioning"]:
         exists = session.execute(text("SELECT user_id FROM users WHERE org_id = CAST(:o AS uuid) AND lower(email) = :e AND status='active'"),
                                  {"o": org_id, "e": email}).first()
         if not exists:
-            raise SsoError("no account for this user, and JIT provisioning is disabled")
+            raise SsoError("admin.sso.no_account")
     user = provision_sso_user(session, org_id, email=email, full_name=claims.get("name"),
                               external_id=claims.get("name_id"), default_role=cfg["default_role"])
     write_audit(session, org_id=org_id, actor_user_id=user["user_id"], action="sso.login",
@@ -283,29 +295,29 @@ def handle_oidc_callback(session: Session, org_id: str, code: str) -> dict:
     cfg = session.execute(text("SELECT * FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
                           {"o": org_id}).mappings().first()
     if not cfg or not cfg["enabled"]:
-        raise SsoError("SSO is not enabled for this organization")
+        raise SsoError("admin.sso.not_enabled")
     meta = discover(cfg["oidc_issuer"])
     import requests
 
     from core.security.crypto import decrypt
     tok = requests.post(meta["token_endpoint"], timeout=10, data={
-        "grant_type": "authorization_code", "code": code, "redirect_uri": _redirect_uri(),
+        "grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri(),
         "client_id": cfg["oidc_client_id"], "client_secret": decrypt(cfg["oidc_client_secret"]),
     })
     tok.raise_for_status()
     id_token = tok.json().get("id_token")
     if not id_token:
-        raise SsoError("the IdP did not return an id_token")
+        raise SsoError("admin.sso.unverified")           # the provider sent back no identity token
     claims = validate_id_token(id_token, issuer=cfg["oidc_issuer"], client_id=cfg["oidc_client_id"],
                                jwks_uri=meta.get("jwks_uri"))
     email = claims["email"]
     if cfg["allowed_email_domain"] and not email.lower().endswith("@" + cfg["allowed_email_domain"].lower()):
-        raise SsoError("this email domain is not permitted for single sign-on here")
+        raise SsoError("admin.sso.domain")
     if not cfg["jit_provisioning"]:
         exists = session.execute(text("SELECT user_id FROM users WHERE org_id = CAST(:o AS uuid) AND lower(email) = :e AND status='active'"),
                                  {"o": org_id, "e": email.lower()}).first()
         if not exists:
-            raise SsoError("no account for this user, and JIT provisioning is disabled")
+            raise SsoError("admin.sso.no_account")
     user = provision_sso_user(session, org_id, email=email, full_name=claims.get("name"),
                               external_id=claims.get("sub"), default_role=cfg["default_role"])
     write_audit(session, org_id=org_id, actor_user_id=user["user_id"], action="sso.login",

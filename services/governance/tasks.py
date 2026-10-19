@@ -9,12 +9,42 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import messages
+from core.errors import UserError
+
 COLUMNS = ["icebox", "todo", "blocked", "doing", "review", "done"]
 _CRIT = ("low", "normal", "high", "critical")
 
 
-class TaskError(ValueError):
-    pass
+class TaskError(UserError):
+    """A task refusal in customer words: a catalogue code (admin.tasks.*) with its values. str() is the explanation,
+    for the callers that pass it on in a sentence of their own (an approval applied, a spun task)."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
+
+
+def _stage(status: str | None) -> str:
+    return messages.name("admin.task_stage", status or "todo")
+
+
+def event_words(e: dict) -> dict:
+    """An activity event in customer words (a catalogue message): what happened, and its detail. A comment, a
+    completion note and a file name are a person's own words and stay as they were written."""
+    kind, note = e["kind"], e.get("note") or ""
+    if kind == "moved":
+        if note.startswith("4-eyes approved"):
+            rest = note.split(" · ", 1)[1] if " · " in note else ""
+            return messages.render("admin.tasks.event.approved", note=rest or "—")
+        if note.startswith("system:supervision_engagement"):
+            return messages.render("admin.tasks.event.thread", to=_stage(e.get("to")), note=note.split(" · ", 1)[-1])
+        if note.startswith("gate confirmed"):
+            return messages.render("admin.tasks.event.gated", frm=_stage(e.get("from")), to=_stage(e.get("to")),
+                                   checks=note.split(" · ", 1)[1] if " · " in note else "—")
+        return messages.render("admin.tasks.event.moved", frm=_stage(e.get("from")), to=_stage(e.get("to")))
+    code = {"created": "created", "assigned": "assigned", "edited": "edited", "attached": "attached", "commented": "commented",
+            "removed_attachment": "removed", "completion_requested": "completion"}.get(kind)
+    return messages.render(f"admin.tasks.event.{code}", file=note, note=note) if code else messages.render("admin.tasks.event.other")
 
 
 def _event(session: Session, task_id: str, kind: str, actor: str | None,
@@ -81,7 +111,7 @@ def _check_assignable(session: Session, org_id: str, assignee_user_id: str) -> N
     ok = session.execute(text("SELECT 1 FROM users WHERE user_id = CAST(:a AS uuid) AND org_id = :o"),
                          {"a": assignee_user_id, "o": org_id}).first()
     if not ok:
-        raise TaskError("assignee must be a user in this organisation")
+        raise TaskError("admin.tasks.assignee_unknown")
     can_act = session.execute(text("""
         SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.user_id
         JOIN role_permissions rp ON rp.role_id = ur.role_id
@@ -89,8 +119,7 @@ def _check_assignable(session: Session, org_id: str, assignee_user_id: str) -> N
         WHERE u.user_id = CAST(:a AS uuid) AND u.org_id = :o AND p.code = 'approvals.create'
     """), {"a": assignee_user_id, "o": org_id}).first()
     if not can_act:
-        raise TaskError("this colleague's role can't act on tasks — assign it to someone who can "
-                        "(needs the approvals.create permission)")
+        raise TaskError("admin.tasks.assignee_cannot_act")
 
 
 def create_task(session: Session, org_id: str, actor: str, *, title: str, description: str | None = None,
@@ -98,9 +127,9 @@ def create_task(session: Session, org_id: str, actor: str, *, title: str, descri
                 due_date: str | None = None, source: str = "manual", source_ref: str | None = None,
                 depends_on: list[str] | None = None) -> dict:
     if not (title or "").strip():
-        raise TaskError("a task needs a title")
+        raise TaskError("admin.tasks.no_title")
     if criticality not in _CRIT:
-        raise TaskError(f"criticality must be one of {_CRIT}")
+        raise TaskError("admin.tasks.bad_criticality")
     if assignee_user_id:
         _check_assignable(session, org_id, assignee_user_id)
     # a linked filing must belong to THIS org — never attach to another tenant's filing UUID
@@ -109,7 +138,7 @@ def create_task(session: Session, org_id: str, actor: str, *, title: str, descri
             "SELECT 1 FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = :o"),
             {"f": filing_id, "o": org_id}).first()
         if not owned:
-            raise TaskError("linked filing not found in this organisation")
+            raise TaskError("admin.tasks.filing_unknown")
     # de-dupe: a live task already exists for this source_ref → return it rather than piling up
     if source_ref:
         existing = session.execute(text("""
@@ -153,6 +182,8 @@ def get_task(session: Session, org_id: str, task_id: str) -> dict | None:
     """), {"t": task_id}).mappings().all()
     out["events"] = [{"kind": e["kind"], "from": e["from_val"], "to": e["to_val"], "note": e["note"],
                       "at": e["created_at"].isoformat(), "actor": e["actor"]} for e in evs]
+    for e in out["events"]:
+        e["words"] = event_words(e)
     out["attachments"] = list_attachments(session, org_id, task_id)
     return out
 
@@ -162,7 +193,7 @@ def _load(session: Session, org_id: str, task_id: str) -> dict:
         "SELECT status, title, assignee_user_id FROM regulatory_task WHERE org_id=:o AND task_id=:t"),
         {"o": org_id, "t": task_id}).mappings().first()
     if not r:
-        raise TaskError("task not found")
+        raise TaskError("admin.tasks.not_found")
     return dict(r)
 
 
@@ -185,24 +216,23 @@ def _gate_check(session: Session, org_id: str, task_id: str, cur: dict, target: 
     if not forward or target not in _GATED_STAGES:
         return  # only advancing INTO a gated stage is gated; backward / sideways moves are free
     if target == "done":
-        raise TaskError("Moving to Done needs 4-eyes approval — use request_completion(), "
-                        "not a direct move (see task.complete in /v1/approvals).")
+        raise TaskError("admin.tasks.done_needs_approval")    # request_completion(), never a direct move
     # objective conditions — read from the task's own state
     if target == "doing":
         if not cur.get("assignee_user_id"):
-            raise TaskError("Assign an owner before moving this task into Doing.")
+            raise TaskError("admin.tasks.gate.owner")
         dep = session.execute(text("""
             SELECT count(*) FROM regulatory_task d
             JOIN regulatory_task t ON d.task_id = ANY(t.depends_on)
             WHERE t.task_id = :t AND t.org_id = :o AND d.status <> 'done'
         """), {"t": task_id, "o": org_id}).scalar()
         if dep:
-            raise TaskError(f"{dep} dependency task(s) are still open — clear them before starting.")
+            raise TaskError("admin.tasks.gate.dependencies", n=dep)
     if target == "review":
         row = session.execute(text("SELECT description, filing_id::text AS filing_id FROM regulatory_task WHERE org_id=:o AND task_id=:t"),
                               {"o": org_id, "t": task_id}).mappings().first()
         if not (row["description"] or "").strip():
-            raise TaskError("Record what was done (add a description) before sending this task to Review.")
+            raise TaskError("admin.tasks.gate.description")
         # a filing-linked task's "validation was run with no blocking errors" is now a REAL server-side
         # read of the filing's own validation, not a self-ticked checklist item (fixed 2026-09-24, K4,
         # independent Kanban review — filing_id used to be purely decorative: nothing ever checked the
@@ -215,18 +245,18 @@ def _gate_check(session: Session, org_id: str, task_id: str, cur: dict, target: 
                 result = None   # filing not found (deleted/wrong org) — don't block on a dangling link
             if result and not result["passed"]:
                 msgs = blocking_messages(result)
-                raise TaskError("The linked filing still has blocking validation errors: "
-                                + "; ".join(msgs[:3]) + (" …" if len(msgs) > 3 else ""))
+                raise TaskError("admin.tasks.gate.filing", n=len(msgs),
+                                first="; ".join(msgs[:3]) + (" …" if len(msgs) > 3 else ""))
     # human attestations — a gated forward move must carry its confirmed checklist
     items = [a for a in (attestations or []) if str(a).strip()]
     if not items:
-        raise TaskError(f"Confirm the mandatory checklist for “{target}” before moving this task there.")
+        raise TaskError("admin.tasks.gate.checklist", stage=_stage(target))
 
 
 def move_task(session: Session, org_id: str, task_id: str, actor: str, status: str,
               attestations: list[str] | None = None) -> dict:
     if status not in ("icebox", "todo", "blocked", "doing", "review", "done", "cancelled"):
-        raise TaskError(f"unknown status '{status}'")
+        raise TaskError("admin.tasks.bad_status")
     cur = _load(session, org_id, task_id)
     if cur["status"] == status:
         return get_task(session, org_id, task_id)
@@ -256,16 +286,16 @@ def request_completion(session: Session, org_id: str, task_id: str, actor: str, 
     gate had — 'reviewed by a second person' is no longer a checklist item at all, it's the approval itself."""
     cur = _load(session, org_id, task_id)
     if cur["status"] != "review":
-        raise TaskError("A task must be in Review before its completion can be requested.")
+        raise TaskError("admin.tasks.not_in_review")
     if not (note or "").strip():
-        raise TaskError("Record what the outcome is / where it's filed before requesting completion.")
+        raise TaskError("admin.tasks.no_outcome")
     existing = session.execute(text("""
         SELECT request_id FROM approval_requests
         WHERE org_id = :o AND request_type = 'task.complete' AND status = 'pending'
               AND payload->>'task_id' = :t
     """), {"o": org_id, "t": task_id}).scalar()
     if existing:
-        raise TaskError("A completion request for this task is already pending.")
+        raise TaskError("admin.tasks.already_pending")
     import json
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
@@ -287,8 +317,7 @@ def _complete_via_approval(session: Session, org_id: str, task_id: str, checker_
     names the genuine second pair of eyes, not the mover's own self-attestation."""
     cur = _load(session, org_id, task_id)
     if cur["status"] != "review":
-        raise TaskError(f"This task is no longer in Review (now '{cur['status']}') — "
-                        "the completion request is stale; withdraw and re-request if still needed.")
+        raise TaskError("admin.tasks.stale_completion", stage=_stage(cur["status"]))
     session.execute(text("""
         UPDATE regulatory_task SET status = 'done',
             position = COALESCE((SELECT MAX(position)+1 FROM regulatory_task WHERE org_id=:o AND status='done'), 0)
@@ -305,9 +334,9 @@ def update_task(session: Session, org_id: str, task_id: str, actor: str, *, titl
     """Edit a task's fields (title / description / criticality / due date). Only supplied fields change."""
     cur = _load(session, org_id, task_id)
     if criticality is not None and criticality not in _CRIT:
-        raise TaskError(f"criticality must be one of {_CRIT}")
+        raise TaskError("admin.tasks.bad_criticality")
     if title is not None and not title.strip():
-        raise TaskError("title can't be empty")
+        raise TaskError("admin.tasks.no_title")
     session.execute(text("""
         UPDATE regulatory_task SET
             title = COALESCE(:t, title),
@@ -330,7 +359,7 @@ def comment(session: Session, org_id: str, task_id: str, actor: str, body: str,
     _load(session, org_id, task_id)   # org-scope check
     body = (body or "").strip()
     if not body:
-        raise TaskError("comment can't be empty")
+        raise TaskError("admin.tasks.no_comment")
     _event(session, task_id, "commented", actor, note=body)
     targets = {m for m in (mentions or []) if m and m != actor}
     if targets:
@@ -386,11 +415,11 @@ def add_attachment(session: Session, org_id: str, task_id: str, actor: str, *, f
                    content_type: str | None, data: bytes) -> dict:
     _load(session, org_id, task_id)   # org-scope check
     if not (filename or "").strip():
-        raise TaskError("the file needs a name")
+        raise TaskError("admin.tasks.file.no_name")
     if not data:
-        raise TaskError("the file is empty")
+        raise TaskError("admin.tasks.file.empty")
     if len(data) > _MAX_ATTACH_BYTES:
-        raise TaskError(f"file is too large (max {_MAX_ATTACH_BYTES // (1024 * 1024)} MB)")
+        raise TaskError("admin.tasks.file.too_large", mb=_MAX_ATTACH_BYTES // (1024 * 1024))
     aid = session.execute(text("""
         INSERT INTO regulatory_task_attachment (org_id, task_id, filename, content_type, size_bytes, data, uploaded_by)
         VALUES (:o, :t, :f, :ct, :sz, :d, :u) RETURNING attachment_id
@@ -466,7 +495,7 @@ def sync_status_from_engagement(session: Session, org_id: str, task_id: str, sta
     change again without leaving a record of who/what changed it and why — 'system:supervision_engagement'
     as actor (no user_id column can name a two-sided cross-org event) with the reason in the note."""
     if status not in ("icebox", "todo", "blocked", "doing", "review", "done", "cancelled"):
-        raise TaskError(f"unknown status '{status}'")
+        raise TaskError("admin.tasks.bad_status")
     cur = _load(session, org_id, task_id)
     if cur["status"] == status:
         return get_task(session, org_id, task_id)

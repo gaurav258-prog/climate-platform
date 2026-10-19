@@ -41,9 +41,9 @@ def test_admin_settings_store_only_a_verified_lei(api, registry):
     admin = _login(api, "admin@nordkap.demo", "Demo!admin1")
     org_id = api.get("/v1/auth/me", headers=admin).json()["org"]["org_id"]
     before = api.s.execute(text("SELECT lei FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).scalar()
-    for bad, why in (("LEI0000000000000GOLD", "not a valid LEI"), ("5493000TESTNOTREG033", "not in GLEIF")):
+    for bad, why in (("LEI0000000000000GOLD", "admin.identity.invalid_lei"), ("5493000TESTNOTREG033", "admin.identity.lei_not_found")):
         r = api.patch("/v1/admin/organization", headers=admin, json={"lei": bad})
-        assert r.status_code == 422 and why in r.text, r.text
+        assert r.status_code == 422 and r.json()["error"]["error"] == why, r.text
     registry["down"] = True
     assert api.patch("/v1/admin/organization", headers=admin, json={"lei": REAL}).status_code == 422
     assert api.s.execute(text("SELECT lei FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).scalar() == before
@@ -59,9 +59,10 @@ def test_admin_settings_store_only_a_verified_lei(api, registry):
 
 def test_a_new_tenant_and_a_fund_take_the_same_check(api, registry):
     from services.governance.tenant_provisioning import TenantError, create_tenant
-    with pytest.raises(TenantError, match="not in GLEIF"):
+    with pytest.raises(TenantError) as refused:
         create_tenant(api.s, actor_user_id=None, name="LEI check tenant (test)", org_type="bank", country="DE",
                       lei="5493000TESTNOTREG033")
+    assert refused.value.code == "admin.identity.lei_not_found"
     analyst = _login(api, "analyst@nordkap.demo", "Demo!analyst1")
     fund = api.get("/v1/funds", headers=analyst).json()["funds"][0]["fund_id"]
     r = api.put(f"/v1/funds/{fund}/lei", headers=analyst, json={"lei": "LEI0000000000000GOLD"})

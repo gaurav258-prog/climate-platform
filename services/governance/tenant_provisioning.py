@@ -15,6 +15,8 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+
 # Canonical default role → permission matrix for a NEW tenant (single source of truth, shared with the seed).
 # contracts.view / contracts.manage are included so a tenant gets contract access the moment those permissions
 # exist in the catalog; a role_permissions insert for a not-yet-defined code simply grants nothing (no error).
@@ -91,8 +93,13 @@ def role_templates_for(org_type: str, plan: str | None = None) -> dict[str, list
     return DEFAULT_ROLE_PERMS
 
 
-class TenantError(ValueError):
-    """Provisioning was rejected (bad input, duplicate name/email)."""
+class TenantError(UserError):
+    """Provisioning was rejected (bad input, duplicate name/email, an LEI the registry does not hold): a catalogue code
+    with its values (core/errors.py)."""
+
+    def __str__(self) -> str:      # signup and client onboarding pass the reason on as their own error's words
+        from core import messages
+        return messages.render(self.code, **self.params)["detail"]["what"]
 
 
 def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org_type: str,
@@ -109,20 +116,21 @@ def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org
     name = (name or "").strip()
     country = (country or "").strip().upper() or None
     if not name:
-        raise TenantError("a tenant needs a name")
+        raise TenantError("admin.tenant.no_name")
     if not country:
-        raise TenantError("country (ISO-2) is required")
+        raise TenantError("admin.tenant.no_country")
     if org_type not in VALID_ORG_TYPES:
-        raise TenantError(f"org_type must be one of {sorted(VALID_ORG_TYPES)}")
+        raise TenantError("admin.tenant.bad_sector")
     if session.execute(text("SELECT 1 FROM organizations WHERE lower(name) = lower(:n)"), {"n": name}).first():
-        raise TenantError(f"a tenant named '{name}' already exists")
+        raise TenantError("admin.tenant.name_taken", name=name)
 
     if (lei or "").strip():                  # the one LEI check (E143)
+        from services.governance.admin_view import lei_refusal
         from services.reference import gleif
         try:
             lei = gleif.verified_lei(lei).lei
         except gleif.LeiError as e:
-            raise TenantError(str(e)) from e
+            raise lei_refusal(lei, e, TenantError) from e
     else:
         lei = None
 
@@ -145,7 +153,8 @@ def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org
         """), {"o": org_id, "off": off})
 
     # 3) roles + permission matrix (per tenant)
-    for role_name, perms in role_templates_for(org_type).items():
+    templates = role_templates_for(org_type)
+    for role_name, perms in templates.items():
         rid = session.execute(text("""
             INSERT INTO roles (org_id, name, description, is_system) VALUES (CAST(:o AS uuid), :n, :d, true)
             RETURNING role_id
@@ -162,9 +171,9 @@ def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org
     if admin_email:
         admin_email = admin_email.strip().lower()
         if session.execute(text("SELECT 1 FROM users WHERE lower(email) = :e"), {"e": admin_email}).first():
-            raise TenantError(f"a user with email '{admin_email}' already exists")
+            raise TenantError("admin.tenant.email_taken", email=admin_email)
         if not admin_password:
-            raise TenantError("a first-admin password is required when admin_email is given")
+            raise TenantError("admin.tenant.no_password")
         uid = session.execute(text("""
             INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status, created_at)
             VALUES (gen_random_uuid(), CAST(:o AS uuid), :e, 'admin', :fn, :hp, 'active', now())
@@ -182,4 +191,4 @@ def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org
                        + (f" · admin {admin_email}" if admin else " · no admin seeded"))
     session.commit()
     return {"org_id": org_id, "name": name, "type": org_type, "entitlements": offerings,
-            "roles": list(DEFAULT_ROLE_PERMS.keys()), "admin": admin}
+            "roles": list(templates), "admin": admin}       # the roles created — a supervisory body has its own set

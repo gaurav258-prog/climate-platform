@@ -14,6 +14,8 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+
 CLOSING_MAX_AGE_DAYS = 7
 
 
@@ -61,32 +63,62 @@ def resolve(session: Session, org_id: Optional[str], ccy: str, on: date, *, aver
     return out
 
 
+class _RowRefused(Exception):
+    """A row of the organisation's rates that cannot be used: its catalogue code (admin.rates.row.*)."""
+
+
+class NoUsableRates(UserError):
+    """No row of the organisation's rates could be used: the catalogue error, with each refused row's own message."""
+
+    def __init__(self, refused: list[dict]):
+        super().__init__("admin.rates.none_usable")
+        self.refused = refused
+
+    def body(self) -> dict:
+        out = super().body()
+        out["error"]["refused"] = self.refused
+        return out
+
+
 def submit(session: Session, org_id: str, rows: list[dict], user_id: Optional[str]) -> dict:
     """Store the organisation's rates. rows: {currency, rate_date, units_per_eur, basis?='closing', period_start?,
     note?}. Each row is checked (a currency we know, a positive rate, a past date, a period for an average); rows that
-    fail are reported with the reason. Returns the accepted rows compared with the official rate."""
+    fail are reported with why, as a catalogue message. Returns the accepted rows compared with the official rate."""
+    from core import messages
     from services.intake.money import MoneyError, parse_book_date, validate_declaration
     from services.reference.fx import FxError, average_rate, rate_for
     accepted, refused = [], []
     for i, r in enumerate(rows, start=1):
         try:
-            ccy, _ = validate_declaration(session, r.get("currency"), None)
+            try:
+                ccy, _ = validate_declaration(session, r.get("currency"), None)
+            except MoneyError as e:
+                raise _RowRefused("currency") from e
             if not ccy or ccy == "EUR":
-                raise MoneyError("currency must be a non-euro ISO 4217 code")
-            d = parse_book_date(r.get("rate_date"))
+                raise _RowRefused("currency")
+            try:
+                d = parse_book_date(r.get("rate_date"))
+            except (MoneyError, ValueError) as e:
+                raise _RowRefused("date") from e
             if d is None or d > date.today():
-                raise MoneyError("rate_date must be a past date (YYYY-MM-DD)")
-            u = float(str(r.get("units_per_eur")).replace(",", ""))
+                raise _RowRefused("date")
+            try:
+                u = float(str(r.get("units_per_eur")).replace(",", ""))
+            except (ValueError, TypeError) as e:
+                raise _RowRefused("rate") from e
             if not u > 0:
-                raise MoneyError("units_per_eur must be positive (units of the currency per 1 EUR, as the ECB quotes)")
+                raise _RowRefused("rate")
             basis = (r.get("basis") or "closing").strip().lower()
             if basis not in ("closing", "period_average"):
-                raise MoneyError("basis must be 'closing' or 'period_average'")
-            start = parse_book_date(r.get("period_start")) if basis == "period_average" else None
+                raise _RowRefused("basis")
+            try:
+                start = parse_book_date(r.get("period_start")) if basis == "period_average" else None
+            except (MoneyError, ValueError) as e:
+                raise _RowRefused("period") from e
             if basis == "period_average" and (start is None or start >= d):
-                raise MoneyError("an average needs period_start before rate_date")
-        except (MoneyError, ValueError, TypeError) as e:
-            refused.append({"row": i, "reason": str(e)})
+                raise _RowRefused("period")
+        except _RowRefused as e:
+            refused.append({"row": i, "message": messages.render(f"admin.rates.row.{e.args[0]}", row=i)})
             continue
         session.execute(text("""
             INSERT INTO fx_client_rates (org_id, ccy, basis, period_start, rate_date, units_per_eur, source_note, submitted_by)
@@ -98,7 +130,8 @@ def submit(session: Session, org_id: str, rows: list[dict], user_id: Optional[st
         except FxError:
             off = None
         diff = round(abs(u - off["units_per_eur"]) / off["units_per_eur"] * 100, 3) if off and off.get("units_per_eur") else None
-        accepted.append({"currency": ccy, "basis": basis, "rate_date": d.isoformat(), "units_per_eur": u,
+        accepted.append({"currency": ccy, "basis": basis, "basis_label": messages.name("filing.election", basis),
+                         "rate_date": d.isoformat(), "units_per_eur": u,
                          "official_units_per_eur": off.get("units_per_eur") if off else None,
                          "official_source": off.get("source") if off else None, "difference_pct": diff})
     return {"n_accepted": len(accepted), "accepted": accepted[:200], "n_refused": len(refused), "refused": refused[:50]}

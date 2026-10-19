@@ -1,32 +1,46 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Scale, Send, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { ChevronDown, Scale, Send } from 'lucide-react'
+import clsx from 'clsx'
+import { api, apiDetail, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card, Button } from './ui'
+import { Button, Card, SectionHead } from './ui'
+import { HEADING, InfoButton, type Details } from './Details'
+import { StatusChip } from './StatusChip'
 
 // The institution's stated method for the financial year (E69): every parameter a money figure depends on that the
 // platform cannot take from a fact, a quoted regulation or a validated model — its at-risk level, damage ratios, event
 // probabilities, loadings, stranded shares, carbon prices… Each value is stated by one person and attested by a second
-// (provided values, family 'method'); nothing has a default, and a figure that needs an unstated value is a named gap.
+// (provided values, family 'method'); nothing has a default, and a figure that needs an unstated value is reported as
+// missing. The server names every parameter, axis and member (services/governance/admin_view.method_view).
 
-interface Param { key: string; label: string; unit: string; used_for?: string; breakdown: string | null; members: Record<string, string> | null; requires_source?: boolean }
+interface Axis { axis: string; title: string; names: Record<string, string> }
+interface Param { key: string; name: string; about: string; unit: string; used_for?: string | null; breakdown: string | null
+  members: Record<string, string> | null; axes: Axis[] | null; requires_source?: boolean }
 interface Provided { provided_id: string; datapoint_key: string; value_num: number | null; status: string; breakdown_member: string | null
   reporting_period_end: string | null; submitted_by: string | null; decided_by: string | null }
-interface Needed { period_end: string; basis: { scenario: string; horizon: string }; needed: { key: string; member: string | null }[] }
+interface Need { key: string; member: string | null; name: string; member_label: string | null }
+interface Needed { period_end: string; needed: Need[] }
 
-const UNIT_HINT: Record<string, string> = { ratio: 'a share between 0 and 1 (0.05 = 5%)', score: 'a headline score 0–100', 'EUR/tCO2e': 'euro per tonne CO₂e',
-  'tCO2e/EUR m': 'tonnes CO₂e per EUR million' }
-
-// a breakdown's members, split into the axes a person picks from (peril × band, division @ scenario / horizon …)
-function axes(breakdown: string): { names: string[]; split: (m: string) => string[]; join: (p: string[]) => string } {
-  if (breakdown === 'peril_band' || breakdown === 'scenario_horizon')
-    return { names: breakdown === 'peril_band' ? ['Peril', 'Hazard band'] : ['Scenario', 'Horizon'], split: m => m.split('/'), join: p => p.join('/') }
-  if (breakdown === 'division_scenario_horizon')
-    return { names: ['NACE division', 'Scenario', 'Horizon'], split: m => { const [d, rest] = m.split('@'); return [d, ...rest.split('/')] }, join: p => `${p[0]}@${p[1]}/${p[2]}` }
-  return { names: [breakdown === 'band' ? 'Hazard band' : breakdown === 'peril' ? 'Peril' : breakdown === 'epc_grade' ? 'EPC grade'
-    : breakdown === 'nace_division' ? 'NACE division' : 'Member'], split: m => [m], join: p => p[0] }
+const UNIT: Record<string, string> = { ratio: 'a share between 0 and 1 (0.05 is 5 %)', score: 'a score from 0 to 100',
+  'EUR/tCO2e': 'euro per tonne of CO₂e', 'tCO2e/EUR m': 'tonnes of CO₂e per million euro' }
+const ABOUT: Details = {
+  title: 'Your stated method', sections: [
+    { heading: HEADING.shows, body: 'The values a money figure depends on that cannot come from a fact, a quoted rule or a tested model — your at-risk threshold, damage ratios, event probabilities, loadings and the like — stated for the financial year.' },
+    { heading: HEADING.read, body: 'The platform supplies no default: a figure that needs a value you have not stated is reported as missing. Each value is stated by one person and takes effect once a second person attests it on Approvals.' },
+  ],
 }
+
+// a member's parts, in the order its breakdown spells them ('flood/H', 'A01@baseline/2030')
+function split(breakdown: string, m: string): string[] {
+  if (breakdown === 'division_scenario_horizon') { const [d, rest] = m.split('@'); return [d, ...rest.split('/')] }
+  return breakdown === 'peril_band' || breakdown === 'scenario_horizon' ? m.split('/') : [m]
+}
+function join(breakdown: string, p: string[]): string {
+  return breakdown === 'division_scenario_horizon' ? `${p[0]}@${p[1]}/${p[2]}` : p.join('/')
+}
+const memberWords = (p: Param, m: string | null) => !m || !p.breakdown || !p.axes ? '—'
+  : split(p.breakdown, m).map((v, i) => p.axes![i]?.names[v] ?? v).join(' · ')
 
 export default function MethodParameters() {
   const qc = useQueryClient()
@@ -35,139 +49,131 @@ export default function MethodParameters() {
   const need = useQuery({ queryKey: ['method-needed'], queryFn: () => api.get<Needed>('/v1/provided/method/needed') })
   const [open, setOpen] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<{ key: string; member: string | null } | null>(null)
-
   const periodEnd = need.data?.period_end ?? ''
   const params = cat.data?.datapoints ?? []
-  const forYear = (prov.data?.provided ?? []).filter(p => !p.reporting_period_end || p.reporting_period_end === periodEnd)
   const byKey = useMemo(() => {
     const m: Record<string, Provided[]> = {}
-    for (const p of forYear) (m[p.datapoint_key] ??= []).push(p)
+    for (const p of prov.data?.provided ?? []) if (!p.reporting_period_end || p.reporting_period_end === periodEnd) (m[p.datapoint_key] ??= []).push(p)
     return m
-  }, [forYear])
+  }, [prov.data, periodEnd])
   const needed = need.data?.needed ?? []
-
-  const startFrom = (key: string, member: string | null) => { setOpen(key); setPrefill({ key, member }) }
   const refresh = () => { qc.invalidateQueries({ queryKey: ['method-provided'] }); qc.invalidateQueries({ queryKey: ['method-needed'] }) }
+  const startFrom = (n: Need) => {                // open the value's row and bring it into view
+    setOpen(n.key); setPrefill({ key: n.key, member: n.member })
+    requestAnimationFrame(() => document.getElementById(`method-${n.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
 
   return (
-    <Card className="p-5 space-y-4">
-      <div>
-        <div className="flex items-center gap-2"><Scale size={16} className="text-[var(--color-sky)]" />
-          <h2 className="display text-xl font-semibold">Your stated method{periodEnd ? ` · financial year ending ${periodEnd}` : ''}</h2></div>
-        <p className="text-[12.5px] text-[var(--color-mute)] max-w-3xl mt-1">
-          Every money figure rests only on your data, a quoted regulation, a model validated for that figure — or a parameter you state here.
-          The platform supplies no default: what is not stated makes the figure that needs it a named gap. Each value is stated by one person and
-          takes effect when a second person attests it (Approvals).
-        </p>
+    <Card className="p-0 overflow-hidden">
+      <div className="p-4 border-b border-[var(--color-line)] flex flex-wrap items-center gap-3">
+        <SectionHead icon={Scale} className="gap-1.5">Your stated method <InfoButton compact details={ABOUT} /></SectionHead>
+        {periodEnd && <span className="text-[12.5px] text-[var(--color-mute)]">Financial year ending {periodEnd}</span>}
+        {need.data && <span className="ml-auto">{needed.length === 0
+          ? <StatusChip tone="good" label="Every value your figures need is stated" />
+          : <StatusChip tone="warn" label={`${needed.length} values your figures need`} />}</span>}
       </div>
-
-      {need.data && (
-        needed.length === 0
-          ? <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-good)]"><CheckCircle2 size={14} /> Your current figures find every parameter they need for this year (basis {need.data.basis.scenario} · {need.data.basis.horizon}).</div>
-          : <div className="rounded-lg border border-[var(--color-warn)]/40 px-3.5 py-3">
-              <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-ink)] mb-2"><AlertTriangle size={14} className="text-[var(--color-warn)]" />
-                {needed.length} parameter value{needed.length === 1 ? '' : 's'} your current figures need {needed.length === 1 ? 'is' : 'are'} not stated — click one to state it</div>
-              <div className="flex flex-wrap gap-1.5">
-                {needed.slice(0, 40).map(n => (
-                  <button key={n.key + (n.member ?? '')} onClick={() => startFrom(n.key, n.member)}
-                    className="mono text-[10.5px] px-2 py-1 rounded border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
-                    {n.key.replace('method.', '')}{n.member ? ` · ${n.member}` : ''}
-                  </button>))}
-                {needed.length > 40 && <span className="mono text-[10.5px] text-[var(--color-faint)] self-center">+{needed.length - 40} more</span>}
-              </div>
-            </div>
+      {needed.length > 0 && (
+        <div className="px-4 py-3 border-b border-[var(--color-line)] flex flex-wrap gap-1.5">
+          {needed.slice(0, 40).map(n => (
+            <button key={n.key + (n.member ?? '')} onClick={() => startFrom(n)}
+              className="text-[12px] px-2.5 py-1 rounded-lg border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+              {n.name}{n.member_label ? ` · ${n.member_label}` : ''}
+            </button>))}
+          {needed.length > 40 && <span className="text-[12px] text-[var(--color-faint)] self-center">and {needed.length - 40} more</span>}
+        </div>
       )}
-
-      <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
+      <ul className="m-0 p-0 list-none divide-y divide-[var(--color-line)]">
         {params.map(p => {
           const stated = byKey[p.key] ?? []
+          const attested = stated.filter(s => s.status === 'attested').length, waiting = stated.filter(s => s.status === 'pending').length
           const isOpen = open === p.key
           return (
-            <div key={p.key} className="py-3">
-              <button onClick={() => { setOpen(isOpen ? null : p.key); setPrefill(null) }} className="w-full text-left flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[13px] font-semibold text-[var(--color-ink)]">{p.label}</span>
-                <span className="mono text-[10.5px] text-[var(--color-faint)]">{p.key} · {p.unit}{p.breakdown ? ` · by ${p.breakdown.replace(/_/g, ' ')}` : ''}</span>
-                <span className="ml-auto mono text-[10.5px] text-[var(--color-mute)]">{stated.length ? `${stated.filter(s => s.status === 'attested').length} attested · ${stated.filter(s => s.status !== 'attested').length} pending` : 'not stated'}</span>
-              </button>
-              {p.used_for && <div className="text-[11.5px] text-[var(--color-faint)] mt-0.5">Used for: {p.used_for}</div>}
+            <li key={p.key} id={`method-${p.key}`} className="px-4 py-3 scroll-mt-24">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <button onClick={() => { setOpen(isOpen ? null : p.key); setPrefill(null) }} aria-expanded={isOpen}
+                  className="inline-flex items-center gap-1.5 text-[13.5px] text-[var(--color-ink)] hover:text-[var(--color-sky)]">
+                  <ChevronDown size={14} className={clsx('text-[var(--color-faint)] transition-transform', isOpen && 'rotate-180')} />{p.name}
+                </button>
+                <InfoButton compact details={{ title: p.name, sections: [
+                  { heading: 'What it is', body: p.about },
+                  { heading: 'Stated as', body: UNIT[p.unit] ?? p.unit },
+                  ...(p.used_for ? [{ heading: 'Used for', body: p.used_for }] : []),
+                ] }} />
+                <span className="ml-auto flex flex-wrap gap-1.5">
+                  {attested > 0 && <StatusChip tone="good" label={`${attested} attested`} />}
+                  {waiting > 0 && <StatusChip tone="warn" label={`${waiting} awaiting approval`} />}
+                  {!stated.length && <StatusChip tone="neutral" label="Not stated" />}
+                </span>
+              </div>
               {isOpen && (
                 <div className="mt-3 space-y-3">
                   {stated.length > 0 && (
-                    <table className="w-full text-[12px]">
-                      <thead><tr className="mono text-[9.5px] uppercase text-[var(--color-faint)] text-left"><th className="py-1">{p.breakdown ? 'Member' : ''}</th><th>Value</th><th>Status</th><th>Stated by</th><th>Attested by</th></tr></thead>
-                      <tbody>{stated.map(s => (
-                        <tr key={s.provided_id} className="border-t border-[var(--color-line)]">
-                          <td className="py-1.5 mono">{s.breakdown_member ?? '—'}</td>
-                          <td className="mono tabular-nums">{s.value_num}</td>
-                          <td>{s.status === 'attested' ? <span className="text-[var(--color-good)] inline-flex items-center gap-1"><CheckCircle2 size={12} /> attested</span>
-                            : <span className="text-[var(--color-warn)] inline-flex items-center gap-1"><Clock size={12} /> {s.status.replace(/_/g, ' ')}</span>}</td>
-                          <td className="text-[var(--color-mute)]">{s.submitted_by ?? '—'}</td>
-                          <td className="text-[var(--color-mute)]">{s.decided_by ?? '—'}</td>
-                        </tr>))}</tbody>
-                    </table>
+                    <div className="overflow-x-auto">
+                      <table className="data-table w-full text-[12px]">
+                        <thead><tr>{p.breakdown && <th>For</th>}<th>Value</th><th>Status</th><th>Stated by</th><th>Attested by</th></tr></thead>
+                        <tbody>{stated.map(s => (
+                          <tr key={s.provided_id}>
+                            {p.breakdown && <td>{memberWords(p, s.breakdown_member)}</td>}
+                            <td className="tabular-nums">{s.value_num}</td>
+                            <td><StatusChip value={s.status} /></td>
+                            <td className="text-[var(--color-mute)]">{s.submitted_by ?? '—'}</td>
+                            <td className="text-[var(--color-mute)]">{s.decided_by ?? '—'}</td>
+                          </tr>))}</tbody>
+                      </table>
+                    </div>
                   )}
                   {periodEnd && <StateForm param={p} periodEnd={periodEnd} initialMember={prefill?.key === p.key ? prefill.member : null} onDone={refresh} />}
                 </div>
               )}
-            </div>
+            </li>
           )
         })}
-      </div>
+      </ul>
     </Card>
   )
 }
 
 function StateForm({ param, periodEnd, initialMember, onDone }: { param: Param; periodEnd: string; initialMember: string | null; onDone: () => void }) {
+  const axes = param.axes ?? []
   const members = useMemo(() => Object.keys(param.members ?? {}), [param.members])
-  const ax = useMemo(() => (param.breakdown ? axes(param.breakdown) : null), [param.breakdown])
-  const choices = useMemo(() => {
-    if (!ax) return []
-    const parts = members.map(ax.split)
-    return ax.names.map((_, i) => [...new Set(parts.map(p => p[i]))].sort((a, b) => (a === 'any' ? -1 : b === 'any' ? 1 : a.localeCompare(b))))
-  }, [ax, members])
-  const [pick, setPick] = useState<string[]>(() => initialMember && ax ? ax.split(initialMember) : (ax ? choices.map(c => c[0]) : []))
+  const [pick, setPick] = useState<string[]>(() => initialMember && param.breakdown ? split(param.breakdown, initialMember) : axes.map(a => Object.keys(a.names)[0]))
   const [value, setValue] = useState('')
   const [provider, setProvider] = useState('')
   const [vintage, setVintage] = useState('')
   const [busy, setBusy] = useState(false)
-  const member = ax ? ax.join(pick) : null
-  const valid = !ax || members.includes(member ?? '')
-
+  const member = param.breakdown ? join(param.breakdown, pick) : null
+  const valid = !param.breakdown || members.includes(member ?? '')
   const submit = async () => {
     const v = Number(value)
     if (value.trim() === '' || Number.isNaN(v)) { toast.error('Enter a number.'); return }
-    if (param.requires_source && (!provider.trim() || !vintage)) { toast.error('Say the source this value is taken from and its date.'); return }
+    if (param.requires_source && (!provider.trim() || !vintage)) { toast.error('Give the source this value is taken from and its date.'); return }
     setBusy(true)
     try {
       await api.post('/v1/provided', { framework: 'method', datapoint_key: param.key, value_num: v, reporting_period_end: periodEnd,
                                        ...(member ? { breakdown_member: member } : {}),
                                        ...(param.requires_source ? { provider_name: provider.trim(), data_vintage: vintage } : {}) })
-      toast.success('Stated — it takes effect when a second person attests it (Approvals).')
+      toast.success('Stated — it takes effect once a second person attests it on Approvals.')
       setValue(''); onDone()
-    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit the value.') } finally { setBusy(false) }
+    } catch (e) { toast.error(apiDetail(e)?.what ?? apiMessage(e, 'The value could not be stated.')) } finally { setBusy(false) }
   }
-
+  const field = 'mt-1 block bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]'
   return (
     <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3.5 py-3 flex flex-wrap items-end gap-3">
-      {ax?.names.map((n, i) => (
-        <label key={n} className="text-[11px] text-[var(--color-faint)]">{n}
-          <select value={pick[i] ?? ''} onChange={e => setPick(p => { const q = [...p]; q[i] = e.target.value; return q })}
-            className="mt-1 block bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5 text-[12.5px] text-[var(--color-ink)] max-w-[220px]">
-            {choices[i]?.map(c => <option key={c} value={c}>{c === 'any' ? 'any (every one you do not state separately)' : c}</option>)}
+      {axes.map((a, i) => (
+        <label key={a.axis} className="text-[12px] text-[var(--color-mute)]">{a.title}
+          <select value={pick[i] ?? ''} onChange={e => setPick(p => { const q = [...p]; q[i] = e.target.value; return q })} className={clsx(field, 'max-w-[260px]')}>
+            {Object.entries(a.names).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
           </select></label>))}
-      <label className="text-[11px] text-[var(--color-faint)]">Value ({UNIT_HINT[param.unit] ?? param.unit})
-        <input value={value} onChange={e => setValue(e.target.value)} inputMode="decimal" placeholder={param.unit === 'score' ? 'e.g. 60' : param.unit === 'ratio' ? 'e.g. 0.05' : ''}
-          className="mt-1 block w-40 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] tabular-nums" /></label>
+      <label className="text-[12px] text-[var(--color-mute)]">Value, {UNIT[param.unit] ?? param.unit}
+        <input value={value} onChange={e => setValue(e.target.value)} inputMode="decimal" className={clsx(field, 'w-40 tabular-nums')} /></label>
       {param.requires_source && <>
-        <label className="text-[11px] text-[var(--color-faint)]">Source (name)
-          <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="the published source you use"
-            className="mt-1 block w-56 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]" /></label>
-        <label className="text-[11px] text-[var(--color-faint)]">Source date (its year)
-          <input type="date" value={vintage} onChange={e => setVintage(e.target.value)}
-            className="mt-1 block bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]" /></label>
+        <label className="text-[12px] text-[var(--color-mute)]">Source
+          <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="The published source you use" className={clsx(field, 'w-56')} /></label>
+        <label className="text-[12px] text-[var(--color-mute)]">Source date
+          <input type="date" value={vintage} onChange={e => setVintage(e.target.value)} className={field} /></label>
       </>}
-      <Button variant="primary" onClick={submit} disabled={busy || !valid}><Send size={13} /> {busy ? 'Submitting…' : 'State for 4-eyes'}</Button>
-      {!valid && <span className="text-[11px] text-[var(--color-warn)]">That combination is not a member of this breakdown.</span>}
+      <Button variant="primary" onClick={submit} disabled={busy || !valid}><Send size={13} /> {busy ? 'Sending…' : 'State for approval'}</Button>
+      {!valid && <span className="text-[12px] text-[var(--color-warn)]">That combination cannot be stated.</span>}
     </div>
   )
 }

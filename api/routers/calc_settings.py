@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 from services.calc_settings import (
     INTERPRETATION_SCHEMA,
     get_calc_settings,
@@ -35,8 +36,8 @@ def get_settings(session: DbSession, ctx: dict = Depends(require_permission("mod
 
 @router.get("/catalog", summary="The interpretation switches available (schema, defaults, allowed values)")
 def catalog(ctx: dict = Depends(require_permission("modules.view"))):
-    """The interpretation-switch catalog, scoped to the org's sector — each switch's label, description,
-    default and allowed set, for the settings UI."""
+    """The interpretation-switch catalog, scoped to the org's sector — each switch's name and explanation (catalogue
+    messages), default, options named and range, for the settings UI."""
     return {"interpretation": interpretation_catalog(ctx["org"].get("type"))}
 
 
@@ -48,11 +49,11 @@ def update_settings(body: CalcSettingsUpdate, session: DbSession,
     # merge + validate the interpretation switches up front (so a bad value fails before an approval is opened)
     for key, val in (body.interpretation or {}).items():
         if key not in INTERPRETATION_SCHEMA:
-            raise HTTPException(422, {"error": "unknown_setting", "message": f"unknown interpretation setting '{key}'"})
+            raise UserError("admin.methodology.unknown")
         try:
             updates[key] = validate_interpretation(key, val)
         except ValueError as e:
-            raise HTTPException(422, {"error": "invalid_value", "message": str(e)})
+            raise UserError("admin.methodology.invalid") from e
     if not updates:
         return {"status": "applied", "result": get_calc_settings(session, ctx["org"]["org_id"])}
     from services.governance.config_governance import submit_or_apply_config

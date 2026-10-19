@@ -1,73 +1,27 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, ChevronLeft, AlertTriangle, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell, ListChecks } from 'lucide-react'
-import { api, ApiError, upload, download } from '../lib/api'
+import { useSearchParams } from 'react-router-dom'
+import { AlertTriangle, AtSign, Bell, ChevronLeft, ChevronRight, GripVertical, ListChecks, Plus, ShieldCheck } from 'lucide-react'
+import clsx from 'clsx'
+import { api } from '../lib/api'
 import { toast } from '../lib/toast'
-import { useAuth } from '../lib/auth'
-import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
-import { filingLink } from '../lib/links'
-import { prettify } from '../lib/hazards'
-import { Dialog, CloseButton } from '../components/Dialog'
+import { Button, Card, HeroBanner, PageHeader } from '../components/ui'
+import { CloseButton } from '../components/Dialog'
 import { Drawer } from '../components/Drawer'
+import { HEADING } from '../components/Details'
+import { TaskDrawer } from './tasks/TaskDrawer'
+import { CompletionModal, GateModal } from './tasks/Gates'
+import { COL_COLOR, COL_LABEL, CRIT, CRIT_COLOR, CRIT_LABEL, NEXT, PREV, SRC_LABEL, errText, gateItemsFor, idx, isGatedForward, stamp,
+  type Board, type Member, type Mention, type Task } from './tasks/model'
 
-// Kanban board for the regulatory workflow — every task (import a file, investigate a failed validation,
-// generate the XBRL, run the 4-eyes approval) as a card you move across columns and assign to a colleague.
-// Cards created from validation exceptions carry their source so nothing is invented or duplicated.
+// The task board, to the UI standard (2026-10-16): every task the team needs to get a filing out, as cards moved across
+// the columns and assigned to a colleague. A forward move into Doing or Review passes its stage gate; Done needs a
+// second person (a completion request approved on Approvals). Refusals and activity arrive in catalogue words.
 
-interface Task {
-  task_id: string; title: string; description: string | null; status: string; criticality: string
-  assignee_user_id: string | null; assignee: string | null; assignee_email: string | null
-  filing_id: string | null; source: string; source_ref: string | null; due_date: string | null
-  depends_on: string[]; created_by: string | null; pending_completion_request_id: string | null
-}
-interface TaskEvent { kind: string; from: string | null; to: string | null; note: string | null; at: string; actor: string | null }
-interface Attachment { attachment_id: string; filename: string; content_type: string | null; size_bytes: number; by: string | null; at: string }
-interface TaskDetail extends Task { events: TaskEvent[]; attachments: Attachment[] }
-interface Column { key: string; tasks: Task[] }
-interface Board { columns: Column[]; summary: { total: number; overdue: number; unassigned: number } }
-interface Member { user_id: string; email: string; name: string }
-interface Mention { mention_id: string; task_id: string; task_title: string; snippet: string | null; by: string | null; at: string }
-const fmtBytes = (n: number) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`
-const COLS = ['icebox', 'todo', 'blocked', 'doing', 'review', 'done']
-
-const COL_LABEL: Record<string, string> = { icebox: 'Icebox', todo: 'To do', blocked: 'Blocked', doing: 'Doing', review: 'Review', done: 'Done' }
-const NEXT: Record<string, string> = { icebox: 'todo', todo: 'doing', blocked: 'doing', doing: 'review', review: 'done' }
-const PREV: Record<string, string> = { todo: 'icebox', blocked: 'todo', doing: 'todo', review: 'doing', done: 'review' }
-const CRIT: Record<string, string> = { critical: '#fb7185', high: '#f0a860', normal: '#5cc8ff', low: '#64748b' }
-const SRC_LABEL: Record<string, string> = { manual: 'manual', validation: 'validation', exception: 'exception', obligation: 'obligation', regulatory_change: 'reg change' }
-
-// Mandatory stage-gate: to ENTER a stage a card must satisfy that stage's checklist. `auto` items are
-// verified from the task's own state (assignee set, work documented, no open dependencies) and can't be
-// faked; the rest are attestations the mover confirms. A forward move — by drag OR arrow — is held until
-// every item is satisfied. Only the meaningful "you must have done X to be here" stages are gated.
-//
-// 'done' is NOT a checklist gate (fixed 2026-09-24, independent Kanban review — a self-ticked "Reviewed by
-// a second person" checkbox was never real 4-eyes: no checker_user_id exists anywhere in the schema, so any
-// single user could tick their own box). Entering 'done' now requires a REAL second person: request
-// completion (CompletionModal below) opens a genuine approval_requests row, and only a DIFFERENT user
-// approving it (via the Approvals page) actually moves the card — see api/routers/approvals.py's
-// task.complete branch and services/governance/tasks.request_completion/_complete_via_approval.
-interface GateItem { id: string; label: string; auto?: (t: Task) => boolean; onlyIfFiling?: boolean }
-const GATE: Record<string, GateItem[]> = {
-  doing: [
-    { id: 'assignee', label: 'An owner is assigned to this task', auto: t => !!t.assignee_user_id },
-    { id: 'unblocked', label: 'No open dependencies remain', auto: t => (t.depends_on ?? []).length === 0 },
-    { id: 'ready', label: 'The inputs / source data needed to start are available' },
-  ],
-  review: [
-    { id: 'documented', label: 'The work done is recorded in the task', auto: t => !!(t.description && t.description.trim()) },
-    { id: 'complete', label: 'The deliverable is complete and self-checked' },
-    { id: 'validation', label: 'The linked filing’s validation was run with no blocking errors', onlyIfFiling: true },
-  ],
-}
-const idx = (s: string) => COLS.indexOf(s)
-const gateItemsFor = (target: string, t: Task) => (GATE[target] ?? []).filter(i => !i.onlyIfFiling || !!t.filing_id)
-// the server rejects a gated move it doesn't like (owner missing, dependency open, checklist absent) with a
-// 409 carrying { message }; surface that so the mover sees exactly what's required.
-const errMsg = (e: unknown, fallback: string) => e instanceof ApiError ? String((e.body as { message?: string })?.message ?? e.message) : fallback
-// is a move into `target` a gated forward move for this task?
-const isGatedForward = (t: Task, target: string) => target !== t.status && idx(target) > idx(t.status) && gateItemsFor(target, t).length > 0
+const ABOUT = [
+  { heading: HEADING.shows, body: 'Every task the team needs to get a filing out — where it sits on the board, what is slipping, and what has no owner yet.' },
+  { heading: HEADING.read, body: 'Drag a card or use its arrows. Entering Doing needs an owner and no open dependencies; entering Review needs the work recorded and, for a filing’s task, its checks passed. A task reaches Done only when a different colleague approves its completion on Approvals.' },
+]
 
 export default function Tasks() {
   const qc = useQueryClient()
@@ -81,7 +35,7 @@ export default function Tasks() {
   const [drag, setDrag] = useState<Task | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
   const [gate, setGate] = useState<{ task: Task; target: string } | null>(null)
-  const [completing, setCompleting] = useState<Task | null>(null)   // task requesting 4-eyes completion sign-off
+  const [completing, setCompleting] = useState<Task | null>(null)
   useEffect(() => { const t = params.get('task'); if (t) setOpenId(t) }, [params])
   const members = mq.data ?? []
   const refresh = () => qc.invalidateQueries({ queryKey: ['reg-tasks-board'] })
@@ -91,478 +45,175 @@ export default function Tasks() {
     if (!title.trim()) return
     setBusy(true)
     try { await api.post('/v1/reg-tasks', { title: title.trim(), criticality: crit }); setTitle(''); refresh() }
-    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not create the task.') }
-    finally { setBusy(false) }
+    catch (e) { toast.error(errText(e, 'The task could not be created.')) } finally { setBusy(false) }
   }
   const move = async (t: Task, status: string, attestations?: string[]) => {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/move`, { status, attestations }); refresh() }
-    catch (e) { toast.error(errMsg(e, 'Could not move the task.')) }
+    catch (e) { toast.error(errText(e, 'The task could not be moved.')) }
   }
   const requestCompletion = async (t: Task, note: string) => {
-    try {
-      await api.post(`/v1/reg-tasks/${t.task_id}/request-completion`, { note })
-      toast.success('Completion requested — a different colleague needs to approve it on the Approvals page.')
-      refresh()
-    } catch (e) { toast.error(errMsg(e, 'Could not request completion.')) }
+    try { await api.post(`/v1/reg-tasks/${t.task_id}/request-completion`, { note }); toast.success('Completion asked for — a different colleague approves it on Approvals.'); refresh() }
+    catch (e) { toast.error(errText(e, 'Completion could not be asked for.')) }
   }
-  // a forward move into a gated stage is held for its checklist; backward / same-column moves go straight
-  // through. 'done' is never a plain move — it needs a real second person, via requestCompletion() below.
+  // a forward move into a gated stage waits for its checklist; Done is never a plain move — it asks a second person
   const attemptMove = (t: Task, target: string) => {
     if (target === t.status) return
     if (target === 'done') {
       if (t.status !== 'review') { toast.error('Move this task to Review first.'); return }
-      if (t.pending_completion_request_id) { toast.error('Already awaiting a colleague’s approval — see Approvals.'); return }
-      setCompleting(t)
-      return
+      if (t.pending_completion_request_id) { toast.error('Already waiting for a colleague’s approval — see Approvals.'); return }
+      setCompleting(t); return
     }
     if (isGatedForward(t, target)) { setGate({ task: t, target }); return }
     move(t, target)
   }
   const assign = async (t: Task, uid: string) => {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/assign`, { assignee_user_id: uid || null }); refresh() }
-    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not assign the task.') }
+    catch (e) { toast.error(errText(e, 'The task could not be assigned.')) }
   }
 
   const b = q.data
+  const total = b ? b.columns.reduce((n, c) => n + c.tasks.length, 0) : 0
   return (
     <div className="fadeup space-y-5">
-      <PageHeader eyebrow="Workflow" title="Tasks"
-        lead="Everything the team needs to do to get a filing out — move a card across the board, or assign it to a colleague."
-        actions={<MentionsBell onOpen={setOpenId} />} />
+      <PageHeader eyebrow="Workflow" title="Tasks" lead="Everything the team needs to get a filing out." about={ABOUT} actions={<MentionsBell onOpen={setOpenId} />} />
 
-      {b && (
-        <HeroBanner
-          eyebrow="Workflow"
-          title={b.summary.overdue > 0 ? `${b.summary.overdue} task${b.summary.overdue === 1 ? '' : 's'} overdue.` : b.summary.unassigned > 0 ? 'A few tasks still need an owner.' : 'The board is under control.'}
-          lead="Every task the team needs to get a filing out — where it sits on the board, what's slipping, and what has no owner yet."
+      {b && (<>
+        <HeroBanner eyebrow="Workflow"
+          title={b.summary.overdue > 0 ? `${b.summary.overdue} tasks overdue.` : b.summary.unassigned > 0 ? 'Some tasks still need an owner.' : 'The board is under control.'}
           stat={[
             { label: 'Open', value: b.summary.total, icon: ListChecks, tone: 'var(--color-sky)' },
-            { label: 'Overdue', value: b.summary.overdue, icon: AlertTriangle, tone: b.summary.overdue > 0 ? '#D23B3B' : '#4FA46E', pulse: b.summary.overdue > 0 },
-            { label: 'Unassigned', value: b.summary.unassigned, icon: AtSign, tone: b.summary.unassigned > 0 ? '#E8853C' : '#4FA46E' },
+            { label: 'Overdue', value: b.summary.overdue, icon: AlertTriangle, tone: b.summary.overdue > 0 ? 'var(--color-bad)' : 'var(--color-good)', pulse: b.summary.overdue > 0 },
+            { label: 'No owner', value: b.summary.unassigned, icon: AtSign, tone: b.summary.unassigned > 0 ? 'var(--color-warn)' : 'var(--color-good)' },
           ]} />
-      )}
+        {total > 0 && (
+          <div>
+            <div className="flex h-2.5 rounded-full overflow-hidden bg-[var(--color-panel-2)]" role="img" aria-label={b.columns.map(c => `${COL_LABEL[c.key]} ${c.tasks.length}`).join(', ')}>
+              {b.columns.filter(c => c.tasks.length).map(c => <span key={c.key} style={{ width: `${(100 * c.tasks.length) / total}%`, background: COL_COLOR[c.key], opacity: 0.85 }} />)}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[12px]">
+              {b.columns.map(c => <span key={c.key} className="inline-flex items-center gap-1.5 text-[var(--color-mute)]"><span className="w-2 h-2 rounded-full" style={{ background: COL_COLOR[c.key] }} />{COL_LABEL[c.key]} <b className="text-[var(--color-ink)] tabular-nums">{c.tasks.length}</b></span>)}
+            </div>
+          </div>
+        )}
+      </>)}
 
-      {/* quick add */}
       <Card className="p-3 flex flex-wrap items-center gap-2">
         <Plus size={15} className="text-[var(--color-sky)]" />
-        <input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
+        <input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} aria-label="New task"
           placeholder="Add a task…" className="flex-1 min-w-[200px] bg-transparent outline-none text-[14px] text-[var(--color-ink)] placeholder:text-[var(--color-faint)]" />
-        <select value={crit} onChange={e => setCrit(e.target.value)} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5 text-[12px] outline-none">
-          {['low', 'normal', 'high', 'critical'].map(c => <option key={c} value={c}>{c}</option>)}
+        <select value={crit} onChange={e => setCrit(e.target.value)} aria-label="Criticality" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5 text-[12px] outline-none">
+          {CRIT.map(c => <option key={c} value={c}>{CRIT_LABEL[c]}</option>)}
         </select>
         <Button variant="primary" onClick={add} disabled={busy || !title.trim()}>Add</Button>
       </Card>
 
-      {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading the board…</Card>
-        : !b ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the board.</div>
+      {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">Loading the board…</Card>
+        : !b ? <div className="text-[12.5px] text-[var(--color-bad)]">The board could not be loaded. Try again shortly.</div>
         : (
-        <div className="overflow-x-auto pb-2">
-          <div className="grid grid-cols-6 gap-3 min-w-[1050px]">
-            {b.columns.map(c => {
-              const isTarget = overCol === c.key && !!drag && drag.status !== c.key
-              const gated = !!drag && idx(c.key) > idx(drag.status) && (c.key === 'done' || gateItemsFor(c.key, drag).length > 0)
-              return (
-              <div key={c.key}
-                onDragOver={e => { if (drag) { e.preventDefault(); setOverCol(c.key) } }}
-                onDragLeave={() => setOverCol(o => o === c.key ? null : o)}
-                onDrop={e => { e.preventDefault(); if (drag) attemptMove(drag, c.key); setDrag(null); setOverCol(null) }}
-                className={`rounded-xl border p-2 transition ${isTarget ? 'border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,var(--color-panel))]' : 'border-[var(--color-line)] bg-[var(--color-panel)]'}`}>
-                <div className="flex items-center justify-between px-1.5 py-1.5">
-                  <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-mute)]">{COL_LABEL[c.key]}</span>
-                  <span className="mono text-[10.5px] text-[var(--color-faint)]">{isTarget && gated ? <span className="text-[var(--color-sky)] inline-flex items-center gap-0.5"><ShieldCheck size={11} />gate</span> : c.tasks.length}</span>
-                </div>
-                <div className="space-y-2 min-h-[40px]">
-                  {c.tasks.map(t => (
-                    <TaskCard key={t.task_id} t={t} members={members} onMove={attemptMove} onAssign={assign} onOpen={() => setOpenId(t.task_id)}
-                      dragging={drag?.task_id === t.task_id} onDragStart={() => setDrag(t)} onDragEnd={() => { setDrag(null); setOverCol(null) }} />
-                  ))}
-                  {c.tasks.length === 0 && <div className="text-[11px] text-[var(--color-faint)] px-1.5 py-3 text-center">—</div>}
-                </div>
-              </div>
-            )})}
+          <div className="overflow-x-auto pb-2">
+            <div className="grid grid-cols-6 gap-3 min-w-[1050px]">
+              {b.columns.map(c => {
+                const isTarget = overCol === c.key && !!drag && drag.status !== c.key
+                const gated = !!drag && idx(c.key) > idx(drag.status) && (c.key === 'done' || gateItemsFor(c.key, drag).length > 0)
+                return (
+                  <div key={c.key}
+                    onDragOver={e => { if (drag) { e.preventDefault(); setOverCol(c.key) } }}
+                    onDragLeave={() => setOverCol(o => o === c.key ? null : o)}
+                    onDrop={e => { e.preventDefault(); if (drag) attemptMove(drag, c.key); setDrag(null); setOverCol(null) }}
+                    className={clsx('rounded-xl border p-2 transition', isTarget ? 'border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,var(--color-panel))]' : 'border-[var(--color-line)] bg-[var(--color-panel)]')}>
+                    <div className="flex items-center justify-between px-1.5 py-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-mute)]"><span className="w-2 h-2 rounded-full" style={{ background: COL_COLOR[c.key] }} />{COL_LABEL[c.key]}</span>
+                      <span className="text-[11.5px] text-[var(--color-faint)] tabular-nums">{isTarget && gated ? <span className="text-[var(--color-sky)] inline-flex items-center gap-0.5"><ShieldCheck size={11} />Checks</span> : c.tasks.length}</span>
+                    </div>
+                    <div className="space-y-2 min-h-[40px]">
+                      {c.tasks.map(t => (
+                        <TaskCard key={t.task_id} t={t} members={members} onMove={attemptMove} onAssign={assign} onOpen={() => setOpenId(t.task_id)}
+                          dragging={drag?.task_id === t.task_id} onDragStart={() => setDrag(t)} onDragEnd={() => { setDrag(null); setOverCol(null) }} />
+                      ))}
+                      {c.tasks.length === 0 && <div className="text-[11px] text-[var(--color-faint)] px-1.5 py-3 text-center">—</div>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {openId && <TaskDrawer taskId={openId} members={members} onClose={closeDrawer} onChanged={refresh} />}
-      {gate && <GateModal task={gate.task} target={gate.target} onClose={() => setGate(null)}
-        onConfirm={atts => { const g = gate; setGate(null); move(g.task, g.target, atts) }} />}
-      {completing && <CompletionModal task={completing} onClose={() => setCompleting(null)}
-        onConfirm={note => { const t = completing; setCompleting(null); requestCompletion(t, note) }} />}
+      {gate && <GateModal task={gate.task} target={gate.target} onClose={() => setGate(null)} onConfirm={atts => { const g = gate; setGate(null); move(g.task, g.target, atts) }} />}
+      {completing && <CompletionModal task={completing} onClose={() => setCompleting(null)} onConfirm={note => { const t = completing; setCompleting(null); requestCompletion(t, note) }} />}
     </div>
-  )
-}
-
-// Request 4-eyes sign-off to complete a task — this does NOT move the card. It opens a real approval_requests
-// row that only a DIFFERENT colleague, on the Approvals page, can grant (services/governance/tasks.py
-// request_completion/_complete_via_approval + api/routers/approvals.py's task.complete branch).
-function CompletionModal({ task, onClose, onConfirm }: { task: Task; onClose: () => void; onConfirm: (note: string) => void }) {
-  const [note, setNote] = useState('')
-  return (
-    <Dialog bare title="Request completion" onClose={onClose} overlayClassName="z-[60] p-4" className="w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5">
-        <div className="flex items-start justify-between gap-3 mb-1">
-          <div>
-            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-sky)] flex items-center gap-1.5"><ShieldCheck size={12} /> 4-eyes required</div>
-            <h3 className="display text-lg font-semibold mt-1">Request completion</h3>
-          </div>
-          <CloseButton onClick={onClose} />
-        </div>
-        <p className="text-[12.5px] text-[var(--color-mute)] mb-3">
-          “{task.title}” moves to Done only once a <b className="text-[var(--color-ink)]">different colleague</b> approves
-          it on the Approvals page — the same 4-eyes mechanism used everywhere else in Tellumen. You can't approve your own request.
-        </p>
-        <textarea autoFocus value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="What's the outcome? (e.g. filed as v3, accepted by the regulator)"
-          className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
-        <div className="flex items-center justify-end gap-2 mt-4">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!note.trim()} onClick={() => onConfirm(note.trim())}><Send size={14} /> Request approval</Button>
-        </div>
-    </Dialog>
-  )
-}
-
-// The stage-gate dialog — the mandatory checklist a card must clear to enter a stage. Auto items are
-// pre-satisfied from the task's own state and locked; attestations must be ticked. Confirm unlocks only when
-// every item is satisfied, then the move goes through.
-function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: string; onClose: () => void; onConfirm: (attestations: string[]) => void }) {
-  const items = gateItemsFor(target, task)
-  const autoOk = (i: GateItem) => (i.auto ? i.auto(task) : false)
-  const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(items.map(i => [i.id, autoOk(i)])))
-  const allOk = items.every(i => (i.auto ? autoOk(i) : checked[i.id]))
-  const confirm = () => onConfirm(items.map(i => i.label))
-  return (
-    <Dialog bare title={`Move to “${COL_LABEL[target]}”`} onClose={onClose} overlayClassName="z-[60] p-4" className="w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5">
-        <div className="flex items-start justify-between gap-3 mb-1">
-          <div>
-            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-sky)] flex items-center gap-1.5"><ShieldCheck size={12} /> Stage gate</div>
-            <h3 className="display text-lg font-semibold mt-1">Move to “{COL_LABEL[target]}”</h3>
-          </div>
-          <CloseButton onClick={onClose} />
-        </div>
-        <p className="text-[12.5px] text-[var(--color-mute)] mb-3">Complete these mandatory checks before the card can enter this stage.</p>
-        <div className="space-y-2">
-          {items.map(i => {
-            const auto = !!i.auto, ok = auto ? autoOk(i) : !!checked[i.id]
-            return (
-              <button key={i.id} disabled={auto} onClick={() => !auto && setChecked(c => ({ ...c, [i.id]: !c[i.id] }))}
-                className={`w-full flex items-start gap-2.5 text-left rounded-lg border p-2.5 transition ${ok ? 'border-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_8%,transparent)]' : 'border-[var(--color-line-2)] hover:border-[var(--color-sky)]'} ${auto ? 'cursor-default' : ''}`}>
-                <span className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center shrink-0 ${ok ? 'bg-[var(--color-good)] text-[var(--color-on-accent)]' : 'border border-[var(--color-line-2)]'}`}>{ok && <Check size={12} />}</span>
-                <span className="text-[12.5px] text-[var(--color-ink)] leading-snug flex-1">{i.label}{auto && <span className="mono text-[9.5px] ml-1.5" style={{ color: ok ? 'var(--color-good)' : 'var(--color-bad)' }}>{ok ? 'verified' : 'not met'}</span>}</span>
-              </button>
-            )
-          })}
-        </div>
-        {items.some(i => i.auto && !autoOk(i)) && <p className="text-[11px] text-[var(--color-bad)] mt-2">A verified check isn’t met yet — resolve it on the task (assign an owner, clear dependencies, or add detail) before moving.</p>}
-        <div className="flex items-center justify-end gap-2 mt-4">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!allOk} onClick={confirm}><Check size={14} /> Confirm move</Button>
-        </div>
-    </Dialog>
   )
 }
 
 function TaskCard({ t, members, onMove, onAssign, onOpen, dragging, onDragStart, onDragEnd }: { t: Task; members: Member[]; onMove: (t: Task, s: string) => void; onAssign: (t: Task, u: string) => void; onOpen: () => void; dragging?: boolean; onDragStart?: () => void; onDragEnd?: () => void }) {
-  const overdue = t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10)
-  const gatedNext = NEXT[t.status] && idx(NEXT[t.status]) > idx(t.status) && gateItemsFor(NEXT[t.status], t).length > 0
+  const overdue = !!t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10)
+  const next = NEXT[t.status]
+  const gatedNext = !!next && idx(next) > idx(t.status) && gateItemsFor(next, t).length > 0
   return (
     <div draggable onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.() }} onDragEnd={onDragEnd}
-      className={`group/card rounded-lg bg-[var(--color-bg-2)] border border-[var(--color-line)] p-2.5 cursor-grab active:cursor-grabbing transition ${dragging ? 'opacity-40 ring-1 ring-[var(--color-sky)]' : ''}`}>
+      className={clsx('group/card rounded-lg bg-[var(--color-bg-2)] border border-[var(--color-line)] p-2.5 cursor-grab active:cursor-grabbing transition', dragging && 'opacity-40 ring-1 ring-[var(--color-sky)]')}>
       <button onClick={onOpen} className="flex items-start gap-1.5 w-full text-left group">
         <GripVertical size={12} className="text-[var(--color-faint)] opacity-0 group-hover/card:opacity-100 transition shrink-0 mt-1" />
-        <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: CRIT[t.criticality] }} title={t.criticality} />
-        <div className="text-[12.5px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition leading-snug flex-1">{t.title}</div>
+        <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: CRIT_COLOR[t.criticality] }} title={CRIT_LABEL[t.criticality]} />
+        <span className="text-[12.5px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition leading-snug flex-1">{t.title}</span>
       </button>
-      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-        {t.source !== 'manual' && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)]">{SRC_LABEL[t.source]}</span>}
-        {t.filing_id && <span className="mono text-[9px] text-[var(--color-sky)]">filing-linked</span>}
-        {t.pending_completion_request_id && <span className="inline-flex items-center gap-0.5 mono text-[9px] text-[var(--color-sky)]"><ShieldCheck size={9} />awaiting 4-eyes</span>}
-        {overdue && <span className="inline-flex items-center gap-0.5 text-[9.5px] text-[var(--color-bad)]"><AlertTriangle size={9} />overdue</span>}
-        {t.due_date && !overdue && <span className="mono text-[9px] text-[var(--color-faint)]">due {t.due_date.slice(5)}</span>}
+      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[10.5px]">
+        {SRC_LABEL[t.source] && <span className="px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)]">{SRC_LABEL[t.source]}</span>}
+        {t.filing_id && <span className="text-[var(--color-sky)]">Filing</span>}
+        {t.pending_completion_request_id && <span className="inline-flex items-center gap-0.5 text-[var(--color-sky)]"><ShieldCheck size={10} />Awaiting approval</span>}
+        {overdue && <span className="inline-flex items-center gap-0.5 text-[var(--color-bad)]"><AlertTriangle size={10} />Overdue</span>}
+        {t.due_date && !overdue && <span className="text-[var(--color-faint)] tabular-nums">Due {t.due_date}</span>}
       </div>
       <div className="flex items-center justify-between gap-1 mt-2">
-        <select value={t.assignee_user_id ?? ''} onChange={e => onAssign(t, e.target.value)}
-          className="max-w-[110px] bg-transparent text-[10.5px] text-[var(--color-mute)] outline-none border-b border-transparent hover:border-[var(--color-line-2)]">
-          <option value="">unassigned</option>
+        <select value={t.assignee_user_id ?? ''} onChange={e => onAssign(t, e.target.value)} aria-label="Owner"
+          className="max-w-[110px] bg-transparent text-[11px] text-[var(--color-mute)] outline-none border-b border-transparent hover:border-[var(--color-line-2)]">
+          <option value="">No owner</option>
           {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name || m.email.split('@')[0]}</option>)}
         </select>
         <div className="flex items-center gap-0.5">
-          {PREV[t.status] && <button onClick={() => onMove(t, PREV[t.status])} title="move back" className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronLeft size={14} /></button>}
-          {NEXT[t.status] && (
-            t.pending_completion_request_id
-              ? <span title="Awaiting a different colleague's 4-eyes approval — see Approvals" className="text-[var(--color-sky)] inline-flex items-center"><ShieldCheck size={13} /></span>
-              : <button onClick={() => onMove(t, NEXT[t.status])} title={NEXT[t.status] === 'done' ? 'request 4-eyes completion' : gatedNext ? `move to ${COL_LABEL[NEXT[t.status]]} — passes a stage gate` : 'move forward'} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] inline-flex items-center">{(gatedNext || NEXT[t.status] === 'done') && <ShieldCheck size={11} className="text-[var(--color-faint)] group-hover/card:text-[var(--color-sky)]" />}<ChevronRight size={14} /></button>
-          )}
+          {PREV[t.status] && <button onClick={() => onMove(t, PREV[t.status])} aria-label={`Move back to ${COL_LABEL[PREV[t.status]]}`} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronLeft size={14} /></button>}
+          {next && (t.pending_completion_request_id
+            ? <span title="Awaiting a different colleague’s approval — see Approvals" className="text-[var(--color-sky)] inline-flex items-center"><ShieldCheck size={13} /></span>
+            : <button onClick={() => onMove(t, next)} aria-label={next === 'done' ? 'Ask a second person to approve completion' : `Move to ${COL_LABEL[next]}`}
+                className="text-[var(--color-faint)] hover:text-[var(--color-sky)] inline-flex items-center">{(gatedNext || next === 'done') && <ShieldCheck size={11} />}<ChevronRight size={14} /></button>)}
         </div>
       </div>
     </div>
   )
 }
 
-const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
-
-function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; members: Member[]; onClose: () => void; onChanged: () => void }) {
-  const qc = useQueryClient()
-  const nav = useNavigate()
-  const { profile } = useAuth()
-  const q = useQuery({ queryKey: ['reg-task', taskId], queryFn: () => api.get<TaskDetail>(`/v1/reg-tasks/${taskId}`) })
-  const t = q.data
-  const [gate, setGate] = useState<string | null>(null)   // target stage awaiting its checklist
-  const [completing, setCompleting] = useState(false)      // requesting 4-eyes completion sign-off
-  const reload = () => { qc.invalidateQueries({ queryKey: ['reg-task', taskId] }); onChanged() }
-  const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { toast.error(errMsg(e, 'Action failed.')) } }
-  // opening a task clears my unread @mentions on it (drives the header bell)
-  useEffect(() => { api.post(`/v1/reg-tasks/${taskId}/seen`, {}).then(() => qc.invalidateQueries({ queryKey: ['reg-task-mentions'] })).catch(() => {}) }, [taskId, qc])
-  // changing status here obeys the same stage gate as the board — a gated forward move opens the checklist.
-  // 'done' is never a plain move (see Tasks.tsx's GATE comment) — it opens the completion-request modal.
-  const doMove = (target: string, attestations?: string[]) => call(() => api.post(`/v1/reg-tasks/${taskId}/move`, { status: target, attestations }))
-  const requestCompletion = (note: string) => call(() => api.post(`/v1/reg-tasks/${taskId}/request-completion`, { note }))
-    .then(() => toast.success('Completion requested — a different colleague needs to approve it on the Approvals page.'))
-  const changeStatus = (target: string) => {
-    if (!t || target === t.status) return
-    if (target === 'done') {
-      if (t.status !== 'review') { toast.error('Move this task to Review first.'); return }
-      if (t.pending_completion_request_id) { toast.error('Already awaiting a colleague’s approval — see Approvals.'); return }
-      setCompleting(true)
-      return
-    }
-    if (isGatedForward(t, target)) setGate(target); else doMove(target)
-  }
-
-  return (
-    <Drawer label="Task" onClose={onClose} className="w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto">
-        <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
-          <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Task</span>
-          <CloseButton onClick={onClose} size={17} />
-        </div>
-        {!t ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div> : (
-          <div className="p-5 space-y-4">
-            {/* title + criticality */}
-            <input defaultValue={t.title} onBlur={e => e.target.value.trim() && e.target.value !== t.title && call(() => api.patch(`/v1/reg-tasks/${taskId}`, { title: e.target.value.trim() }))}
-              className="w-full bg-transparent outline-none display text-lg font-semibold" />
-
-            {t.pending_completion_request_id && (
-              <div className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,transparent)] rounded-lg px-3 py-2">
-                <ShieldCheck size={13} /> Awaiting a different colleague's 4-eyes approval to reach Done —
-                <button onClick={() => nav('/approvals')} className="underline hover:no-underline">see Approvals</button>
-              </div>
-            )}
-            {/* quick facts + controls */}
-            <div className="grid grid-cols-2 gap-3 text-[12px]">
-              <Field label="Status">
-                <select value={t.status} onChange={e => changeStatus(e.target.value)} className={box}>
-                  {COLS.map(c => <option key={c} value={c}>{COL_LABEL[c]}</option>)}
-                </select>
-              </Field>
-              <Field label="Criticality">
-                <select value={t.criticality} onChange={e => call(() => api.patch(`/v1/reg-tasks/${taskId}`, { criticality: e.target.value }))} className={box}>
-                  {['low', 'normal', 'high', 'critical'].map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
-              <Field label="Assignee">
-                <select value={t.assignee_user_id ?? ''} onChange={e => call(() => api.post(`/v1/reg-tasks/${taskId}/assign`, { assignee_user_id: e.target.value || null }))} className={box}>
-                  <option value="">unassigned</option>
-                  {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
-                </select>
-              </Field>
-              <Field label="Due date">
-                <input type="date" defaultValue={t.due_date ?? ''} onChange={e => call(() => api.patch(`/v1/reg-tasks/${taskId}`, e.target.value ? { due_date: e.target.value } : { clear_due: true }))} className={box} />
-              </Field>
-            </div>
-
-            {t.source !== 'manual' && <div className="text-[11px] text-[var(--color-faint)]">created from a <b className="text-[var(--color-mute)]">{SRC_LABEL[t.source]}</b>{t.source_ref ? ` · ${prettify(t.source_ref.split(':').pop())}` : ''}</div>}
-            {t.filing_id && <button onClick={() => nav(filingLink(profile?.org?.type, t.filing_id!))} className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline"><FileText size={13} /> Open the linked filing</button>}
-
-            {/* description */}
-            <Field label="Description">
-              <textarea defaultValue={t.description ?? ''} placeholder="Add detail…" rows={3}
-                onBlur={e => e.target.value !== (t.description ?? '') && call(() => api.patch(`/v1/reg-tasks/${taskId}`, { description: e.target.value }))} className={box} />
-            </Field>
-
-            {/* attachments */}
-            <Attachments taskId={taskId} items={t.attachments} onChanged={reload} />
-
-            {/* activity log */}
-            <div>
-              <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center gap-1"><Clock size={11} /> Activity</div>
-              <div className="space-y-2">
-                {t.events.map((e, i) => (
-                  <div key={i} className="text-[11.5px]">
-                    <span className="text-[var(--color-ink)]">{e.kind === 'commented'
-                      ? renderMentions(e.note ?? '', members)
-                      : e.kind === 'moved' ? `moved ${e.from} → ${e.to}` : e.kind === 'assigned' ? 'assignment changed'
-                      : e.kind === 'attached' ? <>attached <span className="text-[var(--color-mute)]">{e.note}</span></>
-                      : e.kind === 'removed_attachment' ? <>removed attachment <span className="text-[var(--color-mute)]">{e.note}</span></>
-                      : e.kind === 'created' ? 'created' : e.note || e.kind}</span>
-                    <span className="mono text-[9.5px] text-[var(--color-faint)] ml-1.5">{e.actor ?? 'system'} · {new Date(e.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                ))}
-              </div>
-              <CommentComposer taskId={taskId} members={members} onDone={reload} />
-            </div>
-          </div>
-        )}
-      {t && gate && <GateModal task={t} target={gate} onClose={() => setGate(null)}
-        onConfirm={atts => { const target = gate; setGate(null); doMove(target, atts) }} />}
-      {t && completing && <CompletionModal task={t} onClose={() => setCompleting(false)}
-        onConfirm={note => { setCompleting(false); requestCompletion(note) }} />}
-    </Drawer>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block"><span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{label}</span><div className="mt-1">{children}</div></label>
-}
-
-// a colleague's @handle — their name without the trailing "(Org)" qualifier
-const handleOf = (m: Member) => m.name.replace(/\s*\(.*\)$/, '').trim() || m.email.split('@')[0]
-
-// render a comment, highlighting @mentions that match a colleague
-function renderMentions(text: string, members: Member[]): ReactNode {
-  const handles = [...new Set(members.map(handleOf))].filter(Boolean).sort((a, b) => b.length - a.length)
-  if (!handles.length) return text
-  const re = new RegExp(`@(${handles.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g')
-  const out: ReactNode[] = []
-  let last = 0, m: RegExpExecArray | null
-  while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index))
-    out.push(<span key={m.index} className="text-[var(--color-sky)] font-medium">@{m[1]}</span>)
-    last = m.index + m[0].length
-  }
-  if (last < text.length) out.push(text.slice(last))
-  return out.length ? out : text
-}
-
-// ── task attachments ─────────────────────────────────────────────────────────────────────────────────────
-function Attachments({ taskId, items, onChanged }: { taskId: string; items: Attachment[]; onChanged: () => void }) {
-  const ref = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const pick = async (file: File) => {
-    setBusy(true)
-    try { await upload(`/v1/reg-tasks/${taskId}/attachments`, file); onChanged() }
-    catch (e) { toast.error(errMsg(e, 'Could not attach the file.')) }
-    finally { setBusy(false); if (ref.current) ref.current.value = '' }
-  }
-  const remove = async (a: Attachment) => {
-    if (!confirm(`Remove “${a.filename}”?`)) return
-    try { await api.del(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`); onChanged() }
-    catch (e) { toast.error(errMsg(e, 'Could not remove the attachment.')) }
-  }
-  return (
-    <div>
-      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center justify-between">
-        <span className="flex items-center gap-1"><Paperclip size={11} /> Attachments</span>
-        <button onClick={() => ref.current?.click()} disabled={busy} className="text-[var(--color-sky)] hover:underline normal-case tracking-normal disabled:opacity-50">{busy ? 'uploading…' : '+ attach file'}</button>
-        <input ref={ref} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) pick(f) }} />
-      </div>
-      {items.length === 0
-        ? <div className="text-[11.5px] text-[var(--color-faint)]">No files attached. Attach supporting evidence, a source file, or a screenshot.</div>
-        : <div className="space-y-1.5">
-            {items.map(a => (
-              <div key={a.attachment_id} className="flex items-center gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5">
-                <Paperclip size={13} className="text-[var(--color-faint)] shrink-0" />
-                <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => toast.error('Could not download the file.'))}
-                  className="text-[12.5px] text-[var(--color-ink)] hover:text-[var(--color-sky)] truncate flex-1 text-left" title={a.filename}>{a.filename}</button>
-                <span className="mono text-[9.5px] text-[var(--color-faint)] shrink-0">{fmtBytes(a.size_bytes)}{a.by ? ` · ${a.by.split(' ')[0]}` : ''}</span>
-                <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => {})} title="Download" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] shrink-0"><Download size={13} /></button>
-                <button onClick={() => remove(a)} title="Remove" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] shrink-0"><Trash2 size={13} /></button>
-              </div>
-            ))}
-          </div>}
-    </div>
-  )
-}
-
-// ── comment composer with @mention autocomplete ──────────────────────────────────────────────────────────
-function CommentComposer({ taskId, members, onDone }: { taskId: string; members: Member[]; onDone: () => void }) {
-  const [val, setVal] = useState('')
-  const [query, setQuery] = useState<string | null>(null)   // active @… token, or null
-  const [busy, setBusy] = useState(false)
-  const ref = useRef<HTMLTextAreaElement>(null)
-  const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] resize-none'
-
-  const onChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const v = e.target.value; setVal(v)
-    const before = v.slice(0, e.target.selectionStart ?? v.length)
-    const m = before.match(/@([^@]*)$/)   // text after the last @ up to the caret
-    setQuery(m && m[1].length <= 40 ? m[1] : null)
-  }
-  const suggestions = query != null ? members.filter(m => handleOf(m).toLowerCase().includes(query.toLowerCase())).slice(0, 6) : []
-  const pick = (m: Member) => {
-    const el = ref.current, caret = el?.selectionStart ?? val.length
-    const before = val.slice(0, caret).replace(/@([^@]*)$/, `@${handleOf(m)} `)
-    const nv = before + val.slice(caret)
-    setVal(nv); setQuery(null)
-    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(before.length, before.length) })
-  }
-  const mentionIds = () => members.filter(m => val.includes(`@${handleOf(m)}`)).map(m => m.user_id)
-  const submit = async () => {
-    const body = val.trim(); if (!body) return
-    setBusy(true)
-    try { await api.post(`/v1/reg-tasks/${taskId}/comment`, { body, mentions: mentionIds() }); setVal(''); setQuery(null); onDone() }
-    catch (e) { toast.error(errMsg(e, 'Could not add the comment.')) }
-    finally { setBusy(false) }
-  }
-  return (
-    <div className="mt-3 relative">
-      {query != null && suggestions.length > 0 && (
-        <div className="absolute bottom-full mb-1 left-0 w-64 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl overflow-hidden z-20">
-          {suggestions.map(m => (
-            <button key={m.user_id} onMouseDown={e => { e.preventDefault(); pick(m) }}
-              className="w-full text-left px-3 py-1.5 hover:bg-[var(--color-panel)] flex items-center gap-2">
-              <AtSign size={12} className="text-[var(--color-sky)]" />
-              <span className="text-[12.5px] text-[var(--color-ink)]">{handleOf(m)}</span>
-              <span className="mono text-[9.5px] text-[var(--color-faint)] ml-auto">{m.email}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="flex items-end gap-2">
-        <textarea ref={ref} rows={2} value={val} onChange={onChange}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              if (query != null && suggestions.length) { e.preventDefault(); pick(suggestions[0]) }
-              else { e.preventDefault(); submit() }
-            }
-            if (e.key === 'Escape') setQuery(null)
-          }}
-          placeholder="Comment…  type @ to mention a colleague" className={box} />
-        <Button variant="primary" disabled={busy || !val.trim()} onClick={submit}><Send size={14} /></Button>
-      </div>
-      <div className="mono text-[9px] text-[var(--color-faint)] mt-1 flex items-center gap-1"><AtSign size={9} /> mention a colleague to ping them — in their mentions and by email. Enter to send, Shift+Enter for a new line.</div>
-    </div>
-  )
-}
-
-// ── the mentions inbox (header bell) ─────────────────────────────────────────────────────────────────────
+// the mentions of you, in a side drawer (the shared overlay — never a hand-made screen cover)
 function MentionsBell({ onOpen }: { onOpen: (taskId: string) => void }) {
   const [open, setOpen] = useState(false)
   const q = useQuery({ queryKey: ['reg-task-mentions'], queryFn: () => api.get<Mention[]>('/v1/reg-tasks/mentions'), refetchInterval: 30000 })
   const items = q.data ?? []
   return (
-    <div className="relative">
-      <button onClick={() => setOpen(o => !o)} title="Mentions of you" className="relative text-[var(--color-mute)] hover:text-[var(--color-ink)] p-1.5">
+    <>
+      <button onClick={() => setOpen(true)} aria-label={`Mentions of you: ${items.length}`} className="relative text-[var(--color-mute)] hover:text-[var(--color-ink)] p-1.5">
         <Bell size={19} />
-        {items.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center" style={{ background: 'var(--color-sky)', color: 'var(--color-on-accent)' }}>{items.length}</span>}
+        {items.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-semibold flex items-center justify-center bg-[var(--color-sky)] text-[var(--color-on-accent)]">{items.length}</span>}
       </button>
       {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-2xl overflow-hidden z-50">
-            <div className="px-4 py-2.5 border-b border-[var(--color-line)] mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Mentions of you</div>
-            {items.length === 0
-              ? <div className="px-4 py-6 text-[12px] text-[var(--color-faint)] text-center">No unread mentions.</div>
-              : <div className="max-h-96 overflow-y-auto divide-y divide-[var(--color-line)]">
-                  {items.map(m => (
-                    <button key={m.mention_id} onClick={() => { onOpen(m.task_id); setOpen(false) }} className="w-full text-left px-4 py-2.5 hover:bg-[var(--color-panel)]">
-                      <div className="text-[12.5px] text-[var(--color-ink)] truncate">{m.task_title}</div>
-                      {m.snippet && <div className="text-[11.5px] text-[var(--color-mute)] mt-0.5 line-clamp-2">{m.snippet}</div>}
-                      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-1">{m.by ?? 'someone'} · {new Date(m.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
-                    </button>
-                  ))}
-                </div>}
+        <Drawer label="Mentions of you" onClose={() => setOpen(false)} className="w-full max-w-sm h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)]">
+          <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-4 py-3 flex items-center justify-between">
+            <span className="text-[13.5px] font-semibold text-[var(--color-ink)]">Mentions of you</span><CloseButton onClick={() => setOpen(false)} />
           </div>
-        </>
+          {items.length === 0 ? <div className="px-4 py-6 text-[12.5px] text-[var(--color-faint)] text-center">No unread mentions.</div> : (
+            <ul className="m-0 p-0 list-none divide-y divide-[var(--color-line)]">
+              {items.map(m => (
+                <li key={m.mention_id}>
+                  <button onClick={() => { onOpen(m.task_id); setOpen(false) }} className="w-full text-left px-4 py-2.5 hover:bg-[var(--color-panel)]">
+                    <div className="text-[12.5px] text-[var(--color-ink)] truncate">{m.task_title}</div>
+                    {m.snippet && <div className="text-[12px] text-[var(--color-mute)] mt-0.5 line-clamp-2">{m.snippet}</div>}
+                    <div className="text-[11px] text-[var(--color-faint)] mt-1">{m.by ?? 'A colleague'} · {stamp(m.at)}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Drawer>
       )}
-    </div>
+    </>
   )
 }

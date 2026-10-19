@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request
@@ -16,10 +17,12 @@ from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from core.config import settings
+from core.errors import UserError
 from services.governance import saml as saml_svc
 from services.governance import scim as scim_svc
 from services.governance import sso as sso_svc
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/sso", tags=["sso"])
 scim_router = APIRouter(prefix="/scim/v2", tags=["scim"])
 
@@ -44,18 +47,27 @@ class SsoConfigIn(BaseModel):
     password_login_disabled: Optional[bool] = None
 
 
+def _addresses() -> dict:
+    """The addresses a tenant gives its identity provider: exactly the ones a sign-in is validated against (the SAML
+    audience and recipient, the OIDC redirect) and the SCIM base the token is issued for — never the browser's own
+    origin, which may differ from the address the platform is configured under."""
+    app = settings.APP_BASE_URL.rstrip("/")
+    return {"acs": saml_svc.acs_url(), "sp_entity_id": saml_svc.sp_entity_id(),
+            "metadata": f"{app}{router.url_path_for('saml_metadata')}", "redirect": sso_svc.redirect_uri(),
+            "scim": f"{app}{scim_router.prefix}"}
+
+
 @router.get("/config")
 def get_sso_config(session: DbSession, ctx: dict = Depends(_admin)):
-    return sso_svc.get_config(session, ctx["org"]["org_id"]) or {"enabled": False, "scim_configured": False}
+    cfg = sso_svc.get_config(session, ctx["org"]["org_id"]) or {"enabled": False, "scim_configured": False}
+    return {**cfg, "addresses": _addresses()}
 
 
 @router.put("/config")
 def put_sso_config(body: SsoConfigIn, session: DbSession, ctx: dict = Depends(_admin)):
     fields = {k: v for k, v in body.model_dump().items() if v is not None}
-    try:
-        return sso_svc.upsert_config(session, ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], **fields)
-    except sso_svc.SsoError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    out = sso_svc.upsert_config(session, ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], **fields)  # refusals: SsoError
+    return {**out, "addresses": _addresses()}
 
 
 @router.post("/config/scim-token")
@@ -75,19 +87,17 @@ def sso_discover(email: str, session: DbSession):
 def sso_login(org_id: str, session: DbSession, state: str = ""):
     try:
         return RedirectResponse(url=sso_svc.login_redirect_url(session, org_id, state or org_id))
-    except sso_svc.SsoError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    except sso_svc.SsoError:
+        raise                                       # not enabled or not configured: a catalogue error
     except Exception as e:  # noqa: BLE001 — discovery/network failures shouldn't 500 opaquely
-        raise HTTPException(status_code=502, detail={"message": f"identity provider unreachable: {e}"})
+        logger.warning("sso: the identity provider could not be reached: %s", e)
+        raise UserError("admin.sso.unreachable") from e
 
 
 @router.get("/callback")
 def sso_callback(code: str, session: DbSession, state: str = ""):
     org_id = state  # we set state = org_id on the way out
-    try:
-        result = sso_svc.handle_oidc_callback(session, org_id, code)
-    except sso_svc.SsoError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    result = sso_svc.handle_oidc_callback(session, org_id, code)      # a refused sign-in: SsoError
     # hand the session token to the SPA via the URL fragment (never sent to a server / logged)
     base = settings.APP_BASE_URL.rstrip("/")
     return RedirectResponse(url=f"{base}/#sso_token={result['access_token']}")
@@ -96,10 +106,7 @@ def sso_callback(code: str, session: DbSession, state: str = ""):
 @router.post("/saml/acs")
 def saml_acs(session: DbSession, SAMLResponse: str = Form(...), RelayState: str = Form("")):
     """SAML Assertion Consumer Service — the IdP POSTs the signed Response here."""
-    try:
-        result = sso_svc.handle_saml_acs(session, SAMLResponse, RelayState)
-    except sso_svc.SsoError as e:
-        raise HTTPException(status_code=400, detail={"message": str(e)})
+    result = sso_svc.handle_saml_acs(session, SAMLResponse, RelayState)  # a refused sign-in: SsoError
     base = settings.APP_BASE_URL.rstrip("/")
     return RedirectResponse(url=f"{base}/#sso_token={result['access_token']}", status_code=303)
 

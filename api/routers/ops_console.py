@@ -9,13 +9,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from api.security import create_access_token
 from api.services.rbac import write_audit
+from core import messages
+from core.errors import UserError
+from services.governance import admin_view as V
 
 router = APIRouter(prefix="/v1/ops", tags=["Platform operator"])
 
@@ -32,9 +35,9 @@ def impersonate(body: ImpersonateBody, session: DbSession,
     recorded in the tenant's own audit log (transparency) against the real operator."""
     org = session.execute(text("SELECT name, type FROM organizations WHERE org_id=:o"), {"o": body.org_id}).mappings().first()
     if not org:
-        raise HTTPException(404, {"error": "not_found", "message": "Tenant not found."})
+        raise UserError("admin.platform.not_found")
     if org["type"] == "platform":
-        raise HTTPException(422, {"error": "not_a_tenant", "message": "Cannot view-as the platform org itself."})
+        raise UserError("admin.platform.not_a_tenant")
     # prefer an active admin of the tenant; else any active user
     target = session.execute(text("""
         SELECT u.user_id::text, u.email, u.full_name,
@@ -45,7 +48,7 @@ def impersonate(body: ImpersonateBody, session: DbSession,
         ORDER BY is_admin DESC, u.created_at ASC, u.user_id LIMIT 1
     """), {"o": body.org_id}).mappings().first()
     if not target:
-        raise HTTPException(409, {"error": "no_user", "message": "This tenant has no active user to view as."})
+        raise UserError("admin.platform.no_user")
 
     operator_email = ctx["user"]["email"]
     token = create_access_token(user_id=target["user_id"], org_id=body.org_id,
@@ -72,12 +75,13 @@ def tenants(session: DbSession, ctx: dict = Depends(require_permission("platform
         ORDER BY o.name
     """)).mappings().all()
     tenants = [{
-        "org_id": r["org_id"], "name": r["name"], "type": r["type"], "country": r["country"],
+        "org_id": r["org_id"], "name": r["name"], "type": r["type"], "type_label": V.sector_label(r["type"]),
+        "country": r["country"],
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         "users": r["users"], "active_users": r["active_users"], "sites": r["sites"], "plots": r["plots"],
         "pending_approvals": r["pending_approvals"], "audit_30d": r["audit_30d"],
         "last_activity": r["last_activity"].isoformat() if r["last_activity"] else None,
-        "entitlements": list(r["entitlements"]),
+        "entitlements": list(r["entitlements"]), "offerings": V.offering_view(list(r["entitlements"])),
     } for r in rows]
     totals = {
         "tenants": len(tenants),
@@ -97,7 +101,7 @@ def tenant(org_id: str, session: DbSession, ctx: dict = Depends(require_permissi
         FROM organizations o WHERE o.org_id = :o
     """), {"o": org_id}).mappings().first()
     if not org:
-        raise HTTPException(404, {"error": "not_found", "message": "Tenant not found."})
+        raise UserError("admin.platform.not_found")
     users = session.execute(text("""
         SELECT u.email, u.full_name, u.status, u.last_login_at,
                COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
@@ -112,11 +116,12 @@ def tenant(org_id: str, session: DbSession, ctx: dict = Depends(require_permissi
     """), {"o": org_id}).mappings().all()
     return {
         "organization": {**{k: org[k] for k in ("org_id", "name", "legal_name", "type", "country", "lei", "eori", "filing_contact_email")},
+                         "type_label": V.sector_label(org["type"]),
                          "created_at": org["created_at"].isoformat() if org["created_at"] else None},
         "users": [{"email": u["email"], "full_name": u["full_name"], "status": u["status"],
                    "last_login_at": u["last_login_at"].isoformat() if u["last_login_at"] else None,
-                   "roles": list(u["roles"])} for u in users],
-        "entitlements": list(ents),
+                   "roles": list(u["roles"]), "role_labels": [V.role_label(x) for x in u["roles"]]} for u in users],
+        "entitlements": list(ents), "offerings": V.offering_view(list(ents)),
         "recent_activity": [{"action": r["action"], "email": r["email"],
                              "created_at": r["created_at"].isoformat() if r["created_at"] else None} for r in recent],
     }
@@ -138,6 +143,9 @@ def _sr_serialize(r) -> dict:
         "id": str(r["request_id"]), "org_id": str(r["org_id"]), "org_name": r.get("org_name"),
         "category": r["category"], "subject": r["subject"], "body": r["body"],
         "priority": r["priority"], "status": r["status"], "requester_email": r.get("requester_email"),
+        "category_label": messages.name("admin.support_category", r["category"]),
+        "priority_label": messages.name("admin.support_priority", r["priority"]),
+        "status_label": messages.name("admin.support_status", r["status"]),
         "message_count": int(r.get("message_count") or 0),
         "awaiting_support": (last_side is None or last_side == "customer") and r["status"] != "resolved",
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
@@ -186,7 +194,7 @@ def support_detail(request_id: str, session: DbSession,
         WHERE  sr.request_id = :r
     """), {"r": request_id}).mappings().first()
     if not r:
-        raise HTTPException(404, {"error": "not_found", "message": "Request not found."})
+        raise UserError("admin.support.not_found")
     msgs = session.execute(text("""
         SELECT m.message_id, m.author_side, m.body, m.created_at,
                u.email AS author_email, u.full_name AS author_name
@@ -207,7 +215,7 @@ def support_reply(request_id: str, body: SupportReply, session: DbSession,
         "SELECT org_id, status FROM service_requests WHERE request_id = :r"),
         {"r": request_id}).mappings().first()
     if not req:
-        raise HTTPException(404, {"error": "not_found", "message": "Request not found."})
+        raise UserError("admin.support.not_found")
     mid = session.execute(text("""
         INSERT INTO service_request_messages (request_id, author_user_id, author_side, body)
         VALUES (:r, :u, 'support', :b) RETURNING message_id

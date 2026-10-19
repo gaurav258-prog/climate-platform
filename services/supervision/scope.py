@@ -70,10 +70,11 @@ def add(session, reg_org_id: str, supervised_org_id: str, jurisdiction: Optional
     if not org or org["type"] in EXCLUDED_TYPES:
         raise KeyError("no such entity")
     if org["type"] not in profile_types(cfg):
+        from core.errors import UserError
         from services.supervision.profiles import registry
-        lab = lambda t: (registry()["sectors"].get(t) or {}).get("label") or t.replace("_", " ")  # noqa: E731
-        raise ValueError(f"{org['name']} belongs to {lab(org['type'])}; your profile ({cfg['label']}) covers "
-                         f"{', '.join(lab(t) for t in profile_types(cfg))}. Switch to a profile that covers this sector first.")
+        lab = lambda t: (registry()["sectors"].get(t) or {}).get("label") or "another sector"  # noqa: E731
+        raise UserError("admin.supervision.outside_profile", entity=org["name"], sector=lab(org["type"]), profile=cfg["label"],
+                        covers=", ".join(lab(t) for t in profile_types(cfg)))
     sid = session.execute(text("""
         INSERT INTO supervision_scope (regulator_org_id, supervised_org_id, jurisdiction, active, added_by)
         VALUES (CAST(:r AS uuid), CAST(:s AS uuid), :j, TRUE, CAST(:u AS uuid))

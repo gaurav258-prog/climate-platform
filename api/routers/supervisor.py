@@ -251,10 +251,12 @@ def _config(session, reg_org_id: str) -> dict:
 
 @router.get("/profile", summary="This regulator's effective supervision configuration (profile + overrides)")
 def get_profile(session: DbSession, ctx: Supervisor):
+    from services.governance.admin_view import basis_options
     from services.supervision.profiles import profile_ids, registry
     cfg = _config(session, ctx["org"]["org_id"])
     return {"config": cfg, "overrides": _overrides(session, ctx["org"]["org_id"]),
-            "available_profiles": {pid: registry()["profiles"][pid]["label"] for pid in profile_ids()}}
+            "available_profiles": {pid: registry()["profiles"][pid]["label"] for pid in profile_ids()},
+            "options": basis_options()}
 
 
 class ProfileUpdate(BaseModel):
@@ -269,7 +271,7 @@ class ProfileUpdate(BaseModel):
 @router.put("/profile", summary="Set this regulator's profile / defaults / threshold overrides (org admin)")
 def put_profile(body: ProfileUpdate, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     if (ctx.get("org") or {}).get("type") != "regulator":
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Regulator/supervisor access only."})
+        raise UserError("error.forbidden")
     from services.supervision.profiles import profile_ids, resolve
     reg = ctx["org"]["org_id"]
     cur = _overrides(session, reg)
@@ -278,7 +280,9 @@ def put_profile(body: ProfileUpdate, session: DbSession, ctx: dict = Depends(req
            "default_horizon": body.default_horizon if body.default_horizon is not None else cur.get("default_horizon"),
            "thresholds": body.thresholds if body.thresholds is not None else (cur.get("thresholds") or {})}
     if new["profile"] not in profile_ids():
-        raise HTTPException(status_code=422, detail={"error": "unknown_profile", "message": "Select a valid supervision profile."})
+        raise UserError("admin.supervision.unknown_profile")
+    from services.governance.admin_view import check_basis
+    check_basis({k: v for k, v in (("scenario", new["default_scenario"]), ("horizon", new["default_horizon"])) if v})
     resolve(None, new)   # validates
     session.execute(text("""
         INSERT INTO supervisor_settings (org_id, profile, default_scenario, default_horizon, thresholds, updated_at, updated_by)
@@ -710,8 +714,9 @@ def get_assignments(session: DbSession, ctx: Supervisor):
     from services.supervision.profiles import role_templates
     _need(ctx, "supervisor.assignments.manage")
     reg = ctx["org"]["org_id"]
+    caps = messages.names()["admin.capacity"]
     return {"entities": _org_scope(session, reg), "people": team(session, reg),
-            "assignments": list_assignments(session, reg),
+            "assignments": [{**a, "capacity_label": caps.get(a["capacity"], caps["lead"])} for a in list_assignments(session, reg)],
             "roles": {k: {"label": v["label"], "scope": v.get("scope", "assigned")} for k, v in role_templates().items()}}
 
 
@@ -847,8 +852,11 @@ class ScopeAdd(BaseModel):
 def get_scope(session: DbSession, ctx: Supervisor, q: Optional[str] = None):
     from services.supervision.scope import candidates, health
     _need(ctx, "supervisor.scope.manage")
+    from services.supervision.profiles import sector_label
     reg = ctx["org"]["org_id"]; cfg = _config(session, reg)
-    return {**health(session, reg, cfg), "candidates": candidates(session, reg, cfg, q)}
+    h = health(session, reg, cfg)
+    return {**h, "sector_labels": [sector_label(t) or t for t in h["sectors"]],
+            "candidates": [{**c, "type_label": sector_label(c["type"])} for c in candidates(session, reg, cfg, q)]}
 
 
 @router.post("/scope", status_code=201, summary="Add an entity to the supervised population (must be in the profile's sectors)")
@@ -859,9 +867,7 @@ def add_scope(body: ScopeAdd, session: DbSession, ctx: Supervisor):
     try:
         row = add(session, reg, body.supervised_org_id, body.jurisdiction, ctx["user"]["id"], _config(session, reg))
     except KeyError:
-        raise UserError("error.not_found")
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "outside_profile", "message": str(e)})
+        raise UserError("error.not_found")      # outside the profile: a catalogue error from scope.add
     for audited in (reg, body.supervised_org_id):
         write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.started",
                     target_type="supervision_scope", target_id=row["supervision_id"],
@@ -1255,8 +1261,8 @@ def add_respondent(body: RespondentCreate, session: DbSession, ctx: Supervisor):
         out = create_respondent(session, regulator_org_id=reg, cfg=_config(session, reg), name=body.name, org_type=body.org_type, country=body.country,
                                 jurisdiction=body.jurisdiction, legal_name=body.legal_name, lei=body.lei, contact_email=body.contact_email,
                                 contact_name=body.contact_name, by_user_id=ctx["user"]["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    except KeyError:
+        raise UserError("error.not_found")      # outside the profile, a name taken, an active contact: catalogue errors
     for audited in (reg, out["org_id"]):
         write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.started", target_type="supervision_scope",
                     target_id=out["supervision_id"], detail={"regulator_org_id": reg, "supervised_org_id": out["org_id"], "respondent": True, "contact": body.contact_email})
@@ -1276,8 +1282,8 @@ def invite_entity_contact(supervision_id: str, body: ContactInvite, session: DbS
         raise UserError("error.not_found")
     try:
         out = invite_contact(session, regulator_org_id=reg, supervised_org_id=ent, email=body.email, full_name=body.full_name, by_user_id=ctx["user"]["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    except KeyError:
+        raise UserError("error.not_found")      # an active contact already: a catalogue error from invite_contact
     for audited in (reg, ent):
         write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.contact_invited", target_type="user", target_id=out["user_id"],
                     detail={"regulator_org_id": reg, "supervised_org_id": ent, "email": out["email"]})

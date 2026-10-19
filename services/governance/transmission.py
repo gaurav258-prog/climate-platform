@@ -6,14 +6,51 @@ transmission channel to a regulator portal is external — this records and trac
 """
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from core import messages
+from core.errors import UserError
 
 STAGES = ["ready", "submitted", "query", "answered", "closed"]
 
 
-class CaseError(ValueError):
-    pass
+class CaseError(UserError):
+    """A case refusal in customer words: a catalogue code (admin.transmission.*) with its values."""
+
+    def __str__(self) -> str:
+        return messages.render(self.code, **self.params)["detail"]["what"]
+
+
+_OPENED = re.compile(r"^Case opened for (.+?)\.?$")
+_STAGED = re.compile(r"^Stage moved: (\w+) → (\w+)\.$")
+
+
+# what the transmission follow-up writes (services/transmission/service._follow_up), by its opening words
+_SENT = (("Transmission queued", "queued"), ("Transmitted and receipted", "acknowledged"), ("Transmitted;", "sent"),
+         ("File prepared for a channel outside", "awaiting_receipt"), ("Not sent:", "awaiting_credentials"),
+         ("Rejected by the authority", "rejected"), ("Transmission failed", "failed"))
+
+
+def thread_words(author: str, body: str) -> dict | None:
+    """A message the platform wrote on the thread, in catalogue words (the stored text names stages by code and carries
+    the channel's technical answer); None for a person's own message, which stays as written."""
+    if author == "Tellumen transmission":
+        status = next((st for start, st in _SENT if body.startswith(start)), None)
+        if status == "acknowledged" and ": " in body:          # the authority's receipt reference is a fact: keep it
+            return messages.render("admin.transmission.thread.receipted", ref=body.split(": ", 1)[1].rstrip("."))
+        return messages.render(f"admin.transmission.tx.{status}" if status else "admin.transmission.thread.other")
+    if author != "system":
+        return None
+    stage = messages.names()["admin.case_stage"]
+    if m := _OPENED.match(body):
+        return messages.render("admin.transmission.thread.opened", regulator=m.group(1))
+    if m := _STAGED.match(body):
+        return messages.render("admin.transmission.thread.stage", frm=stage.get(m.group(1), m.group(1)),
+                               to=stage.get(m.group(2), m.group(2)))
+    return messages.render("admin.transmission.thread.other")
 
 
 def list_cases(session: Session, org_id: str) -> list[dict]:
@@ -47,6 +84,7 @@ def get_case(session: Session, org_id: str, case_id: str) -> dict | None:
     return {**{k: c[k] for k in ("case_id", "regulator", "reference", "stage", "filing_id", "framework", "period_label")},
             "created_at": c["created_at"].isoformat(), "updated_at": c["updated_at"].isoformat(),
             "messages": [{"direction": m["direction"], "author": m["author"], "body": m["body"],
+                          "words": thread_words(m["author"], m["body"]),
                           "attachment_ref": m["attachment_ref"], "at": m["created_at"].isoformat()} for m in msgs]}
 
 
@@ -68,7 +106,7 @@ def case_for_filing(session: Session, org_id: str, filing_id: str) -> dict | Non
 def open_case(session: Session, org_id: str, actor: str, *, regulator: str, filing_id: str | None = None,
               reference: str | None = None) -> dict:
     if not (regulator or "").strip():
-        raise CaseError("a case needs a regulator")
+        raise CaseError("admin.transmission.no_regulator")
     cid = session.execute(text("""
         INSERT INTO reg_submission_case (org_id, filing_id, regulator, reference, stage, created_by)
         VALUES (:o, :f, :r, :ref, 'ready', :u) RETURNING case_id
@@ -79,11 +117,11 @@ def open_case(session: Session, org_id: str, actor: str, *, regulator: str, fili
 
 def advance_stage(session: Session, org_id: str, case_id: str, actor: str, stage: str) -> dict:
     if stage not in STAGES:
-        raise CaseError(f"unknown stage '{stage}'")
+        raise CaseError("admin.transmission.bad_stage")
     cur = session.execute(text("SELECT stage FROM reg_submission_case WHERE org_id=:o AND case_id=:c"),
                           {"o": org_id, "c": case_id}).scalar()
     if cur is None:
-        raise CaseError("case not found")
+        raise CaseError("admin.transmission.case_not_found")
     session.execute(text("UPDATE reg_submission_case SET stage=:s WHERE org_id=:o AND case_id=:c"),
                     {"s": stage, "o": org_id, "c": case_id})
     _msg(session, case_id, "outbound", "system", f"Stage moved: {cur} → {stage}.", actor)
@@ -93,13 +131,13 @@ def advance_stage(session: Session, org_id: str, case_id: str, actor: str, stage
 def post_message(session: Session, org_id: str, case_id: str, actor: str, *, direction: str,
                  author: str, body: str, attachment_ref: str | None = None) -> dict:
     if direction not in ("outbound", "inbound"):
-        raise CaseError("direction must be outbound or inbound")
+        raise CaseError("admin.transmission.bad_direction")
     if not (body or "").strip():
-        raise CaseError("message body is required")
+        raise CaseError("admin.transmission.empty_message")
     ok = session.execute(text("SELECT 1 FROM reg_submission_case WHERE org_id=:o AND case_id=:c"),
                         {"o": org_id, "c": case_id}).first()
     if not ok:
-        raise CaseError("case not found")
+        raise CaseError("admin.transmission.case_not_found")
     _msg(session, case_id, direction, author.strip() or "user", body.strip(), actor, attachment_ref)
     # a bump so the case rises in the list (touch trigger updates updated_at)
     session.execute(text("UPDATE reg_submission_case SET reference = reference WHERE case_id = :c"), {"c": case_id})
