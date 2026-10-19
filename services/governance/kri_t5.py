@@ -53,18 +53,18 @@ def _value(g: dict | None, row_id: str, col: str):
 
 def kpis(spec: dict | None, live: dict | None, gap: str | None) -> list[dict]:
     """A KRI per row and column of the governing version's Template 5, valued on today's book."""
-    from services.governance.kri import _kpi
+    from services.governance.kri import _kpi, method_gap, msg
     out = []
     for r in _rows(spec):
         for col, what in COLUMNS:
+            events = what.replace("only", "events only").replace("chronic and acute", "both chronic and acute events")
             k = _kpi(key(r["id"], col), f"{r['label']} — sensitive, {what}", _value(live, r["id"], col), "eur",
-                     tone="#fb7185",
-                     hint=(f"Template 5, row {r['id']}, column {col}: gross carrying amount of the row's exposures sensitive to "
-                           f"{what.replace('only', 'events only').replace('chronic and acute', 'both chronic and acute events')} "
-                           "at or above your stated at-risk level — all geographies, over today's book"
-                           + (f" · {gap}" if gap else "")))
-            k.update(group=GROUP, row={"id": r["id"], "label": r["label"]}, column=col,
-                     filed_basis=f"Pillar 3 ESG filing — Template 5, row {r['id']} ({r['label']}), column {col}, all geographies",
+                     tone="#fb7185", about=msg("kri.indicator.sector_row_cell", row=r["label"], events=events,
+                                               row_id=r["id"], column=col),
+                     gap=method_gap(gap))
+            where = f"Pillar 3 ESG filing — Template 5, row {r['id']} ({r['label']}), column {col}, all geographies"
+            k.update(group=GROUP, row={"id": r["id"], "label": r["label"]}, column=col, column_name=f"Sensitive, {what}",
+                     filed=msg("kri.filed.printed", where=where), filed_basis=where,
                      live_only=False, reg=f"Template 5, row {r['id']}, column {col} — sensitive, {what}", reg_tier="support")
             out.append(k)
     return out

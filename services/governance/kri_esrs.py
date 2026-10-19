@@ -40,10 +40,13 @@ _FMT = {"monetary": "eur", "percent": "pct", "tCO2eq": "num", "m3": "num", "coun
 
 
 class NoUndertaking(ValueError):
-    """No single undertaking to show: the organisation has legal entities and none, or several, has a stated role."""
+    """No single undertaking to show: the organisation has legal entities and none, or several, has a stated role. Its
+    `notice` says which, in the catalogue's words (kri.esrs.*)."""
 
-    def __init__(self, message: str, undertakings: list[dict]):
-        super().__init__(message)
+    def __init__(self, code: str, undertakings: list[dict], **params):
+        from core import messages
+        super().__init__(code)
+        self.notice = messages.render(code, **params)
         self.undertakings = undertakings
 
 
@@ -65,7 +68,7 @@ def undertaking(session: Session, org_id: str, period_end: date, entity_id: str 
         name = session.execute(text("SELECT name FROM reporting_entities WHERE org_id = CAST(:o AS uuid) AND entity_id = CAST(:e AS uuid)"),
                                {"o": org_id, "e": entity_id}).scalar()
         if name is None:
-            raise NoUndertaking("reporting entity not found", [])
+            raise NoUndertaking("kri.esrs.not_found", [])
         return {"entity_id": entity_id, "name": name}
     has = session.execute(text("SELECT 1 FROM reporting_entities WHERE org_id = CAST(:o AS uuid) LIMIT 1"), {"o": org_id}).first()
     if not has:
@@ -74,8 +77,7 @@ def undertaking(session: Session, org_id: str, period_end: date, entity_id: str 
     us = undertakings(session, org_id, period_end)
     if len(us) == 1:
         return {"entity_id": us[0]["entity_id"], "name": us[0]["name"]}
-    raise NoUndertaking(f"Several undertakings prepare an ESRS statement for FY{period_end.year} — choose one." if us else
-                        f"No undertaking has a stated CSRD role for FY{period_end.year} — state it on the ESRS statement page.", us)
+    raise NoUndertaking("kri.esrs.choose" if us else "kri.esrs.no_role", us, year=f"FY{period_end.year}")
 
 
 def _printed_by(version: str) -> dict[str, list[str]]:
@@ -87,20 +89,41 @@ def _printed_by(version: str) -> dict[str, list[str]]:
     return out
 
 
+# the catalogue's explanation of each computed concept (kri.indicator.esrs_*): the carrying amounts, the share of them
+# addressed by adaptation actions, or the net revenue at material physical risk
+COMPUTED_ABOUT = {
+    "e1.physrisk.assets.amount": "esrs_assets", "e1.physrisk.assets.pct": "esrs_assets", "e1.physrisk.assets.acute": "esrs_assets",
+    "e1.physrisk.assets.chronic": "esrs_assets", "e1.physrisk.assets.addressed_pct": "esrs_addressed",
+    "e1.physrisk.assets.addressed_pct.v2026": "esrs_addressed", "e1.physrisk.revenue.amount": "esrs_revenue",
+    "e1.physrisk.revenue.pct": "esrs_revenue",
+}
+
+
+def _unit_words(unit: str) -> str:
+    """A derived ratio's unit in words ('tCO2eq/EUR' → 'tonnes of CO₂ equivalent per EUR'): each part from the catalogue
+    (names['kri.unit']); a currency code is its own name."""
+    from core import messages
+    names = messages.names().get("kri.unit", {})
+    num, _, den = unit.partition("/")
+    return names.get(num, num) + (f" per {names.get(den, den)}" if den else "")
+
+
 def build(session: Session, org_id: str, entity_id: str | None = None) -> dict:
     from services.governance import esrs_document as D
     from services.governance import esrs_statement
     from services.governance.esrs_binding import concepts, concepts_of
     from services.governance.filings import reporting_period_end
-    from services.governance.kri import _kpi, _money_text
+    from services.governance.kri import _kpi, fact, msg
     pe = reporting_period_end(session, org_id)
     try:
         spec = D.governing(session, org_id, pe)
         who = undertaking(session, org_id, pe, entity_id)
-    except D.DocumentError as e:
-        return {"framework": "esrs_pack", "supported": False, "message": str(e)}
+    except D.DocumentError:
+        n = msg("kri.esrs.no_version", period_end=pe.isoformat())
+        return {"framework": "esrs_pack", "supported": False, "notice": n, "message": n["label"]}
     except NoUndertaking as e:
-        return {"framework": "esrs_pack", "supported": False, "message": str(e), "undertakings": e.undertakings}
+        return {"framework": "esrs_pack", "supported": False, "notice": e.notice, "message": e.notice["label"],
+                "undertakings": e.undertakings}
     eid = who["entity_id"]
     st = esrs_statement.compute(session, org_id, entity_id=eid, period_end=pe, esrs_version=spec["version"])
     provided = D._provided(session, org_id, eid, pe)
@@ -112,62 +135,62 @@ def build(session: Session, org_id: str, entity_id: str | None = None) -> dict:
         return (f"ESRS {', '.join(sorted(set(items)))} — {cs[c]['label']}" if items
                 else f"Input of the ESRS figures — {cs[c].get('why') or cs[c]['label']}")
 
-    def money(v):
-        return _money_text(session, org_id, v) if isinstance(v, (int, float)) else "—"
-
-    def topic_note(c):
+    def not_material(c):
         t = material.get(c.split(".")[0].upper())
-        return "Topic assessed not material. " if t and t.get("material") is False else ""
+        return bool(t and t.get("material") is False)
+
+    def gap(v):                    # the statement names each missing fact on its own page; here, that some are missing
+        return msg("kri.esrs.gap") if v.get("gap") else None
 
     kpis = []
     for c, tier in HEADLINE:
         if c not in printed:
             continue
         d, fmt = cs[c], _FMT.get(cs[c]["unit"], "dec")
+        topic = msg("kri.esrs.not_material") if not_material(c) else None
         if d["lane"] == "computed":
             v = st["concepts"].get(c) or {}
             bh = v.get("by_horizon") or {}
-            later = " · ".join(f"{h} term: {money(bh.get(h)) if fmt == 'eur' else ('—' if bh.get(h) is None else bh.get(h))}"
-                               for h in ("medium", "long") if h in bh)
-            hint = topic_note(c) + (f"Short term (at the reporting date). {later}." if later else "") + \
-                (f" Gap: {v['gap']}" if v.get("gap") else "")
-            k = _kpi(c, d["label"], v.get("value"), fmt, hint=hint.strip() or None)
+            unit = "eur" if fmt == "eur" else "pct" if fmt == "pct" else "num"
+            later = [fact(f"{h}_term", bh.get(h), unit) for h in ("medium", "long") if h in bh]
+            k = _kpi(c, d["label"], v.get("value"), fmt, about=msg(f"kri.indicator.{COMPUTED_ABOUT[c]}", concept=d["label"]),
+                     facts=later, missing=topic or gap(v))
         elif d["lane"] == "derived":
             v = st["concepts"].get(c) or {}
             vals = v.get("value") if isinstance(v.get("value"), dict) else {None: v.get("value")}
+            unit = _unit_words(v.get("unit") or d["unit"])
+            inputs = " and ".join(cs[x]["label"].lower() for x in d.get("from") or [] if x in cs)
             for member, x in vals.items():
                 key = c + (f"@{member}" if member else "")
                 label = d["label"] + (f" ({member}-based)" if member else "")
-                k = _kpi(key, label, x, "dec", hint=(topic_note(c) + (f"{v.get('unit')}" if v.get("unit") else "")
-                                                     + (f" Gap: {v['gap']}" if v.get("gap") else "")).strip() or None)
+                k = _kpi(key, label, x, "dec", about=msg("kri.indicator.esrs_derived", concept=d["label"], inputs=inputs, unit=unit),
+                         missing=topic or gap(v))
                 kpis.append(k | {"reg": reg(c), "reg_tier": tier})
             continue
         else:
             p = provided.get(c)
             val = None if p is None else (p["value_eur"] if fmt == "eur" and p.get("currency") else p["value"])
-            hint = topic_note(c) + ("Not stated — the undertaking states it on the ESRS statement page (attested by a "
-                                    "second person)." if p is None else "The undertaking's attested figure.")
-            k = _kpi(c, d["label"], val, fmt, hint=hint, integrated=True, integrated_note="the undertaking states it")
+            k = _kpi(c, d["label"], val, fmt, integrated=True, about=msg("kri.indicator.esrs_stated", concept=d["label"]),
+                     needs=msg("kri.provide.undertaking") if p is None else None, missing=topic)
         kpis.append(k | {"reg": reg(c), "reg_tier": tier, **({"flow": True} if c in FLOWS else {})})
     kpis += _support(st, printed)
+    scope = msg("kri.esrs.scope", name=who["name"], period_end=pe.isoformat(), act=spec["act"]["short"])
     return {"framework": "esrs_pack", "supported": True,
-            "label": f"ESRS statement KRIs — {who['name']} · FY{pe.year}", "kpis": kpis,
+            "label": f"ESRS statement indicators — {who['name']} · FY{pe.year}", "kpis": kpis,
             "by_hazard": _by_hazard(st), "history": _history(session, org_id, eid),
             "undertaking": {**who, "period_end": pe.isoformat(), "esrs_version": spec["version"], "act": spec["act"]["short"]},
             "undertakings": undertakings(session, org_id, pe),
-            "scope_note": f"The ESRS statement of {who['name']} for the financial year ending {pe.isoformat()} under "
-                          f"{spec['act']['short']}, as it stands now: the platform's figures computed from the year-end "
-                          "book, the undertaking's own attested figures, and the ratios derived from them. What was "
-                          "filed is in the history."}
+            "scope": scope, "scope_note": scope["detail"]["what"]}
 
 
 def _support(st: dict, printed: set) -> list[dict]:
-    from services.governance.kri import _kpi
+    from services.governance.kri import _kpi, fact, msg
     out = []
     unscored = (st.get("assessment") or {}).get("unscored_sites") or []
     out.append(_kpi("support.e1.unscored_sites", "Own sites in scope without a climate hazard score", len(unscored), "num",
-                    hint=("Not assessed, never assumed safe: " + ", ".join(unscored)) if unscored else
-                    "Every site in scope has a climate hazard score.") | {"reg": "Supports ESRS E1 physical risk", "reg_tier": "support"})
+                    about=msg("kri.indicator.esrs_unscored_sites"),
+                    facts=[fact("sites_unscored", ", ".join(unscored), "text")] if unscored else [])
+               | {"reg": "Supports ESRS E1 physical risk", "reg_tier": "support"})
     if printed & {"e3.water.consumption_at_risk", "e3.water.consumption_at_risk.v2026"}:
         w = (st.get("support") or {}).get("water_stress") or {}
         sites = w.get("sites") or []
@@ -175,15 +198,14 @@ def _support(st: dict, printed: set) -> list[dict]:
         open_ = [s["name"] for s in sites if s.get("in_area") is None]
         term = (w.get("definition") or {}).get("term") or "areas of water stress"
         out.append(_kpi("support.e3.sites_water_stress", f"Own sites in {term}", len(in_area), "num",
-                        hint=(f"By the version's definition ({(w.get('definition') or {}).get('ref')}). "
-                              + (f"Not classified: {', '.join(open_)}." if open_ else "Every site classified."))) |
+                        about=msg("kri.indicator.esrs_water_stress_sites", definition=(w.get("definition") or {}).get("ref") or term),
+                        facts=[fact("sites_unclassified", ", ".join(open_), "text")] if open_ else []) |
                    {"reg": "Supports ESRS E3 water consumption in areas at water risk / with water stress", "reg_tier": "support"})
     if "e4.sites.sensitive.count" in printed:
         b = (st.get("support") or {}).get("biodiversity_sensitive") or {}
         out.append(_kpi("support.e4.sites_in_sensitive", "Own sites inside a listed biodiversity-sensitive area",
-                        len(b.get("sites") or []), "num",
-                        hint="Inside a loaded layer of a kind ESRS lists (never 'near': the text gives no measure). "
-                             + (f"Not yet covered: {', '.join(b['not_assessed'])}." if b.get("not_assessed") else "")) |
+                        len(b.get("sites") or []), "num", about=msg("kri.indicator.esrs_sensitive_sites"),
+                        facts=[fact("layers_missing", ", ".join(b["not_assessed"]), "text")] if b.get("not_assessed") else []) |
                    {"reg": "Supports ESRS E4 sites in or near biodiversity-sensitive areas (the undertaking's figure)",
                     "reg_tier": "support"})
     return out
@@ -239,30 +261,3 @@ def _history(session: Session, org_id: str, entity_id: str | None) -> list[dict]
                     "value_at_risk": (c.get("e1.physrisk.assets.amount") or {}).get("value"),
                     "pct_at_risk": (c.get("e1.physrisk.assets.pct") or {}).get("value")})
     return out
-
-
-def methodology(key: str) -> str | None:
-    """How a KRI is computed, from the concept register (data/reference/esrs/concepts.json) and the statement's basis."""
-    from services.governance.esrs_binding import concepts
-    if key.startswith("support."):
-        return {"support.e1.unscored_sites": "Own sites in the undertaking's scope at the period end with no score for any "
-                                             "EU Taxonomy climate hazard at any ESRS horizon — listed, never counted as safe.",
-                "support.e3.sites_water_stress": "Own sites classified from WRI Aqueduct 4.0 exactly as the governing ESRS "
-                                                 "version defines areas of (high) water stress, criterion by criterion; a "
-                                                 "site no criterion could assess is named as not classified.",
-                "support.e4.sites_in_sensitive": "Own sites whose grid cell (H3 resolution 8) lies inside a loaded layer of "
-                                                 "a kind the ESRS glossary lists (Natura 2000 …). E4 counts the sites the "
-                                                 "undertaking negatively affects — its own determination; this list supports it."}.get(key)
-    c = concepts().get(key.split("@")[0])
-    if c is None:
-        return None
-    if c["lane"] == "computed":
-        return (f"{c['label']}: the carrying amounts at the period end (the undertaking's financial statements, "
-                "site_period_values) of its own sites in scope at which an EU Taxonomy climate hazard scores at or above "
-                "the level the undertaking states as material (esrs.method.physical_risk_level), under SSP5-8.5 over the "
-                "ESRS 1 §77/§79 horizons (data/reference/esrs/physical_risk_assessment.json). A group weights its "
-                "subsidiaries in full and a joint operation at its recognised share; a horizon with no projection, or a "
-                "hazard scored today but not projected, is a gap.")
-    if c["lane"] == "derived":
-        return f"{c['label']}: derived from the attested {', '.join(c.get('from') or [])}, in the unit the standard names."
-    return f"{c['label']}: the undertaking's own figure, stated and attested by a second person (provided values, family 'esrs')."

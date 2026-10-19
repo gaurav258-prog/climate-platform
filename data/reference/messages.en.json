@@ -3135,6 +3135,667 @@
    "detail": {
     "what": "This share of the case file has been downloaded as many times as the issuing authority allowed."
    }
+  },
+  "kri.unsupported": {
+   "label": "No indicators for this report yet",
+   "detail": {
+    "what": "There is no indicator set for this report on the platform."
+   }
+  },
+  "kri.unknown_indicator": {
+   "label": "This indicator is not in the set",
+   "detail": {
+    "what": "The indicator you opened is not part of this report's set any more.",
+    "next": "Close it and open one from the dashboard."
+   }
+  },
+  "kri.basis.live": {
+   "label": "Live, recomputed from today's book",
+   "detail": {
+    "what": "Every figure here is recomputed from today's book and reporting basis each time you open the page. It is not necessarily the figure you last filed with the regulator.",
+    "next": "The trend and the history show what each filing reported."
+   }
+  },
+  "kri.filed.printed": {
+   "label": "Printed in your filing",
+   "detail": {
+    "what": "Your filing prints this figure: {where}. Its trend shows the figure as each filing printed it."
+   }
+  },
+  "kri.filed.live_only": {
+   "label": "Live only, not printed in a filing",
+   "detail": {
+    "what": "No report you file prints this figure, so it has no filed history. It is shown to monitor the book."
+   }
+  },
+  "kri.filed.live_only_physical": {
+   "label": "Live only, not printed in a filing",
+   "detail": {
+    "what": "Your Pillar 3 filing prints physical risk per sector and country row, on the gross carrying amount (Template 5). No template prints this figure for the whole book, so it has no filed history. It is shown to monitor the book."
+   }
+  },
+  "kri.task.not_raised": {
+   "status": 409,
+   "label": "The task could not be raised",
+   "detail": {
+    "what": "The remediation task for this indicator could not be created.",
+    "next": "Try again. If it keeps happening, raise a request in Support."
+   }
+  },
+  "kri.projection.basis": {
+   "label": "Central estimate with the climate models' range",
+   "detail": {
+    "what": "The central estimate of this indicator in future years under the {scenario} pathway. The shaded band is the range across the climate models: the lower and upper bounds of the hazard scores. It is not a best or worst policy case.",
+    "why": "The dashed lines are your appetite: where the curve crosses them is when the book would leave appetite."
+   }
+  },
+  "kri.provide.alignment": {
+   "label": "Needs your Taxonomy alignment",
+   "detail": {
+    "what": "Alignment is decided per exposure: substantial contribution, no significant harm and minimum safeguards. Only eligibility is computed here.",
+    "next": "Provide the alignment flags with your book."
+   }
+  },
+  "kri.provide.intensity_feed": {
+   "label": "Needs a counterparty intensity feed",
+   "detail": {
+    "what": "This figure needs each counterparty's physical CO₂ intensity (for example grams per kWh or tonnes per tonne of output), which comes from a vendor or the counterparty.",
+    "next": "Provide the intensity feed; the figure is computed as soon as it arrives."
+   }
+  },
+  "kri.provide.undertaking": {
+   "label": "Stated by the undertaking",
+   "detail": {
+    "what": "This is the undertaking's own figure. It is not stated yet.",
+    "next": "The undertaking states it on the ESRS statement page, attested by a second person."
+   }
+  },
+  "kri.gap.emissions_estimation": {
+   "label": "Needs your emissions method",
+   "detail": {
+    "what": "This figure needs your choice of which counterparty emissions your institution estimates. Until it is stated, the figure is not printed.",
+    "next": "State it in Methodology."
+   }
+  },
+  "kri.gap.emissions_attribution": {
+   "label": "Needs your attribution method",
+   "detail": {
+    "what": "This figure needs your choice of how counterparty emissions are attributed to your exposure. Until it is stated, the figure is not printed.",
+    "next": "State it in Methodology."
+   }
+  },
+  "kri.esrs.scope": {
+   "label": "One undertaking's statement for the year",
+   "detail": {
+    "what": "The ESRS statement of {name} for the financial year ending {period_end}, under {act}, as it stands now: the figures the platform computes from the year-end book, the undertaking's own attested figures, and the ratios derived from them.",
+    "next": "What was filed is in the history."
+   }
+  },
+  "kri.esrs.choose": {
+   "label": "Choose the undertaking",
+   "detail": {
+    "what": "Several undertakings prepare an ESRS statement for {year}.",
+    "next": "Choose one to see its indicators."
+   }
+  },
+  "kri.esrs.no_role": {
+   "label": "No undertaking prepares a statement yet",
+   "detail": {
+    "what": "No undertaking has a stated statement role for {year}.",
+    "next": "State it on the ESRS statement page."
+   }
+  },
+  "kri.esrs.not_found": {
+   "label": "Undertaking not found",
+   "detail": {
+    "what": "The undertaking you chose is not one of your organisation's reporting entities."
+   }
+  },
+  "kri.esrs.no_version": {
+   "label": "No ESRS version for this year",
+   "detail": {
+    "what": "No version of the ESRS governs the financial year ending {period_end}, so there is no statement to read."
+   }
+  },
+  "kri.esrs.gap": {
+   "label": "Some facts are missing for the year",
+   "detail": {
+    "what": "Some facts this figure needs are missing for the reporting year, so it is incomplete. The ESRS statement lists each one.",
+    "next": "Open the ESRS statement to see and complete them."
+   }
+  },
+  "kri.esrs.not_material": {
+   "label": "Topic assessed not material",
+   "detail": {
+    "what": "The undertaking assessed this topic as not material for the year."
+   }
+  },
+  "kri.sfdr.no_funds": {
+   "label": "No funds to report on",
+   "detail": {
+    "what": "Your organisation has no funds on the platform yet, so there is no statement to read.",
+    "next": "Add your funds and their holdings."
+   }
+  },
+  "kri.sfdr.no_positions": {
+   "label": "No positions to report on",
+   "detail": {
+    "what": "Your funds hold no positions for the reporting year, so there is no statement to read.",
+    "next": "Upload the funds' holdings."
+   }
+  },
+  "kri.sfdr.no_statement": {
+   "label": "No adverse-impact statement yet",
+   "detail": {
+    "what": "The adverse-impact statement cannot be read for your organisation yet."
+   }
+  },
+  "kri.indicator.total_value": {
+   "label": "Value of every exposure in scope",
+   "detail": {
+    "what": "The value of every exposure in scope, summed from your uploaded book."
+   }
+  },
+  "kri.indicator.property_value": {
+   "label": "Value of every property in scope",
+   "detail": {
+    "what": "The value of every property in scope, summed from your uploaded book."
+   }
+  },
+  "kri.indicator.value_at_risk": {
+   "label": "Value at or above your at-risk level",
+   "detail": {
+    "what": "The value of the book whose headline hazard score is at or above the level your organisation states as material physical risk."
+   }
+  },
+  "kri.indicator.pct_at_risk": {
+   "label": "Share of the book at material risk",
+   "detail": {
+    "what": "The value at material physical risk as a share of the book's total value."
+   }
+  },
+  "kri.indicator.acute_share": {
+   "label": "Share at risk from sudden events",
+   "detail": {
+    "what": "The share of the book at or above your at-risk level on an acute, event-driven hazard: flood, storm, wildfire, frost or acute heat. An exposure can count as both acute and chronic.",
+    "why": "Acute hazards drive sudden losses and provisions."
+   }
+  },
+  "kri.indicator.chronic_share": {
+   "label": "Share at risk from gradual change",
+   "detail": {
+    "what": "The share of the book at or above your at-risk level on a chronic, gradual hazard: drought, chronic heat, sea-level rise and coastal flooding, or water stress. An exposure can count as both acute and chronic.",
+    "why": "Chronic hazards drive long-run repricing."
+   }
+  },
+  "kri.indicator.forward_share": {
+   "label": "Share projected at or above your level",
+   "detail": {
+    "what": "The share of the book projected at or above your at-risk level in the last modelled year, under your reporting scenario (Disorderly 2 °C when none is set).",
+    "why": "An early warning to compare with today's share at risk."
+   }
+  },
+  "kri.indicator.sector_concentration": {
+   "label": "Share in high-climate-impact sectors",
+   "detail": {
+    "what": "The share of the book in the sectors the EBA names as high climate impact: NACE sections A to H and L.",
+    "why": "These sectors organise the Pillar 3 templates and are a standard concentration control."
+   }
+  },
+  "kri.indicator.coverage": {
+   "label": "Share of assets with a score",
+   "detail": {
+    "what": "The share of the assets in the book that carry a physical-risk score. An unscored asset is left out of the risk figures; it is never assumed safe."
+   }
+  },
+  "kri.indicator.properties_scored": {
+   "label": "Share of properties with a score",
+   "detail": {
+    "what": "The share of the properties in the book that carry a physical-risk score. An unscored property is left out of the risk figures; it is never assumed safe."
+   }
+  },
+  "kri.indicator.financed_emissions": {
+   "label": "Emissions you finance",
+   "detail": {
+    "what": "Counterparty emissions, scopes 1 to 3, in tonnes of CO₂ equivalent, attributed by the share you finance: the outstanding loan divided by the counterparty's enterprise value including cash, capped at 100%. Only counterparties that state all three scopes and carry an enterprise value are summed.",
+    "why": "A counterparty that states no emissions is not counted as zero."
+   }
+  },
+  "kri.indicator.financed_emissions_filed": {
+   "label": "Emissions you finance, as filed",
+   "detail": {
+    "what": "Counterparty emissions of the scopes you estimate, in tonnes of CO₂ equivalent, attributed by your exposure compared with their total liabilities and equity: the figure your Pillar 3 filing prints (Template 1, total row, column i).",
+    "why": "A scope not stated is never counted as zero."
+   }
+  },
+  "kri.indicator.taxonomy_eligible": {
+   "label": "Share of value Taxonomy-eligible",
+   "detail": {
+    "what": "The share of book value in Taxonomy-eligible activities, from each exposure's stated Taxonomy status."
+   }
+  },
+  "kri.indicator.taxonomy_turnover": {
+   "label": "Share of turnover Taxonomy-eligible",
+   "detail": {
+    "what": "The share of turnover from Taxonomy-eligible activities: the turnover figure of your EU Taxonomy report (Delegated Regulation (EU) 2021/2178)."
+   }
+  },
+  "kri.indicator.green_asset_ratio": {
+   "label": "Share of the book Taxonomy-aligned",
+   "detail": {
+    "what": "The green asset ratio: the share of the book in Taxonomy-aligned activities. Alignment is decided per exposure; only eligibility is computed here."
+   }
+  },
+  "kri.indicator.gar_turnover": {
+   "label": "Green asset ratio on turnover",
+   "detail": {
+    "what": "The green asset ratio of the stock, turnover-based, as your EU Taxonomy report prints it (summary of KPIs, Template 0), over today's book on the version governing your reporting period. Blank where no exposure states the facts it needs."
+   }
+  },
+  "kri.indicator.gar_capex": {
+   "label": "Green asset ratio on capital expenditure",
+   "detail": {
+    "what": "The green asset ratio of the stock, based on capital expenditure, as your EU Taxonomy report prints it (summary of KPIs, Template 0), over today's book on the version governing your reporting period. Blank where no exposure states the facts it needs."
+   }
+  },
+  "kri.indicator.gar_coverage": {
+   "label": "Share of total assets the ratio covers",
+   "detail": {
+    "what": "The share of total assets the green asset ratio covers, as your EU Taxonomy report prints it (summary of KPIs, Template 0), over today's book on the version governing your reporting period."
+   }
+  },
+  "kri.indicator.expected_loss": {
+   "label": "Climate loss expected per year",
+   "detail": {
+    "what": "Physical climate loss expected per year across the loans: the exposure times the chance of each event times your stated damage ratio, matched to each loan's remaining life.",
+    "why": "It is your own stated method, not a fitted default model."
+   }
+  },
+  "kri.indicator.collateral_stranding": {
+   "label": "Collateral value at risk from energy rules",
+   "detail": {
+    "what": "The erosion of the recovery cushion on property collateral: your stated discount per energy-performance grade, applied to the loans whose collateral sits in a discounted grade."
+   }
+  },
+  "kri.indicator.alignment_distance": {
+   "label": "Distance to the net-zero pathway",
+   "detail": {
+    "what": "The gross-weighted distance between your counterparties' CO₂ intensity and the IEA net-zero pathway for 2030, sector by sector: 100 × (today's intensity − the 2030 target) ÷ the 2030 target (Pillar 3 Template 3, under the EU CRFR4, pending adoption). The platform holds the IEA benchmark and does the calculation."
+   }
+  },
+  "kri.indicator.top_emitters": {
+   "label": "Lending to the 20 most carbon-intensive firms",
+   "detail": {
+    "what": "The share of the book lent to the world's 20 most carbon-intensive companies (the Carbon Majors list), matched by counterparty identity (Pillar 3 Template 4).",
+    "why": "Policy action against the largest emitters can weaken their credit. Template 4 is in force under ITS 2024/3172; the EBA's final draft EBA/ITS/2026/02 removes it once adopted."
+   }
+  },
+  "kri.indicator.sector_row_cell": {
+   "label": "Sensitive exposure in one sector row",
+   "detail": {
+    "what": "The gross carrying amount of the exposures in {row} that are sensitive to {events}, at or above your stated at-risk level, in all countries, over today's book: the cell your Pillar 3 filing prints in Template 5, row {row_id}, column {column}."
+   }
+  },
+  "kri.indicator.noi_impact": {
+   "label": "Climate insurance cost, share of income",
+   "detail": {
+    "what": "The insurance cost of the insured perils on the insured values, on your stated method, as a share of net operating income."
+   }
+  },
+  "kri.indicator.stranding": {
+   "label": "Value at risk from energy rules",
+   "detail": {
+    "what": "The value your stated discount per energy-performance grade takes off the properties in a discounted grade: a transition risk."
+   }
+  },
+  "kri.indicator.resilience_capex": {
+   "label": "Adaptation spending to reduce the risk",
+   "detail": {
+    "what": "The adaptation capital expenditure modelled against the physical loss it avoids, on your stated method."
+   }
+  },
+  "kri.indicator.sum_insured": {
+   "label": "Total sum insured in scope",
+   "detail": {
+    "what": "The sum insured of every policy in scope, summed from your uploaded book."
+   }
+  },
+  "kri.indicator.expected_annual_loss": {
+   "label": "Loss expected in an average year",
+   "detail": {
+    "what": "The probability-weighted annual loss across the book: each peril's damage ratio times how often it occurs, on your stated method."
+   }
+  },
+  "kri.indicator.sum_insured_at_risk": {
+   "label": "Sum insured at or above your level",
+   "detail": {
+    "what": "The sum insured whose headline hazard score is at or above the level your organisation states as material physical risk."
+   }
+  },
+  "kri.indicator.policies_priced": {
+   "label": "Share of policies priced",
+   "detail": {
+    "what": "The share of policies in the book that carry a climate price."
+   }
+  },
+  "kri.indicator.probable_maximum_loss": {
+   "label": "Largest modelled single-event loss",
+   "detail": {
+    "what": "The probable maximum loss: the largest modelled single event at the return period you chose, from the policies one event would hit together."
+   }
+  },
+  "kri.indicator.modelled_annual_loss": {
+   "label": "Modelled 1-in-200 annual loss",
+   "detail": {
+    "what": "The 1-in-200 annual loss of the platform's catastrophe simulation, on your stated damage ratios and event probabilities.",
+    "why": "It is not an approved internal model; the standard formula is on the Solvency page."
+   }
+  },
+  "kri.indicator.net_retention": {
+   "label": "Largest event loss you keep",
+   "detail": {
+    "what": "The probable maximum loss you keep after the attested reinsurance treaty."
+   }
+  },
+  "kri.indicator.investment_var": {
+   "label": "Climate value at risk on investments",
+   "detail": {
+    "what": "Combined physical and transition climate value at risk, at 99%, on the insurer's own investment book: the asset side."
+   }
+  },
+  "kri.indicator.holdings_value": {
+   "label": "Value of the holdings book",
+   "detail": {
+    "what": "The value of every position in the holdings book."
+   }
+  },
+  "kri.indicator.climate_var": {
+   "label": "Value lost to climate across the book",
+   "detail": {
+    "what": "The position value minus the climate-discounted value, summed across the holdings book."
+   }
+  },
+  "kri.indicator.climate_var_share": {
+   "label": "Climate value at risk, share of the book",
+   "detail": {
+    "what": "The climate value at risk as a share of the holdings book's value."
+   }
+  },
+  "kri.indicator.holdings_scored": {
+   "label": "Share of holdings with a score",
+   "detail": {
+    "what": "The share of holdings that carry a physical-risk score. An unscored holding is left out of the risk figures; it is never assumed safe."
+   }
+  },
+  "kri.indicator.common_shock": {
+   "label": "Value at risk in one shared event",
+   "detail": {
+    "what": "The share of total climate value at risk in the single largest cluster of holdings that one event would hit together.",
+    "why": "It is the concentration a single event exposes."
+   }
+  },
+  "kri.indicator.top_region": {
+   "label": "Share of the book in one region",
+   "detail": {
+    "what": "The share of the book in its largest single region, with how many independent regions and hazards the book is spread across."
+   }
+  },
+  "kri.indicator.nav": {
+   "label": "Net asset value in scope",
+   "detail": {
+    "what": "The net asset value of the funds the adverse-impact statement covers."
+   }
+  },
+  "kri.indicator.positions": {
+   "label": "Positions in scope",
+   "detail": {
+    "what": "The number of positions the adverse-impact statement covers."
+   }
+  },
+  "kri.indicator.pai_emissions": {
+   "label": "Greenhouse-gas emissions you finance",
+   "detail": {
+    "what": "The funds' share of their investee companies' scope 1, 2 and 3 emissions, in tonnes of CO₂ equivalent (adverse-impact indicator 1)."
+   }
+  },
+  "kri.indicator.carbon_footprint": {
+   "label": "Emissions per million euros invested",
+   "detail": {
+    "what": "Financed emissions in tonnes of CO₂ equivalent per million euros invested (adverse-impact indicator 2)."
+   }
+  },
+  "kri.indicator.waci": {
+   "label": "Average carbon intensity of investee companies",
+   "detail": {
+    "what": "The weighted-average greenhouse-gas intensity of investee companies: tonnes of CO₂ equivalent per million euros of their revenue (adverse-impact indicator 3)."
+   }
+  },
+  "kri.indicator.fossil_fuel": {
+   "label": "Share invested in fossil-fuel companies",
+   "detail": {
+    "what": "The share of value in companies active in the fossil-fuel sector (adverse-impact indicator 4)."
+   }
+  },
+  "kri.indicator.non_renewable": {
+   "label": "Share of non-renewable energy",
+   "detail": {
+    "what": "The share of investee companies' energy consumption and production from non-renewable sources (adverse-impact indicator 5)."
+   }
+  },
+  "kri.indicator.energy_intensity": {
+   "label": "Energy use per million euros of revenue",
+   "detail": {
+    "what": "Energy consumption in GWh per million euros of investee revenue, in high-impact sectors (adverse-impact indicator 6)."
+   }
+  },
+  "kri.indicator.biodiversity": {
+   "label": "Share near biodiversity-sensitive areas",
+   "detail": {
+    "what": "The share of value in companies with sites in or near biodiversity-sensitive areas (adverse-impact indicator 7)."
+   }
+  },
+  "kri.indicator.emissions_water": {
+   "label": "Emissions to water per million invested",
+   "detail": {
+    "what": "Tonnes of emissions to water per million euros invested (adverse-impact indicator 8)."
+   }
+  },
+  "kri.indicator.hazardous_waste": {
+   "label": "Hazardous waste per million invested",
+   "detail": {
+    "what": "Tonnes of hazardous and radioactive waste per million euros invested (adverse-impact indicator 9)."
+   }
+  },
+  "kri.indicator.ungc_violations": {
+   "label": "Share in companies breaching global norms",
+   "detail": {
+    "what": "The share of value in companies involved in violations of the UN Global Compact principles or the OECD Guidelines (adverse-impact indicator 10)."
+   }
+  },
+  "kri.indicator.ungc_no_process": {
+   "label": "Share without processes to monitor global norms",
+   "detail": {
+    "what": "The share of value in companies without processes to monitor compliance with the UN Global Compact principles or the OECD Guidelines (adverse-impact indicator 11)."
+   }
+  },
+  "kri.indicator.gender_pay_gap": {
+   "label": "Average unadjusted gender pay gap",
+   "detail": {
+    "what": "The average unadjusted gender pay gap of investee companies (adverse-impact indicator 12)."
+   }
+  },
+  "kri.indicator.board_diversity": {
+   "label": "Share of women on boards",
+   "detail": {
+    "what": "The average share of women on investee companies' boards (adverse-impact indicator 13)."
+   }
+  },
+  "kri.indicator.controversial_weapons": {
+   "label": "Share exposed to controversial weapons",
+   "detail": {
+    "what": "The share of value in companies involved in controversial weapons (adverse-impact indicator 14)."
+   }
+  },
+  "kri.indicator.emissions_coverage": {
+   "label": "Share of value with emissions data",
+   "detail": {
+    "what": "The share of net asset value whose issuers report emissions data."
+   }
+  },
+  "kri.indicator.indicators_computed": {
+   "label": "Mandatory indicators computed",
+   "detail": {
+    "what": "How many of the mandatory adverse-impact indicators the statement computes."
+   }
+  },
+  "kri.indicator.esrs_assets": {
+   "label": "Carrying amount at material physical risk",
+   "detail": {
+    "what": "{concept}: the carrying amounts at the period end of the undertaking's own sites in scope where an EU Taxonomy climate hazard scores at or above the level the undertaking states as material, under the high-emissions pathway, over the ESRS short, medium and long term. A group counts its subsidiaries in full and a joint operation at its share.",
+    "why": "A horizon with no projection, or a hazard scored today but not projected, is left as a gap."
+   }
+  },
+  "kri.indicator.esrs_addressed": {
+   "label": "Share addressed by adaptation actions",
+   "detail": {
+    "what": "{concept}: the share of the carrying amount at material physical risk that the undertaking states is addressed by adaptation actions."
+   }
+  },
+  "kri.indicator.esrs_revenue": {
+   "label": "Net revenue at material physical risk",
+   "detail": {
+    "what": "{concept}: the net revenue of the undertaking's own sites in scope where an EU Taxonomy climate hazard scores at or above the level the undertaking states as material, under the high-emissions pathway, over the ESRS short, medium and long term.",
+    "why": "A horizon with no projection, or a hazard scored today but not projected, is left as a gap."
+   }
+  },
+  "kri.indicator.esrs_derived": {
+   "label": "Derived from the attested figures",
+   "detail": {
+    "what": "{concept}: derived from the undertaking's attested {inputs}, in {unit}."
+   }
+  },
+  "kri.indicator.esrs_stated": {
+   "label": "The undertaking's attested figure",
+   "detail": {
+    "what": "{concept}: the undertaking's own figure, stated and attested by a second person."
+   }
+  },
+  "kri.indicator.esrs_unscored_sites": {
+   "label": "Own sites without a hazard score",
+   "detail": {
+    "what": "Own sites in the undertaking's scope at the period end with no score for any EU Taxonomy climate hazard at any ESRS horizon. They are listed, never counted as safe."
+   }
+  },
+  "kri.indicator.esrs_water_stress_sites": {
+   "label": "Own sites in areas of water stress",
+   "detail": {
+    "what": "Own sites classified from WRI Aqueduct 4.0 exactly as the governing ESRS version defines areas of water stress, criterion by criterion ({definition}). A site no criterion could assess is named as not classified."
+   }
+  },
+  "kri.indicator.esrs_sensitive_sites": {
+   "label": "Own sites inside a biodiversity-sensitive area",
+   "detail": {
+    "what": "Own sites inside a loaded layer of a kind the ESRS glossary lists, such as Natura 2000. Never 'near': the text gives no measure.",
+    "why": "The ESRS figure counts the sites the undertaking negatively affects, its own determination; this list supports it."
+   }
+  },
+  "model.risk.about": {
+   "label": "A card states only what the record shows",
+   "detail": {
+    "what": "Each card shows what the platform's records hold for a model: the model registry, the validation record and the feeds behind its hazard.",
+    "why": "A review is bound to the card it was made on. When the card's facts change — a new version, a new test or a lifecycle step — the review shows as stale and needs a fresh one."
+   }
+  },
+  "model.risk.use.score": {
+   "label": "A hazard score for each located asset",
+   "detail": {
+    "what": "The physical-risk score of each located asset: the score behind every filing, indicator and decision."
+   }
+  },
+  "model.risk.use.impact": {
+   "label": "Euro at risk for a crop origin",
+   "detail": {
+    "what": "The economic impact of a hazard on a commodity origin: the euro at risk in the agri-food line."
+   }
+  },
+  "model.risk.claim.not_in_use": {
+   "label": "Not in use: under evaluation",
+   "detail": {
+    "what": "A candidate or challenger model. It produces no figure until it is approved and put in use."
+   }
+  },
+  "model.risk.claim.range": {
+   "label": "Publishes a euro range",
+   "detail": {
+    "what": "Out of sample, the fit explains {r2} of past yield swings, at or above the {floor} needed to publish, so the euro at risk is published as a range."
+   }
+  },
+  "model.risk.claim.held": {
+   "label": "Held: no euro figure",
+   "detail": {
+    "what": "Out of sample, the fit explains {r2} of past yield swings, below the {floor} needed to publish, so no euro figure is shown."
+   }
+  },
+  "model.risk.claim.untested": {
+   "label": "Held: no test result",
+   "detail": {
+    "what": "The fit has no out-of-sample result, so no euro figure is shown."
+   }
+  },
+  "model.risk.evidence.model": {
+   "label": "Tested on this model version",
+   "detail": {
+    "what": "The latest test on the validation record was run on this model version."
+   }
+  },
+  "model.risk.evidence.hazard": {
+   "label": "Tested at hazard level",
+   "detail": {
+    "what": "The latest test on the validation record is for the hazard, not linked to this model version."
+   }
+  },
+  "model.risk.evidence.none": {
+   "label": "No test on record",
+   "detail": {
+    "what": "The validation record holds no test of this model or of its hazard.",
+    "next": "A model without a test may screen; it never carries a figure."
+   }
+  },
+  "model.risk.limit.one_driver": {
+   "label": "Explains yield through one driver only",
+   "detail": {
+    "what": "The fit explains yield only through the named climate driver. Policy, conflict, water management and prices are outside it.",
+    "why": "A model of climate impact needs an observed outcome that climate can explain."
+   }
+  },
+  "model.risk.method.unnamed": {
+   "label": "Method not yet described",
+   "detail": {
+    "what": "This model's method has no description in plain words yet.",
+    "next": "Raise a request in Support to have it described."
+   }
+  },
+  "model.risk.error.conclusion": {
+   "status": 422,
+   "label": "Choose a conclusion",
+   "detail": {
+    "what": "A review concludes fit for use, fit with restrictions, or not fit."
+   }
+  },
+  "model.risk.error.comment": {
+   "status": 422,
+   "label": "Add a comment to this conclusion",
+   "detail": {
+    "what": "A conclusion with restrictions, or not fit, needs a comment that says why."
+   }
+  },
+  "model.risk.error.no_model": {
+   "status": 404,
+   "label": "Model not in the register",
+   "detail": {
+    "what": "The model you reviewed is no longer in the register.",
+    "next": "Reload the page and open its card again."
+   }
   }
  },
  "names": {
@@ -3510,6 +4171,110 @@
    "supervisor.mandate.setting": "Adapted a mandate",
    "supervisor.mandate.version_acknowledged": "Acknowledged a version of an act",
    "other": "Other supervisory activity"
+  },
+  "kri.fact": {
+   "scenario": "Scenario",
+   "year": "Last modelled year",
+   "largest_sector": "Largest sector",
+   "largest_sector_share": "Its share of the book",
+   "counterparties_stating": "Counterparties stating emissions",
+   "lending_covered": "Share of lending they cover",
+   "with_enterprise_value": "Of those, with an enterprise value",
+   "all_scopes": "Of those, stating all three scopes",
+   "not_attributed": "Stated without an enterprise value",
+   "annual_share": "Per year, share of the exposure",
+   "lifetime": "Over the loans' remaining life",
+   "lifetime_share": "Over the life, share of the exposure",
+   "loans_discounted": "Loans in a discounted energy grade",
+   "exposure_discounted": "Share of assessed exposure",
+   "ltv": "Average loan-to-value",
+   "ltv_after": "After the discount",
+   "uncovered": "Exposure no longer covered",
+   "assessed": "Share of the book assessed",
+   "matched": "Companies matched",
+   "avoided_loss": "Physical loss avoided",
+   "benefit_cost": "Benefit for each euro spent",
+   "ceded": "Share ceded",
+   "positions_scored": "Positions scored",
+   "cluster_hazard": "Hazard of the largest cluster",
+   "cluster_region": "Region of the largest cluster",
+   "largest_region": "Largest region",
+   "effective_regions": "Independent regions",
+   "effective_hazards": "Independent hazards",
+   "medium_term": "Medium term",
+   "long_term": "Long term",
+   "unit": "Unit",
+   "row": "Sector row",
+   "column": "Exposure",
+   "sites_unscored": "Sites without a score",
+   "sites_unclassified": "Sites not classified",
+   "layers_missing": "Kinds of area not yet covered",
+   "mandatory": "Mandatory indicators"
+  },
+  "kri.unit": {
+   "tCO2eq": "tonnes of CO₂ equivalent",
+   "MWh": "megawatt hours",
+   "m3": "cubic metres",
+   "percent": "per cent",
+   "EURm": "million euros",
+   "monetary unit": "unit of currency"
+  },
+  "model.risk.kind": {
+   "score": "Hazard score",
+   "impact": "Crop impact"
+  },
+  "model.risk.lifecycle": {
+   "active": "In use",
+   "approved": "Approved",
+   "candidate": "Candidate",
+   "challenger": "Challenger",
+   "published": "Published",
+   "held": "Held",
+   "retired": "Retired",
+   "superseded": "Superseded"
+  },
+  "model.risk.method": {
+   "SPEI-6 seasonal climatology, Phi(-SPEI) percentile": "Seasonal drought index (SPEI), as a percentile",
+   "SPEI percentile Φ(−SPEI) vs 1991-2020": "Drought index (SPEI) as a percentile of 1991–2020",
+   "fixed-formula hazard climatology (FWI extreme days x burnable fraction + burn history)": "Fire-weather climatology: extreme fire-weather days, burnable land and burn history",
+   "Season-minimum daily 2m temperature (raw hourly ERA5, locally aggregated) vs coffee frost thresholds": "The season's lowest temperature against crop frost thresholds",
+   "physics_ipe_analogue_proximal_ashfall": "Physics: distance to volcanoes and ash fall of past eruptions",
+   "physics_modified_rankine_vortex": "Physics: the wind field around each cyclone track",
+   "ensemble_multievent": "Machine learning trained on past flood events",
+   "root-zone soil-moisture anomaly, Phi(-z)x100": "Root-zone soil moisture against normal",
+   "xgboost": "Machine learning (gradient-boosted trees)",
+   "physics_ipe_omori": "Physics: shaking from recorded earthquakes and their aftershocks",
+   "climatology two-part (absolute stress + anomaly)": "Heat climatology: heat stress and departure from normal",
+   "ensemble_firms_fuel": "Machine learning on satellite fire detections and fuel",
+   "test": "Test entry",
+   "ranged_fit": "Past yields fitted against the climate driver"
+  },
+  "model.risk.actor": {
+   "process": "A platform process"
+  },
+  "model.risk.skill": {
+   "strong": "Strong",
+   "fair": "Fair",
+   "weak": "Weak",
+   "insufficient": "Too little to judge"
+  },
+  "model.risk.verdict": {
+   "agree": "Agrees",
+   "disagree": "Disagrees",
+   "insufficient": "Too little to compare"
+  },
+  "model.risk.impact_tier": {
+   "ranged": "Range published",
+   "backtested": "Backtested",
+   "indicative": "Indicative",
+   "calibrated": "Calibrated"
+  },
+  "validation.design": {
+   "same_record": "Same record",
+   "held_out": "Held out in time",
+   "independent": "Independent record",
+   "harvests": "Past harvests",
+   "events": "Named events"
   }
  }
 }

@@ -23,7 +23,7 @@ def test_bank_kri_carries_a_live_basis_disclosure():
         d = kri(s, BANK_ORG, "bank_tcfd")
         assert d["supported"]
         assert d["basis"]["kpis"] == "live"
-        assert "recomputed live" in d["basis"]["note"] or "live" in d["basis"]["note"]
+        assert d["basis"]["message"]["code"] == "kri.basis.live" and "recomputed" in d["basis"]["note"]
         s.rollback()
 
 

@@ -1,18 +1,26 @@
 import { useState } from 'react'
+import { InfoButton, HEADING } from './Details'
 import { balance } from '../lib/money'
 
-// Pillar 3 Template 5 prints physical risk per sector / collateral row with no book total (E98). Its KRIs — one per row
-// and column — are picked by row here instead of crowding the indicator grid; each card opens the KRI's drill (trend
-// across filings, methodology), like any tile.
+// The Pillar 3 physical-risk template prints exposure per sector or collateral row, with no book total (E98). Its
+// indicators — one per row and kind of event — are picked by row here instead of crowding the indicator grid; each
+// opens the indicator's drawer (trend across filings, how it is computed), like any tile. The template's row and
+// column numbers are references: they sit in the drawer, one click away.
 export interface RowKpi {
-  key: string; label: string; value: number | null; hint: string | null; group?: string
-  row?: { id: string; label: string }; column?: string; filed_basis?: string | null; reg?: string
+  key: string; label: string; value: number | null; group?: string
+  row?: { id: string; label: string }; column?: string; column_name?: string
   status?: 'ok' | 'amber' | 'red' | null
 }
 export interface HistFigure { key: string; value: number | null; group?: string }
 export interface HistRow { label: string; figures?: HistFigure[] }
 
-const COL: Record<string, string> = { h: 'Chronic only', i: 'Acute only', j: 'Chronic and acute' }
+const ABOUT = {
+  title: 'Exposure by sector row',
+  sections: [
+    { heading: HEADING.shows, body: 'For one sector or collateral row of your Pillar 3 physical-risk template: the gross carrying amount of the exposures sensitive to chronic events only, to acute events only, and to both, at or above your stated at-risk level, in all countries.' },
+    { heading: HEADING.read, body: 'Each figure is live, over today’s book; beneath it is the figure your last filing printed for the same row. Open one for its trend across filings.' },
+  ],
+}
 
 export default function KriTemplateRows({ kpis, history, onOpen }: { kpis: RowKpi[]; history: HistRow[]; onOpen: (key: string) => void }) {
   const rows = kpis.reduce<{ id: string; label: string }[]>((acc, k) => (k.row && !acc.some(r => r.id === k.row!.id) ? [...acc, k.row] : acc), [])
@@ -20,30 +28,33 @@ export default function KriTemplateRows({ kpis, history, onOpen }: { kpis: RowKp
   const cells = kpis.filter(k => k.row?.id === rowId)
   const last = [...history].reverse().find(h => (h.figures ?? []).some(f => f.group && cells.some(c => c.key === f.key)))
   const filed = (key: string) => last?.figures?.find(f => f.key === key)?.value
+  const max = Math.max(1, ...cells.map(c => c.value ?? 0))
   if (!rows.length) return null
   return (
     <div>
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Template 5 · row</div>
-        <select value={rowId} onChange={e => setRowId(e.target.value)} aria-label="Template 5 row"
-          className="bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-md px-2 py-1 text-[12px] text-[var(--color-ink)] max-w-full">
-          {rows.map(r => <option key={r.id} value={r.id}>{r.id} · {r.label}</option>)}
+        <select value={rowId} onChange={e => setRowId(e.target.value)} aria-label="Sector row"
+          className="bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-md px-2 py-1.5 text-[12.5px] text-[var(--color-ink)] max-w-full">
+          {rows.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
         </select>
-        <div className="mono text-[9.5px] text-[var(--color-faint)]">all geographies · gross carrying amount sensitive at or above your stated level</div>
+        <InfoButton compact details={ABOUT} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {cells.map(k => (
-          <button key={k.key} onClick={() => onOpen(k.key)} title={k.hint ?? undefined}
-            className="text-left rounded-lg border border-[var(--color-line)] hover:border-[var(--color-line-2)] bg-[var(--color-panel)] px-4 py-3 transition">
-            <div className="display text-[20px] leading-none" style={{ color: '#fb7185' }}>{k.value == null ? '—' : balance(k.value)}</div>
-            <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2">Column {k.column} · {COL[k.column ?? ''] ?? k.column}</div>
-            <div className="mono text-[9px] text-[var(--color-faint)] mt-1">
-              {last ? <>last filed ({last.label}): {filed(k.key) == null ? '—' : balance(filed(k.key)!)}</> : 'no filed history yet'}
-            </div>
-          </button>
-        ))}
+        {cells.map(k => {
+          const f = filed(k.key)
+          return (
+            <button key={k.key} onClick={() => onOpen(k.key)}
+              className="text-left rounded-xl border border-[var(--color-line)] hover:border-[var(--color-line-2)] bg-[var(--color-panel)] px-4 py-3 transition">
+              <div className="text-[12px] text-[var(--color-mute)]">{k.column_name}</div>
+              <div className="display text-[20px] leading-none mt-1.5 tabular-nums" style={{ color: 'var(--color-bad)' }}>{k.value == null ? '—' : balance(k.value)}</div>
+              <div className="mt-2 h-1 rounded-full bg-[var(--color-panel-2)]"><div className="h-full rounded-full bg-[var(--color-bad)] opacity-70" style={{ width: `${Math.max(2, 100 * (k.value ?? 0) / max)}%` }} /></div>
+              <div className="text-[11.5px] text-[var(--color-faint)] mt-2 tabular-nums">
+                {last ? <>Filed {last.label}: {f == null ? '—' : balance(f)}</> : 'Not filed yet'}
+              </div>
+            </button>
+          )
+        })}
       </div>
-      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">Live over today's book · each figure is a printed Template 5 cell · open one for its trend across filings</div>
     </div>
   )
 }

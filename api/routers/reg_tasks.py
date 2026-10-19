@@ -1,6 +1,7 @@
 """Regulatory tasks — the Kanban board API. Reuses reports.view (see) / approvals.create (act)."""
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 from uuid import UUID
 
@@ -11,7 +12,9 @@ from sqlalchemy import text
 
 import services.governance.tasks as T
 from api.deps import DbSession, attachment, require_permission
+from core.errors import UserError
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/reg-tasks", tags=["Regulatory tasks"])
 
 
@@ -157,16 +160,18 @@ class KriTask(BaseModel):
 
 @router.post("/kri/spin-task", status_code=201, summary="Raise a task to remediate a KRI breach")
 def kri_spin_task(body: KriTask, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.governance.kri import framework_name
     title = f"KRI breach — {body.label}"[:300]
     desc = (f"Indicator '{body.label}' is outside appetite"
             + (f": {body.detail}" if body.detail else "") + ".\n"
-            + f"Framework: {body.framework}. Raised from the KRI dashboard — review and remediate.")
+            + f"Report: {framework_name(body.framework)}. Raised from the KRI dashboard — review and remediate.")
     try:
         # source_ref de-dupes: a live task for this indicator returns the existing one, no pile-up
         task = T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
                              criticality="high", source="kri", source_ref=f"{body.framework}:{body.key}")
-    except T.TaskError as e:
-        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    except T.TaskError as e:            # the cause goes to the log; the screen gets the catalogue's words
+        logger.warning("kri task not raised for %s:%s: %s", body.framework, body.key, e)
+        raise UserError("kri.task.not_raised")
     # raising the remediation task IS the human acknowledgement — stamp the open breach episode for detection lag
     try:
         from services.governance import kri_monitor

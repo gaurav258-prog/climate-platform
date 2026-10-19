@@ -117,8 +117,10 @@ def _auto_remediation_task(session: Session, org_id: str, framework: str, key: s
         from services.governance import tasks as T
         crit = "high" if b.get("severity") == "red" else "normal"
         title = f"KRI breach — {b.get('label')}"[:300]
-        desc = (f"Indicator '{b.get('label')}' entered breach, auto-detected by the KRI sweep: value {b.get('value')} "
-                f"vs threshold {b.get('threshold')} ({b.get('severity')}). Framework {framework}. Review and remediate.")
+        from services.governance.kri import framework_name
+        level = {"red": "breach", "amber": "warning"}.get(b.get("severity"), "appetite")
+        desc = (f"Indicator '{b.get('label')}' left appetite, found by the automatic check: value {b.get('value')} "
+                f"against the {level} level of {b.get('threshold')}. Report: {framework_name(framework)}. Review and remediate.")
         T.create_task(session, org_id, None, title=title, description=desc, criticality=crit,
                       source="kri", source_ref=f"{framework}:{key}")
     except Exception:

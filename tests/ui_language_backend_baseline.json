@@ -114,11 +114,6 @@
   "error": 0,
   "rawError": 2
  },
- "api/routers/model_risk.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 1
- },
  "api/routers/onboarding_intake.py": {
   "display": 0,
   "error": 0,
@@ -157,7 +152,7 @@
  "api/routers/reg_tasks.py": {
   "display": 0,
   "error": 0,
-  "rawError": 10
+  "rawError": 9
  },
  "api/routers/remittance.py": {
   "display": 0,
@@ -303,16 +298,6 @@
   "display": 3,
   "error": 0,
   "rawError": 0
- },
- "services/governance/kri.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
- "services/governance/kri_esrs.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 2
  },
  "services/governance/onboarding.py": {
   "display": 2,

@@ -111,10 +111,10 @@ def test_a_filing_of_the_earlier_report_shape_still_renders(api):
 def test_the_bank_kri_page_loads_both_sets_with_their_anchors(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
     fws = api.get("/v1/reg-tasks/kri/frameworks", headers=maker).json()["frameworks"]
-    assert {f["framework"]: f["label"] for f in fws} == {"bank_tcfd": "EU Taxonomy Art. 8", "bank_p3esg": "Pillar 3 ESG"}
+    assert {f["framework"]: f["label"] for f in fws} == {"bank_tcfd": "EU Taxonomy", "bank_p3esg": "Pillar 3 ESG"}
 
     tx = api.get("/v1/reg-tasks/kri?framework=bank_tcfd", headers=maker).json()
-    assert tx["supported"] and tx["label"] == "EU Taxonomy Art. 8 KRIs"
+    assert tx["supported"] and tx["label"] == "EU Taxonomy indicators"
     k = {x["key"]: x for x in tx["kpis"]}
     for key in ("gar", "gar_capex", "gar_coverage"):                        # printed by Template 0: a filed basis
         assert k[key]["live_only"] is False and "Template 0" in k[key]["filed_basis"] and "Template 0" in k[key]["reg"]

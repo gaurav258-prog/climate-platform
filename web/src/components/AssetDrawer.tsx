@@ -5,7 +5,9 @@ import { api, ApiError, apiMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
 import { Card, Button, SectionHead } from './ui'
-import { hazardLabel, sevColor } from '../lib/hazards'
+import { InfoButton, HEADING } from './Details'
+import { StatusChip } from './StatusChip'
+import { bucketLabel, hazardLabel, sevColor } from '../lib/hazards'
 import { actionLabel } from '../lib/actionLabels'
 import { balance, flow } from '../lib/money'
 import { CloseButton } from './Dialog'
@@ -33,7 +35,10 @@ interface Trigger { hazard_type?: string; attachment_score?: number; exhaustion_
 interface AuditRow { actor_user_id?: string; action: string; detail?: Record<string, unknown>; created_at: string }
 type Detail = Record<string, unknown>
 
-const BUCKET: Record<string, string> = { VH: 'severe', H: 'high', M: 'elevated', L: 'low' }
+// what the drawer is about, in the reader's word for it (cfg.itemKey is the route's segment)
+const ITEM_NAME: Record<string, string> = { asset: 'Asset', property: 'Property', policy: 'Policy', holding: 'Holding' }
+// who may change a valuation or a trigger: a role that approves pricing (the permission behind both actions)
+const PRICING_ROLE = 'Only a role that approves pricing can make this change. Ask an administrator in your organisation if you need it.'
 
 // tiny CSP-safe SVG sparkline of a hazard's physical-risk score (0–100) across horizons
 function Sparkline({ points }: { points: { horizon: string; score: number }[] }) {
@@ -85,7 +90,7 @@ function DrillThrough({ entityId }: { entityId: string }) {
   // not linked — only nudge an admin who can actually wire it up
   if (d.can_configure) {
     return (
-      <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2.5">
+      <div className="text-[11.5px] text-[var(--color-faint)] mt-2.5">
         {d.reason === 'no_source_system'
           ? 'Connect a source system in Settings → Integrations to drill through to the record.'
           : 'This record isn’t linked to a source system yet.'}
@@ -133,10 +138,10 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
   const lat = item?.lat as number | undefined, lon = item?.lon as number | undefined
 
   return (
-    <Drawer label={cfg.itemKey} onClose={onClose} backdropClassName="bg-black/50" style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(576) }}
+    <Drawer label={ITEM_NAME[cfg.itemKey] ?? 'Details'} onClose={onClose} backdropClassName="bg-black/50" style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(576) }}
       className="w-full h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
-          <SectionHead>{cfg.itemKey}</SectionHead>
+          <SectionHead>{ITEM_NAME[cfg.itemKey] ?? 'Details'}</SectionHead>
           <CloseButton onClick={onClose} />
         </div>
 
@@ -146,7 +151,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
           <div className="p-6 space-y-6">
             <div>
               <h2 className="display text-xl font-semibold">{name}</h2>
-              <div className="mono text-[11px] text-[var(--color-faint)] mt-1 flex flex-wrap items-center gap-x-2">
+              <div className="text-[12px] text-[var(--color-faint)] mt-1 flex flex-wrap items-center gap-x-2 tabular-nums">
                 <span className="text-[var(--color-mute)]">{balance(value)}</span>
                 {atype && <span>· {atype.replace(/_/g, ' ')}</span>}
                 {(region || country) && <span>· {[region, country].filter(Boolean).join(', ')}</span>}
@@ -157,7 +162,10 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
 
             {/* hazards */}
             <div>
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Physical risk · every hazard scored{risks.length > 0 && <span className="normal-case tracking-normal"> · click a hazard for its projection</span>}</div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <SectionHead>Physical risk</SectionHead>
+                {risks.length > 0 && <InfoButton compact details={{ title: 'Physical risk', sections: [{ heading: HEADING.read, body: 'Every hazard scored at this location, worst first, from 0 to 100. Open a hazard for how its score moves in future years.' }] }} />}
+              </div>
               <Card className="p-4">
                 {risks.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">Not scored yet.</div>
                   : <div className="grid sm:grid-cols-2 gap-x-6 gap-y-0.5">
@@ -168,13 +176,13 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
                           <div key={h.hazard_type} className="border-b border-[var(--color-line)]">
                             <button onClick={() => setOpenHz(open ? null : h.hazard_type)} className={`w-full flex items-center justify-between gap-3 text-[12.5px] py-1 text-left ${traj.length >= 2 ? 'cursor-pointer group' : 'cursor-default'}`}>
                               <span className="text-[var(--color-mute)] truncate group-hover:text-[var(--color-ink)]">{hazardLabel(h.hazard_type)}</span>
-                              <span className="mono tabular-nums shrink-0" style={{ color: sevColor(h.score) }}>{Math.round(h.score)}/100 · {BUCKET[h.risk_bucket] ?? h.risk_bucket}</span>
+                              <span className="tabular-nums shrink-0" style={{ color: sevColor(h.score) }}>{Math.round(h.score)}/100 · {bucketLabel(h.risk_bucket)}</span>
                             </button>
                             {open && traj.length >= 2 && (
                               <div className="pb-2 pt-0.5">
                                 <Sparkline points={traj} />
-                                <div className="flex justify-between mono text-[9px] text-[var(--color-faint)] mt-0.5">
-                                  {traj.map(t => <span key={t.horizon}>{t.horizon === 'current' ? 'now' : t.horizon}·{Math.round(t.score)}</span>)}
+                                <div className="flex justify-between text-[10.5px] text-[var(--color-faint)] mt-0.5 tabular-nums">
+                                  {traj.map(t => <span key={t.horizon}>{t.horizon === 'current' ? 'Today' : t.horizon} · {Math.round(t.score)}</span>)}
                                 </div>
                               </div>
                             )}
@@ -192,7 +200,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
 
             {/* audit trail */}
             <div>
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Audit trail · last actions</div>
+              <SectionHead className="mb-2">Audit trail</SectionHead>
               {audit.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No overrides or changes on record.</div>
                 : <div className="space-y-2">
                     {audit.map((a, i) => (
@@ -200,9 +208,12 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
                         <Clock size={12} className="mt-0.5 text-[var(--color-faint)] shrink-0" />
                         <div className="min-w-0">
                           <span className="text-[var(--color-ink)]" title={a.action}>{actionLabel(a.action)}</span>
-                          <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{new Date(a.created_at).toLocaleString('en-GB')}</span>
+                          <span className="text-[11px] text-[var(--color-faint)] ml-2 tabular-nums">{new Date(a.created_at).toLocaleString('en-GB')}</span>
                           {a.detail && (a.detail.from_pct != null || a.detail.to_pct != null) &&
-                            <div className="mono text-[10.5px] text-[var(--color-mute)]">{String(a.detail.from_pct ?? '—')}% → {a.detail.to_pct == null ? 'recommended' : `${a.detail.to_pct}%`}{typeof a.detail.reason === 'string' ? ` · “${a.detail.reason}”` : ''}</div>}
+                            <div className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-mute)] tabular-nums">
+                              {String(a.detail.from_pct ?? '—')}% → {a.detail.to_pct == null ? 'recommended' : `${a.detail.to_pct}%`}
+                              {typeof a.detail.reason === 'string' && a.detail.reason && <InfoButton compact details={{ title: actionLabel(a.action), sections: [{ heading: 'Reason given', body: a.detail.reason }] }} />}
+                            </div>}
                         </div>
                       </div>
                     ))}
@@ -238,8 +249,11 @@ function ValuationPanel({ cfg, id, val, onDone }: { cfg: DrawerCfg; id: string; 
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Climate-adjusted valuation</div>
-        {val?.is_overridden && <span className="mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#e8b24c', background: '#e8b24c22' }}>analyst override on file</span>}
+        <div className="flex items-center gap-1.5">
+          <SectionHead>Climate-adjusted valuation</SectionHead>
+          <InfoButton compact details={{ title: 'Climate-adjusted valuation', sections: [{ heading: HEADING.shows, body: 'The discount is your stated valuation haircut for this asset’s hazard and hazard band, set in Methodology. An analyst may override it for this asset; every override is recorded with its reason.' }] }} />
+        </div>
+        {val?.is_overridden && <StatusChip label="Analyst override" tone="warn" />}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12.5px]">
         <Row k="Risk-adjusted value" v={val?.discounted_value_eur != null ? balance(val.discounted_value_eur) : 'not stated'} />
@@ -248,11 +262,10 @@ function ValuationPanel({ cfg, id, val, onDone }: { cfg: DrawerCfg; id: string; 
         {val?.original_ltv_pct != null && <Row k="LTV" v={`${val.original_ltv_pct}% → ${val.climate_adjusted_ltv_pct ?? '—'}%`} />}
       </div>
       {val?.gap && <MethodGap gap={val.gap} what="Climate-adjusted value" />}
-      <div className="mono text-[10.5px] text-[var(--color-faint)]">The discount is your stated valuation haircut for this asset's peril and hazard band (Methodology){val?.damage_function_version ? ` · ${val.damage_function_version}` : ''}.</div>
 
       {canPrice ? (
         <div className="pt-3 border-t border-[var(--color-line)] space-y-2">
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Override the discount</div>
+          <div className="text-[12px] font-medium text-[var(--color-mute)]">Override the discount</div>
           {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1.5">
@@ -268,7 +281,7 @@ function ValuationPanel({ cfg, id, val, onDone }: { cfg: DrawerCfg; id: string; 
             {val?.is_overridden && <Button variant="ghost" onClick={clear} disabled={busy}><RotateCcw size={14} /> Revert to recommended</Button>}
           </div>
         </div>
-      ) : <div className="pt-2 border-t border-[var(--color-line)] text-[11.5px] text-[var(--color-faint)]">Overriding the valuation needs the <span className="mono">pricing.approve</span> permission.</div>}
+      ) : <div className="pt-2 border-t border-[var(--color-line)] text-[11.5px] text-[var(--color-faint)]">{PRICING_ROLE}</div>}
     </Card>
   )
 }
@@ -297,15 +310,22 @@ function TriggerPanel({ id, item, risks, onDone }: { id: string; item?: Record<s
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Parametric trigger</div>
-        {existing?.hazard_type && <span className="mono text-[10px] text-[var(--color-mute)]">{hazardLabel(existing.hazard_type)} · {existing.attachment_score}–{existing.exhaustion_score}</span>}
+        <div className="flex items-center gap-1.5">
+          <SectionHead>Parametric trigger</SectionHead>
+          <InfoButton compact details={{ title: 'Parametric trigger', sections: [{ heading: HEADING.read, body: 'Payout begins when the hazard score crosses the attachment level and is full at the exhaustion level.' }] }} />
+        </div>
+        {existing?.hazard_type && <span className="text-[11.5px] text-[var(--color-mute)] tabular-nums">{hazardLabel(existing.hazard_type)} · {existing.attachment_score}–{existing.exhaustion_score}</span>}
       </div>
       {item?.pricing != null && typeof item.pricing === 'object' && (() => {
         const p = item.pricing as { technical_premium_eur?: number | null; rate_on_line_pct?: number | null; expected_annual_loss_eur?: number | null; gap?: string }
         return (
-          <div className="mono text-[11px] text-[var(--color-faint)] space-y-1">
-            <div>pricing on file — expected loss &amp; technical premium on your stated damage ratios, event probabilities and loadings.</div>
-            {p.gap ? <MethodGap gap={p.gap} what="Pricing" /> : p.technical_premium_eur != null && <div className="text-[var(--color-mute)]">technical premium <b className="text-[var(--color-ink)]">{flow(p.technical_premium_eur, { full: true })}</b>{p.rate_on_line_pct != null && <> · rate-on-line {p.rate_on_line_pct}%</>}</div>}
+          <div className="text-[12px] text-[var(--color-mute)] space-y-1">
+            {p.gap ? <MethodGap gap={p.gap} what="Pricing" /> : p.technical_premium_eur != null && (
+              <div className="flex items-center gap-1.5">
+                <span>Technical premium <b className="text-[var(--color-ink)] tabular-nums">{flow(p.technical_premium_eur, { full: true })}</b>{p.rate_on_line_pct != null && <> · rate on line <span className="tabular-nums">{p.rate_on_line_pct}%</span></>}</span>
+                <InfoButton compact details={{ title: 'Pricing', sections: [{ heading: HEADING.shows, body: 'The expected loss and the technical premium on your stated damage ratios, event probabilities and loadings.' }] }} />
+              </div>
+            )}
           </div>
         )
       })()}
@@ -327,14 +347,13 @@ function TriggerPanel({ id, item, risks, onDone }: { id: string; item?: Record<s
               <input type="number" min={0} max={100} value={exh} onChange={e => setExh(e.target.value)} className="mt-1 w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5 text-[12.5px] tabular-nums outline-none focus:border-[var(--color-sky)]" />
             </label>
           </div>
-          <div className="mono text-[10px] text-[var(--color-faint)]">Payout begins when the hazard score crosses attachment, and is full at exhaustion.</div>
           <Button variant="primary" onClick={save} disabled={busy || !hazard}><Save size={14} /> Save trigger band</Button>
         </div>
-      ) : <div className="text-[11.5px] text-[var(--color-faint)]">Configuring a parametric trigger needs the <span className="mono">pricing.approve</span> permission.</div>}
+      ) : <div className="text-[11.5px] text-[var(--color-faint)]">{PRICING_ROLE}</div>}
     </Card>
   )
 }
 
 function Row({ k, v }: { k: string; v: string }) {
-  return <div className="flex justify-between border-b border-[var(--color-line)] pb-1"><span className="text-[var(--color-mute)]">{k}</span><span className="text-[var(--color-ink)] mono tabular-nums">{v}</span></div>
+  return <div className="flex justify-between border-b border-[var(--color-line)] pb-1"><span className="text-[var(--color-mute)]">{k}</span><span className="text-[var(--color-ink)] tabular-nums">{v}</span></div>
 }

@@ -95,7 +95,7 @@ def test_the_mandate_calendar_kris_and_supervisors_read_the_statement(api):
     assert not {"asset_at_risk", "cogs_at_risk", "water_plots_stressed", "protected_area", "frost_severity"} & set(k)
     assert d["by_hazard"] and all(0 < h["value"] <= 15e6 for h in d["by_hazard"])
     det = api.get(f"/v1/reg-tasks/kri/detail?framework=esrs_pack&kri=e1.physrisk.assets.amount&entity_id={FOODS}", headers=maker).json()
-    assert "physical_risk_level" in det["methodology"] and det["composition"]["type"] == "hazard"
+    assert det["kpi"]["about"]["code"] == "kri.indicator.esrs_assets" and det["composition"]["type"] == "hazard"
     hz = api.get(f"/v1/reg-tasks/kri/hazard?framework=esrs_pack&entity_id={FOODS}&hazard={d['by_hazard'][0]['hazard']}", headers=maker).json()
     assert hz["entities"] and hz["entities"][0]["value"] <= 5e6
     assert api.get("/v1/reg-tasks/kri?framework=csrd_e1", headers=maker).json()["supported"] is False     # retired

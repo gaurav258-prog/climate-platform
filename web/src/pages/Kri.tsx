@@ -1,253 +1,134 @@
 import { useState } from 'react'
-import MethodGap from '../components/MethodGap'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus, Gauge, CheckCircle2, AlertTriangle, ShieldAlert, Clock } from 'lucide-react'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Area, ReferenceLine, ReferenceArea } from 'recharts'
+import { ArrowUpRight, ChevronRight, Clock, Gauge, CheckCircle2, AlertTriangle, ShieldAlert, ShieldCheck, ListPlus } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
-import { useResizableWidth } from '../lib/resizable'
-import { Card, Lens, ExportButton, PageHeader, HeroBanner } from '../components/ui'
+import { Card, Lens, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
+import { HEADING, InfoButton, MessageLine, messageDetails } from '../components/Details'
+import { StatusChip } from '../components/StatusChip'
 import ReviewTabs from '../components/ReviewTabs'
-import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
 import RegNotifications from '../components/RegNotifications'
-import { HBar } from '../components/Charts'
-import { hazardLabel, sevColor } from '../lib/hazards'
-import { filingLink } from '../lib/links'
-import { toast } from '../lib/toast'
-import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
-import { balance, flow, money } from '../lib/money'
-import { CloseButton } from '../components/Dialog'
-import { Drawer } from '../components/Drawer'
-import { pressable } from '../lib/pressable'
 import KriTemplateRows from '../components/KriTemplateRows'
+import { HBar } from '../components/Charts'
+import { downloadCsv } from '../lib/export'
+import { hazardLabel } from '../lib/labels'
+import { sevColor } from '../lib/hazards'
+import { filingLink } from '../lib/links'
+import { balance } from '../lib/money'
+import AppetiteBar from './kri/AppetiteBar'
+import { HazardDrill, KriDetail, Provenance, raiseTask } from './kri/KriDrawer'
+import { RAG, STATUS_WORD, bandWords, kindOf, value, type Framework, type Kpi, type KriSet } from './kri/model'
+import { heroTitle } from './kri/words'
 
-// the asset-detail config per bank/REIT framework — lets a KRI exposure row open the full asset drawer
-const DRAWER_CFG: Record<string, DrawerCfg> = {
-  bank_tcfd:  { prefix: 'bank', itemKey: 'asset', nameKey: 'asset_name', valueKey: 'value_eur', typeKey: 'asset_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
-  bank_p3esg: { prefix: 'bank', itemKey: 'asset', nameKey: 'asset_name', valueKey: 'value_eur', typeKey: 'asset_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
-  reit_taxonomy: { prefix: 'realestate', itemKey: 'property', nameKey: 'property_name', valueKey: 'property_value_eur', typeKey: 'property_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
-}
+// Key risk indicators, to the UI standard (2026-10-16): how each indicator of a report sits against the organisation's
+// appetite, as figures and bars; everything else — how a figure is computed, the facts behind it, its trend, what drives
+// it and where it is reported — opens from the indicator (kri/KriDrawer.tsx). The server sends numbers, names and
+// catalogue messages (services/governance/kri*.py).
 
-// Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
-// KRIs, with the same headline figures across the org's filed history so the trend is visible.
-
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated'; flow?: boolean; live_only?: boolean; filed_basis?: string | null; group?: string; row?: { id: string; label: string }; column?: string }
-interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
-interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
-interface Haz { hazard: string; value: number; score: number }
-// `figures`: what the anchor report printed (a set anchored on a governed report — services.governance.kri_sectors, kri_bank)
-interface HistFig { key: string; label: string; value: number | null; fmt: string; group?: string }
-interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null; figures?: HistFig[] }
-interface Basis { kpis: 'live'; note: string; last_filed: { period_label: string; filing_id: string | null } | null }
-// an ESRS KRI set is one undertaking's statement for the year; `undertakings` are those with a stated statement role
-interface Undertaking { entity_id: string | null; name: string; role?: string }
-interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness; basis?: Basis; undertaking?: Undertaking; undertakings?: Undertaking[] }
-const RAG: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
-// the appetite band in words, in the KRI's own unit
-const bandNote = (k: Kpi) => {
-  if (k.amber == null && k.red == null) return null
-  const u = k.fmt === 'pct' ? '%' : k.fmt === 'ha' ? ' ha' : ''
-  const cmp = k.direction === 'lower_worse' ? '≤' : '≥'
-  const parts: string[] = []
-  if (k.amber != null) parts.push(`warn ${cmp}${k.amber}${u}`)
-  if (k.red != null) parts.push(`breach ${cmp}${k.red}${u}`)
-  return parts.join(' · ')
-}
-interface Ent { name: string; value: number | null; h3_cell: string | null; country: string | null; score: number | null }
-interface HazDrill { supported: boolean; hazard: string; noun: string; entities: Ent[]; gap?: string }
-
-const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? (k.flow ? flow(k.value) : balance(k.value)) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
-// appetite bands are set in EUR, the engine's currency — shown as set, never translated
-const band_ = (k: Kpi, v?: number | null) => v == null ? '—' : k.fmt === 'eur' ? money(v, 'EUR') : String(v)
-const FRAMEWORKS: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_taxonomy', insurer: 'insurer_solvency', manufacturer: 'esrs_pack' }
-interface Fw { framework: string; label: string }
+const ABOUT = [
+  { heading: HEADING.shows, body: 'The key risk indicators of the report you choose, each graded against the appetite band your organisation sets: within appetite, warning or breach.' },
+  { heading: HEADING.read, body: 'Each tile shows the figure and, where a band is set, where it sits in the band. Open a tile for how it is computed, the facts behind it, its trend across filings and the exposures that drive it. A filled dot marks a figure the platform computes; a ring marks one you provide.' },
+  { heading: HEADING.sources, body: 'Your uploaded book, scored on the platform’s hazard data; the figures you provide; and the filings you have made, for the trend.' },
+  { heading: HEADING.limits, body: 'The tiles are recomputed from today’s book each time you open the page. They are not necessarily what you last filed: the trend shows what each filing printed.' },
+]
+// the report a sector reports on first, until the list of its reports arrives
+const FIRST: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_taxonomy', insurer: 'insurer_solvency', manufacturer: 'esrs_pack' }
+const chip = (on: boolean) => `px-3 py-1.5 rounded-lg text-[12px] border transition ${on ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`
 
 export default function Kri() {
   const { profile } = useAuth()
-  const nav = useNavigate()
-  // an org can report on several frameworks (e.g. a bank owes the EU Taxonomy Art. 8 report *and* Pillar 3 ESG) — pick which to view.
-  const fwq = useQuery({ queryKey: ['kri-frameworks'], queryFn: () => api.get<{ frameworks: Fw[] }>('/v1/reg-tasks/kri/frameworks') })
+  const orgType = profile?.org?.type ?? ''
+  // an organisation can report on several frameworks (a bank: the EU Taxonomy report and Pillar 3 ESG) — pick one
+  const fwq = useQuery({ queryKey: ['kri-frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/reg-tasks/kri/frameworks') })
   const frameworks = fwq.data?.frameworks ?? []
   const [picked, setPicked] = useState<string | null>(null)
-  const framework = picked ?? frameworks[0]?.framework ?? FRAMEWORKS[profile?.org?.type ?? ''] ?? 'bank_tcfd'
-  // Analytics is the forward (scenario) lens — offered only where it serves this book (bank / AM / REIT).
-  const hasAnalytics = ['bank', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
+  const framework = picked ?? frameworks[0]?.framework ?? FIRST[orgType] ?? 'bank_tcfd'
+  // the forward (scenario) view serves the books it models: bank, asset manager, property
+  const hasAnalytics = ['bank', 'asset_manager', 'reit'].includes(orgType)
   const [drill, setDrill] = useState<string | null>(null)
-  const [detail, setDetail] = useState<string | null>(null)  // clicked KRI tile → its drill drawer
-  // provenance filter — show all KRIs, only those Tellumen computes, or only those you/your vendor provide.
+  const [detail, setDetail] = useState<string | null>(null)
   const [prov, setProv] = useState<'all' | 'computed' | 'integrated'>('all')
-  const [entity, setEntity] = useState<string | null>(null)       // the undertaking an ESRS KRI set is for
+  const [onlyBreaches, setOnlyBreaches] = useState(false)
+  const [entity, setEntity] = useState<string | null>(null)          // the undertaking an ESRS set is for
   const eq = entity && framework === 'esrs_pack' ? `&entity_id=${entity}` : ''
-  const q = useQuery({ queryKey: ['kri', framework, eq], queryFn: () => api.get<Resp>(`/v1/reg-tasks/kri?framework=${framework}${eq}`) })
+  const q = useQuery({ queryKey: ['kri', framework, eq], queryFn: () => api.get<KriSet>(`/v1/reg-tasks/kri?framework=${framework}${eq}`) })
   const d = q.data
   const undertakings = d?.undertakings ?? []
-  const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
-  // the grid shows the set's own indicators; a grouped set (Pillar 3 Template 5, one KRI per row and column) is picked by row below
-  const tiles = d?.kpis?.filter(k => !k.group) ?? []
+  const tiles = d?.kpis?.filter(k => !k.group) ?? []          // a grouped set (the sector rows) is picked by row below
+  const n = (s: string) => tiles.filter(k => k.status === s).length
+  const nRed = n('red'), nAmber = n('amber'), nOk = n('ok')
   const nComputed = tiles.filter(k => kindOf(k) === 'computed').length
-  const nIntegrated = tiles.filter(k => kindOf(k) === 'integrated').length
-  const nRed = tiles.filter(k => k.status === 'red').length
-  const nAmber = tiles.filter(k => k.status === 'amber').length
-  const nOk = tiles.filter(k => k.status === 'ok').length
-  // act on breaches from here: jump to the off-appetite indicators, and raise a remediation task on one.
-  const [onlyBreaches, setOnlyBreaches] = useState(false)
-  const [raising, setRaising] = useState<string | null>(null)
+  const nProvided = tiles.length - nComputed
   const canRaise = profile?.permissions?.includes('approvals.create') ?? false
-  async function raiseTask(k: Kpi) {
-    setRaising(k.key)
-    try {
-      const detail = [fmt(k), bandNote(k)].filter(Boolean).join(' · ')
-      await api.post('/v1/reg-tasks/kri/spin-task', { framework, key: k.key, label: k.label, detail })
-      toast.success(`Task raised for “${k.label}”.`)
-    } catch {
-      toast.error('Could not raise the task.')
-    } finally { setRaising(null) }
-  }
 
-  // export every indicator as CSV — value, appetite status/band, its regulatory datapoint, and the source
-  // (computed vs a provided figure) — so the KRI set drops straight into the customer's own risk tooling.
   const exportKri = () => {
     if (!d?.kpis?.length) return
     downloadCsv(`tellumen-kri-${framework}`,
-      [{ key: 'label', label: 'Indicator' }, { key: 'value', label: 'Value' }, { key: 'status', label: 'Appetite status' },
+      [{ key: 'label', label: 'Indicator' }, { key: 'value', label: 'Value' }, { key: 'status', label: 'Appetite' },
        { key: 'band', label: 'Appetite band' }, { key: 'datapoint', label: 'Regulatory datapoint' }, { key: 'source', label: 'Source' }],
       d.kpis.map(k => ({
-        label: k.label, value: fmt(k), status: k.status ?? '', band: bandNote(k) ?? '',
-        datapoint: [k.reg, k.reg_tier].filter(Boolean).join(' '), source: k.kind ?? (k.integrated ? 'integrated' : 'computed'),
+        label: k.label, value: value(k), status: k.status ? STATUS_WORD[k.status] : '', band: k.amber != null || k.red != null ? bandWords(k) : '',
+        datapoint: k.reg ?? '', source: kindOf(k) === 'integrated' ? 'You provide' : 'Computed by Tellumen',
       })),
-      { title: `KRI dashboard · ${d.label ?? framework}`, org: profile?.org?.name, basis: { framework: d.label ?? framework } })
+      { title: `Key risk indicators · ${d.label}`, org: profile?.org?.name, basis: { framework: d.label } })
   }
 
   return (
     <div className="fadeup space-y-5">
       <ReviewTabs />
-      <PageHeader eyebrow="Regulatory intelligence" title="KRI dashboard"
-        lead="A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings."
-        actions={<>
-          {d?.supported && !!d.kpis?.length && <ExportButton onExport={exportKri} />}
-          <Lens kind="governance" />
-        </>} />
+      <PageHeader eyebrow="Govern · Key risk indicators" title="Are we within appetite?" about={ABOUT}
+        lead="Your indicators against appetite, and how they move."
+        actions={<>{d?.supported && !!d.kpis?.length && <ExportButton onExport={exportKri} />}<Lens kind="governance" /></>} />
 
-      {/* framework picker — shown when the org reports on more than one (e.g. a bank: EU Taxonomy Art. 8 + Pillar 3 ESG) */}
       {frameworks.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          {frameworks.map(f => (
-            <button key={f.framework} onClick={() => setPicked(f.framework)}
-              className={`px-3 py-1.5 rounded-lg text-[12px] border transition ${framework === f.framework ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{f.label}</button>
-          ))}
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Report">
+          {frameworks.map(f => <button key={f.framework} onClick={() => setPicked(f.framework)} className={chip(framework === f.framework)}>{f.label}</button>)}
         </div>
       )}
-
-      {/* ESRS: the statement is per undertaking — choose which when more than one prepares one this year */}
       {framework === 'esrs_pack' && undertakings.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mr-1">Undertaking</span>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Undertaking">
           {undertakings.map(u => (
-            <button key={u.entity_id ?? 'org'} onClick={() => setEntity(u.entity_id)}
-              className={`px-3 py-1.5 rounded-lg text-[12px] border transition ${(d?.undertaking?.entity_id ?? null) === u.entity_id ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+            <button key={u.entity_id ?? 'org'} onClick={() => setEntity(u.entity_id)} className={chip((d?.undertaking?.entity_id ?? null) === u.entity_id)}>
               {u.name}{u.role === 'consolidated' ? ' (group)' : ''}</button>
           ))}
         </div>
       )}
 
-      {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
-        : !d || !d.supported ? <Card className="p-10 text-[13px] text-[var(--color-mute)]">{d?.message ?? 'No KRI dashboard for this sector yet.'}
-            {framework === 'esrs_pack' && <button onClick={() => nav('/esrs')} className="ml-2 inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Open the ESRS statement <ArrowUpRight size={12} /></button>}</Card>
-        : (
-        <>
-          {/* lead with the answer: how the book's indicators sit against appetite right now */}
-          <HeroBanner
-            eyebrow="KRI dashboard"
-            title={nRed > 0 ? `${nRed} indicator${nRed === 1 ? '' : 's'} in breach.` : nAmber > 0 ? `${nAmber} indicator${nAmber === 1 ? '' : 's'} in warning.` : 'Every indicator is within appetite.'}
-            lead="How the book's key risk indicators sit against appetite right now — before you drill into any one hazard."
+      {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">Loading…</Card>
+        : !d || !d.supported || !d.kpis.length ? <Unavailable d={d} framework={framework} />
+        : (<>
+          <HeroBanner eyebrow={d.label}
+            title={heroTitle({ red: nRed, amber: nAmber, ok: nOk })}
             stat={[
-              { label: 'Indicators tracked', value: tiles.length, icon: Gauge, tone: 'var(--color-sky)' },
-              { label: 'Within appetite', value: nOk, icon: CheckCircle2, tone: nOk > 0 ? '#4FA46E' : undefined },
-              { label: 'Warning', value: nAmber, icon: AlertTriangle, tone: nAmber > 0 ? '#E8853C' : undefined },
-              { label: 'In breach', value: nRed, icon: ShieldAlert, tone: nRed > 0 ? '#D23B3B' : '#4FA46E', pulse: nRed > 0 },
+              { label: 'Indicators', value: tiles.length, icon: Gauge, tone: 'var(--color-sky)' },
+              { label: 'Within appetite', value: nOk, icon: CheckCircle2, tone: nOk > 0 ? 'var(--color-good)' : undefined },
+              { label: 'Warning', value: nAmber, icon: AlertTriangle, tone: nAmber > 0 ? 'var(--color-warn)' : undefined },
+              { label: 'In breach', value: nRed, icon: ShieldAlert, tone: nRed > 0 ? 'var(--color-bad)' : 'var(--color-good)', pulse: nRed > 0, onClick: nRed > 0 ? () => setOnlyBreaches(v => !v) : undefined },
             ]} />
-          {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
-          {/* Fixed 2026-09-24 (platform E2E audit): these KPI cards recompute live from the current book —
-              never silently pass that off as "what we filed". See the History tab for the actual filed trend. */}
-          {d.basis && (
-            <div className="flex items-center gap-1.5 mono text-[10.5px] text-[var(--color-faint)]">
-              <Clock size={11} />
-              <span>live — as of now</span>
-              {d.basis.last_filed && <span>· last filed: {d.basis.last_filed.period_label}</span>}
-            </div>
-          )}
-          {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
-          {(d.breaches ?? 0) > 0 && (
-            <button onClick={() => setOnlyBreaches(v => !v)}
-              className="w-full flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-left transition hover:brightness-110"
-              style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: `1px solid color-mix(in oklab, #fb7185 ${onlyBreaches ? '60' : '30'}%, transparent)` }}
-              title={onlyBreaches ? 'Show all indicators' : 'Show only the indicators outside appetite'}>
-              <span className="w-2 h-2 rounded-full" style={{ background: '#fb7185' }} />
-              <span className="text-[12.5px] text-[var(--color-ink)]"><b>{d.breaches}</b> indicator{d.breaches === 1 ? '' : 's'} outside appetite</span>
-              <span className="mono text-[10px] uppercase tracking-wide" style={{ color: '#fb7185' }}>{onlyBreaches ? 'show all' : 'review these'}</span>
-              <ChevronRight size={13} style={{ color: '#fb7185' }} className={onlyBreaches ? 'rotate-90 transition' : 'transition'} />
-              <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">bands set in Settings → KRI appetite</span>
-            </button>
-          )}
-          {/* detection lag — how long each breach sat before it was actioned (hidden until an episode exists) */}
-          <DetectionLag framework={framework} />
-          {/* regulatory-notification clock — flag a breach as notifiable, run its statutory window, record it */}
-          <RegNotifications framework={framework} />
-          {/* provenance legend + filter — labels the dot on every KRI and lets you isolate what Tellumen
-              computes vs what you/your vendor provide. Standard across every sector's dashboard. */}
+          <Basis d={d} />
+
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mr-0.5">Data source</span>
-            <button onClick={() => setProv(p => p === 'computed' ? 'all' : 'computed')}
-              className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-[11px] border transition ${prov === 'computed' ? 'border-[var(--color-blue)] bg-[color-mix(in_oklab,var(--color-blue)_10%,transparent)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-blue)]'}`}
-              title="Produced by Tellumen's engine (from our feeds and your processed uploads)">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--color-blue)' }} />
-              Computed by Tellumen <b className="tabular-nums text-[var(--color-ink)]">{nComputed}</b>
-            </button>
-            <button disabled={nIntegrated === 0} onClick={() => setProv(p => p === 'integrated' ? 'all' : 'integrated')}
-              className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-[11px] border transition disabled:opacity-45 disabled:cursor-default ${prov === 'integrated' ? 'border-[var(--color-slate)] bg-[color-mix(in_oklab,var(--color-slate)_12%,transparent)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] enabled:hover:border-[var(--color-slate)]'}`}
-              title="A pre-calculated value you or your vendor provide; Tellumen reconciles it (bring-your-own-number)">
-              <span className="w-2 h-2 rounded-full shrink-0 box-border" style={{ border: '1.5px solid var(--color-slate)' }} />
-              Integrated · you provide <b className="tabular-nums text-[var(--color-ink)]">{nIntegrated}</b>
-            </button>
-            {prov !== 'all' && <button onClick={() => setProv('all')} className="mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ml-0.5">show all</button>}
+            <ProvButton on={prov === 'computed'} onClick={() => setProv(p => p === 'computed' ? 'all' : 'computed')} n={nComputed} provided={false} />
+            <ProvButton on={prov === 'integrated'} onClick={() => setProv(p => p === 'integrated' ? 'all' : 'integrated')} n={nProvided} provided disabled={nProvided === 0} />
+            {nRed > 0 && (
+              <button onClick={() => setOnlyBreaches(v => !v)} className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] border transition ${onlyBreaches ? 'border-[var(--color-bad)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-bad)]'}`}>
+                <span className="w-2 h-2 rounded-full" style={{ background: RAG.red }} />{onlyBreaches ? 'Show all' : `Only the ${nRed} in breach`}
+              </button>
+            )}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {tiles.filter(k => (prov === 'all' || kindOf(k) === prov) && (!onlyBreaches || k.status === 'red')).map(k => {
-              const rag = k.status ? RAG[k.status] : null
-              const note = bandNote(k)
-              const integrated = kindOf(k) === 'integrated'
-              return (
-                <Card key={k.key} onClick={() => setDetail(k.key)} className="px-4 py-3.5 relative cursor-pointer hover:border-[var(--color-line-2)] transition group">
-                  {k.status && <span className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: rag! }} title={k.status === 'ok' ? 'within appetite' : k.status === 'amber' ? 'warning' : 'breach'} />}
-                  <ArrowUpRight size={13} className="absolute bottom-3 right-3 text-[var(--color-faint)] opacity-0 group-hover:opacity-100 transition" />
-
-                  {k.integrated && k.value == null && <span className="absolute top-3 right-3 mono text-[7.5px] uppercase tracking-wide px-1 py-0.5 rounded text-[var(--color-faint)] border border-[var(--color-line-2)]" title={k.hint ?? undefined}>{k.integrated_note ?? 'integrated'}</span>}
-                  <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{k.integrated && k.value == null ? <span className="text-[15px] text-[var(--color-faint)] italic">—</span> : fmt(k)}</div>
-                  <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2 flex items-start gap-1.5" title={k.hint ?? undefined}>
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[3px] box-border" style={integrated ? { border: '1.5px solid var(--color-slate)' } : { background: 'var(--color-blue)' }}
-                      title={integrated ? 'Integrated — you or your vendor provide this; Tellumen reconciles it' : 'Computed by Tellumen'} />
-                    <span>{k.label}{k.hint ? ' ⓘ' : ''}</span>
-                  </div>
-                  {k.reg && <div className="text-[8.5px] text-[var(--color-faint)] mt-1 truncate leading-tight" title={k.reg}>{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
-                  {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}
-                  {k.live_only && <div className="mono text-[8px] uppercase tracking-wide text-[var(--color-faint)] mt-1" title={k.filed_basis ?? undefined}>live only · no filed basis</div>}
-                  {k.status === 'red' && canRaise && (
-                    <button onClick={e => { e.stopPropagation(); raiseTask(k) }} disabled={raising === k.key}
-                      className="mt-2 inline-flex items-center gap-1 mono text-[9px] uppercase tracking-wide text-[var(--color-bad)] hover:underline disabled:opacity-50"
-                      title="Raise a task on the board to remediate this breach">
-                      <ListPlus size={11} /> {raising === k.key ? 'raising…' : 'raise task'}
-                    </button>
-                  )}
-                </Card>
-              )
-            })}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {tiles.filter(k => (prov === 'all' || kindOf(k) === prov) && (!onlyBreaches || k.status === 'red')).map(k => (
+              <Tile key={k.key} k={k} onOpen={() => setDetail(k.key)} onRaise={canRaise && k.status === 'red' ? () => raiseTask(framework, k) : undefined} />
+            ))}
           </div>
 
-          <KriReference d={d} hasAnalytics={hasAnalytics} nav={nav} setDrill={setDrill} setDetail={setDetail} orgType={profile?.org?.type} />
-        </>
-      )}
+          <Reference d={d} hasAnalytics={hasAnalytics} orgType={orgType} setDrill={setDrill} setDetail={setDetail} />
+          {/* how long breaches sat before action, and the regulatory-notification clock a breach may start */}
+          <DetectionLag framework={framework} />
+          <RegNotifications framework={framework} />
+        </>)}
 
       {drill && <HazardDrill framework={framework} entityQ={eq} hazard={drill} hasAnalytics={hasAnalytics} onClose={() => setDrill(null)} />}
       {detail && <KriDetail framework={framework} entityQ={eq} kriKey={detail} onClose={() => setDetail(null)} />}
@@ -255,357 +136,182 @@ export default function Kri() {
   )
 }
 
-// Reference material behind a tab strip instead of stacked open below the indicators: value-at-risk by hazard,
-// the trend across filings, and the regulator framing. Keeps the KRI grid (the hero) uncluttered.
-function KriReference({ d, hasAnalytics, nav, setDrill, setDetail, orgType }:
-  { d: Resp; hasAnalytics: boolean; nav: (to: string) => void; setDrill: (h: string) => void; setDetail: (k: string) => void; orgType?: string }) {
+function Unavailable({ d, framework }: { d?: KriSet; framework: string }) {
+  const nav = useNavigate()
+  return (
+    <Card className="p-8 text-[13px] text-[var(--color-mute)] flex flex-wrap items-center gap-3">
+      {d?.notice ? <MessageLine m={d.notice} /> : <span>No indicators for this report yet.</span>}
+      {framework === 'esrs_pack' && <button onClick={() => nav('/esrs')} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Open the ESRS statement <ArrowUpRight size={12} /></button>}
+    </Card>
+  )
+}
+
+// live, not filed: the tiles are recomputed from today's book; the last filing is one click away
+function Basis({ d }: { d: KriSet }) {
+  const nav = useNavigate()
+  const { profile } = useAuth()
+  if (!d.basis) return null
+  const last = d.basis.last_filed
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-[var(--color-mute)]">
+      <span className="inline-flex items-center gap-1.5"><Clock size={13} className="text-[var(--color-sky)]" /><MessageLine m={d.basis.message} /></span>
+      {last && (last.filing_id
+        ? <button onClick={() => nav(filingLink(profile?.org?.type, last.filing_id!))} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Last filed: {last.period_label}<ChevronRight size={12} /></button>
+        : <span>Last filed: {last.period_label}</span>)}
+    </div>
+  )
+}
+
+function ProvButton({ on, onClick, n, provided, disabled }: { on: boolean; onClick: () => void; n: number; provided: boolean; disabled?: boolean }) {
+  const c = provided ? 'var(--color-slate)' : 'var(--color-blue)'
+  return (
+    <button disabled={disabled} onClick={onClick} aria-pressed={on}
+      className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-[12px] border transition disabled:opacity-45 disabled:cursor-default ${on ? 'text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)]'}`}
+      style={on ? { borderColor: c, background: `color-mix(in oklab, ${c} 12%, transparent)` } : undefined}>
+      <span className="w-2 h-2 rounded-full shrink-0 box-border" style={provided ? { border: `1.5px solid ${c}` } : { background: c }} />
+      {provided ? 'You provide' : 'Computed by Tellumen'} <b className="tabular-nums text-[var(--color-ink)]">{n}</b>
+    </button>
+  )
+}
+
+// one indicator: the figure, its name, where it sits in its band, and what it is waiting for
+function Tile({ k, onOpen, onRaise }: { k: Kpi; onOpen: () => void; onRaise?: () => void }) {
+  const waiting = k.needs ?? (k.gap ? { label: 'Needs your input' } : null) ?? k.missing
+  return (
+    <Card onClick={onOpen} className="px-4 py-3.5 cursor-pointer hover:border-[var(--color-line-2)] transition group flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="display text-[22px] leading-none tabular-nums" style={{ color: k.status ? RAG[k.status] : k.tone ?? undefined }}>{value(k)}</div>
+        {k.status && <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-1" style={{ background: RAG[k.status] }} title={STATUS_WORD[k.status]} />}
+      </div>
+      <div className="text-[12.5px] leading-snug text-[var(--color-ink)]">{k.label}</div>
+      <AppetiteBar k={k} />
+      <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+        <Provenance k={k} compact />
+        <ArrowUpRight size={13} className="text-[var(--color-faint)] opacity-0 group-hover:opacity-100 transition" />
+      </div>
+      {waiting && <StatusChip label={waiting.label} tone="warn" className="self-start max-w-full truncate" />}
+      {onRaise && (
+        <button onClick={e => { e.stopPropagation(); onRaise() }} className="self-start inline-flex items-center gap-1 text-[12px] text-[var(--color-bad)] hover:underline">
+          <ListPlus size={12} /> Raise a task
+        </button>
+      )}
+    </Card>
+  )
+}
+
+// the set's context behind tabs: by sector row, by hazard, the trend across filings and the regulator's view
+function Reference({ d, hasAnalytics, orgType, setDrill, setDetail }: {
+  d: KriSet; hasAnalytics: boolean; orgType: string; setDrill: (h: string) => void; setDetail: (k: string) => void
+}) {
+  const nav = useNavigate()
   const rowKpis = d.kpis.filter(k => k.group)
-  const tabs: { k: string; label: string }[] = [
-    ...(rowKpis.length > 0 ? [{ k: 'rows', label: 'Template 5 by row' }] : []),
-    ...(d.by_hazard.length > 0 ? [{ k: 'hazard', label: 'By hazard' }] : []),
-    { k: 'history', label: 'History' },
-    ...(d.regulator ? [{ k: 'reg', label: 'Regulator view' }] : []),
+  const tabs = [
+    ...(rowKpis.length ? [{ k: 'rows', label: 'By sector row' }] : []),
+    ...(d.by_hazard.length ? [{ k: 'hazard', label: 'By hazard' }] : []),
+    { k: 'trend', label: 'Filed trend' },
+    ...(d.regulator ? [{ k: 'reg', label: 'Regulator' }] : []),
   ]
   const [tab, setTab] = useState(tabs[0].k)
   return (
     <Card className="p-0 overflow-hidden">
-      <div className="flex gap-1 px-2.5 py-2 border-b border-[var(--color-line)] bg-[var(--color-bg-2)] flex-wrap">
+      <div className="flex gap-1 px-2.5 py-2 border-b border-[var(--color-line)] bg-[var(--color-bg-2)] flex-wrap" role="tablist">
         {tabs.map(t => (
-          <button key={t.k} onClick={() => setTab(t.k)}
-            className={`mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-md transition ${tab === t.k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t.label}</button>
+          <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}
+            className={`text-[12.5px] px-3 py-1.5 rounded-md transition ${tab === t.k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t.label}</button>
         ))}
       </div>
       <div className="p-4">
         {tab === 'rows' && <KriTemplateRows kpis={rowKpis} history={d.history} onOpen={setDetail} />}
-        {tab === 'hazard' && d.by_hazard.length > 0 && (
+        {tab === 'hazard' && (
           <div>
-            <div className="flex items-center mb-2">
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Value at risk by hazard</div>
-              {hasAnalytics && <button onClick={() => nav('/analytics')} className="ml-auto inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="See how this exposure moves as the world warms">explore forward <ChevronRight size={11} /></button>}
+            <div className="flex items-center mb-3 gap-2">
+              <SectionHead>Value at risk by hazard</SectionHead>
+              {hasAnalytics && <button onClick={() => nav('/analytics')} className="ml-auto inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline">Explore forward <ChevronRight size={12} /></button>}
             </div>
-            <HBar data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={balance} onBar={i => setDrill(d.by_hazard[i].hazard)} />
-            <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">click a hazard to see what's driving it{hasAnalytics ? ' · then project it forward in Analytics' : ''}</div>
+            <HBar labelWidth="w-44" data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={balance} onBar={i => setDrill(d.by_hazard[i].hazard)} />
           </div>
         )}
-        {tab === 'history' && (
-          d.history.length === 0 ? <div className="px-1 py-5 text-[13px] text-[var(--color-faint)]">No filed history yet.</div>
-          : <div className="divide-y divide-[var(--color-line)]">
-              {d.history.map((h, i) => (
-                <button key={i} onClick={() => h.filing_id && nav(filingLink(orgType, h.filing_id))} className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition" title="Open this filing">
-                  <div className="flex-1 mono text-[12px] text-[var(--color-mute)]">{h.label}</div>
-                  {h.figures ? h.figures.filter(f => !f.group).map(f => (
-                    <div key={f.key} className="text-right"><div className="mono text-[12.5px] tabular-nums">{f.value == null ? '—' : f.fmt === 'pct' ? `${f.value}%` : f.fmt === 'eur' ? balance(f.value) : String(f.value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">{f.label}</div></div>
-                  )) : <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{balance(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>}
-                  {!h.figures && h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{balance(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
-                  <ChevronRight size={14} className="text-[var(--color-faint)] shrink-0" />
-                </button>
-              ))}
-            </div>
-        )}
-        {tab === 'reg' && d.regulator && (
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <ShieldCheck size={15} className="text-[var(--color-sky)]" />
-              <span className="text-[12.5px] text-[var(--color-ink)]">What your regulator expects before you file — <b>{d.regulator.authority}</b></span>
-              {d.readiness && <span className="ml-auto mono text-[10.5px]" style={{ color: d.readiness.covered >= d.readiness.core ? 'var(--color-good)' : 'var(--color-warn)' }}>{d.readiness.covered}/{d.readiness.core} regulator datapoints covered</span>}
-            </div>
-            <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.regulator.disclosure}{d.regulator.form_url ? <> · <a href={d.regulator.form_url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">official form ↗</a></> : ''}</div>
-            {d.readiness && d.readiness.integrated.length > 0 && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">needs your input: {d.readiness.integrated.join(' · ')}</div>}
-            {d.readiness && d.readiness.gaps.length > 0 && <div className="mono text-[10px] text-[var(--color-warn)] mt-1">awaiting data: {d.readiness.gaps.join(' · ')}</div>}
-            {d.scope_note && <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2 pt-2 border-t border-[var(--color-line)]">{d.scope_note}</div>}
-          </div>
-        )}
+        {tab === 'trend' && <FiledTrend d={d} orgType={orgType} />}
+        {tab === 'reg' && d.regulator && <RegulatorView d={d} />}
       </div>
     </Card>
   )
 }
 
-function HazardDrill({ framework, entityQ, hazard, hasAnalytics, onClose }: { framework: string; entityQ: string; hazard: string; hasAnalytics: boolean; onClose: () => void }) {
+// what each filing printed, figure by figure: a bar per filing, newest last; a bar opens its filing
+function FiledTrend({ d, orgType }: { d: KriSet; orgType: string }) {
   const nav = useNavigate()
-  const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
-  const q = useQuery({ queryKey: ['kri-hazard', framework, hazard, entityQ], queryFn: () => api.get<HazDrill>(`/v1/reg-tasks/kri/hazard?framework=${framework}&hazard=${hazard}${entityQ}`) })
-  const d = q.data
+  if (!d.history.length) return <div className="py-4 text-[13px] text-[var(--color-faint)]">No filing yet.</div>
+  const series = d.history.some(h => h.figures)
+    ? [...new Map(d.history.flatMap(h => (h.figures ?? []).filter(f => !f.group).map(f => [f.key, { key: f.key, label: f.label, fmt: f.fmt }]))).values()]
+    : [{ key: 'total_value', label: 'Book value', fmt: 'eur' }, { key: 'value_at_risk', label: 'Value at risk', fmt: 'eur' }]
+  const at = (h: KriSet['history'][number], key: string) => h.figures
+    ? h.figures.find(f => f.key === key)?.value ?? null
+    : (h as unknown as Record<string, number | null>)[key] ?? null
   return (
-    <Drawer label={`Driving ${hazardLabel(hazard)}`} onClose={onClose} style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(460) }}
-      className="w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto">
-        <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
-          <div><div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Driving {hazardLabel(hazard)}</div></div>
-          <div className="flex items-center gap-3">
-            {hasAnalytics && (
-              <button onClick={() => nav(`/analytics?hazard=${hazard}`)} className="inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="Project this hazard forward across warming pathways">
-                explore forward <ChevronRight size={11} />
-              </button>
-            )}
-            <CloseButton onClick={onClose} size={17} icon="back" />
-          </div>
-        </div>
-        {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
-          : !d.supported ? <div className="p-6 text-[13px] text-[var(--color-mute)]">Entity-level drill isn't available for this sector's report.</div>
-          : d.gap ? <div className="p-5"><MethodGap gap={d.gap} what="Exposures at risk" /></div>
-          : (
-          <div className="p-5">
-            <div className="mono text-[11px] text-[var(--color-faint)] mb-3">{d.entities.length} {d.noun} at or above your stated at-risk level · biggest first</div>
-            <div className="space-y-2">
-              {d.entities.map((e, i) => (
-                <div key={i} className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-2.5 flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] text-[var(--color-ink)] truncate">{e.name}{e.country ? <span className="text-[var(--color-faint)]"> · {e.country}</span> : null}</div>
-                    <div className="mono text-[9.5px] text-[var(--color-faint)]">cell {e.h3_cell ? e.h3_cell.slice(0, 10) + '…' : '—'}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{balance(e.value)}</div>
-                    <div className="mono text-[10px]" style={{ color: sevColor(e.score ?? 0) }}>{e.score != null ? Math.round(e.score) : '—'}/100</div>
-                  </div>
-                </div>
-              ))}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {series.map(s => {
+        const vals = d.history.map(h => at(h, s.key))
+        const max = Math.max(1, ...vals.map(v => Math.abs(v ?? 0)))
+        return (
+          <div key={s.key} className="rounded-xl border border-[var(--color-line)] p-3">
+            <div className="text-[12.5px] text-[var(--color-ink)] mb-2">{s.label}</div>
+            <div className="flex items-end gap-1 h-20">
+              {d.history.map((h, i) => {
+                const v = vals[i]
+                return (
+                  <button key={i} disabled={!h.filing_id} onClick={() => h.filing_id && nav(filingLink(orgType, h.filing_id))} title={`${h.label}: ${value({ value: v, fmt: s.fmt as Kpi['fmt'] })}`}
+                    className="flex-1 min-w-0 h-full flex flex-col justify-end group">
+                    <span className="block w-full rounded-t transition group-hover:brightness-125" style={{ height: v == null ? 2 : `${Math.max(4, 100 * Math.abs(v) / max)}%`, background: v == null ? 'var(--color-line-2)' : 'var(--color-sky)', opacity: v == null ? 1 : 0.8 }} />
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex justify-between text-[11px] text-[var(--color-faint)] mt-1.5 tabular-nums">
+              <span>{d.history[0].label}</span><span className="text-[var(--color-ink)]">{value({ value: vals[vals.length - 1], fmt: s.fmt as Kpi['fmt'] })}</span>
             </div>
           </div>
-        )}
-    </Drawer>
+        )
+      })}
+    </div>
   )
 }
 
-// The drill behind one KRI tile — methodology, trend across filings, and the real composition (by hazard /
-// scope / scored-unscored / eligible-not), plus contextual actions. All from /kri/detail; nothing fabricated.
-interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy' | 'sector' | 'horizon'; unit: 'eur' | 'num' | 'pct'; items: { label: string; value: number; score?: number }[] }
-interface Driver { id?: string | null; name: string; sector?: string | null; country?: string | null; nace?: string | null; value: number; hazard?: string | null; bucket?: string | null; score?: number | null }
-interface Drivers { unit: 'eur' | 'num'; total_count: number; items: Driver[] }
-interface Projection { points: { horizon: string; value: number; lo: number; hi: number }[]; unit: 'eur' | 'pct'; warn?: number | null; breach?: number | null; scenario: string; note: string }
-interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null; filing_id?: string }[]; fmt: string; flow?: boolean }; projection?: Projection | null; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
-
-function KriDetail({ framework, entityQ, kriKey, onClose }: { framework: string; entityQ: string; kriKey: string; onClose: () => void }) {
-  const nav = useNavigate()
-  const { profile } = useAuth()
-  const canSetAppetite = (profile?.permissions ?? []).includes('admin.approval_policy.manage')
-  const canRaise = (profile?.permissions ?? []).includes('approvals.create')
-  const [raising, setRaising] = useState(false)
-  const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
-  const q = useQuery({ queryKey: ['kri-detail', framework, kriKey, entityQ], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}${entityQ}`) })
-  const d = q.data
-  const [editBand, setEditBand] = useState(false)
-  const [band, setBand] = useState<{ amber?: number; red?: number; direction?: string }>({})
-  const [savingBand, setSavingBand] = useState(false)
-  const startBand = () => { const k = d?.kpi; setBand({ amber: k?.amber ?? undefined, red: k?.red ?? undefined, direction: k?.direction ?? 'higher_worse' }); setEditBand(true) }
-  // land Analytics scoped to the factors that drive THIS indicator, not the generic page: acute/chronic KRIs
-  // scope to their peril subset; the forward KRI pre-selects the forward pathway; all carry a context label.
-  const analyticsHref = (key: string, label: string) => {
-    const p = new URLSearchParams({ from: label })
-    if (key === 'acute_share') p.set('perils', 'acute')
-    else if (key === 'chronic_share') p.set('perils', 'chronic')
-    else if (key === 'forward_share') p.set('scenario', 'disorderly_2c')
-    return `/analytics?${p.toString()}`
-  }
-  // drill state: a clicked composition bar scopes the exposures list to that segment; a clicked exposure
-  // opens the full asset drawer (the deepest level).
-  const [seg, setSeg] = useState<{ type: string; value: string; label: string } | null>(null)
-  const [assetId, setAssetId] = useState<string | null>(null)
-  const segQ = useQuery({
-    queryKey: ['kri-drivers-seg', framework, seg?.type, seg?.value],
-    enabled: !!seg,
-    queryFn: () => api.get<Drivers>(`/v1/reg-tasks/kri/drivers?framework=${framework}&kri=${encodeURIComponent(kriKey)}&seg_type=${seg!.type}&seg_value=${encodeURIComponent(seg!.value)}`),
-  })
-  // map a composition bar to a drill segment; horizon/coverage/taxonomy bars aren't asset-decomposable
-  const segFor = (type: string, item: { label: string }, i: number): { type: string; value: string; label: string } | null => {
-    if (type === 'scope') return { type: 'scope', value: String(i + 1), label: `Scope ${i + 1}` }
-    if (type === 'sector') return { type: 'sector', value: item.label.split(' · ')[0].trim(), label: item.label }
-    if (type === 'hazard') return { type: 'hazard', value: item.label, label: hazardLabel(item.label) }
-    return null
-  }
-  const drawerCfg = DRAWER_CFG[framework]
-  const saveBand = async () => {
-    setSavingBand(true)
-    try {
-      const r = await api.patch<{ status?: string; message?: string }>('/v1/admin/kri-appetite', { kri_key: kriKey, framework, amber: band.amber, red: band.red, direction: band.direction })
-      if (r.status === 'pending_approval') toast.success(r.message ?? 'Sent for approval (4-eyes).')
-      await q.refetch(); setEditBand(false); toast.success('Appetite band updated.')
-    } catch { toast.error('Could not update the appetite band.') } finally { setSavingBand(false) }
-  }
-  const uf = (v: number, unit?: string) => unit === 'eur' ? balance(v) : unit === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
-  const tf = (v: number) => d?.trend.fmt === 'eur' ? (d.trend.flow ? flow(v) : balance(v)) : d?.trend.fmt === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
-  const compTitle: Record<string, string> = { hazard: 'Exposure by hazard', scope: 'Emissions by scope', coverage: 'Scored vs unscored', taxonomy: 'Eligible vs not eligible', sector: 'Concentration by NACE sector', horizon: 'Projected trajectory by horizon' }
+// what the regulator expects: the authority and disclosure, and how many of its headline datapoints carry a value
+function RegulatorView({ d }: { d: KriSet }) {
+  const reg = d.regulator!
+  const r = d.readiness
+  const pct = r && r.core ? Math.round(100 * r.covered / r.core) : null
   return (
-    <Drawer label="KRI detail" onClose={onClose} style={{ width, maxWidth: '96vw' }} resize={{ start: startResize, reset: () => setWidth(460) }}
-      className="w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto">
-        {(!d || !d.supported) && <CloseButton onClick={onClose} size={17} icon="back" className="absolute top-3 right-5" />}
-        {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
-          : !d.supported ? <div className="p-6 pr-12 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No detail for this KRI.'}</div>
-          : (() => {
-            const k = d.kpi
-            const integrated = k.kind === 'integrated' || k.integrated
-            const value = k.integrated && k.value == null ? '—' : fmt(k)
-            return (<>
-              <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full box-border shrink-0" style={integrated ? { border: '1.5px solid var(--color-slate)' } : { background: 'var(--color-blue)' }} />
-                    {integrated ? 'Integrated · you provide' : 'Computed by Tellumen'}
-                  </div>
-                  <div className="display text-[26px] leading-none mt-1.5" style={{ color: k.status ? RAG[k.status] : k.tone ?? undefined }}>{value}</div>
-                  <div className="text-[13px] text-[var(--color-mute)] mt-1">{k.label}</div>
-                </div>
-                <CloseButton onClick={onClose} size={17} icon="back" />
-              </div>
-              <div className="p-5 space-y-5">
-                {(d.regulator || k.reg) && (
-                  <div className="space-y-1">
-                    {d.regulator && <div className="text-[11.5px] text-[var(--color-mute)]">{d.regulator.authority} · {d.regulator.disclosure}</div>}
-                    {k.reg && <div className="text-[11px] text-[var(--color-faint)]">{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
-                  </div>
-                )}
-                {(d.methodology || k.hint) && (
-                  <div>
-                    <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">How it's computed</div>
-                    <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{d.methodology ?? k.hint}</p>
-                  </div>
-                )}
-                {(k.status || (canSetAppetite && (k.fmt === 'pct' || k.fmt === 'eur' || k.fmt === 'num'))) && (
-                  <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
-                    <div className="flex items-center gap-2">
-                      {k.status && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: RAG[k.status] }} />}
-                      <span className="text-[var(--color-mute)]">{!k.status ? 'No appetite band set' : k.status === 'ok' ? 'Within appetite' : k.status === 'amber' ? 'Warning — approaching breach' : 'Outside appetite (breach)'}</span>
-                      {!editBand && (k.amber != null || k.red != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">warn {band_(k, k.amber)} · breach {band_(k, k.red)}</span>}
-                      {!editBand && canSetAppetite && <button onClick={startBand} className={`mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ${(k.amber != null || k.red != null) ? 'ml-2' : 'ml-auto'}`}>{(k.amber != null || k.red != null) ? 'adjust' : 'set band'}</button>}
-                    </div>
-                    {editBand && (
-                      <div className="mt-2 pt-2 border-t border-[var(--color-line-2)] flex flex-wrap items-end gap-2">
-                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Warn ≥{k.fmt === 'eur' ? ' (EUR)' : ''}</div>
-                          <input type="number" value={band.amber ?? ''} onChange={e => setBand(b => ({ ...b, amber: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-20 rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]" /></label>
-                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Breach ≥{k.fmt === 'eur' ? ' (EUR)' : ''}</div>
-                          <input type="number" value={band.red ?? ''} onChange={e => setBand(b => ({ ...b, red: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-20 rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]" /></label>
-                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Direction</div>
-                          <select value={band.direction ?? 'higher_worse'} onChange={e => setBand(b => ({ ...b, direction: e.target.value }))} className="rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]">
-                            <option value="higher_worse">higher is worse</option><option value="lower_worse">lower is worse</option></select></label>
-                        <div className="flex gap-1.5 ml-auto">
-                          <button onClick={saveBand} disabled={savingBand} className="rounded-lg bg-[var(--color-sky)] text-white px-3 py-1.5 text-[12px] disabled:opacity-50">{savingBand ? 'Saving…' : 'Save'}</button>
-                          <button onClick={() => setEditBand(false)} className="rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)]">Cancel</button>
-                        </div>
-                        <p className="w-full mono text-[9.5px] text-[var(--color-faint)]">Sets your organisation's appetite band on this KRI ({k.label}) — the same control as Settings → KRI appetite, applied here in context.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {d.projection && d.projection.points.length >= 2 && (() => {
-                  const pr = d.projection
-                  const pf = (v: number) => pr.unit === 'eur' ? balance(v) : `${Math.round(v)}%`
-                  return (
-                    <div>
-                      <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Projected trajectory · {pr.scenario}</div>
-                      <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={pr.points} margin={{ top: 6, right: 12, bottom: 2, left: 4 }}>
-                            <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
-                            <XAxis dataKey="horizon" tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} />
-                            <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={pf} />
-                            <Tooltip formatter={(v, n) => [pf(Number(v)), n === 'hi' ? 'upper (pessimistic models)' : n === 'lo' ? 'lower (optimistic models)' : 'central estimate']} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
-                            {pr.breach != null && <ReferenceArea y1={pr.breach} y2={100000000000} fill="var(--color-danger)" fillOpacity={0.06} />}
-                            {pr.warn != null && pr.breach != null && <ReferenceArea y1={pr.warn} y2={pr.breach} fill="#f0a860" fillOpacity={0.06} />}
-                            <Area type="monotone" dataKey="hi" stroke="none" fill="var(--color-sky)" fillOpacity={0.12} isAnimationActive={false} />
-                            <Area type="monotone" dataKey="lo" stroke="none" fill="var(--color-bg-2)" fillOpacity={1} isAnimationActive={false} />
-                            {pr.warn != null && <ReferenceLine y={pr.warn} stroke="#f0a860" strokeDasharray="5 4" strokeWidth={1} />}
-                            {pr.breach != null && <ReferenceLine y={pr.breach} stroke="var(--color-danger)" strokeDasharray="5 4" strokeWidth={1} />}
-                            <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <p className="mono text-[9px] text-[var(--color-faint)] leading-relaxed mt-1">{pr.note}{pr.breach != null && ' Dashed lines = appetite (warn / breach); the book sits where the curve crosses them.'}</p>
-                    </div>
-                  )
-                })()}
-                <div>
-                  <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Trend across filings{d.trend.points.some(p => p.filing_id) && <span className="normal-case tracking-normal"> · click a point to open that filing</span>}</div>
-                  {d.trend.points.length >= 2 ? (
-                    <div className="h-40">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={d.trend.points} margin={{ top: 6, right: 12, bottom: 2, left: 4 }}>
-                          <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
-                          <XAxis dataKey="label" tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} />
-                          <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={tf} />
-                          <Tooltip formatter={(v) => tf(Number(v))} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
-                          <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} style={{ cursor: 'pointer' }}
-                            activeDot={{ r: 5, style: { cursor: 'pointer' }, onClick: (props: unknown) => { const fid = (props as { payload?: { filing_id?: string } })?.payload?.filing_id; if (fid) nav(filingLink(profile?.org?.type, fid)) } }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : <p className="text-[12px] text-[var(--color-faint)] leading-relaxed">{d.kpi.live_only
-                    ? (d.kpi.filed_basis ?? 'Live only — no governed report prints this figure, so it has no filed history.')
-                    : "This metric's trend appears once you have two or more filed reports that print it."}</p>}
-                </div>
-                {d.composition && d.composition.items.length > 0 && (() => {
-                  const comp = d.composition
-                  const drillable = comp.type === 'scope' || comp.type === 'sector' || comp.type === 'hazard'
-                  const isPareto = comp.type === 'sector'   // concentration → Pareto: bars + cumulative %
-                  const compTotal = comp.items.reduce((s, it) => s + it.value, 0)
-                  let cum = 0
-                  return (
-                    <div>
-                      <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5">
-                        {compTitle[comp.type] ?? 'Composition'}
-                        {isPareto && <span className="text-[var(--color-faint)] normal-case tracking-normal">· bars + cumulative %</span>}
-                        {drillable && !isPareto && <span className="text-[var(--color-faint)] normal-case tracking-normal">· click a bar to drill</span>}
-                      </div>
-                      <HBar
-                        data={comp.items.map(it => { cum += it.value; return { label: comp.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: comp.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)', ...(isPareto && compTotal ? { sub: `Σ ${Math.round(100 * cum / compTotal)}%` } : {}) } })}
-                        format={n => uf(n, comp.unit)}
-                        {...(drillable ? { onBar: (i: number) => { const s = segFor(comp.type, comp.items[i], i); if (s) setSeg(s) } } : {})}
-                      />
-                      {drillable && <p className="mono text-[9px] text-[var(--color-faint)] mt-1">click a bar to drill into its exposures</p>}
-                    </div>
-                  )
-                })()}
-                {(() => {
-                  const dr = seg ? segQ.data : d.drivers
-                  if (!dr || dr.items.length === 0) return seg ? (
-                    <div className="text-[12px] text-[var(--color-faint)]"><button onClick={() => setSeg(null)} className="mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">‹ back</button> · no exposures in this slice.</div>
-                  ) : null
-                  return (
-                    <div>
-                      <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5 flex-wrap">
-                        {seg
-                          ? <><button onClick={() => setSeg(null)} className="text-[var(--color-sky)] hover:underline">{k.label}</button><span className="text-[var(--color-faint)]">›</span><span className="text-[var(--color-ink)]">{seg.label}</span></>
-                          : <span>Top exposures behind this indicator</span>}
-                        <span className="text-[var(--color-faint)] normal-case tracking-normal">· {dr.total_count} in total · click a row for the asset</span>
-                      </div>
-                      <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
-                        <table className="w-full text-[11.5px]">
-                          <tbody>
-                            {dr.items.map((it, i) => (
-                              <tr key={i} {...pressable(it.id && drawerCfg && (() => setAssetId(it.id!)), { row: true })} className={`border-b border-[var(--color-line-2)] last:border-0 ${it.id && drawerCfg ? 'cursor-pointer hover:bg-[var(--color-bg-2)]' : ''}`}>
-                                <td className="px-3 py-1.5 text-[var(--color-ink)] truncate max-w-[180px]" title={it.name}>{it.name}</td>
-                                <td className="px-2 py-1.5 text-[var(--color-faint)] mono text-[10px] whitespace-nowrap">{[it.nace, it.country].filter(Boolean).join(' · ')}</td>
-                                <td className="px-2 py-1.5 text-right">{it.hazard && <span className="mono text-[10px]" style={{ color: sevColor(it.score ?? 0) }}>{hazardLabel(it.hazard)}{it.bucket ? ` · ${it.bucket}` : ''}</span>}</td>
-                                <td className="px-3 py-1.5 text-right tabular-nums text-[var(--color-ink)] whitespace-nowrap">{uf(it.value, dr.unit)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      {d.actions.analytics && dr.total_count > dr.items.length && (
-                        <button onClick={() => nav('/portfolio')} className="mt-1.5 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">See all {dr.total_count} in Portfolio →</button>
-                      )}
-                    </div>
-                  )
-                })()}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {k.status === 'red' && canRaise && (
-                    <button disabled={raising} onClick={async () => {
-                      setRaising(true)
-                      try {
-                        const detail = [fmt(k), bandNote(k)].filter(Boolean).join(' · ')
-                        await api.post('/v1/reg-tasks/kri/spin-task', { framework, key: kriKey, label: k.label, detail })
-                        toast.success(`Task raised for “${k.label}”.`)
-                      } catch { toast.error('Could not raise the task.') } finally { setRaising(false) }
-                    }} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-sky)] text-[var(--color-on-accent)] px-3 py-1.5 text-[12px] hover:brightness-110 transition disabled:opacity-50">
-                      <ListPlus size={13} /> {raising ? 'Raising…' : 'Raise task to remediate'}
-                    </button>
-                  )}
-                  {d.actions.analytics && <button onClick={() => nav(analyticsHref(kriKey, k.label))} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
-                  {d.actions.provide && <button onClick={() => nav('/compliance')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-slate)] hover:text-[var(--color-ink)] transition"><Upload size={13} /> Provide this figure</button>}
-                  {canSetAppetite && !editBand && <button onClick={startBand} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] transition"><SlidersHorizontal size={13} /> Set appetite</button>}
-                </div>
-              </div>
-            </>)
-          })()}
-      {assetId && drawerCfg && <AssetDrawer cfg={drawerCfg} id={assetId} onClose={() => setAssetId(null)} onChanged={() => segQ.refetch()} />}
-    </Drawer>
+    <div className="grid gap-5 md:grid-cols-[1fr_1.2fr]">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-[var(--color-sky)]" /><span className="text-[14px] font-semibold text-[var(--color-ink)]">{reg.authority}</span></div>
+        <div className="text-[12.5px] text-[var(--color-mute)]">{reg.disclosure}</div>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <InfoButton label="Legal basis" details={{ title: reg.disclosure, sections: [{ heading: 'Legal basis', body: reg.legal_basis }] }} />
+          {reg.form_url && <a href={reg.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--color-sky)] hover:underline">Official text <ArrowUpRight size={12} /></a>}
+          {d.scope && <InfoButton label="Scope of these figures" details={messageDetails(d.scope)} />}
+        </div>
+      </div>
+      {r && r.core > 0 && (
+        <div className="space-y-2.5">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[12.5px] text-[var(--color-mute)]">Headline datapoints with a value</span>
+            <span className="display text-[20px] tabular-nums" style={{ color: r.covered >= r.core ? 'var(--color-good)' : 'var(--color-warn)' }}>{r.covered} of {r.core}</span>
+          </div>
+          <div className="h-2 rounded-full bg-[var(--color-panel-2)] overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: r.covered >= r.core ? 'var(--color-good)' : 'var(--color-warn)' }} /></div>
+          {(r.integrated.length > 0 || r.gaps.length > 0) && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {r.integrated.length > 0 && <StatusChip label={`${r.integrated.length} you provide`} tone="neutral" />}
+              {r.gaps.length > 0 && <StatusChip label={`${r.gaps.length} awaiting data`} tone="warn" />}
+              <InfoButton compact details={{ title: 'Datapoints without a value', sections: [
+                ...(r.integrated.length ? [{ heading: 'You provide', body: r.integrated.join(', ') }] : []),
+                ...(r.gaps.length ? [{ heading: 'Awaiting data', body: r.gaps.join(', ') }] : []),
+              ] }} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

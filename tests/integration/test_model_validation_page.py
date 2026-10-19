@@ -80,14 +80,14 @@ def test_a_crop_hazard_is_counted_on_its_own_harvest_tests(api):
 
 
 def test_model_risk_reads_the_register_not_a_sentence(api):
-    from services.governance.model_risk import _score_cards
+    from services.governance.model_risk import _score_cards, _words
     from services.intelligence.model_validation import hazard_for_channel
     for c in _score_cards(api.s):
+        feeds = c.pop("_feeds", [])
+        _words(c, feeds, {})
         reg = hazard_for_channel(c["hazard"])
-        notes = [x for x in c["limitations"] if x.startswith("Coverage note: ")]
-        if reg is not None and reg.tier is not MaturityTier.CALIBRATED:
-            # in customer words: the catalogue's account of the hazard, never the register's engineers' note
-            assert len(notes) == 1 and not messages.INTERNAL.search(notes[0])
-            assert notes[0].removeprefix("Coverage note: ") in str(messages.render(f"coverage.hazard.{reg.id}")["detail"])
-        else:
-            assert notes == []
+        # the register's standing, and its account of the hazard in customer words (the Coverage page's), never the
+        # register's or the model registry's engineers' notes
+        assert reg is not None and c["standing"] == reg.tier.value
+        assert c["basis"]["code"] == f"coverage.hazard.{reg.id}" and not messages.INTERNAL.search(str(c["basis"]["detail"]))
+        assert "limitations" not in c

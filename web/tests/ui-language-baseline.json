@@ -7,14 +7,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/AssetDrawer.tsx": {
-  "internal": 2,
-  "raw": 0,
-  "monoProse": 5,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/BankCounterparties.tsx": {
   "internal": 1,
   "raw": 0,
@@ -204,14 +196,6 @@
   "raw": 0,
   "monoProse": 1,
   "apiProse": 5,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/KriTemplateRows.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 2,
-  "apiProse": 0,
   "figure": 0,
   "citation": 0
  },
@@ -631,27 +615,11 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/Kri.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 8,
-  "apiProse": 7,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/Login.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 2,
   "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/ModelRisk.tsx": {
-  "internal": 0,
-  "raw": 9,
-  "monoProse": 1,
-  "apiProse": 4,
   "figure": 0,
   "citation": 0
  },
