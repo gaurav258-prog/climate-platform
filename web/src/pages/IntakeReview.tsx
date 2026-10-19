@@ -7,13 +7,15 @@ import { Card, Button, PageHeader } from '../components/ui'
 import OperatorTabs from '../components/OperatorTabs'
 import { Dialog, CloseButton } from '../components/Dialog'
 import { StatusChip } from '../components/StatusChip'
+import { statusLabel } from '../lib/labels'
 
-// The operator's client-intake queue. Every code it shows is named by the server: a client's sector and its modules
-// from the tenants catalogue (the same list the intake accepts), a roster member's role as role_label.
+// The operator's client-intake queue. Every code it shows is named by the server: an intake's status and sector
+// (status_label, org_type_label), the sectors an intake accepts (org_types), a roster member's role (role_label); a
+// client's modules from the tenants catalogue.
 
 interface IntakeRow {
   intake_id: string; company_name: string; org_type: string; country: string | null; region: string
-  status: string; contact_email: string; provisioned_org_id: string | null
+  status: string; status_label?: string | null; org_type_label?: string | null; contact_email: string; provisioned_org_id: string | null
   created_at: string | null; submitted_at: string | null; provisioned_at: string | null
   roster_count: number; document_count: number
 }
@@ -27,18 +29,17 @@ function useCatalog() {
 interface DocRow { document_id: string; kind: string; title: string | null; filename: string | null; size_bytes: number; to_vault: boolean; contract_type: string | null }
 interface IntakeDetail extends IntakeRow { legal_name: string | null; lei: string | null; filing_contact_email: string | null; modules: string[]; roster: RosterMember[]; documents: DocRow[]; notes: string | null }
 
-const STATUS: Record<string, { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' }> = {
-  draft: { label: 'Draft', tone: 'neutral' }, invited: { label: 'Invited', tone: 'neutral' },
-  submitted: { label: 'Submitted', tone: 'warn' }, in_review: { label: 'In review', tone: 'warn' },
-  provisioned: { label: 'Provisioned', tone: 'good' }, rejected: { label: 'Rejected', tone: 'bad' },
+// what a status means for the operator (the chip's colour); its words are the server's status_label
+const TONE: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = {
+  draft: 'neutral', invited: 'neutral', submitted: 'warn', in_review: 'warn', provisioned: 'good', rejected: 'bad',
 }
-function Pill({ status }: { status: string }) {
-  const s = STATUS[status] ?? STATUS.draft
-  return <StatusChip label={s.label} tone={s.tone} />
+function Pill({ r }: { r: { status: string; status_label?: string | null } }) {
+  return <StatusChip label={r.status_label ?? statusLabel(r.status)} tone={TONE[r.status] ?? 'neutral'} />
 }
+type Sector = { key: string; label: string }
 // a client's sector and residency, e.g. "Asset manager · EU/NL"
-const where = (cat: Catalog, r: { org_type: string; region: string; country: string | null }) =>
-  [cat.sector_names[r.org_type], `${r.region}${r.country ? `/${r.country}` : ''}`].filter(Boolean).join(' · ')
+const where = (cat: Catalog, r: { org_type: string; org_type_label?: string | null; region: string; country: string | null }) =>
+  [r.org_type_label ?? cat.sector_names[r.org_type], `${r.region}${r.country ? `/${r.country}` : ''}`].filter(Boolean).join(' · ')
 function msg(e: unknown, fallback: string): string {
   if (e instanceof ApiError) return (e.body as { error?: { message?: string } })?.error?.message ?? fallback
   return fallback
@@ -47,13 +48,15 @@ function msg(e: unknown, fallback: string): string {
 export default function IntakeReview() {
   const qc = useQueryClient()
   const cat = useCatalog()
-  const q = useQuery({ queryKey: ['intakes'], queryFn: () => api.get<{ intakes: IntakeRow[] }>('/v1/onboarding/intakes') })
+  const q = useQuery({ queryKey: ['intakes'], queryFn: () => api.get<{ intakes: IntakeRow[]; org_types?: Sector[] }>('/v1/onboarding/intakes') })
   const [showNew, setShowNew] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const refetch = () => qc.invalidateQueries({ queryKey: ['intakes'] })
 
   if (q.error) return <Center>Client intake is available to platform operators.</Center>
   const rows = q.data?.intakes ?? []
+  // the sectors an intake accepts, named by the server (the tenants catalogue until the list carries them)
+  const sectors: Sector[] = q.data?.org_types ?? cat.org_types.map(t => ({ key: t, label: cat.sector_names[t] ?? '' })).filter(x => x.label)
 
   return (
     <div className="fadeup space-y-6">
@@ -78,19 +81,19 @@ export default function IntakeReview() {
               <span className="inline-flex items-center gap-1"><Users size={12} />{r.roster_count}</span>
               <span className="inline-flex items-center gap-1"><FileText size={12} />{r.document_count}</span>
             </div>
-            <Pill status={r.status} />
+            <Pill r={r} />
             <ArrowRight size={14} className="shrink-0 text-[var(--color-faint)]" />
           </button>
         ))}
       </Card>
 
-      {showNew && <CreateIntakeModal cat={cat} onClose={() => setShowNew(false)} onCreated={refetch} />}
+      {showNew && <CreateIntakeModal sectors={sectors} onClose={() => setShowNew(false)} onCreated={refetch} />}
       {openId && <IntakeDrawer cat={cat} intakeId={openId} onClose={() => setOpenId(null)} onChanged={refetch} />}
     </div>
   )
 }
 
-function CreateIntakeModal({ cat, onClose, onCreated }: { cat: Catalog; onClose: () => void; onCreated: () => void }) {
+function CreateIntakeModal({ sectors, onClose, onCreated }: { sectors: Sector[]; onClose: () => void; onCreated: () => void }) {
   const [f, setF] = useState({ company_name: '', org_type: 'bank', contact_email: '', contact_name: '', region: 'EU' })
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<{ form_url: string } | null>(null)
@@ -121,7 +124,7 @@ function CreateIntakeModal({ cat, onClose, onCreated }: { cat: Catalog; onClose:
             <Field label="Company name"><input className={inp} value={f.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Meridian Capital Partners" /></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sector"><select className={inp} value={f.org_type} onChange={e => set('org_type', e.target.value)}>
-                {cat.org_types.map(t => <option key={t} value={t}>{cat.sector_names[t] ?? t}</option>)}
+                {sectors.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
               </select></Field>
               <Field label="Data residency"><select className={inp} value={f.region} onChange={e => set('region', e.target.value)}>
                 <option value="EU">EU</option><option value="US">US</option>
@@ -171,7 +174,7 @@ function IntakeDrawer({ cat, intakeId, onClose, onChanged }: { cat: Catalog; int
           <div className="flex items-center justify-between mb-1">
             <h2 className="display text-lg font-semibold m-0 pr-8">{d.company_name}</h2>
           </div>
-          <div className="flex items-center gap-2 mb-4"><Pill status={d.status} /><span className="text-[11.5px] text-[var(--color-faint)]">{where(cat, d)}{d.country ? '' : ' · country pending'}</span></div>
+          <div className="flex items-center gap-2 mb-4"><Pill r={d} /><span className="text-[11.5px] text-[var(--color-faint)]">{where(cat, d)}{d.country ? '' : ' · country pending'}</span></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px] mb-4">
             <KV k="Legal name" v={d.legal_name} /><KV k="LEI" v={d.lei} />
