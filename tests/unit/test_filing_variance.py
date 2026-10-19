@@ -55,7 +55,9 @@ def test_each_side_uses_its_own_stated_level_and_a_change_is_reported():
     prior = _payload(a, {}, {}, level=70.0)          # below the prior level
     cur = _payload(a, {}, {}, level=50.0)            # same score, a lower stated level now
     d = decompose(cur, prior)
-    assert d["at_risk_level"] == {"now": 50.0, "prior": 70.0, "changed": True}
+    lvl = d["at_risk_level"]
+    assert {k: lvl[k] for k in ("now", "prior", "changed")} == {"now": 50.0, "prior": 70.0, "changed": True}
+    assert lvl["msg"]["code"] == "intake.variance.level_changed" and lvl["msg"]["params"] == {"prior": 70.0, "now": 50.0}
     assert d["headline"]["value_at_risk"] == {"now": 100, "prior": 0, "delta": 100}
     assert d["drivers"]["movers"] == []              # the score did not move — the method did
 
@@ -64,5 +66,6 @@ def test_a_side_without_a_stated_level_is_a_gap_never_zero():
     a = [{"asset_id": "1", "asset_name": "A", "value_eur": 100, "headline_score": 80, "headline_bucket": "VH"}]
     d = decompose(_payload(a, {}, {}), _payload(a, {}, {}, level=None))
     assert d["headline"]["value_at_risk"] == {"now": 100, "prior": None, "delta": None}
-    assert d["headline"]["pct_at_risk"]["delta"] is None and "method.at_risk_level" in d["at_risk_level"]["gap"]
+    assert d["headline"]["pct_at_risk"]["delta"] is None
+    assert d["at_risk_level"]["msg"]["code"].startswith("intake.variance.level_not_stated_")
     assert d["drivers"]["new_at_risk"] == [] and d["drivers"]["left_at_risk"] == []

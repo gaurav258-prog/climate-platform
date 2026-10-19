@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from core.messages import render
 from services.governance.filings import get_filing, prior_filing_id
 from services.governance.money_format import presentation_of
 from services.governance.pillar3_templates import stated_level
@@ -46,16 +47,14 @@ def variance(session: Session, org_id: str, filing_id: str, vs_filing_id: str | 
         raise ValueError("filing not found")
     prior_id = vs_filing_id or prior_filing_id(session, org_id, filing_id)
     if not prior_id:
-        return {"supported": False, "message": "No prior filing to compare against — this is the first of its kind."}
+        return {"supported": False, "msg": render("intake.variance.no_prior")}
     prior = get_filing(session, org_id, prior_id, with_payload=True)
     if not prior:
-        return {"supported": False, "message": "The comparison filing could not be loaded."}
+        return {"supported": False, "msg": render("intake.variance.prior_unavailable")}
     from services.governance.filing_lineage import _LIST_CFG
     cfg = _LIST_CFG.get(cur["framework"])
     if not cfg or prior["framework"] != cur["framework"]:
-        return {"supported": False, "framework": cur["framework"],
-                "message": "Variance decomposition is available for the located-book filings (loan book, "
-                           "property book, underwriting book)."}
+        return {"supported": False, "framework": cur["framework"], "msg": render("intake.variance.located_only")}
 
     cp = (cur.get("snapshot") or {}).get("payload") or {}
     pp = (prior.get("snapshot") or {}).get("payload") or {}
@@ -63,14 +62,12 @@ def variance(session: Session, org_id: str, filing_id: str, vs_filing_id: str | 
         from services.governance.bank_taxonomy_report import is_earlier_shape
         if not (is_earlier_shape(cp) and is_earlier_shape(pp)):
             return {"supported": False, "framework": cur["framework"], "prior_filing_id": prior_id,
-                    "message": "The EU Taxonomy Art. 8 templates print no physical-risk figure to decompose; the "
-                               "templates themselves carry the previous disclosure reference date (T-1) columns."}
+                    "msg": render("intake.variance.taxonomy_own_columns")}
     # multi-currency phase 3: a movement between filings in different currencies would mix exchange rates with risk
     cc, pc = presentation_of(cp), presentation_of(pp)
     if cc != pc:
         return {"supported": False, "framework": cur["framework"], "prior_filing_id": prior_id,
-                "message": f"This filing presents in {cc} and the one before it in {pc} — their figures can't be "
-                           f"subtracted. Compare against a filing in {cc}."}
+                "msg": render("intake.variance.currency_differs", now=cc, prior=pc)}
     return {
         "supported": True, "filing_id": filing_id, "prior_filing_id": prior_id, "framework": cur["framework"],
         "currency": cc,
@@ -138,7 +135,9 @@ def decompose(cp: dict, pp: dict, cfg: dict | None = None) -> dict:
                             "delta": None if pctC is None or pctP is None else round(pctC - pctP, 1)},
         },
         "at_risk_level": {"now": levC, "prior": levP, "changed": levC != levP,
-                          **({"gap": "not stated: method.at_risk_level"} if not both else {})},
+                          **({"msg": render("intake.variance.level_not_stated_now" if levC is None
+                                            else "intake.variance.level_not_stated_prior")} if not both else
+                             {"msg": render("intake.variance.level_changed", prior=levP, now=levC)} if levC != levP else {})},
         "by_hazard": by_hazard,
         "drivers": {"new_at_risk": new_at_risk[:8], "left_at_risk": left_at_risk[:8], "movers": movers[:8]},
         "counts": {"assets_now": len(ca), "assets_prior": len(pa),

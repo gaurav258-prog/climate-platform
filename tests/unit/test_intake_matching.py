@@ -85,7 +85,7 @@ def test_build_rejects_rows_the_engine_cannot_use():
         BANK.build(ctx, _bank_row(latitude=0, longitude=0))
     with pytest.raises(RowIssue, match="greater than zero"):
         BANK.build(ctx, _bank_row(appraised_value_eur=-5))
-    with pytest.raises(RowIssue, match="year_built"):
+    with pytest.raises(RowIssue, match="Year built 1066"):
         INSURANCE.build(ctx, {"policy_name": "P", "latitude": 48.8, "longitude": 2.3, "sum_insured_eur": 10, "year_built": 1066})
     with pytest.raises(RowIssue, match="fraction"):
         INSURANCE.build(ctx, {"policy_name": "P", "latitude": 48.8, "longitude": 2.3, "sum_insured_eur": 10, "deductible_pct": 2})

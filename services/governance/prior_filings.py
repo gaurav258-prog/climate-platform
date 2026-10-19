@@ -11,12 +11,16 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from core.errors import UserError
+from core.messages import render
 from services.governance.datapoint_catalog import catalog
 from services.ingest import filing_import
 
 
-class FilingError(Exception):
-    pass
+class FilingError(UserError):
+    """A prior filing that cannot be read, stated or confirmed: a catalogue code (intake.prior.refused.*) and its values."""
+    def __init__(self, code: str, status: int = 400, **params):
+        super().__init__(code, status, **params)
 
 
 def _dp_label(framework: str, key: str) -> str:
@@ -70,7 +74,7 @@ def esrs_targets(session, org_id: str, period_end) -> dict[str, str]:
     try:
         spec = D.governing(session, org_id, period_end)
     except D.DocumentError as e:
-        raise FilingError(str(e)) from e
+        raise FilingError("intake.prior.refused.no_version") from e
     cs = concepts()
     return {k: cs[k]["label"] for k in sorted(concepts_of(spec)) if not cs[k].get("breakdown")}
 
@@ -82,7 +86,7 @@ def _targets(session, org_id: str, framework: str, period_end) -> dict[str, str]
     if framework not in ("esrs_pack", "bank_tcfd", "sfdr_pai"):
         return None
     if period_end is None:
-        raise FilingError("The version is chosen by the financial year — give the period end (or a year in the label).")
+        raise FilingError("intake.prior.refused.version_needs_period_end")
     if framework == "sfdr_pai":                     # the Table 1-3 rows the statement's own figures use
         from services.governance.sfdr_binding import prior_targets as sfdr_targets
         return sfdr_targets(period_end)
@@ -114,37 +118,34 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     from services.ingest.units import resolve_declared
     from services.reference.iso4217 import codes
     if framework not in _LABEL:
-        raise FilingError("Unknown framework.")
+        raise FilingError("intake.prior.refused.unknown_report")
     from services.governance.filings import retirement
     retired = retirement(framework)
     if retired:
         succ = retired.get("replaced_by")
-        raise FilingError(f"{_LABEL[framework]} takes no new filings — "
-                          + (f"upload it as {_LABEL[succ]}." if succ in _LABEL else f"it is retired since {retired['since']}."))
+        raise (FilingError("intake.prior.refused.retired_upload_as", report=_LABEL[framework], successor=_LABEL[succ])
+               if succ in _LABEL else FilingError("intake.prior.refused.retired", report=_LABEL[framework], since=retired["since"]))
     if not period_label or not period_label.strip():
-        raise FilingError("A reporting period is required.")
+        raise FilingError("intake.prior.refused.period_required")
     ccy = (currency or "").strip().upper() or None
     if ccy and ccy not in codes():
-        raise FilingError(f"'{ccy}' is not an ISO 4217 currency code.")
+        raise FilingError("intake.prior.refused.currency_unknown", currency=ccy)
     if not period_end:
-        raise FilingError("State the date the reporting period ends (YYYY-MM-DD).")
+        raise FilingError("intake.prior.refused.period_end_required")
     try:
         pe = _date.fromisoformat(str(period_end)[:10])
-    except ValueError:
-        raise FilingError("The period end must be a date (YYYY-MM-DD).")
+    except ValueError as e:
+        raise FilingError("intake.prior.refused.period_end_format") from e
     entity_id = _undertaking(session, org_id, undertaking)
     targets = _targets(session, org_id, framework, pe)
     try:
         read = filing_import.extract(framework, filename, data, targets)
         for c in read["cells"]:
             c["unit"] = resolve_declared(c["unit"], ccy)
-    except ValueError as e:
-        code = str(e)
-        raise FilingError({
-            "unsupported_format": "That file type isn't supported. Upload the filing as XBRL, iXBRL, PDF or Excel.",
-            "unreadable": "No reported figures could be read from that file. Check it is the filed report itself.",
-            "unknown_framework": "Unknown framework.",
-        }.get(code, "The file could not be read."))
+    except ValueError as e:                          # the importer names why: its own short reason
+        raise FilingError({"unsupported_format": "intake.prior.refused.unsupported_format",
+                           "unreadable": "intake.prior.refused.unreadable",
+                           "unknown_framework": "intake.prior.refused.unknown_report"}.get(str(e), "intake.prior.refused.unreadable")) from e
 
     sha = hashlib.sha256(data).hexdigest()
     fid = session.execute(text("""
@@ -174,11 +175,11 @@ def _undertaking(session, org_id: str, undertaking: Optional[str]) -> Optional[s
     if undertaking == "organisation":
         return None
     if not undertaking:
-        raise FilingError("State whom the filed report is for: the organisation or one of its entities.")
+        raise FilingError("intake.prior.refused.undertaking_required")
     ok = session.execute(text("SELECT 1 FROM reporting_entities WHERE entity_id = CAST(:e AS uuid) AND org_id = CAST(:o AS uuid)"),
                          {"e": undertaking, "o": org_id}).first()
     if not ok:
-        raise FilingError("That undertaking is not one of this organisation's entities.")
+        raise FilingError("intake.prior.refused.undertaking_unknown")
     return undertaking
 
 
@@ -189,13 +190,13 @@ def state_basis(session, org_id: str, filing_id: str, *, undertaking: str, perio
                                 WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"""),
                         {"f": filing_id, "o": org_id}).mappings().first()
     if not f:
-        raise FilingError("Filing not found.")
+        raise FilingError("error.not_found", 404)
     if f["undertaking_stated"] and f["period_end_stated"]:
-        raise FilingError("Its undertaking and period end are already stated.")
+        raise FilingError("intake.prior.refused.already_stated")
     try:
         pe = _date.fromisoformat(str(period_end)[:10])
-    except ValueError:
-        raise FilingError("The period end must be a date (YYYY-MM-DD).")
+    except ValueError as e:
+        raise FilingError("intake.prior.refused.period_end_format") from e
     eid = _undertaking(session, org_id, undertaking)
     try:
         with session.begin_nested():
@@ -203,7 +204,7 @@ def state_basis(session, org_id: str, filing_id: str, *, undertaking: str, perio
                                     period_end = :pe, period_end_stated = true WHERE filing_id = CAST(:f AS uuid)"""),
                             {"e": eid, "pe": pe, "f": filing_id})
     except IntegrityError:                  # one confirmed filing per undertaking and period (prior_undertaking_20261002)
-        raise FilingError("A confirmed filing of that undertaking for that period already exists — remove one of them first.")
+        raise FilingError("intake.prior.refused.duplicate_period")
     return get_filing(session, filing_id, org_id)
 
 
@@ -251,7 +252,7 @@ def get_filing(session, filing_id: str, org_id: str) -> dict:
         FROM reported_filing WHERE filing_id = :fid AND org_id = :org
     """), {"fid": filing_id, "org": org_id}).mappings().first()
     if not f:
-        raise FilingError("Filing not found.")
+        raise FilingError("error.not_found", 404)
     figs = session.execute(text("""
         SELECT figure_id, template_ref, datapoint_key, label, value_num, value_text, unit,
                read_method, confirmed
@@ -271,6 +272,7 @@ def get_filing(session, filing_id: str, org_id: str) -> dict:
         "figures": [{
             "figure_id": str(r["figure_id"]), "template_ref": r["template_ref"],
             "datapoint_key": r["datapoint_key"], "label": r["label"],
+            "datapoint_label": _dp_label(f["framework"], r["datapoint_key"]) if r["datapoint_key"] else None,
             "value_num": r["value_num"], "value_text": r["value_text"], "unit": r["unit"],
             "read_method": r["read_method"], "confirmed": r["confirmed"],
         } for r in figs],
@@ -286,9 +288,9 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
         SELECT status FROM reported_filing WHERE filing_id = :fid AND org_id = :org
     """), {"fid": filing_id, "org": org_id}).mappings().first()
     if not f:
-        raise FilingError("Filing not found.")
+        raise FilingError("error.not_found", 404)
     if f["status"] == "confirmed":
-        raise FilingError("This filing is already confirmed and cannot be changed.")
+        raise FilingError("intake.prior.refused.already_confirmed")
     _check_esrs_mapping(session, filing_id, org_id, edits or [])
 
     for e in (edits or []):
@@ -327,8 +329,7 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
         session.commit()
     except IntegrityError:
         session.rollback()
-        raise FilingError("A confirmed filing already exists for that framework, undertaking and period. "
-                          "Remove it before confirming a replacement.")
+        raise FilingError("intake.prior.refused.duplicate_confirmed")
     return get_filing(session, filing_id, org_id)
 
 
@@ -351,10 +352,11 @@ def _check_esrs_mapping(session, filing_id: str, org_id: str, edits: list[dict])
     keys = [k for k in mapped.values() if k]
     unknown = sorted({k for k in keys if k not in targets})
     twice = sorted({k for k in keys if keys.count(k) > 1})
-    if unknown or twice:
-        raise FilingError("; ".join(
-            ([f"not a figure the version for this year prints: {', '.join(unknown)}"] if unknown else []) +
-            ([f"more than one line is mapped to {', '.join(twice)} — keep one"] if twice else [])))
+    if unknown:
+        raise FilingError("intake.prior.refused.mapping_unknown", n=len(unknown))
+    if twice:
+        raise FilingError("intake.prior.refused.mapping_twice",
+                          figures=", ".join(targets.get(k, "a figure") for k in twice))
 
 
 def delete_filing(session, filing_id: str, org_id: str) -> None:
@@ -362,7 +364,7 @@ def delete_filing(session, filing_id: str, org_id: str) -> None:
                         {"fid": filing_id, "org": org_id}).rowcount
     session.commit()
     if not n:
-        raise FilingError("Filing not found.")
+        raise FilingError("error.not_found", 404)
 
 
 def _project(points: list[dict], horizon_years: int) -> dict:
@@ -384,12 +386,12 @@ def _project(points: list[dict], horizon_years: int) -> dict:
         rate = (last / first) ** (1 / span) - 1
         proj = [{"period": str(yrs[-1] + k), "value": last * (1 + rate) ** k, "projected": True}
                 for k in range(1, horizon_years + 1)]
-        method = "compound annual change from your reported history"
+        method = "compound"
     else:
         delta = (last - first) / span if span else 0.0
         proj = [{"period": str(yrs[-1] + k), "value": last + delta * k, "projected": True}
                 for k in range(1, horizon_years + 1)]
-        method = "average annual change from your reported history"
+        method = "average"
     return {"projection": proj, "method": method}
 
 
@@ -422,7 +424,8 @@ def trends(session, org_id: str, framework: Optional[str] = None, horizon_years:
         comparable = not (s["unit_changed"] or s["mixed_units"])
         pr = _project(s["points"], horizon_years) if comparable else {"projection": [], "method": None}
         s["projection"] = pr["projection"]
-        s["proj_method"] = pr["method"]
+        s["proj_method"] = pr["method"]                     # compound | average | None
+        s["proj_msg"] = render(f"intake.prior.projection.{pr['method']}") if pr["method"] else None
         s["proj_reliable"] = bool(pr["projection"]) and not s["basis_changed"]
         out.append(s)
     out.sort(key=lambda s: (-len(s["points"]), s["label"]))
@@ -474,7 +477,7 @@ def _combine(session, figs: list[dict], ccy: str) -> dict:
     shared = sorted(u for u in by_unit if is_ambiguous_money(u))
     if shared:                        # '$' could be several currencies: not used until the filing's currency is stated
         return {"value": None, "unit": None, "mixed_units": sorted(str(u) for u in by_unit),
-                "note": f"money written as {', '.join(shared)} — state the filing's currency (or the unit on confirm)"}
+                "msg": render("intake.prior.units.shared_symbol", symbols=", ".join(str(u) for u in shared))}
     money = {u: v for u, v in by_unit.items() if is_currency(u)}
     if money and len(money) == len(by_unit):
         if set(money) == {ccy}:
@@ -482,12 +485,13 @@ def _combine(session, figs: list[dict], ccy: str) -> dict:
         d = _period_end(figs[0])
         if d is None:
             return {"value": None, "unit": None, "mixed_units": sorted(money),
-                    "note": "amounts in " + ", ".join(sorted(money)) + " — no period end to convert them at"}
+                    "msg": render("intake.prior.units.no_period_end", currencies=", ".join(sorted(money)))}
         try:
             total = sum(v * rate_for(session, ccy, d)["units_per_eur"] / rate_for(session, u, d)["units_per_eur"]
                         for u, v in money.items())
-        except FxError as e:
-            return {"value": None, "unit": None, "mixed_units": sorted(money), "note": f"not converted: {e}"}
+        except FxError:
+            return {"value": None, "unit": None, "mixed_units": sorted(money),
+                    "msg": render("intake.prior.units.no_rate", currencies=", ".join(sorted(money)), date=d.isoformat())}
         return {"value": total, "unit": ccy, "converted_from": {u: round(v, 2) for u, v in money.items()},
                 "rate_date": d.isoformat()}
     if len(by_unit) == 1:
@@ -495,7 +499,7 @@ def _combine(session, figs: list[dict], ccy: str) -> dict:
         return {"value": v, "unit": u}
     return {"value": None, "unit": None, "mixed_units": sorted(str(u) for u in by_unit),
             "by_unit": {str(u): round(v, 4) for u, v in by_unit.items()},
-            "note": "figures in different units — not added together; correct the units or datapoints on confirm"}
+            "msg": render("intake.prior.units.mixed", units=", ".join(sorted(str(u) for u in by_unit)))}
 
 
 def trend(session, org_id: str, framework: str, datapoint_key: str) -> dict:

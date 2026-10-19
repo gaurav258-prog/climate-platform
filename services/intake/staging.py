@@ -70,6 +70,7 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
     names = [records[i].get(sector.name_field) if records[i] else None for i in range(len(records))]
     summary = matching.summarize(results, names)
     summary["n_not_ready"] = n_not_ready
+    summary["field_labels"] = _field_labels(specs, {f for u in summary["updates"] for f in u["changes"]})
     summary["ambiguous_rows"] = [rn for rn, res in zip(row_nos, results) if res.get("status") == "ambiguous"][:50]
     return {"report": report, "normalised": [normalised[i] for i in keep], "values": value_report, "money": money_report,
             "df": df,
@@ -79,12 +80,34 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
             "value_staged": float(sum(records[i].get(sector.value_field) or 0 for i in keep))}
 
 
+def _field_labels(specs: list[dict], fields: set) -> dict:
+    """Each changed field's customer name: the template's label, else the field catalogue's (a field the sector derives
+    from a column, e.g. the reporting entity)."""
+    from core.messages import names
+    from services.ingest.fields import FIELDS
+    by_spec = {s["name"]: s.get("label") for s in specs}
+    book = names().get("intake.book_field", {})        # the book's own columns (tests/integration/test_intake_messages.py)
+    out = {}
+    for f in sorted(fields):
+        base = f[:-3] if f.endswith("_id") else f
+        fd = FIELDS.get(f) or FIELDS.get(base)
+        out[f] = by_spec.get(f) or by_spec.get(base) or (fd.label if fd else None) or book.get(f) or "Another field"
+    return out
+
+
 def large_change_reason(summary: dict) -> Optional[str]:
     large = summary.get("large_changes") or []
     if not large:
         return None
     eg = "; ".join(f"{c['name']}: {', '.join(c['reasons'])}" for c in large[:3])
     return f"Matching: {len(large)} existing asset(s) change a lot ({eg}{'; …' if len(large) > 3 else ''})."
+
+
+def large_change_message(summary: dict) -> Optional[dict]:
+    """large_change_reason's catalogue message (the sentence stays: approval compares it word for word)."""
+    from core.messages import render
+    large = summary.get("large_changes") or []
+    return render("intake.gate.large_changes", n=len(large)) if large else None
 
 
 def persist(session: Session, batch_id: str, st: dict) -> None:

@@ -91,14 +91,16 @@ def test_one_confirmed_filing_per_undertaking_and_period():
         try:
             assert PF.confirm(s, up("organisation"), BANK_ORG, u)["status"] == "confirmed"
             assert PF.confirm(s, up(ent), BANK_ORG, u)["status"] == "confirmed"          # same label, other undertaking
-            with pytest.raises(PF.FilingError, match="undertaking and period"):
+            with pytest.raises(PF.FilingError) as refused:
                 PF.confirm(s, up("organisation"), BANK_ORG, u)
+            assert refused.value.code == "intake.prior.refused.duplicate_confirmed"
             legacy = up("organisation", "2096 legacy")
             s.execute(text("UPDATE reported_filing SET undertaking_stated = false, entity_id = NULL WHERE filing_id = :f"),
                       {"f": legacy})
             assert PF.confirm(s, legacy, BANK_ORG, u)["status"] == "confirmed"         # unstated: its label is unique
-            with pytest.raises(PF.FilingError, match="already exists"):
+            with pytest.raises(PF.FilingError) as refused:
                 PF.state_basis(s, BANK_ORG, legacy, undertaking="organisation", period_end="2096-12-31")
+            assert refused.value.code == "intake.prior.refused.duplicate_period"
         finally:
             s.rollback()
             for fid in made:

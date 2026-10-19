@@ -40,6 +40,45 @@ class MoneyError(ValueError):
     pass
 
 
+class DeclarationError(MoneyError):
+    """What the sender declared for a batch (currency, book date) cannot be used. Its text is unchanged for the callers
+    that print it; `code` / `params` are the catalogue message the intake screen shows (core/messages.py)."""
+
+    def __init__(self, text: str, code: str, **params):
+        super().__init__(text)
+        self.code, self.params = code, params
+
+
+def rate_message(r: dict) -> dict:
+    """The catalogue message for one rate used on a batch: which rate converted the amounts, and why it needs a second
+    look when it does (older than its source allows, a later rate, an offline rate, your own rate apart from the official)."""
+    from core.messages import name, render
+    src = r.get("source") or ""
+    common = {"currency": r["currency"], "units": f"{r['units_per_eur']:g}" if r.get("units_per_eur") is not None else "—",
+              "source": name("intake.fx_source", src) if src in _FX_SOURCES else "its source"}
+    if src == "client":
+        off = r.get("official") or {}
+        if r.get("official") and r.get("outside_tolerance"):
+            return render("intake.rate.own_differs", **common, official=f"{off['units_per_eur']:g}" if off.get("units_per_eur") else "—",
+                          official_source=name("intake.fx_source", off.get("source")) if off.get("source") in _FX_SOURCES else "the official source",
+                          pct=r.get("difference_pct"))
+        return render("intake.rate.own", **common)
+    if r.get("basis") == "fixed_peg":
+        return render("intake.rate.peg", **common)
+    if src == "fallback":
+        return render("intake.rate.fallback", **common)
+    if r.get("stale") and r.get("rate_date") and r["rate_date"] > r["book_date"]:
+        return render("intake.rate.later", **common, date=r["rate_date"], book_date=r["book_date"])
+    if r.get("stale"):
+        return render("intake.rate.stale", **common, date=r.get("rate_date") or "—", age=r.get("age_days"), book_date=r["book_date"])
+    if r.get("policy") == "average":
+        return render("intake.rate.average", **common, start=r.get("period_start") or "—", end=r.get("period_end") or r["book_date"])
+    return render("intake.rate.closing", **common, date=r.get("rate_date") or r["book_date"])
+
+
+_FX_SOURCES = ("ecb", "imf", "peg", "client", "fallback", "identity", "seed")   # names.intake.fx_source
+
+
 def hidden_column(field: str) -> str:
     return f"{_HIDDEN}{field}"
 
@@ -98,7 +137,7 @@ def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) ->
                 natives.setdefault(idx, {})[f] = field_entry(amt, "EUR", d, amt, None)
                 continue
             if d is None:
-                problems.setdefault(idx, []).append(f"{s.get('label', f)}: no book date to convert {ccy} — declare it or add a book_date column")
+                problems.setdefault(idx, []).append(f"{s.get('label', f)}: no book date to convert {ccy} — declare it or add a book date column")
                 continue
             try:
                 r = rate(ccy, d, bool(s.get("flow")))
@@ -117,6 +156,7 @@ def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) ->
                      **{k: r.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "age_days", "stale", "note",
                                               "period_start", "period_end", "official", "difference_pct",
                                               "outside_tolerance")}})
+        used[-1]["msg"] = rate_message(used[-1])
     currencies = sorted({v["currency"] for n in natives.values() for v in n.values()})
     report = {"declared_currency": declared, "book_date": bdate.isoformat() if bdate else None, "currencies": currencies,
               "flow_policy": ctx.get("flow_policy", "period_average"),
@@ -152,19 +192,27 @@ def gate_reason(report: Optional[dict]) -> Optional[str]:
     return f"Currency: {len(w)} rate(s) need a second look — {'; '.join(w[:3])}{'; …' if len(w) > 3 else ''}."
 
 
+def gate_message(report: Optional[dict]) -> Optional[dict]:
+    """gate_reason's catalogue message (the sentence stays: approval compares it word for word)."""
+    from core.messages import render
+    return render("intake.gate.currency", n=len(report["warnings"])) if report and report.get("warnings") else None
+
+
 def validate_declaration(session: Session, currency: Optional[str], book_date: Optional[str]) -> tuple[Optional[str], Optional[date]]:
     """Check what the sender declared for the batch. Both may be absent (then each row must carry its own)."""
     from services.reference.fx import supported_currencies
     ccy = (currency or "").strip().upper() or None
     if ccy and ccy not in set(supported_currencies(session)):
-        raise MoneyError(f"'{ccy}' is not a currency we can convert (ISO 4217 code, e.g. EUR, USD, GBP).")
+        raise DeclarationError(f"'{ccy}' is not a currency we can convert (ISO 4217 code, e.g. EUR, USD, GBP).",
+                               "intake.refused.currency_unknown", currency=ccy)
     d = None
     if book_date not in (None, ""):
         d = parse_book_date(book_date)
         if d is None:
-            raise MoneyError("The book date must be YYYY-MM-DD.")
+            raise DeclarationError("The book date must be YYYY-MM-DD.", "intake.refused.book_date_format")
         if d > date.today():
-            raise MoneyError("The book date can't be in the future — it is the date your figures describe.")
+            raise DeclarationError("The book date can't be in the future — it is the date your figures describe.",
+                                   "intake.refused.book_date_future")
     return ccy, d
 
 
@@ -178,10 +226,11 @@ def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping
     money_fields = [s["name"] for s in specs if s.get("kind") == "money" and s["name"] in df.columns]
     uncovered = [f for f in money_fields if f not in field_ccy and hidden_column(f) not in df.columns]
     if uncovered and not ccy and "currency" not in df.columns:
-        raise MoneyError("Say which currency the amounts are in — choose it for the file, or add a currency column.")
+        raise DeclarationError("Say which currency the amounts are in — choose it for the file, or add a currency column.",
+                               "intake.refused.currency_missing")
     if money_fields and d is None and "book_date" not in df.columns:     # a file with no amounts converts nothing
-        raise MoneyError("Say which date the figures describe (the book date) — enter it for the file, or add a "
-                         "book_date column. Amounts are converted at that date's rates.")
+        raise DeclarationError("Say which date the figures describe (the book date) — enter it for the file, or add a "
+                               "book date column. Amounts are converted at that date's rates.", "intake.refused.book_date_missing")
     return {"currency": ccy, "book_date": d, "field_currency": field_ccy,
             "flow_policy": rate_policy(session, org_id)["flow"], "org_id": org_id}
 

@@ -17,7 +17,8 @@ def inspect(session: Session, org_id: str, template: str, raw: bytes, filename: 
     tpl = TEMPLATES[template]
     sec = _security(raw, filename, tpl, "upload")
     if sec["status"] == "blocked":
-        raise IntakeError(422, {"error": "security_blocked", "message": sec["findings"][0]["message"], "security": sec})
+        raise IntakeError(422, "security_blocked", sec["findings"][0]["msg"]["code"], {"security": sec},
+                          **sec["findings"][0]["msg"]["params"])
     df = _parse(raw, sec["detected_type"], "upload")
     cols = [str(c) for c in df.columns]
     specs = [{**s, "allowed": s.get("allowed") or values.allowed(session, s["vocab"])} if s.get("vocab") else s

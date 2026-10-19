@@ -40,6 +40,7 @@ from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector 
     _positive,
     _s,
     _vocab,
+    field_name,
 )
 
 
@@ -78,7 +79,7 @@ def _bank_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name, atype, sector = _s(row, "asset_name"), _s(row, "asset_type"), _s(row, "sector")
     if not (name and atype and sector):
-        raise RowIssue("asset_name, asset_type and sector are required")
+        raise RowIssue(f"{field_name('asset_name')}, {field_name('asset_type').lower()} and {field_name('sector').lower()} are required")
     evic = _positive(row, "counterparty_evic_eur", "counterparty_evic_eur")
     origination = _s(row, "loan_origination_date")
     return {"entity_name": name, "entity_type": atype, "latitude": lat, "longitude": lon, "h3_cell": cell,
@@ -158,7 +159,7 @@ def _postal_code(row: dict) -> str | None:
         return None
     v = " ".join(str(v).upper().split())
     if not re.fullmatch(r"[0-9A-Z][0-9A-Z -]{0,11}", v):
-        raise RowIssue(f"postal_code '{v}' is not a postal code (letters, digits, spaces or '-', at most 12)")
+        raise RowIssue(f"{field_name('postal_code')} '{v}' is not a postal code (letters, digits, spaces or '-', at most 12)")
     return v
 
 
@@ -166,19 +167,20 @@ def _ins_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name = _s(row, "policy_name")
     if not name:
-        raise RowIssue("policy_name is required")
+        raise RowIssue(f"{field_name('policy_name')} is required")
     b, c, bi = _m(row, "building_value_eur"), _m(row, "contents_value_eur"), _m(row, "business_interruption_value_eur")
     if b is not None or c is not None or bi is not None:
         tiv = round((b or 0) + (c or 0) + (bi or 0), 2)
     else:
         tiv = _m(row, "sum_insured_eur")
     if tiv is None:
-        raise RowIssue("no valuation: give sum_insured_eur or at least one value component")
+        raise RowIssue(f"no valuation: give the {field_name('sum_insured_eur').lower()}, or the building, contents or "
+                       "business interruption value")
     if tiv <= 0:
         raise RowIssue("total insured value must be greater than zero")
     ded = _m(row, "deductible_pct", 4)
     if ded is not None and not (0 <= ded <= 1):
-        raise RowIssue(f"deductible_pct {ded} must be a fraction between 0 and 1 (0.02 = 2%)")
+        raise RowIssue(f"{field_name('deductible_pct')} {ded} must be a fraction between 0 and 1 (0.02 = 2%)")
     rec = {"entity_name": name, "entity_type": _s(row, "policy_type"), "latitude": lat, "longitude": lon,
            "h3_cell": cell, "region": _s(row, "region"), "country": _s(row, "country"), "primary_value_eur": tiv,
            "construction_type": _vocab(row, "construction_type", "construction_type"), "year_built": _i(row, "year_built"),
@@ -249,10 +251,10 @@ def _rei_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name, ptype = _s(row, "property_name"), _s(row, "property_type")
     if not (name and ptype):
-        raise RowIssue("property_name and property_type are required")
+        raise RowIssue(f"{field_name('property_name')} and {field_name('property_type').lower()} are required")
     noi = _m(row, "annual_noi_eur")
     if noi is None:
-        raise RowIssue("annual_noi_eur is missing")
+        raise RowIssue(f"{field_name('annual_noi_eur')} is missing")
     rec = {"entity_name": name, "entity_type": ptype, "latitude": lat, "longitude": lon, "h3_cell": cell,
            "region": _s(row, "region"), "country": _s(row, "country"),
            "primary_value_eur": _positive(row, "property_value_eur", "property_value_eur"), "annual_noi_eur": noi,
@@ -331,7 +333,7 @@ def _hol_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name, sector = _s(row, "holding_name"), _s(row, "sector")
     if not (name and sector):
-        raise RowIssue("holding_name and sector are required")
+        raise RowIssue(f"{field_name('holding_name')} and {field_name('sector').lower()} are required")
     return {"entity_name": name, "sector": sector, "nace_code": _s(row, "nace_code"), "latitude": lat, "longitude": lon,
             "h3_cell": cell, "region": _s(row, "region"), "country": _s(row, "country"),
             "primary_value_eur": _positive(row, "position_value_eur", "position_value_eur"),
@@ -402,7 +404,7 @@ def _held(row: dict) -> tuple[str | None, str | None]:
         try:
             out.append(date.fromisoformat(v[:10]).isoformat())
         except ValueError:
-            raise RowIssue(f"{k.replace('_', ' ')} '{v}' is not a date (YYYY-MM-DD)")
+            raise RowIssue(f"{field_name(k)} '{v}' is not a date (YYYY-MM-DD)")
     if out[0] and out[1] and out[1] <= out[0]:
         raise RowIssue("held until must be after held from")
     return out[0], out[1]
@@ -413,7 +415,7 @@ def _plot_build(ctx: dict, row: dict) -> dict:
     from services.reference.iso_country import is_valid_country
     name = _s(row, "plot_name")
     if not name:
-        raise RowIssue("plot_name is required")
+        raise RowIssue(f"{field_name('plot_name')} is required")
     spend = _positive(row, "annual_spend_eur", "annual_spend_eur")
     commodity = _s(row, "commodity")
     cid = ctx["commodity_ids"].get(commodity or "")
@@ -529,7 +531,7 @@ def _site_build(ctx: dict, row: dict) -> dict:
     from services.reference.iso_country import is_valid_country
     name = _s(row, "site_name")
     if not name:
-        raise RowIssue("site_name is required")
+        raise RowIssue(f"{field_name('site_name')} is required")
     address = _s(row, "address")
     if _s(row, "latitude") is not None or _s(row, "longitude") is not None:
         lat, lon, cell = _location(row)

@@ -55,14 +55,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/FactConflicts.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 0,
-  "apiProse": 3,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/FilingConsolidation.tsx": {
   "internal": 0,
   "raw": 1,
@@ -87,38 +79,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/FilingLineage.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 4,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/FilingRetention.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 3,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/FilingRun.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 3,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/FilingVariance.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 2,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/FundOnboard.tsx": {
   "internal": 0,
   "raw": 1,
@@ -140,22 +100,6 @@
   "raw": 0,
   "monoProse": 2,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/IntakeControls.tsx": {
-  "internal": 0,
-  "raw": 0,
-  "monoProse": 1,
-  "apiProse": 5,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/Lineage.tsx": {
-  "internal": 2,
-  "raw": 2,
-  "monoProse": 0,
-  "apiProse": 2,
   "figure": 0,
   "citation": 0
  },
@@ -239,27 +183,11 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/T5Lineage.tsx": {
-  "internal": 1,
-  "raw": 1,
-  "monoProse": 1,
-  "apiProse": 2,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/Toaster.tsx": {
   "internal": 0,
   "raw": 0,
   "monoProse": 0,
   "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/ValidatedUpload.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 3,
-  "apiProse": 2,
   "figure": 0,
   "citation": 0
  },
@@ -415,14 +343,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/DataDictionary.tsx": {
-  "internal": 3,
-  "raw": 2,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/DataHub.tsx": {
   "internal": 0,
   "raw": 0,
@@ -539,14 +459,6 @@
   "internal": 2,
   "raw": 2,
   "monoProse": 2,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/PriorFilings.tsx": {
-  "internal": 1,
-  "raw": 0,
-  "monoProse": 3,
   "apiProse": 0,
   "figure": 0,
   "citation": 0

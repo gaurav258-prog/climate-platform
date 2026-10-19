@@ -11,7 +11,7 @@ router = APIRouter(prefix="/v1/meta", tags=["Meta"])
 @router.get("/data-dictionary", summary="The single golden model — fields, source feeds, vintage, consumers")
 def data_dictionary(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.data_dictionary import data_dictionary as _dd
-    return _dd(session)
+    return _dd(session, ctx["org"]["org_id"])          # which of this organisation's filings use each field
 
 
 @router.get("/hazard-coverage", summary="Coverage of the EU Taxonomy's 28 physical climate hazards, by maturity tier")

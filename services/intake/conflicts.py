@@ -18,11 +18,27 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+from core.messages import name, render
 from services.intake import observations as O
 
 
-class ConflictError(ValueError):
-    pass
+class ConflictError(UserError):
+    """A decision that cannot be recorded: a catalogue code (intake.conflict.refused.*) with its values."""
+    def __init__(self, code: str, **params):
+        super().__init__(code, 409, **params)
+
+
+def _field_label(field: str) -> str:
+    from services.ingest.fields import FIELDS
+    f = FIELDS.get(field)
+    return f.label if f else name("intake.book_field", field)
+
+
+def _message(field: str, client, ours) -> Optional[dict]:
+    """Why the two values are a difference, in the catalogue's words (computed from the values, not the stored rule)."""
+    d = O.deriver_for(field)
+    return d.explain(client, ours) if d else None
 
 
 def reconcile(session: Session, org_id: str, table: str, asset_ids: list[str]) -> dict:
@@ -93,10 +109,13 @@ def list_conflicts(session: Session, org_id: str, status: str = "open", limit: i
     counts = dict(session.execute(text("""
         SELECT status, count(*) FROM asset_conflicts WHERE org_id = CAST(:o AS uuid) GROUP BY status
     """), {"o": org_id}).all())
-    derivers = [{"field": d.field, "method": d.method, "source": d.origin} for d in O.DERIVERS]
+    derivers = [{"field": d.field, "method": d.method, "source": d.origin, "label": _field_label(d.field),
+                 "msg": render(d.source_code)} for d in O.DERIVERS]
     return {"conflicts": [{**dict(r), "created_at": r["created_at"].isoformat(),
                            "resolved_at": r["resolved_at"].isoformat() if r["resolved_at"] else None,
-                           "why_ours": O.deriver_for(r["field"]).origin if O.deriver_for(r["field"]) else None} for r in rows],
+                           "why_ours": O.deriver_for(r["field"]).origin if O.deriver_for(r["field"]) else None,
+                           "field_label": _field_label(r["field"]),
+                           "msg": _message(r["field"], r["client_value"], r["tellumen_value"])} for r in rows],
             "counts": {k: int(v) for k, v in counts.items()}, "tellumen_checks": derivers}
 
 
@@ -104,7 +123,7 @@ def _get(session: Session, org_id: str, conflict_id: str) -> dict:
     r = session.execute(text("SELECT * FROM asset_conflicts WHERE conflict_id = CAST(:c AS uuid) AND org_id = CAST(:o AS uuid)"),
                         {"c": conflict_id, "o": org_id}).mappings().first()
     if not r:
-        raise ConflictError("conflict not found")
+        raise ConflictError("error.not_found")
     return dict(r)
 
 
@@ -113,10 +132,10 @@ def resolve(session: Session, org_id: str, conflict_id: str, decision: str, acto
     from api.services.rbac import write_audit
     c = _get(session, org_id, conflict_id)
     if c["status"] != "open":
-        raise ConflictError(f"this conflict is {c['status'].replace('_', ' ')}, not open")
+        raise ConflictError("intake.conflict.refused.not_open", state=name("intake.conflict_status", c["status"]))
     note = (note or "").strip() or None
     if decision == "explained" and not note:
-        raise ConflictError("say what explains the difference")
+        raise ConflictError("intake.conflict.refused.note_required")
     if decision in ("client", "explained"):
         session.execute(text("""
             UPDATE asset_conflicts SET status = 'resolved', resolution = :d, note = :n, resolved_by = CAST(:u AS uuid),
@@ -126,7 +145,7 @@ def resolve(session: Session, org_id: str, conflict_id: str, decision: str, acto
                     target_type="asset_conflict", target_id=conflict_id, detail={"field": c["field"], "note": note})
         return {"conflict_id": conflict_id, "status": "resolved", "resolution": decision}
     if decision != "tellumen":
-        raise ConflictError("decide client, tellumen or explained")
+        raise ConflictError("intake.conflict.refused.decision")
     payload = {"conflict_id": conflict_id, "asset_table": c["asset_table"], "asset_id": str(c["asset_id"]), "field": c["field"],
                "client_value": c["client_value"], "tellumen_value": c["tellumen_value"], **({"note": note} if note else {})}
     rid = session.execute(text("""
@@ -154,7 +173,7 @@ def apply_decision(session: Session, org_id: str, payload: dict, decision: str, 
         return {"applied": False, "conflict": "reopened"}
     book = next((b for b in O.book_for(c["asset_table"]) if c["field"] in b.fields), None)
     if book is None or O.deriver_for(c["field"]) is None:                  # field names come from the registry, never input
-        raise ConflictError(f"{c['field']} is not a fact Tellumen derives")
+        raise ConflictError("intake.conflict.refused.not_derived", field=_field_label(c["field"]))
     session.execute(text(f"UPDATE {book.table} SET {c['field']} = :v WHERE {book.id_column} = CAST(:a AS uuid) AND org_id = CAST(:o AS uuid)"),
                     {"v": O.norm(c["tellumen_value"]), "a": str(c["asset_id"]), "o": org_id})
     session.execute(text("""

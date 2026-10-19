@@ -390,8 +390,8 @@ def lineage_hazards(filing_id: str, session: DbSession, ctx: dict = Depends(requ
     from services.governance.filing_lineage import hazards_view
     try:
         return hazards_view(session, ctx["org"]["org_id"], filing_id)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.get("/filings/{filing_id}/lineage", summary="Forward trace: a reported cell → assets → golden source → feeds")
@@ -400,8 +400,8 @@ def lineage(filing_id: str, hazard: str, session: DbSession,
     from services.governance.filing_lineage import cell_lineage
     try:
         return cell_lineage(session, ctx["org"]["org_id"], filing_id, hazard)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.get("/filings/{filing_id}/lineage/t5", summary="Pillar 3 Template 5 as frozen — the cells a trace starts from")
@@ -409,8 +409,8 @@ def lineage_t5(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
     from services.governance.pillar3_lineage import t5_view
     try:
         return t5_view(session, ctx["org"]["org_id"], filing_id)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.get("/filings/{filing_id}/lineage/t5/cell", summary="Forward trace: a Template 5 cell → its exposures → golden source")
@@ -419,8 +419,8 @@ def lineage_t5_cell(filing_id: str, row: str, column: str, session: DbSession, g
     from services.governance.pillar3_lineage import t5_cell_lineage
     try:
         return t5_cell_lineage(session, ctx["org"]["org_id"], filing_id, row, column, geography)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing, or a row its Template 5 does not print
+        raise UserError("error.not_found") from e
 
 
 @router.get("/lineage/cell/{h3_cell}", summary="Reverse trace: a granular cell → every holding & filing that reuses it")
@@ -431,11 +431,8 @@ def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_p
 
 @router.get("/filings/{filing_id}/retention", summary="How long this filing must be kept, and under which law")
 def retention(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.record_retention import RetentionError, retention_for
-    try:
-        return retention_for(session, ctx["org"]["org_id"], filing_id)
-    except RetentionError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    from services.governance.record_retention import retention_for
+    return retention_for(session, ctx["org"]["org_id"], filing_id)           # refusals: UserError (record_retention)
 
 
 class HoldBody(BaseModel):
@@ -444,11 +441,8 @@ class HoldBody(BaseModel):
 
 @router.post("/filings/{filing_id}/legal-hold", summary="Put a filing on legal hold (it cannot be archived)")
 def legal_hold(filing_id: str, body: HoldBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    from services.governance.record_retention import RetentionError, set_hold
-    try:
-        out = set_hold(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
-    except RetentionError as e:
-        raise HTTPException(409, {"error": "legal_hold", "message": str(e)})
+    from services.governance.record_retention import set_hold
+    out = set_hold(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)   # refusals: UserError
     _audit(session, ctx, "filing.legal_hold.set", filing_id, {"reason": body.reason})
     session.commit()
     return out
@@ -456,11 +450,8 @@ def legal_hold(filing_id: str, body: HoldBody, session: DbSession, ctx: dict = D
 
 @router.post("/filings/{filing_id}/legal-hold/lift", summary="Ask a second person to lift a legal hold")
 def legal_hold_lift(filing_id: str, body: HoldBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    from services.governance.record_retention import RetentionError, request_lift
-    try:
-        out = request_lift(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
-    except RetentionError as e:
-        raise HTTPException(409, {"error": "legal_hold", "message": str(e)})
+    from services.governance.record_retention import request_lift
+    out = request_lift(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)   # refusals: UserError
     _audit(session, ctx, "approval.create", out["approval_request_id"], {"request_type": "filing.legal_hold_lift"})
     session.commit()
     return out
@@ -471,8 +462,8 @@ def data_revisions(filing_id: str, session: DbSession, ctx: dict = Depends(requi
     from services.governance.data_revisions import revisions
     try:
         return revisions(session, ctx["org"]["org_id"], filing_id)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.get("/filings/{filing_id}/variance", summary="Decompose how the numbers moved vs the prior filing")
@@ -481,8 +472,8 @@ def variance(filing_id: str, session: DbSession, vs: Optional[str] = None,
     from services.governance.filing_variance import variance as _variance
     try:
         return _variance(session, ctx["org"]["org_id"], filing_id, vs_filing_id=vs)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                      # the filing (or the one compared) is not this organisation's
+        raise UserError("error.not_found") from e
 
 
 @router.post("/filings/{filing_id}/restate", status_code=201,

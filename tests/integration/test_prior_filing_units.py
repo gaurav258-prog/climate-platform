@@ -30,10 +30,10 @@ def test_different_units_are_never_added(session_rolled_back):
         assert got["value"] is None and len(got["mixed_units"]) == 2
     assert _combine(s, [_f(5, "tCO2e"), _f(7, "tCO2e")], "EUR") == {"value": 12.0, "unit": "tCO2e"}
     no_year = _combine(s, [_f(1, "USD", period="FY", period_end=None, stated=False)], "EUR")
-    assert no_year["value"] is None and "no period end" in no_year["note"]
+    assert no_year["value"] is None and no_year["msg"]["code"] == "intake.prior.units.no_period_end"
     # a period end only read from the label (an upload from before E123) is never a rate date
     guessed = _combine(s, [_f(1, "USD", period="2024", stated=False)], "EUR")
-    assert guessed["value"] is None and "no period end" in guessed["note"]
+    assert guessed["value"] is None and guessed["msg"]["code"] == "intake.prior.units.no_period_end"
 
 
 def test_a_fund_shows_its_value_in_its_own_base_currency(session_rolled_back):
@@ -48,7 +48,7 @@ def test_a_fund_shows_its_value_in_its_own_base_currency(session_rolled_back):
 def test_a_shared_symbol_is_never_added_until_the_filing_says_which_currency(session_rolled_back):
     s = session_rolled_back
     got = _combine(s, [_f(5, "$"), _f(7, "$")], "EUR")
-    assert got["value"] is None and "state the filing's currency" in got["note"]
+    assert got["value"] is None and got["msg"]["code"] == "intake.prior.units.shared_symbol" and got["msg"]["params"]["symbols"] == "$"
 
 
 def test_an_upload_declares_its_currency_and_period_end(session_rolled_back):
@@ -82,6 +82,6 @@ def _check_upload(s, f, PF, buf):
     assert units["Total book value"] == "CAD" and units["Scope 3 financed emissions (tCO2e)"] == "tCO2e"
     pe = s.execute(text("SELECT period_end, currency FROM reported_filing WHERE filing_id = CAST(:f AS uuid)"), {"f": f["filing_id"]}).first()
     assert (pe[0].isoformat(), pe[1]) == ("2024-09-30", "CAD")
-    with pytest.raises(PF.FilingError, match="ISO 4217"):
+    with pytest.raises(PF.FilingError, match="intake.prior.refused.currency_unknown"):
         PF.create_from_upload(s, org, None, framework="bank_p3esg", period_label="FY2024", entity_name=None,
                               filename="p3.xlsx", data=buf.getvalue(), currency="XYZ")

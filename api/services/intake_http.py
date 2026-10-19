@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
 from services.ingest.batch_controls import (
     parse_money,  # noqa: F401 — (kept for callers that format declared totals)
 )
@@ -21,15 +22,14 @@ def declared_from_form(row_count: Optional[str], totals: Optional[str]) -> Optio
         try:
             out["row_count"] = int(row_count)
         except (TypeError, ValueError) as e:
-            raise HTTPException(400, {"error": "bad_declared_controls", "message": "declared_row_count must be a whole number"}) from e
+            raise UserError("intake.refused.declared_rows") from e
     if totals not in (None, ""):
         try:
             t = json.loads(totals)
         except ValueError as e:
-            raise HTTPException(400, {"error": "bad_declared_controls",
-                                      "message": 'declared_totals must be JSON like {"appraised_value_eur": 1250000000}'}) from e
+            raise UserError("intake.refused.declared_totals") from e
         if not isinstance(t, dict):
-            raise HTTPException(400, {"error": "bad_declared_controls", "message": "declared_totals must be an object of field → total"})
+            raise UserError("intake.refused.declared_totals")
         out["control_totals"] = t
     return out or None
 

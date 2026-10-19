@@ -26,7 +26,12 @@ from services.intake.values import is_blank
 
 
 class MappingError(ValueError):
-    pass
+    """A mapping that cannot be saved or applied. `code` / `params`: the catalogue message the intake screen shows when a
+    mapping is applied to a file (services/intake/pipeline.py); None where only the mapping editor's own text applies."""
+
+    def __init__(self, text: str, code: str | None = None, **params):
+        super().__init__(text)
+        self.code, self.params = code, params
 
 
 def fingerprint(columns: list[str]) -> str:
@@ -84,7 +89,7 @@ def get(session: Session, org_id: str, profile_id: str) -> dict:
     except Exception:
         r = None
     if not r:
-        raise MappingError("Mapping not found.")
+        raise MappingError("Mapping not found.", "intake.refused.mapping_not_found")
     return dict(r)
 
 
@@ -129,7 +134,8 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
     cmap, tr = profile["column_map"], profile.get("transforms") or {}
     missing_src = [s for s in list(cmap.values()) + [x.get("currency_column") for x in tr.values()] if s and s not in df.columns]
     if missing_src:
-        raise MappingError(f"The file has no column(s) {', '.join(missing_src)} that this mapping expects.")
+        raise MappingError(f"The file has no column(s) {', '.join(missing_src)} that this mapping expects.",
+                           "intake.refused.mapping_columns", columns=", ".join(missing_src))
     out = pd.DataFrame({t: df[s] for t, s in cmap.items() if s})
     report: dict = {"profile_id": profile["profile_id"], "profile": f"{profile['name']} v{profile['version']}",
                     "mapped": {t: s for t, s in cmap.items() if s},

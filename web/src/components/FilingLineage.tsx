@@ -1,27 +1,36 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, ChevronDown, Satellite, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
+import { Satellite, AlertTriangle, Route, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import { money, balance } from '../lib/money'
-import { Card, Lens } from './ui'
-import { hazardLabel, sevColor, frameworkLabel, bucketLabel } from '../lib/hazards'
+import { Card, Lens, SectionHead } from './ui'
+import { hazardLabel, sevColor, frameworkLabel, bucketLabel, modelLabel } from '../lib/hazards'
 import { HBar } from './Charts'
+import { HEADING, InfoButton, MessageLine, type Message } from './Details'
+import { StatusChip } from './StatusChip'
+import { Dialog } from './Dialog'
 import LineageGraph from './LineageGraph'
 import T5Lineage from './T5Lineage'
+import { plural } from './intake/parts'
 
-// Bidirectional data lineage inside the filing drawer: click a reported figure to trace it down to the
-// satellite/agency feed (asset → H3 cell → golden-source row → source feed), and from any cell back up to
-// every holding & filing that reuses it. Nothing invented — a missing golden row shows as "—".
+// From a filed figure to its source, inside the filing drawer: pick a hazard's exposure to see the assets it adds up,
+// each asset's score as filed and as it stands today, and the feeds the score is computed from; from any asset, every
+// other book and filing that uses the same place. Read from the frozen filing — a missing score shows as "—".
 
 interface HazEntry { hazard: string; exposed_value_eur: number | null; n_exposed: number; max_score: number }
 interface Source { key: string; name: string; maturity: string | null; status: string | null }
-interface Granular { risk_score: number | null; model_version: string | null; data_vintage: string | null; scored_at: string | null; fingerprint: string | null; ci_lower: number | null; ci_upper: number | null; score_lane: string | null }
+interface Granular { risk_score: number | null; model_version: string | null; data_vintage: string | null; scored_at: string | null; fingerprint: string | null; ci_lower: number | null; ci_upper: number | null }
 interface Contributor { asset_id: string; asset_name: string; value_eur: number | null; h3_cell: string; country: string | null; filed: { score: number | null; bucket: string | null; model_version: string | null }; granular: Granular | null; drift: boolean }
-interface Lineage { supported: boolean; framework: string; message?: string; hazard: string; basis: { scenario: string; horizon: string }; cell: { exposed_value_eur: number | null; n_exposed: number; max_score: number }; currency?: string; contributors: Contributor[]; sources: Source[]; drift_count: number }
-interface UsedBy { vertical: string; framework: string | null; filing: { filing_id: string; status: string } | null; n: number; value_eur: number; entities: { entity_id: string; name: string; value_eur: number | null }[] }
+interface Lineage { supported: boolean; msg?: Message; hazard: string; cell: { exposed_value_eur: number | null; n_exposed: number; max_score: number }; currency?: string; contributors: Contributor[]; sources: Source[]; drift_count: number }
+interface UsedBy { vertical: string; book: string | null; framework: string | null; filing: { filing_id: string; status: string } | null; n: number; value_eur: number }
 interface Upstream { h3_cell: string; hazards_scored_here: string[]; used_by: UsedBy[] }
 
-const feedDot = (s: string | null) => s === 'fresh' || s === 'live' ? '#34d399' : s === 'overdue' || s === 'failed' ? '#fb7185' : s === 'due_soon' ? '#e8b24c' : '#64748b'
+const feedTone = (s: string | null) => s === 'fresh' || s === 'live' ? 'var(--color-good)' : s === 'overdue' || s === 'failed' ? 'var(--color-bad)' : s === 'due_soon' ? 'var(--color-warn)' : 'var(--color-slate)'
+const ABOUT = [
+  { heading: HEADING.shows, body: 'For each hazard this filing reports, the value exposed at or above your at-risk threshold. Select a hazard to trace it: the assets it adds up, each one’s score as filed and as it stands today, and the data feeds the score is computed from.' },
+  { heading: HEADING.read, body: 'Bars are coloured by the highest score among the exposed assets. A score re-computed since on a newer model is flagged, never replaced: the filing keeps what it was frozen with.' },
+  { heading: HEADING.sources, body: 'The frozen filing; today’s hazard scores for each asset’s location; the feed registry.' },
+]
 
 export default function FilingLineage({ filingId }: { filingId: string }) {
   const q = useQuery({ queryKey: ['lineage-haz', filingId], queryFn: () => api.get<{ hazards: HazEntry[]; currency: string }>(`/v1/filings/${filingId}/lineage/hazards`) })
@@ -30,39 +39,30 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
   const ccy = q.data?.currency ?? 'EUR'   // filed cells are in the filing's own currency
   // a filing that froze no hazard cells: a Pillar 3 filing traces its Template 5 cells instead (E105)
   if (!hazards.length) return q.data ? <T5Lineage filingId={filingId} /> : null
-
-  const charted = hazards.filter(h => (h.exposed_value_eur ?? 0) > 0).slice(0, 8)
+  const charted = hazards.filter(h => (h.exposed_value_eur ?? 0) > 0)
 
   return (
-    <div className="space-y-4">
-      {charted.length > 0 && (
-        <div>
-          <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Exposure by hazard · value at or above the stated at-risk level</div>
-          <Card className="p-4">
-            <HBar data={charted.map(h => ({ label: hazardLabel(h.hazard), value: h.exposed_value_eur ?? 0, color: sevColor(h.max_score) }))} format={(n: number) => money(n, ccy)} />
-          </Card>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap px-1">
+        <SectionHead icon={Route}>From a filed figure to its source</SectionHead>
+        <InfoButton compact details={{ title: 'From a filed figure to its source', sections: ABOUT }} />
+        <Lens kind="insight" className="ml-auto" />
+      </div>
+      <Card className="p-4 space-y-3">
+        {charted.length > 0
+          ? <HBar data={charted.map(h => ({ label: hazardLabel(h.hazard), value: h.exposed_value_eur ?? 0, color: sevColor(h.max_score), sub: plural(h.n_exposed, 'asset') }))}
+              format={(n: number) => money(n, ccy)} onBar={i => setOpen(charted[i].hazard)} labelWidth="w-40" />
+          : <div className="text-[12.5px] text-[var(--color-faint)]">No value is exposed at or above the threshold.</div>}
+        <div className="flex flex-wrap gap-1.5">
+          {hazards.filter(h => !(h.exposed_value_eur ?? 0)).map(h => (
+            <button key={h.hazard} onClick={() => setOpen(h.hazard)} className="text-[11.5px] rounded-full border border-[var(--color-line-2)] px-2 py-0.5 text-[var(--color-mute)] hover:text-[var(--color-sky)]">
+              {hazardLabel(h.hazard)} · none exposed</button>))}
         </div>
-      )}
-      <div>
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Reported figures · trace to source</div>
-        <Lens kind="insight" />
-      </div>
-      <Card className="p-0 overflow-hidden">
-        {hazards.map(h => (
-          <div key={h.hazard} className="border-b border-[var(--color-line)] last:border-0">
-            <button onClick={() => setOpen(open === h.hazard ? null : h.hazard)}
-              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[var(--color-panel)] transition text-left">
-              {open === h.hazard ? <ChevronDown size={14} className="text-[var(--color-faint)]" /> : <ChevronRight size={14} className="text-[var(--color-faint)]" />}
-              <span className="flex-1 text-[13px] text-[var(--color-ink)]">{hazardLabel(h.hazard)}</span>
-              <span className="mono text-[11px] text-[var(--color-faint)]">{h.n_exposed} assets</span>
-              <span className="mono text-[12.5px] tabular-nums text-[var(--color-mute)] w-20 text-right">{money(h.exposed_value_eur, ccy)}</span>
-            </button>
-            {open === h.hazard && <HazardTrace filingId={filingId} hazard={h.hazard} />}
-          </div>
-        ))}
       </Card>
-      </div>
+      {open && (
+        <Dialog title={`${hazardLabel(open)} — from the figure to its source`} onClose={() => setOpen(null)} className="sm:max-w-3xl">
+          <HazardTrace filingId={filingId} hazard={open} />
+        </Dialog>)}
     </div>
   )
 }
@@ -71,74 +71,61 @@ function HazardTrace({ filingId, hazard }: { filingId: string; hazard: string })
   const q = useQuery({ queryKey: ['lineage', filingId, hazard], queryFn: () => api.get<Lineage>(`/v1/filings/${filingId}/lineage?hazard=${hazard}`) })
   const [graph, setGraph] = useState(false)
   const d = q.data
-  if (q.isLoading) return <div className="px-4 py-3 text-[12px] text-[var(--color-faint)]">tracing…</div>
-  if (!d) return <div className="px-4 py-3 text-[12px] text-[var(--color-bad)]">could not trace this cell</div>
-  if (!d.supported) return <div className="px-4 py-3 text-[12px] text-[var(--color-mute)]">{d.message}</div>
-
+  if (q.isLoading) return <div className="text-[12.5px] text-[var(--color-faint)]">Tracing…</div>
+  if (!d) return <div className="text-[12.5px] text-[var(--color-bad)]">This figure could not be traced.</div>
+  if (!d.supported) return d.msg ? <MessageLine m={d.msg} className="text-[12.5px] text-[var(--color-mute)]" /> : null
+  const ccy = d.currency ?? 'EUR'
   return (
-    <div className="px-4 py-3 bg-[var(--color-panel)] space-y-3">
-      <div className="flex justify-end">
-        <div className="inline-flex rounded-lg border border-[var(--color-line-2)] overflow-hidden text-[10.5px] mono">
-          <button onClick={() => setGraph(false)} className={`px-2 py-0.5 ${!graph ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>list</button>
-          <button onClick={() => setGraph(true)} className={`px-2 py-0.5 ${graph ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>graph</button>
-        </div>
-      </div>
-      {graph && (
-        <LineageGraph hazardLabel={hazardLabel(d.hazard)} exposed={d.cell.exposed_value_eur}
-          contributors={d.contributors} sources={d.sources} />
-      )}
-      {/* source feeds */}
+    <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
+        <span className="display text-[20px] tabular-nums">{money(d.cell.exposed_value_eur, ccy)}</span>
+        <span className="text-[12px] text-[var(--color-mute)]">exposed · {plural(d.contributors.length, 'asset')}</span>
+        {d.drift_count > 0 && <span className="inline-flex items-center gap-1">
+          <StatusChip tone="warn" label={`${plural(d.drift_count, 'asset')} re-scored since`} />
+          <InfoButton compact details={{ title: 'Re-scored since it was filed', sections: [
+            { heading: HEADING.shows, body: 'These assets have been scored again on a newer model since the filing was frozen.' },
+            { heading: HEADING.read, body: 'The filing keeps the scores it was frozen with. Restate it to bring the new scores in.' }] }} /></span>}
+        <div className="ml-auto inline-flex rounded-lg border border-[var(--color-line-2)] overflow-hidden text-[11.5px]">
+          <button onClick={() => setGraph(false)} aria-pressed={!graph} className={`px-2 py-0.5 ${!graph ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>List</button>
+          <button onClick={() => setGraph(true)} aria-pressed={graph} className={`px-2 py-0.5 ${graph ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>Graph</button>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
         <Satellite size={13} className="text-[var(--color-sky)]" />
-        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Source</span>
-        {d.sources.length === 0 && <span className="text-[11px] text-[var(--color-faint)]">not mapped</span>}
+        {d.sources.length === 0 && <span className="text-[11.5px] text-[var(--color-faint)]">No source feed named</span>}
         {d.sources.map(s => (
-          <span key={s.key} className="inline-flex items-center gap-1.5 text-[11px] rounded-full border border-[var(--color-line-2)] px-2 py-0.5">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: feedDot(s.status) }} />{s.name}
-          </span>
-        ))}
+          <span key={s.key} className="inline-flex items-center gap-1.5 text-[11.5px] rounded-full border border-[var(--color-line-2)] px-2 py-0.5 text-[var(--color-mute)]">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: feedTone(s.status) }} />{s.name}</span>))}
       </div>
-      {d.drift_count > 0 && (
-        <div className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-warn)]">
-          <AlertTriangle size={12} /> {d.drift_count} asset{d.drift_count === 1 ? '' : 's'} scored with a model version newer than the filed one.
-        </div>
-      )}
-
-      {/* contributors: asset → cell → golden-source row */}
-      <div className="space-y-2">
-        <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] flex items-center gap-1">
-          <ArrowDownRight size={12} /> Contributing assets ({d.contributors.length})
-        </div>
-        {d.contributors.map(c => <ContributorRow key={c.asset_id} c={c} ccy={d.currency ?? 'EUR'} />)}
-      </div>
+      {graph ? <LineageGraph hazardLabel={hazardLabel(d.hazard)} exposed={d.cell.exposed_value_eur} contributors={d.contributors} sources={d.sources} />
+        : <div className="space-y-1.5 max-h-[55vh] overflow-y-auto">{d.contributors.map(c => <ContributorRow key={c.asset_id} c={c} ccy={ccy} />)}</div>}
     </div>
   )
 }
 
 function ContributorRow({ c, ccy }: { c: Contributor; ccy: string }) {
-  const [rev, setRev] = useState(false)
+  const [reuse, setReuse] = useState(false)
   const g = c.granular
+  const tech = [
+    { heading: 'Model', body: `${modelLabel(g?.model_version)} today; ${modelLabel(c.filed.model_version)} when filed` },
+    { heading: 'Data vintage', body: g?.data_vintage ? g.data_vintage.slice(0, 10) : '—' },
+    ...(g?.ci_lower != null ? [{ heading: 'Score band', body: `${g.ci_lower} to ${g.ci_upper}` }] : []),
+    ...(g?.fingerprint ? [{ heading: 'Score fingerprint', body: g.fingerprint }] : []),
+  ]
   return (
-    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-2.5">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] text-[var(--color-ink)] truncate">{c.asset_name}{c.country ? <span className="text-[var(--color-faint)]"> · {c.country}</span> : null}</div>
-          <button onClick={() => setRev(r => !r)} className="mono text-[10px] text-[var(--color-sky)] hover:underline inline-flex items-center gap-1">
-            <ArrowUpRight size={11} /> grid cell {c.h3_cell.slice(0, 10)}… · who else uses it
-          </button>
+    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-2 flex items-center gap-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <div className="text-[12.5px] text-[var(--color-ink)] truncate">{c.asset_name}{c.country ? <span className="text-[var(--color-faint)]"> · {c.country}</span> : null}</div>
+        <div className="flex items-center gap-1.5 mt-0.5 text-[11.5px] text-[var(--color-mute)]">
+          <span>Filed {c.filed.score ?? '—'}{c.filed.bucket ? ` (${bucketLabel(c.filed.bucket)})` : ''}</span>
+          <span className="text-[var(--color-faint)]">·</span>
+          <span style={{ color: c.drift ? 'var(--color-warn)' : undefined }}>today {g?.risk_score ?? '—'}</span>
+          <InfoButton compact details={{ title: c.asset_name, sections: tech }} />
         </div>
-        <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{money(c.value_eur, ccy)}</div>
       </div>
-      {/* golden-source row */}
-      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] border-t border-[var(--color-line)] pt-2">
-        <Kv k="filed score" v={c.filed.score != null ? `${c.filed.score} (${bucketLabel(c.filed.bucket)})` : '—'} />
-        <Kv k="golden source" v={g?.risk_score != null ? String(g.risk_score) : '—'} tone={c.drift ? 'warn' : undefined} />
-        <Kv k="model" v={g?.model_version ?? '—'} mono />
-        <Kv k="data vintage" v={g?.data_vintage ? g.data_vintage.slice(0, 10) : '—'} />
-        {g?.fingerprint && <Kv k="fingerprint" v={g.fingerprint + '…'} mono />}
-        {g?.ci_lower != null && <Kv k="band" v={`${g.ci_lower}–${g.ci_upper}`} />}
-      </div>
-      {rev && <ReverseTrace h3={c.h3_cell} />}
+      <button onClick={() => setReuse(true)} className="inline-flex items-center gap-1 text-[11.5px] text-[var(--color-sky)] hover:underline"><Users size={12} /> Who else uses this place</button>
+      <div className="tabular-nums text-[12.5px] text-[var(--color-ink)] w-24 text-right">{money(c.value_eur, ccy)}</div>
+      {reuse && <Dialog title={`Who else uses ${c.asset_name}’s place`} onClose={() => setReuse(false)} ><ReverseTrace h3={c.h3_cell} /></Dialog>}
     </div>
   )
 }
@@ -146,28 +133,22 @@ function ContributorRow({ c, ccy }: { c: Contributor; ccy: string }) {
 function ReverseTrace({ h3 }: { h3: string }) {
   const q = useQuery({ queryKey: ['upstream', h3], queryFn: () => api.get<Upstream>(`/v1/lineage/cell/${h3}`) })
   const d = q.data
-  if (q.isLoading) return <div className="mt-2 text-[11px] text-[var(--color-faint)]">tracing reuse…</div>
+  if (q.isLoading) return <div className="text-[12.5px] text-[var(--color-faint)]">Tracing…</div>
   if (!d) return null
   return (
-    <div className="mt-2 rounded-lg bg-[var(--color-panel-2)] p-2.5 space-y-2">
-      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">This granular cell also feeds</div>
-      <div className="mono text-[10.5px] text-[var(--color-faint)]">{d.hazards_scored_here.length} hazards scored here: {d.hazards_scored_here.map(hazardLabel).join(', ')}</div>
-      {d.used_by.map((u, i) => (
-        <div key={i} className="text-[11.5px]">
-          <span className="text-[var(--color-ink)] capitalize">{u.vertical}</span>
-          <span className="text-[var(--color-mute)]"> · {u.n} holding{u.n === 1 ? '' : 's'} · {balance(u.value_eur)}</span>
-          {u.filing && <span className="mono text-[10px] text-[var(--color-sky)]"> → {frameworkLabel(u.framework)} filing ({u.filing.status})</span>}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function Kv({ k, v, mono, tone }: { k: string; v: string; mono?: boolean; tone?: 'warn' }) {
-  return (
-    <div className="flex justify-between gap-2">
-      <span className="text-[var(--color-faint)]">{k}</span>
-      <span className={`${mono ? 'mono ' : ''}text-right truncate`} style={{ color: tone === 'warn' ? 'var(--color-warn)' : 'var(--color-ink)' }}>{v}</span>
+    <div className="space-y-3 text-[12.5px]">
+      <div className="flex flex-wrap gap-1.5">
+        {d.hazards_scored_here.map(h => <span key={h} className="rounded-full border border-[var(--color-line-2)] px-2 py-0.5 text-[11.5px] text-[var(--color-mute)]">{hazardLabel(h)}</span>)}
+      </div>
+      <div className="divide-y divide-[var(--color-line)] border-y border-[var(--color-line)]">
+        {d.used_by.map((u, i) => (
+          <div key={i} className="py-2 flex items-center gap-2 flex-wrap">
+            <span className="text-[var(--color-ink)]">{u.book ?? 'Another book'}</span>
+            <span className="text-[var(--color-mute)]">{plural(u.n, 'holding')} · {balance(u.value_eur)}</span>
+            {u.filing && <span className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-[var(--color-mute)]">{frameworkLabel(u.framework)} <StatusChip value={u.filing.status} /></span>}
+          </div>))}
+      </div>
+      {d.used_by.length === 0 && <div className="text-[var(--color-faint)] inline-flex items-center gap-1.5"><AlertTriangle size={12} /> No holding found at this place.</div>}
     </div>
   )
 }

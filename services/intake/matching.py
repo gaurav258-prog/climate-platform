@@ -99,13 +99,16 @@ def match(records: list[Optional[dict]], existing: list[dict], *, name_field: st
                 if rec.get(f) is not None and not _same(target.get(f), rec.get(f))}
         large = []
         old_v, new_v = target.get(value_field), rec.get(value_field)
+        size: dict = {}                      # the large changes as figures, for a screen to draw
         if old_v and new_v is not None and abs(new_v - old_v) / abs(old_v) > LARGE_VALUE_CHANGE:
+            size["value_change_pct"] = round(100 * (new_v - old_v) / abs(old_v))
             large.append(f"value changes by {100 * (new_v - old_v) / abs(old_v):+.0f}%")
         moved = _dist_m(target.get("latitude"), target.get("longitude"), rec.get("latitude"), rec.get("longitude"))
         if moved > LARGE_MOVE_M and moved != float("inf"):
+            size["move_km"] = round(moved / 1000, 1)
             large.append(f"location moves {moved / 1000:.1f} km")
         out.append({"status": "update" if diff else "unchanged", "entity_id": target["entity_id"], "diff": diff,
-                    "large": large, "attach_ref": attach,
+                    "large": large, "large_size": size, "attach_ref": attach,
                     "moved": any(f in diff for f in ("latitude", "longitude", "plot_geometry"))})
     return out
 
@@ -121,5 +124,5 @@ def summarize(results: list[dict], names: list[Optional[str]]) -> dict:
             if len(updates) < 25:
                 updates.append({"name": n, "changes": {k: v for k, v in r["diff"].items()}})
             if r.get("large"):
-                large.append({"name": n, "reasons": r["large"]})
+                large.append({"name": n, "reasons": r["large"], **r.get("large_size", {})})
     return {**counts, "updates": updates, "large_changes": large}

@@ -34,11 +34,15 @@ def _stage(s, key, rows, currency="USD", book=BOOK):
 
 def test_undeclared_currency_or_book_date_is_refused_up_front(intake_client):
     raw = _csv(_rows("undeclared"))
-    for data, needle in (({"book_date": "2026-06-30"}, "which currency"), ({"currency": "EUR"}, "book date"),
-                         ({**DECL, "currency": "ZZZ"}, "not a currency"), ({**DECL, "book_date": "2999-01-01"}, "future")):
+    for data, code in (({"book_date": "2026-06-30"}, "intake.refused.currency_missing"),
+                       ({"currency": "EUR"}, "intake.refused.book_date_missing"),
+                       ({**DECL, "currency": "ZZZ"}, "intake.refused.currency_unknown"),
+                       ({**DECL, "book_date": "2999-01-01"}, "intake.refused.book_date_future")):
         r = intake_client.post("/v1/bank/assets/validate", headers=intake_client.maker,
                                files={"file": ("undeclared.csv", raw)}, data=data)
-        assert r.status_code == 400 and needle in r.json()["error"]["message"], r.text
+        err = r.json()["error"]
+        assert r.status_code == 400 and err["error"] == "currency_declaration" and err["code"] == code, r.text
+        assert err["message"] == err["msg"]["label"] and err["detail"]["what"], r.text
 
 
 def test_api_push_must_declare_currency_and_book_date(intake_client):

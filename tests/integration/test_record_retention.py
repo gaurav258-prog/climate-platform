@@ -80,7 +80,8 @@ def test_an_entitys_own_country_governs_and_an_unknown_country_is_said(s):
     assert r["country"] == "ES" and "es_ccom" in {x["key"] for x in r["rules"]}
     s.execute(text("UPDATE reporting_entities SET country = 'JP' WHERE entity_id = CAST(:e AS uuid)"), {"e": ent})
     r = R.retention_for(s, BANK_ORG, _filing(s, entity_id=ent))
-    assert r["country"] == "JP" and any("JP" in g for g in r["gaps"])
+    assert r["country"] == "JP" and any(g["code"] == "intake.retention.gap.no_national" and g["params"]["country"] == "Japan"
+                                        for g in r["gaps"])
 
 
 def test_the_organisations_policy_lengthens_never_shortens(s, monkeypatch):
@@ -147,7 +148,7 @@ def test_a_listed_issuer_keeps_ten_years_from_publication_and_unknown_listing_is
     assert {x["key"] for x in r["rules"]} == {"td_art4", "at_ugb_212"} and r["provisional"]
     _set(real, "AT", None)
     r = R.retention_for(real, BANK_ORG, _filing(real))
-    assert any("listed" in g for g in r["gaps"])
+    assert any(g["code"] == "intake.retention.gap.listed_unknown" for g in r["gaps"])
 
 
 def test_pillar3_takes_the_national_period_and_the_uk_has_no_statutory_period(real):
@@ -156,4 +157,5 @@ def test_pillar3_takes_the_national_period_and_the_uk_has_no_statutory_period(re
     assert [x["key"] for x in r["rules"]] == ["crr_434:pl_uor_74_1"] and r["rules"][0]["years"] == 5
     _set(real, "GB", True)
     r = R.retention_for(real, BANK_ORG, _filing(real, "bank_p3esg"))
-    assert r["rules"] == [] and any("Companies Act 2006" in g for g in r["gaps"])
+    assert r["rules"] == [] and any(g["code"] == "intake.retention.gap.no_statute" and "Companies Act 2006" in g["params"]["law"]
+                                    for g in r["gaps"])

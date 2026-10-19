@@ -91,7 +91,8 @@ def test_unusable_file_is_refused_with_the_reason_beside_it(channel):
     tag = channel["tag"]
     _drop(channel, f"{tag}-wrong.csv", b"foo,bar\n1,2\n")
     res = dropfolder.sweep_channel(channel, BANK_ORG)
-    assert res[0]["state"] == "refused" and "missing required column" in res[0]["reason"]
+    assert res[0]["state"] == "refused" and "required columns missing" in res[0]["reason"]
+    assert "map your columns" in res[0]["reason"]          # the reason file carries what to do, not only the label
     names = sorted(p.name for p in channel["dirs"]["refused"].iterdir())
     assert len(names) == 2 and names[1].endswith(".reason.txt")
 
@@ -158,4 +159,4 @@ def test_a_file_without_a_book_date_is_refused_with_the_reason(channel):
     res = dropfolder.sweep_channel(channel, BANK_ORG)
     assert res[0]["state"] == "refused" and "book date" in res[0]["reason"]
     reason = next(p for p in channel["dirs"]["refused"].iterdir() if p.name.endswith(".reason.txt")).read_text()
-    assert "book_date" in reason
+    assert "Enter the book date" in reason and "add a book date column" in reason

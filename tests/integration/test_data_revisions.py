@@ -41,7 +41,7 @@ def _sha(s, fid):
 def test_nothing_changed_is_said_plainly(s):
     fid = _filing(s)
     r = D.revisions(s, BANK_ORG, fid)
-    assert r["pinned"] and r["changed"] is False and r["facts"]["n"] == 0 and "Nothing" in r["message"]
+    assert r["pinned"] and r["changed"] is False and r["facts"]["n"] == 0 and r["msg"]["code"] == "intake.revision.unchanged"
 
 
 def test_a_changed_fact_flags_the_filing_and_leaves_it_untouched(s):
@@ -54,7 +54,9 @@ def test_a_changed_fact_flags_the_filing_and_leaves_it_untouched(s):
     r = D.revisions(s, BANK_ORG, fid)
     assert r["changed"] and any(b["changed"] for b in r["books"])
     assert r["facts"]["by_field"].get("primary_value_eur") == 1 and r["facts"]["by_path"].get("manual_edit") == 1
-    assert "restate" in r["message"] and _sha(s, fid) == before            # flagged, never touched
+    assert r["msg"]["code"].startswith("intake.revision.book") and _sha(s, fid) == before   # flagged, never touched
+    assert {"label": "Value", "n": 1, "field": "primary_value_eur"} in r["facts"]["fields"]    # in customer words
+    assert {"path": "manual_edit", "label": "edits", "n": 1} in r["facts"]["paths"]
     flagged = D.flagged_filings(s, BANK_ORG)
     assert any(f["filing_id"] == fid and f["new_facts"] >= 1 for f in flagged)
 

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+from core.messages import render
 from services.governance.filings import get_filing
 from services.governance.money_format import presentation_of
 
@@ -31,21 +33,21 @@ def _frozen(session: Session, org_id: str, filing_id: str) -> tuple[dict, dict]:
 
 
 def _unsupported(filing: dict, payload: dict) -> str | None:
-    """Why this filing has no Template 5 trace (None when it has one)."""
+    """Why this filing has no Template 5 trace, as a catalogue code (None when it has one)."""
     from services.governance.filing_annex import _p3_spec
     from services.governance.pillar3_report import is_earlier_shape
     from services.governance.pillar3_templates import stated_level
     if filing["framework"] != "bank_p3esg":
-        return "Template 5 lineage is for Pillar 3 ESG filings."
+        return "intake.lineage.cell.not_pillar_three"
     if is_earlier_shape(payload):
-        return "A filing of the earlier report shape traces its hazard cells as frozen (by hazard)."
+        return "intake.lineage.cell.earlier_shape"
     if not payload.get("assets"):
-        return "This filing froze no per-exposure book."
+        return "intake.lineage.cell.no_book"
     if stated_level(payload) is None:
-        return "Template 5 was not computed: the at-risk level (method.at_risk_level) was not stated when it was frozen."
+        return "intake.lineage.cell.no_level"
     spec = _p3_spec(payload)
     if not spec or not any(t["id"] == "T5" for t in spec["templates"]):
-        return "The version this filing was prepared under has no Template 5."
+        return "intake.lineage.cell.no_template"
     return None
 
 
@@ -59,7 +61,7 @@ def t5_view(session: Session, org_id: str, filing_id: str) -> dict:
     filing, payload = _frozen(session, org_id, filing_id)
     why = _unsupported(filing, payload)
     if why:
-        return {"supported": False, "framework": filing["framework"], "message": why}
+        return {"supported": False, "framework": filing["framework"], "msg": render(why)}
     spec, level = _p3_spec(payload), stated_level(payload)
     t = R.template(spec, "T5")
     g = template5(spec, payload["assets"], level)
@@ -96,16 +98,16 @@ def t5_cell_lineage(session: Session, org_id: str, filing_id: str, row: str, col
     filing, payload = _frozen(session, org_id, filing_id)
     why = _unsupported(filing, payload)
     if why:
-        return {"supported": False, "message": why}
+        return {"supported": False, "msg": render(why)}
     spec, level, assets = _p3_spec(payload), stated_level(payload), payload["assets"]
     t = R.template(spec, "T5")
     col = next((c for c in t["columns"] if c["id"] == column), None)
     if col is None or column in _NOT_SUMMED:
-        raise ValueError(f"Template 5 has no summed column '{column}'")
+        raise UserError("intake.lineage.cell.no_column", 404)
     if geography != ALL:
         geo = next((x for x in geographies(assets) if x[0] == geography), None)
         if geo is None:
-            raise ValueError(f"'{geography}' is not a geography of this filing's Template 5")
+            raise UserError("intake.lineage.cell.no_geography", 404)
         geo_label, scope = geo[1], geo[2]
     else:
         geo_label, scope = "All geographies", assets

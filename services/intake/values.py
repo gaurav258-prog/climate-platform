@@ -87,6 +87,12 @@ def normalise(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -
         top = dict(sorted(unknown.items(), key=lambda kv: -kv[1])[:25])
         report[name] = {"label": s.get("label", name), "required": bool(s.get("required")), "n_recognised": n_recognised,
                         "n_unknown": sum(unknown.values()), "n_unknown_values": len(unknown), "unknown": top}
+        if unknown:                       # what a screen shows (core/messages.py)
+            from core.messages import render
+            eg = ", ".join(f"“{k}” ({c})" for k, c in list(top.items())[:4]) + (", …" if len(unknown) > 4 else "")
+            report[name]["msg"] = render("intake.values.unknown_required" if s.get("required") or vocab == "currency"
+                                         else "intake.values.unknown_optional", field=report[name]["label"],
+                                         n=len(unknown), examples=eg)
     return out, report
 
 
@@ -100,6 +106,13 @@ def gate_reason(report: dict) -> Optional[str]:
     if not parts:
         return None
     return "Values: " + "; ".join(parts) + " — left blank unless you map them to ours."
+
+
+def gate_message(report: dict) -> Optional[dict]:
+    """gate_reason's catalogue message (the sentence stays: approval compares it word for word)."""
+    from core.messages import render
+    labels = [r["label"] for name, r in report.items() if r["n_unknown"] and not r["required"] and name != "currency"]
+    return render("intake.gate.values", fields=", ".join(labels)) if labels else None
 
 
 def suggest(session: Optional[Session], vocab: str, their_values: list[str]) -> dict[str, Optional[str]]:

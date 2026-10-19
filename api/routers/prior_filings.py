@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import text
 
 import services.governance.prior_filings as PF
 from api.deps import CurrentUser, DbSession, attachment, require_permission
+from core.errors import UserError
 
 # original-file media types, by stored format
 _MEDIA = {"pdf": "application/pdf", "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -38,11 +39,9 @@ def datapoints(framework: str, session: DbSession, ctx: CurrentUser, period_end:
     from datetime import date as _date
     try:
         pe = _date.fromisoformat(period_end[:10]) if period_end else None
-        return {"datapoints": PF.datapoints(framework, session=session, org_id=ctx["org"]["org_id"], period_end=pe)}
     except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)}) from e
-    except PF.FilingError as e:
-        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)}) from e
+        raise UserError("intake.prior.refused.period_end_format") from e
+    return {"datapoints": PF.datapoints(framework, session=session, org_id=ctx["org"]["org_id"], period_end=pe)}
 
 
 # static /trends routes must come before the /{filing_id} catch-all, or 'trends' is read as an id
@@ -61,10 +60,7 @@ def trend(framework: str, datapoint_key: str, session: DbSession, ctx: CurrentUs
 @router.get("/{filing_id}", summary="One imported filing with its reported lines")
 def get_filing(filing_id: str, session: DbSession, ctx: CurrentUser,
                _p: dict = Depends(require_permission("reports.view"))):
-    try:
-        return PF.get_filing(session, filing_id, ctx["org"]["org_id"])
-    except PF.FilingError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    return PF.get_filing(session, filing_id, ctx["org"]["org_id"])
 
 
 @router.get("/{filing_id}/file", summary="Download the original filed report, exactly as submitted")
@@ -75,7 +71,7 @@ def download_original(filing_id: str, session: DbSession, ctx: CurrentUser,
         WHERE filing_id = :fid AND org_id = :org
     """), {"fid": filing_id, "org": ctx["org"]["org_id"]}).mappings().first()
     if not row:
-        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+        raise UserError("error.not_found")
     return Response(content=bytes(row["file_bytes"]),
                     media_type=_MEDIA.get(row["file_format"], "application/octet-stream"),
                     headers={"Content-Disposition": attachment(f"{row["original_filename"]}")})
@@ -93,16 +89,13 @@ async def upload(session: DbSession, ctx: CurrentUser,
                  _p: dict = Depends(require_permission("reports.publish"))):
     data = await file.read()
     if not data:
-        raise HTTPException(400, {"error": "empty", "message": "The uploaded file is empty."})
+        raise UserError("intake.prior.refused.empty")
     if len(data) > MAX_UPLOAD:
-        raise HTTPException(400, {"error": "too_large", "message": "File exceeds the 25 MB limit."})
-    try:
-        return PF.create_from_upload(session, ctx["org"]["org_id"], ctx["user"]["id"],
-                                     framework=framework, period_label=period_label,
-                                     entity_name=entity_name, filename=file.filename or "upload", data=data,
-                                     currency=currency, period_end=period_end, undertaking=undertaking)
-    except PF.FilingError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+        raise UserError("intake.prior.refused.too_large", limit=MAX_UPLOAD // (1024 * 1024))
+    return PF.create_from_upload(session, ctx["org"]["org_id"], ctx["user"]["id"],      # refusals: FilingError (UserError)
+                                 framework=framework, period_label=period_label,
+                                 entity_name=entity_name, filename=file.filename or "upload", data=data,
+                                 currency=currency, period_end=period_end, undertaking=undertaking)
 
 
 class BasisBody(BaseModel):
@@ -114,10 +107,7 @@ class BasisBody(BaseModel):
 def state_basis(filing_id: str, body: BasisBody, session: DbSession, ctx: CurrentUser,
                 _p: dict = Depends(require_permission("reports.publish"))):
     from api.services.rbac import write_audit
-    try:
-        out = PF.state_basis(session, ctx["org"]["org_id"], filing_id, undertaking=body.undertaking, period_end=body.period_end)
-    except PF.FilingError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    out = PF.state_basis(session, ctx["org"]["org_id"], filing_id, undertaking=body.undertaking, period_end=body.period_end)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="prior_filing.basis_stated",
                 target_type="reported_filing", target_id=filing_id, detail=body.model_dump())
     session.commit()
@@ -140,18 +130,12 @@ class ConfirmBody(BaseModel):
 @router.post("/{filing_id}/confirm", summary="Confirm the read figures and lock the filing")
 def confirm(filing_id: str, body: ConfirmBody, session: DbSession, ctx: CurrentUser,
             _p: dict = Depends(require_permission("reports.publish"))):
-    try:
-        edits = [e.model_dump(exclude_none=True) for e in (body.edits or [])]
-        return PF.confirm(session, filing_id, ctx["org"]["org_id"], ctx["user"]["id"],
-                          edits=edits, basis_note=body.basis_note)
-    except PF.FilingError as e:
-        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    edits = [e.model_dump(exclude_none=True) for e in (body.edits or [])]
+    return PF.confirm(session, filing_id, ctx["org"]["org_id"], ctx["user"]["id"],            # refusals: FilingError
+                      edits=edits, basis_note=body.basis_note)
 
 
 @router.delete("/{filing_id}", status_code=204, summary="Remove an imported filing")
 def delete_filing(filing_id: str, session: DbSession, ctx: CurrentUser,
                   _p: dict = Depends(require_permission("reports.publish"))):
-    try:
-        PF.delete_filing(session, filing_id, ctx["org"]["org_id"])
-    except PF.FilingError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    PF.delete_filing(session, filing_id, ctx["org"]["org_id"])                              # not found: FilingError

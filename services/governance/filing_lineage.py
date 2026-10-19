@@ -25,6 +25,8 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.errors import UserError
+from core.messages import name, names, render
 from services.data.feeds import feeds_for_hazard
 from services.governance.filings import get_filing
 from services.governance.money_format import presentation_of
@@ -68,37 +70,20 @@ _LIST_CFG = {
 # (reit_taxonomy / insurer_solvency used to be routed through a "trace the sibling filing" workaround here —
 # fixed foundationally instead: they're in _LIST_CFG above now, since the data they need was always computed,
 # just discarded before freezing. See report_snapshots._reit_taxonomy/_insurer_solvency.)
-# a report traced spatially only in the filings that froze hazard cells — its current shape prints none (E95, E97)
+# a report traced spatially only in the filings that froze hazard cells — its current shape prints none (E95, E97) — and
+# the reports whose lineage is a different, real mechanism: each says so with a catalogue message (intake.lineage.*)
 _NO_HAZARD_CELLS = {
-    "bank_tcfd": "Per exposure: the frozen loan book lists every exposure with the facts the EU Taxonomy Art. 8 templates "
-                 "read (counterparty, instrument, Taxonomy status, objective, gross carrying amount); the templates print "
-                 "no hazard cell, so there is no spatial trace. (A filing of the earlier report shape traces its hazard "
-                 "cells as frozen.)",
-    "bank_p3esg": "Template 5 prints the gross carrying amount sensitive to chronic / acute events per sector and "
-                  "geography row, not a value per hazard: trace a Template 5 cell (row × column × geography) to the "
-                  "exposures it sums and the hazards that make them sensitive — GET /v1/filings/{filing_id}/lineage/t5 "
-                  "(E105). (A filing of the earlier report shape traces its hazard cells as frozen.)",
+    "bank_tcfd": "intake.lineage.per_exposure",        # the Taxonomy templates print no hazard cell
+    "bank_p3esg": "intake.lineage.template_five",      # Template 5 prints sensitivity per sector × geography (E105)
 }
 _ALT_LINEAGE = {
-    "sfdr_pai": "Per-issuer drill-down: GET /v1/issuers/{issuer_id} (full facility footprint + physical + "
-                "transition detail for any holding) — not a spatial cell trace, since funds hold issuers, "
-                "not geolocated assets.",
-    "csrd_e1": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
-               "sourcing; own-site exposure is in this filing's own material-hazard rows directly.",
-    "esrs_pack": "Per site: the frozen statement lists every site in scope with its weight, carrying amount and "
-                 "net revenue, and per horizon its hazards, materiality, water-stress and sensitive-area readings; "
-                 "each figure names its concept and lane (computed / stated / derived).",
-    "sfdr_precontractual": "Item by item: every item of the frozen template carries its source (computed from the "
-                           "fund / the manager's answer / printed wording); per holding, GET /v1/issuers/{issuer_id}.",
-    "sfdr_periodic": "Item by item: every item of the frozen template carries its source; the frozen holdings (each "
-                     "position date of the reference period, with the investee's own Taxonomy KPIs) are in the "
-                     "filing; per holding, GET /v1/issuers/{issuer_id}.",
-    "eudr_simplified": "Per undertaking: the frozen declaration holds its status, every product line with its estimated "
-                       "annual quantity and every plot with its geolocation or postal address; per plot, "
-                       "GET /v1/supply/plot/{plot_id}; the declaration as it stands, GET /v1/eudr/declaration.",
-    "eudr_dds": "Per shipment: the frozen statement holds its plots (geolocation, country, the satellite reading of "
-                "each), the supplier, the legality evidence and the risk assessment it was prepared from; per plot, "
-                "GET /v1/supply/plot/{plot_id}; the shipment, GET /v1/eudr/movements/{movement_id}/statement.",
+    "sfdr_pai": "intake.lineage.per_issuer",            # GET /v1/issuers/{issuer_id}
+    "csrd_e1": "intake.lineage.per_plot",               # GET /v1/supply/plot/{plot_id}
+    "esrs_pack": "intake.lineage.per_site",             # the frozen statement, per site
+    "sfdr_precontractual": "intake.lineage.per_item",   # every item carries its source; per holding the issuer
+    "sfdr_periodic": "intake.lineage.per_item_holdings",
+    "eudr_simplified": "intake.lineage.per_declaration",
+    "eudr_dds": "intake.lineage.per_shipment",
 }
 
 
@@ -143,13 +128,12 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
     cfg = _LIST_CFG.get(framework)
     if not cfg or "by_hazard" not in payload:
         return {"supported": False, "framework": framework,
-                "message": _ALT_LINEAGE.get(framework) or _NO_HAZARD_CELLS.get(framework,
-                    "Spatial lineage is available for the located-book filings (loan book, property book, "
-                    "underwriting book).")}
+                "msg": render(_ALT_LINEAGE.get(framework) or _NO_HAZARD_CELLS.get(framework) or "intake.lineage.located_only")}
 
     cell = (payload.get("by_hazard") or {}).get(hazard)
     if cell is None:
-        raise ValueError(f"hazard '{hazard}' is not a reported cell in this filing")
+        raise UserError("intake.lineage.not_reported", 404,
+                        hazard=name("hazard", hazard) if hazard in names().get("hazard", {}) else "This hazard")
 
     # the contributors are the ones the filed cell was computed from, on the definition in force when it was frozen:
     # today's — at or above the stated level, on a hazard that applies to the asset (portfolio_engine.exposure_by_hazard);
@@ -230,8 +214,8 @@ def cell_upstream(session: Session, org_id: str, h3_cell: str) -> dict:
     groups: dict[str, dict] = {}
     for e in entities:
         v = e["vertical"]
-        g = groups.setdefault(v, {"vertical": v, "framework": _VERTICAL_FRAMEWORK.get(v),
-                                  "n": 0, "value_eur": 0.0, "entities": []})
+        g = groups.setdefault(v, {"vertical": v, "book": name("intake.vertical_book", v) if v in names().get("intake.vertical_book", {}) else None,
+                                  "framework": _VERTICAL_FRAMEWORK.get(v), "n": 0, "value_eur": 0.0, "entities": []})
         g["n"] += 1
         g["value_eur"] += float(e["primary_value_eur"] or 0)
         g["entities"].append({"entity_id": e["entity_id"], "name": e["entity_name"],

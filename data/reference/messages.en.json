@@ -7819,6 +7819,1251 @@
    "detail": {
     "what": "{figure} is read from a published source: give the source's name and its year."
    }
+  },
+  "intake.receipt.rows": {
+   "label": "Data rows found",
+   "detail": {
+    "what": "The file holds {n} data rows under its header row."
+   }
+  },
+  "intake.receipt.no_rows": {
+   "label": "No data rows",
+   "detail": {
+    "what": "The file has a header row but no data rows under it.",
+    "next": "Check you saved the sheet with your data, then send the file again."
+   }
+  },
+  "intake.receipt.no_duplicates": {
+   "label": "No row appears twice",
+   "detail": {
+    "what": "No two rows in the file are identical."
+   }
+  },
+  "intake.receipt.duplicates": {
+   "label": "Rows repeated: {n}",
+   "detail": {
+    "what": "These spreadsheet rows repeat an earlier row exactly: {rows}.",
+    "why": "Importing them would count the same asset twice.",
+    "next": "Remove the repeated rows, or send the batch for approval with your reason."
+   }
+  },
+  "intake.receipt.new_file": {
+   "label": "Not imported before",
+   "detail": {
+    "what": "No earlier batch imported a file with exactly the same content."
+   }
+  },
+  "intake.receipt.already_imported": {
+   "label": "Same file already imported",
+   "detail": {
+    "what": "A file with exactly the same content was imported on {date}.",
+    "why": "Importing it again would count the whole book twice.",
+    "next": "Send a new version of the book, or send this one for approval with your reason."
+   }
+  },
+  "intake.receipt.row_count": {
+   "label": "Row count matches yours",
+   "detail": {
+    "what": "The file has the {actual} rows you said you sent."
+   }
+  },
+  "intake.receipt.row_count_differs": {
+   "label": "Row count differs from yours",
+   "detail": {
+    "what": "You said you sent {declared} rows; the file has {actual}.",
+    "why": "Rows may have been lost or added between your system and this file.",
+    "next": "Check the export, or correct the number you entered and check again."
+   }
+  },
+  "intake.receipt.total": {
+   "label": "{field} total matches yours",
+   "detail": {
+    "what": "The file's {field} adds up to the total you entered."
+   }
+  },
+  "intake.receipt.total_differs": {
+   "label": "{field} total differs from yours",
+   "detail": {
+    "what": "You entered {declared}; the file's {field} adds up to {actual}, a difference of {difference}.",
+    "why": "Amounts may have been lost or changed between your system and this file.",
+    "next": "Check the export, or correct the total you entered and check again."
+   }
+  },
+  "intake.receipt.total_unreadable": {
+   "label": "{field} total cannot be checked",
+   "detail": {
+    "what": "You entered {declared}; the readable cells add up to {actual}, and {n} cells in this column cannot be read as numbers.",
+    "next": "Write the amounts as 1234.5 or 1,234.5 and send the file again."
+   }
+  },
+  "intake.receipt.total_no_column": {
+   "label": "No {field} column to total",
+   "detail": {
+    "what": "You entered a total for {field}, but the file has no such column.",
+    "next": "Check the column names, or map your columns to ours."
+   }
+  },
+  "intake.receipt.total_not_number": {
+   "label": "Your total is not a number",
+   "detail": {
+    "what": "The total you entered for {field} cannot be read as a number.",
+    "next": "Enter it as digits, for example 1250000000."
+   }
+  },
+  "intake.transform.ties": {
+   "label": "{field} ties",
+   "detail": {
+    "what": "The {field} in the file ({raw}) equals what is imported ({accepted}) plus what is left out ({rejected})."
+   }
+  },
+  "intake.transform.tie_failed": {
+   "label": "{field} does not tie",
+   "detail": {
+    "what": "The {field} in the file adds up to {raw}, but what is imported ({accepted}) plus what is left out ({rejected}) does not.",
+    "why": "A value changed while the file was read, so the import would not match your file.",
+    "next": "Send the batch for approval with your reason, or raise a request in Support."
+   }
+  },
+  "intake.transform.excluded": {
+   "label": "Rows left out: {n} ({pct}%)",
+   "detail": {
+    "what": "{pct}% of the file's rows cannot be imported.",
+    "next": "Each one is in the rows to fix, with its reason. Fix them and send them again, or import the rest."
+   }
+  },
+  "intake.transform.excluded_value": {
+   "label": "Rows left out: {n} ({pct}%)",
+   "detail": {
+    "what": "{pct}% of the file's rows cannot be imported. They carry {pct_value}% of its {field}.",
+    "next": "Each one is in the rows to fix, with its reason. Fix them and send them again, or import the rest."
+   }
+  },
+  "intake.values.unknown_required": {
+   "label": "{field}: values not recognised ({n})",
+   "detail": {
+    "what": "These values in {field} do not match our list: {examples}.",
+    "why": "The column is required, so rows with an unrecognised value are refused.",
+    "next": "Map your values to ours; the mapping is kept for your next file."
+   }
+  },
+  "intake.values.unknown_optional": {
+   "label": "{field}: values not recognised ({n})",
+   "detail": {
+    "what": "These values in {field} do not match our list: {examples}.",
+    "why": "The column is optional, so those cells are left blank.",
+    "next": "Map your values to ours; the mapping is kept for your next file."
+   }
+  },
+  "intake.readiness.not_ready": {
+   "label": "Rows the engine cannot use: {n}",
+   "detail": {
+    "what": "These rows passed the column checks but cannot become an asset: for example a missing or placeholder location, a value that is not positive, or an attribute out of range.",
+    "next": "They are in the rows to fix, each with its reason."
+   }
+  },
+  "intake.gate.nothing_valid": {
+   "label": "No row can be imported",
+   "detail": {
+    "what": "None of the rows passed the checks, so there is nothing to import.",
+    "next": "Fix the rows listed and send the file again."
+   }
+  },
+  "intake.gate.form": {
+   "label": "Values in the wrong form: {n}",
+   "detail": {
+    "what": "Accepted values not in the form their column needs (a number, a valid coordinate or a date as YYYY-MM-DD).",
+    "next": "Correct them and send the file again, or send the batch for approval with your reason."
+   }
+  },
+  "intake.gate.reject_rows": {
+   "label": "{pct}% of rows left out",
+   "detail": {
+    "what": "{pct}% of the file's rows cannot be imported. A batch that leaves out more than {limit}% of its rows needs a second person's approval.",
+    "why": "Leaving out many rows can make your book look smaller than it is.",
+    "next": "Fix the rows listed, or send the batch for approval with your reason."
+   }
+  },
+  "intake.gate.reject_value": {
+   "label": "{pct}% of the value left out",
+   "detail": {
+    "what": "The rows left out carry {pct}% of the file's {field}. A batch that leaves out more than {limit}% of its value needs a second person's approval.",
+    "why": "Leaving out much of the value can understate your exposure.",
+    "next": "Fix the rows listed, or send the batch for approval with your reason."
+   }
+  },
+  "intake.gate.currency": {
+   "label": "Exchange rates to check: {n}",
+   "detail": {
+    "what": "Some of the rates used to convert your amounts are older than their source allows, or are your own and differ from the official rate by more than your tolerance.",
+    "next": "Send the batch for approval with your reason, or add a current rate."
+   }
+  },
+  "intake.gate.values": {
+   "label": "Values not recognised in {fields}",
+   "detail": {
+    "what": "Some values in {fields} do not match our lists. Those cells are left blank unless you map them.",
+    "next": "Map your values to ours, or send the batch for approval with your reason."
+   }
+  },
+  "intake.gate.large_changes": {
+   "label": "Assets that change a lot: {n}",
+   "detail": {
+    "what": "Assets you already hold change their value or move by more than our limits for a routine update.",
+    "why": "Your value is used, but a large change needs a second person's approval.",
+    "next": "Check the changes listed, then send the batch for approval with your reason."
+   }
+  },
+  "intake.landing.ok": {
+   "label": "Rows now in your book: {n}",
+   "detail": {
+    "what": "Every row that passed the checks is now in your book."
+   }
+  },
+  "intake.landing.dropped": {
+   "label": "Rows that did not land: {dropped}",
+   "detail": {
+    "what": "Of the {validated} rows that passed the checks, {dropped} were not added by the rules for your book (for example a missing valuation).",
+    "next": "Look at the batch in Your data, fix those rows and send them again."
+   }
+  },
+  "intake.landing.value_differs": {
+   "label": "Landed value does not tie",
+   "detail": {
+    "what": "The value now in your book does not equal the value of the rows that passed the checks.",
+    "next": "Raise a request in Support with the batch."
+   }
+  },
+  "intake.security.too_many_parts": {
+   "label": "Workbook refused as unsafe",
+   "detail": {
+    "what": "The workbook holds {n} internal parts, far more than a data sheet needs.",
+    "why": "A file built this way can hide content from inspection.",
+    "next": "Copy the data into a new workbook or save it as CSV, then send it again."
+   }
+  },
+  "intake.security.compression_bomb": {
+   "label": "Workbook refused as unsafe",
+   "detail": {
+    "what": "The workbook expands to far more than its size on disk.",
+    "why": "This is the pattern of a file built to exhaust the system that opens it.",
+    "next": "Save the data as CSV and send it again."
+   }
+  },
+  "intake.security.too_large_uncompressed": {
+   "label": "Workbook refused as too large",
+   "detail": {
+    "what": "Opened, the workbook would take {mb} MB.",
+    "next": "Split the data into smaller files, or save it as CSV."
+   }
+  },
+  "intake.security.macros": {
+   "label": "Workbook contains macros",
+   "detail": {
+    "what": "The workbook carries macros, which we never open.",
+    "next": "Save it as a plain Excel workbook (.xlsx, no macros) or as CSV and send it again."
+   }
+  },
+  "intake.security.embedded_objects": {
+   "label": "Workbook contains embedded files",
+   "detail": {
+    "what": "The workbook carries embedded files or objects, which we never open.",
+    "next": "Remove them and send the workbook again."
+   }
+  },
+  "intake.security.external_links": {
+   "label": "Workbook links to other files",
+   "detail": {
+    "what": "The workbook refers to other files. Only the values saved in this file are used.",
+    "why": "A linked value may differ from what you see in your copy.",
+    "next": "If that is intended, send the batch for approval with your reason."
+   }
+  },
+  "intake.security.activex": {
+   "label": "Workbook contains ActiveX controls",
+   "detail": {
+    "what": "The workbook carries ActiveX controls, which we never open.",
+    "next": "Remove them and send the workbook again."
+   }
+  },
+  "intake.security.unreadable_text": {
+   "label": "File is not readable text",
+   "detail": {
+    "what": "The file cannot be read as text in any common encoding.",
+    "next": "Save it as CSV (UTF-8) or as an Excel workbook and send it again."
+   }
+  },
+  "intake.security.formula_like_text": {
+   "label": "Cells that look like formulas: {n}",
+   "detail": {
+    "what": "Some cells start like a spreadsheet formula (=, @, + or -). They are read as plain text and never run.",
+    "why": "Formula-like cells are a known way to attack spreadsheet users, so a second person looks at the batch.",
+    "next": "Send the batch for approval with your reason, or remove those characters."
+   }
+  },
+  "intake.security.empty": {
+   "label": "The file is empty",
+   "detail": {
+    "what": "The file has no content.",
+    "next": "Check you chose the right file."
+   }
+  },
+  "intake.security.too_large": {
+   "label": "File is too large",
+   "detail": {
+    "what": "The file is {mb} MB; the limit is {limit} MB.",
+    "next": "Split it into parts and send each part."
+   }
+  },
+  "intake.security.refused_format": {
+   "label": "This file type is not accepted",
+   "detail": {
+    "what": "{format} files are not accepted, because they can carry macros or hide content.",
+    "next": "Save it as an Excel workbook (.xlsx) or as CSV and send it again."
+   }
+  },
+  "intake.security.unknown_ending": {
+   "label": "This file type is not accepted",
+   "detail": {
+    "what": "Files ending '{ending}' are not accepted.",
+    "next": "Send a CSV or an Excel workbook (.xlsx)."
+   }
+  },
+  "intake.security.not_accepted_here": {
+   "label": "Not accepted for this upload",
+   "detail": {
+    "what": "This upload accepts {formats} only.",
+    "next": "Save the file in one of those formats and send it again."
+   }
+  },
+  "intake.security.encrypted_or_legacy": {
+   "label": "Protected or old Office file",
+   "detail": {
+    "what": "The file is password-protected or in an old Office format we cannot inspect.",
+    "next": "Remove the password and save it as an Excel workbook (.xlsx) or CSV."
+   }
+  },
+  "intake.security.not_a_table": {
+   "label": "Not a spreadsheet or CSV",
+   "detail": {
+    "what": "The file is neither a spreadsheet nor a CSV file.",
+    "next": "Export your data as CSV or as an Excel workbook (.xlsx)."
+   }
+  },
+  "intake.security.type_mismatch": {
+   "label": "File name and content differ",
+   "detail": {
+    "what": "The file is named {ending} but its content is {content}.",
+    "why": "A file whose name hides its real type is refused.",
+    "next": "Rename it, or save it again in the type its name says."
+   }
+  },
+  "intake.security.passed": {
+   "label": "File checked and safe to read",
+   "detail": {
+    "what": "The file's real type is confirmed, and it carries no macros, embedded objects or hidden content."
+   }
+  },
+  "intake.malware.available": {
+   "label": "Malware scan on import",
+   "detail": {
+    "what": "The file is scanned for malware when you import it."
+   }
+  },
+  "intake.malware.required_unavailable": {
+   "label": "Malware scanner unavailable",
+   "detail": {
+    "what": "A malware scan is required, and no scanner can be reached right now.",
+    "why": "The file is stored but not processed until it has been scanned.",
+    "next": "Import it anyway: it waits, and is processed once a scan succeeds."
+   }
+  },
+  "intake.malware.not_configured": {
+   "label": "No malware scan here",
+   "detail": {
+    "what": "This installation has no malware scanner configured, so files are not scanned."
+   }
+  },
+  "intake.rate.closing": {
+   "label": "{currency}: closing rate of {date}",
+   "detail": {
+    "what": "{currency} amounts convert at {units} {currency} per euro, the {source} rate of {date}.",
+    "why": "Balances convert at the rate on the date your figures describe."
+   }
+  },
+  "intake.rate.average": {
+   "label": "{currency}: average rate to {end}",
+   "detail": {
+    "what": "Yearly {currency} figures (income, spend) convert at {units} {currency} per euro, the {source} average from {start} to {end}.",
+    "why": "A yearly figure builds up over the year, so it converts at the year's average rate."
+   }
+  },
+  "intake.rate.peg": {
+   "label": "{currency}: fixed to the euro",
+   "detail": {
+    "what": "{currency} is fixed to the euro by law at {units} {currency} per euro."
+   }
+  },
+  "intake.rate.stale": {
+   "label": "{currency}: rate older than allowed",
+   "detail": {
+    "what": "The latest {source} rate for {currency} ({units} per euro, of {date}) is {age} days before your book date {book_date}, older than the source allows.",
+    "why": "An old rate may not reflect the value of your amounts on the book date.",
+    "next": "Send the batch for approval with your reason, or add your own rate for that date."
+   }
+  },
+  "intake.rate.later": {
+   "label": "{currency}: later rate used",
+   "detail": {
+    "what": "No {source} rate exists on or before your book date {book_date}, so the earliest later rate ({units} per euro, of {date}) is used.",
+    "next": "Send the batch for approval with your reason, or add your own rate for that date."
+   }
+  },
+  "intake.rate.fallback": {
+   "label": "{currency}: offline reference rate",
+   "detail": {
+    "what": "No live rate was available for {currency}, so an offline reference rate of {units} per euro is used.",
+    "why": "An offline rate is not a market rate for your book date.",
+    "next": "Add your own rate for that date, or send the batch for approval with your reason."
+   }
+  },
+  "intake.rate.own": {
+   "label": "{currency}: your own rate",
+   "detail": {
+    "what": "{currency} amounts convert at your own rate of {units} {currency} per euro."
+   }
+  },
+  "intake.rate.own_differs": {
+   "label": "{currency}: your rate differs from {official_source}",
+   "detail": {
+    "what": "Your own rate of {units} {currency} per euro is {pct}% from {official_source}'s {official}, more than your tolerance.",
+    "next": "Correct your rate, or send the batch for approval with your reason."
+   }
+  },
+  "intake.refused.unreadable": {
+   "label": "File cannot be read as a table",
+   "detail": {
+    "what": "The file opened, but its rows and columns cannot be read.",
+    "next": "Check it opens as one table with a header row, then send it again."
+   }
+  },
+  "intake.refused.missing_columns": {
+   "label": "Required columns missing: {n}",
+   "detail": {
+    "what": "The file has no column named: {columns}.",
+    "next": "If your file names them differently, map your columns to ours; otherwise start from the template."
+   }
+  },
+  "intake.refused.missing_valuation": {
+   "label": "No insured value column",
+   "detail": {
+    "what": "The file needs a sum insured column, or at least one of building value, contents value or business interruption value.",
+    "next": "Add the column, or map yours to ours."
+   }
+  },
+  "intake.refused.mapping_not_found": {
+   "label": "Column mapping not found",
+   "detail": {
+    "what": "The column mapping chosen for this file no longer exists.",
+    "next": "Choose another layout, or map your columns again."
+   }
+  },
+  "intake.refused.mapping_columns": {
+   "label": "Mapping expects other columns",
+   "detail": {
+    "what": "The file has no column named {columns}, which the chosen mapping expects.",
+    "next": "Choose the layout that matches this file, or edit the mapping."
+   }
+  },
+  "intake.refused.mapping_other_book": {
+   "label": "Mapping is for another book",
+   "detail": {
+    "what": "{mapping} maps columns for a different book, not the {book}.",
+    "next": "Choose a mapping made for the {book}."
+   }
+  },
+  "intake.refused.mapping_failed": {
+   "label": "Column mapping cannot be applied",
+   "detail": {
+    "what": "The chosen column mapping cannot be applied to this file.",
+    "next": "Open the mapping and check it against the file's columns."
+   }
+  },
+  "intake.refused.currency_unknown": {
+   "label": "Currency not recognised",
+   "detail": {
+    "what": "'{currency}' is not a currency we can convert.",
+    "next": "Use its three-letter code, for example EUR, USD or GBP."
+   }
+  },
+  "intake.refused.book_date_format": {
+   "label": "Book date not readable",
+   "detail": {
+    "what": "The book date must be written as YYYY-MM-DD."
+   }
+  },
+  "intake.refused.book_date_future": {
+   "label": "Book date in the future",
+   "detail": {
+    "what": "The book date is the date your figures describe, so it cannot be in the future."
+   }
+  },
+  "intake.refused.currency_missing": {
+   "label": "Choose the currency",
+   "detail": {
+    "what": "The file's amounts carry no currency.",
+    "next": "Choose the currency for the file above, or add a currency column."
+   }
+  },
+  "intake.refused.book_date_missing": {
+   "label": "Enter the book date",
+   "detail": {
+    "what": "The file carries amounts but no date they describe. Amounts convert at that date's rates.",
+    "next": "Enter the book date above, or add a book date column."
+   }
+  },
+  "intake.refused.declared_rows": {
+   "label": "Rows sent must be a whole number",
+   "detail": {
+    "what": "The number of rows you sent must be a whole number."
+   }
+  },
+  "intake.refused.declared_totals": {
+   "label": "Your total is not a number",
+   "detail": {
+    "what": "The total you entered must be a number, written as digits."
+   }
+  },
+  "intake.refused.malware": {
+   "label": "File refused: malware found",
+   "detail": {
+    "what": "The malware scanner flagged the file, so it was refused and not kept.",
+    "next": "Check the file on your side, then send a clean copy."
+   }
+  },
+  "intake.refused.reason_required": {
+   "label": "Say why it should be imported",
+   "detail": {
+    "what": "A check failed, so a second person must approve this batch. Your reason goes to them with it.",
+    "next": "Write at least {n} characters on why it should be imported."
+   }
+  },
+  "intake.refused.no_owner": {
+   "label": "Integration has no owner",
+   "detail": {
+    "what": "This integration is not linked to a person, so a batch that needs approval cannot be sent for it.",
+    "next": "Ask an administrator to give the integration an owner."
+   }
+  },
+  "intake.refused.nothing_landed": {
+   "label": "No row could be added",
+   "detail": {
+    "what": "The rows passed the checks, but the rules for your book added none of them.",
+    "next": "Look at the batch in Your data, fix the rows and send them again."
+   }
+  },
+  "intake.refused.not_awaiting": {
+   "label": "Batch is not awaiting approval",
+   "detail": {
+    "what": "This batch is {state}, so there is nothing to approve."
+   }
+  },
+  "intake.refused.not_held": {
+   "label": "Batch is not waiting for a scan",
+   "detail": {
+    "what": "This batch is {state}, so there is nothing to scan again."
+   }
+  },
+  "intake.refused.changed_since_request": {
+   "label": "Checks changed since the request",
+   "detail": {
+    "what": "The checks give a different result now than when approval was requested — for example the same file has since been imported, or the assets it updates have changed.",
+    "next": "Ask the sender to send the file again."
+   }
+  },
+  "intake.outcome.awaiting": {
+   "label": "Sent for approval",
+   "detail": {
+    "what": "A check failed, so the batch went to a second person. Nothing is imported until they approve it.",
+    "next": "Follow it in Approvals."
+   }
+  },
+  "intake.outcome.held_unreachable": {
+   "label": "Stored, waiting for a malware scan",
+   "detail": {
+    "what": "The file is stored but not processed yet: the malware scanner could not be reached.",
+    "next": "It is processed once a scan succeeds."
+   }
+  },
+  "intake.outcome.held_no_scanner": {
+   "label": "Stored, waiting for a malware scan",
+   "detail": {
+    "what": "The file is stored but not processed yet: a malware scan is required and no scanner is set up.",
+    "next": "It is processed once a scan succeeds."
+   }
+  },
+  "intake.outcome.scanned_check_failed": {
+   "label": "Scanned; a check failed",
+   "detail": {
+    "what": "The file passed the malware scan, but a check failed.",
+    "next": "Send it again with your reason, and it goes for approval."
+   }
+  },
+  "intake.conflict.country_differs": {
+   "label": "Coordinates are in {ours}",
+   "detail": {
+    "what": "Your book says {yours}; the asset's coordinates fall in {ours}.",
+    "why": "Either the country or the coordinates may be wrong — or the asset sits on a border.",
+    "next": "Keep yours, explain the difference, or use ours (a second person approves)."
+   }
+  },
+  "intake.conflict.country_unknown": {
+   "label": "Country not recognised",
+   "detail": {
+    "what": "Your book's country '{written}' is not a country name or code we recognise; the coordinates fall in {ours}.",
+    "next": "Correct the country in your next file, keep yours, or use ours (a second person approves)."
+   }
+  },
+  "intake.conflict.source.country": {
+   "label": "Country from the coordinates",
+   "detail": {
+    "what": "We place each asset's coordinates in a country using the European Commission's GISCO country boundaries (2020, scale 1:3 million).",
+    "why": "An independent reading catches a country typed wrongly in a book, or coordinates in the wrong place.",
+    "next": "Your value stays in use until a person decides. Using ours needs a second person."
+   }
+  },
+  "intake.conflict.refused.not_open": {
+   "label": "Already decided",
+   "detail": {
+    "what": "This difference is {state}, so it cannot be decided again."
+   }
+  },
+  "intake.conflict.refused.note_required": {
+   "label": "Say what explains it",
+   "detail": {
+    "what": "An explanation needs a note saying what explains the difference."
+   }
+  },
+  "intake.conflict.refused.decision": {
+   "label": "Choose a decision",
+   "detail": {
+    "what": "Keep your value, explain the difference, or use ours."
+   }
+  },
+  "intake.conflict.refused.not_derived": {
+   "label": "We do not derive this fact",
+   "detail": {
+    "what": "We hold no value of our own for {field}, so ours cannot be used."
+   }
+  },
+  "intake.lineage.per_exposure": {
+   "label": "Traced per exposure",
+   "detail": {
+    "what": "This report lists every exposure with the facts its templates read: counterparty, instrument, Taxonomy status, objective and gross carrying amount. Its templates print no hazard figure, so there is no hazard trace.",
+    "why": "A filing of the earlier report shape traces its hazard figures as frozen."
+   }
+  },
+  "intake.lineage.template_five": {
+   "label": "Traced by Template 5 cell",
+   "detail": {
+    "what": "Template 5 prints the gross carrying amount sensitive to chronic or acute events per sector and geography, not a value per hazard. Pick a cell to see the exposures it adds up and the hazards that make each one sensitive."
+   }
+  },
+  "intake.lineage.per_issuer": {
+   "label": "Traced per issuer",
+   "detail": {
+    "what": "A fund holds issuers, not located assets, so each holding opens its issuer: its facilities and its physical and transition detail."
+   }
+  },
+  "intake.lineage.per_plot": {
+   "label": "Traced per sourcing plot",
+   "detail": {
+    "what": "Each sourcing plot opens with its projection and where its data comes from; your own sites' exposure is in this report's own hazard rows."
+   }
+  },
+  "intake.lineage.per_site": {
+   "label": "Traced per site",
+   "detail": {
+    "what": "The frozen statement lists every site in scope with its weight, carrying amount and net revenue, and for each horizon its hazards, materiality, water stress and sensitive-area readings. Each figure says whether it is computed, stated or derived."
+   }
+  },
+  "intake.lineage.per_item": {
+   "label": "Traced item by item",
+   "detail": {
+    "what": "Every item of the frozen template says where it comes from: computed from the fund, the manager's answer, or printed wording. Each holding opens its issuer."
+   }
+  },
+  "intake.lineage.per_item_holdings": {
+   "label": "Traced item by item",
+   "detail": {
+    "what": "Every item of the frozen template says where it comes from, and the frozen holdings — each position date of the reference period, with the investee's own Taxonomy figures — are in the filing. Each holding opens its issuer."
+   }
+  },
+  "intake.lineage.per_declaration": {
+   "label": "Traced per undertaking",
+   "detail": {
+    "what": "The frozen declaration holds its status, every product line with its estimated yearly quantity, and every plot with its geolocation or postal address."
+   }
+  },
+  "intake.lineage.per_shipment": {
+   "label": "Traced per shipment",
+   "detail": {
+    "what": "The frozen statement holds its plots (geolocation, country and satellite reading), the supplier, the legality evidence and the risk assessment it was prepared from."
+   }
+  },
+  "intake.lineage.located_only": {
+   "label": "No hazard trace for this report",
+   "detail": {
+    "what": "A hazard trace is available for reports on a located book: the loan book, the property book and the underwriting book."
+   }
+  },
+  "intake.lineage.not_reported": {
+   "status": 404,
+   "label": "{hazard} is not in this filing",
+   "detail": {
+    "what": "This filing reports no figure for {hazard}."
+   }
+  },
+  "intake.lineage.cell.not_pillar_three": {
+   "label": "Template 5 trace is for Pillar 3",
+   "detail": {
+    "what": "The Template 5 trace applies to Pillar 3 ESG filings."
+   }
+  },
+  "intake.lineage.cell.earlier_shape": {
+   "label": "Traced by hazard instead",
+   "detail": {
+    "what": "This filing has the earlier report shape, so it traces its hazard figures as frozen."
+   }
+  },
+  "intake.lineage.cell.no_book": {
+   "label": "No exposures frozen",
+   "detail": {
+    "what": "This filing froze no exposure-by-exposure book, so a printed cell cannot be traced."
+   }
+  },
+  "intake.lineage.cell.no_level": {
+   "label": "Template 5 not computed",
+   "detail": {
+    "what": "Your at-risk threshold was not stated when this filing was frozen, so Template 5 was not computed.",
+    "next": "State it in Settings, then restate the filing."
+   }
+  },
+  "intake.lineage.cell.no_template": {
+   "label": "No Template 5 in this version",
+   "detail": {
+    "what": "The version of the templates this filing was prepared under has no Template 5."
+   }
+  },
+  "intake.lineage.cell.no_column": {
+   "status": 404,
+   "label": "Column not traceable",
+   "detail": {
+    "what": "Template 5 does not add up this column, so it has no trace."
+   }
+  },
+  "intake.lineage.cell.no_geography": {
+   "status": 404,
+   "label": "Geography not in this filing",
+   "detail": {
+    "what": "This filing's Template 5 prints no row for that geography."
+   }
+  },
+  "intake.retention.gap.no_mapping": {
+   "label": "No retention rule mapped",
+   "detail": {
+    "what": "This report type has no retention rule mapped yet, so how long to keep it is not stated.",
+    "next": "Set your own minimum in Settings, or raise a request in Support."
+   }
+  },
+  "intake.retention.gap.no_statute": {
+   "label": "{country} law sets no period",
+   "detail": {
+    "what": "{note}",
+    "why": "Source: {law}.",
+    "next": "Set your own minimum in Settings."
+   }
+  },
+  "intake.retention.gap.no_national": {
+   "label": "No national rule held",
+   "detail": {
+    "what": "We hold no verified accounting-law retention rule for {country}.",
+    "next": "Set your own minimum in Settings, or ask us to add the country."
+   }
+  },
+  "intake.retention.gap.listed_unknown": {
+   "label": "Listed securities not recorded",
+   "detail": {
+    "what": "If your securities are listed, the annual financial report must stay publicly available for {years} years from publication.",
+    "why": "Source: {law}.",
+    "next": "Record whether they are listed in Settings, under regulatory attributes."
+   }
+  },
+  "intake.retention.gap.national_period": {
+   "label": "National period applies",
+   "detail": {
+    "what": "This rule keeps the report as long as national law keeps financial reports, and no national rule is held for your country.",
+    "why": "Source: {law}."
+   }
+  },
+  "intake.retention.gap.no_period": {
+   "label": "Rule sets no period",
+   "detail": {
+    "what": "{note}",
+    "why": "Source: {law}."
+   }
+  },
+  "intake.retention.refused.hold_reason": {
+   "status": 422,
+   "label": "Say why it is held",
+   "detail": {
+    "what": "A legal hold needs a reason: a dispute, an investigation or a request."
+   }
+  },
+  "intake.retention.refused.already_held": {
+   "status": 409,
+   "label": "Already on legal hold",
+   "detail": {
+    "what": "This filing is already on legal hold."
+   }
+  },
+  "intake.retention.refused.lift_reason": {
+   "status": 422,
+   "label": "Say why the hold can end",
+   "detail": {
+    "what": "Lifting a legal hold needs a reason."
+   }
+  },
+  "intake.retention.refused.not_held": {
+   "status": 409,
+   "label": "Not on legal hold",
+   "detail": {
+    "what": "This filing is not on legal hold, so there is no hold to lift."
+   }
+  },
+  "intake.revision.not_pinned": {
+   "label": "No calculation run on record",
+   "detail": {
+    "what": "This filing was frozen before calculation runs were recorded, so there is no fingerprint to compare your book with.",
+    "next": "Refresh it while it is a draft, or restate it once filed, to pin it to a run."
+   }
+  },
+  "intake.revision.unchanged": {
+   "label": "Nothing changed since it was frozen",
+   "detail": {
+    "what": "Nothing this filing was computed from has changed since it was frozen."
+   }
+  },
+  "intake.revision.book": {
+   "label": "Your book changed since it was frozen",
+   "detail": {
+    "what": "The book this filing was computed from has changed since it was frozen. The filing itself is unchanged.",
+    "next": "Restate it, or refresh a draft, to bring the new data in."
+   }
+  },
+  "intake.revision.scores": {
+   "label": "Hazard scores updated since",
+   "detail": {
+    "what": "Hazard scores for its assets were updated after it was frozen. The filing itself is unchanged.",
+    "next": "Restate it, or refresh a draft, to bring the new scores in."
+   }
+  },
+  "intake.revision.book_and_scores": {
+   "label": "Book and scores changed since",
+   "detail": {
+    "what": "Both the book this filing was computed from and the hazard scores of its assets changed after it was frozen. The filing itself is unchanged.",
+    "next": "Restate it, or refresh a draft, to bring the new data in."
+   }
+  },
+  "intake.variance.level_not_stated_now": {
+   "label": "At-risk figures not compared",
+   "detail": {
+    "what": "Your at-risk threshold was not stated for this filing, so its at-risk figures cannot be compared with the prior one."
+   }
+  },
+  "intake.variance.level_not_stated_prior": {
+   "label": "At-risk figures not compared",
+   "detail": {
+    "what": "Your at-risk threshold was not stated for the prior filing, so its at-risk figures cannot be compared with this one."
+   }
+  },
+  "intake.variance.level_changed": {
+   "label": "At-risk threshold changed",
+   "detail": {
+    "what": "Your at-risk threshold changed from {prior} to {now}, so part of the move in value at risk is the method, not the risk."
+   }
+  },
+  "intake.variance.no_prior": {
+   "label": "No prior filing to compare",
+   "detail": {
+    "what": "This is the first filing of its kind."
+   }
+  },
+  "intake.variance.prior_unavailable": {
+   "label": "Prior filing not available",
+   "detail": {
+    "what": "The filing to compare with could not be read."
+   }
+  },
+  "intake.variance.located_only": {
+   "label": "No breakdown of change here",
+   "detail": {
+    "what": "The breakdown of change is available for reports on a located book: the loan book, the property book and the underwriting book."
+   }
+  },
+  "intake.variance.taxonomy_own_columns": {
+   "label": "The templates carry the prior year",
+   "detail": {
+    "what": "The EU Taxonomy templates print no physical-risk figure to break down; they carry the previous reference date's columns themselves."
+   }
+  },
+  "intake.variance.currency_differs": {
+   "label": "Different currencies, not compared",
+   "detail": {
+    "what": "This filing presents in {now} and the one before it in {prior}, so their figures cannot be subtracted.",
+    "next": "Compare with a filing in {now}."
+   }
+  },
+  "intake.run.finite.pass": {
+   "label": "Every number is finite",
+   "detail": {
+    "what": "The report holds no infinite or not-a-number values."
+   }
+  },
+  "intake.run.identity.pass": {
+   "label": "Every asset in scope is in it",
+   "detail": {
+    "what": "Every asset in scope is in the report, apart from any removed as group-internal."
+   }
+  },
+  "intake.run.totals.pass": {
+   "label": "The listed values add up",
+   "detail": {
+    "what": "The values listed in the report add up to its total."
+   }
+  },
+  "intake.run.input_tie.pass": {
+   "label": "The total equals your book",
+   "detail": {
+    "what": "The report's total equals the book it was computed from — directly, or through the exchange-rate and consolidation table when amounts were translated or group-internal exposures removed."
+   }
+  },
+  "intake.run.scored.pass": {
+   "label": "Every asset is scored",
+   "detail": {
+    "what": "All {n} assets had a hazard score when the report was computed."
+   }
+  },
+  "intake.run.scored.warn": {
+   "label": "{scored} of {n} assets scored",
+   "detail": {
+    "what": "{scored} of the {n} assets had a hazard score when the report was computed.",
+    "why": "An asset without a score is not in the hazard figures."
+   }
+  },
+  "intake.run.regulation.pass": {
+   "label": "Law in force for the period",
+   "detail": {
+    "what": "The report was prepared under the version of the law in force for its period."
+   }
+  },
+  "intake.run.regulation.warn": {
+   "label": "A later version of the law applies",
+   "detail": {
+    "what": "A later version of the law, or an act that repeals part of it, is in force for this period.",
+    "next": "Review which provisions apply: the law behind the filing shows the versions."
+   }
+  },
+  "intake.run.specification.pass": {
+   "label": "Built to a signed-off specification",
+   "detail": {
+    "what": "The report was built to a template specification that was signed off."
+   }
+  },
+  "intake.run.specification.warn": {
+   "label": "Specification not signed off",
+   "detail": {
+    "what": "The template specification the report was built to was not signed off when it was frozen.",
+    "next": "Sign-off is recorded under the law behind the filing."
+   }
+  },
+  "intake.run.differences.pass": {
+   "label": "No difference left undecided",
+   "detail": {
+    "what": "No difference between your values and ours was waiting for a decision."
+   }
+  },
+  "intake.run.differences.warn": {
+   "label": "Undecided differences: {differences}",
+   "detail": {
+    "what": "Differences between your values and ours were waiting for a decision when the report was computed ({differences}); your values were used.",
+    "next": "Decide them in Your data, under your value vs ours."
+   }
+  },
+  "intake.run.feeds.pass": {
+   "label": "Hazard feeds were current",
+   "detail": {
+    "what": "The hazard feeds were current when the report was computed, or are not tracked for freshness."
+   }
+  },
+  "intake.run.feeds.warn": {
+   "label": "A hazard feed was late",
+   "detail": {
+    "what": "At least one hazard feed was overdue or had failed when the report was computed."
+   }
+  },
+  "intake.run.other.pass": {
+   "label": "Check passed",
+   "detail": {
+    "what": "This check on the calculation passed."
+   }
+  },
+  "intake.run.other.warn": {
+   "label": "Check needs a look",
+   "detail": {
+    "what": "This check on the calculation passed with a point to note."
+   }
+  },
+  "intake.dictionary.summary": {
+   "label": "{mapped} of {n} hazard fields traced",
+   "detail": {
+    "what": "Each hazard score is computed once for each place and reused by every report that needs it. {mapped} of the {n} hazard fields name the source feed they are computed from."
+   }
+  },
+  "intake.dictionary.source.tellumen": {
+   "label": "Computed by us",
+   "detail": {
+    "what": "Our engine computes it from authoritative agency feeds and your book."
+   }
+  },
+  "intake.dictionary.source.egov": {
+   "label": "Agency dataset",
+   "detail": {
+    "what": "A government or agency dataset we integrate directly."
+   }
+  },
+  "intake.dictionary.source.evendor": {
+   "label": "Licensed dataset",
+   "detail": {
+    "what": "A commercial dataset you license from a third party."
+   }
+  },
+  "intake.dictionary.source.customer": {
+   "label": "From you",
+   "detail": {
+    "what": "Your own data, judgement or narrative."
+   }
+  },
+  "intake.dictionary.source.none": {
+   "label": "Not produced here",
+   "detail": {
+    "what": "This platform does not produce it."
+   }
+  },
+  "intake.dictionary.lane.compute": {
+   "label": "We compute it",
+   "detail": {
+    "what": "The platform computes it; there is no input step."
+   }
+  },
+  "intake.dictionary.lane.granular": {
+   "label": "You upload, we process",
+   "detail": {
+    "what": "You upload the raw data, and the platform processes it."
+   }
+  },
+  "intake.dictionary.lane.provided": {
+   "label": "You provide, we reconcile",
+   "detail": {
+    "what": "You or your vendor calculate it, and the platform reconciles it."
+   }
+  },
+  "intake.dictionary.lane.report": {
+   "label": "Entered on the form",
+   "detail": {
+    "what": "It is entered on the filing form as a final input."
+   }
+  },
+  "intake.dictionary.lane.none": {
+   "label": "Out of scope",
+   "detail": {
+    "what": "It is not part of this report on the platform."
+   }
+  },
+  "intake.prior.refused.no_version": {
+   "label": "No version governs that year",
+   "detail": {
+    "what": "No version of the statement governs the financial year ending on that date.",
+    "next": "Check the period end."
+   }
+  },
+  "intake.prior.refused.version_needs_period_end": {
+   "label": "Give the period end first",
+   "detail": {
+    "what": "The figures a line can be mapped to depend on the financial year, so the period end is needed."
+   }
+  },
+  "intake.prior.refused.unknown_report": {
+   "label": "Report type not recognised",
+   "detail": {
+    "what": "This report type cannot be brought in as a prior filing."
+   }
+  },
+  "intake.prior.refused.retired_upload_as": {
+   "label": "Upload it under its successor",
+   "detail": {
+    "what": "{report} takes no new filings.",
+    "next": "Upload it as {successor}."
+   }
+  },
+  "intake.prior.refused.retired": {
+   "label": "Report type retired",
+   "detail": {
+    "what": "{report} takes no new filings; it is retired since {since}."
+   }
+  },
+  "intake.prior.refused.period_required": {
+   "label": "Enter the reporting period",
+   "detail": {
+    "what": "A reporting period is needed, for example 2024."
+   }
+  },
+  "intake.prior.refused.currency_unknown": {
+   "label": "Currency not recognised",
+   "detail": {
+    "what": "'{currency}' is not a currency code we recognise.",
+    "next": "Use its three-letter code, for example EUR, USD or GBP."
+   }
+  },
+  "intake.prior.refused.period_end_required": {
+   "label": "State the period end",
+   "detail": {
+    "what": "The date the reporting period ends is needed, written as YYYY-MM-DD.",
+    "why": "Its figures are matched to a later period by it, and money converts at its rate."
+   }
+  },
+  "intake.prior.refused.period_end_format": {
+   "label": "Period end not readable",
+   "detail": {
+    "what": "The period end must be a date written as YYYY-MM-DD."
+   }
+  },
+  "intake.prior.refused.unsupported_format": {
+   "label": "This file type is not supported",
+   "detail": {
+    "what": "A prior filing can be read from XBRL, iXBRL, PDF or Excel.",
+    "next": "Upload the filed report in one of those formats."
+   }
+  },
+  "intake.prior.refused.unreadable": {
+   "label": "No figures could be read",
+   "detail": {
+    "what": "No reported figures could be read from the file.",
+    "next": "Check it is the filed report itself, then upload it again."
+   }
+  },
+  "intake.prior.refused.undertaking_required": {
+   "label": "State whom it is for",
+   "detail": {
+    "what": "Say whom the filed report is for: the organisation, or one of its entities."
+   }
+  },
+  "intake.prior.refused.undertaking_unknown": {
+   "label": "Entity not in your organisation",
+   "detail": {
+    "what": "The chosen entity is not one of your organisation's entities."
+   }
+  },
+  "intake.prior.refused.already_stated": {
+   "label": "Already stated",
+   "detail": {
+    "what": "Whom this filing is for and its period end are already stated."
+   }
+  },
+  "intake.prior.refused.duplicate_period": {
+   "label": "That period is already on file",
+   "detail": {
+    "what": "A confirmed filing for that entity and period already exists.",
+    "next": "Remove one of them first."
+   }
+  },
+  "intake.prior.refused.already_confirmed": {
+   "label": "Already confirmed",
+   "detail": {
+    "what": "This filing is confirmed and locked, so it cannot be changed."
+   }
+  },
+  "intake.prior.refused.duplicate_confirmed": {
+   "label": "A confirmed filing already exists",
+   "detail": {
+    "what": "A confirmed filing of the same report, entity and period already exists.",
+    "next": "Remove it before confirming this one."
+   }
+  },
+  "intake.prior.refused.mapping_unknown": {
+   "label": "Lines mapped to unknown figures: {n}",
+   "detail": {
+    "what": "Some lines are mapped to figures the version for this year does not print.",
+    "next": "Map them to one of the listed figures, or leave them unmatched."
+   }
+  },
+  "intake.prior.refused.mapping_twice": {
+   "label": "One figure has two lines",
+   "detail": {
+    "what": "More than one line is mapped to {figures}; they would be added together.",
+    "next": "Keep one line for each figure."
+   }
+  },
+  "intake.prior.refused.empty": {
+   "label": "The file is empty",
+   "detail": {
+    "what": "The uploaded file has no content."
+   }
+  },
+  "intake.prior.refused.too_large": {
+   "label": "File is too large",
+   "detail": {
+    "what": "A filed report can be at most {limit} MB.",
+    "next": "Upload the report without attachments, or as a smaller export."
+   }
+  },
+  "intake.prior.projection.compound": {
+   "label": "Projected at your yearly growth rate",
+   "detail": {
+    "what": "The projection continues from your last filed value at the compound yearly rate of change across your filed years."
+   }
+  },
+  "intake.prior.projection.average": {
+   "label": "Projected at your average yearly change",
+   "detail": {
+    "what": "The projection continues from your last filed value by the average yearly change across your filed years (used when the first or last value is zero or negative)."
+   }
+  },
+  "intake.prior.units.shared_symbol": {
+   "label": "Currency symbol is ambiguous",
+   "detail": {
+    "what": "Money is written as {symbols}, a symbol several currencies share, so it is not used.",
+    "next": "State the filing's currency, or correct the unit when confirming."
+   }
+  },
+  "intake.prior.units.no_period_end": {
+   "label": "No period end to convert at",
+   "detail": {
+    "what": "Amounts are in {currencies}, and the filing states no period end to convert them at.",
+    "next": "State the period end for this filing."
+   }
+  },
+  "intake.prior.units.no_rate": {
+   "label": "No exchange rate for that date",
+   "detail": {
+    "what": "Amounts in {currencies} could not be converted: no rate is held for {date}."
+   }
+  },
+  "intake.prior.units.mixed": {
+   "label": "Figures in different units",
+   "detail": {
+    "what": "This year's figures are in different units ({units}), so they are not added together.",
+    "next": "Correct the units or the figures they map to when confirming."
+   }
   }
  },
  "names": {
@@ -8493,6 +9738,95 @@
    "S6": "International standards",
    "S7": "Historical comparison",
    "T1": "Explanations and actions"
+  },
+  "intake.fx_source": {
+   "ecb": "the ECB",
+   "imf": "the IMF",
+   "peg": "the fixed legal rate",
+   "client": "your own rate",
+   "fallback": "an offline reference",
+   "identity": "the euro itself",
+   "seed": "a set-up rate"
+  },
+  "intake.batch_state": {
+   "received": "received",
+   "checked": "checked",
+   "held": "waiting for a malware scan",
+   "awaiting_approval": "awaiting approval",
+   "imported": "imported",
+   "rejected": "refused"
+  },
+  "intake.book_field": {
+   "entity_name": "Name",
+   "entity_type": "Type",
+   "primary_value_eur": "Value",
+   "h3_cell": "Location",
+   "plot_geometry": "Plot boundary",
+   "supplier_id": "Supplier",
+   "intragroup_entity_id": "Intragroup counterparty",
+   "reporting_entity_id": "Reporting entity",
+   "name": "Name",
+   "area_ha": "Area (ha)",
+   "commodity_id": "Commodity"
+  },
+  "intake.conflict_status": {
+   "open": "open",
+   "awaiting_approval": "awaiting a second person's approval",
+   "resolved": "decided"
+  },
+  "intake.vertical_book": {
+   "banking": "Loan book",
+   "insurance": "Underwriting book",
+   "insurer_investments": "Investment portfolio",
+   "realestate": "Property book",
+   "assetmgmt": "Holdings book"
+  },
+  "intake.book": {
+   "bank_assets": "Loan book",
+   "insurance_policies": "Underwriting book",
+   "realestate_properties": "Property book",
+   "assetmgmt_holdings": "Holdings book",
+   "company_sites": "Own sites",
+   "supply_plots": "Sourcing plots",
+   "fund_positions": "Fund positions",
+   "other": "Another book"
+  },
+  "intake.fact_path": {
+   "intake_batch": "data files",
+   "manual_edit": "edits",
+   "manual_entry": "entries",
+   "book": "other changes to the book",
+   "other": "other changes"
+  },
+  "intake.retention_document": {
+   "management_report": "Part of the management report",
+   "pillar3": "A Pillar 3 disclosure",
+   "sfcr": "A Solvency and Financial Condition Report",
+   "eudr_dds": "An EUDR due diligence statement",
+   "eudr_simplified": "An EUDR simplified declaration",
+   "website_disclosure": "A website disclosure",
+   "annual_report_annex": "An annex to the annual report",
+   "prospectus_annex": "An annex to the prospectus",
+   "orsa_supervisory_report": "An ORSA supervisory report",
+   "preemptive_recovery_plan": "A pre-emptive recovery plan",
+   "unknown": "Not mapped to a document type"
+  },
+  "intake.feed_state": {
+   "fresh": "Up to date",
+   "due_soon": "Update due soon",
+   "overdue": "Update overdue",
+   "failed": "Last update failed",
+   "on_demand": "Read at each check",
+   "untracked": "No update recorded"
+  },
+  "intake.feed_maturity": {
+   "live": "Landed and stored",
+   "on_demand": "Read live at each check",
+   "proxy": "Stands in for another source",
+   "partial": "Partial coverage",
+   "estimated": "Derived estimate",
+   "planned": "Not yet available",
+   "release": "Pinned dataset release"
   }
  }
 }

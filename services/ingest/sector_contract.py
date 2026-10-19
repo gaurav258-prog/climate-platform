@@ -16,7 +16,15 @@ from services.ingest.fields import VOCABS, norm_token
 
 
 class RowIssue(Exception):
-    """This row cannot become an asset; the message is shown to the customer."""
+    """This row cannot become an asset; the message is shown to the customer — naming a column by its customer label
+    (field_name), never its key."""
+
+
+def field_name(k: str) -> str:
+    """A column's customer label from the field catalogue (services/ingest/fields.py)."""
+    from services.ingest.fields import FIELDS
+    f = FIELDS.get(k)
+    return f.label if f else k.replace("_", " ").capitalize()
 
 
 # ───────────────────────────── value helpers ─────────────────────────────
@@ -44,7 +52,7 @@ def _f(row: dict, k: str) -> Optional[float]:
     try:
         return float(v)
     except (TypeError, ValueError):
-        raise RowIssue(f"{k} is not a number")
+        raise RowIssue(f"{field_name(k)} is not a number")
 
 
 def _i(row: dict, k: str) -> Optional[int]:
@@ -92,10 +100,10 @@ def _positive(row: dict, k: str, label: str) -> float:
 def _plausible_building(rec: dict) -> None:
     yb = rec.get("year_built")
     if yb is not None and not (1800 <= yb <= date.today().year + 1):
-        raise RowIssue(f"year_built {yb} is not plausible")
+        raise RowIssue(f"{field_name('year_built')} {yb} is not plausible")
     ns = rec.get("number_of_stories")
     if ns is not None and not (0 <= ns <= 200):
-        raise RowIssue(f"number_of_stories {ns} is not plausible")
+        raise RowIssue(f"{field_name('number_of_stories')} {ns} is not plausible")
 
 
 def _group_entity(ctx: dict, row: dict, k: str) -> Optional[str]:
@@ -106,7 +114,7 @@ def _group_entity(ctx: dict, row: dict, k: str) -> Optional[str]:
         return None
     hit = (ctx.get("group_entities") or {}).get(norm_token(v))
     if hit is None:
-        raise RowIssue(f"{k.replace('_', ' ')} '{v}' is not one of your legal entities (Admin → Entities)")
+        raise RowIssue(f"{field_name(k)} '{v}' is not one of your legal entities (Admin → Entities)")
     return hit
 
 

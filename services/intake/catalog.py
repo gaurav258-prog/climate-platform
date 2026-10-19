@@ -32,8 +32,7 @@ class Template:
 def _insurance_valuation(df: pd.DataFrame) -> Optional[dict]:
     comps = {"building_value_eur", "contents_value_eur", "business_interruption_value_eur"}
     if "sum_insured_eur" not in df.columns and not (comps & set(df.columns)):
-        return {"error": "missing_valuation", "message": "Provide either sum_insured_eur, or at least one of "
-                "building_value_eur / contents_value_eur / business_interruption_value_eur."}
+        return {"error": "missing_valuation", "code": "intake.refused.missing_valuation"}
     return None
 
 

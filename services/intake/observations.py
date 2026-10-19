@@ -89,6 +89,8 @@ class Deriver:
     origin: str
     derive: Callable[[Session, dict], Optional[object]]
     differs: Callable[[object, object], Optional[str]]     # (client, ours) → why they are a conflict, or None
+    explain: Callable[[object, object], Optional[dict]]    # the same, as the catalogue message a screen shows
+    source_code: str                                       # the catalogue message saying how we derive ours
 
 
 @lru_cache(maxsize=1)
@@ -132,22 +134,44 @@ def _drawn() -> frozenset[str]:
     return frozenset(iso[c] for c in _iso3_by_code().values() if c in iso)
 
 
-def _country_differs(client, ours) -> Optional[str]:
+def _country_case(client, ours) -> Optional[tuple[str, str, Optional[str]]]:
+    """('unknown' | 'differs', what the book says, its ISO code) — or None when the two agree."""
     if client is None or ours is None:
         return None
     from services.ingest.fields import norm_token
     written = str(client).strip()
     iso = _country_names().get(norm_token(written)) or _country_names().get(written.lower())
     if iso is None:
-        return f"the book's country '{written}' is not a recognised country code; the coordinates are in {ours}"
+        return "unknown", written, None
     if iso == ours or iso not in _drawn():
         return None
-    return f"the coordinates are in {ours}; the book says {iso}"
+    return "differs", written, iso
+
+
+def _country_differs(client, ours) -> Optional[str]:
+    case = _country_case(client, ours)
+    if case is None:
+        return None
+    if case[0] == "unknown":
+        return f"the book's country '{case[1]}' is not a recognised country code; the coordinates are in {ours}"
+    return f"the coordinates are in {ours}; the book says {case[2]}"
+
+
+def _country_message(client, ours) -> Optional[dict]:
+    from core.messages import render
+    from services.reference.countries import english_name
+    case = _country_case(client, ours)
+    if case is None:
+        return None
+    o = english_name(str(ours)) or str(ours)
+    if case[0] == "unknown":
+        return render("intake.conflict.country_unknown", written=case[1], ours=o)
+    return render("intake.conflict.country_differs", yours=english_name(case[2]) or case[2], ours=o)
 
 
 DERIVERS: tuple[Deriver, ...] = (
     Deriver("country", "land_layer", "GISCO countries 2020 (1:3M) → ISO 3166 (ref_countries)",
-            _country_from_location, _country_differs),
+            _country_from_location, _country_differs, _country_message, "intake.conflict.source.country"),
 )
 
 

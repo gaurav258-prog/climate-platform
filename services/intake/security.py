@@ -7,6 +7,9 @@ person's approval — principle 3). Malware scanning is separate (malware.py); b
 Accepted formats are deliberately narrow: CSV/TXT (plain text) and XLSX (Office Open XML without macros).
 Legacy .xls, macro-enabled .xlsm/.xlsb and anything encrypted are refused with a plain instruction to re-save,
 because they can carry macros or hide content from inspection.
+
+Each finding carries `msg`, the catalogue message a screen shows (intake.security.*); `message` keeps its sentence (it
+is stored as a refused batch's reason and quoted in the gate's reasons, which approval compares word for word).
 """
 from __future__ import annotations
 
@@ -15,6 +18,7 @@ import re
 import zipfile
 
 from core.config import settings
+from core.messages import render
 
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"   # legacy Office / encrypted OOXML container
 ZIP_MAGIC = b"PK\x03\x04"
@@ -27,8 +31,9 @@ _EXT_TYPE = {".csv": "csv", ".txt": "csv", ".xlsx": "xlsx"}
 _REFUSED_EXT = {".xls": "legacy Excel (.xls)", ".xlsm": "macro-enabled Excel (.xlsm)", ".xlsb": "binary Excel (.xlsb)"}
 
 
-def _finding(code: str, severity: str, message: str) -> dict:
-    return {"code": code, "severity": severity, "message": message}
+def _finding(code: str, severity: str, message: str, msg: str | None = None, **params) -> dict:
+    """msg: the catalogue code when one finding code has several cases (intake.security.<code> otherwise)."""
+    return {"code": code, "severity": severity, "message": message, "msg": render(msg or f"intake.security.{code}", **params)}
 
 
 def _ext(filename: str | None) -> str:
@@ -67,7 +72,8 @@ def _inspect_xlsx(raw: bytes) -> list[dict]:
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
         infos = z.infolist()
         if len(infos) > MAX_ENTRIES:
-            out.append(_finding("too_many_parts", "block", f"The workbook has {len(infos)} internal parts — refused as unsafe."))
+            out.append(_finding("too_many_parts", "block", f"The workbook has {len(infos)} internal parts — refused as unsafe.",
+                               n=len(infos)))
             return out
         total = 0
         for i in infos:
@@ -76,7 +82,8 @@ def _inspect_xlsx(raw: bytes) -> list[dict]:
                 out.append(_finding("compression_bomb", "block", "The workbook expands far beyond its size (compression-bomb pattern) — refused."))
                 return out
         if total > MAX_UNCOMPRESSED:
-            out.append(_finding("too_large_uncompressed", "block", f"The workbook expands to {total / 1e6:.0f} MB — refused as unsafe."))
+            out.append(_finding("too_large_uncompressed", "block", f"The workbook expands to {total / 1e6:.0f} MB — refused as unsafe.",
+                               mb=f"{total / 1e6:.0f}"))
         names = {i.filename.lower() for i in infos}
         if any(n.endswith("vbaproject.bin") for n in names):
             out.append(_finding("macros", "block", "The workbook contains macros. Save it as a plain .xlsx (no macros) or CSV and send again."))
@@ -107,7 +114,7 @@ def _inspect_text(raw: bytes) -> list[dict]:
     if hits:
         out.append(_finding("formula_like_text", "warn",
                             f"{hits} cell(s) start like a spreadsheet formula (=, @, +, -). They are read as plain text, "
-                            "never executed, but the batch needs a second person's approval."))
+                            "never executed, but the batch needs a second person's approval.", n=hits))
     return out
 
 
@@ -121,9 +128,11 @@ def inspect(raw: bytes, filename: str | None, allowed: tuple[str, ...] = ("csv",
     if size == 0:
         findings.append(_finding("empty", "block", "The file is empty."))
     elif size > settings.INTAKE_MAX_BYTES:
-        findings.append(_finding("too_large", "block", f"The file is {size / 1e6:.1f} MB; the limit is {settings.INTAKE_MAX_BYTES / 1e6:.0f} MB. Split it and send in parts."))
+        findings.append(_finding("too_large", "block", f"The file is {size / 1e6:.1f} MB; the limit is {settings.INTAKE_MAX_BYTES / 1e6:.0f} MB. Split it and send in parts.",
+                                 mb=f"{size / 1e6:.1f}", limit=f"{settings.INTAKE_MAX_BYTES / 1e6:.0f}"))
     elif ext in _REFUSED_EXT:
-        findings.append(_finding("unsupported_format", "block", f"{_REFUSED_EXT[ext]} is not accepted. Save as .xlsx or .csv and send again."))
+        findings.append(_finding("unsupported_format", "block", f"{_REFUSED_EXT[ext]} is not accepted. Save as .xlsx or .csv and send again.",
+                                 "intake.security.refused_format", format=_REFUSED_EXT[ext]))
     elif detected == "ole":
         findings.append(_finding("encrypted_or_legacy", "block", "This is a password-protected or legacy Office file. Remove the password and save as .xlsx or .csv."))
     elif detected in ("binary", "zip"):
@@ -132,11 +141,14 @@ def inspect(raw: bytes, filename: str | None, allowed: tuple[str, ...] = ("csv",
         expected = _EXT_TYPE.get(ext)
         real = "xlsx" if detected == "xlsx" else "csv"
         if expected is None:
-            findings.append(_finding("unsupported_format", "block", f"Files ending '{ext or '(none)'}' are not accepted. Send .csv or .xlsx."))
+            findings.append(_finding("unsupported_format", "block", f"Files ending '{ext or '(none)'}' are not accepted. Send .csv or .xlsx.",
+                                     "intake.security.unknown_ending", ending=ext or "(none)"))
         elif expected != real:
-            findings.append(_finding("type_mismatch", "block", f"The file is named {ext} but its content is {'an Excel workbook' if real == 'xlsx' else 'plain text'}. Rename or re-save it."))
+            findings.append(_finding("type_mismatch", "block", f"The file is named {ext} but its content is {'an Excel workbook' if real == 'xlsx' else 'plain text'}. Rename or re-save it.",
+                                     ending=ext, content="an Excel workbook" if real == "xlsx" else "plain text"))
         elif real not in allowed:
-            findings.append(_finding("unsupported_format", "block", f"This upload accepts {' or '.join(allowed).upper()} only."))
+            findings.append(_finding("unsupported_format", "block", f"This upload accepts {' or '.join(allowed).upper()} only.",
+                                     "intake.security.not_accepted_here", formats=" or ".join(allowed).upper()))
         else:
             findings += _inspect_xlsx(raw) if real == "xlsx" else _inspect_text(raw)
 

@@ -14,6 +14,11 @@ questions a controller asks of any data feed:
                   sector's own ingestion rules; anything dropped there is reported, not silent.
 
 Pure functions only (no database) so every sector calls the same code; batches.py persists the outcome.
+
+Every check, gate reason and landing result also carries `msg`: the catalogue message (core/messages.py, codes
+intake.receipt.* / intake.transform.* / intake.gate.* / intake.landing.*) a screen shows — its label on the screen, the
+explanation behind its ⓘ. The sentences (`label`, `detail`, `reasons`) stay exactly as they are: the gate's reasons are
+stored with the batch and compared word for word when a second person approves it (services/intake/pipeline.decide).
 """
 from __future__ import annotations
 
@@ -23,6 +28,8 @@ import re
 from typing import Any, Optional
 
 import pandas as pd
+
+from core.messages import render
 
 DEFAULT_THRESHOLDS = {
     "max_reject_pct": 5.0,          # rejected rows above this share of the file need sign-off
@@ -84,58 +91,78 @@ def _rel_diff_pct(a: float, b: float) -> float:
     return abs(a - b) / denom * 100.0
 
 
-def _check(check: str, label: str, status: str, expected=None, actual=None, detail: str = "") -> dict:
-    return {"check": check, "label": label, "status": status, "expected": expected, "actual": actual, "detail": detail}
+def _check(check: str, label: str, status: str, expected=None, actual=None, detail: str = "", *, msg: dict) -> dict:
+    return {"check": check, "label": label, "status": status, "expected": expected, "actual": actual, "detail": detail,
+            "msg": msg}
+
+
+def _amount(v: float) -> str:
+    return f"{v:,.2f}"
+
+
+def _rows(rows: list[int]) -> str:
+    return ", ".join(str(r) for r in rows[:_MAX_LISTED]) + (" …" if len(rows) > _MAX_LISTED else "")
 
 
 # ───────────────────────────────────────── 1. receipt ─────────────────────────────────────────
 
 def receipt_check(df: pd.DataFrame, *, declared: Optional[dict] = None, duplicate_of: Optional[dict] = None,
-                  thresholds: Optional[dict] = None) -> dict:
+                  thresholds: Optional[dict] = None, labels: Optional[dict] = None) -> dict:
     """Did everything arrive, and nothing extra? `declared` = what the customer says they sent:
     {"row_count": int, "control_totals": {"appraised_value_eur": 1.2e9, ...}}. Declaring is optional; when given,
-    a mismatch is a failed control (needs sign-off), never a silent pass."""
+    a mismatch is a failed control (needs sign-off), never a silent pass. `labels` = each column's customer name."""
+    labels = labels or {}
     th = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
     declared = declared or {}
     checks: list[dict] = []
     n = int(len(df))
 
     checks.append(_check("file_has_rows", "The file contains data rows", "pass" if n > 0 else "fail",
-                         expected=">= 1 row", actual=n, detail="" if n > 0 else "The file has a header but no data rows."))
+                         expected=">= 1 row", actual=n, detail="" if n > 0 else "The file has a header but no data rows.",
+                         msg=render("intake.receipt.rows" if n > 0 else "intake.receipt.no_rows", n=n)))
 
     dup_mask = df.astype(str).duplicated(keep="first") if n else pd.Series([], dtype=bool)
     dup_rows = [int(i) + 2 for i in dup_mask[dup_mask].index]
     checks.append(_check("no_duplicate_rows", "No row appears twice", "fail" if dup_rows else "pass",
                          expected=0, actual=len(dup_rows),
                          detail=(f"Exact duplicate rows at spreadsheet rows {dup_rows[:_MAX_LISTED]}"
-                                 f"{' …' if len(dup_rows) > _MAX_LISTED else ''} — importing would double-count them.") if dup_rows else ""))
+                                 f"{' …' if len(dup_rows) > _MAX_LISTED else ''} — importing would double-count them.") if dup_rows else "",
+                         msg=render("intake.receipt.duplicates", n=len(dup_rows), rows=_rows(dup_rows)) if dup_rows
+                         else render("intake.receipt.no_duplicates")))
 
     if duplicate_of:
         checks.append(_check("file_not_already_imported", "This exact file has not been imported before", "fail",
                              expected="new file", actual="already imported",
                              detail=f"An identical file was imported on {duplicate_of.get('imported_at') or duplicate_of.get('received_at')}. "
-                                    "Importing it again would double-count the whole book."))
+                                    "Importing it again would double-count the whole book.",
+                             msg=render("intake.receipt.already_imported",
+                                        date=str(duplicate_of.get("imported_at") or duplicate_of.get("received_at") or "")[:10])))
     else:
         checks.append(_check("file_not_already_imported", "This exact file has not been imported before", "pass",
-                             expected="new file", actual="new file"))
+                             expected="new file", actual="new file", msg=render("intake.receipt.new_file")))
 
     if declared.get("row_count") is not None:
         exp = int(declared["row_count"])
         checks.append(_check("declared_row_count", "Row count matches what you said you sent",
                              "pass" if exp == n else "fail", expected=exp, actual=n,
-                             detail="" if exp == n else f"You declared {exp} rows; the file has {n}."))
+                             detail="" if exp == n else f"You declared {exp} rows; the file has {n}.",
+                             msg=render("intake.receipt.row_count" if exp == n else "intake.receipt.row_count_differs",
+                                        declared=exp, actual=n)))
 
     for field, exp in (declared.get("control_totals") or {}).items():
         label = f"{field} total matches what you said you sent"
+        name = labels.get(field, field)
         if field not in df.columns:
             checks.append(_check(f"declared_total:{field}", label, "fail", expected=exp, actual=None,
-                                 detail=f"The file has no column '{field}' to total."))
+                                 detail=f"The file has no column '{field}' to total.",
+                                 msg=render("intake.receipt.total_no_column", field=name)))
             continue
         try:
             exp_f = float(exp)
         except (TypeError, ValueError):
             checks.append(_check(f"declared_total:{field}", label, "fail", expected=exp, actual=None,
-                                 detail="The declared total is not a number."))
+                                 detail="The declared total is not a number.",
+                                 msg=render("intake.receipt.total_not_number", field=name)))
             continue
         vals = [parse_money(v) for v in df[field]]
         unparseable = sum(1 for raw, p in zip(df[field], vals) if p is None and not _blank(raw))
@@ -146,7 +173,11 @@ def receipt_check(df: pd.DataFrame, *, declared: Optional[dict] = None, duplicat
             detail = f"Declared {exp_f:,.2f}; the file totals {actual:,.2f} (difference {actual - exp_f:,.2f})."
             if unparseable:
                 detail += f" {unparseable} cell(s) in this column are not readable as numbers."
-        checks.append(_check(f"declared_total:{field}", label, "pass" if ok else "fail", expected=exp_f, actual=actual, detail=detail))
+        checks.append(_check(f"declared_total:{field}", label, "pass" if ok else "fail", expected=exp_f, actual=actual, detail=detail,
+                             msg=render("intake.receipt.total", field=name) if ok else
+                             render("intake.receipt.total_unreadable" if unparseable else "intake.receipt.total_differs",
+                                    field=name, declared=_amount(exp_f), actual=_amount(actual),
+                                    difference=_amount(actual - exp_f), n=unparseable)))
 
     return {"status": "fail" if any(c["status"] == "fail" for c in checks) else "pass",
             "n_rows": n, "declared": bool(declared.get("row_count") is not None or declared.get("control_totals")),
@@ -200,6 +231,7 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 def transformation_check(df: pd.DataFrame, specs: list[dict], report: dict, normalised: list[dict], *,
                          value_field: Optional[str] = None, thresholds: Optional[dict] = None) -> dict:
+    labels = {s["name"]: s.get("label") or s["name"] for s in specs}
     """Did parsing keep the values right? For every money column: raw total = accepted + rejected (within rounding);
     every accepted value has the right type/range; and the value carried by rejected rows is stated."""
     th = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
@@ -221,9 +253,11 @@ def transformation_check(df: pd.DataFrame, specs: list[dict], report: dict, norm
         diff_pct = _rel_diff_pct(raw_total, accepted + rejected)
         # unparseable cells sit in REJECTED rows (the validator refuses them), so they add to neither side
         ok = diff_pct <= th["tie_tolerance_pct"]
-        tie_outs.append({"field": name, "raw_total": raw_total, "accepted_total": accepted, "rejected_total": rejected,
-                         "unparseable_cells": unparseable, "status": "pass" if ok else "fail",
-                         "detail": "" if ok else f"raw {raw_total:,.2f} ≠ accepted {accepted:,.2f} + rejected {rejected:,.2f}"})
+        tie_outs.append({"field": name, "label": labels[name], "raw_total": raw_total, "accepted_total": accepted,
+                         "rejected_total": rejected, "unparseable_cells": unparseable, "status": "pass" if ok else "fail",
+                         "detail": "" if ok else f"raw {raw_total:,.2f} ≠ accepted {accepted:,.2f} + rejected {rejected:,.2f}",
+                         "msg": render("intake.transform.ties" if ok else "intake.transform.tie_failed", field=labels[name],
+                                       raw=_amount(raw_total), accepted=_amount(accepted), rejected=_amount(rejected))})
 
     form_violations: list[dict] = []
     n_form = 0
@@ -262,8 +296,13 @@ def transformation_check(df: pd.DataFrame, specs: list[dict], report: dict, norm
     status = "pass" if all(t["status"] == "pass" for t in tie_outs) and n_form == 0 else "fail"
     return {"status": status, "tie_outs": tie_outs, "form_violations": form_violations, "n_form_violations": n_form,
             "excluded": {"n_rows": n_error, "pct_rows": round(100.0 * n_error / n_total, 2) if n_total else 0.0,
-                         "value_field": value_field, "value": excluded_value,
-                         "pct_value": round(excluded_value_pct, 2) if excluded_value_pct is not None else None},
+                         "value_field": value_field, "value_label": labels.get(value_field) if value_field else None,
+                         "value": excluded_value,
+                         "pct_value": round(excluded_value_pct, 2) if excluded_value_pct is not None else None,
+                         "msg": (render("intake.transform.excluded_value" if excluded_value_pct is not None else "intake.transform.excluded",
+                                        n=n_error, pct=round(100.0 * n_error / n_total, 2) if n_total else 0.0,
+                                        pct_value=round(excluded_value_pct or 0, 2), field=labels.get(value_field) if value_field else None)
+                                 if n_error else None)},
             "coordinates_usable_pct": coord_ok}
 
 
@@ -274,23 +313,37 @@ def evaluate_gate(receipt: dict, transform: dict, n_valid: int, thresholds: Opti
     blocked — there is nothing valid to land, so there is nothing to sign off."""
     th = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
     if n_valid == 0:
-        return {"status": "blocked", "reasons": ["No row passed validation, so nothing can be imported."], "thresholds": th}
+        return {"status": "blocked", "reasons": ["No row passed validation, so nothing can be imported."],
+                "messages": [render("intake.gate.nothing_valid")], "thresholds": th}
     reasons: list[str] = []
+    messages: list[dict] = []           # one per reason, in the same order: what a screen shows
     for c in receipt["checks"]:
         if c["status"] == "fail":
             reasons.append(f"Receipt: {c['label']} — {c['detail'] or 'failed'}")
+            messages.append(c["msg"])
     for t in transform["tie_outs"]:
         if t["status"] == "fail":
             reasons.append(f"Transformation: {t['field']} does not tie — {t['detail']}")
+            messages.append(t["msg"])
     if transform["n_form_violations"]:
         reasons.append(f"Transformation: {transform['n_form_violations']} accepted value(s) are not in the required form.")
+        messages.append(render("intake.gate.form", n=transform["n_form_violations"]))
     ex = transform["excluded"]
     if ex["pct_rows"] > th["max_reject_pct"]:
         reasons.append(f"{ex['n_rows']} rows ({ex['pct_rows']}%) were rejected — above the {th['max_reject_pct']}% limit.")
+        messages.append(render("intake.gate.reject_rows", n=ex["n_rows"], pct=ex["pct_rows"], limit=th["max_reject_pct"]))
     if ex["pct_value"] is not None and ex["pct_value"] > th["max_reject_value_pct"]:
         reasons.append(f"Rejected rows carry {ex['pct_value']}% of the file's {ex['value_field']} — above the "
                        f"{th['max_reject_value_pct']}% limit.")
-    return {"status": "needs_signoff" if reasons else "pass", "reasons": reasons, "thresholds": th}
+        messages.append(render("intake.gate.reject_value", pct=ex["pct_value"], field=ex.get("value_label") or ex["value_field"],
+                               limit=th["max_reject_value_pct"]))
+    return {"status": "needs_signoff" if reasons else "pass", "reasons": reasons, "messages": messages, "thresholds": th}
+
+
+def add_reason(gate: dict, reason: str, msg: dict) -> dict:
+    """A further reason (currency, values, matching, security) with its message: the batch needs sign-off."""
+    return {**gate, "status": "needs_signoff" if gate["status"] == "pass" else gate["status"],
+            "reasons": gate["reasons"] + [reason], "messages": (gate.get("messages") or []) + [msg]}
 
 
 # ───────────────────────────────────────── 4. landing ─────────────────────────────────────────
@@ -304,7 +357,10 @@ def landing_check(*, n_valid: int, n_landed: int, value_valid: Optional[float] =
     value_ok = True
     if value_valid is not None and value_landed is not None:
         value_ok = _rel_diff_pct(value_valid, value_landed) <= th["tie_tolerance_pct"]
-    return {"status": "pass" if dropped == 0 and value_ok else "attention", "n_validated": int(n_valid), "n_landed": int(n_landed),
+    ok = dropped == 0 and value_ok
+    return {"status": "pass" if ok else "attention", "n_validated": int(n_valid), "n_landed": int(n_landed),
             "n_dropped_after_validation": dropped, "value_validated": value_valid, "value_landed": value_landed,
-            "detail": "" if dropped == 0 and value_ok else
-            f"{dropped} validated row(s) did not land" + ("" if value_ok else "; the landed value does not tie to the validated value") + "."}
+            "detail": "" if ok else
+            f"{dropped} validated row(s) did not land" + ("" if value_ok else "; the landed value does not tie to the validated value") + ".",
+            "msg": render("intake.landing.ok" if ok else "intake.landing.dropped" if value_ok else "intake.landing.value_differs",
+                          n=int(n_landed), dropped=dropped, validated=int(n_valid))}

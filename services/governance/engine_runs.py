@@ -272,8 +272,9 @@ def record(session: Session, org_id: str, report_type: str, actor_user_id: Optio
     """), {"o": org_id, "t": report_type, "p": purpose, "e": json.dumps(entity_ids), "v": view,
            "b": _canonical(basis), "i": _canonical(manifest), "h": _sha(manifest), "out": _canonical(figures),
            "c": _canonical(cks), "s": status, "u": actor_user_id}).mappings().first()
-    return {"run_id": row["run_id"], "created_at": row["created_at"].isoformat(), "status": status, "checks": cks,
-            "inputs": manifest, "inputs_sha256": _sha(manifest), "outputs": figures, "view": view}
+    return {"run_id": row["run_id"], "created_at": row["created_at"].isoformat(), "status": status,
+            "checks": with_messages(cks, manifest, figures), "inputs": manifest, "inputs_sha256": _sha(manifest),
+            "outputs": figures, "view": view}
 
 
 def get_run(session: Session, org_id: str, run_id: str) -> Optional[dict]:
@@ -281,4 +282,32 @@ def get_run(session: Session, org_id: str, run_id: str) -> Optional[dict]:
         SELECT run_id::text, report_type, purpose, entity_ids, view, basis, inputs, inputs_sha256, outputs, checks, status,
                created_at FROM engine_runs WHERE run_id = CAST(:r AS uuid) AND org_id = CAST(:o AS uuid)
     """), {"r": run_id, "o": org_id}).mappings().first()
-    return {**dict(r), "created_at": r["created_at"].isoformat()} if r else None
+    if not r:
+        return None
+    inputs = r["inputs"] or {}
+    return {**dict(r), "created_at": r["created_at"].isoformat(),
+            "inputs": {**inputs, "books": [{**b, "label": book_label(b["book"])} for b in inputs.get("books") or []]},
+            "checks": with_messages(r["checks"] or [], inputs, r["outputs"] or {})}
+
+
+def book_label(key: str) -> str:
+    """A book's customer name (names.intake.book): the loan book, the property book, …"""
+    from core.messages import name, names
+    return names().get("intake.book", {}).get(key) or name("intake.book", "other")
+
+
+def with_messages(cks: list[dict], inputs: dict, outputs: dict) -> list[dict]:
+    """Each check with `msg`, the catalogue message a screen shows (intake.run.<check>.<outcome>) — read from the
+    check's key and outcome and the run's own figures, so a run recorded before messages existed reads the same way.
+    The stored `label` / `detail` sentences are the record and stay as they were."""
+    from core.messages import catalogue, render
+    out = []
+    for c in cks:
+        key = c.get("key", "").split(":")[0]
+        status = c.get("status") or "pass"
+        code = f"intake.run.{key}.{'pass' if status == 'pass' else 'warn'}"
+        if code not in catalogue():
+            code = "intake.run.other.pass" if status == "pass" else "intake.run.other.warn"
+        out.append({**c, "msg": render(code, scored=outputs.get("n_scored"), n=outputs.get("n_assets"),
+                                       differences=inputs.get("open_differences") or 0)})
+    return out

@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from api.deps import CurrentUser, DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/intake", tags=["Integration"])
 
@@ -30,12 +31,8 @@ class ResolveIn(BaseModel):
 
 @router.post("/conflicts/{conflict_id}/resolve", summary="Keep the client's value, explain the difference, or use ours")
 def resolve(conflict_id: str, body: ResolveIn, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
-    from services.intake.conflicts import ConflictError
     from services.intake.conflicts import resolve as _resolve
-    try:
-        out = _resolve(session, ctx["org"]["org_id"], conflict_id, body.decision, ctx["user"]["id"], body.note)
-    except ConflictError as e:
-        raise HTTPException(409, {"error": "conflict", "message": str(e)})
+    out = _resolve(session, ctx["org"]["org_id"], conflict_id, body.decision, ctx["user"]["id"], body.note)  # refusals: UserError
     session.commit()
     return out
 
@@ -45,8 +42,8 @@ def facts(table: str, asset_id: str, session: DbSession, ctx: CurrentUser):
     from services.intake.facts import asset_facts
     try:
         return asset_facts(session, ctx["org"]["org_id"], table, asset_id)
-    except ValueError as e:
-        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+    except ValueError as e:                     # an unknown book or asset
+        raise UserError("error.not_found") from e
 
 
 @router.post("/facts/sync", summary="Record and reconcile this organisation's asset facts now")

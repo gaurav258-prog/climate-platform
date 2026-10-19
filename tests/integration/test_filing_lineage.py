@@ -60,7 +60,7 @@ def test_a_new_pillar3_filing_says_it_prints_no_hazard_cell():
         fid = _mk_filing(s, BANK_ORG, "bank_p3esg", "admin@meridian.demo")
         assert reported_hazards(s, BANK_ORG, fid) == []
         lin = cell_lineage(s, BANK_ORG, fid, "flood")
-        assert lin["supported"] is False and "Template 5" in lin["message"]
+        assert lin["supported"] is False and lin["msg"]["code"] == "intake.lineage.template_five"
         s.rollback()
 
 

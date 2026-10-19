@@ -20,6 +20,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.messages import names, render
 from services.governance import engine_runs as R
 
 
@@ -37,9 +38,7 @@ def revisions(session: Session, org_id: str, filing_id: str) -> dict:
     if pin is None:
         raise ValueError("filing not found")
     if not pin["run_id"]:
-        return {"pinned": False, "changed": None,
-                "message": "This filing was frozen before engine runs were recorded, so there is no fingerprint to compare "
-                           "the book with. Refresh (draft) or restate it to pin it to a run."}
+        return {"pinned": False, "changed": None, "msg": render("intake.revision.not_pinned")}
     run = R.get_run(session, org_id, pin["run_id"])
     then = run["inputs"]
     entity_ids = run.get("entity_ids")
@@ -72,21 +71,36 @@ def revisions(session: Session, org_id: str, filing_id: str) -> dict:
     newer_scores = bool(scores_now.get("latest_scored_at") and (scores_now.get("latest_scored_at") or "") > (scores_then.get("latest_scored_at") or ""))
     book_changed = any(b["changed"] for b in books)
     changed = book_changed or newer_scores
-    reasons = []
-    if book_changed:
-        reasons.append("the book it was computed from has changed")
-    if newer_scores:
-        reasons.append("hazard scores for its assets were updated")
+    code = ("intake.revision.book_and_scores" if book_changed and newer_scores else "intake.revision.book" if book_changed
+            else "intake.revision.scores" if newer_scores else "intake.revision.unchanged")
+    by_field = Counter(f["field"] for f in facts).most_common(12)
+    by_path = Counter(f["method"] for f in facts if f["source"] == "client")
+    paths = names().get("intake.fact_path", {})
     return {"pinned": True, "run_id": pin["run_id"], "view": run["view"], "frozen_at": run["created_at"],
-            "changed": changed, "books": books,
-            "facts": {"n": len(facts), "by_field": dict(Counter(f["field"] for f in facts).most_common(12)),
-                      "by_path": dict(Counter(f["method"] for f in facts if f["source"] == "client"))},
-            "batches": [{**dict(b), "imported_at": b["imported_at"].isoformat()} for b in batches],
+            "changed": changed, "books": [{**b, "label": _book(b["book"])} for b in books],
+            "facts": {"n": len(facts), "by_field": dict(by_field), "by_path": dict(by_path),
+                      "fields": [{"field": k, "label": _field(k), "n": n} for k, n in by_field],
+                      "paths": [{"path": k, "label": paths.get(k) or paths["other"], "n": n} for k, n in by_path.items()]},
+            "batches": [{**dict(b), "imported_at": b["imported_at"].isoformat(), "book": _template(b["template"])} for b in batches],
             "decisions": int(decided or 0),
             "scores": {"then": scores_then.get("latest_scored_at"), "now": scores_now.get("latest_scored_at"), "newer": newer_scores},
-            "message": (("New data since this filing was frozen — " + " and ".join(reasons) + ". The filing is unchanged; "
-                         "restate it (or refresh a draft) to bring the new data in.") if changed else
-                        "Nothing it was computed from has changed since it was frozen.")}
+            "msg": render(code)}
+
+
+_book = R.book_label
+
+
+def _template(key: str) -> str:
+    """An intake template's customer name ('loan tape', 'Statement of Values')."""
+    from services.intake.catalog import TEMPLATES
+    return TEMPLATES[key].label if key in TEMPLATES else _book(key)
+
+
+def _field(key: str) -> str:
+    """A fact's customer name: the field catalogue's label, else the book column's name."""
+    from services.ingest.fields import FIELDS
+    f = FIELDS.get(key)
+    return f.label if f else names().get("intake.book_field", {}).get(key) or "Another fact"
 
 
 def flagged_filings(session: Session, org_id: str) -> list[dict]:

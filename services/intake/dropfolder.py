@@ -133,7 +133,7 @@ def _take(box, channel: dict, org_id: str, name: str, get_session, submit, Intak
                 s.commit()   # the refused attempt stays on the ledger
             else:
                 s.rollback()
-            msg = e.body.get("message") or e.body.get("error") or "refused"
+            msg = e.sentence
             return {"file": name, "state": "refused", "batch_id": e.body.get("batch_id"), "reason": msg,
                     "moved_to": "refused/" + box.file_away(folder, name, "refused", msg)}
         except Exception as e:  # noqa: BLE001 — never lose a file: leave it in place and report
