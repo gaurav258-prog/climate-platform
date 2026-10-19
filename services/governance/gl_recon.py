@@ -4,7 +4,7 @@ The platform already ties every reported figure to its golden source; this ties 
 to the customer's GL control accounts, so a variance surfaces here (with a tolerance) rather than in an exam.
 GL balances are uploaded in dated batches (one file = one batch); reconciliation uses the latest batch and the
 same point-in-time book the engine computes (baseline / current). Nothing is invented — a variance is shown
-honestly, '—' where no GL has been provided.
+honestly, '—' where no GL has been provided. What a screen reads is catalogue words (codes ledger.*).
 """
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from core import messages
 
 VERTICAL = {"bank": "banking", "asset_manager": "assetmgmt", "insurer": "insurance", "reit": "realestate"}
 TOLERANCE_PCT = 0.5   # within 0.5% of the GL counts as reconciled
@@ -25,21 +27,22 @@ def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[st
     as_of_date?}. A balance's currency is the row's `currency`, else the one declared for the upload — never assumed;
     its date is the row's as_of_date, else the declared book date. Converted to EUR at the closing rate of that date
     (services/intake/money.py); the amount as sent and the rate are kept (money_source). A row that can't be used is
-    reported with the reason, never silently skipped."""
+    reported with its catalogue message, never silently skipped."""
     from services.intake.money import MoneyError, convert_amount, source_record
     bid = str(uuid.uuid4())
     n, skipped = 0, []
     for i, r in enumerate(rows, start=2):
         code = str(r.get("account_code") or "").strip()
         if not code:
-            skipped.append({"row": i, "reason": "account_code is missing"})
+            skipped.append({"row": i, "message": messages.render("ledger.row.no_account", row=i)})
             continue
         ccy = (str(r.get("currency") or "").strip() or currency or "").upper()
         asof = str(r.get("as_of_date") or "").strip() or book_date
         try:
             c = convert_amount(session, r.get("balance", r.get("balance_eur")), ccy, asof, label="balance", org_id=org_id)
-        except MoneyError as e:
-            skipped.append({"row": i, "reason": str(e)})
+        except MoneyError as e:          # its text is written for the customer (services/intake/money.py)
+            skipped.append({"row": i, "message": messages.render("ledger.row.not_used", row=i,
+                                                                      reason=e.args[0][:1].upper() + e.args[0][1:])})
             continue
         session.execute(text("""
             INSERT INTO gl_balance (gl_id, org_id, batch_id, account_code, account_name, balance_eur, control_for, as_of_date,
@@ -67,15 +70,16 @@ def reconciliation(session: Session, org_id: str, org_type: str) -> dict:
     vertical = VERTICAL.get(org_type)
     batch = _latest_batch(session, org_id)
     if not vertical:
-        return {"available": False, "reason": "unsupported_sector"}
+        return {"available": False, "message": messages.render("ledger.unavailable.sector")}
     if not batch:
-        return {"available": False, "reason": "no_gl_uploaded"}
+        return {"available": False, "message": messages.render("ledger.none")}
     accounts = session.execute(text("""
         SELECT account_code, account_name, CAST(balance_eur AS FLOAT) AS balance_eur, control_for
         FROM gl_balance WHERE org_id = CAST(:o AS uuid) AND batch_id = CAST(:b AS uuid)
         ORDER BY balance_eur DESC
     """), {"o": org_id, "b": batch["b"]}).mappings().all()
-    gl_total = sum(a["balance_eur"] for a in accounts if (a["control_for"] or "book") == "book")
+    counts = lambda a: (a["control_for"] or "book") == "book"            # noqa: E731 — an account the book total ties to
+    gl_total = sum(a["balance_eur"] for a in accounts if counts(a))
     from services.money.params import for_org
     from services.portfolio_engine import fetch_entities_with_risk
     rows = fetch_entities_with_risk(session, org_id, vertical, "baseline", "current", method=for_org(session, org_id))
@@ -87,5 +91,7 @@ def reconciliation(session: Session, org_id: str, org_type: str) -> dict:
         "reported_book_eur": round(reported), "gl_book_eur": round(gl_total),
         "variance_eur": round(var), "variance_pct": var_pct, "tolerance_pct": TOLERANCE_PCT,
         "reconciled": (abs(var_pct) <= TOLERANCE_PCT) if var_pct is not None else False,
-        "n_accounts": len(accounts), "accounts": [dict(a) for a in accounts],
+        "n_accounts": len(accounts), "n_book_accounts": sum(1 for a in accounts if counts(a)),
+        "accounts": [{**a, "counts": counts(a)} for a in accounts],
+        "message": messages.render("ledger.rule", tolerance=f"{TOLERANCE_PCT:g}"),
     }

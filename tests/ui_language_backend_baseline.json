@@ -79,11 +79,6 @@
   "error": 0,
   "rawError": 0
  },
- "api/routers/gl.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
  "api/routers/grc_followups.py": {
   "display": 0,
   "error": 0,
@@ -138,11 +133,6 @@
   "display": 1,
   "error": 0,
   "rawError": 2
- },
- "api/routers/realized.py": {
-  "display": 2,
-  "error": 0,
-  "rawError": 0
  },
  "api/routers/reg_tasks.py": {
   "display": 0,
@@ -279,11 +269,6 @@
   "error": 0,
   "rawError": 0
  },
- "services/governance/gl_recon.py": {
-  "display": 3,
-  "error": 0,
-  "rawError": 0
- },
  "services/governance/onboarding.py": {
   "display": 2,
   "error": 0,
@@ -389,11 +374,6 @@
   "error": 1,
   "rawError": 0
  },
- "services/intelligence/realized_exposure.py": {
-  "display": 3,
-  "error": 0,
-  "rawError": 0
- },
  "services/intelligence/resilience_capex.py": {
   "display": 1,
   "error": 0,
@@ -415,11 +395,6 @@
   "rawError": 0
  },
  "services/intelligence/taxonomy_adaptation.py": {
-  "display": 1,
-  "error": 0,
-  "rawError": 0
- },
- "services/intelligence/underwriting_review.py": {
   "display": 1,
   "error": 0,
   "rawError": 0

@@ -1,125 +1,174 @@
-import { bucketLabel } from '../lib/hazards'
 import { useState } from 'react'
-import { Search, Download, History, ShieldAlert } from 'lucide-react'
-import { api, download } from '../lib/api'
+import { Download, History, Gauge, Search } from 'lucide-react'
+import { api, apiMessage, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Eyebrow, Card } from '../components/ui'
+import { bucketLabel } from '../lib/labels'
+import { Button, Card, PageHeader, SectionHead, StatGrid } from '../components/ui'
+import { HBar } from '../components/Charts'
+import { HEADING, InfoButton, MessageLine } from '../components/Details'
 import ReviewTabs from '../components/ReviewTabs'
+import { Chip, EventDialog, EventList, MessageInfo, Timeline } from '../components/observed/Observed'
+import type { Definition, Message, ObservedEvent, Source } from '../components/observed/types'
 
-// Climate Track Record — the diligence deliverable. Enter any location; get the real events that have already
-// crossed it (observed catalogue) plus its current hazard scores, and hand over a one-page PDF dossier.
+// Climate track record, to the UI standard (2026-10-16): for any coordinates, what the observed catalogues recorded
+// there — a timeline and a list, each event's facts one click away — and, kept apart and labelled as modelled, how the
+// place scores today. Every explanation is the server's catalogue words (codes realized.place.*).
 
-interface REvent { kind: string; name?: string; year: number | null; severity: string; closest_km?: number }
-interface Hazard { hazard: string; label: string; score: number; bucket: string }
+interface Hazard {
+  hazard: string; label: string; score: number; bucket: string; scale: string; scale_name: string; headline: boolean; as_of: string | null
+}
 interface Dossier {
-  location: { name: string | null; lat: number; lon: number; h3_cell: string }
-  verdict: string; since_year: number | null
-  realized: { n_events: number; n_storms: number; n_earthquakes: number; events: REvent[] }
-  current_risk: Hazard[]; headline_current: Hazard | null; note: string
+  location: { name: string | null; lat: number; lon: number }
+  realized: { n_events: number; n_storms: number; n_earthquakes: number; events: ObservedEvent[]; sources: Source[]; definition: Definition; message: Message }
+  current_risk: Hazard[]; headline_current: Hazard | null
+  modelled: { message: Message; context: Message | null }
 }
 
-const PRESETS: [string, number, number][] = [
-  ['Warehouse · SW Portugal', 37.95, -8.87],
-  ['Vineyard · Valencia, ES', 39.47, -0.38],
-  ['Plant · Sicily, IT', 37.5, 15.09],
-  ['Port · Rotterdam, NL', 51.95, 4.14],
+const ABOUT = [
+  { heading: HEADING.shows, body: 'For any coordinates: the storms and earthquakes the observed catalogues recorded within reach of the place, and, kept apart, how the place scores on our hazard models today.' },
+  { heading: HEADING.read, body: 'The observed record is fact: each event’s class, wind, magnitude and distance are the catalogue’s own. The scores are modelled: a ranking of places from 0 to 100, not a probability. A crossing is not a loss.' },
+  { heading: HEADING.limits, body: 'The catalogues hold tropical cyclones and earthquakes of magnitude 5 or more, over the years they cover; floods, wildfires, hail and European windstorms have no observed catalogue here. A diligence dossier, not a regulatory filing.' },
 ]
-const BUCKET_COLOR: Record<string, string> = { VH: '#D23B3B', H: '#E8744A', M: '#E8B24C', L: '#7BBF8F', none: '#6d8299' }
+// example places to try (inputs, not figures the page reports)
+const EXAMPLES: [string, number, number][] = [
+  ['Warehouse · south-west Portugal', 37.95, -8.87],
+  ['Vineyard · Valencia', 39.47, -0.38],
+  ['Plant · Sicily', 37.5, 15.09],
+  ['Port · Rotterdam', 51.95, 4.14],
+]
+const BAND: Record<string, string> = { VH: 'var(--color-bad)', H: 'var(--scn-disorderly)', M: 'var(--scn-orderly)', L: 'var(--color-faint)' }
+const input = 'rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px] text-[var(--color-ink)]'
+const qs = (lat: string, lon: string, name: string) => `lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}${name ? `&name=${encodeURIComponent(name)}` : ''}`
 
 export default function TrackRecord() {
-  const [lat, setLat] = useState('37.95')
-  const [lon, setLon] = useState('-8.87')
-  const [name, setName] = useState('Warehouse · SW Portugal')
+  const [lat, setLat] = useState(String(EXAMPLES[0][1]))
+  const [lon, setLon] = useState(String(EXAMPLES[0][2]))
+  const [name, setName] = useState(EXAMPLES[0][0])
   const [d, setD] = useState<Dossier | null>(null)
   const [busy, setBusy] = useState(false)
 
   const run = async (la = lat, lo = lon, nm = name) => {
     setBusy(true)
-    try {
-      const qs = `lat=${encodeURIComponent(la)}&lon=${encodeURIComponent(lo)}${nm ? `&name=${encodeURIComponent(nm)}` : ''}`
-      setD(await api.get<Dossier>(`/v1/realized-exposure/track-record?${qs}`))
-    } catch { toast.error('Could not build the track record — check the coordinates.') } finally { setBusy(false) }
+    try { setD(await api.get<Dossier>(`/v1/realized-exposure/track-record?${qs(la, lo, nm)}`)) }
+    catch (e) { toast.error(apiMessage(e, 'The track record could not be built. Check the coordinates.')) }
+    finally { setBusy(false) }
   }
-  const pdf = () => {
-    const qs = `lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}${name ? `&name=${encodeURIComponent(name)}` : ''}`
-    download(`/v1/realized-exposure/track-record.pdf?${qs}`, 'climate-track-record.pdf').catch(() => toast.error('Download failed.'))
-  }
+  const pdf = () => download(`/v1/realized-exposure/track-record.pdf?${qs(lat, lon, name)}`, 'climate-track-record.pdf')
+    .catch(e => toast.error(apiMessage(e, 'The dossier could not be downloaded.')))
 
   return (
-    <div className="fadeup space-y-6">
+    <div className="fadeup space-y-6 max-w-5xl">
       <ReviewTabs />
-      <div>
-        <Eyebrow>Diligence · any address on Earth</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Climate Track Record</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Underwriting a risk, lending against an asset, or acquiring a book? Get one location's climate track record — the real events that have <em>already</em> crossed it, and its current hazard scores. Observed catalogue + golden source. A dossier, not a filing.
-        </p>
-      </div>
+      <PageHeader eyebrow="Review · diligence" title="Climate track record" lead="What has crossed a place, and how it scores today." about={ABOUT}
+        actions={d && <Button variant="ghost" onClick={pdf}><Download size={14} />Dossier (PDF)</Button>} />
 
       <Card className="p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1"><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Latitude</span>
-            <input value={lat} onChange={e => setLat(e.target.value)} className="w-28 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px] tabular-nums" /></label>
-          <label className="flex flex-col gap-1"><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Longitude</span>
-            <input value={lon} onChange={e => setLon(e.target.value)} className="w-28 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px] tabular-nums" /></label>
-          <label className="flex flex-col gap-1 flex-1 min-w-[180px]"><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Label (optional)</span>
-            <input value={name} onChange={e => setName(e.target.value)} className="w-full rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px]" /></label>
-          <button onClick={() => run()} disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-sky)] text-[#08131f] font-semibold px-3.5 py-2 text-[13px] disabled:opacity-60">
-            <Search size={14} /> {busy ? 'Building…' : 'Get track record'}</button>
+          <label className="flex flex-col gap-1 text-[12px] text-[var(--color-mute)]">Latitude
+            <input value={lat} onChange={e => setLat(e.target.value)} inputMode="decimal" className={`${input} w-28 tabular-nums`} /></label>
+          <label className="flex flex-col gap-1 text-[12px] text-[var(--color-mute)]">Longitude
+            <input value={lon} onChange={e => setLon(e.target.value)} inputMode="decimal" className={`${input} w-28 tabular-nums`} /></label>
+          <label className="flex flex-col gap-1 flex-1 min-w-[180px] text-[12px] text-[var(--color-mute)]">Name (optional)
+            <input value={name} onChange={e => setName(e.target.value)} className={`${input} w-full`} /></label>
+          <Button onClick={() => run()} disabled={busy}><Search size={14} />{busy ? 'Building…' : 'Get track record'}</Button>
         </div>
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {PRESETS.map(([nm, la, lo]) => (
-            <button key={nm} onClick={() => { setLat(String(la)); setLon(String(lo)); setName(nm); run(String(la), String(lo), nm) }}
-              className="mono text-[10.5px] px-2 py-1 rounded-lg border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">{nm}</button>
+        <div className="flex flex-wrap items-center gap-1.5 mt-3">
+          <span className="text-[12px] text-[var(--color-faint)] mr-1">Try</span>
+          {EXAMPLES.map(([nm, la, lo]) => (
+            <button key={nm} type="button" onClick={() => { setLat(String(la)); setLon(String(lo)); setName(nm); run(String(la), String(lo), nm) }}
+              className="text-[12px] px-2.5 py-1 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">{nm}</button>
           ))}
         </div>
       </Card>
 
-      {d && (
-        <Card className="p-5" style={{ borderColor: 'var(--color-blued)' }}>
-          <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-            <div>
-              <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-sky)]">{d.location.name || 'Location'}</div>
-              <div className="mono text-[11px] text-[var(--color-faint)]">{d.location.lat.toFixed(5)}, {d.location.lon.toFixed(5)} · grid cell {d.location.h3_cell}</div>
-            </div>
-            <button onClick={pdf} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><Download size={13} /> Download dossier (PDF)</button>
-          </div>
-          <p className="display text-[19px] font-semibold text-[var(--color-ink)] leading-snug max-w-3xl">{d.verdict}</p>
-
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <div className="flex items-center gap-1.5 mb-2"><History size={14} className="text-[var(--color-warn)]" /><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Already crossed this location · observed</span></div>
-              {d.realized.events.length === 0
-                ? <div className="text-[12.5px] text-[var(--color-mute)]">No catalogued storm or earthquake within the felt radius.</div>
-                : <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
-                    {d.realized.events.slice(0, 8).map((e, i) => (
-                      <div key={i} className="flex items-baseline gap-2 py-1.5 text-[12.5px]">
-                        <span>{e.kind === 'earthquake' ? '⊕' : '🌀'}</span>
-                        <span className="font-medium text-[var(--color-ink)]">{e.name}</span>
-                        <span className="mono text-[10px] text-[var(--color-faint)]">{e.year ?? '—'}</span>
-                        <span className="ml-auto mono text-[10.5px] text-[var(--color-mute)]">{e.severity} · {e.closest_km}km</span>
-                      </div>
-                    ))}
-                  </div>}
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-2"><ShieldAlert size={14} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Current physical risk · golden source</span></div>
-              {d.current_risk.length === 0
-                ? <div className="text-[12.5px] text-[var(--color-mute)]">Not yet scored for this location — scoring runs on request.</div>
-                : <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
-                    {d.current_risk.slice(0, 8).map(h => (
-                      <div key={h.hazard} className="flex items-center gap-2 py-1.5 text-[12.5px]">
-                        <span className="text-[var(--color-ink)]">{h.label}</span>
-                        <span className="ml-auto mono text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: `${BUCKET_COLOR[h.bucket] || '#6d8299'}22`, color: BUCKET_COLOR[h.bucket] || '#6d8299' }}>{bucketLabel(h.bucket)} · {h.score}/100</span>
-                      </div>
-                    ))}
-                  </div>}
-            </div>
-          </div>
-          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-4">{d.note}</div>
-        </Card>
-      )}
+      {d && <Result d={d} />}
     </div>
   )
 }
+
+function Result({ d }: { d: Dossier }) {
+  const r = d.realized, top = d.headline_current
+  return (
+    <>
+      <div>
+        <div className="text-[15px] font-semibold text-[var(--color-ink)]">{d.location.name || 'This place'}</div>
+        <div className="text-[12px] text-[var(--color-faint)] tabular-nums">{d.location.lat.toFixed(4)}, {d.location.lon.toFixed(4)}</div>
+      </div>
+      <StatGrid cols={4} items={[
+        { label: 'Observed events', value: r.n_events, accent: r.n_events ? 'var(--color-sky)' : undefined, sub: 'from the catalogues' },
+        { label: 'Storms', value: r.n_storms },
+        { label: 'Earthquakes', value: r.n_earthquakes },
+        { label: 'Highest modelled score', value: top ? top.score.toFixed(0) : '—', sub: top ? top.label : 'not scored', accent: top ? BAND[top.bucket] : undefined },
+      ]} />
+      <Observed r={r} />
+      <Modelled d={d} />
+    </>
+  )
+}
+
+function Observed({ r }: { r: Dossier['realized'] }) {
+  const [pick, setPick] = useState<ObservedEvent | null>(null)
+  return (
+    <Card className="p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <SectionHead icon={History}>Observed record</SectionHead>
+        <MessageInfo m={r.message} sources={r.sources} />
+      </div>
+      <Timeline events={r.events} sources={r.sources} onPick={setPick} />
+      {r.events.length === 0
+        ? <MessageLine m={r.message} className="text-[13px] text-[var(--color-mute)]" />
+        : <EventList events={r.events} d={r.definition} />}
+      {pick && <EventDialog e={pick} d={r.definition} onClose={() => setPick(null)} />}
+    </Card>
+  )
+}
+
+function Modelled({ d }: { d: Dossier }) {
+  const [context, setContext] = useState(false)
+  const likely = d.current_risk.filter(h => h.headline)
+  const other = d.current_risk.filter(h => !h.headline)
+  const m = d.modelled
+  const dates = [...new Set(d.current_risk.map(h => h.as_of).filter((x): x is string => !!x))].sort()
+  return (
+    <Card className="p-5 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <SectionHead icon={Gauge}>Modelled today</SectionHead>
+          <InfoButton compact details={{ title: m.message.label, sections: [
+            ...(m.message.detail?.what ? [{ heading: HEADING.shows, body: m.message.detail.what }] : []),
+            ...(m.message.detail?.why ? [{ heading: HEADING.read, body: m.message.detail.why }] : []),
+            ...(dates.length ? [{ heading: 'As of', body: dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} to ${dates[dates.length - 1]}` }] : []),
+            ...(m.message.detail?.next ? [{ heading: 'More', body: m.message.detail.next }] : []),
+          ] }} />
+        </div>
+        <Chip color="var(--color-slate)">Modelled</Chip>
+      </div>
+      {d.current_risk.length === 0 ? <MessageLine m={m.message} className="text-[13px] text-[var(--color-mute)]" /> : (
+        <>
+          <HBar data={likely.map(h => ({ label: h.label, value: h.score, color: BAND[h.bucket], sub: bucketLabel(h.bucket) }))}
+            format={v => v.toFixed(0)} labelWidth="w-36 sm:w-60" />
+          {other.length > 0 && m.context && (
+            <div>
+              <button type="button" onClick={() => setContext(!context)} aria-expanded={context}
+                className="text-[12px] text-[var(--color-sky)] hover:underline">{context ? 'Hide' : 'Show'} context scales ({other.length})</button>
+              {context && (
+                <div className="mt-2 space-y-1.5">
+                  <MessageLine m={m.context} className="text-[12px] text-[var(--color-mute)]" />
+                  {other.map(h => (
+                    <div key={h.hazard} className="flex items-center gap-2 text-[12.5px]">
+                      <span className="text-[var(--color-ink)] min-w-0 truncate">{h.label}</span>
+                      <Chip color="var(--color-slate)">{h.scale_name}</Chip>
+                      <span className="flex-1" />
+                      <span className="tabular-nums text-[var(--color-mute)]">{h.score.toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  )
+}
+

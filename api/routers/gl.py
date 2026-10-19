@@ -1,17 +1,19 @@
 """General-ledger reconciliation — upload GL control-account balances and tie the reported book total back to
-the ledger (gate 4). CSV in; a reconciliation with an honest variance and tolerance out."""
+the ledger (gate 4). CSV in; a reconciliation with an honest variance and tolerance out. Refusals are catalogue
+errors (core/errors.py UserError, codes ledger.error.*)."""
 from __future__ import annotations
 
 import csv
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 import services.governance.gl_recon as G
 from api.deps import DbSession, require_permission
+from core.errors import UserError
 
 router = APIRouter(prefix="/v1/gl", tags=["General-ledger reconciliation"])
 
@@ -42,22 +44,23 @@ async def upload(session: DbSession, file: UploadFile = File(...), currency: Opt
     raw = (await file.read()).decode("utf-8-sig", errors="replace")
     try:
         rows = list(csv.DictReader(io.StringIO(raw)))
-    except Exception:
-        raise HTTPException(422, {"error": "bad_csv", "message": "Could not parse the CSV."})
+    except csv.Error:
+        raise UserError("ledger.error.unreadable")
     if not rows:
-        raise HTTPException(422, {"error": "empty", "message": "No rows found. Use the template columns."})
-    res = G.ingest(session, ctx["org"]["org_id"], rows, ctx["user"]["id"], currency, book_date)
+        raise UserError("ledger.error.empty")
+    return _ingested(G.ingest(session, ctx["org"]["org_id"], rows, ctx["user"]["id"], currency, book_date))
+
+
+def _ingested(res: dict) -> dict:
+    """An upload that saved nothing is refused, naming the first row it could not use."""
     if res["rows"] == 0:
-        raise HTTPException(422, {"error": "no_valid_rows", "skipped": res["skipped"],
-                                  "message": "No usable rows — each needs an account_code, a numeric balance, its currency "
-                                             "and the date it describes. " + (res["skipped"][0]["reason"] if res["skipped"] else "")})
+        first = res["skipped"][0]
+        raise UserError("ledger.error.no_rows", row=first["row"], reason=first["message"]["detail"]["what"])
     return res
 
 
 @router.post("/rows", status_code=201, summary="Upload GL balances as JSON rows")
 def upload_rows(body: RowsBody, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
-    res = G.ingest(session, ctx["org"]["org_id"], body.rows, ctx["user"]["id"], body.currency, body.book_date)
-    if res["rows"] == 0:
-        raise HTTPException(422, {"error": "no_valid_rows", "skipped": res["skipped"],
-                                  "message": "No usable rows. " + (res["skipped"][0]["reason"] if res["skipped"] else "")})
-    return res
+    if not body.rows:
+        raise UserError("ledger.error.empty")
+    return _ingested(G.ingest(session, ctx["org"]["org_id"], body.rows, ctx["user"]["id"], body.currency, body.book_date))

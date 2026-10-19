@@ -49,7 +49,7 @@ def test_gl_balances_declare_their_currency_and_date():
     with get_session() as s:
         res = G.ingest(s, BANK_ORG, rows, None, currency="USD", book_date="2026-06-30")
     try:
-        assert res["rows"] == 3 and res["n_skipped"] == 1 and "account_code" in res["skipped"][0]["reason"]
+        assert res["rows"] == 3 and res["n_skipped"] == 1 and res["skipped"][0]["message"]["code"] == "ledger.row.no_account"
         with get_session() as s:
             got = {r[0]: (float(r[1]), r[2]) for r in s.execute(text(
                 "SELECT account_code, balance_eur, money_source FROM gl_balance WHERE batch_id = CAST(:b AS uuid)"), {"b": res["batch_id"]})}
@@ -58,7 +58,7 @@ def test_gl_balances_declare_their_currency_and_date():
             assert (e["currency"], e["amount"], e["policy"]) == ("GBP", 500000.0, "closing") and e["origin"].startswith("gl_batch:")
         with get_session() as s:
             none = G.ingest(s, BANK_ORG, [{"account_code": "T-9", "balance": "5"}], None)          # nothing declared
-        assert none["rows"] == 0 and "currency" in none["skipped"][0]["reason"]
+        assert none["rows"] == 0 and "currency" in none["skipped"][0]["message"]["detail"]["what"]
     finally:
         _cleanup_gl(res["batch_id"])
 

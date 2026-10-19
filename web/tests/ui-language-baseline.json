@@ -135,14 +135,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/GlRecon.tsx": {
-  "internal": 4,
-  "raw": 0,
-  "monoProse": 0,
-  "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/HexMap.tsx": {
   "internal": 0,
   "raw": 0,
@@ -196,14 +188,6 @@
   "raw": 0,
   "monoProse": 0,
   "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/RealizedExposure.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 3,
-  "apiProse": 0,
   "figure": 0,
   "citation": 0
  },
@@ -679,27 +663,11 @@
   "figure": 0,
   "citation": 0
  },
- "src/pages/TrackRecord.tsx": {
-  "internal": 2,
-  "raw": 2,
-  "monoProse": 2,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/pages/Transmission.tsx": {
   "internal": 2,
   "raw": 1,
   "monoProse": 2,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/pages/UnderwritingReview.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 4,
-  "apiProse": 1,
   "figure": 0,
   "citation": 0
  }

@@ -2356,6 +2356,215 @@
     "why": "An analyst override is carried as it stands, without a range. An asset whose score has no confidence interval adds the same amount to both ends."
    }
   },
+  "realized.place.crossed": {
+   "label": "Observed events that crossed this place",
+   "detail": {
+    "what": "Storms and earthquakes from the observed catalogues that passed within reach of these coordinates: a storm whose centre came within {storm_km} km, or an earthquake of magnitude {min_mag} or more with its epicentre within {quake_km} km.",
+    "why": "They are recorded events, matched by distance. Nothing here is modelled, and a crossing is not a loss: the catalogues record where an event was, not what it damaged."
+   }
+  },
+  "realized.place.none": {
+   "label": "No observed event crossed this place",
+   "detail": {
+    "what": "No storm centre came within {storm_km} km of these coordinates, and no earthquake of magnitude {min_mag} or more had its epicentre within {quake_km} km.",
+    "why": "The storm record starts in {storm_from} and the earthquake record in {quake_from}; an older event is not in them."
+   }
+  },
+  "realized.place.modelled": {
+   "label": "Modelled hazard scores today",
+   "detail": {
+    "what": "Each hazard's score today, on a scale of 0 to 100, from our models for the grid cell that holds these coordinates. A score ranks places against each other: it is not a probability and not a loss.",
+    "why": "Shown beside the observed record, kept apart from it, so you can compare what has happened with how the place scores now.",
+    "next": "Each hazard's validation is under Review → Hazard coverage."
+   }
+  },
+  "realized.place.unscored": {
+   "label": "No hazard score held for this place",
+   "detail": {
+    "what": "We hold scores for the places in our customers' books and the regions we score in advance. The grid cell of these coordinates has none yet, so only the observed record is shown."
+   }
+  },
+  "realized.place.context": {
+   "label": "Context scales, not a damage likelihood",
+   "detail": {
+    "what": "These scores are on scales built for something else: today's reading of a fast-changing signal, a crop scale, a ground-susceptibility class or a rank of variability among all land.",
+    "why": "They describe the place but do not express the likelihood of damage to a building, so none of them can be the place's highest hazard."
+   }
+  },
+  "realized.storm.unnamed": {
+   "label": "Unnamed storm",
+   "detail": {
+    "what": "The best-track record gives this storm no name."
+   }
+  },
+  "realized.quake.unplaced": {
+   "label": "Earthquake, place not named",
+   "detail": {
+    "what": "The catalogue gives this earthquake no place name."
+   }
+  },
+  "realized.book.crossed": {
+   "label": "Observed events that crossed your book",
+   "detail": {
+    "what": "Storms and earthquakes from the observed catalogues that passed within reach of your located assets: a storm whose centre came within {storm_km} km of an asset, or an earthquake of magnitude {min_mag} or more with its epicentre within {quake_km} km.",
+    "why": "Matched by distance to your own coordinates. Nothing here is projected, and a crossing is not a loss: the value shown is what was within reach, not what was damaged."
+   }
+  },
+  "realized.book.none": {
+   "label": "No observed event crossed your book",
+   "detail": {
+    "what": "No storm centre came within {storm_km} km of your located assets, and no earthquake of magnitude {min_mag} or more had its epicentre within {quake_km} km."
+   }
+  },
+  "realized.book.crops": {
+   "label": "Production shocks in your sourcing origins",
+   "detail": {
+    "what": "Years in which the national production of a crop you source fell by more than {threshold} % on the year before, in a country you source it from, from the agencies' production records.",
+    "why": "Matched to the crop and country of your sourcing plots; the spend shown is your annual spend on that crop and origin. A fall in production can have causes other than weather. Nothing here is projected."
+   }
+  },
+  "realized.book.no_crops": {
+   "label": "No production shock in your origins",
+   "detail": {
+    "what": "No crop you source saw its national production fall by more than {threshold} % on the year before, in a country you source it from."
+   }
+  },
+  "realized.unavailable.no_assets": {
+   "label": "No located assets in your book",
+   "detail": {
+    "what": "Observed events are matched by distance, so they need assets with coordinates.",
+    "next": "Add the latitude and longitude of your assets under Your data."
+   }
+  },
+  "realized.unavailable.no_sourcing": {
+   "label": "No sourcing origins recorded",
+   "detail": {
+    "what": "Production shocks are matched to the crops you source and the countries you source them from.",
+    "next": "Add your sourcing plots under Your data."
+   }
+  },
+  "realized.unavailable.sector": {
+   "label": "Not available for your organisation type",
+   "detail": {
+    "what": "The observed record is matched to the books of banks, insurers, real-estate owners, asset managers and food manufacturers."
+   }
+  },
+  "realized.unavailable.insurer_only": {
+   "label": "Available on an insurer's workspace",
+   "detail": {
+    "what": "The underwriting review sets the observed record beside the return periods an insurer prices its policies on, so it needs an insurer's policy book."
+   }
+  },
+  "realized.review.crossed": {
+   "label": "Policies the observed record has crossed",
+   "detail": {
+    "what": "The storms and earthquakes from the observed catalogues that passed within reach of each policy's location: a storm whose centre came within {storm_km} km, or an earthquake of magnitude {min_mag} or more with its epicentre within {quake_km} km.",
+    "why": "A crossing is not a claim: the catalogues record where an event was, not what it damaged. It is information about the risk that a policy file does not otherwise hold."
+   }
+  },
+  "realized.review.check": {
+   "label": "Crossings beside the priced frequency",
+   "detail": {
+    "what": "For each peril a policy is priced on that has an observed catalogue (storm, earthquake): the crossings counted over the years the catalogue covers, beside the number the priced return period expects in those years (years ÷ return period).",
+    "why": "Your method states each peril's annual probability of a damaging event by risk band; the return period is one over it. A crossing is broader than a damaging event (an earthquake of magnitude {min_mag} {quake_km} km away is counted though it may damage nothing), so a location can be crossed more often than priced without any loss.",
+    "next": "Read a flag as a prompt to check the priced frequency, not as a finding that a policy is mispriced."
+   }
+  },
+  "realized.review.rule": {
+   "label": "Your tolerance: {tolerance} %",
+   "detail": {
+    "what": "A check is flagged when the crossings reach (1 + {tolerance} %) times the number the priced frequency expects, and read as less often when they are at most (1 − {tolerance} %) times it. Your organisation states this tolerance.",
+    "why": "When the priced frequency expects fewer than one event over the catalogue's years, seeing none is what the price predicts, so no reading of less often is given."
+   }
+  },
+  "realized.review.no_tolerance": {
+   "label": "No tolerance stated",
+   "detail": {
+    "what": "The crossings and the number the price expects are shown, without a reading: your organisation has not stated the tolerance that sets one.",
+    "next": "State it under Admin → Methodology."
+   }
+  },
+  "realized.review.window_short": {
+   "label": "Too few years for a reading",
+   "detail": {
+    "what": "At the priced frequency, fewer than one event is expected in the {years} years the catalogue covers, so seeing none is what the price predicts and says nothing about it."
+   }
+  },
+  "realized.review.uncatalogued": {
+   "label": "Priced on perils with no catalogue",
+   "detail": {
+    "what": "These policies are priced only on perils for which we hold no observed event catalogue (flood, wildfire, hail, windstorm and others), so their frequency is not checked. Their crossings are still shown."
+   }
+  },
+  "realized.review.unpriced": {
+   "label": "No priced peril",
+   "detail": {
+    "what": "No insured peril at these policies' locations is scored, so they carry no priced frequency to check."
+   }
+  },
+  "realized.review.no_return_period": {
+   "label": "Event probability not stated",
+   "detail": {
+    "what": "These policies are priced on a peril with an observed catalogue, but your method does not state that peril's annual event probability for their risk band, so there is no return period to check.",
+    "next": "State it under Admin → Methodology."
+   }
+  },
+  "ledger.unavailable.sector": {
+   "label": "Not available for your organisation type",
+   "detail": {
+    "what": "The reconciliation ties the reported book of a bank, insurer, asset manager or real-estate owner to its general ledger."
+   }
+  },
+  "ledger.none": {
+   "label": "No general ledger uploaded yet",
+   "detail": {
+    "what": "Upload your general-ledger balances and the reported book total is tied back to them.",
+    "next": "Choose the currency and book date, then upload the file. The template has the columns and an example row."
+   }
+  },
+  "ledger.rule": {
+   "label": "Tolerance {tolerance} % of the ledger",
+   "detail": {
+    "what": "The reported book is reconciled when it differs from the total of the ledger accounts it ties to by no more than {tolerance} % of that total.",
+    "why": "Each upload is one dated batch; the reconciliation reads your latest upload and the book as the engine computes it today. A difference is shown as it is."
+   }
+  },
+  "ledger.row.no_account": {
+   "label": "Row {row} not used",
+   "detail": {
+    "what": "Row {row} has no account code, so it was not used."
+   }
+  },
+  "ledger.row.not_used": {
+   "label": "Row {row} not used",
+   "detail": {
+    "what": "Row {row} was not used. {reason}"
+   }
+  },
+  "ledger.error.unreadable": {
+   "status": 422,
+   "label": "The file could not be read",
+   "detail": {
+    "what": "It is not a CSV file we can read.",
+    "next": "Save it as CSV (comma-separated, UTF-8), starting from the template, and upload it again."
+   }
+  },
+  "ledger.error.empty": {
+   "status": 422,
+   "label": "The file has no rows",
+   "detail": {
+    "what": "There is no balance in it.",
+    "next": "Fill in the template with one row per account and upload it again."
+   }
+  },
+  "ledger.error.no_rows": {
+   "status": 422,
+   "label": "No row could be used",
+   "detail": {
+    "what": "Every row needs an account code, a numeric balance, its currency and the date it describes. {reason}",
+    "next": "Correct the file, or choose the currency and book date for the whole file, and upload it again."
+   }
+  },
   "horizon.at_risk.basis": {
    "label": "At or above your at-risk level",
    "detail": {
@@ -5084,6 +5293,32 @@
   "event_record": {
    "seismic": "USGS earthquake catalogue (magnitude 5 and above)",
    "storm": "IBTrACS tropical-cyclone best tracks"
+  },
+  "realized.storm_class": {
+   "5": "Category 5",
+   "4": "Category 4",
+   "3": "Category 3",
+   "2": "Category 2",
+   "1": "Category 1",
+   "0": "Tropical storm",
+   "-1": "Tropical depression",
+   "-2": "Subtropical",
+   "-3": "Disturbance",
+   "-4": "Post-tropical",
+   "-5": "Unclassified"
+  },
+  "realized.verdict": {
+   "more_often": "Crossed more often than priced",
+   "in_line": "Within your tolerance",
+   "less_often": "Crossed less often than priced",
+   "none": "No reading"
+  },
+  "realized.scale": {
+   "intensity": "Likelihood or intensity",
+   "nowcast": "Today's reading",
+   "crop": "Crop scale",
+   "susceptibility": "Susceptibility class",
+   "variability": "Variability rank"
   },
   "hazard": {
    "flood": "Flooding (rivers & heavy rain)",
