@@ -1,4 +1,4 @@
-"""The KRI sets speak in the catalogue's words (UI standard, 2026-10-16; E-next). Each indicator's explanation was a
+"""The KRI sets speak in the catalogue's words (UI standard, 2026-10-16; E234). Each indicator's explanation was a
 sentence typed where it was built — nine places, with internal keys ('method.at_risk_level', 'golden source', raw scenario
 codes, concept keys) and no guard could see them (keyword arguments, not dict literals). Now every indicator carries a
 catalogue message (`about`), its numbers as named facts and its gaps in the one format the screens read; these checks hold

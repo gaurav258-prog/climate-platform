@@ -1,4 +1,4 @@
-"""What the KRI dashboard and the model-risk register send a screen, on the demo organisations (E-next): customer words
+"""What the KRI dashboard and the model-risk register send a screen, on the demo organisations (E234, E237): customer words
 from the catalogue, the hazard register's standing on every score card, and a review bound to the card's facts only.
 
 Requires PostgreSQL."""
@@ -64,7 +64,7 @@ def test_the_report_picker_names_reports_without_citations(org_type):
 
 @pytest.mark.integration
 def test_a_score_card_claims_what_the_hazard_register_holds():
-    """E-next: the card's tier was its own rule (calibrated when the model's r² ≥ 0.40), so every rank-validated score —
+    """E236: the card's tier was its own rule (calibrated when the model's r² ≥ 0.40), so every rank-validated score —
     flood, wildfire, storms, heat — read 'screening, no euro figure' against the register's Validated."""
     with get_session() as s:
         for c in MR.cards(s, "manufacturer"):
@@ -77,7 +77,7 @@ def test_a_score_card_claims_what_the_hazard_register_holds():
 
 @pytest.mark.integration
 def test_a_review_is_bound_to_facts_a_feed_refresh_does_not_change(monkeypatch):
-    """E-next: the hash covered each feed's last refresh, so every review went stale at the next scheduled refresh."""
+    """E235: the hash covered each feed's last refresh, so every review went stale at the next scheduled refresh."""
     import services.data.feeds as F
     with get_session() as s:
         before = {c["ref"]: c["card_sha256"] for c in MR.cards(s, "manufacturer")}
@@ -91,7 +91,7 @@ def test_a_review_is_bound_to_facts_a_feed_refresh_does_not_change(monkeypatch):
 
 @pytest.mark.integration
 def test_the_register_speaks_in_customer_words():
-    """E-next: the card showed the registry's engineers' notes (file paths, table names) as its limitations, and its
+    """E237: the card showed the registry's engineers' notes (file paths, table names) as its limitations, and its
     method, lifecycle and actors as raw codes."""
     from sqlalchemy import text
     with get_session() as s:

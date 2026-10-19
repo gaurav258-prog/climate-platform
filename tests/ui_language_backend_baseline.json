@@ -149,11 +149,6 @@
   "error": 0,
   "rawError": 9
  },
- "api/routers/remittance.py": {
-  "display": 0,
-  "error": 0,
-  "rawError": 3
- },
  "api/routers/security_admin.py": {
   "display": 0,
   "error": 0,
@@ -177,7 +172,7 @@
  "api/routers/supervisor.py": {
   "display": 0,
   "error": 0,
-  "rawError": 7
+  "rawError": 3
  },
  "api/routers/supply.py": {
   "display": 2,

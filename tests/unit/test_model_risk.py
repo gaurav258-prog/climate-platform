@@ -41,7 +41,7 @@ def test_card_hash_is_canonical_and_changes_with_its_facts():
 
 
 def test_a_review_is_bound_to_the_facts_not_the_words_or_a_feed_refreshing():
-    """E-next: the hash covered each feed's last refresh, so every scheduled feed refresh made every review stale; and
+    """E235: the hash covered each feed's last refresh, so every scheduled feed refresh made every review stale; and
     it covered the card's sentences, so rewording made them stale too. Only the facts are hashed now."""
     a = _card()
     refreshed = dict(a, feeds=[{"key": "geophysical", "name": "USGS seismic", "status": "overdue", "last_refresh": "2026-10-19T09:00:00"}])

@@ -1,4 +1,4 @@
-// The KRI screens say only what is so (E-next): the headline says every indicator is within appetite only when some
+// The KRI screens say only what is so (E238, E239): the headline says every indicator is within appetite only when some
 // indicator is graded (a set with no band was announced as all within appetite), and saving a band that needs a second
 // person's approval says it was sent for approval — never that the band was updated.
 import { test } from 'node:test'

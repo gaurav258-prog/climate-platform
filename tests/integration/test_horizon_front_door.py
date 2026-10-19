@@ -1,6 +1,6 @@
 """Horizon, the front door (services/intelligence/front_door.py, api/routers/tasks.py). Requires PostgreSQL.
 
-Guards for what the front door got wrong (E-next rows of the Horizon rebuild):
+Guards for what the front door got wrong (E218-E223, rows A-F in order):
   A  it read a legacy copy of each financial book (bank_assets, insurance_policies, …) that only four demo tenants still
      had — 32 of 36 financial tenants saw an empty globe, the other four a stale one with its own scoring rule
   B  it counted "at elevated risk" against a typed 50 instead of the organisation's stated at-risk level

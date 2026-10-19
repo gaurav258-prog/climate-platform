@@ -15,14 +15,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/BoardPack.tsx": {
-  "internal": 1,
-  "raw": 6,
-  "monoProse": 1,
-  "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/ClientRates.tsx": {
   "internal": 3,
   "raw": 0,
@@ -71,14 +63,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/FilingCockpit.tsx": {
-  "internal": 2,
-  "raw": 3,
-  "monoProse": 3,
-  "apiProse": 4,
-  "figure": 0,
-  "citation": 1
- },
  "src/components/FilingConsolidation.tsx": {
   "internal": 0,
   "raw": 1,
@@ -95,14 +79,6 @@
   "figure": 0,
   "citation": 0
  },
- "src/components/FilingForm.tsx": {
-  "internal": 1,
-  "raw": 0,
-  "monoProse": 5,
-  "apiProse": 4,
-  "figure": 0,
-  "citation": 0
- },
  "src/components/FilingFx.tsx": {
   "internal": 0,
   "raw": 0,
@@ -116,14 +92,6 @@
   "raw": 1,
   "monoProse": 4,
   "apiProse": 1,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/FilingPreflight.tsx": {
-  "internal": 0,
-  "raw": 1,
-  "monoProse": 9,
-  "apiProse": 0,
   "figure": 0,
   "citation": 0
  },
@@ -172,14 +140,6 @@
   "raw": 0,
   "monoProse": 0,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/GrcFollowups.tsx": {
-  "internal": 0,
-  "raw": 4,
-  "monoProse": 4,
-  "apiProse": 2,
   "figure": 0,
   "citation": 0
  },
@@ -252,14 +212,6 @@
   "raw": 0,
   "monoProse": 1,
   "apiProse": 0,
-  "figure": 0,
-  "citation": 0
- },
- "src/components/RegulatoryLineage.tsx": {
-  "internal": 0,
-  "raw": 6,
-  "monoProse": 0,
-  "apiProse": 3,
   "figure": 0,
   "citation": 0
  },

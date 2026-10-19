@@ -1,4 +1,4 @@
-// Horizon draws, it does not compute (E-next). The front door used to type its own years (2025 / 2030 / 2050 / 2100),
+// Horizon draws, it does not compute (E219). The front door used to type its own years (2025 / 2030 / 2050 / 2100),
 // its own risk bands (28 / 50 / 75) and its own interpolation, so its "at elevated risk" count disagreed with every other
 // page. The years, the scores, the at-risk flags and the at-risk level now come from GET /v1/me/globe; these files may
 // not bring any of them back.

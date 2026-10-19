@@ -1,6 +1,6 @@
 // The Pillar 3 form's tabs group its templates by the template each section prints, never by words in its title: a
 // section once titled 'Template 9.3 - Summary table - BTAR %' sat under the Qualitative tab because its title holds the
-// word 'table' (E-next). Every template of the governing Pillar 3 specifications lands on its own tab.
+// word 'table' (E242). Every template of the governing Pillar 3 specifications lands on its own tab.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
