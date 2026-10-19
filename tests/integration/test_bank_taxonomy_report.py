@@ -69,7 +69,7 @@ def test_a_new_filing_carries_only_the_taxonomy_templates(api):
     assert api.get(f"/v1/filings/{fid}/export?format=json", headers=maker).status_code == 200
     # no hazard cell to trace: the lineage says what the report traces instead
     lin = api.get(f"/v1/filings/{fid}/lineage?hazard=flood", headers=maker).json()
-    assert lin["supported"] is False and "Taxonomy" in lin["message"]
+    assert lin["supported"] is False and lin["msg"]["code"] == "intake.lineage.per_exposure"
 
 
 def test_a_filing_of_the_earlier_report_shape_still_renders(api):

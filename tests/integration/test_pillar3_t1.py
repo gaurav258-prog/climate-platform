@@ -379,7 +379,7 @@ def test_template5_cells_trace_to_the_exposures_they_sum(api):
     assert api.get(f"/v1/filings/{fid}/lineage/t5/cell", headers=h,
                    params={"row": "1", "column": "a"}).status_code == 404          # column a is the geography itself
     old = api.get(f"/v1/filings/{fid}/lineage", headers=h, params={"hazard": "flood"}).json()
-    assert not old["supported"] and "lineage/t5" in old["message"]
+    assert not old["supported"] and old["msg"]["code"] == "intake.lineage.template_five"
 
 
 def test_a_loan_already_in_the_book_names_its_counterparty_through_the_attributes_file(api):

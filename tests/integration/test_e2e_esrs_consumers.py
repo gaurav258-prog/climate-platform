@@ -139,14 +139,14 @@ def test_a_filed_esrs_statement_is_read_onto_its_years_concepts(api):
     assert "csrd_e1" not in {f["key"] for f in api.get("/v1/prior-filings/frameworks", headers=maker).json()["frameworks"]}
     old = _upload(api, maker, "csrd_e1", "FY2024", [("Gross Scope 1 GHG emissions", 1)], period_end="2024-12-31",
                   undertaking="organisation")
-    assert old.status_code == 400 and "no new filings" in old.text
+    assert old.status_code == 400 and old.json()["error"]["error"] == "intake.prior.refused.retired_upload_as"
     undated = _upload(api, maker, "esrs_pack", "FY2024", [("Gross Scope 1 GHG emissions", 1)], undertaking="organisation")
-    assert undated.status_code == 400 and "period ends" in undated.text                      # stated, never read from the label
+    assert undated.status_code == 400 and undated.json()["error"]["error"] == "intake.prior.refused.period_end_required"  # stated, never read from the label
     nobody = _upload(api, maker, "esrs_pack", "FY2024", [("Gross Scope 1 GHG emissions", 1)], period_end="2024-12-31")
-    assert nobody.status_code == 400 and "whom the filed report is for" in nobody.text
+    assert nobody.status_code == 400 and nobody.json()["error"]["error"] == "intake.prior.refused.undertaking_required"
     before = _upload(api, maker, "esrs_pack", "FY2023", [("Gross Scope 1 GHG emissions", 1)], period_end="2023-12-31",
                      undertaking="organisation")
-    assert before.status_code == 400 and "no ESRS version" in before.text                    # FY2023: no ESRS applies
+    assert before.status_code == 400 and before.json()["error"]["error"] == "intake.prior.refused.no_version"  # FY2023: no ESRS applies
 
     r = _upload(api, maker, "esrs_pack", "FY2024", [("Gross Scope 1 GHG emissions (tCO2eq)", 1500),
                                                     ("Total water consumption", 42000),
@@ -165,10 +165,12 @@ def test_a_filed_esrs_statement_is_read_onto_its_years_concepts(api):
     stray = lines["GHG emissions scope 1 and energy"]["figure_id"]
     twice = api.post(f"/v1/prior-filings/{f['filing_id']}/confirm", headers=maker,
                      json={"edits": [{"figure_id": stray, "datapoint_key": "e1.ghg.scope1.gross"}]})
-    assert twice.status_code in (400, 422) and "more than one line" in twice.text
+    assert twice.status_code in (400, 422) and twice.json()["error"]["error"] == "intake.prior.refused.mapping_twice"
+    assert "Gross Scope 1 GHG emissions" in twice.json()["error"]["detail"]["what"]      # the figure by its name, not its key
     legacy = api.post(f"/v1/prior-filings/{f['filing_id']}/confirm", headers=maker,
                       json={"edits": [{"figure_id": stray, "datapoint_key": "e1_ghg"}]})
-    assert legacy.status_code in (400, 422) and "e1_ghg" in legacy.text
+    assert legacy.status_code in (400, 422) and legacy.json()["error"]["error"] == "intake.prior.refused.mapping_unknown"
+    assert "e1_ghg" not in legacy.text                                                    # a key never reaches the screen
     ok = api.post(f"/v1/prior-filings/{f['filing_id']}/confirm", headers=maker, json={"edits": [{"figure_id": stray, "drop": True}]})
     assert ok.status_code == 200, ok.text
     series = {s["datapoint_key"]: s for s in api.get("/v1/prior-filings/trends?framework=esrs_pack", headers=maker).json()["series"]}

@@ -77,7 +77,7 @@ def test_restatement_supersedes_old_and_links_to_new():
         assert new["status"] == "draft"
 
         v = variance(s, BANK_ORG, new["filing_id"])
-        assert not v["supported"] and v["prior_filing_id"] == fid and "T-1" in v["message"]
+        assert not v["supported"] and v["prior_filing_id"] == fid and v["msg"]["code"] == "intake.variance.taxonomy_own_columns"
         s.rollback()
 
 

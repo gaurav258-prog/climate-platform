@@ -91,7 +91,7 @@ def test_unusable_file_is_refused_with_the_reason_beside_it(channel):
     tag = channel["tag"]
     _drop(channel, f"{tag}-wrong.csv", b"foo,bar\n1,2\n")
     res = dropfolder.sweep_channel(channel, BANK_ORG)
-    assert res[0]["state"] == "refused" and "required columns missing" in res[0]["reason"]
+    assert res[0]["state"] == "refused" and "Required columns missing" in res[0]["reason"]
     assert "map your columns" in res[0]["reason"]          # the reason file carries what to do, not only the label
     names = sorted(p.name for p in channel["dirs"]["refused"].iterdir())
     assert len(names) == 2 and names[1].endswith(".reason.txt")
