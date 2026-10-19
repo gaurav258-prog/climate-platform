@@ -249,7 +249,7 @@ export default function Horizon() {
 
           {g && !supervisor && (<>
             <Tile label={atStop ? `At risk · ${stops[stop]?.label ?? ''}` : 'Your book'} tint={atStop ? '#E9744A' : undefined} onClick={() => setPanel('atrisk')}
-              value={atStop ? `${atStop.n} / ${g.n_assets}` : `${g.n_assets} ${g.noun}`}
+              value={atStop ? `${atStop.n} / ${g.n_assets}` : <>{g.n_assets}<span className="text-[13px] ml-1.5 text-[var(--color-mute)]">{g.noun}</span></>}
               sub={atStop ? `${balance(atStop.value_eur)} of ${balance(g.book_value_eur)}` : balance(g.book_value_eur)}>
               {risk?.by_stop && (
                 <div className="flex items-end gap-1.5 h-7 mt-2.5" aria-hidden>
