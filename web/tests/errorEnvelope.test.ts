@@ -1,7 +1,7 @@
 // A refusal reaches the screen through apiMessage / apiDetail (lib/api.ts), which read every shape the API answers —
 // {error: {error, message, detail}} first. The contracts upload read the words from the top of the body,
 // (err.body as { message?: string })?.message, where the API never puts them, so every refused upload said only
-// "Upload failed." whatever the reason (E-next).
+// "Upload failed." whatever the reason (E294).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'

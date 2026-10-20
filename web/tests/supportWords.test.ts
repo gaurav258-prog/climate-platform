@@ -1,4 +1,4 @@
-// The support centre's clock and words (E-next): the page called its target a first-response target but ran the
+// The support centre's clock and words (E277): the page called its target a first-response target but ran the
 // clock until the ticket was resolved, so a ticket answered in time showed "SLA breached" while it stayed open; and its
 // target table named the priorities Critical / High / Medium / Low while the form offered Low / Normal / High / Urgent.
 import { test } from 'node:test'

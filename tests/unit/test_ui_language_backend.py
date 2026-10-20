@@ -28,6 +28,22 @@ def test_a_fixed_file_lowers_the_baseline():
     assert stale == [], f"Lower the baseline: venv/bin/python -m scripts.ui_language --write — {stale}"
 
 
+def test_every_declared_machine_value_is_still_there_and_says_where_it_is_read():
+    """A declared machine value is an exception to the standard: it must still match a value in its file (or the entry
+    goes), and say where the value is read instead of being printed."""
+    U._USED.clear()
+    U.scan_all()
+    gone = [m["file"] + " " + m["text"] for i, m in enumerate(U.MACHINE) if i not in U._USED]
+    assert gone == [], f"remove these entries from scripts/ui_language.MACHINE — nothing matches them any more: {gone}"
+    assert all((U.ROOT / m["file"]).exists() and len(m["why"]) > 40 for m in U.MACHINE)
+
+
+def test_a_machine_value_is_declared_by_file_key_and_value_never_by_key_alone(tmp_path):
+    f = tmp_path / "r.py"
+    f.write_text('def a():\n    return {"reason": "no_loans"}\n', encoding="utf-8")
+    assert U.scan(f)["display"] == 1                       # the same value in another file is still a breach
+
+
 def test_a_user_error_names_a_catalogue_code(tmp_path):
     # a UserError's argument is a code, not words — counted only when the catalogue lacks it (a typo would 500)
     f = tmp_path / "r.py"

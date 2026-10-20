@@ -1,5 +1,5 @@
 """Through the HTTP API: sign-in, sessions, passkeys, password reset, onboarding links and the go-live checklist refuse
-and explain in catalogue words, and a sign-in refusal never says whether an account exists (E-next: the passkey
+and explain in catalogue words, and a sign-in refusal never says whether an account exists (E275: the passkey
 sign-in answered 'no such account' for an unknown e-mail and 'unknown passkey' for a known one)."""
 from __future__ import annotations
 

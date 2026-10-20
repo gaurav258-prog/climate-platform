@@ -27,6 +27,49 @@ INTERNAL = re.compile(r"\b[a-z]+_[a-z0-9_]+\b|\bE\d{2,3}\b|\.(?:py|json)\b|/v1/|
 DISPLAY = {"gap", "reason", "note", "message", "title", "basis", "caution", "hint", "summary", "label", "description",
            "detail", "headline", "why", "review", "notice"}
 
+# Values the scan flags that no customer reads — a stored code, or a format a screen translates — each declared with
+# where it is read instead. The guard's test fails when an entry stops matching anything, so the list cannot go stale.
+# Anything a screen prints does not belong here: say it in customer words.
+_UNAVAILABLE = ("The machine reason of an unavailable block ({available: false, reason}): the Portfolio cards "
+                "(web/src/pages/portfolio/BookCards.tsx) hide the block, and no screen prints the reason.")
+_METHOD_GAP = ("The method-gap format every engine uses (services/money/params.gap_text): screens read it through "
+               "web/src/lib/methodGap.ts and MethodGap, which name the setting from /v1/meta/labels and never print the key.")
+MACHINE: tuple[dict, ...] = (
+    {"file": "services/reference/fx.py", "key": "basis", "text": r"^(fixed_peg|period_average)$",
+     "why": "The stored kind of a rate (fx_rates.basis), keyed on by rate_changes_since and revisions_since and frozen in "
+            "a filing's rates_used; the filing form's currency panel names the two kinds in words."},
+    {"file": "services/governance/solvency2_natcat.py", "key": "basis", "text": r"^solvency_ii_standard_formula$",
+     "why": "The calculation-basis code frozen in insurer_solvency payloads beside the router's scr_basis; no screen "
+            "reads it (web/src/pages/solvency/types.ts has no basis field)."},
+    {"file": "services/governance/esrs_document.py", "key": "reason", "text": r"^not_material$",
+     "why": "An omission-reason code of the stored answers (REASONS); the ESRS screen names it "
+            "(web/src/components/esrs/words.ts REASON)."},
+    {"file": "services/scoring/loan_transition.py", "key": "reason", "text": r"^(no_real_estate_collateral|no_loans)$",
+     "why": _UNAVAILABLE},
+    {"file": "services/scoring/combined_var.py", "key": "reason", "text": r"^no_scored_positions$", "why": _UNAVAILABLE},
+    {"file": "services/scoring/portfolio_concentration.py", "key": "reason", "text": r"^empty_book$", "why": _UNAVAILABLE},
+    {"file": "services/intelligence/resilience_capex.py", "key": "reason", "text": r"^no_scored_properties$",
+     "why": _UNAVAILABLE},
+    {"file": "api/routers/supply.py", "key": "gap", "text": r"^not stated: method\.[a-z_]+", "why": _METHOD_GAP},
+    {"file": "services/intelligence/site_interruption.py", "key": "gap", "text": r"^not stated: method\.[a-z_]+",
+     "why": _METHOD_GAP},
+    {"file": "services/intelligence/resourcing.py", "key": "gap", "text": r"^not stated: method\.[a-z_]+",
+     "why": _METHOD_GAP},
+    {"file": "services/tasks/worker_guard.py", "key": "raise", "text": r"^worker refused",
+     "why": "What a Celery worker prints to the operator's terminal when it is started on a forking pool; no screen or "
+            "API shows it."},
+)
+_USED: set[int] = set()
+
+
+def _machine(rel: str, key: str, text: str) -> bool:
+    """True when this value is a declared machine value (and note that its entry was used)."""
+    for i, m in enumerate(MACHINE):
+        if m["file"] == rel and m["key"] == key and re.search(m["text"], text):
+            _USED.add(i)
+            return True
+    return False
+
 
 def _text(node: ast.AST) -> str | None:
     """The static text of a string or f-string (without its {…} parts)."""
@@ -55,11 +98,16 @@ KINDS = ("display", "error", "rawError")
 
 def scan(path: Path) -> dict[str, int]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    try:
+        rel = str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        rel = str(path)
     out = dict.fromkeys(KINDS, 0)
     for n in ast.walk(tree):
         if isinstance(n, ast.Dict):
             for k, v in zip(n.keys, n.values):
-                if isinstance(k, ast.Constant) and k.value in DISPLAY and (t := _text(v)) and INTERNAL.search(t):
+                if isinstance(k, ast.Constant) and k.value in DISPLAY and (t := _text(v)) and INTERNAL.search(t) \
+                        and not _machine(rel, k.value, t):
                     out["display"] += 1
                 if isinstance(k, ast.Constant) and k.value in ("message", "detail") and _is_str_of_exception(v):
                     out["rawError"] += 1
@@ -73,7 +121,7 @@ def scan(path: Path) -> dict[str, int]:
                 # a code the catalogue lacks is a breach
                 if (t := _text(n.exc.args[0])) and t not in _codes():
                     out["error"] += 1
-            elif (t := _text(n.exc.args[0])) and INTERNAL.search(t) and t not in _codes():
+            elif (t := _text(n.exc.args[0])) and INTERNAL.search(t) and t not in _codes() and not _machine(rel, "raise", t):
                 out["error"] += 1
     return out
 

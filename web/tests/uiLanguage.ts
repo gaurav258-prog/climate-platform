@@ -55,6 +55,8 @@ export const WORDS: { file: string; field: string; why: string }[] = [
     why: "A mandate check's tier is the tier's label from data/reference/regulatory_mandates.json (services/supervision/mandates.py evaluate)." },
   { file: 'src/pages/respondent/Mandates.tsx', field: 'tier',
     why: "A mandate check's tier is the tier's label from data/reference/regulatory_mandates.json (services/supervision/mandates.py evaluate)." },
+  { file: 'src/components/Toaster.tsx', field: 'message',
+    why: "A toast's one line: the caller's own words, or a refusal's catalogue label through apiMessage (lib/api.ts) — never a server explanation." },
 ]
 
 // A figure: a number with its unit or magnitude ('51.4M', '~0.7 km²', '€2.1bn', '35%', '28 years'), or a span of years.

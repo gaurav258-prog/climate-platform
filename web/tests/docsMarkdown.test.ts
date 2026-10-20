@@ -1,4 +1,4 @@
-// The help centre reads its articles whole (E-next): the reader treated an indented second line of a list item as a
+// The help centre reads its articles whole (E279): the reader treated an indented second line of a list item as a
 // new paragraph, so "Direct integration", the platform layers and the frameworks list were cut in two on screen; and
 // it knew **bold** and `code` but not *italic*, so every italic phrase showed with its asterisks.
 import { test } from 'node:test'
