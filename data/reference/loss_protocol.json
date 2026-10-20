@@ -115,5 +115,28 @@
     "predictor": "for each map, as the validator reads the global maps: the share of the node box's land pixels flooded at the 1-in-100-year period (permanent water excluded, depths above 0.05 m) × the depth–damage fraction at their mean depth (ml.scoring.flood_jrc.flood_score)",
     "rule": "the European maps replace the global maps inside coverage_countries unless they rank the observed floods worse: refused when the 95th percentile of the paired-bootstrap difference (European − global; 2,000 resamples of the nodes, seed 7) is below zero for the rank correlation OR for the AUC (observed share > 2%)",
     "why_not_better": "the reason to switch is the nine return periods a defence level is read against (the product owner's decision, 2026-10-16), not a sharper flood extent — so the check guards against a worse map rather than demanding a better one"
+  },
+  "europe_loss_test": {
+    "registered": "2026-10-20",
+    "statement": "stated before the test was built or run, at the product owner's decisions of 2026-10-20: (1) river floods only; (2) the years 1990–2020; (3) an event's loss split between its regions by their asset value in the river-flood zone; (4) each European curve tested on its own",
+    "question": "do the flood losses the platform models for European regions rank like the river-flood losses those regions reported? It tests the whole chain — the European flood maps, the defence levels, one curve, and uniform exposure inside the flood zone — and cannot say which link fails",
+    "data": {
+      "events": "HANZE v2.1.1 (Paprotny et al. 2024, ESSD 16:5145; doi:10.5281/zenodo.8410025; CC BY 4.0): HANZE_events.csv, column 'Losses (2020 euro)' (direct tangible damage, inflation- and exchange-rate-adjusted by the authors), 'Regions affected (v2021)'",
+      "exposure": "HANZE v2.0.3 exposure (Paprotny & Mengel 2023, Scientific Data 10; doi:10.5281/zenodo.7885990; CC BY 4.0): Exposure_river_hazard_zone.csv, 'Fixed assets (thsd. euro)', 50th percentile — the asset value inside each NUTS-3 region's riverine 1-in-100-year flood zone (the JRC pan-European 100-year map, Alfieri et al.), per timestep",
+      "regions": "HANZE's NUTS-3 v2021 regions (Regions_v2021_simplified.zip) — the codes the events and the exposure use",
+      "files_verified": "md5 against the Zenodo records, 2026-10-20"
+    },
+    "selection": "events of Type 'River' or 'River/Coastal', Year 1990–2020 inclusive, with a value in 'Losses (2020 euro)'; regions in the countries the European maps cover (jrc_river_flood_europe coverage_countries) that the exposure file lists with zone assets above zero",
+    "observed": "each selected event's loss is split between the regions it lists in proportion to each region's zone asset value in the event's year (the exposure's own timestep for that year, else the nearest earlier one); a region's observed rate = the sum of its shares ÷ 31 years ÷ the mean of its zone asset value over 1990–2020's timesteps; a region no selected event lists has an observed rate of 0",
+    "modelled": "for each region and each curve: the region's flood zone is its 100 m cells flooded (depth > 0) in the European map's 1-in-100-year period; exposure is taken as spread evenly over those cells (no exposure grid is used); for each of the nine return periods the damage fraction is the mean over the zone's cells of the curve at that period's depth (0 where dry); a region's defence level is the median design return period of the protection map (jrc_flood_protection_europe) over its zone cells, and periods more frequent than it contribute 0 (the rule already registered in flood_protection, Ward et al. 2020); off the protection map the region is undefended; the expected annual damage fraction is the trapezoidal integral of the damage fraction over annual exceedance probability, as the engine integrates",
+    "curves": [
+      "jrc_huizinga_2017:residential:150",
+      "jrc_huizinga_2017:commercial:150",
+      "jrc_huizinga_2017:industrial:150"
+    ],
+    "metric": "Spearman rank correlation, across the regions in scope, between the observed rate and the modelled expected annual damage fraction — one result per curve",
+    "rule": "the platform's registered rank gate, unchanged (core/validation_gates, gates-v1): ρ ≥ RANK_GATE_SPEARMAN (0.35) with at least MIN_N_REGION_CLAIM regions; band monotonicity computed and reported, not a gate. Each curve's result is its own: passed → its European figures are shown as tested against reported regional losses (standing 'published'); failed → held",
+    "recorded": "each result in the validation ledger (validation_run: kind rank, method out_of_sample — nothing is fitted to the losses — target the HANZE events above), and on the curve in its family file",
+    "limits_stated_before": "reported losses under-count true damage (the authors estimate less than half before recent decades) and coverage differs by country (dense in Italy, Spain and France, sparse in Germany and the UK); losses mix all asset types while each curve is one building use; exposure is uniform inside the zone; the maps are today's hazard set against 31 years of events; a region with no reported event may still have had unreported losses. A pass says the chain ranks regions as reported losses do; a fail cannot say which link failed — the curve is held all the same, since its figures stand on the whole chain"
   }
 }
