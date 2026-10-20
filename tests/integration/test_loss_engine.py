@@ -197,10 +197,12 @@ def test_a_scenario_or_horizon_the_source_does_not_publish_is_a_named_gap(sessio
         engine.run(s, org, "realestate", "hot_house_3_5c", "current")
 
 
-def test_a_european_home_on_the_jrc_curve_is_untested_and_a_us_home_held(session_rolled_back, monkeypatch):
+def test_each_jrc_curve_carries_its_own_test_and_an_untested_one_says_so(session_rolled_back, monkeypatch):
     """Product owner's decisions (2026-10-07): the JRC curves cover the UN M49 region's countries; Europe publishes no
     spread, so its figure has no range; a curve tested on its own carries that test's standing, every other is
-    untested."""
+    untested. The European residential curve was tested on HANZE's reported regional losses (2026-10-20,
+    loss_protocol.json europe_loss_test) and held; the North American one on US claims and held; the Latin American
+    one is untested."""
     s = session_rolled_back
     europe_maps(monkeypatch, "candidate")              # the German home reads the global maps
     fam = curves.families().get("jrc_huizinga_2017")
@@ -211,10 +213,16 @@ def test_a_european_home_on_the_jrc_curve_is_untested_and_a_us_home_held(session
     _flood_samples(s, lat=50.94, lon=6.96, share=0.5, depth=1.0)
     _asset(s, org, country="US")
     _flood_samples(s)
+    _asset(s, org, country="BR", lat=-23.55, lon=-46.63)
+    _flood_samples(s, lat=-23.55, lon=-46.63)
     rows = {r["curve_key"]: dict(r) for r in s.execute(text("""SELECT * FROM loss_results WHERE run_id = CAST(:r AS uuid)
             AND peril = 'flood'"""), {"r": engine.run(s, org, "realestate")["run_id"]}).mappings()}
     de, us = rows["jrc_huizinga_2017:residential:150"], rows["jrc_huizinga_2017:residential:021"]
-    assert de["standing"] == "untested" and de["eal_low_eur"] == de["eal_eur"] == de["eal_high_eur"]
+    br = rows["jrc_huizinga_2017:residential:419"]
     eu_curve = next(c for c in fam["curves"] if c["key"] == "jrc_huizinga_2017:residential:150")
+    assert eu_curve["test"]["protocol"] == "europe_loss_test"
+    assert de["standing"] == ("published" if eu_curve["test"]["passed"] else "held")
+    assert de["eal_low_eur"] == de["eal_eur"] == de["eal_high_eur"]
     assert de["loss_at_rp"]["100"]["central"] == pytest.approx(400000 * 0.5 * curves.ratio(eu_curve["points"], 1.0), rel=1e-6)
     assert us["standing"] == "held" and us["eal_low_eur"] < us["eal_eur"] < us["eal_high_eur"]
+    assert br["standing"] == "untested"

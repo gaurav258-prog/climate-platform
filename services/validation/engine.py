@@ -27,6 +27,12 @@ from ml.validation import regional as R
 
 VALIDATION_VERSION = "val-v1"
 
+# The ledger's text columns and the lengths the migrations declare (tests/integration/test_validation_ledger_limits.py
+# holds the two in step). A result that would not fit is refused when it is built — before any figure is written —
+# never cut short and never left to fail half-way through a batch at INSERT (E303).
+LIMITS = {"hazard_type": 50, "scope": 80, "horizon": 20, "kind": 20, "method": 30, "target_source": 120,
+          "data_vintage": 60}
+
 
 @dataclass
 class ValidationResult:
@@ -47,6 +53,12 @@ class ValidationResult:
     strata: Optional[list] = None   # per-sample stratum label (macro-region / climate zone), aligned with predicted;
     #                                 when given, skill is also judged per stratum and a pooled pass that hides a
     #                                 failing region is flagged (see ml/validation/regional.py)
+
+    def __post_init__(self) -> None:
+        long = [f"{k} is {len(v)} characters, the ledger holds {n}" for k, n in LIMITS.items()
+                if (v := getattr(self, k)) is not None and len(v) > n]
+        if long:
+            raise ValueError("this result does not fit the validation ledger: " + "; ".join(long))
 
 
 Validator = Callable[[Session], ValidationResult]

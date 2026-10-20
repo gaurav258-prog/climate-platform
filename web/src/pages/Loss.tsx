@@ -348,10 +348,13 @@ function Methods({ families, onClose }: { families?: Families; onClose: () => vo
             <div className="font-semibold text-[var(--color-ink)]">{f.name}</div>
             <div className="text-[12px] text-[var(--color-mute)] mt-0.5">{f.kind === 'measured' ? 'Built from observed claims' : 'Published'}{f.source?.authors ? ` · ${f.source.authors}${f.source.year ? ` (${f.source.year})` : ''}` : ''} · {f.curves.length} curves</div>
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {f.test ? <StatusChip label={f.test.passed ? 'Tested' : 'Failed its test'} tone={f.test.passed ? 'good' : 'warn'} /> : <>
-                <StatusChip label={`${f.curves.filter(c => c.test).length} of ${f.curves.length} tested`} tone="neutral" />
-                {f.curves.filter(c => c.test && !c.test.passed).length > 0 && <StatusChip label={`${f.curves.filter(c => c.test && !c.test.passed).length} failed its test`} tone="warn" />}
-              </>}
+              {f.test ? <StatusChip label={f.test.passed ? 'Tested' : 'Failed its test'} tone={f.test.passed ? 'good' : 'warn'} /> : (() => {
+                const failed = f.curves.filter(c => c.test && !c.test.passed).length
+                return <>
+                  <StatusChip label={`${f.curves.filter(c => c.test).length} of ${f.curves.length} tested`} tone="neutral" />
+                  {failed > 0 && <StatusChip label={failed === 1 ? '1 failed its test' : `${failed} failed their test`} tone="warn" />}
+                </>
+              })()}
             </div>
           </div>
         ))}

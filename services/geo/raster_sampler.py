@@ -59,7 +59,8 @@ def _handle(datasets: dict, op: str, args: dict):
     if op == "info":
         b = src.bounds
         return {"bounds": [b.left, b.bottom, b.right, b.top], "crs": str(src.crs) if src.crs else None,
-                "nodata": src.nodata, "count": src.count}
+                "nodata": src.nodata, "count": src.count, "width": src.width, "height": src.height,
+                "transform": list(src.transform)[:6]}
     if op == "sample":
         return [[float(v) for v in vals] for vals in src.sample(args["points"], indexes=args.get("band"))]
     if op == "window":
@@ -70,6 +71,8 @@ def _handle(datasets: dict, op: str, args: dict):
         return a.tolist()
     if op == "zonal":
         return _zonal(datasets, src, args)
+    if op == "zone_bins":
+        return _zone_bins(datasets, src, args)
     if op == "masked":
         import numpy as np
         import rasterio
@@ -118,6 +121,73 @@ def _zonal(datasets: dict, src, args: dict):
            "sum": float(a[present].sum(dtype="float64")), "max": float(a[present].max()) if present.any() else 0.0}
     if args.get("values"):
         out["values"] = a[present].tolist()
+    return out
+
+
+def _zone_bins(datasets: dict, src, args: dict):
+    """Per-shape statistics over one window of rasters on the zone raster's grid. A shape's zone is the pixels whose
+    centres fall in it (one shape per pixel: the last drawn) where the zone raster holds a value above `above`, less any
+    pixel the exclude mask flags. For each raster of `stack`: how many zone pixels hold a value above `above` in each
+    interval between consecutive `edges` (the last open above), and the sum of those values — the rest are dry. With
+    `lookup` (a raster on any grid and CRS): how many zone pixel centres fall on each of its values, and how many fall
+    off it. {shape id: {zone, counts, sums, lookup, off}}; empty when no shape has a zone pixel in the window."""
+    import numpy as np
+    from pyproj import Transformer
+    from rasterio.features import rasterize
+    from rasterio.windows import Window
+    edges = np.asarray(args["edges"], dtype="float64")
+    above = float(args["above"])
+    if edges[0] > above:
+        raise ValueError("the first edge must not lie above the dry threshold")
+    win = Window(*args["window"]).intersection(Window(0, 0, src.width, src.height))
+    tr = src.window_transform(win)
+    ids = rasterize([(g, int(i)) for g, i in args["shapes"]], out_shape=(int(win.height), int(win.width)),
+                    transform=tr, fill=0, dtype="int32")
+
+    def wet(ds):
+        a = ds.read(1, window=win)
+        ok = np.isfinite(a) & (a > above)
+        return a, (ok & (a != ds.nodata)) if ds.nodata is not None else ok
+
+    _a, zone = wet(src)
+    zone &= ids > 0
+    ex = args.get("exclude")
+    if ex:
+        zone &= ~(_open(datasets, ex["path"]).read(1, window=win) == ex["value"])
+    if not zone.any():
+        return {}
+    rows, cols = np.nonzero(zone)
+    uniq, idx = np.unique(ids[rows, cols], return_inverse=True)
+    nb, ns = len(edges), len(uniq)
+    counts, sums = [], []
+    for path in args["stack"]:
+        a, ok = wet(_open(datasets, path))
+        v, w = a[rows, cols].astype("float64"), ok[rows, cols]
+        key = idx[w] * nb + (np.searchsorted(edges, v[w], side="right") - 1)
+        counts.append(np.bincount(key, minlength=ns * nb).reshape(ns, nb))
+        sums.append(np.bincount(key, weights=v[w], minlength=ns * nb).reshape(ns, nb))
+    out = {int(u): {"zone": int((idx == k).sum()), "counts": [c[k].tolist() for c in counts],
+                    "sums": [s[k].tolist() for s in sums], "lookup": [], "off": 0} for k, u in enumerate(uniq)}
+    lk = args.get("lookup")
+    if lk:
+        ls = _open(datasets, lk["path"])
+        cc, rr = cols + 0.5, rows + 0.5                                         # pixel centres
+        x, y = Transformer.from_crs(src.crs, ls.crs, always_xy=True).transform(
+            tr.a * cc + tr.b * rr + tr.c, tr.d * cc + tr.e * rr + tr.f)
+        x, y, inv = np.asarray(x), np.asarray(y), ~ls.transform
+        fc, fr = inv.a * x + inv.b * y + inv.c, inv.d * x + inv.e * y + inv.f
+        lr, lc = np.floor(fr).astype("int64"), np.floor(fc).astype("int64")
+        on = (lr >= 0) & (lr < ls.height) & (lc >= 0) & (lc < ls.width)
+        if on.any():
+            r0, c0 = int(lr[on].min()), int(lc[on].min())
+            block = ls.read(1, window=Window(c0, r0, int(lc[on].max()) - c0 + 1, int(lr[on].max()) - r0 + 1))
+            vals = block[lr[on] - r0, lc[on] - c0].astype("float64")
+            pair = np.stack([idx[on].astype("float64"), vals], axis=1)
+            got, n = np.unique(pair, axis=0, return_counts=True)
+            for (k, v), c in zip(got, n):
+                out[int(uniq[int(k)])]["lookup"].append([float(v), int(c)])
+        for k in np.unique(idx[~on]):
+            out[int(uniq[k])]["off"] = int((idx[~on] == k).sum())
     return out
 
 
@@ -234,6 +304,20 @@ def zonal(path: str, polygon: list[tuple[float, float]], above: Optional[float] 
         return None
     return _SAMPLER.call("zonal", {"path": str(path), "polygon": [(float(x), float(y)) for x, y in polygon],
                                    "above": above, "exclude": exclude, "band": band, "values": values})
+
+
+def zone_bins(path: str, window: tuple[int, int, int, int], shapes: list[tuple[dict, int]], stack: list[str],
+              edges: list[float], above: float, exclude: Optional[dict] = None, lookup: Optional[str] = None,
+              timeout: float = 900.0) -> Optional[dict]:
+    """Per-shape zone statistics over one window (col, row, width, height) of `path`'s grid — see _zone_bins. `shapes`
+    are (GeoJSON geometry in the raster's CRS, id > 0); every raster of `stack` and `exclude` shares the grid; `lookup`
+    is a raster on any grid. None when the file is absent or the read failed — never a partial answer."""
+    if not os.path.exists(path):
+        return None
+    return _SAMPLER.call("zone_bins", {"path": str(path), "window": [int(v) for v in window], "shapes": shapes,
+                                       "stack": [str(p) for p in stack], "edges": [float(e) for e in edges],
+                                       "above": float(above), "exclude": exclude,
+                                       "lookup": {"path": str(lookup)} if lookup else None}, timeout=timeout)
 
 
 def masked(path: str, geometry: dict, env: Optional[dict] = None) -> Optional[dict]:
