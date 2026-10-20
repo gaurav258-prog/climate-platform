@@ -226,3 +226,31 @@ def test_each_jrc_curve_carries_its_own_test_and_an_untested_one_says_so(session
     assert de["loss_at_rp"]["100"]["central"] == pytest.approx(400000 * 0.5 * curves.ratio(eu_curve["points"], 1.0), rel=1e-6)
     assert us["standing"] == "held" and us["eal_low_eur"] < us["eal_eur"] < us["eal_high_eur"]
     assert br["standing"] == "untested"
+
+
+def test_the_one_door_hands_out_tested_figures_only(session_rolled_back, monkeypatch):
+    """Product owner's decision (2026-10-20): downstream takes only tested loss figures. A held or untested figure
+    and a gap are counted by standing, never handed out."""
+    from services.loss import figures
+    s = session_rolled_back
+    fam = curves.families().get("jrc_huizinga_2017")
+    if fam is None:
+        pytest.skip("the JRC family is not built on this machine")
+    org = _org(s, {"loss_curve_family_flood": "jrc_huizinga_2017"})
+    _asset(s, org, country="US")
+    _flood_samples(s)
+    _asset(s, org, country="BR", lat=-23.55, lon=-46.63)
+    _flood_samples(s, lat=-23.55, lon=-46.63)
+    _asset(s, org, country="US", building=None)                 # no building value: a gap
+    assert figures.tested(s, org, "realestate") is None         # no run yet
+    engine.run(s, org, "realestate")
+    out = figures.tested(s, org, "realestate")
+    assert out["figures"] == [] and out["withheld"].get("held") and out["withheld"].get("untested")
+    assert out["withheld"].get("gap")
+    real = engine.standing
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "published" if c == "US" else real(f, c, cv))
+    run = engine.run(s, org, "realestate")["run_id"]
+    out = figures.tested(s, org, "realestate")
+    assert out["run_id"] == run                                  # the latest run, by sequence
+    assert len(out["figures"]) >= 1 and all(f["curve_key"].endswith(":021") for f in out["figures"])
+    assert "standing" not in out["figures"][0] and out["withheld"].get("untested")
