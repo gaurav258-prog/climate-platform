@@ -28,16 +28,23 @@ def channels_for(session, org_id: str) -> list[dict]:
         m = next((x for x in mandates_for([org["type"]]) if x["deliverable"].get("framework") == fw["framework"]), None)
         cid = (m or {}).get("deliverable", {}).get("channel_id")
         ch = chans.get(cid) if cid else None
-        options = []
+        # one option per channel (E300): a channel the mandate prescribes is offered once, as prescribed — never again as
+        # the general offer of the same channel (a mandate that prescribes manual filing listed it twice)
+        options: dict[str, dict] = {}
+
+        def offer(o: dict) -> None:
+            if o["channel_id"] not in options or o["prescribed"]:
+                options[o["channel_id"]] = o
         if on_tellumen:
-            options.append({"channel_id": "tellumen_supervisor", **chans["tellumen_supervisor"], "configured": True, "missing": [], "prescribed": False})
+            offer({"channel_id": "tellumen_supervisor", **chans["tellumen_supervisor"], "configured": True, "missing": [], "prescribed": False})
         if ch:
             cs = credentials_status(cid, ch, settings.get(cid))
-            options.append({"channel_id": cid, **ch, "configured": cs["configured"] if ch["kind"] == "portal_upload" else True, "missing": cs["missing"], "prescribed": True})
-        options.append({"channel_id": "nca_manual", **chans["nca_manual"], "configured": True, "missing": [], "prescribed": False})
+            offer({"channel_id": cid, **ch, "configured": cs["configured"] if ch["kind"] == "portal_upload" else True, "missing": cs["missing"], "prescribed": True})
+        offer({"channel_id": "nca_manual", **chans["nca_manual"], "configured": True, "missing": [], "prescribed": False})
         out.append({"framework": fw["framework"], "label": fw["label"], "name": report_name(fw["framework"]),
                     "mandate_id": (m or {}).get("id"), "formats": list(formats_for(fw["framework"])),
-                    "channels": [{**o, "missing_labels": [messages.name("admin.credential", k) for k in o["missing"]]} for o in options]})
+                    "channels": [{**o, "missing_labels": [messages.name("admin.credential", k) for k in o["missing"]]}
+                                 for o in options.values()]})
     return {"on_tellumen": on_tellumen, "frameworks": out}
 
 
