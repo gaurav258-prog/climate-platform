@@ -278,8 +278,9 @@ def test_a_storm_figure_reads_storms_ten_minute_wind_as_the_curves_one_minute_wi
     _storm_samples(s)
     run = engine.run(s, org, "realestate")
     r = _results(s, run["run_id"])["storm"]
-    assert r["gap"] is None and r["standing"] == "untested"
     curve = next(c for c in curves.families()["eberenz_2021_tdr"]["curves"] if c["key"] == r["curve_key"])
+    t = curve.get("test") or {}                  # the US curve was tested on NOAA damage (us_storm_loss_test) and passed
+    assert r["gap"] is None and r["standing"] == (("published" if t["passed"] else "held") if t else "untested")
     per = registry.divisor("storm_v4_wind", "max_sustained_wind_1min")
     assert per == 0.88
     expected = float(r["exposed_value_eur"]) * curves.ratio(curve["points"], 44.0 / 0.88)

@@ -42,7 +42,7 @@ const BOOKS: Record<string, { key: string; label: string }[]> = {
   manufacturer: [{ key: 'company_sites', label: 'Own sites' }],
 }
 const STANDING: Record<Standing, { label: string; tone: 'good' | 'warn' | 'neutral'; what: string }> = {
-  published: { label: 'Tested', tone: 'good', what: 'The damage curve passed both tests on observed losses it was not built from.' },
+  published: { label: 'Tested', tone: 'good', what: 'The damage curve passed its test on observed losses it was not built from.' },
   held: { label: 'Failed its test', tone: 'warn', what: 'The damage curve was tested on observed losses and failed; the figure is shown for reference, not for use.' },
   untested: { label: 'Untested', tone: 'neutral', what: 'There are no observed losses to test the damage curve against where this asset is.' },
 }
