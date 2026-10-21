@@ -321,6 +321,7 @@ _LEDGER_CHANNEL = {
     "crop_drought": "drought", "agri_spei": "drought", "drought_loss": "drought",
     "crop_heat": "heat_acute", "agri_temp": "heat_acute", "crop_soil_water": "soil_water",
     "flood_loss": "flood", "windstorm_loss": "windstorm", "severe_convective_loss": "severe_convective",
+    "cyclone_loss": "storm",
     "storm_parametric": "storm", "permafrost_thaw": "permafrost",
 }
 ALL_HAZARDS = frozenset({"agri_all"})   # one test of every crop hazard together — not one hazard's

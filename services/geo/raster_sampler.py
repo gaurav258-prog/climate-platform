@@ -73,6 +73,8 @@ def _handle(datasets: dict, op: str, args: dict):
         return _zonal(datasets, src, args)
     if op == "zone_bins":
         return _zone_bins(datasets, src, args)
+    if op == "read":                                    # a whole band — e.g. a GDAL subdataset of a table held as HDF5
+        return src.read(int(args.get("band", 1)))
     if op == "masked":
         import numpy as np
         import rasterio
@@ -318,6 +320,12 @@ def zone_bins(path: str, window: tuple[int, int, int, int], shapes: list[tuple[d
                                        "stack": [str(p) for p in stack], "edges": [float(e) for e in edges],
                                        "above": float(above), "exclude": exclude,
                                        "lookup": {"path": str(lookup)} if lookup else None}, timeout=timeout)
+
+
+def read(path: str, band: int = 1, timeout: float = 300.0):
+    """A whole band as a numpy array, read in the child — `path` may name a GDAL subdataset ('HDF5:"file"://name').
+    None when the read failed."""
+    return _SAMPLER.call("read", {"path": str(path), "band": band}, timeout=timeout)
 
 
 def masked(path: str, geometry: dict, env: Optional[dict] = None) -> Optional[dict]:
