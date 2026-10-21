@@ -1488,10 +1488,10 @@
    }
   },
   "coverage.hazard.flood": {
-   "label": "JRC global river-flood maps (Copernicus)",
+   "label": "JRC river-flood maps (Copernicus)",
    "detail": {
-    "what": "The share of a place inside the 1-in-100-year river floodplain, and the damage expected at its average flood depth, from the JRC global river-flood maps (Copernicus Emergency Management Service, 90 m, seven return periods).",
-    "why": "Checked on the flood extents Copernicus mapped in six floods from 2019 to 2024, none of which the maps were built from: rank agreement 0.68 across 144 mapped places, hit rate 0.80. River floods are found well (hit rate 0.77 to 0.85); the Ahr flash flood was not (0.28).",
+    "what": "The share of a place inside the 1-in-100-year river floodplain, and the damage expected at its average flood depth, from the JRC river-flood maps (Copernicus Emergency Management Service, 90 m): the European maps in the countries they cover, the global maps outside them.",
+    "why": "Checked on the flood extents Copernicus mapped in six floods from 2019 to 2024, none of which the maps were built from: rank agreement 0.74 across 144 mapped places, hit rate 0.84. Floods are found well (hit rate 0.81 to 0.87); the Ahr flash flood less so (0.62).",
     "next": "River flooding only: surface-water, flash and groundwater floods are not covered, and coastal flooding is its own hazard. The maps assume no flood defences. It does not rank US places by flood-insurance claims (0.08): a hazard score, not a loss model."
    }
   },
@@ -1774,7 +1774,7 @@
   "coverage.region.flood.europe": {
    "label": "Copernicus flood extents hold",
    "detail": {
-    "what": "Six observed floods, 2019–2024: rank agreement 0.68 and hit rate 0.80 at 144 mapped places. The coarser global flood record does not hold here (0.285 at 800 places)."
+    "what": "Six observed floods, 2019–2024: rank agreement 0.74 and hit rate 0.84 at 144 mapped places, on the European maps. The coarser global flood record does not hold here (0.248 at 800 places)."
    }
   },
   "coverage.region.flood.latin_america_caribbean": {

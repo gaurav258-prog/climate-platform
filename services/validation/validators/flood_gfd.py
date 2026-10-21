@@ -128,7 +128,7 @@ def _run(session: Session) -> ValidationResult:
     from shapely.geometry import box
     from sklearn.metrics import roc_auc_score
 
-    from ml.scoring.flood_jrc import TileSet, flood_score
+    from ml.scoring.flood_jrc import EuropeMaps, TileSet, flood_score, point_country, read_polygon
     from ml.validation.regional import macro_region
 
     if not ZIPS.exists() or not any(ZIPS.glob("*.zip")):
@@ -139,12 +139,13 @@ def _run(session: Session) -> ValidationResult:
     df["region"] = [macro_region(la, lo) for la, lo in zip(df.lat, df.lon)]
     df = cap_per_region(df.dropna(subset=["region"]), PER_REGION_CAP, SEED)
     pred, obs, strata, labels = [], [], [], []
-    tiles = TileSet()
+    tiles, eu, maps = TileSet(), EuropeMaps(), {}
     h = CELL_DEG / 2
-    for r in df.itertuples():
-        st = tiles.stats(box(r.lon - h, r.lat - h, r.lon + h, r.lat + h))   # a box on a tile edge reads both tiles
+    for r in df.itertuples():                       # the production maps: European in covered countries, else global
+        version, st = read_polygon(box(r.lon - h, r.lat - h, r.lon + h, r.lat + h), point_country(r.lat, r.lon), tiles=tiles, europe=eu)
         if st is None:
             continue
+        maps[version] = maps.get(version, 0) + 1
         pred.append(flood_score(*st[100][:2])); obs.append(float(r.share)); strata.append(r.region)
         labels.append(f"{r.region} {r.lat:.3f},{r.lon:.3f} ev{r.n_events}")
     tiles.close()
@@ -159,11 +160,12 @@ def _run(session: Session) -> ValidationResult:
     return ValidationResult(
         hazard_type="flood", kind="rank", predicted=pred, observed=obs, labels=labels, strata=strata,
         target_source="Global Flood Database v1.4 (MODIS, 913 events 2000–2018; CC BY-NC, internal): max flooded share per 0.25° cell",
-        scope="global_gfd", method="out_of_sample", data_vintage="JRC flood hazard maps v2.1.2 (RP100) vs GFD v1.4",
-        notes=(f"per-region {per}. Predictor: production JRC v3 score on the 0.25° box; observed: max over events of flooded share of "
+        scope="global_gfd", method="out_of_sample", data_vintage="JRC EU v3.1.1 / global v2.1.2 maps vs GFD v1.4",
+        notes=(f"per-region {per}. Predictor: the production flood score on the 0.25° box (European maps in their covered countries, "
+               "global maps elsewhere); observed: max over events of flooded share of "
                "MODIS-valid land pixels; cells capped per region (seeded). MODIS misses flash/urban floods; GFD includes coastal/pluvial "
                "floods the fluvial map does not model; no GFD data enters the maps (gauge calibration/forcing-period overlap not enumerable)."),
-        extra={"per_region": per})
+        extra={"per_region": per, "cells_by_maps": maps})
 
 
 register("flood_gfd_global")(_run)

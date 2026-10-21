@@ -74,7 +74,7 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
                        "Argentina wheat ρ 0.09; Brazil coffee ρ −0.43 and soy ρ −0.22"),
     ),
     "flood": (
-        RegionEvidence("europe", MIXED, "Europe; global_gfd", "Copernicus EMS 2019–24 observed extents pass (ρ 0.68, AUC 0.80, n=144 mapped nodes); the coarser GFD MODIS test fails (ρ 0.285, n=800)"),
+        RegionEvidence("europe", MIXED, "Europe; global_gfd", "Copernicus EMS 2019–24 observed extents pass on the European maps (ρ 0.74, AUC 0.84, n=144 mapped nodes); the coarser GFD MODIS test fails (ρ 0.248, n=800)"),
         RegionEvidence("latin_america_caribbean", VALIDATED, "global_gfd", "Global Flood Database 2000–18 flooded share: ρ 0.41, AUC 0.77 (n=800 cells), bands not monotone"),
         RegionEvidence("oceania", VALIDATED, "global_gfd", "ρ 0.354, AUC 0.82 (n=800) — marginal, bands not monotone"),
         RegionEvidence("north_america", FAILS, "global_gfd", "ρ 0.33 (n=800), just under the gate"),

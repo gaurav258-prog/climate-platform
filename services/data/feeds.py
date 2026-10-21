@@ -43,7 +43,8 @@ FEEDS: list[dict] = [
     # flood event model; the published flood score (v3) reads jrc_flood_maps.
     {"key": "flood", "category": "hazard", "cadence_days": 1, "invalidates_basis": False, "maturity": "proxy"},
     # Copernicus EMS / JRC global river-flood hazard maps v2.1.2: LISFLOOD-FP inundation depth, RP10/100/500 +
-    # permanent-water mask; drives flood v3.
+    # permanent-water mask; drives flood v3 outside Europe (the European maps v3.1.1, data/datasets/jrc_flood_europe,
+    # drive v4 inside the countries they cover).
     {"key": "jrc_flood_maps", "category": "hazard", "cadence_days": 365, "invalidates_basis": True, "maturity": "release"},
     # Sentinel-3 SLSTR via the CDSE Sentinel Hub Statistical API: per-H3-cell S8 10.85 µm brightness temperature →
     # lst_kelvin heat feature; activates with Copernicus Data Space credentials. Emissivity-corrected L2 LST is

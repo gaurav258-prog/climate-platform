@@ -130,12 +130,13 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-region SPEI drought-index validation (21 crop-regions, passes in 9)", (H.DROUGHT,)),
     EUHazard("flood", WA, "Flood (coastal / fluvial / pluvial / groundwater)", A, CAL, "now",
-             "River flood from the Copernicus EMS / JRC global flood hazard maps v2.1.2 (LISFLOOD-FP, 90 m, seven return periods): "
-             "share of the cell in the 1-in-100-year floodplain × the Huizinga (2017) depth–damage fraction at its mean depth, with "
-             "RP10/RP500 context (v3; the ERA5-Land multi-event model it replaces scored ρ 0.17). Validated on INDEPENDENT official "
-             "Copernicus EMS observed flood extents, six 2019–2024 events out of sample: the 100-year footprint ranks the observed "
-             "flooded share of the 144 nodes EMS mapped at ρ 0.68 (AUC 0.80 at share > 2 %); river events 0.77–0.85 AUC, the Ahr "
-             "flash flood 0.28. Fluvial only: pluvial/flash flooding and groundwater are disclosed gaps, coastal surge is its own channel; "
+             "River flood from the Copernicus EMS / JRC river flood hazard maps (LISFLOOD-FP, 90 m): the European maps v3.1.1 inside "
+             "the countries they cover (v4, since 2026-10-21), the global maps v2.1.2 outside them (v3): share of the cell in the "
+             "1-in-100-year floodplain × the Huizinga (2017) depth–damage fraction at its mean depth, with RP10/RP500 context (the "
+             "ERA5-Land multi-event model it replaced scored ρ 0.17). Validated on INDEPENDENT official Copernicus EMS observed flood "
+             "extents, six 2019–2024 events out of sample: the 100-year footprint ranks the observed flooded share of the 144 nodes "
+             "EMS mapped at ρ 0.74 (AUC 0.84 at share > 2 %; 141 nodes read on the European maps); events 0.81–0.87 AUC, the Ahr "
+             "flash flood 0.62. Fluvial only: pluvial/flash flooding and groundwater are disclosed gaps, coastal surge is its own channel; "
              "the maps carry no flood defences (hazard, not residual risk).", (H.FLOOD,)),
     EUHazard("water_stress", WA, "Water stress", C, SCR, "now",
              "chronic root-zone soil-water deficit (ERA5-Land baseline). Backtested against NASA GRACE/GRACE-FO observed terrestrial "
@@ -268,8 +269,9 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                 "validation": "IBTrACS temporal-holdout backtest", "out_of_sample": True},
     "flood": {"target": "Copernicus EMS rapid-mapping observed flood extents (official), six events 2019–2024 held entirely out of sample "
                         "(no EMS data enters the JRC maps): share of each 0.1° node's mapped part flooded, judged only where EMS "
-                        "mapped (E172), rank correlation 0.68 (144 nodes, monotone bands), AUC 0.80 at share > 2 %; per event "
-                        "Boris 0.77, Emilia-Romagna 0.80, Valencia 0.85, Ahr 0.28 (Storm Alex and Spain DANA too few nodes for "
+                        "mapped (E172), on the maps production reads (the European maps in their countries: 141 of 144 nodes), "
+                        "rank correlation 0.74 (144 nodes; quartile bands monotone), AUC 0.84 at share > 2 %; per event "
+                        "Boris 0.81, Emilia-Romagna 0.87, Valencia 0.87, Ahr 0.62 (Storm Alex and Spain DANA too few nodes for "
                         "their own AUC). Footprint validation of the river map; no depth or damage anchor",
               "validation": "Copernicus EMS flood-extent backtest (flood_jrc_ems)", "out_of_sample": True},
     "subsidence": {"target": "Copernicus EGMS InSAR point time series held out in time: v2 cell score from the subsidence rate fitted on "

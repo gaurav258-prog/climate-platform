@@ -29,6 +29,13 @@ TILE_INDEX = "data/reference/jrc_flood_tiles.json"      # id → name, from the 
 RETURN_PERIODS = (10, 100, 500)
 DEPTH_MIN_M = 0.05
 FLOOD_MODEL_VERSION = "flood-jrc-glofas-rp-v3"
+# Inside the countries the JRC European maps cover (CEMS-EFAS v3.1.1, the registered layer jrc_river_flood_europe), the
+# score reads those maps — the product owner's decision of 2026-10-21, after they ranked all six EMS floods better
+# (europe_maps_check) and the loss engine already read them there. Same statistic, same curve; its own model version.
+EUROPE_LAYER = "jrc_river_flood_europe"
+EUROPE_MODEL_VERSION = "flood-jrc-efas-rp-v4"
+SOURCES = {FLOOD_MODEL_VERSION: "JRC/CEMS global river flood hazard maps v2.1.2 (LISFLOOD-FP, 90 m)",
+           EUROPE_MODEL_VERSION: "JRC/CEMS European river flood hazard maps v3.1.1 (LISFLOOD-FP, 90 m)"}
 
 # Huizinga et al. (2017) residential Europe: damage fraction by depth (m) — workbook 'Damage functions' C4:C12 (depths B4:B12).
 # Linear between points, 1.0 beyond 6 m.
@@ -191,6 +198,91 @@ class TileSet:
         self._open.clear()
 
 
+class EuropeMaps:
+    """The European maps — one file per return period, on one grid — read through the isolated sampler, giving the same
+    counts as TileSet: land pixels (permanent water excluded), wet pixels above DEPTH_MIN_M, their depth sum and maximum."""
+
+    def __init__(self):
+        from services.loss import registry
+        L = registry.layer(EUROPE_LAYER)
+        d = registry.ROOT / L["files"]["dir"]
+        self.paths = {rp: str(d / L["files"]["pattern"].format(rp=rp)) for rp in RETURN_PERIODS}
+        self.water = str(d / L["files"]["water"])
+
+    def readable(self, polygon) -> bool:
+        return all(os.path.exists(p) for p in (*self.paths.values(), self.water))
+
+    def stats(self, polygon) -> Optional[dict]:
+        """As TileSet.stats; None when the maps do not reach the polygon or it holds no land."""
+        from services.geo import raster_sampler
+        if not self.readable(polygon):
+            return None
+        ring, out = list(polygon.exterior.coords), {}
+        for rp, path in self.paths.items():
+            z = raster_sampler.zonal(path, ring, above=DEPTH_MIN_M, exclude={"path": self.water, "value": 1})
+            if z is None or not z["inside"]:
+                return None
+            out[rp] = (z["present"] / z["inside"], z["sum"] / z["present"] if z["present"] else 0.0, z["max"])
+        return out
+
+    def close(self):
+        pass
+
+
+def cell_country(h3_cell: str) -> Optional[str]:
+    """ISO alpha-2 of the country the platform's land layer places a cell in: its centre's; when the centre falls on no
+    country (a coast, a wide river), the one country its corners fall in; else None."""
+    import h3
+
+    from services.geo.cells import country_of
+    from services.reference.iso_country import to_iso2
+    la, lo = h3.cell_to_latlng(h3_cell)
+    c = to_iso2(country_of(la, lo))
+    if c:
+        return c
+    corners = {to_iso2(country_of(a, b)) for a, b in h3.cell_to_boundary(h3_cell)} - {None}
+    return corners.pop() if len(corners) == 1 else None
+
+
+def europe_serves(country: Optional[str]) -> bool:
+    """The European maps serve a place in a country they cover (ISO alpha-2), once the layer is in use."""
+    from services.loss import registry
+    if not country or registry.layer(EUROPE_LAYER).get("status") != "in_use":
+        return False
+    return country in registry.coverage_countries(EUROPE_LAYER)
+
+
+def uses_europe(h3_cell: str) -> bool:
+    return europe_serves(cell_country(h3_cell))
+
+
+def read_polygon(polygon, country: Optional[str], tiles: Optional["TileSet"] = None, europe: Optional[EuropeMaps] = None):
+    """(model version, statistics or None) for an outline in a country: the European maps in a covered country, the
+    global maps elsewhere and wherever the European maps do not reach — as the loss engine reads the two."""
+    if europe_serves(country):
+        st = (europe or EuropeMaps()).stats(polygon)
+        if st is not None:
+            return EUROPE_MODEL_VERSION, st
+    ts = tiles or TileSet()
+    try:
+        return FLOOD_MODEL_VERSION, (ts.stats(polygon) if ts.readable(polygon) else None)
+    finally:
+        if tiles is None:
+            ts.close()
+
+
+def point_country(lat: float, lon: float) -> Optional[str]:
+    """ISO alpha-2 of the country the platform's land layer places a point in, or None."""
+    from services.geo.cells import country_of
+    from services.reference.iso_country import to_iso2
+    return to_iso2(country_of(lat, lon))
+
+
+def read_cell(h3_cell: str, tiles: Optional["TileSet"] = None, europe: Optional[EuropeMaps] = None):
+    """read_polygon for one H3 cell, in the country cell_country places it."""
+    return read_polygon(cell_polygon(h3_cell), cell_country(h3_cell), tiles=tiles, europe=europe)
+
+
 def cell_polygon(h3_cell: str):
     import h3
     from shapely.geometry import Polygon
@@ -222,30 +314,24 @@ def score_flood_point(lat: float, lon: float, scenario: str = "baseline", horizo
         ex = s.execute(text("""SELECT CAST(risk_score AS FLOAT) rs, risk_bucket, model_version FROM canonical_scores
                                WHERE hazard_type='flood' AND h3_cell=:c AND scenario=:sc AND time_horizon=:h AND valid_to IS NULL
                                  AND COALESCE(score_lane,'standing')='standing'"""), {"c": cell, "sc": scenario, "h": horizon}).mappings().first()
-    if ex and ex["model_version"] == FLOOD_MODEL_VERSION:
+    expected = EUROPE_MODEL_VERSION if uses_europe(cell) else FLOOD_MODEL_VERSION
+    if ex and ex["model_version"] == expected:
         return {"status": "cached_hit", "h3_cell": cell, "risk_score": ex["rs"], "risk_bucket": ex["risk_bucket"]}
     if scenario != "baseline" or horizon != "current":
         return {"status": "insufficient_data", "h3_cell": cell, "reason": "flood projections are derived from the baseline by the projection job"}
-    poly = cell_polygon(cell)
-    ts = TileSet()
-    try:
-        if not ts.readable(poly):
-            return {"status": "insufficient_data", "h3_cell": cell, "reason": "no JRC river-flood tile on disk for this location"}
-        st = ts.stats(poly)
-    finally:
-        ts.close()
+    version, st = read_cell(cell)
     if st is None:
-        return {"status": "insufficient_data", "h3_cell": cell, "reason": "no valid flood-map pixels in this cell (sea or nodata)"}
+        return {"status": "insufficient_data", "h3_cell": cell, "reason": "no flood map on disk for this location, or no valid flood-map pixels in the cell (sea or nodata)"}
     row = stats_to_row(st); now = datetime.now(timezone.utc)
     with get_session() as s:
         s.execute(text("""UPDATE canonical_scores SET valid_to = :now WHERE hazard_type='flood' AND h3_cell=:c AND scenario='baseline'
                           AND time_horizon='current' AND valid_to IS NULL AND COALESCE(score_lane,'standing')='standing' AND model_version <> :mv"""),
-                  {"now": now, "c": cell, "mv": FLOOD_MODEL_VERSION})
+                  {"now": now, "c": cell, "mv": version})
         s.execute(text("""INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon, risk_score, risk_bucket,
                           model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to, score_lane)
                           VALUES (:id,:c,8,'flood','baseline','current',:score,:b,:mv,:now,CAST(:shap AS jsonb),:now,:now,NULL,'standing')
                           ON CONFLICT (h3_cell, hazard_type, scenario, time_horizon, score_lane) WHERE valid_to IS NULL DO NOTHING"""),
-                  {"id": str(uuid.uuid4()), "c": cell, "score": row["score"], "b": score_to_bucket(row["score"]).value, "mv": FLOOD_MODEL_VERSION, "now": now,
-                   "shap": json.dumps({**row, "on_demand": True, "source": "JRC/CEMS global river flood hazard maps v2.1.2 (LISFLOOD-FP, 90 m)",
+                  {"id": str(uuid.uuid4()), "c": cell, "score": row["score"], "b": score_to_bucket(row["score"]).value, "mv": version, "now": now,
+                   "shap": json.dumps({**row, "on_demand": True, "source": SOURCES[version],
                                        "method": "share of the cell in the 1-in-100-year floodplain × Huizinga 2017 residential depth–damage fraction"})})
     return {"status": "scored", "h3_cell": cell, "risk_score": row["score"], "risk_bucket": score_to_bucket(row["score"]).value}

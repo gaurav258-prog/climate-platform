@@ -1,4 +1,6 @@
-"""Flood validator — the JRC river-flood channel (v3) against Copernicus EMS OFFICIAL observed flood extents.
+"""Flood validator — the JRC river-flood channel against Copernicus EMS OFFICIAL observed flood extents. The predictor reads
+the maps production reads (ml.scoring.flood_jrc.read_polygon): the European maps in the countries they cover, the global
+maps elsewhere (the product owner's decision of 2026-10-21).
 
 Target: EMS rapid-mapping observed-event polygons for the six EMS-era events in the flood panel (2019 Spain DANA,
 2020 Storm Alex, 2021 Rhine/Ahr, 2023 Emilia-Romagna, 2024 Storm Boris, 2024 Valencia DANA), at the panel's own
@@ -22,7 +24,14 @@ from scipy.stats import spearmanr
 from sklearn.metrics import roc_auc_score
 from sqlalchemy.orm import Session
 
-from ml.scoring.flood_jrc import TileSet, flood_score
+from ml.scoring.flood_jrc import (
+    EUROPE_MODEL_VERSION,
+    EuropeMaps,
+    TileSet,
+    flood_score,
+    point_country,
+    read_polygon,
+)
 from services.validation.engine import ValidationResult, register
 
 PANEL = Path("data/multievent_flood.parquet")
@@ -60,7 +69,7 @@ def _run(session: Session) -> ValidationResult:
                                 notes=f"{PANEL} not present — run scripts/build_multievent_flood.py and scripts/fetch_ems_flood_footprints.py")
     data = pd.read_parquet(PANEL)
     pred, obs, labels, per_event = [], [], [], {}
-    tiles = TileSet()
+    tiles, eu, maps = TileSet(), EuropeMaps(), {}
     for ev in EVENTS:
         ext, fc = ems_extent(ev)
         mapped = ems_mapped(ev)
@@ -69,9 +78,10 @@ def _run(session: Session) -> ValidationResult:
             continue
         p, o = [], []
         for c, b in event_nodes(data.loc[m, "h3_cell"], ev, mapped):
-            st = tiles.stats(b)                     # read from every tile the node touches
-            if st is None:
+            version, st = read_polygon(b, point_country(b.centroid.y, b.centroid.x), tiles=tiles, europe=eu)
+            if st is None:                          # the production choice of maps (European in covered countries)
                 continue
+            maps[version] = maps.get(version, 0) + 1
             p.append(flood_score(*st[100][:2])); o.append(observed_share(ext, mapped, b)); labels.append(f"{ev['name']} {c}")
         if len(p) >= 10:
             y = np.asarray(o) > 0.02
@@ -82,13 +92,14 @@ def _run(session: Session) -> ValidationResult:
     y = np.asarray(obs) > 0.02
     return ValidationResult(hazard_type="flood", kind="rank", predicted=pred, observed=obs, labels=labels,
                             target_source="Copernicus EMS rapid-mapping observed flood extents (official), six events 2019–2024: share of each 0.1° node flooded",
-                            scope="Europe", method="out_of_sample", data_vintage="JRC flood hazard maps v2.1.2 (RP100) vs EMS 2019–2024",
+                            scope="Europe", method="out_of_sample", data_vintage="JRC EU v3.1.1 / global v2.1.2 maps vs EMS 2019–2024",
                             notes=(f"per-event {per_event}; pooled AUC(share>2%) {round(float(roc_auc_score(y, pred)), 3) if 0 < y.sum() < len(y) else None}. "
                                    "Predictor: share of the node box in the 1-in-100-year floodplain × depth–damage; observed: share of the box's mapped part "
                                    "inside the EMS flooded extent; nodes inside the event box with at least half the box in the area EMS mapped (the union "
                                    "of its accepted products' outlines; a layer listed under another activation is refused — E172). "
                                    "No EMS data enters the maps; flash-flood events (Ahr, Alex, the two DANAs) are the fluvial map's limit and stay in"),
-                            extra={"per_event": per_event})
+                            extra={"per_event": per_event, "nodes_by_maps": maps,
+                                   "maps": f"{EUROPE_MODEL_VERSION} inside the European maps' countries, else the global maps"})
 
 
 register("flood_jrc_ems")(_run)
