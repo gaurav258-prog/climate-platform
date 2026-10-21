@@ -254,3 +254,36 @@ def test_the_one_door_hands_out_tested_figures_only(session_rolled_back, monkeyp
     assert out["run_id"] == run                                  # the latest run, by sequence
     assert len(out["figures"]) >= 1 and all(f["curve_key"].endswith(":021") for f in out["figures"])
     assert "standing" not in out["figures"][0] and out["withheld"].get("untested")
+
+
+def _storm_samples(s, lat=LAT, lon=LON, at_100=44.0):
+    """STORM 10-minute winds at the point, one per return period, 44 m/s at 1-in-100."""
+    from services.loss import registry
+    for rp in registry.layer("storm_v4_wind")["return_periods"]:
+        s.execute(text("""INSERT INTO hazard_intensity_samples (layer_key, layer_version, latitude, longitude, h3_cell,
+                          rp_years, status, value) VALUES ('storm_v4_wind', 'v4', :la, :lo, 'test', :rp, 'sampled', :v)
+                          ON CONFLICT DO NOTHING"""), {"la": lat, "lo": lon, "rp": rp, "v": at_100 * (rp / 100) ** 0.1})
+
+
+def test_a_storm_figure_reads_storms_ten_minute_wind_as_the_curves_one_minute_wind(session_rolled_back):
+    """Product owner's decision (2026-10-20): the cyclone curves are stated in 1-minute winds; STORM made its 10-minute
+    winds from 1-minute ones by multiplying by 0.88 (its paper), so a STORM wind is divided by 0.88 before a curve reads
+    it — the registered conversion on the layer; the run records it."""
+    from services.loss import registry
+    s = session_rolled_back
+    if "eberenz_2021_tdr" not in curves.families():
+        pytest.skip("the cyclone family is not built on this machine")
+    org = _org(s, {"loss_curve_family_storm": "eberenz_2021_tdr"})
+    _asset(s, org, country="US")
+    _storm_samples(s)
+    run = engine.run(s, org, "realestate")
+    r = _results(s, run["run_id"])["storm"]
+    assert r["gap"] is None and r["standing"] == "untested"
+    curve = next(c for c in curves.families()["eberenz_2021_tdr"]["curves"] if c["key"] == r["curve_key"])
+    per = registry.divisor("storm_v4_wind", "max_sustained_wind_1min")
+    assert per == 0.88
+    expected = float(r["exposed_value_eur"]) * curves.ratio(curve["points"], 44.0 / 0.88)
+    assert r["loss_at_rp"]["100"]["central"] == pytest.approx(expected, rel=1e-6)
+    assert expected > float(r["exposed_value_eur"]) * curves.ratio(curve["points"], 44.0)      # read unconverted, lower
+    inputs = s.execute(text("SELECT inputs FROM loss_runs WHERE run_id = CAST(:r AS uuid)"), {"r": run["run_id"]}).scalar()
+    assert inputs["readings"]["storm"] == {"layer": "storm_v4_wind", "metric": "max_sustained_wind_1min", "divide_by": 0.88}

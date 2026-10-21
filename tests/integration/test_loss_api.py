@@ -22,8 +22,11 @@ def test_families_show_their_test_and_the_refused_say_why(api):
     assert r.status_code == 200, r.text
     body = r.json()
     refused = {f["family"]: f["reasons"] for f in body["refused"]}
-    for fam in ("eberenz_2021_tdr", "eberenz_2021_rmsf"):
-        assert any("max_sustained_wind_1min" in why for why in refused[fam])
+    for why in refused.values():
+        assert why                                       # a refused family always says why
+    usable = {f["family"]: f for f in body["families"]}
+    for fam in ("eberenz_2021_tdr", "eberenz_2021_rmsf"):  # read through STORM's own factor (2026-10-20)
+        assert fam in usable and fam not in refused and usable[fam]["metric"] == "max_sustained_wind_1min"
     for f in body["families"]:
         assert f["kind"] in ("published", "measured") and f["curves"]
         if f["kind"] == "measured":

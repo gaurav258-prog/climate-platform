@@ -86,3 +86,39 @@ def test_a_recorded_curve_test_reaches_a_running_process(tmp_path, monkeypatch):
     st = name.stat()
     os.utime(name, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
     assert set(curves.families()) | set(curves.refused()) != before
+
+
+def test_a_layer_reads_in_a_curves_metric_only_by_a_registered_conversion():
+    """Product owner's decision (2026-10-20): STORM's 10-minute wind is divided by 0.88 — undoing STORM's own step —
+    to read it in the 1-minute wind the cyclone curves are stated in; no other conversion is guessed."""
+    from services.loss import registry
+    assert registry.divisor("storm_v4_wind", "max_sustained_wind_10min") == 1.0
+    assert registry.divisor("storm_v4_wind", "max_sustained_wind_1min") == 0.88
+    assert registry.divisor("storm_v4_wind", "max_sustained_wind_3s") is None
+    assert ("storm", "max_sustained_wind_1min", "m/s") in registry.measures()
+    c = registry.layer("storm_v4_wind")["conversions"]["max_sustained_wind_1min"]
+    assert "multiplied by a factor of 0.88" in c["basis"] and any("1555" in x["title"] for x in c["sources"])
+
+
+def test_a_conversion_without_its_decision_basis_or_sources_is_refused(monkeypatch):
+    import copy
+
+    from services.loss import registry
+    L = copy.deepcopy(registry.layers())
+    L["storm_v4_wind"]["conversions"]["max_sustained_wind_1min"] = {"divide_by": 0}
+    monkeypatch.setattr(registry, "layers", lambda: L)
+    problems = " | ".join(registry.check())
+    assert "needs a positive divisor" in problems and "needs its decision, its quoted basis and its sources" in problems
+
+
+def test_the_cyclone_curves_are_usable_only_through_the_registered_conversion(monkeypatch):
+    import copy
+    import json
+
+    from services.loss import curves, registry
+    doc = json.loads((curves.DIR / "eberenz_2021_tdr.json").read_text(encoding="utf-8"))
+    assert not any("no intensity layer" in p for p in curves.check_family(doc))
+    L = copy.deepcopy(registry.layers())
+    L["storm_v4_wind"].pop("conversions")
+    monkeypatch.setattr(registry, "layers", lambda: L)
+    assert any("no intensity layer measures storm as max_sustained_wind_1min" in p for p in curves.check_family(doc))

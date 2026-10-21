@@ -51,7 +51,41 @@
       "licence": "CC0 1.0",
       "licence_status": "verified (4TU API, data/storm_synthetic/MANIFEST.md)",
       "metric_basis": "STORM's generator states its wind as 'Vmax10: 10-minute mean maximum sustained wind speed of the TC (m/s)' (github.com/NBloemendaal/STORM, SAMPLE_TC_PRESSURE.py, line 37)",
-      "domain_note": "STORM's basins run 'with lat boundaries set at 60 N/S' (SELECT_BASIN.py, line 92) with no extratropical transition, and its tracks reach Europe more often than observed ones (Madrid: 15% of simulated years within 400 km against 3 of 46 observed seasons, 2026-10-06): a loss is computed only where an adopted cyclone curve covers the country"
+      "domain_note": "STORM's basins run 'with lat boundaries set at 60 N/S' (SELECT_BASIN.py, line 92) with no extratropical transition, and its tracks reach Europe more often than observed ones (Madrid: 15% of simulated years within 400 km against 3 of 46 observed seasons, 2026-10-06): a loss is computed only where an adopted cyclone curve covers the country",
+      "conversions": {
+        "max_sustained_wind_1min": {
+          "divide_by": 0.88,
+          "decided": "the product owner's decision of 2026-10-20: undo STORM's own step, so the 1-minute winds the cyclone curves are stated in are the ones STORM started from",
+          "basis": "STORM turned the warning centres' 1-minute winds into its 10-minute ones: 'These wind speeds are multiplied by a factor of 0.88 to convert them to U10' (Bloemendaal et al. 2020, Methods, Input datasets, citing Harper, Kepert & Ginger's guidelines, WMO 2008); dividing by 0.88 restores that 1-minute basis. CLIMADA, the code the Eberenz curves were calibrated with, does the same for STORM: 'STORM_1MIN_WIND_FACTOR = 0.88' and 'tracks_df[\"wind\"] /= STORM_1MIN_WIND_FACTOR'. The final WMO guidelines (WMO/TD-No. 1555, section 1.5) recommend 0.93 for at-sea storm maxima and say this 'is about 5% higher than the \"traditional\" value of 0.88, which is seen to be more appropriate to an off-land exposure' (Table 1.2: at-sea 0.93, off-sea 0.90, off-land 0.87, in-land 0.84).",
+          "sources": [
+            {
+              "title": "Generation of a global synthetic tropical cyclone hazard dataset using STORM",
+              "authors": "Bloemendaal, N. et al.",
+              "year": 2020,
+              "publisher": "Scientific Data 7, 40",
+              "doi": "10.1038/s41597-020-0381-2",
+              "read": "Europe PMC full text PMC7005259, 2026-10-20"
+            },
+            {
+              "title": "climada/hazard/tc_tracks.py",
+              "publisher": "CLIMADA (ETH Zürich), github.com/CLIMADA-project/climada_python",
+              "commit": "0b5bb0b1525385da91f948ab309d16a9296a8864",
+              "lines": "192–197, 1533",
+              "read": "2026-10-20"
+            },
+            {
+              "title": "Guidelines for converting between various wind averaging periods in tropical cyclone conditions (WMO/TD-No. 1555)",
+              "authors": "Harper, B. A., Kepert, J. D. and Ginger, J. D.",
+              "year": 2010,
+              "publisher": "World Meteorological Organization",
+              "url": "https://library.wmo.int/idurl/4/48652",
+              "file": "data/datasets/wmo_td1555/WMO_TC_Wind_Averaging_27_Aug_2010.pdf",
+              "sha256": "b80dfa94120dc3d7bdf848730617f4ef172497e4872b372d179a9879ef663995",
+              "copy": "the lead author's copy (systemsengineeringaustralia.com.au, Systems Engineering Australia), dated 27-Aug-2010, cover 'WMO/TD-No. 1555'; WMO's library sits behind a human check"
+            }
+          ]
+        }
+      }
     },
     "jrc_flood_30m": {
       "name": "30 m flood refinement",

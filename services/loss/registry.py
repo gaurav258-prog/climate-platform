@@ -39,6 +39,22 @@ def layers() -> dict[str, dict]:
     return _json("hazard_intensity_layers.json")["layers"]
 
 
+def divisor(layer_key: str, metric: str) -> Optional[float]:
+    """What a layer's value is divided by to read it in `metric`: 1 for its own metric, a registered conversion's
+    divisor (the layer's 'conversions', each a decision with its quoted basis), else None — never a guess."""
+    L = layer(layer_key)
+    if metric == L["metric"]:
+        return 1.0
+    c = (L.get("conversions") or {}).get(metric)
+    return float(c["divide_by"]) if c else None
+
+
+def measures() -> set[tuple[str, str, str]]:
+    """(peril, metric, unit) the registered layers can be read in: their own, and any registered conversion's."""
+    return {(L["peril"], m, L["unit"]) for L in layers().values()
+            for m in (L["metric"], *(L.get("conversions") or {}))}
+
+
 def protection_layers() -> dict[str, dict]:
     return _json("hazard_intensity_layers.json").get("protection_layers", {})
 
@@ -109,6 +125,11 @@ def check() -> list[str]:
             out.append(f"layer {k}: a refinement is a 'candidate', or 'in_use' once adopted after a passed test")
         if L.get("status") == "in_use" and not (L.get("test") or {}).get("passed"):
             out.append(f"layer {k}: in use without a passed test")
+        for m, c in (L.get("conversions") or {}).items():
+            if not (isinstance(c.get("divide_by"), (int, float)) and c["divide_by"] > 0):
+                out.append(f"layer {k}: the conversion to {m} needs a positive divisor")
+            if not (c.get("decided") and c.get("basis") and c.get("sources")):
+                out.append(f"layer {k}: the conversion to {m} needs its decision, its quoted basis and its sources")
         if not L.get("licence") and not L.get("licence_status"):
             out.append(f"layer {k}: neither a licence nor its verification status")
         if not L.get("name") or "_" in L["name"]:

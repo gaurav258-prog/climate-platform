@@ -182,8 +182,10 @@ def _resolve(session: Session, asset: dict, peril: str, family_key: Optional[str
     return {**base, "exposed_value_eur": value}, {"family": family, "curve": curve, "value": value, "country": country}
 
 
-def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tuple[Optional[dict], Optional[dict]]:
-    """Step 6 per return period: {rp: (low, central, high)}, or the gap that stopped it."""
+def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str,
+                per: float = 1.0) -> tuple[Optional[dict], Optional[dict]]:
+    """Step 6 per return period: {rp: (low, central, high)}, or the gap that stopped it. A layer's value is read in the
+    curve's own metric by the registered divisor `per` (registry.divisor: 1 for the layer's own metric)."""
     rows = {}
     for rp, r in sorted(s.items()):
         if peril == "flood":
@@ -198,7 +200,7 @@ def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str) -> tu
                 return None, gaps.gap("loss.gap.no_damage_range", depth=f"{depth:.2f}")
             rows[rp] = (value * share * min(lo, central), value * share * central, value * share * max(hi, central))
         else:
-            ratio = curves.ratio(curve["points"], float(r["value"] or 0.0))
+            ratio = curves.ratio(curve["points"], float(r["value"] or 0.0) / per)
             rows[rp] = (value * ratio, value * ratio, value * ratio)
     return rows, None
 
@@ -260,7 +262,10 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     base, ctx = _resolve(session, asset, peril, family_key, base)
     if ctx is None:
         return base
-    rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
+    per = registry.divisor(layer_key, ctx["family"]["metric"])
+    if per is None:                # the map serving this asset cannot be read in the curves' metric
+        return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}
+    rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril, per)
     if rows is None:
         return {**base, **why}
     out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows)}
@@ -297,6 +302,9 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
     if ctx is None:
         return base
     pathway, period = L["use"]["scenario_map"][scenario], L["use"]["horizon_map"][horizon]
+    per = registry.divisor(PROJECTED_FLOOD, ctx["family"]["metric"])
+    if per is None:
+        return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}
     per_model = {}
     for m in L["models"]:
         s = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon,
@@ -304,11 +312,11 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
         why = gaps.intensity(s, PROJECTED_FLOOD)
         if why:
             return {**base, **why}
-        rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril)
+        rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril, per)
         if rows is None:
             return {**base, **why}
         per_model[m] = _summary(rows)
-    today_rows, why = _rp_figures(ctx["curve"], ctx["value"], today, peril)
+    today_rows, why = _rp_figures(ctx["curve"], ctx["value"], today, peril, per)
     if today_rows is None:
         return {**base, **why}
     ranked = sorted(per_model.values(), key=lambda x: x["eal_eur"])
@@ -360,6 +368,9 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
             "layer": protection.LAYER, "version": protection.layer()["version"], "rule": protocol["flood_protection"]},
         "flood_headline": settings.get("loss_flood_headline"),
         "families_adopted": adopted,
+        "readings": {p: {"layer": k, "metric": curves.families()[adopted[p]]["metric"],
+                         "divide_by": registry.divisor(k, curves.families()[adopted[p]]["metric"])}
+                     for p, k in LAYERS.items() if not projected and adopted.get(p) in curves.families()},
         "families": {k: {"kind": f.get("kind", "published"), "source_sha256": f["source"]["sha256"],
                          "test_passed": (f.get("test") or {}).get("passed")} for k, f in curves.families().items()
                      if k in adopted.values()},

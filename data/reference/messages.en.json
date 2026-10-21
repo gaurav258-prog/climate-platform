@@ -12835,6 +12835,8 @@
    "not_exempted": "Not exempted",
    "jrc_huizinga_2017": "European river-flood damage curves",
    "nfip_measured": "Measured US flood claims",
+   "eberenz_2021_rmsf": "Regional cyclone damage curves, fitted to each storm's damage",
+   "eberenz_2021_tdr": "Regional cyclone damage curves, fitted to total damage",
    "comonotonic": "Fully dependent",
    "defended": "With flood defences",
    "undefended": "Without flood defences",

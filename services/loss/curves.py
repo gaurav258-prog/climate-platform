@@ -39,8 +39,7 @@ def check_family(doc: dict) -> list[str]:
     """Every problem in one family document; empty when it is sound."""
     out = []
     fam = doc.get("family", "?")
-    metrics = {(L["peril"], L["metric"], L["unit"]) for L in registry.layers().values()}
-    if (doc.get("peril"), doc.get("metric"), doc.get("unit")) not in metrics:
+    if (doc.get("peril"), doc.get("metric"), doc.get("unit")) not in registry.measures():
         out.append(f"{fam}: no intensity layer measures {doc.get('peril')} as {doc.get('metric')} in {doc.get('unit')}")
     if doc.get("damage_basis") not in BASES:
         out.append(f"{fam}: damage basis must be one of {sorted(BASES)}")

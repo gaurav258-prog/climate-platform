@@ -5,6 +5,7 @@ import { BookOpen, Calculator, ListX, Play, ShieldCheck, TriangleAlert } from 'l
 import { api, apiMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { balance, flow } from '../lib/money'
+import { changeVs } from '../lib/change'
 import { toast } from '../lib/toast'
 import { arrivedRun } from '../lib/runWait'
 import { PageHeader, Card, StatGrid, SectionHead, Button } from '../components/ui'
@@ -50,7 +51,6 @@ const SCENARIO: Record<string, string> = { baseline: 'Today', disorderly_2c: 'Di
 const HORIZONS = ['2030', '2050', '2080', '2100']
 const LAYER_STATUS: Record<string, string> = { in_use: 'in_use', candidate: 'candidate', refused: 'refused' }
 const runLabel = (r: RunRow) => r.scenario === 'baseline' ? 'Today' : `${SCENARIO[r.scenario] ?? 'Projection'} · ${r.time_horizon}`
-const pct = (now: number | null, then: number | null) => now == null || !then ? null : `${now >= then ? '+' : ''}${(((now - then) / then) * 100).toFixed(0)}%`
 
 function StandingChip({ s }: { s: Standing }) {
   const v = STANDING[s]
@@ -200,7 +200,7 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
                 <div className="mt-3">
                   <div className="display text-[26px] tabular-nums">{flow(t.eal_eur)}</div>
                   <div className="text-[11px] text-[var(--color-faint)] mt-1 tabular-nums">{flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} assets</div>
-                  {t.eal_same_source_today_eur != null && <StatusChip className="mt-2" label={`${pct(t.eal_eur, t.eal_same_source_today_eur)} vs today`} tone="warn" />}
+                  {changeVs(t.eal_eur, t.eal_same_source_today_eur) && <StatusChip className="mt-2" label={`${changeVs(t.eal_eur, t.eal_same_source_today_eur)} vs today`} tone="warn" />}
                 </div>
               )}
             </Card>
