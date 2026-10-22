@@ -52,6 +52,7 @@ from ml.features.wildfire_era5 import FEATURE_COLS as WILDFIRE_FEATURE_COLS
 from ml.features.wildfire_era5 import compute_features as compute_wildfire_features
 from ml.features.wildfire_era5 import fetch_era5 as fetch_era5_wildfire
 from ml.scoring.pollution_aqi import POLLUTION_MODEL_VERSION, pollution_score
+from services.data.copernicus import CopernicusBusy, mark_lookup_busy
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,8 @@ def run_flood_lookup(lookup_id: str, lat: float, lon: float) -> None:
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
 
+    except CopernicusBusy:                      # the data store would not take it now (E309)
+        mark_lookup_busy(lookup_id, now)
     except Exception:
         logger.error("run_flood_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
         with get_session() as s:
@@ -201,6 +204,8 @@ def run_pollution_lookup(lookup_id: str, lat: float, lon: float) -> None:
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
 
+    except CopernicusBusy:                      # the data store would not take it now (E309)
+        mark_lookup_busy(lookup_id, now)
     except Exception:
         logger.error("run_pollution_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
         with get_session() as s:
@@ -265,6 +270,8 @@ def run_wildfire_lookup(lookup_id: str, lat: float, lon: float) -> None:
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
 
+    except CopernicusBusy:                      # the data store would not take it now (E309)
+        mark_lookup_busy(lookup_id, now)
     except Exception:
         logger.error("run_wildfire_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
         with get_session() as s:

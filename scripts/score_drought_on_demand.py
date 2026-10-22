@@ -41,6 +41,7 @@ from ml.features.drought_point import (
     fetch_era5_precip,
     spi_to_drought_score,
 )
+from services.data.copernicus import CopernicusBusy, mark_lookup_busy
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,8 @@ def run_drought_lookup(lookup_id: str, lat: float, lon: float) -> None:
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
 
+    except CopernicusBusy:                      # the data store would not take it now (E309)
+        mark_lookup_busy(lookup_id, now)
     except Exception:
         logger.error("run_drought_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
         with get_session() as s:

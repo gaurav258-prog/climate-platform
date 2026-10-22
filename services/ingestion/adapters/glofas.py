@@ -56,6 +56,8 @@ class GloFASAdapter(BaseAdapter):
             return []
 
         import cdsapi
+
+        from services.data import copernicus
         client = cdsapi.Client(url=settings.CDSAPI_URL, key=settings.CDSAPI_KEY, quiet=True)
         d = self.target_date
 
@@ -64,8 +66,8 @@ class GloFASAdapter(BaseAdapter):
 
         try:
             logger.info(f"[Runoff] fetching ERA5-Land total_runoff for {d}")
-            client.retrieve(
-                "reanalysis-era5-land",
+            copernicus.retrieve(
+                client, "cds", "reanalysis-era5-land",
                 {
                     "variable": ["runoff"],
                     "year": str(d.year),

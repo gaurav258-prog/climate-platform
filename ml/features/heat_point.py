@@ -83,11 +83,13 @@ def fetch_era5_land(area: list[float], day: date = None) -> xr.Dataset:
     peak.
     """
     import cdsapi
+
+    from services.data import copernicus
     day = day or date.today()
     c = cdsapi.Client(quiet=True)
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False)
     tmp.close()
-    c.retrieve("reanalysis-era5-land", {
+    copernicus.retrieve(c, "cds", "reanalysis-era5-land", {
         "variable": ["2m_temperature"],
         "year": [str(day.year)],
         "month": [f"{day.month:02d}"],

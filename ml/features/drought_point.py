@@ -125,12 +125,14 @@ def fetch_era5_precip(area: list[float], end_day: date = None,
     already offset by ERA5_LAND_LAG_DAYS (this function's own fallback below
     does so too, when `end_day` isn't supplied)."""
     import cdsapi
+
+    from services.data import copernicus
     end_day = end_day or (date.today() - timedelta(days=ERA5_LAND_LAG_DAYS))
     days = [end_day - timedelta(days=k) for k in range(window)]
     c = cdsapi.Client(quiet=True)
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False)
     tmp.close()
-    c.retrieve("reanalysis-era5-land", {
+    copernicus.retrieve(c, "cds", "reanalysis-era5-land", {
         "variable": ["total_precipitation"],
         "year": sorted({str(d.year) for d in days}),
         "month": sorted({f"{d.month:02d}" for d in days}),

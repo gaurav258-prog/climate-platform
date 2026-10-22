@@ -87,6 +87,8 @@ class ERA5Adapter(BaseAdapter):
             return []
 
         import cdsapi
+
+        from services.data import copernicus
         client = cdsapi.Client(url=settings.CDSAPI_URL, key=settings.CDSAPI_KEY, quiet=True)
         d = self.target_date
 
@@ -99,8 +101,8 @@ class ERA5Adapter(BaseAdapter):
         tmp.close()
 
         try:
-            client.retrieve(
-                "reanalysis-era5-land",
+            copernicus.retrieve(
+                client, "cds", "reanalysis-era5-land",
                 {
                     "variable": all_cds_vars,
                     "year": str(d.year),

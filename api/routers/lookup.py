@@ -257,11 +257,6 @@ def lookup_score(
                            hazards=results, overall=overall, baseline=baseline, heat_status=heat_status)
 
 
-@router.get(
-    "/score/{lookup_id}",
-    response_model=PollResponse,
-    summary="Poll a pending gridded-hazard lookup for its result",
-)
 def _poll_context(session, cell: str) -> dict:
     return {
         "overall": _compute_overall(session, cell, allow_nowcast=frozenset({"heat_acute"})),
@@ -270,9 +265,14 @@ def _poll_context(session, cell: str) -> dict:
     }
 
 
+@router.get(
+    "/score/{lookup_id}",
+    response_model=PollResponse,
+    summary="Poll a pending gridded-hazard lookup for its result",
+)
 def poll_lookup(lookup_id: str, session: DbSession):
     job = session.execute(text("""
-        SELECT status, h3_cell_r8 FROM public_lookups WHERE lookup_id=:id
+        SELECT status, h3_cell_r8, hazard_type FROM public_lookups WHERE lookup_id=:id
     """), {"id": lookup_id}).mappings().first()
     if not job:
         raise HTTPException(status_code=404, detail=f"No lookup found for reference {lookup_id}.")
@@ -283,18 +283,26 @@ def poll_lookup(lookup_id: str, session: DbSession):
         hazard = HazardLookupResult(hazard_type="unknown", status="pending", lookup_id=lookup_id)
         return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
+    if job["status"] == "busy":            # the data store would not take the request now (E309): ask again later
+        from core import messages
+        hazard = HazardLookupResult(hazard_type="unknown", status="failed", lookup_id=lookup_id,
+                                    reason=messages.label("lookup.copernicus_busy"))
+        return PollResponse(hazard=hazard, **_poll_context(session, cell))
+
     if job["status"] == "failed":
         hazard = HazardLookupResult(hazard_type="unknown", status="failed",
                                      reason="Scoring did not complete for this hazard. Please try again.", lookup_id=lookup_id)
         return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
-    # status == 'done' — find whichever hazard just got written for this cell
+    # status == 'done' — the live score of THIS lookup's hazard for the cell (E311: not whichever hazard was scored
+    # last): the nowcast row its job wrote where it writes one (heat, drought), else the standing row; one live row per
+    # lane, so no time ordering is needed
     score = session.execute(text("""
         SELECT hazard_type, CAST(risk_score AS FLOAT) risk_score, risk_bucket
         FROM canonical_scores
-        WHERE h3_cell=:c AND scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
-        ORDER BY scored_at DESC LIMIT 1
-    """), {"c": cell}).mappings().first()
+        WHERE h3_cell=:c AND hazard_type=:h AND scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
+        ORDER BY (COALESCE(score_lane, 'standing') = 'nowcast') DESC LIMIT 1
+    """), {"c": cell, "h": job["hazard_type"]}).mappings().first()
     if not score:
         hazard = HazardLookupResult(hazard_type="unknown", status="failed",
                                      reason="Scoring completed but no result is available for this location.", lookup_id=lookup_id)

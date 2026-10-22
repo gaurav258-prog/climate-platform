@@ -12226,6 +12226,12 @@
    "detail": {
     "what": "The archive downloaded from {source} does not hold the table the platform reads, so nothing was read."
    }
+  },
+  "lookup.copernicus_busy": {
+   "label": "Copernicus busy — try again shortly",
+   "detail": {
+    "what": "This hazard reads today's data from Copernicus, which took no more requests for that data just now. Nothing went wrong with your address; ask again in a few minutes."
+   }
   }
  },
  "names": {

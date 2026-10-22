@@ -35,10 +35,12 @@ WINDOW_DAYS = 8
 def fetch_era5(area: list[float], peak: date, window: int = WINDOW_DAYS) -> xr.Dataset:
     """One CDS request for the `window`-day run-up to `peak` over `area` [N,W,S,E]."""
     import cdsapi
+
+    from services.data import copernicus
     days = [peak - timedelta(days=k) for k in range(window)]
     c = cdsapi.Client(quiet=True)
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False); tmp.close()
-    c.retrieve("reanalysis-era5-land", {
+    copernicus.retrieve(c, "cds", "reanalysis-era5-land", {
         "variable": VARS,
         "year": sorted({str(d.year) for d in days}),
         "month": sorted({f"{d.month:02d}" for d in days}),

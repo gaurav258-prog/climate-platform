@@ -46,6 +46,7 @@ import pandas as pd
 import xarray as xr
 
 from core.config import settings
+from services.data import copernicus
 
 FEATURE_COLS = ["pm25_ugm3", "pm10_ugm3"]
 VARS = ["particulate_matter_2.5um", "particulate_matter_10um"]
@@ -74,7 +75,7 @@ def _extract_if_zip(path: str) -> str:
 def fetch_cams_forecast(area: list[float], day: date) -> xr.Dataset:
     """Live/near-real-time PM2.5+PM10 (hour-0 forecast) — for "today" on-demand lookups only."""
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False); tmp.close()
-    _client().retrieve("cams-global-atmospheric-composition-forecasts", {
+    copernicus.retrieve(_client(), "ads", "cams-global-atmospheric-composition-forecasts", {
         "variable": VARS,
         "date": [f"{day.isoformat()}/{day.isoformat()}"],
         "time": ["00:00"],
@@ -89,7 +90,7 @@ def fetch_cams_forecast(area: list[float], day: date) -> xr.Dataset:
 def fetch_cams_reanalysis(area: list[float], day: date) -> xr.Dataset:
     """EAC4 reanalysis, all 4 daily times — for backtesting a PAST event (see module docstring)."""
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False); tmp.close()
-    _client().retrieve("cams-global-reanalysis-eac4", {
+    copernicus.retrieve(_client(), "ads", "cams-global-reanalysis-eac4", {
         "variable": VARS,
         "date": [f"{day.isoformat()}/{day.isoformat()}"],
         "time": ["00:00", "06:00", "12:00", "18:00"],

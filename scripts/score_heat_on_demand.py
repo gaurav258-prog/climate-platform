@@ -33,6 +33,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.features.heat_point import fetch_and_score
+from services.data.copernicus import CopernicusBusy, mark_lookup_busy
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,8 @@ def run_heat_lookup(lookup_id: str, lat: float, lon: float) -> None:
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
 
+    except CopernicusBusy:                      # the data store would not take it now (E309)
+        mark_lookup_busy(lookup_id, now)
     except Exception:
         logger.error("run_heat_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
         with get_session() as s:
