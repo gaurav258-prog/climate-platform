@@ -20,6 +20,7 @@ from typing import Optional
 from sqlalchemy import text
 
 from services.asset_manager_engine import fund_descendant_ids
+from services.issuer_figures import latest
 
 
 def _catalog() -> dict[str, dict]:
@@ -69,13 +70,10 @@ def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
     indicators = []
     for key in selected:
         entry = CATALOG[key]
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT CAST(p.market_value_eur AS FLOAT) AS mv,
                    CAST(v.value_num AS FLOAT) AS num, v.value_bool AS flag,
-                   (SELECT CAST(e.evic_eur AS FLOAT) FROM issuer_emissions e
-                    WHERE e.issuer_id = s.issuer_id AND (e.org_id = :org OR e.org_id IS NULL) AND e.evic_eur IS NOT NULL
-                      AND (CAST(:ry AS int) IS NULL OR e.reporting_year <= CAST(:ry AS int))
-                    ORDER BY (e.org_id IS NULL), e.reporting_year DESC LIMIT 1) AS evic
+                   (SELECT x.v FROM {latest("evic_eur", "s.issuer_id", up_to_year=True)} x) AS evic
             FROM   fund_positions p
             JOIN   securities s ON s.security_id = p.security_id
             LEFT   JOIN LATERAL (

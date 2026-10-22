@@ -30,6 +30,7 @@ from services.asset_manager_engine import (
     issuer_physical_scores,
     issuer_transition,
 )
+from services.issuer_figures import SOURCE_TIE, latest
 
 # NACE codes whose revenue is fossil-fuel-derived (SFDR PAI 4). Scoped to Art. 2(62)
 # of Regulation (EU) 2018/1999: exploration, mining, extraction, production,
@@ -82,8 +83,8 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=Non
         fund_ids = fund_descendant_ids(session, fund_id)
     if not fund_ids:
         return {}
-    rows = session.execute(text("""
-        SELECT CAST(p.market_value_eur AS FLOAT) AS mv, CAST(em.evic_eur AS FLOAT) AS evic,
+    rows = session.execute(text(f"""
+        SELECT CAST(p.market_value_eur AS FLOAT) AS mv, em.v AS evic,
                i.issuer_id::text AS issuer_id, i.name AS issuer_name, i.nace_code, i.country, CAST(rv.revenue_eur AS FLOAT) AS revenue_eur,
                CAST(e.non_renewable_energy_pct AS FLOAT) AS non_renew,
                CAST(e.non_renewable_consumption_pct AS FLOAT) AS nr_cons,
@@ -104,15 +105,11 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None, as_of=Non
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
             ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
-        LEFT   JOIN LATERAL (
-            SELECT evic_eur FROM issuer_emissions
-            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND evic_eur IS NOT NULL AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
-            ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
-        ) em ON TRUE
+        LEFT   JOIN LATERAL {latest("evic_eur", "s.issuer_id", up_to_year=True)} em ON TRUE
         LEFT   JOIN LATERAL (
             SELECT revenue_eur FROM issuer_emissions
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND revenue_eur IS NOT NULL AND (CAST(:ry AS int) IS NULL OR reporting_year <= CAST(:ry AS int))
-            ORDER BY (org_id IS NULL), (source = 'estimated'), reporting_year DESC LIMIT 1
+            ORDER BY (org_id IS NULL), (source = 'estimated'), reporting_year DESC, {SOURCE_TIE} LIMIT 1
         ) rv ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = COALESCE(CAST(:as_of AS date), (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id))
@@ -192,7 +189,8 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str],
             -- prefer a row that actually carries scope figures (real or estimated)
             -- over a revenue-only row, then this org's own over the global fallback,
             -- then most recent year.
-            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
+            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC, {SOURCE_TIE}
+            LIMIT 1
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids) {date_filter}
     """), {"fids": fund_ids, "org": org_id, "ry": _up_to_year(as_of_date),

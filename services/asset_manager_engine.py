@@ -29,6 +29,7 @@ from typing import Optional
 from sqlalchemy import text
 
 from core.types import score_to_bucket
+from services.issuer_figures import SOURCE_TIE
 
 # Same standing rule as portfolio_engine: heat_acute (today's live ERA5 reading)
 # is kept out of the headline selection, though it stays in the per-hazard detail.
@@ -109,7 +110,7 @@ def issuer_transition(
     stated carbon price and stranded share (ml.scoring.transition_risk). A missing parameter is a named gap."""
     from ml.scoring.transition_risk import transition_block
     from services.reference import nace
-    rows = session.execute(text("""
+    rows = session.execute(text(f"""
         SELECT i.issuer_id::text AS issuer_id, i.nace_code,
                CAST(e.scope1_tco2e AS FLOAT) AS s1, CAST(e.scope2_tco2e AS FLOAT) AS s2,
                CAST(e.revenue_eur AS FLOAT) AS revenue_eur, e.reporting_year, e.source
@@ -118,7 +119,8 @@ def issuer_transition(
             SELECT scope1_tco2e, scope2_tco2e, revenue_eur, reporting_year, source
             FROM issuer_emissions
             WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL)
-            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
+            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC, {SOURCE_TIE}
+            LIMIT 1
         ) e ON TRUE
         WHERE  i.issuer_id = ANY(:ids)
     """), {"org": org_id, "ids": issuer_ids}).mappings().all()

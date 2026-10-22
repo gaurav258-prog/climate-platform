@@ -1093,11 +1093,12 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
     trans = issuer_transition(session, org_id, for_org(session, org_id), scenario, horizon, [issuer_id]).get(issuer_id)
     # Org-scoped: show THIS org's own disclosure or the global fallback — never
     # another tenant's private (source='client') emissions for the same issuer.
-    emissions = session.execute(text("""
+    from services.issuer_figures import SOURCE_TIE
+    emissions = session.execute(text(f"""
         SELECT reporting_year, CAST(scope1_tco2e AS FLOAT) AS scope1, CAST(scope2_tco2e AS FLOAT) AS scope2,
                CAST(scope3_tco2e AS FLOAT) AS scope3, CAST(revenue_eur AS FLOAT) AS revenue_eur, source
         FROM issuer_emissions WHERE issuer_id = :i AND (org_id = :o OR org_id IS NULL)
-        ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+        ORDER BY (org_id IS NULL), reporting_year DESC, {SOURCE_TIE} LIMIT 1
     """), {"i": issuer_id, "o": org_id}).mappings().first()
 
     return {

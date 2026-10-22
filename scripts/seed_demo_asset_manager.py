@@ -8,78 +8,89 @@ bulk of its materiality) sit in high-flood cells. The old "one lat/lon = HQ"
 model scores it safe; the footprint model scores it High because the plants
 dominate the materiality-weighted roll-up.
 
-Facilities are placed in h3 cells that are ACTUALLY scored in canonical_scores
-(verified at seed time), so issuer_physical_scores() joins to live data.
+Each site sits where its name says, in the country it states (E316: the sites once sat on the
+only cells scored then, near Valencia, while named and stated as Cologne, Stockholm or Rotterdam;
+corrected 2026-10-22 by the product owner's decision — scripts/seed_demo_issuer_sites.py moves an
+existing book's sites in place). A site's cell is scored on demand, like any address, so its
+scores are whatever the maps say there; the depot's location is not known (partial coverage).
 
 Idempotent: wipes and re-inserts the demo fund/issuers for the asset-manager org.
 Run: .venv/bin/python scripts/seed_demo_asset_manager.py
 """
-import h3
 from sqlalchemy import text
 
 from core.db.session import get_session
 
 ASSET_MGR_ORG = "44444444-4444-4444-8444-444444444444"  # Nordkap Asset Management (demo)
 
-# Real high-flood cells (verified > 65 in canonical_scores) + real low-flood cells (< 10).
-HIGH_FLOOD_CELLS = ["883954caa5fffff", "8839545867fffff", "883954cb09fffff", "883954b55bfffff"]
-LOW_FLOOD_CELLS = ["883950c82dfffff", "8839560033fffff", "883956014dfffff"]
-
-
-def latlon(cell):
-    lat, lon = h3.cell_to_latlng(cell)
-    return round(lat, 5), round(lon, 5)
+# Where each demo site is: (latitude, longitude, region) — the place its name says (a city, or for the two unnamed
+# plants a north and a south German city, as decided 2026-10-22); None: the location is not known.
+SITES = {
+    "Madrid HQ": (40.4168, -3.7038, "Madrid"),
+    "Valencia Plant 1": (39.49938, -0.89986, "Valencia"),
+    "Valencia Plant 2": (39.19939, -0.89694, "Valencia"),
+    "Valencia Warehouse": (39.49993, -1.00521, "Valencia"),
+    "Stockholm HQ": (59.3326, 18.0649, "Stockholm"),
+    "Malmo Office": (55.6050, 13.0038, "Skåne"),
+    "Rotterdam Hub": (51.9225, 4.47917, "South Holland"),
+    "Unscored Depot": None,
+    "Cologne HQ": (50.9375, 6.9603, "North Rhine-Westphalia"),
+    "Coal Plant North": (53.5511, 9.9937, "Hamburg"),
+    "Gas Plant South": (48.1351, 11.5820, "Bavaria"),
+}
 
 
 # (name, issuer_type, country, sector, nace, asset_class, isin,
-#  facilities: [(name, type, cell, weight, basis)],
+#  facilities: [(name, type, weight, basis)] — placed by SITES,
 #  emissions: (scope1, scope2, scope3, revenue_eur) or None)
 ISSUERS = [
     # THE physical demonstration issuer: HQ safe, plants exposed. Footprint model
     # must score it High on PHYSICAL even though its HQ cell is low-flood.
     # Modest emitter → low transition. Shows physical-high / transition-low.
     ("Iberia Foods SA", "corporate", "ES", "Food manufacturing", "10.89", "equity", "ES00FOODS001", [
-        ("Madrid HQ", "hq", LOW_FLOOD_CELLS[0], 0.10, "revenue"),
-        ("Valencia Plant 1", "plant", HIGH_FLOOD_CELLS[0], 0.35, "revenue"),
-        ("Valencia Plant 2", "plant", HIGH_FLOOD_CELLS[1], 0.30, "revenue"),
-        ("Valencia Warehouse", "warehouse", HIGH_FLOOD_CELLS[2], 0.25, "revenue"),
+        ("Madrid HQ", "hq", 0.10, "revenue"),
+        ("Valencia Plant 1", "plant", 0.35, "revenue"),
+        ("Valencia Plant 2", "plant", 0.30, "revenue"),
+        ("Valencia Warehouse", "warehouse", 0.25, "revenue"),
     ], (45_000, 30_000, 400_000, 900_000_000)),
     # A genuinely low-risk issuer on both axes: safe footprint, tiny emissions.
     ("Nordic Software AB", "corporate", "SE", "Software", "62.01", "equity", "SE00SOFT0001", [
-        ("Stockholm HQ", "hq", LOW_FLOOD_CELLS[1], 0.60, "revenue"),
-        ("Malmo Office", "office", LOW_FLOOD_CELLS[2], 0.40, "revenue"),
+        ("Stockholm HQ", "hq", 0.60, "revenue"),
+        ("Malmo Office", "office", 0.40, "revenue"),
     ], (500, 2_000, 15_000, 600_000_000)),
     # Partially-covered footprint (exercises scored_weight_pct disclosure).
     ("Global Logistics NV", "corporate", "NL", "Logistics", "52.10", "corporate_bond", "NL00LOGIS001", [
-        ("Rotterdam Hub", "warehouse", HIGH_FLOOD_CELLS[3], 0.50, "assets"),
-        ("Unscored Depot", "warehouse", "8801234567fffff", 0.50, "assets"),  # deliberately not in canonical_scores
+        ("Rotterdam Hub", "warehouse", 0.50, "assets"),
+        ("Unscored Depot", "warehouse", 0.50, "assets"),  # location not known: partial coverage
     ], (120_000, 40_000, 800_000, 500_000_000)),
     # THE transition demonstration issuer: a fossil utility. Footprint sits in
     # SAFE cells (low physical) but huge emissions + a stranding sector (NACE 35)
     # → High TRANSITION. Proves the two dimensions are orthogonal — the physical
     # engine alone would have called this issuer safe.
     ("Continental Energy SE", "corporate", "DE", "Electric utilities", "35.11", "equity", "DE00ENERGY01", [
-        ("Cologne HQ", "hq", LOW_FLOOD_CELLS[0], 0.20, "assets"),
-        ("Coal Plant North", "plant", LOW_FLOOD_CELLS[1], 0.45, "production_capacity"),
-        ("Gas Plant South", "plant", LOW_FLOOD_CELLS[2], 0.35, "production_capacity"),
+        ("Cologne HQ", "hq", 0.20, "assets"),
+        ("Coal Plant North", "plant", 0.45, "production_capacity"),
+        ("Gas Plant South", "plant", 0.35, "production_capacity"),
     ], (18_000_000, 500_000, 6_000_000, 22_000_000_000)),
 ]
 
 
+def place(name: str) -> dict:
+    """A site's latitude, longitude, H3 cell (res 8, as canonical_scores) and region — all None when not known."""
+    import h3
+    at = SITES[name]
+    if at is None:
+        return {"lat": None, "lon": None, "cell": None, "region": None}
+    return {"lat": at[0], "lon": at[1], "cell": h3.latlng_to_cell(at[0], at[1], 8), "region": at[2]}
+
+
+LEIS = {"Iberia Foods SA": "DEMOIBERIAFOODS0001", "Nordic Software AB": "DEMONORDICSOFT0001",
+        "Global Logistics NV": "DEMOGLOBLOGIS0001", "Continental Energy SE": "DEMOCONTENERGY01"}
+
+
 def main():
     with get_session() as s:
-        # verify the chosen cells are really scored (fail loudly rather than seed a lie)
-        scored = set(s.execute(text("""
-            SELECT DISTINCT h3_cell FROM canonical_scores
-            WHERE hazard_type='flood' AND scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
-              AND h3_cell = ANY(:cells)
-        """), {"cells": HIGH_FLOOD_CELLS + LOW_FLOOD_CELLS}).scalars().all())
-        missing = set(HIGH_FLOOD_CELLS + LOW_FLOOD_CELLS) - scored
-        if missing:
-            raise SystemExit(f"Chosen demo cells are not scored — refusing to seed a lie: {missing}")
-
-        leis = {"Iberia Foods SA": "DEMOIBERIAFOODS0001", "Nordic Software AB": "DEMONORDICSOFT0001",
-                "Global Logistics NV": "DEMOGLOBLOGIS0001", "Continental Energy SE": "DEMOCONTENERGY01"}
+        leis = LEIS
         market_values = {"Iberia Foods SA": 40_000_000, "Nordic Software AB": 25_000_000,
                          "Global Logistics NV": 15_000_000, "Continental Energy SE": 20_000_000}
         book_total = sum(market_values.values())
@@ -101,14 +112,12 @@ def main():
                 VALUES (:lei, :n, :t, :c, :sec, :nace) RETURNING issuer_id
             """), {"lei": leis[name], "n": name, "t": itype, "c": country, "sec": sector, "nace": nace}).scalar()
 
-            for fname, ftype, cell, weight, basis in facilities:
-                lat, lon = latlon(cell)
+            for fname, ftype, weight, basis in facilities:
                 s.execute(text("""
-                    INSERT INTO issuer_facilities
-                        (issuer_id, name, facility_type, latitude, longitude, h3_cell, country, materiality_weight, weight_basis)
-                    VALUES (:iid, :n, :t, :lat, :lon, :cell, :c, :w, :b)
-                """), {"iid": issuer_id, "n": fname, "t": ftype, "lat": lat, "lon": lon,
-                       "cell": cell, "c": country, "w": weight, "b": basis})
+                    INSERT INTO issuer_facilities (issuer_id, name, facility_type, latitude, longitude, h3_cell, country,
+                                                   region, materiality_weight, weight_basis)
+                    VALUES (:iid, :n, :t, :lat, :lon, :cell, :c, :region, :w, :b)
+                """), {"iid": issuer_id, "n": fname, "t": ftype, "c": country, "w": weight, "b": basis, **place(fname)})
                 n_fac += 1
 
             if emissions:
@@ -132,6 +141,8 @@ def main():
 
         print(f"Seeded fund {fund_id}: {len(ISSUERS)} issuers, {n_fac} facilities, "
               f"{len(ISSUERS)} positions (€{book_total/1e6:.0f}m book).")
+    from scripts.seed_demo_issuer_sites import score
+    print(score())
 
 
 if __name__ == "__main__":

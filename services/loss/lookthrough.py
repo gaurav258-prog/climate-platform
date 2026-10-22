@@ -182,15 +182,11 @@ def issuers(session: Session, org_id: str, issuer_ids: list[str]) -> dict:
             "issuers": {i: _issuer(sites.get(i, []), run, accepted, headline) for i in ids}}
 
 
-# the issuer's latest stated figure: the organisation's own before a shared one, a vendor's last, the latest year
-_FACT = """(SELECT CAST(e.{col} AS FLOAT) AS v, e.reporting_year AS y FROM issuer_emissions e
-             WHERE e.issuer_id = i.issuer_id AND (e.org_id = CAST(:o AS uuid) OR e.org_id IS NULL) AND e.{col} IS NOT NULL
-             ORDER BY (e.org_id IS NULL), (e.source = 'vendor'), e.reporting_year DESC, e.source LIMIT 1)"""
-
-
 def holdings(session: Session, org_id: str, fund_ids: list[str]) -> dict:
     """Each holding of the funds (at each fund's latest holdings date) with its issuer's share lost (A) and the euros a
-    year on the holding (B), or why not; the funds' total over the holdings with a figure, and the value it covers."""
+    year on the holding (B), or why not; the funds' total over the holdings with a figure, and the value it covers. The
+    issuer's enterprise value and physical asset value: its latest stated figures (services.issuer_figures.latest)."""
+    from services.issuer_figures import latest
     rows = [dict(r) for r in session.execute(text(f"""
         SELECT p.position_id::text AS position_id, p.fund_id::text AS fund_id, s.isin, s.name AS security_name,
                i.issuer_id::text AS issuer_id, i.name AS issuer_name, CAST(p.market_value_eur AS FLOAT) AS mv,
@@ -198,11 +194,11 @@ def holdings(session: Session, org_id: str, fund_ids: list[str]) -> dict:
         FROM fund_positions p
         JOIN securities s ON s.security_id = p.security_id
         JOIN issuers i ON i.issuer_id = s.issuer_id
-        LEFT JOIN LATERAL {_FACT.format(col="evic_eur")} ev ON TRUE
-        LEFT JOIN LATERAL {_FACT.format(col="physical_asset_value_eur")} pv ON TRUE
+        LEFT JOIN LATERAL {latest("evic_eur", "i.issuer_id")} ev ON TRUE
+        LEFT JOIN LATERAL {latest("physical_asset_value_eur", "i.issuer_id")} pv ON TRUE
         WHERE p.fund_id = ANY(CAST(:f AS uuid[]))
           AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-        ORDER BY p.market_value_eur DESC, p.position_id"""), {"o": org_id, "f": fund_ids}).mappings()]
+        ORDER BY p.market_value_eur DESC, p.position_id"""), {"org": org_id, "f": fund_ids}).mappings()]
     a = issuers(session, org_id, [r["issuer_id"] for r in rows])
     out, total, covered, why = [], {"central": 0.0, "low": 0.0, "high": 0.0}, 0.0, {}
     for r in rows:
