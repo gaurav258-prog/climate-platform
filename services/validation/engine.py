@@ -76,6 +76,14 @@ def _round(v):
     return round(v, 4) if isinstance(v, float) else v
 
 
+def _grade_bands(res: ValidationResult, pred, obs, fixed_mono):
+    """What the grade reads for 'rising bands': the band check (fixed 0–100 bands when enough hold data, else quartiles)
+    for a hazard gates-v2 lists with its conditions shown; the fixed bands alone for any other (as under gates-v1)."""
+    if res.hazard_type in G.MONOTONE_GRADE_HAZARDS:
+        return M.band_monotone(pred, obs)["monotone"]
+    return fixed_mono
+
+
 def _compute(res: ValidationResult):
     """Return (metrics dict, grade, passed_gate, gate_label) using the honest metric for res.kind."""
     pred = np.asarray(res.predicted, float)
@@ -108,7 +116,7 @@ def _compute(res: ValidationResult):
         mono = M.monotonic_nondecreasing(bands) if bands else None
         metrics = {"spearman": sp, "auc": a, "band_mean_observed": bands, "monotonic": mono,
                    "event_prevalence": _round(M.event_prevalence(obs))}
-        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, mono)
+        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, _grade_bands(res, pred, obs, mono))
         passed = applicable and M.passes_discrimination_gate(sp, mono)
         gate = f"discrimination_spearman>={G.RANK_GATE_SPEARMAN} (monotone reported)"
     elif res.kind == "rank":
@@ -118,7 +126,7 @@ def _compute(res: ValidationResult):
         bands = _bands()
         mono = M.monotonic_nondecreasing(bands) if bands else None
         metrics = {"spearman": sp, "band_mean_observed": bands, "monotonic": mono}
-        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, mono)
+        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, _grade_bands(res, pred, obs, mono))
         passed = applicable and M.passes_discrimination_gate(sp, mono)
         gate = f"rank_spearman>={G.RANK_GATE_SPEARMAN} (monotone reported)"
     else:

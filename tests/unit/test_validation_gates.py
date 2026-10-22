@@ -143,7 +143,9 @@ def test_new_key_fills_the_blank_without_changing_the_old_key_or_grade():
 
 def test_monotone_policy_is_pre_registered(monkeypatch):
     s = G.spec()
-    assert s["monotone_policy"] == "compute_always__not_gated__not_reported" and s["monotone_bands_required"] is False
+    assert s["monotone_policy"] == "grade_reads_band_check_for_listed_hazards" and s["monotone_bands_required"] is False
+    assert s["monotone_grade_hazards"] == {"flood": G.MONOTONE_GRADE_HAZARDS["flood"]}
+    assert all("condition 1" in v and "condition 2" in v for v in G.MONOTONE_GRADE_HAZARDS.values())
     assert len(s["monotone_reporting_conditions"]) == 3
     base = G.spec_sha()
     monkeypatch.setattr(G, "MONOTONE_POLICY", "report")
@@ -155,3 +157,16 @@ def test_per_region_monotone_is_recorded():
     x = np.linspace(0, 99, 60)
     rep = R.stratified_report(x, x, ["europe"] * 40 + ["asia"] * 20)
     assert rep["by_stratum"]["europe"]["monotone"] is True and rep["by_stratum"]["europe"]["monotone_method"]
+
+
+def test_v2_grade_reads_the_band_check_only_for_a_listed_hazard():
+    """gates-v2: a listed hazard whose scores all sit in one fixed band is graded on quartiles; an unlisted one is graded
+    as under gates-v1; pass/fail is the same for both."""
+    x = np.linspace(1, 20, 60)                      # every score under 25: the fixed bands collapse to one
+    listed = _compute(ValidationResult(hazard_type="flood", kind="rank", predicted=list(x), observed=list(x),
+                                       target_source="s"))
+    other = _compute(ValidationResult(hazard_type="not_listed", kind="rank", predicted=list(x), observed=list(x),
+                                      target_source="s"))
+    assert listed[1].value == "strong" and other[1].value == "fair"
+    assert listed[2] is True and other[2] is True                                     # the gate does not read bands
+    assert G.GATE_SPEC_VERSION == "gates-v2"
