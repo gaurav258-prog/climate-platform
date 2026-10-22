@@ -34,7 +34,7 @@ def test_restatement_reconciles_with_its_same_period_predecessor():
         from services.governance.filings import get_filing
         fid = s.execute(text(
             "SELECT filing_id::text FROM regulatory_filing WHERE org_id=:o AND framework='bank_tcfd' "
-            "AND status='accepted' ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
+            "AND status='accepted' ORDER BY seq DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
         if not fid:
             pytest.skip("no accepted bank filing")
         filing = get_filing(s, BANK_ORG, fid, with_payload=True)

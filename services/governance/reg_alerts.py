@@ -14,6 +14,14 @@ from sqlalchemy.orm import Session
 ALERT_WINDOW_DAYS = 180   # a deadline within ~6 months is worth a "start preparing" alert
 
 
+def alert_key(item: dict) -> str:
+    """What an alert is about, as its once-only key (E315): a detected change by the act it found (CELEX) — two changes
+    to one framework are two alerts, whatever their dates — and a deadline by the framework and its date."""
+    if item.get("source") == "detected":
+        return f"detected:{item.get('framework')}:{item.get('celex')}"
+    return f"deadline:{item.get('framework')}:{item.get('date')}"
+
+
 def sweep(session: Session, org_id: str, org_type: str | None) -> dict:
     """Raise any new alerts for one org (idempotent — already-alerted changes are skipped)."""
     from services.governance import tasks as T
@@ -40,7 +48,7 @@ def sweep(session: Session, org_id: str, org_type: str | None) -> dict:
         if not (detected or approaching):
             continue
         kind = "detected" if detected else "deadline"
-        akey = f"{kind}:{c.get('framework')}:{c.get('date')}"
+        akey = alert_key(c)
         if session.execute(text("SELECT 1 FROM reg_alert WHERE org_id=:o AND alert_key=:k"),
                            {"o": org_id, "k": akey}).first():
             continue   # already alerted
@@ -116,7 +124,7 @@ def list_alerts(session: Session, org_id: str) -> list[dict]:
     from services.governance.reg_outlook import _day, _name
     rows = session.execute(text("""
         SELECT alert_key, framework, kind, title, effective_date, task_id, raised_at
-        FROM reg_alert WHERE org_id=:o ORDER BY raised_at DESC LIMIT 50"""), {"o": org_id}).mappings().all()
+        FROM reg_alert WHERE org_id=:o ORDER BY raised_at DESC, alert_id LIMIT 50"""), {"o": org_id}).mappings().all()
     out = []
     for r in rows:
         day = r["effective_date"]

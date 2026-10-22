@@ -116,5 +116,5 @@ def test_manual_override_still_works_and_is_actored():
         res = feeds.refresh_one(s, "reference_lei", actor_user_id=str(uid))
         assert res["status"] == "refreshed"
         row = s.execute(text("SELECT actor_user_id FROM feed_refresh_log "
-                             "WHERE feed_key='reference_lei' ORDER BY created_at DESC LIMIT 1")).scalar()
+                             "WHERE feed_key='reference_lei' ORDER BY seq DESC LIMIT 1")).scalar()
         assert str(row) == str(uid)         # a manual override records WHO did it (system refreshes are NULL)

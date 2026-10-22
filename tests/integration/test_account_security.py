@@ -40,8 +40,8 @@ def test_password_reset_revokes_sessions_and_sets_password():
             v0 = s.execute(text("SELECT token_version FROM users WHERE user_id = CAST(:u AS uuid)"), {"u": uid}).scalar()
             acct.request_password_reset(s, email)
             # recover the raw token from the queued email link (token itself is only stored hashed)
-            body = s.execute(text("SELECT body_text FROM email_outbox WHERE to_email = :e ORDER BY created_at DESC LIMIT 1"),
-                             {"e": email}).scalar()
+            body = s.execute(text("SELECT body_text FROM email_outbox WHERE to_email = :e"),       # the new user's one e-mail
+                             {"e": email}).scalar_one()
             token = body.split("/reset/")[1].split()[0].strip()
             assert acct.get_reset(s, token)["email"] == email
             acct.complete_password_reset(s, token, "Rotated!Pass99")

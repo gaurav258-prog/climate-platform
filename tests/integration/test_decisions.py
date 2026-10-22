@@ -100,7 +100,8 @@ def test_playbook_routes_task_and_notifies():
         assert r["status"] == "approved" and r["task_id"]
         t = s.execute(text("SELECT assignee_user_id::text, due_date FROM regulatory_task WHERE task_id=:t"), {"t": r["task_id"]}).mappings().first()
         assert t["assignee_user_id"] == analyst and t["due_date"] is not None
-        em = s.execute(text("SELECT to_email FROM email_outbox WHERE kind='decision' ORDER BY created_at DESC LIMIT 1")).scalar()
+        em = s.execute(text("""SELECT to_email FROM email_outbox WHERE kind='decision' AND ref_type='decision'
+                               AND ref_id = CAST(:d AS uuid)"""), {"d": r["decision_id"]}).scalar_one()   # this decision's
         assert em == "analyst@meridian.demo"
         s.rollback()
 

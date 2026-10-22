@@ -62,7 +62,7 @@ def _latest_batch(session: Session, org_id: str):
     return session.execute(text("""
         SELECT batch_id::text AS b, max(as_of_date) AS asof
         FROM gl_balance WHERE org_id = CAST(:o AS uuid)
-        GROUP BY batch_id ORDER BY max(uploaded_at) DESC LIMIT 1
+        GROUP BY batch_id ORDER BY max(seq) DESC LIMIT 1
     """), {"o": org_id}).mappings().first()
 
 

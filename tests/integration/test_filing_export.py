@@ -19,7 +19,7 @@ def _a_frozen_bank_filing(session):
     return session.execute(text(
         "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND framework = 'bank_tcfd' "
         "AND snapshot_id IS NOT NULL AND status NOT IN ('withdrawn', 'superseded') "   # a discarded draft is no filing
-        "ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
+        "ORDER BY seq DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
 
 
 @pytest.mark.integration

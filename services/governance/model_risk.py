@@ -209,7 +209,7 @@ def _words(c: dict, feeds: list[dict], origins: dict[str, str]) -> None:
 # ── the register as the organisation sees it ────────────────────────────────────────────────────────────────
 def _reviews(session, org_id: str) -> dict[str, dict]:
     rows = session.execute(text("""SELECT DISTINCT ON (model_ref) model_ref, review_id::text AS review_id, u.full_name AS reviewer, conclusion, comment, evidence_sha256, next_review_by, reviewed_at
-                                   FROM model_risk_review r JOIN users u ON u.user_id = r.reviewer_user_id WHERE r.org_id = CAST(:o AS uuid) ORDER BY model_ref, reviewed_at DESC"""), {"o": org_id}).mappings().all()
+                                   FROM model_risk_review r JOIN users u ON u.user_id = r.reviewer_user_id WHERE r.org_id = CAST(:o AS uuid) ORDER BY model_ref, r.seq DESC"""), {"o": org_id}).mappings().all()
     return {r["model_ref"]: dict(r) | {"next_review_by": _iso(r["next_review_by"]), "reviewed_at": _iso(r["reviewed_at"]), "conclusion_label": CONCLUSIONS.get(r["conclusion"], r["conclusion"])} for r in rows}
 
 
@@ -251,7 +251,7 @@ def review(session, *, org_id: str, org_type: Optional[str], model_ref: str, act
 
 def history(session, org_id: str, model_ref: str) -> list[dict]:
     rows = session.execute(text("""SELECT review_id::text AS review_id, u.full_name AS reviewer, conclusion, comment, evidence_sha256, next_review_by, reviewed_at
-                                   FROM model_risk_review r JOIN users u ON u.user_id = r.reviewer_user_id WHERE r.org_id = CAST(:o AS uuid) AND r.model_ref = :m ORDER BY reviewed_at DESC"""),
+                                   FROM model_risk_review r JOIN users u ON u.user_id = r.reviewer_user_id WHERE r.org_id = CAST(:o AS uuid) AND r.model_ref = :m ORDER BY r.seq DESC"""),
                            {"o": org_id, "m": model_ref}).mappings().all()
     return [dict(r) | {"next_review_by": _iso(r["next_review_by"]), "reviewed_at": _iso(r["reviewed_at"]), "conclusion_label": CONCLUSIONS.get(r["conclusion"], r["conclusion"])} for r in rows]
 

@@ -129,7 +129,7 @@ def _prior_import(session: Session, org_id: str, template: str, sha: str, exclud
         JOIN intake_files f ON f.file_id = b.file_id
         WHERE b.org_id = CAST(:o AS uuid) AND b.template = :t AND f.sha256 = :s AND b.state = 'imported'
           AND (CAST(:x AS uuid) IS NULL OR b.batch_id <> CAST(:x AS uuid))
-        ORDER BY b.state_changed_at DESC LIMIT 1
+        ORDER BY b.imported_seq DESC LIMIT 1
     """), {"o": org_id, "t": template, "s": sha, "x": exclude_batch}).mappings().first()
     return {"batch_id": r["batch_id"], "imported_at": str(r["state_changed_at"])[:19]} if r else None
 

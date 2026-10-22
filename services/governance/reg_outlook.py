@@ -88,7 +88,7 @@ def _detected_item(session, dc: dict) -> dict:
             "when": dc["effective_date"] or (msg["label"] if msg else None),
             "whats_changing": dc["summary"], "message": msg, "prepare": None, "data_fields": [], "data_tbc": None,
             "citation": act or f"EUR-Lex · CELEX:{dc['celex']}", "url": dc["url"],
-            "source": "detected", "status": dc["status"], "detected_at": dc["detected_at"]}
+            "source": "detected", "status": dc["status"], "detected_at": dc["detected_at"], "celex": dc["celex"]}
 
 
 def coming_changes() -> list[dict]:

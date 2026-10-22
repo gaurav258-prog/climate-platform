@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3102 table columns, 357 foreign keys, 91 unique constraints, 294 check constraints, 295 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 312 migration revisions in `core/db/migrations/versions/`, head `decision_signal_20261022`. Extensions present: plpgsql.
+The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3107 table columns, 357 foreign keys, 96 unique constraints, 295 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 313 migration revisions in `core/db/migrations/versions/`, head `latest_seq_tables_20261022`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -27,9 +27,9 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Tenants, onboarding & commercial | 13 | 147 | 10 | 0 | 3 | 0 |
 | Golden score layer & hazard data | 21 | 234 | 2 | 1 | 0 | 1 |
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
-| Models & validation | 9 | 119 | 4 | 1 | 1 | 3 |
+| Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
 | Loss engine | 6 | 80 | 2 | 1 | 1 | 6 |
-| Financial books (bank, insurer, real estate, portfolio) | 24 | 383 | 12 | 13 | 6 | 2 |
+| Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 22 | 245 | 20 | 14 | 1 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 339 | 15 | 7 | 3 | 5 |
@@ -37,7 +37,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
 | Workflow, decisions & controls | 23 | 278 | 7 | 19 | 26 | 1 |
-| Data intake & integration | 16 | 187 | 7 | 9 | 7 | 3 |
+| Data intake & integration | 16 | 189 | 7 | 9 | 7 | 3 |
 | Reference data, FX, settings & audit | 14 | 87 | 1 | 2 | 2 | 2 |
 
 Foreign keys between the other domains (an arrow points from the referencing domain to the referenced one; the label is the number of foreign keys; links into Tenants and Identity are in the table above):
@@ -301,13 +301,14 @@ erDiagram
 | `validation_run` | `trg_validation_run_immutable` | BEFORE DELETE OR UPDATE | `public.prevent_validation_mutation` | validation records are append-only (audit evidence): % on % is not allowed |
 | `validation_sample` | `trg_validation_sample_immutable` | BEFORE DELETE OR UPDATE | `public.prevent_validation_mutation` | validation records are append-only (audit evidence): % on % is not allowed |
 
-The other 6 triggers raise nothing (they maintain a column or write history):
+The other 7 triggers raise nothing (they maintain a column or write history):
 
 | Table | Trigger | Fires | Function |
 |---|---|---|---|
 | `asset_conflicts` | `trg_asset_conflict_resolved_seq` | BEFORE INSERT OR UPDATE | `public.asset_conflict_resolved_seq` |
 | `canonical_scores` | `audit_scores_insert` | AFTER INSERT | `public.audit_canonical_score` |
 | `fx_rates` | `trg_fx_rates_history` | BEFORE DELETE OR UPDATE | `public.fx_rates_keep_history` |
+| `ingest_batches` | `trg_ingest_batch_imported_seq` | BEFORE INSERT OR UPDATE | `public.ingest_batch_imported_seq` |
 | `reg_submission_case` | `trg_case_touch` | BEFORE UPDATE | `public.touch_case_updated` |
 | `regulatory_change` | `trg_change_touch` | BEFORE UPDATE | `public.touch_change_updated` |
 | `regulatory_task` | `trg_task_touch` | BEFORE UPDATE | `public.touch_task_updated` |
@@ -1759,8 +1760,10 @@ Foreign keys to other domains:
 | `evidence_sha256` | text | no |  |  |
 | `next_review_by` | date | yes |  |  |
 | `reviewed_at` | timestamp with time zone | no | `now()` |  |
+| `seq` | bigint | no |  | unique; identity (always) |
 
 - Index: `CREATE INDEX ix_model_risk_review ON public.model_risk_review USING btree (org_id, model_ref, reviewed_at DESC)`
+- Index: `CREATE INDEX ix_model_risk_review_seq ON public.model_risk_review USING btree (org_id, model_ref, seq DESC)`
 
 #### `model_status_event`
 
@@ -2482,8 +2485,10 @@ Foreign keys to other domains:
 | `uploaded_by` | uuid | yes |  |  |
 | `uploaded_at` | timestamp with time zone | yes | `now()` |  |
 | `money_source` | jsonb | yes |  |  |
+| `seq` | bigint | no |  | unique; identity (always) |
 
 - Index: `CREATE INDEX idx_gl_balance_org_batch ON public.gl_balance USING btree (org_id, batch_id)`
+- Index: `CREATE INDEX ix_gl_balance_seq ON public.gl_balance USING btree (org_id, seq DESC)`
 
 #### `insurance_policies`
 
@@ -2568,8 +2573,10 @@ Foreign keys to other domains:
 | `uploaded_at` | timestamp with time zone | yes | `now()` |  |
 | `country` | character varying(3) | yes |  |  |
 | `money_source` | jsonb | yes |  |  |
+| `seq` | bigint | no |  | unique; identity (always) |
 
 - Index: `CREATE INDEX idx_loan_arrears_org_batch ON public.loan_arrears USING btree (org_id, batch_id)`
+- Index: `CREATE INDEX ix_loan_arrears_seq ON public.loan_arrears USING btree (org_id, seq DESC)`
 
 #### `parametric_contracts`
 
@@ -6759,10 +6766,12 @@ Foreign keys to other domains:
 | `actor_user_id` | uuid | yes |  | FK → users.user_id |
 | `created_at` | timestamp with time zone | no | `now()` |  |
 | `cause` | character varying(20) | yes |  |  |
+| `seq` | bigint | no |  | unique; identity (always) |
 
 - Check `feed_refresh_log_cause_kind`: `CHECK (((cause)::text = ANY ((ARRAY['source_unreachable'::character varying, 'adapter_fault'::character varying])::text[])))`
 - Check `feed_refresh_log_cause_on_failure`: `CHECK (((cause IS NULL) OR (status = 'failed'::text)))`
 - Index: `CREATE INDEX ix_feed_refresh_log_feed ON public.feed_refresh_log USING btree (feed_key, created_at DESC)`
+- Index: `CREATE INDEX ix_feed_refresh_log_seq ON public.feed_refresh_log USING btree (feed_key, seq DESC)`
 
 #### `ingest_batch_events`
 
@@ -6820,14 +6829,18 @@ Foreign keys to other domains:
 | `currency` | character(3) | yes |  |  |
 | `book_date` | date | yes |  |  |
 | `money_report` | jsonb | yes |  |  |
+| `imported_seq` | bigint | yes |  | unique |
 
 - Check `ck_ingest_batch_4eyes`: `CHECK (((state <> 'imported'::text) OR (gate_status = 'pass'::text) OR (approval_request_id IS NOT NULL)))`
 - Check `ck_ingest_batch_awaiting`: `CHECK (((state <> 'awaiting_approval'::text) OR (approval_request_id IS NOT NULL)))`
 - Check `ck_ingest_batch_gate`: `CHECK (((gate_status IS NULL) OR (gate_status = ANY (ARRAY['pass'::text, 'needs_signoff'::text, 'blocked'::text]))))`
+- Check `ck_ingest_batch_imported_seq`: `CHECK (((state <> 'imported'::text) OR (imported_seq IS NOT NULL)))`
 - Check `ck_ingest_batch_state`: `CHECK ((state = ANY (ARRAY['received'::text, 'held'::text, 'rejected'::text, 'checked'::text, 'awaiting_approval'::text, 'imported'::text])))`
+- Index: `CREATE INDEX ix_ingest_batches_imported_seq ON public.ingest_batches USING btree (org_id, imported_seq DESC)`
 - Index: `CREATE INDEX ix_ingest_batches_org ON public.ingest_batches USING btree (org_id, received_at DESC)`
 - Index: `CREATE INDEX ix_ingest_batches_sha ON public.ingest_batches USING btree (org_id, template, sha256)`
 - Index: `CREATE INDEX ix_ingest_batches_state ON public.ingest_batches USING btree (org_id, state)`
+- Trigger `trg_ingest_batch_imported_seq`: BEFORE INSERT OR UPDATE for each row → `public.ingest_batch_imported_seq`
 
 #### `ingest_tokens`
 

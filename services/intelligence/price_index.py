@@ -89,14 +89,22 @@ def _month(ym: str) -> tuple[date, date]:
 
 def _shock(session: Session, commodity: str, buyer_ccy: str = "EUR") -> Optional[dict]:
     """Latest month vs the mean of the prior BASELINE_MONTHS, in the buyer's currency — the observed % move, split into
-    the move in the quote currency and the currency's own move. One series only (the most recently updated), never a
-    mix of publishers. None if no data; {"usable": False, "reason_code", "reason_params"} if it can't be put in the
-    buyer's currency (a message code of agri.data.price.*)."""
-    src = session.execute(text("""
-        SELECT source FROM commodity_price_index WHERE commodity = :c ORDER BY period_ym DESC, ingested_at DESC LIMIT 1
-    """), {"c": commodity.lower()}).scalar()
-    if src is None:
+    the move in the quote currency and the currency's own move. One series only, never a mix of publishers: the series
+    of the publisher whose latest month is the most recent; two publishers at that month are named, not chosen by when
+    they were loaded (E315). None if no data; {"usable": False, "reason_code", "reason_params"} if it can't be put in
+    the buyer's currency or no single series is the latest (a message code of agri.data.price.*)."""
+    srcs = session.execute(text("""
+        SELECT source FROM commodity_price_index WHERE commodity = :c
+          AND period_ym = (SELECT max(period_ym) FROM commodity_price_index WHERE commodity = :c)
+        ORDER BY source
+    """), {"c": commodity.lower()}).scalars().all()
+    if not srcs:
         return None
+    if len(srcs) > 1:
+        return {"commodity": commodity, "latest_period": None, "source": None, "unit": None, "quote_currency": None,
+                "currency": buyer_ccy, "usable": False, "reason_code": "agri.data.price.two_publishers",
+                "reason_params": {"commodity": commodity, "publishers": " and ".join(srcs)}}
+    src = srcs[0]
     rows = session.execute(text("""
         SELECT period_ym, CAST(index_value AS FLOAT) AS v, source, unit, currency
         FROM commodity_price_index WHERE commodity = :c AND source = :s ORDER BY period_ym DESC LIMIT :n

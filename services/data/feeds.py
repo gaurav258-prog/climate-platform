@@ -254,7 +254,7 @@ def feed_freshness(session: Session) -> list[dict]:
     even if it ran recently, because that stale-or-broken source can taint a filing until it's fixed."""
     rows = session.execute(text("""
         SELECT DISTINCT ON (feed_key) feed_key, created_at AS last_refresh, status AS last_status, actor_user_id
-        FROM feed_refresh_log ORDER BY feed_key, created_at DESC
+        FROM feed_refresh_log ORDER BY feed_key, seq DESC
     """)).mappings().all()
     last = {r["feed_key"]: r for r in rows}
     now = datetime.now(timezone.utc)

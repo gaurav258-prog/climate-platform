@@ -24,10 +24,10 @@ MOVE_PP = 10.0    # a cell's share moving more than this between periods is wort
 
 def list_submissions(session, regulator_org_id: str, subject_org_id: str, framework: str, template: str) -> list[dict]:
     rows = session.execute(text("""
-        SELECT DISTINCT ON (period_label) period_label, basis, cells, n_cells, source_file, created_at
+        SELECT period_label, basis, cells, n_cells, source_file, created_at     -- one row per year: the unique key
         FROM supervisor_submissions
         WHERE regulator_org_id = CAST(:r AS uuid) AND subject_org_id = CAST(:s AS uuid) AND framework = :fw AND template = :tp
-        ORDER BY period_label, created_at DESC
+        ORDER BY period_label
     """), {"r": regulator_org_id, "s": subject_org_id, "fw": framework, "tp": template}).mappings().all()
     out = [dict(r) | {"created_at": r["created_at"].isoformat()} for r in rows]
     out.sort(key=lambda r: r["period_label"])

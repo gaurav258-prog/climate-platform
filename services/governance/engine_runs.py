@@ -138,7 +138,7 @@ def inputs(session: Session, org_id: str, report_type: str, entity_ids: Optional
     """), {"c": list(cells)}).first() if cells else (0, None)
     batch = session.execute(text("""
         SELECT batch_id::text, template, imported_at FROM ingest_batches
-        WHERE org_id = CAST(:o AS uuid) AND state = 'imported' ORDER BY imported_at DESC NULLS LAST LIMIT 1
+        WHERE org_id = CAST(:o AS uuid) AND state = 'imported' ORDER BY imported_seq DESC LIMIT 1
     """), {"o": org_id}).mappings().first()
     last_obs = session.execute(text("SELECT max(observation_id) FROM asset_observations WHERE org_id = CAST(:o AS uuid)"),
                                {"o": org_id}).scalar()

@@ -12276,6 +12276,13 @@
     "what": "The loss your book's buildings are expected to take in an average year in today's climate, from the damage curves you chose — only figures whose curve passed its test against observed losses. For flood, the figure you state leads: with defences or without them.",
     "why": "Figures from held or untested curves stay on the Loss page; they are never carried here."
    }
+  },
+  "agri.data.price.two_publishers": {
+   "label": "Two publishers for one month",
+   "detail": {
+    "what": "{publishers} both publish the latest month for {commodity}, so which series measures its move is not settled.",
+    "next": "Keep one publisher's series for it."
+   }
   }
  },
  "names": {

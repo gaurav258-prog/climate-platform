@@ -58,8 +58,7 @@ def test_mention_queues_email(monkeypatch):
             SELECT to_email, status FROM email_outbox WHERE kind='task_mention' AND ref_type='task_mention'
               AND org_id = CAST(:o AS uuid) AND ref_id::text IN (
                 SELECT mention_id::text FROM regulatory_task_mention WHERE task_id = CAST(:t AS uuid))
-            ORDER BY created_at DESC LIMIT 1
-        """), {"o": BANK_ORG, "t": t["task_id"]}).mappings().first()
+        """), {"o": BANK_ORG, "t": t["task_id"]}).mappings().one()                 # the one mention's one e-mail
         assert row["to_email"] == "approver@meridian.demo" and row["status"] == "sent"
         s.rollback()
 
@@ -78,7 +77,6 @@ def test_smtp_transport_defers_to_worker(monkeypatch):
             SELECT status, attempts FROM email_outbox WHERE kind='task_mention' AND ref_type='task_mention'
               AND org_id = CAST(:o AS uuid) AND ref_id::text IN (
                 SELECT mention_id::text FROM regulatory_task_mention WHERE task_id = CAST(:t AS uuid))
-            ORDER BY created_at DESC LIMIT 1
-        """), {"o": BANK_ORG, "t": t["task_id"]}).mappings().first()
+        """), {"o": BANK_ORG, "t": t["task_id"]}).mappings().one()                 # the one mention's one e-mail
         assert row["status"] == "pending" and row["attempts"] == 0
         s.rollback()

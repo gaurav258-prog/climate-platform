@@ -89,13 +89,16 @@ def get_case(session: Session, org_id: str, case_id: str) -> dict | None:
 
 
 def case_for_filing(session: Session, org_id: str, filing_id: str) -> dict | None:
-    """The most-recent transmission case linked to a filing (so the filing drawer can jump to it)."""
+    """The transmission case linked to a filing with the most recent activity (so the filing drawer can jump to it).
+    Every activity on a case — opening it, a stage move, a message — writes a message to its thread, so the most recent
+    activity is the case whose latest message came last, by the thread's sequence (E315), never by a timestamp."""
     r = session.execute(text("""
         SELECT c.case_id::text AS case_id, c.regulator, c.reference, c.stage,
                (SELECT count(*) FROM reg_case_message m WHERE m.case_id = c.case_id) AS n_msgs
         FROM reg_submission_case c
         WHERE c.org_id = :o AND c.filing_id = :f
-        ORDER BY c.updated_at DESC LIMIT 1
+        ORDER BY (SELECT max(m.seq) FROM reg_case_message m WHERE m.case_id = c.case_id) DESC NULLS LAST, c.case_id
+        LIMIT 1
     """), {"o": org_id, "f": filing_id}).mappings().first()
     if not r:
         return None

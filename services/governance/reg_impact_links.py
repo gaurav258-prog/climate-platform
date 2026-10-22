@@ -33,6 +33,7 @@ def links_for(framework: str, org_type: Optional[str] = None) -> dict:
 def change_impacts(session, org_id: str, org_type: Optional[str]) -> dict:
     """Every open detected change to a framework this organisation reports under, with what it touches."""
     from services.governance.filings import available_frameworks
+    from services.governance.reg_alerts import alert_key
     from services.regulatory_monitoring.eurlex_detector import detected_changes
     mine = {f["framework"] for f in available_frameworks(org_type or "")}
     out = []
@@ -40,8 +41,8 @@ def change_impacts(session, org_id: str, org_type: Optional[str]) -> dict:
         if ch["framework"] not in mine:
             continue
         L = links_for(ch["framework"], org_type)
-        alert = session.execute(text("SELECT task_id::text FROM reg_alert WHERE org_id = CAST(:o AS uuid) AND framework = :f AND kind = 'detected' ORDER BY raised_at DESC LIMIT 1"),
-                                {"o": org_id, "f": ch["framework"]}).scalar()
+        alert = session.execute(text("SELECT task_id::text FROM reg_alert WHERE org_id = CAST(:o AS uuid) AND alert_key = :k"),
+                                {"o": org_id, "k": alert_key({**ch, "source": "detected"})}).scalar()   # this change's own alert
         out.append({**ch, "touches": L, "task_id": alert})
     return {"changes": out, "frameworks": sorted(mine), "links": {fw: links_for(fw, org_type) for fw in sorted(mine)}, "note": "Links come from configuration only: a switch, KRI, template or mandate is listed when it declares the framework the change amends."}
 

@@ -3,6 +3,7 @@ E118): now() is the same for every row one transaction writes. Every query of a 
 `seq`. A list that only shows when things happened keeps its timestamp, with the row's id to break a tie (E118)."""
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -12,14 +13,14 @@ HISTORY = ("regulatory_task_event", "regulatory_filing_event", "supervision_requ
            "model_registry", "model_drift_observation", "kri_threshold_version", "asset_conflicts", "report_snapshots",
            "access_audit_log", "approval_requests", "regulatory_task_mention", "webhook_deliveries",
            "entity_structure_import_rows", "reported_figure", "client_intake_user", "loss_runs",
-           "asset_building_matches", "validation_run", "risk_decision")
+           "asset_building_matches", "validation_run", "risk_decision", "feed_refresh_log", "gl_balance", "loan_arrears",
+           "model_risk_review")
 # activity lists: ordered by when, the id breaks a tie so the order (and a SCIM page) is the same every time
 TIE_BROKEN = {"webhook_endpoints": "endpoint_id", "refresh_token": "token_id", "invoice": "invoice_id",
               "esign_request": "request_id", "customer_contract": "contract_id", "assurance_share": "share_id",
               "client_intake": "intake_id", "client_intake_document": "document_id", "entity_structure_imports": "import_id",
               "users": "user_id", "scim_group": "group_id", "webauthn_credential": "credential_id",
-              "intake_sftp_keys": "key_id", "reported_filing": "filing_id"}
-_STRING = re.compile(r'"""(.*?)"""|"((?:[^"\\\n]|\\.)*)"', re.S)
+              "intake_sftp_keys": "key_id", "reported_filing": "filing_id", "reg_alert": "alert_id"}
 _SUBQUERY = re.compile(r"\(\s*SELECT(?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)")
 CODE = ("services", "api", "tests", "ml", "core", "scripts")
 
@@ -44,16 +45,27 @@ def order_by(sql: str) -> str | None:
     return " ".join("".join(out).split())
 
 
+def strings(src: str):
+    """(line, text) for every string the code holds, as Python reads it (E315): adjacent literals joined — a query split
+    over two literals hid its table from its ORDER BY — single-, double- or triple-quoted alike, and an f-string whole,
+    its placeholders written {}."""
+    tree = ast.parse(src)
+    inner = {id(v) for n in ast.walk(tree) if isinstance(n, ast.JoinedStr) for v in n.values}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in inner:
+            yield n.lineno, n.value
+        elif isinstance(n, ast.JoinedStr):
+            yield n.lineno, "".join(v.value if isinstance(v, ast.Constant) else "{}" for v in n.values)
+
+
 def queries():
     """(place, SQL with its scalar subqueries folded away) for every SQL string in the code (migrations aside)."""
     for p in [f for d in CODE for f in ROOT.joinpath(d).rglob("*.py")]:
         if p.name == Path(__file__).name or "migrations" in p.parts:
             continue
-        src = p.read_text()
-        for m in _STRING.finditer(src):
-            sql = m.group(1) or m.group(2) or ""
+        for line, sql in strings(p.read_text()):
             if "ORDER BY" in sql:                              # a scalar subquery's table is not what the query orders
-                yield f"{p.relative_to(ROOT)}:{src[:m.start()].count(chr(10)) + 1}", _SUBQUERY.sub("()", sql)
+                yield f"{p.relative_to(ROOT)}:{line}", _SUBQUERY.sub("()", sql)
 
 
 def _ordered_by_time():
@@ -98,3 +110,14 @@ def test_activity_lists_break_a_timestamp_tie_by_id():
     bad = [f"{where} ORDER BY {o}" for t, where, o in _ordered_by_time()
            if t in TIE_BROKEN and not re.search(rf"\b{TIE_BROKEN[t]}\b", o)]
     assert not bad, bad
+
+
+def test_the_scan_reads_a_query_as_python_joins_it():
+    """E315: a query split over two literals ('SELECT … FROM t ' 'ORDER BY created_at DESC LIMIT 1') hid its table from its
+    ORDER BY; single quotes and f-strings were not read at all."""
+    src = ('q1 = ("SELECT a FROM feed_refresh_log " "WHERE k = 1 ORDER BY created_at DESC LIMIT 1")\n'
+           "q2 = 'SELECT a FROM gl_balance ORDER BY uploaded_at DESC LIMIT 1'\n"
+           'q3 = f"SELECT a FROM {t} WHERE x = {y} ORDER BY seq DESC"\n')
+    got = dict(strings(src))
+    assert got[1] == "SELECT a FROM feed_refresh_log WHERE k = 1 ORDER BY created_at DESC LIMIT 1"
+    assert got[2].startswith("SELECT a FROM gl_balance") and got[3] == "SELECT a FROM {} WHERE x = {} ORDER BY seq DESC"
