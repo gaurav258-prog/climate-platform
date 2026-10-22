@@ -2369,9 +2369,9 @@
    }
   },
   "loss.gap.not_a_building": {
-   "label": "Not a building",
+   "label": "Not a physical asset",
    "detail": {
-    "what": "A holding is a share in a company, not a building, so no building damage curve applies to it."
+    "what": "A holding is a share in a company, not a building or other physical asset, so no damage curve applies to it."
    }
   },
   "loss.gap.site_value_not_stated": {
@@ -2382,9 +2382,9 @@
    }
   },
   "loss.gap.asset_value_not_stated": {
-   "label": "Asset value not stated",
+   "label": "Physical value not stated",
    "detail": {
-    "what": "The asset's value is not stated.",
+    "what": "The asset's physical value — its building and, for insured property, its contents, land excluded — is not stated.",
     "next": "Add it in Your data."
    }
   },

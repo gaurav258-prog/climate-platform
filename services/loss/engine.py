@@ -115,21 +115,38 @@ _BUILDING_VALUE = {
     "assetmgmt": ("", "NULL", "loss.gap.not_a_building"),
     "insurer_investments": ("", "NULL", "loss.gap.not_a_building"),
 }
+# Where each book states the asset's PHYSICAL value — what an asset-value curve's share is taken of (the cyclone curves:
+# Eberenz 2021's exposure is produced capital, buildings and contents, land excluded) — and why not where it cannot (the
+# product owner's decision of 2026-10-21, E307): an insurer's insured building and contents (business interruption is
+# not a physical asset), a bank's or property trust's building value; a holding or an investment is never one. Read over
+# the same join as the building value; a market, appraised, exposure or position value is never read as one.
+_ASSET_VALUE = {
+    "banking": ("x.building_value_eur", "loss.gap.asset_value_not_stated"),
+    "insurance": ("NULLIF(COALESCE(x.building_value_eur, 0) + COALESCE(x.contents_value_eur, 0), 0)",
+                  "loss.gap.asset_value_not_stated"),
+    "realestate": ("x.building_value_eur", "loss.gap.asset_value_not_stated"),
+    "assetmgmt": ("NULL", "loss.gap.not_a_building"),
+    "insurer_investments": ("NULL", "loss.gap.not_a_building"),
+}
 
 
 def _assets(session: Session, org_id: str, book: str) -> list[dict]:
     if book == "company_sites":
-        return [{**dict(r), "asset_kind": "company_site", "value": None, "building_value": None,
-                 "no_building_value": "loss.gap.site_value_not_stated", "table": "sc_company_sites.site_type"}
+        return [{**dict(r), "asset_kind": "company_site", "value": None, "building_value": None, "asset_value": None,
+                 "no_building_value": "loss.gap.site_value_not_stated", "no_asset_value": "loss.gap.site_value_not_stated",
+                 "table": "sc_company_sites.site_type"}
                 for r in session.execute(text("""
                     SELECT site_id::text AS asset_id, latitude, longitude, country, occupancy, site_type AS asset_type
                     FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)"""), {"o": org_id}).mappings()]
     join, col, why = _BUILDING_VALUE[book]
-    return [{**dict(r), "asset_kind": "portfolio_entity", "table": "portfolio_entities.entity_type", "no_building_value": why}
+    acol, awhy = _ASSET_VALUE[book]
+    position = col == "NULL" and acol == "NULL"          # a book of holdings: no curve applies, whatever else is stated
+    return [{**dict(r), "asset_kind": "portfolio_entity", "table": "portfolio_entities.entity_type", "no_building_value": why,
+             "no_asset_value": awhy, "position": position}
             for r in session.execute(text(f"""
                 SELECT e.entity_id::text AS asset_id, e.latitude, e.longitude, e.country, e.occupancy,
                        e.entity_type AS asset_type, CAST(e.primary_value_eur AS FLOAT) AS value,
-                       CAST({col} AS FLOAT) AS building_value
+                       CAST({col} AS FLOAT) AS building_value, CAST({acol} AS FLOAT) AS asset_value
                 FROM portfolio_entities e {join}
                 WHERE e.org_id = CAST(:o AS uuid) AND e.vertical = :b AND e.source = 'own'"""),
                 {"o": org_id, "b": book}).mappings()]
@@ -142,8 +159,8 @@ def _value_for(asset: dict, family: dict) -> tuple[Optional[float], Optional[str
         v = asset.get("building_value")
         return (v, None) if v and v > 0 else (None, asset["no_building_value"])
     if basis == "asset_value":
-        v = asset.get("value")
-        return (v, None) if v and v > 0 else (None, "loss.gap.asset_value_not_stated")
+        v = asset.get("asset_value")
+        return (v, None) if v and v > 0 else (None, asset["no_asset_value"])
     return None, "loss.gap.curves_not_usable"
 
 
@@ -165,6 +182,8 @@ def _resolve(session: Session, asset: dict, peril: str, family_key: Optional[str
     family = curves.families().get(family_key)
     if family is None:             # registered but refused (curves.refused() says why, for the methods page)
         return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}, None
+    if asset.get("position"):      # the first reason a holding has no figure: it is not a physical asset (E307)
+        return {**base, **gaps.gap(asset["no_asset_value"])}, None
     occ, _why = registry.occupancy_of(asset.get("occupancy"), asset["table"], asset.get("asset_type"))
     if occ is None:
         return {**base, **gaps.occupancy(asset.get("asset_type"))}, None
@@ -378,7 +397,9 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
         "protocol": protocol["protocol"],
         "value_basis": "a family's ratio is taken of the value its damage basis names: 'building' — the building's own "
                        "value, land excluded, as the book states it (never a market, appraised or position value); "
-                       "'asset_value' — the asset's stated value",
+                       "'asset_value' — the asset's physical value as the book states it: an insurer's insured building "
+                       "and contents (business interruption excluded), a bank's or property trust's building value; a "
+                       "holding or investment is never one (E307)",
         "flood_basis": "the asset's H3 res-8 cell: its flooded share × the damage ratio at its mean flooded depth "
                        "(asset coordinates are not verified to the building)",
         "eal_basis": "the area under the loss–exceedance curve from the most frequent return period the layer holds to "

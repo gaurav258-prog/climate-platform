@@ -23,7 +23,7 @@ def _org(s, elections: dict) -> str:
     s.execute(text("""INSERT INTO org_calc_settings (org_id, interpretation, updated_at) VALUES (CAST(:o AS uuid),
                       CAST(:i AS jsonb), now()) ON CONFLICT (org_id) DO UPDATE SET interpretation =
                       COALESCE(org_calc_settings.interpretation, '{}'::jsonb) || CAST(:i AS jsonb)"""),
-              {"o": org, "i": json.dumps(elections)})
+              {"o": org, "i": json.dumps({"loss_curve_family_flood": None, "loss_curve_family_storm": None, **elections})})
     s.execute(text("UPDATE portfolio_entities SET source = 'supervisor_shadow' WHERE org_id = CAST(:o AS uuid) "
                    "AND vertical = 'realestate' AND source = 'own'"), {"o": org})   # the book holds only the test assets
     return org
@@ -283,8 +283,43 @@ def test_a_storm_figure_reads_storms_ten_minute_wind_as_the_curves_one_minute_wi
     assert r["gap"] is None and r["standing"] == (("published" if t["passed"] else "held") if t else "untested")
     per = registry.divisor("storm_v4_wind", "max_sustained_wind_1min")
     assert per == 0.88
+    assert float(r["exposed_value_eur"]) == 400000.0        # E307: the building value, never the 600,000 market value
     expected = float(r["exposed_value_eur"]) * curves.ratio(curve["points"], 44.0 / 0.88)
     assert r["loss_at_rp"]["100"]["central"] == pytest.approx(expected, rel=1e-6)
     assert expected > float(r["exposed_value_eur"]) * curves.ratio(curve["points"], 44.0)      # read unconverted, lower
     inputs = s.execute(text("SELECT inputs FROM loss_runs WHERE run_id = CAST(:r AS uuid)"), {"r": run["run_id"]}).scalar()
     assert inputs["readings"]["storm"] == {"layer": "storm_v4_wind", "metric": "max_sustained_wind_1min", "divide_by": 0.88}
+
+
+def test_a_holding_takes_no_physical_damage_curve_on_any_basis(session_rolled_back):
+    """E307: an asset manager's holding received a storm figure on its market position — the cyclone curves are a share of
+    physical asset value, and a holding is a share in a company. It is a named gap on either basis."""
+    s = session_rolled_back
+    if "eberenz_2021_tdr" not in curves.families():
+        pytest.skip("the cyclone family is not built on this machine")
+    org = _org(s, {"loss_curve_family_storm": "eberenz_2021_tdr", "loss_curve_family_flood": "jrc_huizinga_2017"})
+    hid = s.execute(text("""INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude,
+                      longitude, country, primary_value_eur, occupancy, source)
+                      VALUES (gen_random_uuid(), CAST(:o AS uuid), 'assetmgmt', 'test holding', 'Manufacturing', :la, :lo, 'US',
+                      7000000, NULL, 'own') RETURNING entity_id::text"""), {"o": org, "la": LAT, "lo": LON}).scalar()
+    _storm_samples(s)
+    _flood_samples(s)
+    run = engine.run(s, org, "assetmgmt")["run_id"]
+    r = {x["peril"]: dict(x) for x in s.execute(text("""SELECT * FROM loss_results WHERE run_id = CAST(:r AS uuid)
+            AND asset_id = CAST(:a AS uuid)"""), {"r": run, "a": hid}).mappings()}
+    assert r["storm"]["gap_code"] == "loss.gap.not_a_building" and r["storm"]["eal_eur"] is None
+    assert r["flood"]["gap_code"] == "loss.gap.not_a_building" and r["flood"]["eal_eur"] is None
+    s.execute(text("UPDATE portfolio_entities SET entity_type = 'Equity' WHERE entity_id = CAST(:a AS uuid)"), {"a": hid})
+    run = engine.run(s, org, "assetmgmt")["run_id"]       # a holding whose use is unknown: still not a physical asset first
+    codes = {x[0] for x in s.execute(text("""SELECT gap_code FROM loss_results WHERE run_id = CAST(:r AS uuid)
+            AND asset_id = CAST(:a AS uuid)"""), {"r": run, "a": hid})}
+    assert codes == {"loss.gap.not_a_building"}
+
+
+def test_an_insurers_physical_value_is_building_and_contents_not_business_interruption():
+    """E307: the value an asset-value curve reads, per book."""
+    assert engine._ASSET_VALUE["insurance"][0].count("building_value_eur") == 1
+    assert "contents_value_eur" in engine._ASSET_VALUE["insurance"][0]
+    assert "business_interruption" not in engine._ASSET_VALUE["insurance"][0]
+    assert set(engine._ASSET_VALUE) == set(engine._BUILDING_VALUE)       # every book states both rules
+    assert all(engine._ASSET_VALUE[b][0] == "NULL" for b in ("assetmgmt", "insurer_investments"))
