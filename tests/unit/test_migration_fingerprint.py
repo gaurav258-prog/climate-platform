@@ -36,3 +36,19 @@ def test_any_other_edit_changes_it(tmp_path):
                   BASE + "\nHELPER = 1\n"):
         a, b = _two(tmp_path, other)
         assert schema_sha(a) != schema_sha(b)
+
+
+def test_a_constant_only_the_probe_reads_is_part_of_the_probe(tmp_path):
+    """E314: a migration applied before its probe was written (the API's start-up migrated the file the moment it was
+    saved) gained the probe and the probe's own organisation id — the schema it builds is unchanged."""
+    probed = BASE.replace('REFUSAL_PROBE = {"setup": "INSERT INTO t VALUES (1);", "cleanup": "DELETE FROM t;"}',
+                          'ORG = "o1"\nREFUSAL_PROBE = {"setup": f"INSERT INTO t VALUES (\'{ORG}\');", "cleanup": "DELETE FROM t;"}')
+    bare = "\n".join(line for line in BASE.splitlines() if not line.startswith("REFUSAL_PROBE")) + "\n"
+    a, b = _two(tmp_path, probed)
+    assert schema_sha(b) == schema_sha(a)
+    (tmp_path / "bare.py").write_text(bare)                               # the file as it ran: no probe at all
+    assert schema_sha(str(tmp_path / "bare.py")) == schema_sha(b)
+    # read by the upgrade as well: no longer the probe's alone
+    used = probed.replace('op.execute("ALTER TABLE t ADD COLUMN c int")', 'op.execute(f"ALTER TABLE t ADD COLUMN {ORG} int")')
+    a, b = _two(tmp_path, used)
+    assert schema_sha(a) != schema_sha(b)

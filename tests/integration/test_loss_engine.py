@@ -246,7 +246,8 @@ def test_the_one_door_hands_out_tested_figures_only(session_rolled_back, monkeyp
     engine.run(s, org, "realestate")
     out = figures.tested(s, org, "realestate")
     assert out["figures"] == [] and out["withheld"].get("held") and out["withheld"].get("untested")
-    assert out["withheld"].get("gap")
+    assert out["withheld"].get("gap") and out["gaps"].get("loss.gap.no_building_value") == 1
+    assert sum(out["gaps"].values()) == out["withheld"]["gap"]           # every gap counted by its code
     real = engine.standing
     monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "published" if c == "US" else real(f, c, cv))
     run = engine.run(s, org, "realestate")["run_id"]
@@ -254,6 +255,7 @@ def test_the_one_door_hands_out_tested_figures_only(session_rolled_back, monkeyp
     assert out["run_id"] == run                                  # the latest run, by sequence
     assert len(out["figures"]) >= 1 and all(f["curve_key"].endswith(":021") for f in out["figures"])
     assert "standing" not in out["figures"][0] and out["withheld"].get("untested")
+    assert all(f["exposed_value_eur"] > 0 for f in out["figures"])     # the value each curve applies to
 
 
 def _storm_samples(s, lat=LAT, lon=LON, at_100=44.0):

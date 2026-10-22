@@ -127,9 +127,9 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
                      "register": register_summary(session, org_id)}
 
     # 5 decisions taken in the period (the Signal → Decide → Act spine)
-    dec = session.execute(text("""SELECT d.entity_name, d.scenario, d.horizon, d.action, d.rationale, d.status, d.decided_at, d.confirmed_at, u.full_name AS decided_by
+    dec = session.execute(text("""SELECT d.entity_name, d.signal, d.scenario, d.horizon, d.action, d.rationale, d.status, d.decided_at, d.confirmed_at, u.full_name AS decided_by
                                   FROM risk_decision d LEFT JOIN users u ON u.user_id = d.decided_by
-                                  WHERE d.org_id = CAST(:o AS uuid) AND d.decided_at::date BETWEEN :f AND :t ORDER BY d.decided_at DESC"""),
+                                  WHERE d.org_id = CAST(:o AS uuid) AND d.decided_at::date BETWEEN :f AND :t ORDER BY d.seq DESC"""),
                           {"o": org_id, "f": period_from, "t": period_to}).mappings().all()
     c["decisions"] = {"n": len(dec), "n_confirmed": sum(1 for r in dec if r["confirmed_at"]),
                       "rows": [{**dict(r), "decided_at": _iso(r["decided_at"]), "confirmed_at": _iso(r["confirmed_at"])} for r in dec[:40]]}
@@ -198,6 +198,8 @@ def render_pdf(c: dict, attestations: list[dict]) -> bytes:
         Table,
         TableStyle,
     )
+
+    from core import messages
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm, title=c["pack"]["title"], author=c["pack"]["organisation"])
     ss = getSampleStyleSheet()
@@ -252,7 +254,7 @@ def render_pdf(c: dict, attestations: list[dict]) -> bytes:
     d = c["decisions"]
     x += [PageBreak(), Paragraph("5. Decisions taken", H2), Paragraph(f"{d['n']} decisions in the period, {d['n_confirmed']} confirmed by a second person.", P)]
     if d["rows"]:
-        x += [table([["When", "Exposure", "Action", "Rationale", "Status", "By"]] + [[(r["decided_at"] or "")[:10], r["entity_name"], r["action"], r["rationale"], r["status"], r["decided_by"]] for r in d["rows"]], [20 * mm, 36 * mm, 26 * mm, 50 * mm, 18 * mm, 20 * mm])]
+        x += [table([["When", "Exposure", "Raised by", "Action", "Rationale", "Status", "By"]] + [[(r["decided_at"] or "")[:10], r["entity_name"], messages.name("decision.signal", r.get("signal") or "crossing"), r["action"], r["rationale"], r["status"], r["decided_by"]] for r in d["rows"]], [18 * mm, 32 * mm, 22 * mm, 24 * mm, 40 * mm, 16 * mm, 18 * mm])]
     sv = c["supervision"]
     x += [Paragraph("6. Supervision", H2), Paragraph(f"{len(sv['supervisors'])} supervisory bodies; {sv['requests']['n']} requests and findings ({sv['requests']['open']} open, {sv['requests']['overdue']} overdue); case file remitted onward {len(sv['remittances'])} time(s).", P)]
     if sv["supervisors"]:

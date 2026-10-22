@@ -38,13 +38,15 @@ def test_every_oversight_code_is_in_the_catalogue_and_every_catalogue_code_is_us
 
 
 def test_each_decision_route_maps_the_one_refusal_its_engine_function_can_raise():
-    """Each route turns DecisionError into one code; that is only right while each engine function raises it once."""
-    tree = ast.parse((ROOT / "services" / "intelligence" / "forward_decisions.py").read_text(encoding="utf-8"))
-    fns = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
-    for name in ("crossings", "decide", "resolve_disclosure_flag", "resolve_watch"):
-        raises = [r for r in ast.walk(fns[name]) if isinstance(r, ast.Raise) and isinstance(r.exc, ast.Call)
-                  and getattr(r.exc.func, "id", None) == "DecisionError"]
-        assert len(raises) == 1, f"{name} raises DecisionError {len(raises)} times — give each refusal its own code"
+    """Each route turns its engine's error into one code; that is only right while each engine function raises it once."""
+    for module, error, names in (("forward_decisions", "DecisionError", ("crossings", "decide", "resolve_disclosure_flag")),
+                                 ("decision_watch", "WatchError", ("resolve_watch",))):
+        tree = ast.parse((ROOT / "services" / "intelligence" / f"{module}.py").read_text(encoding="utf-8"))
+        fns = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+        for name in names:
+            raises = [r for r in ast.walk(fns[name]) if isinstance(r, ast.Raise) and isinstance(r.exc, ast.Call)
+                      and getattr(r.exc.func, "id", None) == error]
+            assert len(raises) == 1, f"{name} raises {error} {len(raises)} times — give each refusal its own code"
 
 
 @pytest.fixture
@@ -69,12 +71,18 @@ def test_decision_refusals_are_catalogue_codes(decisions, monkeypatch):
 
     def refuse(*_a, **_k):
         raise R.D.DecisionError("engine words")
-    for fn in ("crossings", "decide", "resolve_disclosure_flag", "resolve_watch"):
+
+    def refuse_watch(*_a, **_k):
+        raise R.W.WatchError("engine words")
+    for fn in ("crossings", "decide", "resolve_disclosure_flag"):
         monkeypatch.setattr(R.D, fn, refuse)
+    monkeypatch.setattr(R.W, "resolve_watch", refuse_watch)
     monkeypatch.setattr("services.money.params.for_org", lambda *_: _method({"method.at_risk_level": 50.0}))
     assert _refused(R.crossings, None, "disorderly_2c", "2040", ctx=CTX) == "oversight.decisions.bad_horizon"
     body = R.DecideBody(entity_id="e", scenario="disorderly_2c", horizon="2050", action="shrug")
     assert _refused(R.decide, body, None, ctx=CTX) == "oversight.decisions.bad_action"
+    body = R.DecideBody(entity_id="e", action="engage")                    # a crossing names its pathway
+    assert _refused(R.decide, body, None, ctx=CTX) == "oversight.decisions.no_pathway"
     assert _refused(R.resolve_flag, "f", None, status="kept", ctx=CTX) == "oversight.decisions.bad_flag_outcome"
     assert _refused(R.resolve_watch, "w", None, status="ignored", ctx=CTX) == "oversight.decisions.bad_watch_outcome"
 

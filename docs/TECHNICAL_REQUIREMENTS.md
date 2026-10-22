@@ -16,7 +16,7 @@ What the platform runs on and how it is built, tested and deployed. The architec
 | TypeScript | `~6.0.2` → 6.0.3 | `web/package.json` / lock file |
 | PostgreSQL (CI) | `timescale/timescaledb:latest-pg16` | `.github/workflows/ci.yml` integration-tests service |
 | PostgreSQL (local stack) | `timescale/timescaledb:latest-pg16` | `docker-compose.yml` service db |
-| Database migrations | 311 revisions, head `validation_run_seq_20261018` | `core/db/migrations/versions/` |
+| Database migrations | 312 revisions, head `decision_signal_20261022` | `core/db/migrations/versions/` |
 
 ## 2. Backend dependencies (Python)
 
@@ -168,7 +168,7 @@ Scripts: `npm run dev` → `vite`, `npm run build` → `tsc -b && vite build`, `
 
 ### API
 
-FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **655 operations on 578 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
+FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **656 operations on 579 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
 
 | Tag | Operations |
 |---|---|
@@ -194,8 +194,8 @@ FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **
 | Asset Management | 11 |
 | Prior filings | 11 |
 | Real Estate | 11 |
+| Forward-risk decisions | 10 |
 | Regulatory changes | 10 |
-| Forward-risk decisions | 9 |
 | passkeys · esign | 9 |
 | sso | 9 |
 | Entity-structure import | 8 |

@@ -1,11 +1,15 @@
-"""Forward-risk decisions — the 'Act' step. Reads the same projection the forward-risk brief uses, finds the
-exposures that CROSS from below the institution's stated at-risk level today (method.at_risk_level) to at or
-above it by a chosen scenario/horizon, and lets an officer
-record a decision on each (reprice / engage / disclose / monitor / accept) with a rationale. The
-risk_decision table is the audit trail; the latest row per (entity, scenario, horizon) is the standing call.
+"""Risk decisions — the 'Act' step. Two signals raise an exposure to decide on, through one lifecycle (the sector's
+verb-pack, the organisation's 4-eyes rule, its playbook):
 
-One honest source: v_portfolio_entity_physical_risk (the same view the financial engine uses). `heat_acute`
-is excluded from the headline, matching the portfolio/forward-risk convention.
+  crossing   the exposures that CROSS from below the institution's stated at-risk level today (method.at_risk_level)
+             to at or above it by a chosen scenario/horizon — the projection the forward-risk brief uses
+             (v_portfolio_entity_physical_risk; `heat_acute` excluded from the headline, the portfolio convention)
+  loss       the assets whose tested yearly loss is at or above the share of their value the institution states
+             (method.loss_signal_share), today's climate — services.loss.signals (the decisions of 2026-10-22)
+
+An officer records a decision on each with a rationale. The risk_decision table is the audit trail; the latest row by
+sequence per (signal, entity, scenario, horizon) is the standing call. What a 'monitor' decision opens is
+services.intelligence.decision_watch.
 """
 from __future__ import annotations
 
@@ -50,8 +54,8 @@ SUBJECT_NOUN = {"banking": "exposure", "insurance": "policy", "assetmgmt": "hold
                 "realestate": "property", "agri": "commodity"}
 VERTICAL = {"bank": "banking", "asset_manager": "assetmgmt", "insurer": "insurance", "reit": "realestate",
             "manufacturer": "agri"}
-WATCH_REVIEW_DAYS = 90               # default re-review cadence for a 'monitor' watch (overridable per playbook)
-WATCH_DETERIORATION = 2.0            # score points a watched exposure must worsen by to escalate on re-check
+SIGNALS = ("crossing", "loss")
+TODAY = ("baseline", "current")      # a loss signal is on today's climate
 
 
 class DecisionError(ValueError):
@@ -150,20 +154,29 @@ def _agri_crossings(session: Session, org_id: str, scenario: str, horizon: str, 
     return out
 
 
-def _live_decisions(session: Session, org_id: str, scenario: str, horizon: str) -> dict:
-    """The latest decision per entity for this (scenario, horizon), whatever its 4-eyes status — a 'proposed'
-    one still shows as pending so it isn't re-proposed; 'approved' is the standing call."""
+def _live_decisions(session: Session, org_id: str, scenario: str, horizon: str, signal: str = "crossing") -> dict:
+    """The latest decision (by sequence) per entity for this signal, scenario and horizon, whatever its 4-eyes status —
+    a 'proposed' one still shows as pending so it isn't re-proposed; 'approved' is the standing call."""
     rows = session.execute(text("""
         SELECT DISTINCT ON (d.entity_id) d.entity_id::text AS eid, d.action, d.rationale, d.status,
                d.decided_at, mu.email AS by, cu.email AS checker
         FROM risk_decision d
         LEFT JOIN users mu ON mu.user_id = d.decided_by
         LEFT JOIN users cu ON cu.user_id = d.decided_by_checker
-        WHERE d.org_id = :o AND d.scenario = :s AND d.horizon = :h AND d.status NOT IN ('rejected', 'withdrawn')
-        ORDER BY d.entity_id, d.decided_at DESC
-    """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
+        WHERE d.org_id = :o AND d.signal = :sig AND d.scenario = :s AND d.horizon = :h
+          AND d.status NOT IN ('rejected', 'withdrawn')
+        ORDER BY d.entity_id, d.seq DESC
+    """), {"o": org_id, "sig": signal, "s": scenario, "h": horizon}).mappings().all()
     return {r["eid"]: {"action": r["action"], "rationale": r["rationale"], "status": r["status"],
                        "by": r["by"], "checker": r["checker"], "at": r["decided_at"].isoformat()} for r in rows}
+
+
+def loss_signals(session: Session, org_id: str, method) -> dict:
+    """The assets the tested-loss signal raises (services.loss.signals.signals), each with its standing decision."""
+    from services.loss.signals import signals
+    out = signals(session, org_id, method)
+    live = _live_decisions(session, org_id, *TODAY, signal="loss")
+    return {**out, "signals": [{**s, "decision": live.get(s["entity_id"])} for s in out["signals"]]}
 
 
 _PLAYBOOK_FIELDS = ("spin_task", "assignee_user_id", "due_days", "notify", "flag_disclosure", "watchlist", "webhook")
@@ -226,7 +239,8 @@ def _needs_four_eyes(session: Session, org_id: str, value_eur: float | None) -> 
 
 
 def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *, entity_id: str | None,
-                  entity_name: str | None, scenario: str | None, horizon: str | None, rationale: str | None):
+                  entity_name: str | None, scenario: str | None, horizon: str | None, rationale: str | None,
+                  signal: str = "crossing"):
     """Run the org's configured automations for a CONFIRMED decision — a Kanban card (auto-assigned + due),
     a notification to the owner, and/or a webhook to the customer's endpoints. Off unless the playbook enables
     them. Each is best-effort so one failing automation never rolls back the approval."""
@@ -240,7 +254,9 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
             due = session.execute(text("SELECT (CURRENT_DATE + (:d || ' days')::interval)::date"),
                                   {"d": int(pb["due_days"])}).scalar().isoformat()
         title = f"{label} — {entity_name or 'exposure'}"
-        desc = f"Forward-risk decision ({action}) under {scenario} · by {horizon}. " + (rationale or "")
+        desc = ((f"Tested-loss decision ({action}): its tested yearly loss is at or above your loss signal level. "
+                 if signal == "loss" else f"Forward-risk decision ({action}) under {scenario} · by {horizon}. ")
+                + (rationale or ""))
         task = create_task(session, org_id, actor, title=title, description=desc.strip(), criticality="high",
                            assignee_user_id=pb.get("assignee_user_id"), due_date=due,
                            source="decision", source_ref=f"decision:{did}")
@@ -249,41 +265,38 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
             from core.config import settings
             from services.notifications import mailer
             link = f"{settings.APP_BASE_URL}/tasks?task={task['task_id']}"
+            kind = "tested-loss decision" if signal == "loss" else "forward-risk decision"
             oid = mailer.queue_email(session, org_id=org_id, to_email=task["assignee_email"],
-                                     subject=f"{label} · {entity_name or 'exposure'} — forward-risk decision",
-                                     html=f'<p>A forward-risk decision (<b>{action}</b>) on “{entity_name}” was approved and assigned to you.</p><p><a href="{link}">Open the task →</a></p>',
-                                     text_body=f"A forward-risk decision ({action}) on {entity_name} was approved and assigned to you.\nOpen: {link}\n",
+                                     subject=f"{label} · {entity_name or 'exposure'} — {kind}",
+                                     html=f'<p>A {kind} (<b>{action}</b>) on “{entity_name}” was approved and assigned to you.</p><p><a href="{link}">Open the task →</a></p>',
+                                     text_body=f"A {kind} ({action}) on {entity_name} was approved and assigned to you.\nOpen: {link}\n",
                                      kind="decision", ref_type="decision", ref_id=str(did))
             if oid:
                 mailer.dispatch(session)
         except Exception:
             pass
     if pb.get("watchlist") and entity_id:
-        # put the exposure on a watchlist with a re-review date; the scheduled re-check re-scores it and
-        # escalates if it deteriorates further. Baseline = the projected score it was watched under.
+        # put the exposure on a watchlist with a re-review date; the scheduled re-check measures it the way its
+        # signal does and escalates if it worsens further (services.intelligence.decision_watch)
+        from services.intelligence.decision_watch import WATCH_REVIEW_DAYS, open_watch
         review_days = int(pb["due_days"]) if pb.get("due_days") is not None else WATCH_REVIEW_DAYS
-        base = _projected_score(session, org_id, entity_id, scenario, horizon)
-        session.execute(text("""
-            INSERT INTO decision_watchlist (org_id, entity_id, entity_name, scenario, horizon, decision_id,
-                                            baseline_score, review_date, added_by)
-            VALUES (:o, CAST(:e AS uuid), :n, :s, :h, CAST(:d AS uuid), :base,
-                    (CURRENT_DATE + (:rd || ' days')::interval)::date, :u)
-            ON CONFLICT (org_id, entity_id) WHERE status = 'watching' DO NOTHING
-        """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon, "d": did,
-               "base": base, "rd": review_days, "u": actor})
+        open_watch(session, org_id, actor, did, signal=signal, entity_id=entity_id, entity_name=entity_name,
+                   scenario=scenario, horizon=horizon, review_days=review_days)
     if pb.get("flag_disclosure") and entity_id:
         # flag the exposure for the next climate filing — the reporting team sees it in the cockpit
         session.execute(text("""
-            INSERT INTO decision_disclosure_flag (org_id, entity_id, entity_name, scenario, horizon, decision_id, flagged_by)
-            VALUES (:o, CAST(:e AS uuid), :n, :s, :h, CAST(:d AS uuid), :u)
-            ON CONFLICT (org_id, entity_id) WHERE status = 'open' DO NOTHING
-        """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon, "d": did, "u": actor})
+            INSERT INTO decision_disclosure_flag (org_id, entity_id, entity_name, scenario, horizon, decision_id,
+                                                  signal, flagged_by)
+            VALUES (:o, CAST(:e AS uuid), :n, :s, :h, CAST(:d AS uuid), :sig, :u)
+            ON CONFLICT (org_id, entity_id, signal) WHERE status = 'open' DO NOTHING
+        """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon, "d": did, "sig": signal,
+               "u": actor})
         # connect/push: a raised disclosure flag is a real, discrete moment the reporting team's tooling wants
         try:
             from services.integrations.webhooks import emit_event
             emit_event(session, org_id, "disclosure.flag_raised", {
                 "decision_id": str(did), "entity_id": entity_id, "entity_name": entity_name,
-                "scenario": scenario, "horizon": horizon,
+                "signal": signal, "scenario": scenario, "horizon": horizon,
             })
         except Exception:
             pass
@@ -292,7 +305,7 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
             from services.integrations.webhooks import emit_event
             emit_event(session, org_id, "risk.decision.approved", {
                 "decision_id": str(did), "action": action, "entity_id": entity_id,
-                "entity_name": entity_name, "scenario": scenario, "horizon": horizon,
+                "entity_name": entity_name, "signal": signal, "scenario": scenario, "horizon": horizon,
             })
         except Exception:
             pass
@@ -302,11 +315,11 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
 def disclosure_flags(session: Session, org_id: str) -> list[dict]:
     """Exposures flagged (by an approved 'disclose' decision) for the next climate filing — the Act→Report bridge."""
     rows = session.execute(text("""
-        SELECT f.flag_id::text AS flag_id, f.entity_name, f.scenario, f.horizon, f.flagged_at, u.email AS by
+        SELECT f.flag_id::text AS flag_id, f.entity_name, f.signal, f.scenario, f.horizon, f.flagged_at, u.email AS by
         FROM decision_disclosure_flag f LEFT JOIN users u ON u.user_id = f.flagged_by
-        WHERE f.org_id = :o AND f.status = 'open' ORDER BY f.flagged_at DESC
+        WHERE f.org_id = :o AND f.status = 'open' ORDER BY f.flagged_at DESC, f.flag_id
     """), {"o": org_id}).mappings().all()
-    return [{"flag_id": r["flag_id"], "entity_name": r["entity_name"], "scenario": r["scenario"],
+    return [{"flag_id": r["flag_id"], "entity_name": r["entity_name"], "signal": r["signal"], "scenario": r["scenario"],
              "horizon": r["horizon"], "by": r["by"], "at": r["flagged_at"].isoformat()} for r in rows]
 
 
@@ -319,141 +332,38 @@ def resolve_disclosure_flag(session: Session, org_id: str, flag_id: str, actor: 
     """), {"s": status, "u": actor, "o": org_id, "f": flag_id})
 
 
-def _projected_score(session: Session, org_id: str, entity_id: str, scenario: str | None,
-                     horizon: str | None) -> float | None:
-    """The worst priceable-hazard physical-risk score for one exposure under (scenario, horizon) — the same
-    number the crossings view ranks on (heat_acute excluded, matching the headline convention)."""
-    if not scenario or not horizon:
-        return None
-    return session.execute(text("""
-        SELECT MAX(v.physical_risk_score)
-        FROM v_portfolio_entity_physical_risk v
-        WHERE v.org_id = :o AND v.entity_id = CAST(:e AS uuid) AND v.headline_eligible
-          AND v.scenario = :s AND v.time_horizon = :h
-    """), {"o": org_id, "e": entity_id, "s": scenario, "h": horizon}).scalar()
-
-
-def watchlist(session: Session, org_id: str) -> list[dict]:
-    """Open 'monitor' watches for this org — what Risk is actively watching, with the re-review date, the
-    projection it was watched under, and (once re-checked) whether it has deteriorated further."""
-    rows = session.execute(text("""
-        SELECT w.watch_id::text AS watch_id, w.entity_name, w.scenario, w.horizon, w.baseline_score,
-               w.review_date, w.status, w.last_checked_at, w.last_score, w.last_delta, u.email AS by, w.added_at
-        FROM decision_watchlist w LEFT JOIN users u ON u.user_id = w.added_by
-        WHERE w.org_id = :o AND w.status IN ('watching','escalated')
-        ORDER BY (w.status = 'escalated') DESC, COALESCE(w.last_delta, 0) DESC, w.review_date NULLS LAST
-    """), {"o": org_id}).mappings().all()
-    return [{"watch_id": r["watch_id"], "entity_name": r["entity_name"], "scenario": r["scenario"],
-             "horizon": r["horizon"], "status": r["status"],
-             "baseline_score": round(r["baseline_score"], 1) if r["baseline_score"] is not None else None,
-             "last_score": round(r["last_score"], 1) if r["last_score"] is not None else None,
-             "last_delta": round(r["last_delta"], 1) if r["last_delta"] is not None else None,
-             "review_date": r["review_date"].isoformat() if r["review_date"] else None,
-             "last_checked_at": r["last_checked_at"].isoformat() if r["last_checked_at"] else None,
-             "by": r["by"], "at": r["added_at"].isoformat()} for r in rows]
-
-
-def resolve_watch(session: Session, org_id: str, watch_id: str, actor: str, status: str = "cleared") -> None:
-    if status not in ("cleared", "escalated"):
-        raise DecisionError("status must be 'cleared' or 'escalated'")
-    session.execute(text("""
-        UPDATE decision_watchlist SET status = :s, resolved_by = :u, resolved_at = now()
-        WHERE org_id = :o AND watch_id = CAST(:w AS uuid) AND status IN ('watching','escalated')
-    """), {"s": status, "u": actor, "o": org_id, "w": watch_id})
-
-
-def recheck_watchlist(session: Session, org_id: str | None = None, *, due_only: bool = False) -> list[dict]:
-    """Re-score every open watch against the projection it was opened under and record the result. A watch
-    that has worsened by ≥ WATCH_DETERIORATION points is ESCALATED and an alert raised (notify the watcher +
-    a webhook). Returns the escalations. `due_only` (the scheduled beat) limits to watches past their review
-    date; the manual trigger re-checks all. Each alert is best-effort — one failure never blocks the rest."""
-    clause = "w.org_id = :o AND" if org_id else ""
-    due = "AND (w.review_date IS NULL OR w.review_date <= CURRENT_DATE)" if due_only else ""
-    rows = session.execute(text(f"""
-        SELECT w.watch_id::text AS watch_id, w.org_id::text AS org_id, w.entity_id::text AS entity_id,
-               w.entity_name, w.scenario, w.horizon, w.baseline_score, w.added_by::text AS added_by
-        FROM decision_watchlist w
-        WHERE {clause} w.status = 'watching' {due}
-    """), {"o": org_id} if org_id else {}).mappings().all()
-    escalations = []
-    for w in rows:
-        score = _projected_score(session, w["org_id"], w["entity_id"], w["scenario"], w["horizon"])
-        base = w["baseline_score"]
-        delta = (score - base) if (score is not None and base is not None) else None
-        worsened = delta is not None and delta >= WATCH_DETERIORATION
-        session.execute(text("""
-            UPDATE decision_watchlist SET last_checked_at = now(), last_score = :sc, last_delta = :dl,
-                   status = CASE WHEN :esc THEN 'escalated' ELSE status END
-            WHERE watch_id = CAST(:w AS uuid)
-        """), {"sc": score, "dl": delta, "esc": worsened, "w": w["watch_id"]})
-        if not worsened:
-            continue
-        escalations.append({"watch_id": w["watch_id"], "entity_name": w["entity_name"],
-                            "scenario": w["scenario"], "horizon": w["horizon"],
-                            "baseline_score": round(base, 1), "score": round(score, 1), "delta": round(delta, 1)})
-        _alert_deterioration(session, w, score, base, delta)
-    return escalations
-
-
-def _alert_deterioration(session: Session, w: dict, score: float, base: float, delta: float) -> None:
-    """A watched exposure has deteriorated further — notify the watcher and fire the webhook. Best-effort."""
-    try:
-        from services.notifications import mailer
-        email = session.execute(text("SELECT email FROM users WHERE user_id = CAST(:u AS uuid)"),
-                                {"u": w["added_by"]}).scalar() if w.get("added_by") else None
-        if email:
-            oid = mailer.queue_email(
-                session, org_id=w["org_id"], to_email=email,
-                subject=f"Watchlist alert · {w['entity_name']} deteriorated further",
-                html=f'<p>An exposure you are monitoring, <b>{w["entity_name"]}</b>, has deteriorated further under '
-                     f'{w["scenario"]} · {w["horizon"]}: projected risk score {base:.0f} → <b>{score:.0f}</b> '
-                     f'(+{delta:.0f}). It has been escalated on your watchlist.</p>',
-                text_body=f"{w['entity_name']} deteriorated further under {w['scenario']} · {w['horizon']}: "
-                          f"{base:.0f} → {score:.0f} (+{delta:.0f}). Escalated on your watchlist.\n",
-                kind="decision", ref_type="watch", ref_id=str(w["watch_id"]))
-            if oid:
-                mailer.dispatch(session)
-    except Exception:
-        pass
-    try:
-        from services.integrations.webhooks import emit_event
-        emit_event(session, w["org_id"], "risk.watch.deteriorated", {
-            "watch_id": w["watch_id"], "entity_id": w["entity_id"], "entity_name": w["entity_name"],
-            "scenario": w["scenario"], "horizon": w["horizon"],
-            "baseline_score": round(base, 1), "score": round(score, 1), "delta": round(delta, 1),
-        })
-    except Exception:
-        pass
-
-
 def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_name: str | None,
-           scenario: str, horizon: str, action: str, rationale: str | None, value_eur: float | None = None) -> dict:
-    """Record a decision. Whether it needs a second approval (4-eyes) is the ORG's choice, set at onboarding
-    through the approval matrix — off by default. If 4-eyes doesn't apply, the decision is approved on the spot
-    and any Kanban card is spun immediately; otherwise it stays 'proposed' until a checker approves it."""
+           scenario: str | None, horizon: str | None, action: str, rationale: str | None,
+           value_eur: float | None = None, signal: str = "crossing") -> dict:
+    """Record a decision on what a signal raised (SIGNALS; a loss signal is on today's climate, whatever scenario and
+    horizon are passed). Whether it needs a second approval (4-eyes) is the ORG's choice, set at onboarding through
+    the approval matrix — off by default. If 4-eyes doesn't apply, the decision is approved on the spot and any
+    Kanban card is spun immediately; otherwise it stays 'proposed' until a checker approves it."""
     if action not in ALL_ACTIONS:
         raise DecisionError(f"action must be one of {ALL_ACTIONS}")
+    if signal == "loss":
+        scenario, horizon = TODAY
     rationale = (rationale or "").strip() or None
     needs = _needs_four_eyes(session, org_id, value_eur)
     status = "proposed" if needs else "approved"
     did = session.execute(text("""
-        INSERT INTO risk_decision (org_id, entity_id, entity_name, scenario, horizon, action, rationale, status, decided_by,
-                                   confirmed_at)
-        VALUES (:o, CAST(:e AS uuid), :n, :s, :h, :a, :r, :st, :u, CASE WHEN :st = 'approved' THEN now() END)
+        INSERT INTO risk_decision (org_id, entity_id, entity_name, signal, scenario, horizon, action, rationale, status,
+                                   decided_by, confirmed_at)
+        VALUES (:o, CAST(:e AS uuid), :n, :sig, :s, :h, :a, :r, :st, :u, CASE WHEN :st = 'approved' THEN now() END)
         RETURNING decision_id
-    """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon,
+    """), {"o": org_id, "e": entity_id, "n": entity_name, "sig": signal, "s": scenario, "h": horizon,
            "a": action, "r": rationale, "st": status, "u": actor}).scalar()
 
     if not needs:
         # approved by policy (no second approval required) — run the playbook now
         task = _run_playbook(session, org_id, actor, did, action, entity_id=entity_id, entity_name=entity_name,
-                             scenario=scenario, horizon=horizon, rationale=rationale)
+                             scenario=scenario, horizon=horizon, rationale=rationale, signal=signal)
         return {"decision_id": str(did), "action": action, "status": "approved",
                 "task_id": task.get("task_id") if task else None}
 
     # 4-eyes required → raise the shared approval request (checker ≠ maker enforced by the approvals router)
     import json
-    payload = {"decision_id": str(did), "entity_id": entity_id, "entity_name": entity_name,
+    payload = {"decision_id": str(did), "entity_id": entity_id, "entity_name": entity_name, "signal": signal,
                "scenario": scenario, "horizon": horizon, "action": action, "rationale": rationale}
     label = _TASK_TITLE.get(action, action.title())
     rid = session.execute(text("""
@@ -479,16 +389,18 @@ def apply_decision(session: Session, org_id: str, payload: dict, decision: str, 
         p = payload or {}
         task = _run_playbook(session, org_id, actor, did, p.get("action"), entity_id=p.get("entity_id"),
                              entity_name=p.get("entity_name"), scenario=p.get("scenario"),
-                             horizon=p.get("horizon"), rationale=p.get("rationale"))
+                             horizon=p.get("horizon"), rationale=p.get("rationale"),
+                             signal=p.get("signal") or "crossing")      # requests raised before signals: crossings
     return {"decision_id": did, "status": status, "task_id": task.get("task_id") if task else None}
 
 
 def decisions_log(session: Session, org_id: str, limit: int = 100) -> list[dict]:
     rows = session.execute(text("""
-        SELECT d.entity_name, d.scenario, d.horizon, d.action, d.rationale, d.status, d.decided_at, u.email AS by
+        SELECT d.entity_name, d.signal, d.scenario, d.horizon, d.action, d.rationale, d.status, d.decided_at,
+               u.email AS by
         FROM risk_decision d LEFT JOIN users u ON u.user_id = d.decided_by
-        WHERE d.org_id = :o ORDER BY d.decided_at DESC LIMIT :n
+        WHERE d.org_id = :o ORDER BY d.seq DESC LIMIT :n
     """), {"o": org_id, "n": limit}).mappings().all()
-    return [{"entity_name": r["entity_name"], "scenario": r["scenario"], "horizon": r["horizon"],
+    return [{"entity_name": r["entity_name"], "signal": r["signal"], "scenario": r["scenario"], "horizon": r["horizon"],
              "action": r["action"], "rationale": r["rationale"], "status": r["status"],
              "by": r["by"], "at": r["decided_at"].isoformat()} for r in rows]

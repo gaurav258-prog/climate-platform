@@ -12232,6 +12232,50 @@
    "detail": {
     "what": "This hazard reads today's data from Copernicus, which took no more requests for that data just now. Nothing went wrong with your address; ask again in a few minutes."
    }
+  },
+  "oversight.decisions.no_pathway": {
+   "status": 422,
+   "label": "Choose a pathway and a year",
+   "detail": {
+    "what": "A decision on a crossing is taken on a warming pathway and a year; the decision named neither.",
+    "next": "Pick the pathway and the year above the list and decide again."
+   }
+  },
+  "loss.signal.no_book": {
+   "label": "No book of physical assets",
+   "detail": {
+    "what": "Your organisation type holds no book of buildings or sites, so no damage curve applies to it."
+   }
+  },
+  "loss.signal.no_run": {
+   "label": "No loss run yet",
+   "detail": {
+    "what": "Losses have not been worked out for your book in today's climate.",
+    "next": "Choose your damage curves in Methodology and run the losses on the Loss page."
+   }
+  },
+  "loss.signal.no_tested_figure": {
+   "label": "No tested loss figure yet",
+   "detail": {
+    "what": "None of your book's loss figures comes from a damage curve that passed its test against observed losses, so none is carried into risk indicators or decisions.",
+    "why": "Figures from curves that are held or untested are shown on the Loss page for reference only.",
+    "next": "Open the Loss page to see each figure and the standing of its curve."
+   }
+  },
+  "loss.signal.flood_lead_not_stated": {
+   "label": "Choose which flood loss leads",
+   "detail": {
+    "what": "Your book has tested flood losses, with defences and without them. Which one leads is your choice, and it is not stated yet, so the flood figures wait.",
+    "why": "A total without them would understate the book.",
+    "next": "State it in Methodology: which flood loss leads."
+   }
+  },
+  "kri.indicator.tested_yearly_loss": {
+   "label": "Tested loss expected per year",
+   "detail": {
+    "what": "The loss your book's buildings are expected to take in an average year in today's climate, from the damage curves you chose — only figures whose curve passed its test against observed losses. For flood, the figure you state leads: with defences or without them.",
+    "why": "Figures from held or untested curves stay on the Loss page; they are never carried here."
+   }
   }
  },
  "names": {
@@ -12760,7 +12804,12 @@
    "sites_unscored": "Sites without a score",
    "sites_unclassified": "Sites not classified",
    "layers_missing": "Kinds of area not yet covered",
-   "mandatory": "Mandatory indicators"
+   "mandatory": "Mandatory indicators",
+   "loss_run_date": "Losses worked out on",
+   "tested_figures": "Tested figures carried",
+   "figures_not_tested": "Figures not carried (curve held or untested)",
+   "figures_missing": "Figures that could not be worked out",
+   "flood_lead": "Flood loss that leads"
   },
   "kri.unit": {
    "tCO2eq": "tonnes of CO₂ equivalent",
@@ -13073,7 +13122,7 @@
    "config.reporting_settings": "Change the reporting basis",
    "config.calc_settings": "Change a methodology choice",
    "config.kri_appetite": "Change a risk-appetite band",
-   "risk.decision": "Act on a forward-risk exposure",
+   "risk.decision": "Decide on a flagged exposure",
    "calibration.publish": "Publish crop calibrations",
    "reference.release_land": "Land a reference data release"
   },
@@ -13247,7 +13296,8 @@
    "period_start": "Period start",
    "changes": "Change",
    "reporting_settings": "Reporting basis",
-   "presentation_currency": "Presentation currency"
+   "presentation_currency": "Presentation currency",
+   "signal": "Raised by"
   },
   "admin.approval_value": {
    "higher_worse": "Higher is worse",
@@ -13386,6 +13436,14 @@
   "onboarding.vocab.boolean": {
    "true": "Yes",
    "false": "No"
+  },
+  "decision.signal": {
+   "crossing": "Forward crossing",
+   "loss": "Tested loss"
+  },
+  "loss.flood_lead": {
+   "defended": "With defences",
+   "undefended": "Without defences"
   }
  }
 }

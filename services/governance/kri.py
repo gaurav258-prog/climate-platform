@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 # The money KRIs that are amounts PER YEAR (flows): a screen in another currency translates them at the average rate,
 # every other money KRI (values, exposures, capital) at the closing rate — multi-currency decision 3.
-FLOW_KRIS = frozenset({"eal", "expected_loss", "fs.net_revenue", "e1.physrisk.revenue.amount"})
+FLOW_KRIS = frozenset({"eal", "expected_loss", "tested_yearly_loss", "fs.net_revenue", "e1.physrisk.revenue.amount"})
 
 
 def _money_text(session: Session, org_id: str, v: float) -> str:

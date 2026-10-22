@@ -98,8 +98,11 @@ test('the control register prints each test item by its catalogue message, never
 })
 
 test('the decide panel says whether a decision goes to a second approver from the organisation’s rule', () => {
-  const src = readFileSync(new URL('../src/pages/Decisions.tsx', import.meta.url), 'utf8')
+  // one decide panel for every signal (a forward crossing, a tested loss): components/DecideForm.tsx
+  const src = readFileSync(new URL('../src/components/DecideForm.tsx', import.meta.url), 'utf8')
   assert.doesNotMatch(src, /needs a second approval/, 'the panel claims every decision needs a second approval')
-  assert.match(src, /secondApprover\(policy, c\.value_eur\)/)
+  assert.match(src, /secondApprover\(policy, value\)/)
+  for (const page of ['../src/pages/Decisions.tsx', '../src/components/LossSignals.tsx'])
+    assert.match(readFileSync(new URL(page, import.meta.url), 'utf8'), /<DecideForm /, `${page} decides through its own panel`)
   assert.match(repo('services/intelligence/forward_decisions.py'), /return \(value_eur or 0\) >= pol\["threshold_eur"\]/)
 })

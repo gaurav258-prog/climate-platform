@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3096 table columns, 357 foreign keys, 90 unique constraints, 289 check constraints, 294 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 311 migration revisions in `core/db/migrations/versions/`, head `validation_run_seq_20261018`. Extensions present: plpgsql.
+The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3102 table columns, 357 foreign keys, 91 unique constraints, 294 check constraints, 295 further indexes and 56 triggers (50 of them on a function that raises an exception). Built by 312 migration revisions in `core/db/migrations/versions/`, head `decision_signal_20261022`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -36,7 +36,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Regulatory reporting & filings | 26 | 368 | 16 | 19 | 15 | 7 |
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
-| Workflow, decisions & controls | 23 | 272 | 7 | 19 | 26 | 1 |
+| Workflow, decisions & controls | 23 | 278 | 7 | 19 | 26 | 1 |
 | Data intake & integration | 16 | 187 | 7 | 9 | 7 | 3 |
 | Reference data, FX, settings & audit | 14 | 87 | 1 | 2 | 2 | 2 |
 
@@ -6336,9 +6336,11 @@ Foreign keys to other domains:
 | `flagged_at` | timestamp with time zone | no | `now()` |  |
 | `resolved_by` | uuid | yes |  | FK → users.user_id |
 | `resolved_at` | timestamp with time zone | yes |  |  |
+| `signal` | text | no | `'crossing'::text` |  |
 
+- Check `decision_disclosure_flag_signal_check`: `CHECK ((signal = ANY (ARRAY['crossing'::text, 'loss'::text])))`
 - Check `decision_disclosure_flag_status_check`: `CHECK ((status = ANY (ARRAY['open'::text, 'included'::text, 'dismissed'::text])))`
-- Index: `CREATE UNIQUE INDEX ux_disclosure_flag_open ON public.decision_disclosure_flag USING btree (org_id, entity_id) WHERE (status = 'open'::text)`
+- Index: `CREATE UNIQUE INDEX ux_disclosure_flag_open ON public.decision_disclosure_flag USING btree (org_id, entity_id, signal) WHERE (status = 'open'::text)`
 
 #### `decision_playbook`
 
@@ -6380,9 +6382,14 @@ Foreign keys to other domains:
 | `added_at` | timestamp with time zone | no | `now()` |  |
 | `resolved_by` | uuid | yes |  | FK → users.user_id |
 | `resolved_at` | timestamp with time zone | yes |  |  |
+| `signal` | text | no | `'crossing'::text` |  |
+| `baseline_share` | double precision | yes |  |  |
+| `last_share` | double precision | yes |  |  |
 
+- Check `decision_watchlist_measure_check`: `CHECK ((((signal = 'crossing'::text) AND (baseline_share IS NULL) AND (last_share IS NULL)) OR ((signal = 'loss'::text) AND (baseline_score IS NULL) AND (last_score IS NULL) AND (last_delta IS NULL))))`
+- Check `decision_watchlist_signal_check`: `CHECK ((signal = ANY (ARRAY['crossing'::text, 'loss'::text])))`
 - Check `decision_watchlist_status_check`: `CHECK ((status = ANY (ARRAY['watching'::text, 'cleared'::text, 'escalated'::text])))`
-- Index: `CREATE UNIQUE INDEX ux_watchlist_open ON public.decision_watchlist USING btree (org_id, entity_id) WHERE (status = 'watching'::text)`
+- Index: `CREATE UNIQUE INDEX ux_watchlist_open ON public.decision_watchlist USING btree (org_id, entity_id, signal) WHERE (status = 'watching'::text)`
 
 #### `governance_structure`
 
@@ -6596,9 +6603,14 @@ Foreign keys to other domains:
 | `approval_request_id` | uuid | yes |  | FK → approval_requests.request_id |
 | `decided_by_checker` | uuid | yes |  | FK → users.user_id |
 | `confirmed_at` | timestamp with time zone | yes |  |  |
+| `signal` | text | no | `'crossing'::text` |  |
+| `seq` | bigint | no |  | unique; identity (always) |
 
+- Check `risk_decision_loss_today_check`: `CHECK (((signal <> 'loss'::text) OR ((scenario = 'baseline'::text) AND (horizon = 'current'::text))))`
+- Check `risk_decision_signal_check`: `CHECK ((signal = ANY (ARRAY['crossing'::text, 'loss'::text])))`
 - Check `risk_decision_status_check`: `CHECK ((status = ANY (ARRAY['proposed'::text, 'approved'::text, 'rejected'::text, 'withdrawn'::text])))`
 - Index: `CREATE INDEX ix_risk_decision_lookup ON public.risk_decision USING btree (org_id, entity_id, scenario, horizon, decided_at DESC)`
+- Index: `CREATE INDEX ix_risk_decision_signal_seq ON public.risk_decision USING btree (org_id, signal, entity_id, seq DESC)`
 
 ### 4.15 Data intake & integration (16 tables)
 

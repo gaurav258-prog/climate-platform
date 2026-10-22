@@ -78,6 +78,8 @@ def reit_kri(session: Session, org_id: str) -> dict:
                          tone="#f0a860", about=msg("kri.indicator.resilience_capex"),
                          facts=[fact("avoided_loss", _amount(rc.get("total_avoided_loss_eur")), "eur"),
                                 fact("benefit_cost", rc.get("portfolio_benefit_cost_ratio"), "x")]))
+    from services.governance.kri_loss import tested_loss_kpi
+    kpis.append(tested_loss_kpi(session, org_id))
     anchor(kpis, _REIT_PRINTED)
     history = [_hist(h, [{"key": "taxonomy", "label": "Taxonomy-eligible turnover", "fmt": "pct",
                           "value": summary_of(h["payload"])["pct"].get("eligible")}])
@@ -135,6 +137,8 @@ def insurer_kri(session: Session, org_id: str) -> dict:
         kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", _amount(iv.get("var99_eur")), "eur",
                          tone="#fb7185", about=msg("kri.indicator.investment_var"),
                          facts=[fact("positions_scored", inv.get("coverage_pct"), "pct")]))
+    from services.governance.kri_loss import tested_loss_kpi
+    kpis.append(tested_loss_kpi(session, org_id))
     anchor(kpis, _INSURER_PRINTED)
     history = [_hist(h, [{"key": "natcat_scr", "label": "Modelled 1-in-200 loss, gross", "fmt": "eur",
                           "value": (natcat_block(h["payload"]).get("natcat_scr") or {}).get("gross_1_in_200_eur")}])

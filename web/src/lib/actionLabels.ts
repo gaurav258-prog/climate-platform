@@ -27,7 +27,7 @@ const LABELS: Record<string, string> = {
   'kri_appetite.update': 'Change risk appetite', 'decision_playbook.update': 'Edit decision playbook',
   'task.complete': 'Complete task (4-eyes)',
   'provided.datapoint': 'Attest a provided value', 'config.kri_appetite': 'Change a risk-appetite band',
-  'risk.decision': 'Act on a forward-risk exposure', 'csrd.role': 'State the CSRD reporting role',
+  'risk.decision': 'Decide on a flagged exposure', 'csrd.role': 'State the CSRD reporting role',
   'eudr.status': 'State the EUDR status', 'eudr.risk': 'Assess EUDR risk',
   'period.close': 'Close a reporting period', 'period.restate': 'Restate a closed period',
   'calibration.publish': 'Publish crop calibrations', 'reference.release_land': 'Land a reference data release',

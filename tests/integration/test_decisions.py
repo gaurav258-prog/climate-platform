@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
+import services.intelligence.decision_watch as W
 import services.intelligence.forward_decisions as D
 from core.db.session import get_session
 
@@ -121,18 +122,18 @@ def test_monitor_watchlist_and_recheck_escalates():
         r = D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
                      scenario="hot_house_3_5c", horizon="2100", action="monitor", rationale="keep an eye", value_eur=c["value_eur"])
         assert r["status"] == "approved"
-        w = next((x for x in D.watchlist(s, BANK_ORG) if x["entity_name"] == c["entity_name"]), None)
+        w = next((x for x in W.watchlist(s, BANK_ORG) if x["entity_name"] == c["entity_name"]), None)
         assert w is not None and w["status"] == "watching" and w["review_date"] is not None
         # re-check at the same projection → no deterioration, stays watching
-        esc = D.recheck_watchlist(s, BANK_ORG, due_only=False)
+        esc = W.recheck_watchlist(s, BANK_ORG, due_only=False)
         assert all(e["entity_name"] != c["entity_name"] for e in esc)
         # simulate a worse projection since the watch opened → re-check escalates
         s.execute(text("UPDATE decision_watchlist SET baseline_score = last_score - 10, last_delta = NULL, status='watching' WHERE org_id=:o AND entity_id=CAST(:e AS uuid)"),
                   {"o": BANK_ORG, "e": c["entity_id"]})
-        esc2 = D.recheck_watchlist(s, BANK_ORG, due_only=False)
+        esc2 = W.recheck_watchlist(s, BANK_ORG, due_only=False)
         hit = next((e for e in esc2 if e["entity_name"] == c["entity_name"]), None)
-        assert hit is not None and hit["delta"] >= D.WATCH_DETERIORATION
-        w2 = next(x for x in D.watchlist(s, BANK_ORG) if x["entity_name"] == c["entity_name"])
+        assert hit is not None and hit["delta"] >= W.WATCH_DETERIORATION
+        w2 = next(x for x in W.watchlist(s, BANK_ORG) if x["entity_name"] == c["entity_name"])
         assert w2["status"] == "escalated"
         s.rollback()
 

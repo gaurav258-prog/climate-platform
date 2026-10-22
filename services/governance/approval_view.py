@@ -35,6 +35,8 @@ def _value(key: str, v: Any) -> str | None:
         return n["scenario"].get(s, s)
     if key == "horizon":
         return n.get("horizon.stop", {}).get(s, s)
+    if key == "signal":                     # what raised a decision: a forward crossing or a tested loss
+        return n["decision.signal"].get(s, s)
     if key == "framework":
         from services.governance.filings import FRAMEWORKS
         return (FRAMEWORKS.get(s) or {}).get("label") or n["admin.approval_value"].get(s) or messages.label("admin.approvals.a_report")

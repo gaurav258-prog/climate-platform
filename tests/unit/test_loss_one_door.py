@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CODE = ("services", "api", "core", "ml", "scripts")
-TABLES = re.compile(r"\bloss_(results|ep_points)\b")
+TABLES = re.compile(r"\bloss_(results|ep_points|runs)\b")
 ALLOWED = ("services/loss/", "api/routers/loss.py", "core/db/migrations/")
 
 
@@ -27,3 +27,4 @@ def test_nothing_outside_the_loss_engine_reads_loss_figures_but_through_the_one_
 
 def test_the_scan_sees_a_direct_read():
     assert TABLES.search("SELECT eal_eur FROM loss_results WHERE …") and not TABLES.search("loss_results_view_x")
+    assert TABLES.search("SELECT run_id FROM loss_runs WHERE …")      # which run is the latest is the door's to say

@@ -83,6 +83,27 @@ def test_a_write_once_table_read_for_its_latest_row_is_a_history_read_by_its_seq
     assert not bad, f"add these to HISTORY (with a seq column) and read them by seq: {bad}"
 
 
+# Every other table read for its latest row by a timestamp, found when the rule widened from the write-once tables to
+# every table (E312, 2026-10-22): each to be numbered and read by its sequence, or shown to need no order — the worklist,
+# emptied as each is fixed; a new one is refused.
+PENDING = {"commodity_price_index", "email_outbox", "feed_refresh_log", "gl_balance", "ingest_batches", "loan_arrears",
+           "model_risk_review", "reg_alert", "reg_submission_case", "supervisor_submissions"}
+
+
+def test_any_table_read_for_its_latest_row_is_a_history_read_by_its_sequence(session_rolled_back):
+    """E312: risk_decision — the decision log, whose latest row per exposure is the standing call — took that row by
+    decided_at. A decision's status changes, so the table is not write-once and the test above never listed it. Every
+    table now counts: one read for its latest row by a timestamp is a listed history (read by its sequence) or on the
+    worklist."""
+    from tests.unit.test_history_order import HISTORY, latest_by_time
+    tables = set(session_rolled_back.execute(text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")).scalars())
+    hits = latest_by_time(tables)
+    bad = sorted({f"{where}: {t} ORDER BY {o}" for t, where, o in hits if t not in {*HISTORY, *PENDING}})
+    assert not bad, f"add these to HISTORY (with a seq column) and read them by seq: {bad}"
+    done = sorted(PENDING - {t for t, _w, _o in hits})
+    assert not done, f"no longer read for their latest row by a timestamp — take them off PENDING: {done}"
+
+
 def test_every_listed_history_carries_a_sequence(session_rolled_back):
     from tests.unit.test_history_order import HISTORY
     with_seq = set(session_rolled_back.execute(text("""

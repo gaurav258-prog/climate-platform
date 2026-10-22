@@ -54,6 +54,12 @@
    "unit": "score",
    "used_for": "value at material physical risk; exposures sensitive to physical risk (Pillar 3 Template 5); forward crossings; the decision spine's at-risk line"
   },
+  "method.loss_signal_share": {
+   "short": "Your loss signal level",
+   "label": "The share of an asset's value lost per year — its tested expected yearly loss divided by the value its damage curve applies to — at or above which the institution treats the asset as a decision signal",
+   "unit": "ratio",
+   "used_for": "the decision spine's loss signal: assets whose tested yearly loss reaches this share are listed to decide on"
+  },
   "method.valuation_haircut": {
    "short": "Climate value haircut",
    "label": "Share of an asset's (collateral) value the institution discounts for physical climate risk, by peril and hazard band of the asset's headline hazard",
@@ -263,7 +269,8 @@
   "services/intelligence/forward_risk.py",
   "services/intelligence/site_interruption.py",
   "services/intelligence/supply_cogs.py",
-  "services/intelligence/resourcing.py"
+  "services/intelligence/resourcing.py",
+  "services/loss/signals.py"
  ],
  "pending": {}
 }

@@ -91,7 +91,7 @@ const STEPS: { key: keyof Play; label: string; hint: string }[] = [
 ]
 const PLAYBOOK = {
   title: 'When a decision is approved', sections: [
-    { heading: HEADING.shows, body: 'The steps that run on their own once a decision on a forward-risk exposure is approved.' },
+    { heading: HEADING.shows, body: 'The steps that run on their own once a decision on a flagged exposure — a forward crossing or a tested loss — is approved.' },
     { heading: HEADING.read, body: 'All steps are off until you switch them on. Choose the task’s owner and the days allowed for the task or the re-check. Anything sent outside your workspace still needs a person.' },
   ],
 }

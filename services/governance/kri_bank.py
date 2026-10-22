@@ -231,4 +231,6 @@ def book_kri(session: Session, org_id: str) -> dict:
                 fact("uncovered", csr.get("loan_value_at_risk_eur"), "eur"),
                 fact("assessed", csr.get("epc_coverage_pct"), "pct")]))
     from services.governance.kri import _by_hazard
+    from services.governance.kri_loss import tested_loss_kpi
+    kpis.append(tested_loss_kpi(session, org_id))
     return {"supported": True, "kpis": kpis, "by_hazard": _by_hazard(snap), "history": []}
