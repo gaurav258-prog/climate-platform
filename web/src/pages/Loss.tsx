@@ -15,6 +15,7 @@ import { Drawer } from '../components/Drawer'
 import { StatusChip } from '../components/StatusChip'
 import { HEADING, InfoButton, MessageLine, messageDetails, type Message } from '../components/Details'
 import ReviewTabs from '../components/ReviewTabs'
+import { share } from '../components/HoldingLoss'
 
 // Loss from the hazard itself (E171), to the UI standard (2026-10-16): the main screen is figures and charts — the
 // expected yearly loss, undefended and defended, why figures are missing, and each asset; every explanation (the
@@ -28,8 +29,9 @@ interface Layer { key: string; name: string; peril: string; resolution_m: number
 interface ProtectionLayer { key: string; name: string; resolution_m: number; licence: string; citation?: string; sampled: { places: number; with_a_level?: number; no_value?: number; outside_coverage?: number } }
 interface RunRow { run_id: string; book: string; scenario: string; time_horizon: string; as_of: string; n_assets: number; n_gaps: number; created_at: string }
 interface Band { low: number; central: number; high: number }
-interface Result { asset_id: string; asset_name: string | null; country_name: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_name: string | null; flood_layer: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null; gap_message: Message | null; eal_same_source_today_eur: number | null; protection_rp_years: number | null; protection_message: Message | null; caution_message: Message | null; eal_defended_eur: number | null; eal_defended_low_eur: number | null; eal_defended_high_eur: number | null }
-interface Total { peril: string; standing: Standing; results: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null; defended_results: number; eal_defended_eur: number; eal_defended_low_eur: number; eal_defended_high_eur: number; eal_undefended_same_results_eur: number; protection_unknown_results: number; eal_protection_unknown_eur: number }
+interface Result { asset_id: string; asset_name: string | null; country_name: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_name: string | null; flood_layer: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null; gap_message: Message | null; eal_same_source_today_eur: number | null; protection_rp_years: number | null; protection_message: Message | null; caution_message: Message | null; eal_defended_eur: number | null; eal_defended_low_eur: number | null; eal_defended_high_eur: number | null
+  eal_ratio: number | null; eal_ratio_low: number | null; eal_ratio_high: number | null; eal_defended_ratio: number | null; ratio_at_rp: Record<string, Band> | null }
+interface Total { peril: string; standing: Standing; results: number; unit?: 'eur' | 'share'; share_max?: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null; defended_results: number; eal_defended_eur: number; eal_defended_low_eur: number; eal_defended_high_eur: number; eal_undefended_same_results_eur: number; protection_unknown_results: number; eal_protection_unknown_eur: number }
 interface Gap { code: string | null; reason: string; detail: Message['detail']; count: number }
 interface RunDetail { run: RunRow & { inputs: { layers?: { flood?: { pathway?: string; period?: string } } } }; totals: Total[]; gaps: Gap[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[] }
 interface Projection { periods: Record<string, string>; flood: { scenario: string; horizon: string; gap: Message | null }[] }
@@ -37,10 +39,12 @@ interface Projection { periods: Record<string, string>; flood: { scenario: strin
 const BOOKS: Record<string, { key: string; label: string }[]> = {
   bank: [{ key: 'banking', label: 'Loan book' }],
   insurer: [{ key: 'insurance', label: 'Insured properties' }, { key: 'insurer_investments', label: 'Investments' }],
-  asset_manager: [{ key: 'assetmgmt', label: 'Holdings' }],
+  asset_manager: [{ key: 'assetmgmt', label: 'Holdings' }, { key: 'issuer_sites', label: 'Issuers’ sites' }],
   reit: [{ key: 'realestate', label: 'Properties' }],
   manufacturer: [{ key: 'company_sites', label: 'Own sites' }],
 }
+// a book whose figures are a share of each site's own value — no site states a value; today's climate only
+const SHARE_BOOKS = new Set(['issuer_sites'])
 const STANDING: Record<Standing, { label: string; tone: 'good' | 'warn' | 'neutral'; what: string }> = {
   published: { label: 'Tested', tone: 'good', what: 'The damage curve passed its test on observed losses it was not built from.' },
   held: { label: 'Failed its test', tone: 'warn', what: 'The damage curve was tested on observed losses and failed; the figure is shown for reference, not for use.' },
@@ -74,6 +78,7 @@ export default function Loss() {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('2050')
   const [methods, setMethods] = useState(false)
+  const shareBook = SHARE_BOOKS.has(book)
   const projGap = scenario === 'baseline' ? null : proj.data?.flood.find(c => c.scenario === scenario && c.horizon === horizon)?.gap ?? null
   const [waiting, setWaiting] = useState(0)
   const runs = useQuery({
@@ -92,7 +97,7 @@ export default function Loss() {
   const shown = runId ?? latest
   const start = async () => {
     try {
-      await api.post('/v1/loss/runs', scenario === 'baseline' ? { book } : { book, scenario, horizon })
+      await api.post('/v1/loss/runs', scenario === 'baseline' || shareBook ? { book } : { book, scenario, horizon })
       setBefore(latest); setWaiting(Date.now()); toast.info('Loss run started.')
     } catch (e) { toast.error(apiMessage(e, 'Could not start the loss run.')) }
   }
@@ -111,13 +116,13 @@ export default function Loss() {
         </div>
         {books.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">Your sector holds no book of physical assets.</div> : (
           <div className="flex flex-wrap items-center gap-3">
-            <select value={book} onChange={e => { setBook(e.target.value); setRunId(null) }} aria-label="Book" className={select}>
+            <select value={book} onChange={e => { setBook(e.target.value); setRunId(null); if (SHARE_BOOKS.has(e.target.value)) setScenario('baseline') }} aria-label="Book" className={select}>
               {books.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
             </select>
-            <select value={scenario} onChange={e => setScenario(e.target.value)} aria-label="Climate" className={select}>
+            {!shareBook && <select value={scenario} onChange={e => setScenario(e.target.value)} aria-label="Climate" className={select}>
               {Object.entries(SCENARIO).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-            {scenario !== 'baseline' && (
+            </select>}
+            {scenario !== 'baseline' && !shareBook && (
               <select value={horizon} onChange={e => setHorizon(e.target.value)} aria-label="Year" className={select}>
                 {HORIZONS.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
@@ -179,12 +184,15 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
   if (q.isLoading || !q.data) return <div className="text-[12.5px] text-[var(--color-faint)]">Loading the run…</div>
   const d = q.data
   const projected = d.run.scenario !== 'baseline'
+  const shares = SHARE_BOOKS.has(d.run.book)
   const missing = d.gaps.reduce((a, g) => a + g.count, 0)
-  const top = Math.max(1, ...rows.map(r => r.eal_eur ?? 0))
+  const lossOf = (r: Result) => shares ? r.eal_ratio : r.eal_eur
+  const top = Math.max(shares ? 1e-12 : 1, ...rows.map(r => lossOf(r) ?? 0))
+  const fmt = (v: number | null | undefined) => shares ? share(v) : flow(v)
   return (
     <div className="space-y-6">
       <StatGrid cols={3} items={[
-        { label: 'Assets', value: d.run.n_assets.toLocaleString(), sub: runLabel(d.run) },
+        { label: shares ? 'Sites' : 'Assets', value: d.run.n_assets.toLocaleString(), sub: runLabel(d.run) },
         { label: 'Figures', value: (d.results.length - missing).toLocaleString(), sub: 'one per asset and hazard' },
         { label: 'Missing figures', value: missing.toLocaleString(), sub: `${d.gaps.length} reasons`, accent: missing ? 'var(--color-warn)' : undefined },
       ]} />
@@ -196,7 +204,12 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
                 <SectionHead>{PERIL[t.peril] ?? 'Hazard'} · expected yearly loss</SectionHead>
                 <StandingChip s={t.standing} />
               </div>
-              {t.peril === 'flood' && !projected ? <Compare t={t} headline={headline} /> : (
+              {t.unit === 'share' ? (
+                <div className="mt-3">
+                  <div className="display text-[26px] tabular-nums">{t.results.toLocaleString()} sites</div>
+                  <div className="text-[11px] text-[var(--color-faint)] mt-1 tabular-nums">up to {share(t.share_max)} of a site’s value a year</div>
+                </div>
+              ) : t.peril === 'flood' && !projected ? <Compare t={t} headline={headline} /> : (
                 <div className="mt-3">
                   <div className="display text-[26px] tabular-nums">{flow(t.eal_eur)}</div>
                   <div className="text-[11px] text-[var(--color-faint)] mt-1 tabular-nums">{flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} assets</div>
@@ -224,7 +237,7 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
           <table className="w-full text-[12.5px] tabular-nums">
             <thead><tr className="text-left text-[var(--color-mute)] border-b border-[var(--color-line)]">
               <th className="py-1.5 pr-3 font-medium">Asset</th><th className="pr-3 font-medium">Hazard</th>
-              <th className="pr-3 font-medium text-right">Building value</th><th className="pr-3 font-medium">Expected yearly loss</th>
+              {!shares && <th className="pr-3 font-medium text-right">Building value</th>}<th className="pr-3 font-medium">{shares ? 'Share of its value lost a year' : 'Expected yearly loss'}</th>
               {!projected && <th className="pr-3 font-medium text-right">Defended</th>}<th className="font-medium">Standing</th>
             </tr></thead>
             <tbody>
@@ -233,16 +246,16 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
                   className={`border-b border-[var(--color-line)] ${r.gap ? '' : 'cursor-pointer hover:bg-[var(--color-panel-2)]'}`}>
                   <td className="py-1.5 pr-3 text-[var(--color-ink)]">{r.asset_name ?? 'Asset'}<span className="text-[var(--color-faint)]"> · {r.country_name ?? '—'}</span></td>
                   <td className="pr-3">{PERIL[r.peril] ?? 'Hazard'}</td>
-                  <td className="pr-3 text-right">{r.exposed_value_eur ? balance(r.exposed_value_eur) : '—'}</td>
+                  {!shares && <td className="pr-3 text-right">{r.exposed_value_eur ? balance(r.exposed_value_eur) : '—'}</td>}
                   {r.gap_message ? <td colSpan={projected ? 2 : 3} className="pr-3 text-[var(--color-warn)]"><MessageLine m={r.gap_message} /></td> : (<>
                     <td className="pr-3 min-w-[180px]">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 rounded-full bg-[var(--color-panel-2)] relative"><div className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-warn)]" style={{ width: `${Math.max(1.5, ((r.eal_eur ?? 0) / top) * 100)}%` }} /></div>
-                        <span className="w-16 text-right">{flow(r.eal_eur)}</span>
+                        <div className="flex-1 h-2 rounded-full bg-[var(--color-panel-2)] relative"><div className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-warn)]" style={{ width: `${Math.max(1.5, ((lossOf(r) ?? 0) / top) * 100)}%` }} /></div>
+                        <span className="w-16 text-right">{fmt(lossOf(r))}</span>
                         {r.caution_message && <span title={r.caution_message.label}><TriangleAlert size={13} className="text-[var(--color-warn)]" /></span>}
                       </div>
                     </td>
-                    {!projected && <td className="pr-3 text-right">{r.peril !== 'flood' ? '—' : r.eal_defended_eur != null ? flow(r.eal_defended_eur) : <span className="text-[var(--color-faint)]">unknown</span>}</td>}
+                    {!projected && <td className="pr-3 text-right">{r.peril !== 'flood' ? '—' : (shares ? r.eal_defended_ratio : r.eal_defended_eur) != null ? fmt(shares ? r.eal_defended_ratio : r.eal_defended_eur) : <span className="text-[var(--color-faint)]">unknown</span>}</td>}
                     <td>{r.standing && <StandingChip s={r.standing} />}</td>
                   </>)}
                 </tr>
@@ -253,7 +266,7 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
         </div>
       </Card>
       {d.book_curve.length > 0 && <BookCurve points={d.book_curve} />}
-      {asset && <AssetDetail r={asset} projected={projected} onClose={() => setAsset(null)} />}
+      {asset && <AssetDetail r={asset} projected={projected} shares={shares} onClose={() => setAsset(null)} />}
       {reason && <Dialog title={reason.reason} onClose={() => setReason(null)} className="max-w-xl">
         <div className="text-[12.5px] text-[var(--color-mute)] mb-3">{reason.count} figures</div>
         <InfoBody m={{ label: reason.reason, detail: reason.detail }} />
@@ -286,9 +299,11 @@ function BookCurve({ points }: { points: { rp_years: number; loss_eur: number }[
   )
 }
 
-function AssetDetail({ r, projected, onClose }: { r: Result; projected: boolean; onClose: () => void }) {
-  const rps = Object.entries(r.loss_at_rp ?? {}).sort((a, b) => +a[0] - +b[0])
-  const max = Math.max(1, ...rps.map(([, v]) => v.high))
+function AssetDetail({ r, projected, shares, onClose }: { r: Result; projected: boolean; shares: boolean; onClose: () => void }) {
+  const rps = Object.entries((shares ? r.ratio_at_rp : r.loss_at_rp) ?? {}).sort((a, b) => +a[0] - +b[0])
+  const max = Math.max(shares ? 1e-12 : 1, ...rps.map(([, v]) => v.high))
+  const at = (v: number | null | undefined) => shares ? share(v) : balance(v)
+  const yr = (v: number | null | undefined) => shares ? share(v) : flow(v)
   const fact = (label: string, value: React.ReactNode) => <div className="flex justify-between gap-4 py-1.5 border-b border-[var(--color-line)] text-[12.5px]"><span className="text-[var(--color-mute)]">{label}</span><span className="text-right text-[var(--color-ink)]">{value}</span></div>
   return (
     <Drawer label={r.asset_name ?? 'Asset'} onClose={onClose} className="w-full max-w-md h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-5">
@@ -307,14 +322,15 @@ function AssetDetail({ r, projected, onClose }: { r: Result; projected: boolean;
                 <div className="absolute inset-y-0 rounded bg-[var(--color-warn)]/25" style={{ left: `${(v.low / max) * 100}%`, width: `${Math.max(0.5, ((v.high - v.low) / max) * 100)}%` }} />
                 <div className="absolute inset-y-0 left-0 rounded" style={{ width: `${Math.max(1, (v.central / max) * 100)}%`, background: protectedRp ? 'var(--color-good)' : 'var(--color-warn)', opacity: protectedRp ? 0.5 : 1 }} />
               </div>
-              <span className="w-16 text-right tabular-nums">{balance(v.central)}</span>
+              <span className="w-16 text-right tabular-nums">{at(v.central)}</span>
             </div>
           )
         })}
       </div>
-      {fact('Expected yearly loss', `${flow(r.eal_eur)} (${flow(r.eal_low_eur)} – ${flow(r.eal_high_eur)})`)}
-      {!projected && r.peril === 'flood' && fact('Defended', r.eal_defended_eur != null ? flow(r.eal_defended_eur) : '—')}
-      {fact('Building value', r.exposed_value_eur ? balance(r.exposed_value_eur) : '—')}
+      {shares ? fact('Share of its value lost a year', `${yr(r.eal_ratio)} (${yr(r.eal_ratio_low)} – ${yr(r.eal_ratio_high)})`)
+        : fact('Expected yearly loss', `${flow(r.eal_eur)} (${flow(r.eal_low_eur)} – ${flow(r.eal_high_eur)})`)}
+      {!projected && r.peril === 'flood' && fact('Defended', (shares ? r.eal_defended_ratio : r.eal_defended_eur) != null ? yr(shares ? r.eal_defended_ratio : r.eal_defended_eur) : '—')}
+      {!shares && fact('Building value', r.exposed_value_eur ? balance(r.exposed_value_eur) : '—')}
       {fact('Building use', r.occupancy ?? '—')}
       {fact('Damage curve', r.curve_name ?? '—')}
       {r.standing && fact('Standing', <span className="inline-flex items-center gap-1.5"><StandingChip s={r.standing} /><InfoButton compact details={{ title: STANDING[r.standing].label, sections: [{ heading: HEADING.shows, body: STANDING[r.standing].what }] }} /></span>)}

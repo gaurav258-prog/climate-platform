@@ -73,7 +73,7 @@ def layers(session: DbSession, ctx: dict = Depends(require_permission("modules.v
 
 
 class RunRequest(BaseModel):
-    book: str = Field(..., pattern="^(banking|insurance|insurer_investments|realestate|assetmgmt|company_sites)$")
+    book: str = Field(..., pattern="^(banking|insurance|insurer_investments|realestate|assetmgmt|company_sites|issuer_sites)$")
     scenario: str = Field("baseline", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$")
     horizon: str = Field("current", pattern="^(current|2030|2050|2080|2100)$")
 
@@ -83,6 +83,10 @@ def start_run(body: RunRequest, ctx: dict = Depends(require_permission("reports.
     if (body.scenario == "baseline") != (body.horizon == "current"):
         raise HTTPException(422, {"error": "scenario_horizon", "message": "today's climate is scenario 'baseline' with "
                                   "horizon 'current'; a projection names both a scenario and a year"})
+    from services.loss.engine import SHARE_BOOKS
+    if body.book in SHARE_BOOKS and body.scenario != "baseline":
+        from core.errors import UserError
+        raise UserError("loss.refused.sites_today_only", status=422)
     from services.tasks.jobs import submit
     job = submit("loss.run", ctx["org"]["org_id"], body.book, body.scenario, body.horizon, ctx["user"]["id"])
     return {"status": "started", "book": body.book, "scenario": body.scenario, "horizon": body.horizon, "job": job}
@@ -130,11 +134,18 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                CAST(lr.eal_defended_eur AS FLOAT) AS eal_defended_eur,
                CAST(lr.eal_defended_low_eur AS FLOAT) AS eal_defended_low_eur,
                CAST(lr.eal_defended_high_eur AS FLOAT) AS eal_defended_high_eur,
-               COALESCE(pe.entity_name, cs.name) AS asset_name, COALESCE(pe.country, cs.country) AS country
+               lr.eal_ratio, lr.eal_ratio_low, lr.eal_ratio_high, lr.eal_defended_ratio, lr.eal_defended_ratio_low,
+               lr.eal_defended_ratio_high, lr.ratio_at_rp,
+               COALESCE(pe.entity_name, cs.name, isf.name || ' · ' || iss.name) AS asset_name,
+               COALESCE(pe.country, cs.country, isf.country) AS country
         FROM loss_results lr
         LEFT JOIN portfolio_entities pe ON lr.asset_kind = 'portfolio_entity' AND pe.entity_id = lr.asset_id
         LEFT JOIN sc_company_sites cs ON lr.asset_kind = 'company_site' AND cs.site_id = lr.asset_id
-        WHERE lr.run_id = CAST(:r AS uuid) ORDER BY lr.eal_eur DESC NULLS LAST, lr.peril"""), {"r": run_id}).mappings()]
+        LEFT JOIN issuer_facilities isf ON lr.asset_kind = 'issuer_site' AND isf.facility_id = lr.asset_id
+        LEFT JOIN issuers iss ON iss.issuer_id = isf.issuer_id
+        WHERE lr.run_id = CAST(:r AS uuid)
+        ORDER BY lr.eal_eur DESC NULLS LAST, lr.eal_ratio DESC NULLS LAST, lr.peril, lr.asset_id"""),
+        {"r": run_id}).mappings()]
     by_standing: dict[str, dict] = {}
     gaps: dict[str, dict] = {}
     from services.loss import gaps as G
@@ -148,7 +159,13 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
             g["count"] += 1
             continue
         k = f"{r['peril']}:{r['standing']}"
-        t = by_standing.setdefault(k, {"peril": r["peril"], "standing": r["standing"], "results": 0,
+        if r["eal_ratio"] is not None:          # a share of each site's own value: never added across sites
+            t = by_standing.setdefault(k, {"peril": r["peril"], "standing": r["standing"], "results": 0, "unit": "share",
+                                           "share_max": 0.0})
+            t["results"] += 1
+            t["share_max"] = max(t["share_max"], r["eal_ratio"])
+            continue
+        t = by_standing.setdefault(k, {"unit": "eur", "peril": r["peril"], "standing": r["standing"], "results": 0,
                                        "eal_low_eur": 0.0, "eal_eur": 0.0, "eal_high_eur": 0.0,
                                        "eal_same_source_today_eur": None, "defended_results": 0,
                                        "eal_defended_low_eur": 0.0, "eal_defended_eur": 0.0, "eal_defended_high_eur": 0.0,
@@ -173,6 +190,8 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
         WHERE run_id = CAST(:r AS uuid) ORDER BY peril, rp_years"""), {"r": run_id}).mappings()]
     return {"run": dict(run), "totals": sorted(by_standing.values(), key=lambda t: (t["peril"], t["standing"])),
             "totals_basis": "sums of per-asset figures within one standing; figures of different standing are never added. "
+                            "An issuer site's figure is a share of its own value: shares are never added across sites "
+                            "(unit 'share': the count and the largest share). "
                             "The defended sum covers only the results with a protection level (defended_results), "
                             "beside the undefended sum of the same results; results whose protection is unknown are "
                             "summed apart, undefended. "

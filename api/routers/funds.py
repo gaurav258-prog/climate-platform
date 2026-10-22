@@ -157,6 +157,21 @@ def fund_positions(fund_id: str, session: DbSession, org_id: OrgId,
     return {"fund_id": fund_id, "scenario": scenario, "horizon": horizon, "positions": positions}
 
 
+@router.get("/funds/{fund_id}/loss-lookthrough",
+            summary="Each holding's yearly loss looked through to its issuer's sites: the share of the issuer's physical "
+                    "value lost (tested damage curves only) and euros on the holding — or why not")
+def fund_loss_lookthrough(fund_id: str, session: DbSession, org_id: OrgId):
+    """The holdings look-through (services.loss.lookthrough; the product owner's decisions of 2026-10-22), today's
+    climate: every message in customer words (its label and the detail behind its ⓘ)."""
+    from services.asset_manager_engine import fund_descendant_ids
+    from services.loss.lookthrough import holdings
+    own_or_404(session, "funds", "fund_id", fund_id, org_id, "Fund")
+    out = holdings(session, org_id, fund_descendant_ids(session, fund_id))
+    return {"fund_id": fund_id, **out,
+            "accepted_bases": [{"basis": b, "name": messages.name("lookthrough.basis", b)} for b in out["accepted_bases"]],
+            "headline": out["headline"] and messages.name("loss.flood_lead", out["headline"])}
+
+
 class Holding(BaseModel):
     isin: str
     # Supply EITHER market_value_eur (already in EUR) OR market_value + currency
@@ -174,11 +189,13 @@ class Holding(BaseModel):
         isin = (self.isin or "").strip() or "—"
         if self.market_value_eur is None and self.market_value is None:
             raise UserError("filings.holding.no_value", isin=isin)
-        if self.revenue is not None and self.revenue_eur is not None or self.evic is not None and self.evic_eur is not None:
+        native = (self.revenue, self.evic, self.physical_asset_value)
+        if any(n is not None and e is not None for n, e in zip(native, (self.revenue_eur, self.evic_eur,
+                                                                       self.physical_asset_value_eur))):
             raise UserError("filings.holding.financials_twice", isin=isin)
-        if (self.revenue is not None or self.evic is not None) and not (self.financials_currency or "").strip():
+        if any(n is not None for n in native) and not (self.financials_currency or "").strip():
             raise UserError("filings.holding.financials_currency", isin=isin)
-        if (self.revenue is not None or self.evic is not None) and self.financials_date is None and self.reporting_year is None:
+        if any(n is not None for n in native) and self.financials_date is None and self.reporting_year is None:
             raise UserError("filings.holding.financials_date", isin=isin)
         for basis, aligned, gas, nuc in (
                 ("turnover", self.taxonomy_aligned_pct, self.taxonomy_fossil_gas_aligned_pct, self.taxonomy_nuclear_aligned_pct),
@@ -200,6 +217,10 @@ class Holding(BaseModel):
     scope3_tco2e: Optional[float] = Field(None, ge=0)
     evic_eur: Optional[float] = Field(None, gt=0)       # enterprise value incl. cash → PCAF attribution (PAI 1/2), in EUR
     evic: Optional[float] = Field(None, gt=0)           # …or EVIC in `financials_currency` (a balance)
+    # the issuer's physical asset value — buildings, plant, machinery and contents, land excluded: what the share of value
+    # a site loses is a share of (the holdings look-through, decided 2026-10-22) — in EUR, or in `financials_currency`
+    physical_asset_value_eur: Optional[float] = Field(None, gt=0)
+    physical_asset_value: Optional[float] = Field(None, gt=0)
     financials_currency: Optional[str] = None           # ISO 4217 of revenue / evic — required with them, never assumed
     financials_date: Optional[date] = None              # the date the financials describe (default: 31 Dec of reporting_year):
                                                         # revenue at the average of the 12 months to it, EVIC at its rate
@@ -248,12 +269,13 @@ class HoldingsUpload(BaseModel):
 
 
 def _issuer_financials_eur(session, h: "Holding", org_id: str | None = None) -> dict:
-    """The issuer's revenue and EVIC in EUR: as given in EUR, or converted from financials_currency at the financials
-    date — revenue (a yearly flow) at the average of the 12 months to it, EVIC (a balance) at its closing rate. The
-    amounts as sent and the rates are kept (money_source). Raises MoneyError."""
+    """The issuer's revenue, EVIC and physical asset value in EUR: as given in EUR, or converted from financials_currency
+    at the financials date — revenue (a yearly flow) at the average of the 12 months to it, EVIC and the physical asset
+    value (balances) at its closing rate. The amounts as sent and the rates are kept (money_source). Raises MoneyError."""
     from services.intake.money import convert_amount, source_record
-    if h.revenue is None and h.evic is None:
-        return {"revenue_eur": h.revenue_eur, "evic_eur": h.evic_eur, "money_source": None}
+    given = {"revenue_eur": h.revenue_eur, "evic_eur": h.evic_eur, "physical_asset_value_eur": h.physical_asset_value_eur}
+    if h.revenue is None and h.evic is None and h.physical_asset_value is None:
+        return {**given, "money_source": None}
     d = h.financials_date or date(h.reporting_year, 12, 31)
     ccy = h.financials_currency.strip().upper()
     conv = {}
@@ -261,8 +283,10 @@ def _issuer_financials_eur(session, h: "Holding", org_id: str | None = None) -> 
         conv["revenue_eur"] = convert_amount(session, h.revenue, ccy, d, flow=True, label="issuer revenue", org_id=org_id)
     if h.evic is not None:
         conv["evic_eur"] = convert_amount(session, h.evic, ccy, d, label="issuer EVIC", org_id=org_id)
-    return {"revenue_eur": conv["revenue_eur"]["eur"] if "revenue_eur" in conv else h.revenue_eur,
-            "evic_eur": conv["evic_eur"]["eur"] if "evic_eur" in conv else h.evic_eur,
+    if h.physical_asset_value is not None:
+        conv["physical_asset_value_eur"] = convert_amount(session, h.physical_asset_value, ccy, d,
+                                                          label="issuer physical asset value", org_id=org_id)
+    return {**{k: conv[k]["eur"] if k in conv else v for k, v in given.items()},
             "money_source": source_record(ccy, d, conv, origin="fund_holdings")}
 
 
@@ -288,14 +312,14 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         fin = _issuer_financials_eur(session, h, org_id)
     except MoneyError as e:
         wrote["financials_error"] = str(e)
-        fin = {"revenue_eur": None, "evic_eur": None, "money_source": None}
-    rev_eur, evic_eur = fin["revenue_eur"], fin["evic_eur"]
-    if rev_eur is not None or h.scope1_tco2e is not None or evic_eur is not None:
+        fin = {"revenue_eur": None, "evic_eur": None, "physical_asset_value_eur": None, "money_source": None}
+    rev_eur, evic_eur, pav_eur = fin["revenue_eur"], fin["evic_eur"], fin["physical_asset_value_eur"]
+    if rev_eur is not None or h.scope1_tco2e is not None or evic_eur is not None or pav_eur is not None:
         session.execute(text("""
             INSERT INTO issuer_emissions
                 (issuer_id, org_id, reporting_year, scope1_tco2e, scope2_tco2e, scope3_tco2e,
-                 revenue_eur, evic_eur, source, data_vintage, money_source)
-            VALUES (:i, :org, :yr, :s1, :s2, :s3, :rev, :evic, 'client', now(), CAST(:ms AS jsonb))
+                 revenue_eur, evic_eur, physical_asset_value_eur, source, data_vintage, money_source)
+            VALUES (:i, :org, :yr, :s1, :s2, :s3, :rev, :evic, :pav, 'client', now(), CAST(:ms AS jsonb))
             ON CONFLICT (issuer_id, reporting_year, source, org_id) WHERE org_id IS NOT NULL
             -- COALESCE so a partial follow-up (e.g. EVIC only) fills gaps without
             -- erasing figures supplied earlier.
@@ -304,13 +328,15 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
                           scope3_tco2e = COALESCE(EXCLUDED.scope3_tco2e, issuer_emissions.scope3_tco2e),
                           revenue_eur  = COALESCE(EXCLUDED.revenue_eur, issuer_emissions.revenue_eur),
                           evic_eur     = COALESCE(EXCLUDED.evic_eur, issuer_emissions.evic_eur),
+                          physical_asset_value_eur = COALESCE(EXCLUDED.physical_asset_value_eur,
+                                                              issuer_emissions.physical_asset_value_eur),
                           data_vintage = EXCLUDED.data_vintage,
                           money_source = jsonb_build_object('fields',
                               COALESCE(issuer_emissions.money_source->'fields', '{}'::jsonb) ||
                               COALESCE(EXCLUDED.money_source->'fields', '{}'::jsonb))
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
                "s1": h.scope1_tco2e, "s2": h.scope2_tco2e, "s3": h.scope3_tco2e,
-               "rev": rev_eur, "evic": evic_eur, "ms": json.dumps(fin["money_source"], default=str) if fin["money_source"] else None})
+               "rev": rev_eur, "evic": evic_eur, "pav": pav_eur, "ms": json.dumps(fin["money_source"], default=str) if fin["money_source"] else None})
         wrote["emissions"] = True
 
     # Estimation gap-fill: revenue + sector but no disclosed scope → estimate
@@ -416,12 +442,14 @@ _HOLDINGS_TEMPLATE = (
     "#   non_renewable_consumption_pct, non_renewable_production_pct (energy producers), energy_intensity_gwh_per_meur.\n"
     "#   Issuer financials in another currency: revenue / evic + financials_currency (+ financials_date, else 31 Dec\n"
     "#   of reporting_year) — revenue converts at the 12-month average, EVIC at that date's rate.\n"
+    "#   physical_asset_value_eur (or physical_asset_value + financials_currency): the issuer's buildings, plant,\n"
+    "#   machinery and contents, land excluded — unlocks the yearly loss in euros on the holding.\n"
     "# Leave any optional cell blank; blanks are surfaced as gaps, never guessed. Delete these comment rows before use.\n"
-    "isin,market_value_eur,market_value,currency,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year,revenue,evic,financials_currency,financials_date,energy_consumption_gwh,non_renewable_consumption_pct,non_renewable_production_pct\n"
-    "US0378331005,5000000,,,26.20,,55000,0,16200000,,equity,2023,383000000000,2900000000000,USD,2023-09-30,3200,,\n"
-    "DE0007164600,4000000,,,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023,,,,,410,62,\n"
-    "US5949181045,,6000000,USD,62.01,,290000,110000,13800000,,equity,2023,211900000000,2700000000000,USD,2023-06-30,,,\n"
-    "CH0038863350,3500000,,,,,,,,,equity,,,,,,,,\n"
+    "isin,market_value_eur,market_value,currency,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year,revenue,evic,financials_currency,financials_date,energy_consumption_gwh,non_renewable_consumption_pct,non_renewable_production_pct,physical_asset_value_eur,physical_asset_value\n"
+    "US0378331005,5000000,,,26.20,,55000,0,16200000,,equity,2023,383000000000,2900000000000,USD,2023-09-30,3200,,,,\n"
+    "DE0007164600,4000000,,,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023,,,,,410,62,,,\n"
+    "US5949181045,,6000000,USD,62.01,,290000,110000,13800000,,equity,2023,211900000000,2700000000000,USD,2023-06-30,,,,,\n"
+    "CH0038863350,3500000,,,,,,,,,equity,,,,,,,,,,\n"
 )
 
 

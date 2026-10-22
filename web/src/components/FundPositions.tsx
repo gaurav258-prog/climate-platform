@@ -10,9 +10,11 @@ import { HEADING, InfoButton, MessageLine } from './Details'
 import { StatusChip } from './StatusChip'
 import { Meter, SidePanel, num } from './sfdr/visuals'
 import { BAND, OWN_DATA } from './sfdr/words'
+import { FundLossChip, IssuerLossSection, LossCell, useFundLoss, type HoldingLossRow, type IssuerLoss } from './HoldingLoss'
 
 // The fund's holdings, each drilling to the issuer's physical footprint (a score per site) — the look-through from a
-// fund position to the assets on the ground that drive its climate risk.
+// fund position to the assets on the ground that drive its climate risk — and each with its yearly loss looked through
+// to those sites (components/HoldingLoss).
 
 interface Pos {
   position_id: string; isin: string; security_name: string; asset_class?: string
@@ -41,8 +43,10 @@ const SITE: Record<string, string> = { hq: 'Head office', office: 'Office', plan
 
 export default function FundPositions({ fundId }: { fundId: string }) {
   const q = useQuery({ queryKey: ['fund-positions', fundId], queryFn: () => api.get<{ positions: Pos[] }>(`/v1/funds/${fundId}/positions`) })
-  const [issuer, setIssuer] = useState<string | null>(null)
+  const loss = useFundLoss(fundId)
+  const [open, setOpen] = useState<{ issuer: string; position: string } | null>(null)
   const positions = q.data?.positions ?? []
+  const lossOf = new Map((loss.data?.positions ?? []).map(r => [r.position_id, r]))
   if (!q.isLoading && positions.length === 0) return null
   const maxW = Math.max(1, ...positions.map(p => p.weight_pct ?? 0))
 
@@ -51,15 +55,16 @@ export default function FundPositions({ fundId }: { fundId: string }) {
       <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center gap-2 flex-wrap">
         <SectionHead icon={Layers}>Holdings</SectionHead>
         <StatusChip tone="neutral" label={`${positions.length} holding${positions.length === 1 ? '' : 's'}`} />
-        <InfoButton compact details={{ title: 'Holdings', sections: [{ heading: HEADING.read, body: 'Highest physical risk first. Open a holding to see its issuer\'s sites and the score of each.' }] }} />
+        <InfoButton compact details={{ title: 'Holdings', sections: [{ heading: HEADING.read, body: 'Highest physical risk first. Open a holding to see its issuer\'s sites, the score of each, and the yearly loss looked through to them.' }] }} />
+        <span className="ml-auto"><FundLossChip d={loss.data} /></span>
       </div>
       {q.isLoading ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">Loading…</div>
         : <div className="divide-y divide-[var(--color-line)]">
             {positions.map(p => {
               const sc = p.physical?.headline_score
               return (
-                <button key={p.position_id} onClick={() => p.issuer_id && setIssuer(p.issuer_id)} disabled={!p.issuer_id}
-                  className="w-full text-left px-5 py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_9rem_13rem_1rem] gap-x-4 gap-y-1 items-center hover:bg-[var(--color-bg-2)] transition disabled:cursor-default">
+                <button key={p.position_id} onClick={() => p.issuer_id && setOpen({ issuer: p.issuer_id, position: p.position_id })} disabled={!p.issuer_id}
+                  className="w-full text-left px-5 py-3 grid grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1fr)_7rem_9rem_7rem_1rem] lg:grid-cols-[minmax(0,1fr)_9rem_11rem_13rem_1rem] gap-x-4 gap-y-1 items-center hover:bg-[var(--color-bg-2)] transition disabled:cursor-default">
                   <div className="min-w-0">
                     <div className="text-[13.5px] text-[var(--color-ink)] truncate">{p.security_name || p.issuer_name || p.isin}</div>
                     <div className="text-[11.5px] text-[var(--color-faint)] truncate">{[p.isin, p.sector, p.country].filter(Boolean).join(' · ')}</div>
@@ -68,21 +73,23 @@ export default function FundPositions({ fundId }: { fundId: string }) {
                     <div className="text-[12.5px] tabular-nums text-[var(--color-mute)]">{eur(p.market_value_eur)}</div>
                     <div className="h-1 rounded-full mt-1 ml-auto" style={{ width: `${Math.max(4, ((p.weight_pct ?? 0) / maxW) * 100)}%`, background: 'var(--color-sky)', opacity: 0.6 }} title={`${num(p.weight_pct, 1)}% of the fund`} />
                   </div>
+                  <div className="hidden md:flex justify-end min-w-0"><LossCell r={lossOf.get(p.position_id)} /></div>
                   <div className="hidden md:flex items-center gap-2 justify-end">
                     {sc == null ? <span className="text-[12px] text-[var(--color-faint)]">Not scored</span>
-                      : <><Meter value={sc} tone={sevColor(sc)} width="w-14" score />{p.physical?.headline_hazard && <span className="text-[11px] text-[var(--color-faint)] truncate max-w-[8rem]">{hazardLabel(p.physical.headline_hazard)}</span>}</>}
+                      : <><Meter value={sc} tone={sevColor(sc)} width="w-14" score />{p.physical?.headline_hazard && <span className="hidden lg:inline text-[11px] text-[var(--color-faint)] truncate max-w-[8rem]">{hazardLabel(p.physical.headline_hazard)}</span>}</>}
                   </div>
                   {p.issuer_id ? <ChevronRight size={14} className="text-[var(--color-faint)] hidden md:block" /> : <span className="hidden md:block" />}
                 </button>
               )
             })}
           </div>}
-      {issuer && <IssuerPanel issuerId={issuer} onClose={() => setIssuer(null)} />}
+      {open && <IssuerPanel issuerId={open.issuer} loss={loss.data?.issuers[open.issuer]} holding={lossOf.get(open.position)}
+        onClose={() => setOpen(null)} />}
     </Card>
   )
 }
 
-function IssuerPanel({ issuerId, onClose }: { issuerId: string; onClose: () => void }) {
+function IssuerPanel({ issuerId, loss, holding, onClose }: { issuerId: string; loss?: IssuerLoss; holding?: HoldingLossRow; onClose: () => void }) {
   const q = useQuery({ queryKey: ['issuer', issuerId], queryFn: () => api.get<Issuer>(`/v1/issuers/${issuerId}`) })
   const d = q.data
   const iss = d?.issuer
@@ -101,6 +108,8 @@ function IssuerPanel({ issuerId, onClose }: { issuerId: string; onClose: () => v
             {iss.country && <StatusChip tone="neutral" label={iss.country} />}
             {iss.lei && <StatusChip tone="neutral" label={`LEI ${iss.lei}`} />}
           </div>
+
+          <IssuerLossSection a={loss} h={holding} />
 
           {perHaz.length > 0 && (
             <div>

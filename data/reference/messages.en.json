@@ -12283,6 +12283,159 @@
     "what": "{publishers} both publish the latest month for {commodity}, so which series measures its move is not settled.",
     "next": "Keep one publisher's series for it."
    }
+  },
+  "loss.gap.head_office_only": {
+   "label": "Head office only, physical sites not located",
+   "detail": {
+    "what": "This is where the company is registered, found from its address — not one of its plants, offices or warehouses. A loss there would not say where its physical assets are.",
+    "next": "Add the company's sites, each with its share of the company's value."
+   }
+  },
+  "lookthrough.gap.head_office_only": {
+   "label": "Head office only, physical sites not located",
+   "detail": {
+    "what": "The only location known for this company is where it is registered, found from its address — not one of its plants, offices or warehouses.",
+    "why": "Its share of value lost is read from the losses at its physical sites.",
+    "next": "Add the company's sites, each with its share of the company's value."
+   }
+  },
+  "lookthrough.gap.no_sites": {
+   "label": "No sites located",
+   "detail": {
+    "what": "No location of this company is known yet.",
+    "next": "Add the company's sites, each with its share of its value."
+   }
+  },
+  "lookthrough.gap.no_run": {
+   "label": "Losses not run for issuers' sites",
+   "detail": {
+    "what": "No loss run covers the sites of the companies your funds hold.",
+    "next": "Run losses for issuers' sites on the Loss page."
+   }
+  },
+  "lookthrough.gap.no_weighted_site": {
+   "label": "No site weighted by value",
+   "detail": {
+    "what": "None of this company's sites carries a weight that counts as a share of its value — one measured on its assets, or on another basis your organisation accepts.",
+    "why": "A site's loss is weighted into the company's by the site's share of the company's value.",
+    "next": "Add weights measured on assets, or state in Methodology which other bases count."
+   }
+  },
+  "lookthrough.gap.weights_exceed": {
+   "label": "Site shares add to more than the whole",
+   "detail": {
+    "what": "The shares of this company's value at its sites add to {total}, more than all of it.",
+    "why": "The weights disagree with each other, so no share of value lost is read from them.",
+    "next": "Correct the site weights."
+   }
+  },
+  "lookthrough.gap.flood_lead_not_stated": {
+   "label": "Flood losses wait for your stated lead",
+   "detail": {
+    "what": "Tested flood losses at this company's sites wait for your organisation to state whether the loss with or without flood defences leads.",
+    "why": "A share of value lost without them would understate the loss.",
+    "next": "State which flood loss leads in Methodology."
+   }
+  },
+  "lookthrough.gap.no_tested_figure": {
+   "label": "No tested loss at its sites",
+   "detail": {
+    "what": "None of this company's value-weighted sites has a loss that can be carried: one whose damage curve passed its test on observed losses and gives a share of the site's whole physical value.",
+    "why": "Untested figures and figures whose curve failed its test are shown on the Loss page for reference, never carried."
+   }
+  },
+  "lookthrough.gap.no_physical_value": {
+   "label": "Physical asset value not provided",
+   "detail": {
+    "what": "The company's physical asset value — its buildings, plant, machinery and contents, land excluded — is not provided.",
+    "why": "The yearly loss in euros is the share of this value lost; it is never estimated.",
+    "next": "Add it to the holdings upload with its currency and date."
+   }
+  },
+  "lookthrough.gap.no_enterprise_value": {
+   "label": "Enterprise value not provided",
+   "detail": {
+    "what": "The company's enterprise value including cash is not provided, so the holding's share of the company is not known.",
+    "next": "Add it to the holdings upload with its currency and date."
+   }
+  },
+  "lookthrough.gap.holding_exceeds_company": {
+   "label": "Holding worth more than the whole company",
+   "detail": {
+    "what": "The holding's value is larger than the company's enterprise value including cash, so the two figures disagree.",
+    "next": "Check the holding's value and the company's enterprise value."
+   }
+  },
+  "lookthrough.site.basis_not_accepted": {
+   "label": "Weighted by {basis}, not counted as value",
+   "detail": {
+    "what": "This site's share of the company is measured by {basis}. Your organisation has not stated that this counts as a share of the company's value.",
+    "next": "State in Methodology whether it counts."
+   }
+  },
+  "lookthrough.site.held": {
+   "label": "Damage curve failed its test",
+   "detail": {
+    "what": "The damage curve here was tested on observed losses and failed. Its figure is shown on the Loss page for reference, never carried."
+   }
+  },
+  "lookthrough.site.untested": {
+   "label": "Damage curve untested here",
+   "detail": {
+    "what": "There are no observed losses to test the damage curve against where this site is. Its figure is shown on the Loss page for reference, never carried."
+   }
+  },
+  "lookthrough.site.building_only": {
+   "label": "Curve covers the building only",
+   "detail": {
+    "what": "This damage curve gives the share of a building's value lost, not of the site's buildings, plant, machinery and contents together.",
+    "why": "A share of the company's physical value lost cannot be read from a building's share alone."
+   }
+  },
+  "lookthrough.site.flood_lead_not_stated": {
+   "label": "Waiting for your stated flood lead",
+   "detail": {
+    "what": "This tested flood loss waits for your organisation to state whether the loss with or without flood defences leads.",
+    "next": "State which flood loss leads in Methodology."
+   }
+  },
+  "lookthrough.site.not_in_run": {
+   "label": "Not in the latest loss run",
+   "detail": {
+    "what": "This site was added after the latest loss run of issuers' sites.",
+    "next": "Run losses for issuers' sites again."
+   }
+  },
+  "admin.switch.loss_site_weight_revenue": {
+   "label": "Issuer sites weighted by revenue",
+   "detail": {
+    "what": "Whether a site's share of its company measured by revenue counts as the site's share of the company's value, when a fund holding's loss is looked through to the company's sites.",
+    "why": "A share measured on the company's assets always counts. Other measures are a share of something else; counting them is your organisation's choice.",
+    "next": "Not set, sites weighted this way are reported as missing."
+   }
+  },
+  "admin.switch.loss_site_weight_production_capacity": {
+   "label": "Issuer sites weighted by production capacity",
+   "detail": {
+    "what": "Whether a site's share of its company measured by production capacity counts as the site's share of the company's value, when a fund holding's loss is looked through to the company's sites.",
+    "why": "A share measured on the company's assets always counts. Other measures are a share of something else; counting them is your organisation's choice.",
+    "next": "Not set, sites weighted this way are reported as missing."
+   }
+  },
+  "admin.switch.loss_site_weight_headcount": {
+   "label": "Issuer sites weighted by headcount",
+   "detail": {
+    "what": "Whether a site's share of its company measured by headcount counts as the site's share of the company's value, when a fund holding's loss is looked through to the company's sites.",
+    "why": "A share measured on the company's assets always counts. Other measures are a share of something else; counting them is your organisation's choice.",
+    "next": "Not set, sites weighted this way are reported as missing."
+   }
+  },
+  "loss.refused.sites_today_only": {
+   "label": "Issuers' sites are assessed in today's climate",
+   "detail": {
+    "what": "The loss at the sites of the companies your funds hold is read in today's climate only.",
+    "why": "A projected loss for them is not available yet."
+   }
   }
  },
  "names": {
@@ -12911,7 +13064,9 @@
    "intensity_x_total_liabilities": "Sector intensity times total liabilities",
    "intensity_x_revenue": "Sector intensity times revenue",
    "period_average": "Average rate for the period",
-   "closing": "Closing rate"
+   "closing": "Closing rate",
+   "counts_as_value": "Counts as a share of value",
+   "not_counted": "Does not count"
   },
   "filing.scope_reason": {
    "basis_not_stated": "how the sector-average intensity is used is not stated (Methodology)",
@@ -13451,6 +13606,13 @@
   "loss.flood_lead": {
    "defended": "With defences",
    "undefended": "Without defences"
+  },
+  "lookthrough.basis": {
+   "assets": "assets",
+   "revenue": "revenue",
+   "production_capacity": "production capacity",
+   "headcount": "headcount",
+   "equal": "equal shares"
   }
  }
 }

@@ -40,6 +40,14 @@ H3_RESOLUTION = 8  # matches canonical_scores
 # the best; a city-level fallback is coarser but valid (climate hazard is
 # regional, so the right city is enough); country-level is a last resort.
 CONF_STREET, CONF_CITY, CONF_COUNTRY = 0.5, 0.35, 0.15
+# What this module records is a proxy: where the company is registered, not where its physical assets are — the loss
+# look-through counts an issuer with only this as 'head office only, physical sites not located' (the product owner's
+# decisions of 2026-10-22; services.loss.lookthrough).
+PROXY = {"source": "osm", "facility_type": "hq"}
+
+
+def is_hq_proxy(source: Optional[str], facility_type: Optional[str]) -> bool:
+    return source == PROXY["source"] and facility_type == PROXY["facility_type"]
 
 
 def _hq_candidates(rec: GleifRecord) -> list[tuple[str, float, str]]:
@@ -112,14 +120,14 @@ def seed_hq_footprint(
                  country, region, materiality_weight, weight_basis,
                  source, source_ref, data_vintage, confidence)
             VALUES
-                (:issuer_id, :name, 'hq', :lat, :lon, :cell,
+                (:issuer_id, :name, :ftype, :lat, :lon, :cell,
                  :country, :region, 1.0, 'equal',
-                 'osm', :source_ref, :vintage, :confidence)
+                 :source, :source_ref, :vintage, :confidence)
             RETURNING facility_id
             """
         ),
         {
-            "issuer_id": issuer_id,
+            "issuer_id": issuer_id, "ftype": PROXY["facility_type"], "source": PROXY["source"],
             "name": "Registered headquarters" if precision == "street" else f"Registered headquarters ({precision}-level)",
             "lat": lat, "lon": lon, "cell": cell,
             "country": rec.hq_country or rec.country, "region": rec.hq_region,

@@ -24,6 +24,12 @@ reach the location, the global maps.
 The book's exceedance curve adds only published figures, on the basis the institution states (loss_flood_dependence);
 with none, the curve is a named gap.
 
+The issuer-sites book (the holdings look-through, the product owner's decisions of 2026-10-22) walks the located sites of
+the issuers an organisation's funds hold through the same tree. A site states no value of its own — only its weight, a
+share of the issuer — so its figure is the share of the value its curve applies to (a value of 1), recorded in the share
+columns; a head-office proxy (services.reference.footprint) is not a site of the issuer's physical assets and is a named
+gap first. Its figures are weighted into the issuer's share, and into euros on a holding, by services.loss.lookthrough.
+
 A projected run (assess_projected; the product owner's decisions of 2026-10-07, recorded with the aqueduct_river_flood
 layer) reads the published projection's own depths for the scenario's pathway and the horizon's period, one figure per
 climate model: the middle model is the central figure, the models' lowest and highest the range, and the same source's
@@ -43,7 +49,8 @@ from services.loss import curves, gaps, protection, registry
 
 ENGINE_VERSION = "loss-v1"
 LAYERS = {"flood": "jrc_river_flood", "storm": "storm_v4_wind"}
-BOOKS = ("banking", "insurance", "insurer_investments", "realestate", "assetmgmt", "company_sites")
+BOOKS = ("banking", "insurance", "insurer_investments", "realestate", "assetmgmt", "company_sites", "issuer_sites")
+SHARE_BOOKS = ("issuer_sites",)       # books whose figures are a share of value: no site states a value of its own
 SCENARIOS = ("baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c")
 HORIZONS = ("current", "2030", "2050", "2080", "2100")
 
@@ -131,6 +138,9 @@ _ASSET_VALUE = {
 
 
 def _assets(session: Session, org_id: str, book: str) -> list[dict]:
+    if book == "issuer_sites":                # which sites, and the head-office proxy: the look-through's to say
+        from services.loss.lookthrough import held_sites
+        return held_sites(session, org_id)
     if book == "company_sites":
         return [{**dict(r), "asset_kind": "company_site", "value": None, "building_value": None, "asset_value": None,
                  "no_building_value": "loss.gap.site_value_not_stated", "no_asset_value": "loss.gap.site_value_not_stated",
@@ -153,7 +163,10 @@ def _assets(session: Session, org_id: str, book: str) -> list[dict]:
 
 
 def _value_for(asset: dict, family: dict) -> tuple[Optional[float], Optional[str]]:
-    """(the value the family's ratio is a share of, or None; the message code of the reason when None)."""
+    """(the value the family's ratio is a share of, or None; the message code of the reason when None). An issuer's site
+    states no value: it is read on a value of 1 — the figure is the share lost of the value the family's basis names."""
+    if asset.get("per_unit"):
+        return 1.0, None
     basis = family.get("damage_basis") or "building"
     if basis == "building":
         v = asset.get("building_value")
@@ -224,11 +237,25 @@ def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str,
     return rows, None
 
 
-def _summary(rows: dict) -> dict:
+CENTS, SHARE_PLACES = 2, 12          # a euro figure to the cent; a share of value to twelve decimals
+
+
+def _summary(rows: dict, places: int = CENTS) -> dict:
     low, central, high = ({rp: v[i] for rp, v in rows.items()} for i in range(3))
-    return {"eal_eur": round(eal(central), 2), "eal_low_eur": round(eal(low), 2), "eal_high_eur": round(eal(high), 2),
-            "loss_at_rp": {str(rp): {"low": round(low[rp], 2), "central": round(central[rp], 2), "high": round(high[rp], 2)}
-                           for rp in sorted(rows)}}
+    return {"eal_eur": round(eal(central), places), "eal_low_eur": round(eal(low), places),
+            "eal_high_eur": round(eal(high), places),
+            "loss_at_rp": {str(rp): {"low": round(low[rp], places), "central": round(central[rp], places),
+                                     "high": round(high[rp], places)} for rp in sorted(rows)}}
+
+
+# An issuer site's figure — computed on a value of 1 — is recorded in the share columns, never as euros.
+_SHARE = {"eal_eur": "eal_ratio", "eal_low_eur": "eal_ratio_low", "eal_high_eur": "eal_ratio_high",
+          "eal_defended_eur": "eal_defended_ratio", "eal_defended_low_eur": "eal_defended_ratio_low",
+          "eal_defended_high_eur": "eal_defended_ratio_high", "loss_at_rp": "ratio_at_rp"}
+
+
+def _as_share(out: dict) -> dict:
+    return {**{_SHARE.get(k, k): v for k, v in out.items()}, "exposed_value_eur": None}
 
 
 def replacement(peril: str, country: str) -> Optional[str]:
@@ -254,21 +281,23 @@ def _present_samples(session: Session, asset: dict, peril: str, lat: float, lon:
     return k, v, _samples(session, k, v, lat, lon)
 
 
-def _defences(session: Session, lat: float, lon: float, rows: dict) -> dict:
+def _defences(session: Session, lat: float, lon: float, rows: dict, places: int = CENTS) -> dict:
     """Step 8: the defended figure beside the undefended one, or the reason there is none."""
     rp, code = protection.at(session, lat, lon)
     if rp is None:
         return gaps.protection(code)
     low, central, high = ({k: v[i] for k, v in rows.items()} for i in range(3))
     return {"protection_rp_years": rp, **gaps.protection(code, rp),
-            "eal_defended_eur": round(protection.defended_eal(central, rp), 2),
-            "eal_defended_low_eur": round(protection.defended_eal(low, rp), 2),
-            "eal_defended_high_eur": round(protection.defended_eal(high, rp), 2)}
+            "eal_defended_eur": round(protection.defended_eal(central, rp), places),
+            "eal_defended_low_eur": round(protection.defended_eal(low, rp), places),
+            "eal_defended_high_eur": round(protection.defended_eal(high, rp), places)}
 
 
 def assess(session: Session, asset: dict, peril: str, family_key: Optional[str]) -> dict:
     """One asset and peril through the decision tree, today's climate (no database writes)."""
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
+    if asset.get("proxy"):         # where the issuer is registered, not where its physical assets are
+        return {**base, **gaps.gap("loss.gap.head_office_only")}
     if asset.get("latitude") is None or asset.get("longitude") is None:
         return {**base, **gaps.gap("loss.gap.no_location")}
     lat, lon = float(asset["latitude"]), float(asset["longitude"])
@@ -287,10 +316,11 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril, per)
     if rows is None:
         return {**base, **why}
-    out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows)}
+    places = SHARE_PLACES if asset.get("per_unit") else CENTS
+    out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows, places)}
     if peril == "flood":
-        out.update(_defences(session, lat, lon, rows), **gaps.caution(any(r["caution"] for r in s.values())))
-    return out
+        out.update(_defences(session, lat, lon, rows, places), **gaps.caution(any(r["caution"] for r in s.values())))
+    return _as_share(out) if asset.get("per_unit") else out
 
 
 def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[dict]:
@@ -364,6 +394,8 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
     if scenario not in SCENARIOS or horizon not in HORIZONS:
         raise ValueError(f"scenario must be one of {SCENARIOS} and horizon one of {HORIZONS}")
     projected = scenario != "baseline"
+    if projected and book in SHARE_BOOKS:      # a projected share would need its same-source today as a share too
+        raise ValueError("the issuers' sites are assessed in today's climate only")
     settings = get_calc_settings(session, org_id)
     adopted = {p: settings.get(f"loss_curve_family_{p}") for p in LAYERS}
     assets = _assets(session, org_id, book)
@@ -399,7 +431,8 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                        "value, land excluded, as the book states it (never a market, appraised or position value); "
                        "'asset_value' — the asset's physical value as the book states it: an insurer's insured building "
                        "and contents (business interruption excluded), a bank's or property trust's building value; a "
-                       "holding or investment is never one (E307)",
+                       "holding or investment is never one (E307); 'issuer site' — no value of its own: the share lost "
+                       "of the value its curve's basis names (a value of 1), recorded as a share, never as euros",
         "flood_basis": "the asset's H3 res-8 cell: its flooded share × the damage ratio at its mean flooded depth "
                        "(asset coordinates are not verified to the building)",
         "eal_basis": "the area under the loss–exceedance curve from the most frequent return period the layer holds to "
@@ -419,18 +452,23 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                                       eal_low_eur, eal_high_eur, standing, loss_at_rp, gap, eal_same_source_today_eur,
                                       model_eal, flood_layer, protection_rp_years, protection_basis, eal_defended_eur,
                                       eal_defended_low_eur, eal_defended_high_eur, caution, gap_code, gap_params,
-                                      protection_code, caution_code)
+                                      protection_code, caution_code, eal_ratio, eal_ratio_low, eal_ratio_high,
+                                      eal_defended_ratio, eal_defended_ratio_low, eal_defended_ratio_high, ratio_at_rp)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
                     :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
                     :eal_same_source_today_eur, CAST(:model_eal AS jsonb), :flood_layer, :protection_rp_years,
                     :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution,
-                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code)"""),
+                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code, :eal_ratio, :eal_ratio_low,
+                    :eal_ratio_high, :eal_defended_ratio, :eal_defended_ratio_low, :eal_defended_ratio_high,
+                    CAST(:ratio_at_rp AS jsonb))"""),
             [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
               "eal_same_source_today_eur": None, "flood_layer": None, "protection_rp_years": None,
               "protection_basis": None, "eal_defended_eur": None, "eal_defended_low_eur": None,
               "eal_defended_high_eur": None, "caution": None, "gap_code": None, "protection_code": None,
-              "caution_code": None, **r, "gap_params": json.dumps(r["gap_params"]) if r.get("gap_params") else None,
+              "caution_code": None, **{c: None for c in _SHARE.values()}, **r,
+              "gap_params": json.dumps(r["gap_params"]) if r.get("gap_params") else None,
               "loss_at_rp": json.dumps(r["loss_at_rp"]) if r.get("loss_at_rp") else None,
+              "ratio_at_rp": json.dumps(r["ratio_at_rp"]) if r.get("ratio_at_rp") else None,
               "model_eal": json.dumps(r["model_eal"]) if r.get("model_eal") else None} for r in results])
     ep = _ep_points(session, run_id, results, settings)
     return {"run_id": run_id, "assets": len(assets), "with_a_figure": len(assets) - len(gapped),
@@ -450,7 +488,8 @@ def _ep_points(session: Session, run_id: str, results: list[dict], settings: dic
     """The book's flood exceedance curve from published figures, on the stated dependence. Returns the points written."""
     if settings.get("loss_flood_dependence") != "comonotonic":
         return 0
-    pub = [r for r in results if r["peril"] == "flood" and r["gap"] is None and r.get("standing") == "published"]
+    pub = [r for r in results if r["peril"] == "flood" and r["gap"] is None and r.get("standing") == "published"
+           and r.get("loss_at_rp")]                  # euro figures only: shares of different sites' values never add
     if not pub:
         return 0
     rps = sorted({int(rp) for r in pub for rp in r["loss_at_rp"]})
@@ -479,7 +518,7 @@ def run_job(org_id: str, book: str, scenario: str = "baseline", horizon: str = "
             from services.calc_settings import get_calc_settings
             from services.loss.intensity import prepare_book
             settings = get_calc_settings(session, org_id)
-            prepare_book(session, _assets(session, org_id, book),
+            prepare_book(session, [a for a in _assets(session, org_id, book) if not a.get("proxy")],
                          [p for p in LAYERS if settings.get(f"loss_curve_family_{p}")])
         out = run(session, org_id, book, scenario, horizon, created_by)
         session.commit()

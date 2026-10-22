@@ -48,6 +48,17 @@ def _loss_families(peril: str) -> list[str]:
     return sorted(k for k, f in families().items() if f["peril"] == peril)
 
 
+def _site_weight_switches() -> dict:
+    """The holdings look-through (the product owner's decisions of 2026-10-22): a site weight on the assets basis counts
+    as a share of the issuer's value; the institution may state that a weight on another measured basis counts too — one
+    switch per basis (services.loss.lookthrough.STATED_BASES). No default: not stated, those sites are a named gap. An
+    'equal' weight states no measure and is never offered."""
+    from services.loss.lookthrough import COUNTS, STATED_BASES, switch
+    return {switch(b): {"frameworks": [], "default": None, "kind": "enum", "allowed": [COUNTS, "not_counted"],
+                        "label": f"Issuer sites weighted by {b.replace('_', ' ')}: counted as a share of value?",
+                        "sectors": ["asset_manager"]} for b in STATED_BASES}
+
+
 def _p3_t1_statements() -> dict:
     from services.governance.pillar3_t1 import switches
     return switches()
@@ -137,6 +148,7 @@ INTERPRETATION_SCHEMA: dict = {
         "label": "Which flood loss leads: defended or undefended",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
+    **_site_weight_switches(),
     "climate_var_dependence": {
         "frameworks": ["sfdr_pai"],
         "default": None, "kind": "enum", "allowed": ["independent", "additive", "max"],

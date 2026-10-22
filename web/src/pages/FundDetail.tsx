@@ -67,7 +67,7 @@ export default function FundDetail() {
   const s = sum.data
   const st = stmt.data
   const [busy, setBusy] = useState(false)
-  const refreshAll = () => { sum.refetch(); stmt.refetch(); qc.invalidateQueries({ queryKey: ['fund-positions', id] }); qc.invalidateQueries({ queryKey: ['funds'] }) }
+  const refreshAll = () => { sum.refetch(); stmt.refetch(); qc.invalidateQueries({ queryKey: ['fund-positions', id] }); qc.invalidateQueries({ queryKey: ['fund-loss', id] }); qc.invalidateQueries({ queryKey: ['funds'] }) }
 
   const keepYear = async () => {
     setBusy(true)

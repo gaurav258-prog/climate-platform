@@ -25,6 +25,11 @@
     "sc_company_sites.site_type": {
       "office": "commercial",
       "factory": "industrial"
+    },
+    "issuer_facilities.facility_type": {
+      "office": "commercial",
+      "hq": "commercial",
+      "plant": "industrial"
     }
   }
 }
