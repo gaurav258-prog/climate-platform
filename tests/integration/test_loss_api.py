@@ -93,10 +93,13 @@ def test_the_projection_page_says_what_is_served_and_why_the_rest_is_not(api):
     h = _login(api, *ADMIN)
     body = api.get("/v1/loss/projection", headers=h).json()
     cells = {(c["scenario"], c["horizon"]): c["gap"] for c in body["flood"]}
-    assert cells[("hot_house_3_5c", "2050")] is None and cells[("disorderly_2c", "2080")] is None
-    assert cells[("orderly_1_5c", "2050")]["code"] == "loss.gap.no_projection_scenario"
-    assert "Orderly 1.5 °C" in cells[("orderly_1_5c", "2050")]["detail"]["what"]
-    assert cells[("hot_house_3_5c", "2100")]["code"] == "loss.gap.no_projection_year"
+    placed = {(c["scenario"], c["horizon"]): c["placement"] for c in body["flood"]}
+    assert cells[("hot_house_3_5c", "2050")] is None and cells[("orderly_1_5c", "2050")] is None   # read at its warming
+    assert ("disorderly_2c", "2080") not in cells                                                  # one timeline
+    assert cells[("hot_house_3_5c", "2100")]["code"] == "loss.gap.beyond_warming"
+    assert "Hot house 3.5 °C by 2100" in cells[("hot_house_3_5c", "2100")]["detail"]["what"]
+    assert placed[("orderly_1_5c", "2050")]["code"] == "loss.projection.between"
+    assert "RCP" in placed[("orderly_1_5c", "2050")]["detail"]["what"] and placed[("hot_house_3_5c", "2100")] is None
     assert body["licence"] == "CC BY 4.0" and len(body["models"]) == 5
     assert body["storm"]["code"] == "loss.gap.no_projection_peril" and body["storm"]["label"] == "No projection for this hazard"
 
@@ -107,4 +110,6 @@ def test_a_projected_run_carries_the_same_sources_today(api):
     body = api.get(f"/v1/loss/runs/{run_id}", headers=h).json()
     assert body["run"]["scenario"] == "disorderly_2c" and body["run"]["time_horizon"] == "2050"
     assert all("eal_same_source_today_eur" in r and "model_eal" in r for r in body["results"])
-    assert body["run"]["inputs"]["layers"]["flood"]["pathway"] == "rcp4p5"
+    placed = body["run"]["inputs"]["layers"]["flood"]["placement"]           # where 2050 sits on the timeline
+    assert (placed["lower"], placed["upper"]) == ("rcp4p5:2050", "rcp8p5:2050")
+    assert body["placement"]["code"] == "loss.projection.between" and "RCP4.5 2050" in body["placement"]["detail"]["what"]

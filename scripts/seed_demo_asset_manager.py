@@ -8,7 +8,7 @@ bulk of its materiality) sit in high-flood cells. The old "one lat/lon = HQ"
 model scores it safe; the footprint model scores it High because the plants
 dominate the materiality-weighted roll-up.
 
-Each site sits where its name says, in the country it states (E316: the sites once sat on the
+Each site sits where its name says, in the country it states (E317: the sites once sat on the
 only cells scored then, near Valencia, while named and stated as Cologne, Stockholm or Rotterdam;
 corrected 2026-10-22 by the product owner's decision — scripts/seed_demo_issuer_sites.py moves an
 existing book's sites in place). A site's cell is scored on demand, like any address, so its

@@ -2400,19 +2400,6 @@
     "what": "No published projection of {peril} is available yet, so only today's figure exists."
    }
   },
-  "loss.gap.no_projection_scenario": {
-   "label": "No map for this scenario",
-   "detail": {
-    "what": "The flood projections the platform uses were not run for {scenario}.",
-    "why": "The publisher ran two warming pathways only."
-   }
-  },
-  "loss.gap.no_projection_year": {
-   "label": "No map for this year",
-   "detail": {
-    "what": "The flood projections the platform uses publish no map for {year}; their last period, 2060–2099, is offered as 2080."
-   }
-  },
   "loss.protection.level": {
    "label": "Defended to 1-in-{years} years",
    "detail": {
@@ -12436,6 +12423,27 @@
     "what": "The loss at the sites of the companies your funds hold is read in today's climate only.",
     "why": "A projected loss for them is not available yet."
    }
+  },
+  "loss.gap.beyond_warming": {
+   "label": "Warmer than every map",
+   "detail": {
+    "what": "{scenario} by {year} is {warming} °C above 1995–2014; the warmest {peril} map is {warmest} °C. A figure beyond the maps would be a guess, so none is given.",
+    "why": "Every pathway and year is read where its warming lies between two maps; there is none above this one."
+   }
+  },
+  "loss.projection.between": {
+   "label": "Read at {warming} °C",
+   "detail": {
+    "what": "{scenario} by {year} is {warming} °C above 1995–2014 (IPCC range {low} to {high} °C). Flood is read between the {lower} and {upper} maps, the water depth weighted by where that warming lies between theirs.",
+    "why": "Every pathway and year is read at its warming on one timeline, the IPCC's assessment, whatever pathway made the maps."
+   }
+  },
+  "loss.projection.on_map": {
+   "label": "Read at {warming} °C",
+   "detail": {
+    "what": "{scenario} by {year} is {warming} °C above 1995–2014 (IPCC range {low} to {high} °C), the warming of the {lower} map, which it reads.",
+    "why": "Every pathway and year is read at its warming on one timeline, the IPCC's assessment, whatever pathway made the maps."
+   }
   }
  },
  "names": {
@@ -13613,6 +13621,11 @@
    "production_capacity": "production capacity",
    "headcount": "headcount",
    "equal": "equal shares"
+  },
+  "loss.projection_map": {
+   "present": "Present day",
+   "rcp4p5": "RCP4.5",
+   "rcp8p5": "RCP8.5"
   }
  }
 }

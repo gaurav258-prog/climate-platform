@@ -420,20 +420,40 @@
         },
         "role": "projected runs only; today's official flood figure stays jrc_river_flood",
         "compared_with": "its own present-day map only — a projected figure is never subtracted from or set against a jrc_river_flood figure",
-        "scenario_map": {
-          "orderly_1_5c": null,
-          "disorderly_2c": "rcp4p5",
-          "hot_house_3_5c": "rcp8p5"
-        },
-        "scenario_basis": "same 2100 radiative forcing: RCP4.5 ↔ SSP2-4.5, RCP8.5 ↔ SSP5-8.5; Aqueduct ran no RCP2.6, so a 1.5 °C pathway has no published map",
-        "horizon_map": {
-          "2030": "2030",
-          "2050": "2050",
-          "2080": "2080",
-          "2100": null
-        },
-        "horizon_basis": "Aqueduct's periods end in 2099 with the 2060–2099 map labelled 2080; 2100 has no map and 2080 is offered as its own horizon",
-        "range": "central: the middle (median) of the five models; low: the lowest model's curve-low figure; high: the highest model's curve-high figure — the spread of the curve and of the models together"
+        "range": "central: the middle (median) of the five models; low: the lowest model's curve-low figure; high: the highest model's curve-high figure — the spread of the curve and of the models together",
+        "timeline": {
+          "decided": {
+            "by": "product owner",
+            "date": "2026-10-22"
+          },
+          "axis": "data/reference/climate/warming_axis.json",
+          "rule": "a pathway-year reads the two maps whose warming brackets its own — the present day or any pathway's map — the water depth blended by how far its warming lies between theirs, then the damage curve applied; warmer than every map, a named gap",
+          "present_years": [
+            1960,
+            1999
+          ],
+          "present_made_from": "observations — the present-day run is 'forced with the EUWATCH dataset' (appendix A.1.1), measured on the observed record",
+          "maps": {
+            "rcp4p5": "ssp245",
+            "rcp8p5": "ssp585"
+          },
+          "maps_basis": "same 2100 radiative forcing: RCP4.5 ↔ SSP2-4.5, RCP8.5 ↔ SSP5-8.5; each map is climate-model output, measured on the assessed series of the SSP with its forcing",
+          "periods": {
+            "2030": [
+              2010,
+              2049
+            ],
+            "2050": [
+              2030,
+              2069
+            ],
+            "2080": [
+              2060,
+              2099
+            ]
+          },
+          "periods_basis": "the source's periods (this layer's 'periods')"
+        }
       },
       "present_day_check": {
         "protocol": "projection_present_day_check",

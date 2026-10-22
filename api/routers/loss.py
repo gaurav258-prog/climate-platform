@@ -96,9 +96,12 @@ def start_run(body: RunRequest, ctx: dict = Depends(require_permission("reports.
 def projection(ctx: dict = Depends(require_permission("modules.view"))):
     from services.loss import engine, registry
     L = registry.layer(engine.PROJECTED_FLOOD)
+    from services.loss import timeline
+
     def cell(sc: str, h: str) -> dict:
         g = engine.projection_gap("flood", sc, h)
-        return {"scenario": sc, "horizon": h, "gap": g and _message(g["gap_code"], g["gap_params"])}
+        return {"scenario": sc, "horizon": h, "gap": g and _message(g["gap_code"], g["gap_params"]),
+                "placement": None if g else _placement_message(sc, h, {"placement": timeline.place(engine.PROJECTED_FLOOD, sc, h)})}
     cells = [cell(sc, h) for sc in engine.SCENARIOS if sc != "baseline" for h in engine.HORIZONS if h != "current"]
     return {"source": L["source"], "citation": L["citation"], "licence": L["licence"], "periods": L["periods"],
             "models": L["models"], "use": L["use"], "present_day_check": L.get("present_day_check"), "flood": cells,
@@ -198,7 +201,32 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                             "A projected run's figure is compared only with the same source's present day "
                             "(eal_same_source_today_eur), never with a today run's figure",
             "gaps": sorted(gaps.values(), key=lambda g: -g["count"]),
-            "results": results, "book_curve": ep}
+            "results": results, "book_curve": ep,
+            "placement": _placement_message(run["scenario"], run["time_horizon"],
+                                            ((run["inputs"] or {}).get("layers") or {}).get("flood") or {})}
+
+
+def _map_name(key: str) -> str:
+    """A projection map in customer words: 'Present day', or a pathway and its period ('RCP4.5 2050')."""
+    from core import messages
+    if key == "present":
+        return messages.name("loss.projection_map", "present")
+    pathway, period = key.split(":")
+    return f"{messages.name('loss.projection_map', pathway)} {period}"
+
+
+def _placement_message(scenario: str, horizon: str, flood: dict) -> Optional[dict]:
+    """Where a projected pathway-year read the flood maps on the platform's timeline, as a catalogue message — or None
+    for today's climate, a run recorded before the timeline, or a pathway-year warmer than every map."""
+    from core import messages
+    p = flood.get("placement")
+    if scenario == "baseline" or not p:
+        return None
+    t = p["target"]
+    params = {"scenario": messages.name("scenario", scenario), "year": horizon, "warming": f"{t['central']:+.1f}",
+              "low": f"{t['low']:+.1f}", "high": f"{t['high']:+.1f}", "lower": _map_name(p["lower"]),
+              "upper": _map_name(p["upper"])}
+    return _message("loss.projection.on_map" if p["lower"] == p["upper"] else "loss.projection.between", params)
 
 
 _PROTECTION_UNKNOWN = {"loss.protection.not_read", "loss.protection.no_value", "loss.protection.off_map"}

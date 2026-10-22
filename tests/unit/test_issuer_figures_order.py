@@ -1,4 +1,4 @@
-"""E317: a read that picks one issuer_emissions row (an enterprise value, a revenue, a set of emissions, a physical asset
+"""E318: a read that picks one issuer_emissions row (an enterprise value, a revenue, a set of emissions, a physical asset
 value) ends its ORDER BY with the one stated order of sources (services.issuer_figures.SOURCE_TIE; the product owner's
 decision of 2026-10-22) — before it, two sources stating the same year were picked arbitrarily, and the voluntary
 indicators read a vendor's enterprise value where the mandatory ones read the organisation's own."""

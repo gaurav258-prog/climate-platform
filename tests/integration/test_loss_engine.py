@@ -155,46 +155,79 @@ def _aqueduct_samples(s, depths: dict, lat=LAT, lon=LON):
                        "m": m})
 
 
-def test_a_projection_reads_the_middle_model_and_the_same_sources_today(session_rolled_back):
-    """Product owner's decisions (2026-10-07): the projection source's own depths; the middle model as the central
-    figure, the models' lowest and highest as the range; beside it the same source's present day."""
-    from services.loss import registry
+def test_a_projection_reads_the_two_maps_that_bracket_its_warming(session_rolled_back, monkeypatch):
+    """Product owner's decisions (2026-10-07, 2026-10-22): the pathway-year is read at its warming on the platform's
+    timeline — hot-house by 2050 lies between the RCP8.5 2050 and RCP4.5 2080 maps — each model's water depth blended
+    between the two; the middle model is the central figure, the models' lowest and highest the range; beside it the same
+    source's present day."""
+    from services.loss import registry, timeline
     s = session_rolled_back
     fam = curves.families().get("nfip_measured")
     if fam is None:
         pytest.skip("the measured family is not built on this machine")
     L = registry.layer("aqueduct_river_flood")
+    where = timeline.place("aqueduct_river_flood", "hot_house_3_5c", "2050")
+    assert (where["lower"], where["upper"]) == ("rcp8p5:2050", "rcp4p5:2080") and 0 < where["w"] < 1
     org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
     _asset(s, org)
     _flood_samples(s)
     today = (L["present"]["scenario"], L["present"]["year"], L["present"]["model"])
-    depths = {today: 0.5, **{("rcp8p5", "2050", m): d for m, d in zip(L["models"], (0.4, 0.8, 1.2, 1.6, 2.0))}}
+    depths = {today: 0.5, **{("rcp8p5", "2050", m): d for m, d in zip(L["models"], (0.4, 0.8, 1.2, 1.6, 2.0))},
+              **{("rcp4p5", "2080", m): d + 1.0 for m, d in zip(L["models"], (0.4, 0.8, 1.2, 1.6, 2.0))}}
     _aqueduct_samples(s, depths)
+
+    def eal_at(w):                                  # the same pathway-year read wholly on one map, for the bounds
+        monkeypatch.setattr(timeline, "place", lambda *_a: {**where, "w": w})
+        r = _results(s, engine.run(s, org, "realestate", "hot_house_3_5c", "2050")["run_id"])["flood"]
+        monkeypatch.undo()
+        return {m: float(v) for m, v in r["model_eal"].items()}
+    on_lower, on_upper = eal_at(0.0), eal_at(1.0)
     out = engine.run(s, org, "realestate", "hot_house_3_5c", "2050")
     r = _results(s, out["run_id"])
     f = r["flood"]
     assert f["gap"] is None and f["standing"] in ("held", "published", "untested")
     model_eal = {m: float(v) for m, v in f["model_eal"].items()}
+    assert all(on_lower[m] < model_eal[m] < on_upper[m] for m in model_eal)          # between the two maps
     assert len(model_eal) == 5 and float(f["eal_eur"]) == sorted(model_eal.values())[2]      # the middle model
     assert float(f["eal_low_eur"]) <= min(model_eal.values()) and float(f["eal_high_eur"]) >= max(model_eal.values())
     assert float(f["eal_same_source_today_eur"]) < float(f["eal_eur"])                      # deeper water than today
     assert r["storm"]["gap_code"] == "loss.gap.no_projection_peril" and r["storm"]["gap"] == "No projection for this hazard"
     run = s.execute(text("SELECT inputs FROM loss_runs WHERE run_id = CAST(:r AS uuid)"), {"r": out["run_id"]}).scalar()
-    assert run["layers"]["flood"]["pathway"] == "rcp8p5" and run["layers"]["flood"]["period"] == "2050"
+    placed = run["layers"]["flood"]["placement"]
+    assert (placed["lower"], placed["upper"]) == ("rcp8p5:2050", "rcp4p5:2080") and placed["axis"] == "axis-v1"
 
 
-def test_a_scenario_or_horizon_the_source_does_not_publish_is_a_named_gap(session_rolled_back):
+def test_orderly_is_read_on_the_maps_its_warming_lies_between(session_rolled_back):
+    """No source map was made for 1.5 °C, but its warming by 2050 lies between two maps: it is served (2026-10-22)."""
+    from services.loss import registry, timeline
+    s = session_rolled_back
+    if "nfip_measured" not in curves.families():
+        pytest.skip("the measured family is not built on this machine")
+    L = registry.layer("aqueduct_river_flood")
+    where = timeline.place("aqueduct_river_flood", "orderly_1_5c", "2050")
+    org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
+    _asset(s, org)
+    _flood_samples(s)
+    today = (L["present"]["scenario"], L["present"]["year"], L["present"]["model"])
+    keys = {where["lower"], where["upper"]} - {"present"}
+    _aqueduct_samples(s, {today: 0.5, **{(*k.split(":"), m): 1.0 for k in keys for m in L["models"]}})
+    f = _results(s, engine.run(s, org, "realestate", "orderly_1_5c", "2050")["run_id"])["flood"]
+    assert f["gap"] is None and float(f["eal_eur"]) > 0
+
+
+def test_a_pathway_year_warmer_than_every_map_is_a_named_gap(session_rolled_back):
     s = session_rolled_back
     org = _org(s, {"loss_curve_family_flood": "nfip_measured"})
     _asset(s, org)
-    r = _results(s, engine.run(s, org, "realestate", "orderly_1_5c", "2050")["run_id"])["flood"]
-    assert r["gap_code"] == "loss.gap.no_projection_scenario" and r["gap_params"] == {"scenario": "Orderly 1.5 °C"}
-    r = _results(s, engine.run(s, org, "realestate", "disorderly_2c", "2100")["run_id"])["flood"]
-    assert r["gap_code"] == "loss.gap.no_projection_year" and r["gap_params"] == {"year": "2100"}
+    r = _results(s, engine.run(s, org, "realestate", "hot_house_3_5c", "2100")["run_id"])["flood"]
+    assert r["gap_code"] == "loss.gap.beyond_warming"
+    assert r["gap_params"]["warming"] == "+3.4" and r["gap_params"]["warmest"] == "+2.9"
     with pytest.raises(ValueError):
         engine.run(s, org, "realestate", "baseline", "2050")
     with pytest.raises(ValueError):
         engine.run(s, org, "realestate", "hot_house_3_5c", "current")
+    with pytest.raises(ValueError):                 # one timeline: the platform's horizons, no source's own year
+        engine.run(s, org, "realestate", "disorderly_2c", "2080")
 
 
 def test_each_jrc_curve_carries_its_own_test_and_an_untested_one_says_so(session_rolled_back, monkeypatch):

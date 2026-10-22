@@ -1,4 +1,4 @@
-"""E317: when several rows state an issuer's figure for the same year, the one read is settled by the stated order of
+"""E318: when several rows state an issuer's figure for the same year, the one read is settled by the stated order of
 sources (services.issuer_figures; the product owner's decision of 2026-10-22), after the organisation's own row and the
 vendor rule. Rolled back throughout."""
 from __future__ import annotations

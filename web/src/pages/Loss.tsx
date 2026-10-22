@@ -33,8 +33,8 @@ interface Result { asset_id: string; asset_name: string | null; country_name: st
   eal_ratio: number | null; eal_ratio_low: number | null; eal_ratio_high: number | null; eal_defended_ratio: number | null; ratio_at_rp: Record<string, Band> | null }
 interface Total { peril: string; standing: Standing; results: number; unit?: 'eur' | 'share'; share_max?: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null; defended_results: number; eal_defended_eur: number; eal_defended_low_eur: number; eal_defended_high_eur: number; eal_undefended_same_results_eur: number; protection_unknown_results: number; eal_protection_unknown_eur: number }
 interface Gap { code: string | null; reason: string; detail: Message['detail']; count: number }
-interface RunDetail { run: RunRow & { inputs: { layers?: { flood?: { pathway?: string; period?: string } } } }; totals: Total[]; gaps: Gap[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[] }
-interface Projection { periods: Record<string, string>; flood: { scenario: string; horizon: string; gap: Message | null }[] }
+interface RunDetail { run: RunRow; totals: Total[]; gaps: Gap[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[]; placement: Message | null }
+interface Projection { periods: Record<string, string>; flood: { scenario: string; horizon: string; gap: Message | null; placement: Message | null }[] }
 
 const BOOKS: Record<string, { key: string; label: string }[]> = {
   bank: [{ key: 'banking', label: 'Loan book' }],
@@ -52,7 +52,7 @@ const STANDING: Record<Standing, { label: string; tone: 'good' | 'warn' | 'neutr
 }
 const PERIL: Record<string, string> = { flood: 'River flood', storm: 'Tropical cyclone' }
 const SCENARIO: Record<string, string> = { baseline: 'Today', disorderly_2c: 'Disorderly 2 °C', hot_house_3_5c: 'Hot house 3.5 °C', orderly_1_5c: 'Orderly 1.5 °C' }
-const HORIZONS = ['2030', '2050', '2080', '2100']
+const HORIZONS = ['2030', '2050', '2100']     // the platform's horizons — one timeline
 const LAYER_STATUS: Record<string, string> = { in_use: 'in_use', candidate: 'candidate', refused: 'refused' }
 const runLabel = (r: RunRow) => r.scenario === 'baseline' ? 'Today' : `${SCENARIO[r.scenario] ?? 'Projection'} · ${r.time_horizon}`
 
@@ -79,7 +79,8 @@ export default function Loss() {
   const [horizon, setHorizon] = useState('2050')
   const [methods, setMethods] = useState(false)
   const shareBook = SHARE_BOOKS.has(book)
-  const projGap = scenario === 'baseline' ? null : proj.data?.flood.find(c => c.scenario === scenario && c.horizon === horizon)?.gap ?? null
+  const projCell = scenario === 'baseline' ? null : proj.data?.flood.find(c => c.scenario === scenario && c.horizon === horizon) ?? null
+  const projGap = projCell?.gap ?? null
   const [waiting, setWaiting] = useState(0)
   const runs = useQuery({
     queryKey: ['loss-runs', book], enabled: !!book,
@@ -136,6 +137,7 @@ export default function Loss() {
           </div>
         )}
         {projGap && <div className="text-[12.5px] text-[var(--color-warn)]"><MessageLine m={projGap} /></div>}
+        {projCell?.placement && <div className="text-[12.5px] text-[var(--color-mute)]"><MessageLine m={projCell.placement} /></div>}
       </Card>
       {shown ? <RunView runId={shown} headline={fams.data?.headline?.flood ?? null} /> : books.length > 0 && !runs.isLoading &&
         <div className="text-[12.5px] text-[var(--color-faint)]">No loss run yet for this book.</div>}
@@ -191,6 +193,7 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
   const fmt = (v: number | null | undefined) => shares ? share(v) : flow(v)
   return (
     <div className="space-y-6">
+      {projected && d.placement && <div className="text-[12.5px] text-[var(--color-mute)]"><MessageLine m={d.placement} /></div>}
       <StatGrid cols={3} items={[
         { label: shares ? 'Sites' : 'Assets', value: d.run.n_assets.toLocaleString(), sub: runLabel(d.run) },
         { label: 'Figures', value: (d.results.length - missing).toLocaleString(), sub: 'one per asset and hazard' },

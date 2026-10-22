@@ -1,4 +1,4 @@
-"""E316: an issuer's site lies in the country it states. The demo book's sites once sat near Valencia while named and
+"""E317: an issuer's site lies in the country it states. The demo book's sites once sat near Valencia while named and
 stated as Cologne, Stockholm, Malmö or Rotterdam — a German utility's head office was scored, and its loss read, in Spain
 (the loss engine picks a site's damage curve by its stated country). Read over the development database, as the demo-data
 guard is: a site whose coordinates fall in a country the land layer draws must state that country."""

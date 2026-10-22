@@ -1,4 +1,4 @@
-"""The demo issuers' sites where their names say (E316; the product owner's decision of 2026-10-22). The demo book's
+"""The demo issuers' sites where their names say (E317; the product owner's decision of 2026-10-22). The demo book's
 sites once sat on the only cells scored then, near Valencia, while named and stated as Cologne, Stockholm, Malmö or
 Rotterdam — so a German utility's head office was scored, and its loss read, in Spain. This moves each existing site in
 place (the seed itself wipes and re-creates the issuers, which would take every manager's positions and figures with
