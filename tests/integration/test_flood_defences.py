@@ -108,7 +108,10 @@ def test_a_projection_has_no_defended_figure(jrc):
     _protection(s, rp=150.0)
     A = registry.layer("aqueduct_river_flood")
     today = (A["present"]["scenario"], A["present"]["year"], A["present"]["model"])
-    _aqueduct_samples(s, {today: 0.5, **{("rcp8p5", "2050", m): 1.0 for m in A["models"]}}, lat=LAT, lon=LON)
+    from services.loss import timeline  # the maps hot-house 2050 lies between
+    where = timeline.place("aqueduct_river_flood", "hot_house_3_5c", "2050")
+    maps = {where["lower"], where["upper"]} - {"present"}
+    _aqueduct_samples(s, {today: 0.5, **{(*k.split(":"), m): 1.0 for k in maps for m in A["models"]}}, lat=LAT, lon=LON)
     f = _results(s, engine.run(s, org, "realestate", "hot_house_3_5c", "2050")["run_id"])["flood"]
     assert f["gap"] is None and f["eal_defended_eur"] is None and f["flood_layer"] == "aqueduct_river_flood"
     assert f["protection_code"] == "loss.protection.not_projected" and f["protection_basis"] == "No defended projection"

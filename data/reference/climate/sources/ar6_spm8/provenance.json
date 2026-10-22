@@ -1,0 +1,55 @@
+{
+ "dataset": "IPCC AR6 WG1 SPM Figure SPM.8 data (v20210809), panel (a)",
+ "archive": "CEDA",
+ "doi": "10.5285/98af2184e13e4b91893ab72f301790db",
+ "licence": "CC-BY 4.0",
+ "base_url": "https://dap.ceda.ac.uk/badc/ar6_wg1/data/spm/spm_08/v20210809/",
+ "fetched_at": "2026-10-22T14:48:25+00:00",
+ "files": {
+  "panel_a/tas_global_Historical.csv": {
+   "status": "fetched",
+   "bytes": 2330,
+   "sha256": "27fb722ae38558d62ab7552124ab646bb1e4d31a5d010717a85ffbaa422c4474"
+  },
+  "panel_a/tas_global_SSP1_1_9.csv": {
+   "status": "fetched",
+   "bytes": 6137,
+   "sha256": "276d73dc20fc0320e7574f370dd5f092460f514508c4bf3540da304ef0d2cb06"
+  },
+  "panel_a/tas_global_SSP1_2_6.csv": {
+   "status": "fetched",
+   "bytes": 6137,
+   "sha256": "1bf46a21fe4e171f7b4e1022ee55fb321691e0a4a05f161277b19b55c01872ae"
+  },
+  "panel_a/tas_global_SSP2_4_5.csv": {
+   "status": "fetched",
+   "bytes": 6137,
+   "sha256": "8efd09db55091c629d019d9bfb722986f7ff42ec7957df8a02cc0f6ec5be7d9c"
+  },
+  "panel_a/tas_global_SSP3_7_0.csv": {
+   "status": "fetched",
+   "bytes": 6137,
+   "sha256": "737ce1263b713a8273ea39c59c3c56405658993e0bae965e4f55d95f3abbd988"
+  },
+  "panel_a/tas_global_SSP5_8_5.csv": {
+   "status": "fetched",
+   "bytes": 6137,
+   "sha256": "8e97e9b7bc77a5b5bd4c05e426ff79ada56cecebc4349eabea73b8d0753553c7"
+  },
+  "00README_catalogue_and_licence.txt": {
+   "status": "fetched",
+   "bytes": 854,
+   "sha256": "b89de7fbeeca7feb352cf41b85b083389c07b053ee9b0a36d5213eac255c6e45"
+  },
+  "License.txt": {
+   "status": "fetched",
+   "bytes": 1038,
+   "sha256": "425782d55104ba7db290ae6c9022ee79ea5f5dbf43f9064a948a7d55d37d148d"
+  },
+  "Readme_for_figure_SPM8.txt": {
+   "status": "fetched",
+   "bytes": 15618,
+   "sha256": "d302a4bd498c7d3f38b9024ac37fd5a389eee500f923bcdd43122d9c41d72d46"
+  }
+ }
+}

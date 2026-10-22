@@ -17,8 +17,11 @@ where the disclosure regimes cite them (Pillar 3 IEA NZE2050, TCFD long-term).
 """
 from __future__ import annotations
 
-# (year, canonical time_horizon label in v_portfolio_entity_physical_risk). NOW is 2025.
-ANCHORS: list[tuple[int, str]] = [(2025, "current"), (2030, "2030"), (2050, "2050"), (2100, "2100")]
+from services.reference.warming_axis import current_year
+
+# (year, canonical time_horizon label in v_portfolio_entity_physical_risk). NOW is the platform's present year, declared
+# once on the timeline (data/reference/climate/warming_axis.json); each other label is the year it names.
+ANCHORS: list[tuple[int, str]] = [(current_year(), "current"), (2030, "2030"), (2050, "2050"), (2100, "2100")]
 ANCHOR_LABELS = {lbl for _, lbl in ANCHORS}
 NOW_YEAR = ANCHORS[0][0]
 _LABEL_YEAR = {lbl: yr for yr, lbl in ANCHORS}

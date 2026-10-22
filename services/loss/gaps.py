@@ -55,14 +55,18 @@ def occupancy(asset_type: Optional[str]) -> dict:
     return gap("loss.gap.use_unknown", type=asset_type) if asset_type else gap("loss.gap.use_and_type_unknown")
 
 
-def projection(peril: str, scenario: str, horizon: str, use: dict) -> Optional[dict]:
-    """Why a projected run has no figure for this peril, scenario and horizon — or None when the source serves it."""
-    if peril != "flood":
+def projection(peril: str, scenario: str, horizon: str, layer_key: Optional[str]) -> Optional[dict]:
+    """Why a projected run has no figure for this peril, scenario and horizon — or None when the source serves it: a
+    peril with no projection source, or a pathway-year warmer than every map of its source (services.loss.timeline)."""
+    if layer_key is None:
         return gap("loss.gap.no_projection_peril", peril=peril_name(peril))
-    if use["scenario_map"].get(scenario) is None:
-        return gap("loss.gap.no_projection_scenario", scenario=messages.name("scenario", scenario))
-    if use["horizon_map"].get(horizon) is None:
-        return gap("loss.gap.no_projection_year", year=horizon)
+    from services.loss import timeline
+    from services.reference import warming_axis
+    if timeline.place(layer_key, scenario, horizon) is None:
+        _key, warmest = timeline.warmest(layer_key)
+        target = warming_axis.anchor(scenario, horizon)["central"]
+        return gap("loss.gap.beyond_warming", peril=peril_name(peril), scenario=messages.name("scenario", scenario),
+                   year=horizon, warming=f"{target:+.1f}", warmest=f"{warmest:+.1f}")
     return None
 
 

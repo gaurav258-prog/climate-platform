@@ -45,7 +45,7 @@ ENGINE_VERSION = "loss-v1"
 LAYERS = {"flood": "jrc_river_flood", "storm": "storm_v4_wind"}
 BOOKS = ("banking", "insurance", "insurer_investments", "realestate", "assetmgmt", "company_sites")
 SCENARIOS = ("baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c")
-HORIZONS = ("current", "2030", "2050", "2080", "2100")
+HORIZONS = ("current", "2030", "2050", "2100")     # the platform's horizons (the one timeline, 2026-10-22)
 
 
 PRESENT = {"scenario": "present", "period": "present", "climate_model": ""}
@@ -293,17 +293,37 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     return out
 
 
+PROJECTED = {"flood": PROJECTED_FLOOD}      # each peril's projection source; a peril not listed has none yet
+
+
 def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[dict]:
     """Why a projected run has no figure for this peril, scenario and horizon (a gap's fields) — or None."""
-    return gaps.projection(peril, scenario, horizon, registry.layer(PROJECTED_FLOOD)["use"])
+    return gaps.projection(peril, scenario, horizon, PROJECTED.get(peril))
+
+
+def _blend(lower: dict[int, dict], upper: dict[int, dict], w: float, dry_below: float) -> dict[int, dict]:
+    """The hazard between two maps, by warming (the product owner's decision of 2026-10-22): per return period the water
+    depth — a dry pixel's depth is none — blended linearly by w; the pixel is wet where the blended depth is above the
+    source's dry level."""
+    out = {}
+    for rp in sorted(set(lower) & set(upper)):
+        a, b = lower[rp], upper[rp]
+        da = (a["cell_fraction"] or 0.0) * (a["cell_mean"] or 0.0)
+        db = (b["cell_fraction"] or 0.0) * (b["cell_mean"] or 0.0)
+        depth = da + (db - da) * w
+        wet = depth > dry_below
+        out[rp] = {"status": "sampled", "cell_fraction": 1.0 if wet else 0.0, "cell_mean": depth if wet else 0.0}
+    return out
 
 
 def assess_projected(session: Session, asset: dict, peril: str, family_key: Optional[str], scenario: str,
                      horizon: str) -> dict:
-    """One asset and peril in a projected climate (product owner's decisions, 2026-10-07): the projection source's own
-    depths for the pathway and period of each of its climate models; central = the middle model (by expected annual loss),
-    its whole loss curve; low = the lowest curve-low of the models, high = the highest curve-high, per return period and
-    for the annual figure; beside it the same source's present-day figure, the only figure it is compared with."""
+    """One asset and peril in a projected climate (product owner's decisions, 2026-10-07 and 2026-10-22): the pathway-year
+    reads the two maps of the source that bracket its warming on the platform's timeline (services.loss.timeline) — for
+    each climate model, the water depth blended between them by warming (the present day, made from observed weather, is
+    the same for every model); central = the middle model (by expected annual loss), its whole loss curve; low = the
+    lowest curve-low of the models, high = the highest curve-high, per return period and for the annual figure; beside it
+    the same source's present-day figure, the only figure it is compared with."""
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
     why = projection_gap(peril, scenario, horizon)
     if why:
@@ -320,17 +340,25 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
     base, ctx = _resolve(session, asset, peril, family_key, base)
     if ctx is None:
         return base
-    pathway, period = L["use"]["scenario_map"][scenario], L["use"]["horizon_map"][horizon]
+    from services.loss import timeline
+    where = timeline.place(PROJECTED_FLOOD, scenario, horizon)
     per = registry.divisor(PROJECTED_FLOOD, ctx["family"]["metric"])
     if per is None:
         return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}
+
+    def read(key: str, m: str) -> dict[int, dict]:
+        if key == "present":
+            return today
+        pathway, period = key.split(":")
+        return _samples(session, PROJECTED_FLOOD, L["version"], lat, lon,
+                        {"scenario": pathway, "period": period, "climate_model": m})
     per_model = {}
     for m in L["models"]:
-        s = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon,
-                     {"scenario": pathway, "period": period, "climate_model": m})
-        why = gaps.intensity(s, PROJECTED_FLOOD)
+        lo, hi = read(where["lower"], m), read(where["upper"], m)
+        why = gaps.intensity(lo, PROJECTED_FLOOD) or gaps.intensity(hi, PROJECTED_FLOOD)
         if why:
             return {**base, **why}
+        s = _blend(lo, hi, where["w"], L["dry_below"])
         rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril, per)
         if rows is None:
             return {**base, **why}
@@ -438,12 +466,14 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
 
 
 def _projection_inputs(scenario: str, horizon: str) -> dict:
+    """What a projected run read, recorded with it: the source, and where the pathway-year sits on the timeline — its
+    warming, the two maps that bracket it and the weight between them (or that it is warmer than every map)."""
+    from services.loss import timeline
     L = registry.layer(PROJECTED_FLOOD)
     use = L["use"]
-    return {"key": PROJECTED_FLOOD, "version": L["version"], "pathway": use["scenario_map"].get(scenario),
-            "period": use["horizon_map"].get(horizon), "models": L["models"], "decided": use["decided"],
-            "compared_with": use["compared_with"], "scenario_basis": use["scenario_basis"], "range": use["range"],
-            "reads_as": L["reads_as"], "licence": L["licence"]}
+    return {"key": PROJECTED_FLOOD, "version": L["version"], "models": L["models"], "decided": use["decided"],
+            "compared_with": use["compared_with"], "range": use["range"], "reads_as": L["reads_as"],
+            "licence": L["licence"], "timeline": use["timeline"], "placement": timeline.place(PROJECTED_FLOOD, scenario, horizon)}
 
 
 def _ep_points(session: Session, run_id: str, results: list[dict], settings: dict) -> int:
