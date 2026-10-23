@@ -95,7 +95,7 @@ _BUILDERS = {
     "insurer_recovery_stress": ("Pre-emptive recovery plan — nat-cat stress and capital indicators",
                                 lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_document(s, o, "insurer_recovery_stress", ei, vw, tr, pe),
                                 ("insurer",)),
-    "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01)",
+    "insurer_solvency": ("Solvency II · natural catastrophe risk (S.27.01.01; a group's S.27.01.04)",
                          lambda s, o, sc, hz, ei, vw, tr, pe: _insurer_solvency(s, o, sc, hz, ei, vw, tr, pe), ("insurer",)),
     # ── per financial product (the fund is the filing's subject): frozen by services.governance.sfdr_product.freeze ──
     # frozen from its shipment (movement_id): services.eudr.statement + services.eudr.checks
@@ -185,8 +185,13 @@ def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value
     from services.governance.insurer_solvency import KEY, s2701_natcat
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights,
                                      translation=translation, period_end=period_end)
-    return {"rollup": snap.get("rollup"), "policies": snap.get("policies"), "by_hazard": snap.get("by_hazard"),
-            KEY: s2701_natcat(snap, group_scope=value_weights is not None), "method": snap.get("method")}
+    out = {"rollup": snap.get("rollup"), "policies": snap.get("policies"), "by_hazard": snap.get("by_hazard"),
+           KEY: s2701_natcat(snap, group_scope=value_weights is not None), "method": snap.get("method")}
+    if value_weights is not None:     # a group: S.27.01.04, on the method each related undertaking is stated to use
+        from services.governance.entities import root_of
+        from services.governance.group_solvency import statement
+        out["_group_solvency"] = statement(session, org_id, root_of(session, org_id, entity_ids), period_end)
+    return out
 
 
 def _insurer_document(session, org_id, report_type, entity_ids=None, value_weights=None, translation=None, period_end=None):

@@ -209,6 +209,12 @@ def _target(framework: str, key: str, period_end, elections: dict | None = None,
         return _esrs_target(key, member, period_end, elections)
     if framework == METHOD:
         return _method_target(key, member)
+    dp = _catalog_dp(framework, key)
+    if dp and dp.get("breakdown"):                  # a statement per member (group_solvency_method: per related undertaking)
+        if not (member or "").strip():
+            raise ProvidedError(f"'{key}' is stated per {dp['breakdown'].replace('_', ' ')}: say which one",
+                                "disclose.provided.part_needed", figure=dp["label"])
+        return dp
     if member:
         raise ProvidedError("only an ESRS figure is reported per breakdown member", "disclose.provided.single",
                             figure="This value")
@@ -246,6 +252,28 @@ def _check_unit(dp: dict, value_num: float | None) -> None:
     if unit == "count" and value_num != int(value_num):
         raise ProvidedError(f"'{dp.get('key')}' is a count: give a whole number", "disclose.provided.whole",
                             figure=dp.get("label") or "This value")
+
+
+def _check_choice(dp: dict, value_num: float | None, value_text: str | None) -> None:
+    """A statement chosen from a closed list (unit 'choice'): one of its options, as text."""
+    if dp.get("unit") != "choice":
+        return
+    if value_num is not None or (value_text or "").strip() not in dp["choices"]:
+        raise ProvidedError(f"'{dp['key']}' is one of {', '.join(dp['choices'])}", "disclose.provided.choice",
+                            figure=dp["label"], choices=", ".join(dp["choices"].values()))
+
+
+def _check_related(session: Session, org_id: str, dp: dict, group_id: str | None, member: str | None) -> None:
+    """A group's statement about one of its related undertakings: stated for the group, naming an undertaking in it."""
+    from services.governance.group_solvency import GroupSolvencyError, check_member
+    try:
+        check_member(session, org_id, group_id, member)
+    except GroupSolvencyError as e:
+        if e.kind == "group":
+            raise ProvidedError(f"'{dp['key']}' is stated for the group", "disclose.provided.group_only",
+                                figure=dp["label"]) from e
+        raise ProvidedError(f"'{member}' is not an undertaking the group consolidates", "disclose.provided.not_related",
+                            figure=dp["label"]) from e
 
 
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
@@ -300,11 +328,14 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
             raise ProvidedError(f"'{datapoint_key}' is read from a published source: say the source's name (provider) and "
                                 "its year (data vintage)", "disclose.provided.published_source", figure=dp["label"])
     else:
-        if currency or breakdown_member:
+        if currency or (breakdown_member and not dp.get("breakdown")):
             raise ProvidedError("a currency or breakdown member is stated only with an ESRS figure or a method parameter",
                                 "disclose.provided.no_currency", figure=dp.get("label") or "This value")
         _check_unit(dp, value_num)
+        _check_choice(dp, value_num, value_text)
     entity = _entity_scope(session, org_id, framework, reporting_entity_id)
+    if dp.get("breakdown") == "related_undertaking":
+        _check_related(session, org_id, dp, entity, breakdown_member)
     from services.governance.period_close import is_closed
     if is_closed(session, org_id, entity, pe) and len((restatement_reason or "").strip()) < 10:
         raise ProvidedError(f"the period ending {pe} is closed for this undertaking — a new value is a restatement: "

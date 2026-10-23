@@ -158,6 +158,14 @@ CATALOG: dict[str, list[dict]] = {
         {**_dp("ri_xol_reinstatement_premium_eur", "Reinsurance in force — premium to reinstate the full limit once", "customer",
                "provided", provider="Your reinsurance treaties",
                note="Charged pro rata to the limit used. Not stated, no reinstatement is assumed."), "unit": "EUR"},
+        # a group's statement, one per related undertaking (services.governance.group_solvency): which part of the group
+        # S.27.01.04 reports (ITS 2023/894 Annex III S.27.01 (a)-(c))
+        {**_dp("group_solvency_method", "Group solvency — the method for each related undertaking", "customer", "provided",
+               provider="Your group supervisor's decision (Directive 2009/138/EC Art. 220(2))",
+               note="Stated by the group for each related undertaking: method 1 (accounting consolidation) or method 2 "
+                    "(deduction and aggregation). The group's nat-cat template reports the method-1 part only."),
+         "unit": "choice", "breakdown": "related_undertaking",
+         "choices": {"method_1": "Method 1 — accounting consolidation", "method_2": "Method 2 — deduction and aggregation"}},
     ],
     "insurer_orsa_climate": [
         _dp("climate_scenarios", "Nat-cat losses and capital under a below-2 °C and a well-above-2 °C scenario, 2030-2100",

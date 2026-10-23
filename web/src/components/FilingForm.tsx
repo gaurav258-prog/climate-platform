@@ -10,7 +10,7 @@ import { HEADING, InfoButton } from './Details'
 import { StatusChip } from './StatusChip'
 import FilingFx, { type Fx } from './FilingFx'
 import FilingConsolidation, { type Consolidation } from './FilingConsolidation'
-import { AnnexView, CurrencyCtx, DatapointList, FormName, type Annex, type EditProps, type Group, type Supplied } from './filing/formParts'
+import { AnnexView, CurrencyCtx, DatapointList, FormName, suppliedKey, type Annex, type EditProps, type Group, type Supplied } from './filing/formParts'
 import { EARLIER, p3Group, type P3Group } from './filing/words'
 
 // The final form — the frozen disclosure, two ways over one set of figures: the regulator's own template layout as it
@@ -20,7 +20,7 @@ import { EARLIER, p3Group, type P3Group } from './filing/words'
 
 interface Form { framework: string; period_end: string | null; status: string; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; elections?: Election[] | null }
 interface Election { key: string; label: string; value: unknown; value_label?: string | null; stated: boolean }
-interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null }
+interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null; breakdown_member?: string | null }
 const EDITABLE = ['draft', 'returned', 'in_review', 'approved']   // a submitted, accepted or superseded filing never changes
 
 export default function FilingForm({ filingId }: { filingId: string }) {
@@ -39,7 +39,8 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   for (const p of suppliedQ.data?.provided ?? []) {
     if (p.reporting_period_end !== d.period_end || !['pending', 'attested'].includes(p.status)) continue
     if ((p.reporting_entity_id ?? null) !== (d.reporting_entity_id ?? null)) continue   // the filing's own entity's values
-    supplied[p.datapoint_key] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
+    // a value stated per member (a group's method for each related undertaking) is keyed by its member too
+    supplied[suppliedKey(p.datapoint_key, p.breakdown_member)] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
   }
   const onSupplied = () => qc.invalidateQueries({ queryKey: ['provided', d.framework] })
   const canEdit = (profile?.permissions ?? []).includes('approvals.create') && EDITABLE.includes(d.status)
@@ -99,7 +100,7 @@ function P3FormTabs({ annex, entityId, ...common }: { annex: Annex; entityId: st
     if (g === 'earlier') return null
     if (g === 'qual') return qual.data ? { t: `${qual.data.authored} of ${qual.data.total_rows}`, tone: qual.data.authored === qual.data.total_rows ? 'good' : 'warn' } : null
     const secs = of(g).sections
-    if (secs.some(s => s.rows.some(r => (r.cells ?? []).some(c => c.supply && common.supplied[c.supply.key])))) return { t: 'In progress', tone: 'good' }
+    if (secs.some(s => s.rows.some(r => (r.cells ?? []).some(c => c.supply && common.supplied[suppliedKey(c.supply.key, c.supply.member)])))) return { t: 'In progress', tone: 'good' }
     return g !== 'phys' && secs.some(s => (s.col_sources ?? []).includes('integrated')) ? { t: 'Awaiting your systems', tone: 'warn' } : { t: 'Calculated', tone: 'neutral' }
   }
   return (

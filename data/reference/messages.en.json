@@ -5599,6 +5599,48 @@
     "next": "Try another format. If it keeps happening, raise a request in Support."
    }
   },
+  "filing.refused.xbrl_group_refresh": {
+   "status": 409,
+   "label": "Refresh the draft first",
+   "detail": {
+    "what": "This group report was frozen before the method of each related undertaking was recorded.",
+    "next": "Refresh the draft, then export again."
+   }
+  },
+  "filing.refused.xbrl_group_not_stated": {
+   "status": 409,
+   "label": "State the group solvency method",
+   "detail": {
+    "what": "No method is stated for: {undertakings}.",
+    "why": "The group's natural catastrophe template covers only the undertakings consolidated with method 1, so each related undertaking's method is needed.",
+    "next": "State each undertaking's method on the report's form, have it approved, then refresh the draft."
+   }
+  },
+  "filing.refused.xbrl_group_method_two": {
+   "status": 409,
+   "label": "Not reported under method 2",
+   "detail": {
+    "what": "{group} uses method 2 for every related undertaking, so the group's natural catastrophe template is not reported.",
+    "why": "The template covers only the part of a group calculated with method 1.",
+    "next": "In the content of the submission, report it as not reported because method 2 is used exclusively."
+   }
+  },
+  "filing.refused.xbrl_group_nested": {
+   "status": 409,
+   "label": "Held through a method-2 undertaking",
+   "detail": {
+    "what": "{undertaking} uses method 1 but is held through {held_through}, which uses method 2.",
+    "why": "No regulatory text or published answer says how its figures enter the method-1 part, so no file is produced.",
+    "next": "Check the stated methods against your group supervisor's decision."
+   }
+  },
+  "filing.refused.xbrl_group_no_related": {
+   "status": 409,
+   "label": "No related undertaking",
+   "detail": {
+    "what": "{group} has no related undertaking whose figures are consolidated, so there is no group template to produce."
+   }
+  },
   "filing.refused.xbrlcsv_reference_date": {
    "status": 409,
    "label": "Not available for this reference date",
@@ -7915,6 +7957,27 @@
    "label": "A single figure, not by part",
    "detail": {
     "what": "{figure} is one figure; it is not stated part by part."
+   }
+  },
+  "disclose.provided.choice": {
+   "status": 400,
+   "label": "Choose one of the options",
+   "detail": {
+    "what": "{figure} is one of: {choices}."
+   }
+  },
+  "disclose.provided.group_only": {
+   "status": 400,
+   "label": "Stated for the group",
+   "detail": {
+    "what": "{figure} is stated for the group, not for one of its undertakings."
+   }
+  },
+  "disclose.provided.not_related": {
+   "status": 400,
+   "label": "Not an undertaking of this group",
+   "detail": {
+    "what": "{figure} is stated for an undertaking whose figures the group consolidates."
    }
   },
   "disclose.provided.number": {

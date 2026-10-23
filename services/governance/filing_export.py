@@ -79,7 +79,7 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.getvalue())
 
     if fmt == "xbrl":
-        xml = _xbrl(session, org_id, filing["framework"], payload, basis, filing.get("entity_id"))
+        xml = _xbrl(session, org_id, filing["framework"], payload, basis, filing.get("entity_id"), filing.get("filing_role"))
         return f"{stem}.xbrl", "application/xml", xml.encode("utf-8")
 
     if fmt == "xbrlcsv":                               # the EBA's Pillar 3 data hub package (module ESGDIS)
@@ -249,14 +249,20 @@ def _identity(session: Session, org_id: str, entity_id: str | None) -> dict:
     raise ExportError("filing.refused.export_no_lei")
 
 
-def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
+def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict, entity_id: str | None = None,
+          role: str | None = None) -> str:
     if framework == "insurer_solvency":                # EIOPA's own taxonomy (services.governance.s2701_xbrl)
-        from services.governance.s2701_xbrl import XbrlError, instance
+        from services.governance.s2701_xbrl import XbrlError, group_refusal, instance
+        why = group_refusal(payload, role)             # a group's reason comes first: it needs no identifier to say
+        if why is not None:
+            raise ExportError(why.code, **why.params) from why
         try:
-            return instance(payload, _identity(session, org_id, entity_id))
+            return instance(payload, _identity(session, org_id, entity_id), role)
         except XbrlError as e:
             import logging
             logging.getLogger(__name__).info("XBRL instance refused: %s", e)
+            if e.code:
+                raise ExportError(e.code, **e.params) from e
             raise ExportError("filing.refused.export_failed") from e
     # Pillar 3 ESG goes to the EBA's data hub as xBRL-CSV, the format the EBA's module takes ('xbrlcsv'); an XBRL-XML
     # instance under Tellumen-made element names was never a filing (E104, as the EU Taxonomy report E95 and the ESRS

@@ -1,13 +1,16 @@
-"""S.27.01.01 on a filing's official form — the natural-catastrophe part, block by block as Annex I prints it, from the
-specification the filing was frozen under (sii_qrt_natcat) and the standard-formula result frozen with it.
+"""S.27.01.01 — or, for a group, S.27.01.04 (s2701.tid_of) — on a filing's official form: the natural-catastrophe part,
+block by block as Annex I prints it, from the specification the filing was frozen under (sii_qrt_natcat) and the
+standard-formula result frozen with it.
 
-A cell is: a computed value; blank ('—': reportable, nothing to report); greyed (no Annex II instruction names it); or a
-premium the undertaking enters (the other-region rows), offered for entry and shown as frozen.
+A cell is: a computed value; blank ('—': reportable, nothing to report); greyed (no instruction of its template names
+it); or a premium the undertaking or group enters (the other-region rows), offered for entry and shown as frozen.
 """
 from __future__ import annotations
 
 import services.regspec as R
 from services.governance import s2701
+from services.governance.group_solvency import group_lines
+from services.governance.group_solvency import section as group_section
 
 _ORDER = ("Summary", "Windstorm", "Earthquake", "Flood", "Hail", "Subsidence")
 
@@ -30,12 +33,13 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
     if not rec.get("version") or "version" not in sf:
         return []                                      # frozen before the template was on the route
     spec = R.load(s2701.FAMILY, rec["version"])
-    t = R.template(spec, s2701.TID)
+    tid = s2701.tid_of(payload)
+    t = R.template(spec, tid)
     supplied = _supplied(payload)
-    values = s2701.grid(spec, sf, supplied)
-    ok = s2701.reportable(spec)
-    src = s2701.binding(spec)[s2701.TID]
-    out = []
+    values = s2701.grid(spec, sf, supplied, tid)
+    ok = s2701.reportable(spec, tid)
+    src = s2701.binding(spec)[tid]
+    out = [g for g in (group_section(payload),) if g]    # a group: the method of each related undertaking first
     for name, rows, cols in spec_blocks(t):
         body = []
         for r in rows:
@@ -43,7 +47,7 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
                 continue
             cells = [_txt(f"{r['id']} · {r['label']}")]
             for c in cols:
-                key = f"{s2701.TID}.{r['id']}.{c['id']}"
+                key = f"{tid}.{r['id']}.{c['id']}"
                 if (r["id"], c["id"]) not in ok:
                     cells.append({"text": "", "greyed": True})
                 elif src["columns"][c["id"]].startswith("input") and src["rows"][r["id"]].startswith("input"):
@@ -69,17 +73,17 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
             notes.append("Other-region rows: enter the premiums to be earned in the following 12 months by Annex III "
                          "region; DIV and the charge on the total row follow from them (Annex III(1), regions 5 to 18).")
         out.append({"title": f"{t['code']} — {name if name != 'Summary' else 'natural catastrophe risk'} "
-                             f"({R.citation(spec, s2701.TID)})",
+                             f"({R.citation(spec, tid)})",
                     "key": f"s2701_{name.lower()}", "columns": ["Row"] + [f"{c['id']} · {c['label']}" for c in cols],
                     "col_sources": [""] + ["manual" if src["columns"][c["id"]].startswith("input") else "computed" for c in cols],
                     "rows": body, "note": " ".join(notes) or None,
-                    "spec": {"framework": s2701.FAMILY, "version": spec["version"], "template": s2701.TID,
+                    "spec": {"framework": s2701.FAMILY, "version": spec["version"], "template": tid,
                              "sha256": spec["_sha256"]}})
     return out
 
 
 def workbook(payload: dict):
-    """The filing's S.27.01.01 as a workbook laid out like Annex I: one sheet with every block, printed row and column
+    """The filing's S.27.01.01 (a group's S.27.01.04) as a workbook laid out like Annex I: one sheet with every block, printed row and column
     codes, values as numbers (EUR, charge factors as ratios, the scenario as A / B), greyed cells shaded, the cells the
     undertaking entered marked; a 'Basis' sheet with the version, readings and anything incomplete; the modelled
     1-in-200 figures (context, not an approved internal model) on their own sheet. None when the filing was frozen before the template was on the route."""
@@ -96,11 +100,12 @@ def workbook(payload: dict):
         return None
     from services.governance.filing_annex import _supplied
     spec = R.load(s2701.FAMILY, rec["version"])
-    t = R.template(spec, s2701.TID)
+    tid = s2701.tid_of(payload)
+    t = R.template(spec, tid)
     supplied = _supplied(payload)
-    values = s2701.grid(spec, sf, supplied)
-    ok = s2701.reportable(spec)
-    src = s2701.binding(spec)[s2701.TID]
+    values = s2701.grid(spec, sf, supplied, tid)
+    ok = s2701.reportable(spec, tid)
+    src = s2701.binding(spec)[tid]
     grey = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
     entered = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
     head = PatternFill(start_color="1E2A44", end_color="1E2A44", fill_type="solid")
@@ -110,7 +115,7 @@ def workbook(payload: dict):
     ws = wb.active
     ws.title = t["code"]
     ws.cell(row=1, column=1, value=f"{t['code']} — {t['title']}").font = bold
-    ws.cell(row=2, column=1, value=R.citation(spec, s2701.TID))
+    ws.cell(row=2, column=1, value=R.citation(spec, tid))
     ws.cell(row=3, column=1, value=f"Specification {spec['version']} · sha256 {spec['_sha256'][:16]} · amounts in "
                                    f"{(payload.get('_fx') or {}).get('presentation_currency', 'EUR')}")
     r0 = 5
@@ -157,7 +162,8 @@ def workbook(payload: dict):
     lines += [("Incomplete", x) for x in sf.get("incomplete") or []]
     lines += [(f"Declared reading — {x['subject']}", x["reading"]) for x in sf.get("readings") or []]
     lines += [("No row in the template", x) for x in s2701.unrepresented(sf)]
-    lines += [("Entered by the undertaking (shaded yellow)", k) for k in sorted(supplied) if k.startswith(f"{s2701.TID}.")]
+    lines += [("Group solvency method", x) for x in group_lines(payload)]
+    lines += [("Entered by the undertaking (shaded yellow)", k) for k in sorted(supplied) if k.startswith(f"{tid}.")]
     for i, (k, v) in enumerate(lines, start=1):
         notes.cell(row=i, column=1, value=k).font = bold
         notes.cell(row=i, column=2, value=v)

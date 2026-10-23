@@ -171,12 +171,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .xbrl-packages
-          key: xbrl-packages-${{ hashFiles('data/reference/eiopa/s2701_xbrl.*.json', 'data/reference/eba/p3esg_xbrlcsv.*.json') }}
+          key: xbrl-packages-${{ hashFiles('data/reference/eiopa/s270*_xbrl.*.json', 'data/reference/eba/p3esg_xbrlcsv.*.json') }}
 
       - name: Fetch the pinned packages (sizes and checksums checked; nothing else is fetched)
         run: python -m scripts.fetch_xbrl_packages
 
-      - name: Validate the exports with Arelle on the packages (S.27.01.01 on EIOPA's, Pillar 3 on the EBA's)
+      - name: Validate the exports with Arelle on the packages (S.27.01.01 and a group's S.27.01.04 on EIOPA's, Pillar 3 on the EBA's)
         run: pytest tests/unit/test_xbrl_packages.py tests/unit/test_p3esg_xbrlcsv.py -q --tb=short
 
   # ── Docker build + push (main branch only) ─────────────────────────────

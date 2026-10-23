@@ -1,9 +1,10 @@
-"""Validate an S.27.01.01 XBRL instance with Arelle against EIOPA's Solvency II taxonomy and EIOPA's own validation rules.
+"""Validate an S.27.01.01 (solo) or S.27.01.04 (group) XBRL instance with Arelle against EIOPA's Solvency II taxonomy
+and EIOPA's own validation rules.
 
     venv/bin/python -m scripts.validate_s2701_xbrl <instance.xbrl>
 
-The taxonomy is the one the instance's entry point belongs to: data/reference/eiopa/s2701_xbrl.<version>.json names the
-package EIOPA published for it ('package': file, address, SHA-256) and EIOPA's current list of switched-off rules for
+The taxonomy is the one the instance's entry point belongs to: data/reference/eiopa/s2701_xbrl.<version>.json (solo,
+ars) or s2704_xbrl.<version>.json (group, arg) names the package EIOPA published for it ('package': file, address, SHA-256) and EIOPA's current list of switched-off rules for
 the entry point ('deactivations', published apart at dev.eiopa.europa.eu). Both are held outside the repository in
 XBRL_PACKAGES_DIR/eiopa/<version>/ — scripts/fetch_xbrl_packages.py places them there and checks every checksum; a file
 whose checksum is not the pinned one is refused.
@@ -38,9 +39,9 @@ class PackageError(FileNotFoundError):
 
 
 def taxonomy_of(instance_text: str) -> dict:
-    """The S.27.01.01 map whose entry point the instance names."""
+    """The S.27.01 map (solo S.27.01.01 / group S.27.01.04) whose entry point the instance names."""
     href = re.search(r'<link:schemaRef[^>]*xlink:href="([^"]+)"', instance_text).group(1)
-    for path in sorted(glob.glob(os.path.join(_DIR, "s2701_xbrl.*.json"))):
+    for path in sorted(glob.glob(os.path.join(_DIR, "s270[14]_xbrl.*.json"))):
         m = json.load(open(path))
         if m["entry_point"] == href:
             return m

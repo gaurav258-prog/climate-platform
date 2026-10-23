@@ -38,7 +38,8 @@ SAMPLE = dict(report="Pillar 3 ESG", period="FY2025", state="a draft", step="app
               fund="A fund", format="XBRL", rows="table9.z", max=180, year="2025", start="2025-01-01", end="2025-12-31",
               dates="31 Mar", funds="A fund", net="€1", gross="€2", mean="€1", name="An entity", leg="own operations",
               sum=3, var=1.0, tol=0.5, reported="€1", ledger="€1", m=1, figure="Total book value", version=2, other="USD",
-              this="EUR")
+              this="EUR", group="A group", undertaking="An undertaking", undertakings="An undertaking",
+              held_through="Another undertaking")
 
 
 def _coded_calls(path: Path):

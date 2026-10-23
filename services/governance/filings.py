@@ -80,7 +80,7 @@ FRAMEWORKS = {
                       "regulator": "National competent authority", "basis": "Del. Reg. (EU) 2021/2178 Art. 8"},
     "insurer_solvency": {"label": "Solvency II · natural catastrophe risk", "sectors": ("insurer",),
                          "frequency": "annual",
-                         "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 Arts 119-126 · ITS (EU) 2023/894 S.27.01.01"},
+                         "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 Arts 119-126 · ITS (EU) 2023/894 S.27.01.01 (a group: S.27.01.04)"},
     # an ORSA / a recovery plan runs from an event (the assessment's conclusion, a plan update): no calendar date — the
     # filing's disclosure date is the conclusion, and the ORSA report is due 2 weeks later (Del. Reg. 2015/35 Art. 312(1)(b))
     "insurer_orsa_climate": {"label": "ORSA — climate change scenario analysis", "sectors": ("insurer",),
@@ -1054,6 +1054,9 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
         entity_ids = _E.subtree_ids(session, org_id, entity_id)
         if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
             value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id, regime=_E.regime_for(framework))
+            if framework == "insurer_solvency":   # S.27.01.04: the method-1 part of the group only (Annex III S.27.01 (b))
+                from services.governance import group_solvency as _G
+                value_weights = _G.part_weights(value_weights, _G.statement(session, org_id, entity_id, period_end))
     if framework in _ENTITY_SCOPED:
         from services.governance.translation import plan
         translation = plan(session, org_id, entity_id, period_end, scope=entity_ids, weights=value_weights)

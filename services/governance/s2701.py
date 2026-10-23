@@ -1,10 +1,12 @@
-"""S.27.01.01 (ITS (EU) 2023/894, Annex I; instructions Annex II S.27.01) — the natural-catastrophe part, filled cell by
-cell from the standard-formula result (services.governance.solvency2_natcat) and the undertaking's supplied premiums.
+"""S.27.01.01 (ITS (EU) 2023/894, Annex I; instructions Annex II S.27.01) and, for a group, S.27.01.04 (Annex I;
+instructions Annex III S.27.01; Art. 34(1)(s)) — the natural-catastrophe part, filled cell by cell from the
+standard-formula result (services.governance.solvency2_natcat) and the undertaking's or group's supplied premiums.
 
 The rows, columns and instructions are the specification's (data/reference/regspec/sii_qrt_natcat); nothing about the
 template is typed here except the binding: what fills each row and column, and which of our regions each printed
-region row is. A cell is reportable when an Annex II instruction names it (its ref 'Cxxxx/Ryyyy[–Rzzzz]'); every
-other cell of a block is greyed. coverage() checks the binding against every adopted version of the spec.
+region row is. A cell is reportable when an instruction of its template names it (its ref 'Cxxxx/Ryyyy[–Rzzzz]');
+every other cell of a block is greyed. coverage() checks the binding against every adopted version of the spec.
+Every function takes the template: TID (S.27.01.01) or GROUP_TID (S.27.01.04), the one a filing froze (tid_of).
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import re
 
 FAMILY = "sii_qrt_natcat"
 TID = "S2701"
+GROUP_TID = "S2704"           # S.27.01.04: a group's annual nat-cat template (ITS 2023/894 Art. 34(1)(s), Annex III)
 PERILS = ("windstorm", "earthquake", "flood", "hail", "subsidence")
 _SECTION = {"windstorm": "Windstorm", "earthquake": "Earthquake", "flood": "Flood", "hail": "Hail", "subsidence": "Subsidence"}
 
@@ -61,10 +64,20 @@ def _row_role(label: str) -> str:
     return "region"
 
 
+def tid_of(payload: dict | None) -> str:
+    """The template a frozen filing reports on: S.27.01.04 for a group filing frozen with its group-solvency method
+    statement (services.governance.group_solvency), else S.27.01.01 — a filing frozen before renders as it was."""
+    return GROUP_TID if (payload or {}).get("_group_solvency") is not None else TID
+
+
 def binding(spec: dict) -> dict:
-    """{TID: {"rows": {row: source}, "columns": {col: source}}} — every row and column of the spec mapped."""
+    """{tid: {"rows": {row: source}, "columns": {col: source}}} — every row and column of each template mapped."""
+    return {tid: _binding(spec, tid) for tid in (TID, GROUP_TID) if any(t["id"] == tid for t in spec["templates"])}
+
+
+def _binding(spec: dict, tid: str) -> dict:
     from services.regspec import template
-    t = template(spec, TID)
+    t = template(spec, tid)
     annex3 = _annex_iii_names()
     ours = {r for m in REGION_ROW.values() for r in m.values()}
     rows = {}
@@ -84,7 +97,7 @@ def binding(spec: dict) -> dict:
             rows[r["id"]] = "n/a"                             # a printed region with no table in the version in force
     cols = {c["id"]: ("input:premium|EUR" if _COL_ROLE.get(c["label"]) in _INPUT_ROLES else f"computed:{_COL_ROLE.get(c['label'], '?')}")
             for c in t["columns"]}
-    return {TID: {"rows": rows, "columns": cols}}
+    return {"rows": rows, "columns": cols}
 
 
 def _annex_iii_names() -> list[str]:
@@ -92,10 +105,10 @@ def _annex_iii_names() -> list[str]:
     return [r["name"] for r in rules()["other_regions"]["annex_iii_regions"]["regions"]]
 
 
-def other_region_rows(spec: dict) -> dict[str, dict[int, str]]:
+def other_region_rows(spec: dict, tid: str = TID) -> dict[str, dict[int, str]]:
     """{peril: {Annex III region number: row id}} — the other-region rows of each peril block, by printed name."""
     from services.regspec import template
-    t = template(spec, TID)
+    t = template(spec, tid)
     names = _annex_iii_names()
     out: dict[str, dict[int, str]] = {}
     for r in t["rows"]:
@@ -105,17 +118,19 @@ def other_region_rows(spec: dict) -> dict[str, dict[int, str]]:
     return out
 
 
-def premium_column(spec: dict) -> dict[str, str]:
+def premium_column(spec: dict, tid: str = TID) -> dict[str, str]:
     """{peril: the column of its block that holds the premiums to be earned}."""
     from services.regspec import template
-    return {p: c["id"] for c in template(spec, TID)["columns"] for p in PERILS
+    return {p: c["id"] for c in template(spec, tid)["columns"] for p in PERILS
             if _peril_of(c["section"]) == p and _COL_ROLE.get(c["label"]) == "premium"}
 
 
-def reportable(spec: dict) -> set[tuple[str, str]]:
-    """Every (row, column) an Annex II instruction names; the rest of each block is greyed."""
+def reportable(spec: dict, tid: str = TID) -> set[tuple[str, str]]:
+    """Every (row, column) an instruction of the template names (Annex II for S.27.01.01, Annex III for S.27.01.04);
+    the rest of each block is greyed. A ref the act misprints is read as the spec records it ('ref', with the printed
+    'printed_ref' and its 'ref_basis')."""
     from services.regspec import template
-    t = template(spec, TID)
+    t = template(spec, tid)
     order = [r["id"] for r in t["rows"]]
     cells = set()
     for ins in t.get("instructions") or []:
@@ -132,11 +147,11 @@ def reportable(spec: dict) -> set[tuple[str, str]]:
     return cells
 
 
-def grid(spec: dict, sf: dict, supplied: dict | None = None) -> dict[str, dict[str, object]]:
+def grid(spec: dict, sf: dict, supplied: dict | None = None, tid: str = TID) -> dict[str, dict[str, object]]:
     """{row: {column: value}} for every reportable cell the standard-formula result or the supplied premiums fill.
     A reportable cell with nothing to report is absent (shown blank); supplied premiums are shown as supplied."""
     from services.regspec import template
-    t = template(spec, TID)
+    t = template(spec, tid)
     cols_by_peril: dict[str, dict[str, str]] = {}
     summary_cols: dict[str, str] = {}
     for c in t["columns"]:
@@ -145,14 +160,14 @@ def grid(spec: dict, sf: dict, supplied: dict | None = None) -> dict[str, dict[s
             cols_by_peril.setdefault(p, {})[role] = c["id"]
         elif role:
             summary_cols[role] = c["id"]
-    ok = reportable(spec)
+    ok = reportable(spec, tid)
     out: dict[str, dict[str, object]] = {}
 
     def put(row: str, col: str | None, v) -> None:
         if col and v is not None and (row, col) in ok:
             out.setdefault(row, {})[col] = v
 
-    put("R0002", summary_cols.get("simplification"), simplification_codes(spec, sf))
+    put("R0002", summary_cols.get("simplification"), simplification_codes(spec, sf, tid))
     perils = sf.get("perils") or {}
     summary_row = {p: next(r["id"] for r in t["rows"] if _peril_of(r["section"]) is None and r["label"] == _SECTION[p])
                    for p in PERILS}
@@ -170,7 +185,7 @@ def grid(spec: dict, sf: dict, supplied: dict | None = None) -> dict[str, dict[s
                     ("mitigation", None if div_b is None else -(div_b - div_a))):
         put("R0070", summary_cols.get(role), v)
 
-    other_rows = other_region_rows(spec)
+    other_rows = other_region_rows(spec, tid)
     for p, pr in perils.items():
         cols = cols_by_peril.get(p, {})
         rows_of = [r for r in t["rows"] if _peril_of(r["section"]) == p]
@@ -223,18 +238,18 @@ def grid(spec: dict, sf: dict, supplied: dict | None = None) -> dict[str, dict[s
         put(role_row.get("total_after", ""), cols.get("before"), pr["before_eur"])
         put(role_row.get("total_after", ""), cols.get("after"), pr["after_eur"])
     for key, v in (supplied or {}).items():                       # premiums as supplied, shown whatever the engine used
-        tid, _, rest = key.partition(".")
+        of, _, rest = key.partition(".")
         row, _, col = rest.partition(".")
-        if tid == TID and (row, col) in ok:
+        if of == tid and (row, col) in ok:
             out.setdefault(row, {})[col] = v
     return out
 
 
-def simplification_codes(spec: dict, sf: dict) -> str:
+def simplification_codes(spec: dict, sf: dict, tid: str = TID) -> str:
     """R0002/C0001 as the instruction's options: the Art. 90b option of each peril where a region was grouped, else
     'Simplifications not used' ('Options 1 to 5 may be used simultaneously')."""
     from services.regspec import template
-    ins = next(i for i in template(spec, TID)["instructions"] if i["ref"] == "R0002/C0001")
+    ins = next(i for i in template(spec, tid)["instructions"] if i["ref"] == "R0002/C0001")
     by_peril = {o.split(" – ")[0]: o for o in ins["options"]}
     code = {p: str(n) for n, p in enumerate(PERILS, 1)}
     used = [code[p] for p, pr in (sf.get("perils") or {}).items() if pr.get("available")
@@ -257,13 +272,14 @@ def unrepresented(sf: dict) -> list[str]:
     return out
 
 
-def premiums_from_supplied(spec: dict, supplied: dict) -> dict[str, dict]:
-    """{peril: {"by_region": {Annex III region: premium}}} from supplied cells {'S2701.<row>.<col>': value} — the
-    premiums to be earned the undertaking states on the other-region rows (regions outside Annex XIII)."""
-    rows, col = other_region_rows(spec), premium_column(spec)
+def premiums_from_supplied(spec: dict, supplied: dict, tid: str = TID) -> dict[str, dict]:
+    """{peril: {"by_region": {Annex III region: premium}}} from supplied cells {'<tid>.<row>.<col>': value} — the
+    premiums to be earned the undertaking (S2701) or the group (S2704) states on the other-region rows (regions outside
+    Annex XIII)."""
+    rows, col = other_region_rows(spec, tid), premium_column(spec, tid)
     out: dict[str, dict] = {}
     for p, by_n in rows.items():
-        got = {n: float(supplied[f"{TID}.{row}.{col[p]}"]) for n, row in by_n.items()
-               if supplied.get(f"{TID}.{row}.{col[p]}") is not None}
+        got = {n: float(supplied[f"{tid}.{row}.{col[p]}"]) for n, row in by_n.items()
+               if supplied.get(f"{tid}.{row}.{col[p]}") is not None}
         out[p] = {"by_region": got}
     return out

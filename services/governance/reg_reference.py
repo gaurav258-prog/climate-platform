@@ -175,6 +175,8 @@ REFERENCE: dict[str, dict] = {
     },
     "insurer_solvency": {
         "official_name": "Solvency II — natural catastrophe risk (S.27.01.01, non-life and health catastrophe risk)",
+        # a group's filing (ITS 2023/894 Art. 34(1)(s)): the template the filing froze is S.27.01.04 (s2701.tid_of)
+        "official_name_group": "Solvency II — a group's natural catastrophe risk (S.27.01.04, non-life and health catastrophe risk)",
         "authority": "National competent authority (Solvency II supervisor) / EIOPA",
         "legal_basis": "Directive 2009/138/EC Art. 35 · Delegated Regulation (EU) 2015/35 Arts 90b, 119-126, 304, 312",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32015R0035",

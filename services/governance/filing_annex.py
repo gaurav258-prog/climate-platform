@@ -1131,8 +1131,12 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     if frozen:                                        # the act the filing was prepared under, from its frozen spec
         from services.governance.reg_reference import REFERENCE, with_spec
         ref = with_spec(REFERENCE[framework], frozen) if framework in REFERENCE else ref
+    name = ref.get("official_name")
+    if framework == "insurer_solvency":               # a group's filing reports S.27.01.04
+        from services.governance import s2701
+        name = ref.get("official_name_group") if s2701.tid_of(payload) == s2701.GROUP_TID else name
     return {
-        "official_name": ref.get("official_name") or _report_name(framework),
+        "official_name": name or _report_name(framework),
         "authority": ref.get("authority"),
         "official_form": ref.get("official_form"),
         "legal_basis": ref.get("legal_basis"),

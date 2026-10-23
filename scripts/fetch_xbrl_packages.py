@@ -3,7 +3,8 @@
     PYTHONPATH=. venv/bin/python -m scripts.fetch_xbrl_packages [--dir DIR] [--publisher eiopa|eba] [--dry-run]
 
 Every file is pinned in the repository's reference data — address, size and SHA-256 — next to what it is used for:
-  EIOPA   data/reference/eiopa/s2701_xbrl.<version>.json   'package' and 'deactivations' (S.27.01.01)
+  EIOPA   data/reference/eiopa/s2701_xbrl.<version>.json   'package' and 'deactivations' (S.27.01.01, solo)
+          data/reference/eiopa/s2704_xbrl.<version>.json   'package' and 'deactivations' (S.27.01.04, group)
   EBA     data/reference/eba/p3esg_xbrlcsv.<version>.json  'packages' (Pillar 3 ESG, the EBA's Pillar 3 data hub)
 Nothing else is fetched. Each file lands in DIR/<publisher>/<version>/ (DIR = --dir or XBRL_PACKAGES_DIR), is priced
 with a HEAD request first (a size other than the pinned one is refused: the publisher has changed the file, which is
@@ -30,10 +31,12 @@ def pins(publisher: str | None = None) -> list[dict]:
     """Every pinned file: {publisher, version, file, url, bytes, sha256, extract}."""
     out = []
     if publisher in (None, "eiopa"):
-        for p in sorted(glob.glob(str(ROOT / "data/reference/eiopa/s2701_xbrl.*.json"))):
+        seen = set()
+        for p in sorted(glob.glob(str(ROOT / "data/reference/eiopa/s270[14]_xbrl.*.json"))):
             m = json.load(open(p))
             for key in ("package", "deactivations"):
-                if m.get(key):
+                if m.get(key) and (m["taxonomy_version"], m[key]["file"]) not in seen:   # solo and group share the package
+                    seen.add((m["taxonomy_version"], m[key]["file"]))
                     out.append({"publisher": "eiopa", "version": m["taxonomy_version"], **m[key]})
     if publisher in (None, "eba"):
         for p in sorted(glob.glob(str(ROOT / "data/reference/eba/p3esg_xbrlcsv.*.json"))):

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Resolve S.27.01.01 natural-catastrophe cells from EIOPA's Solvency II XBRL
-taxonomy (table linkbase + XDT definition linkbase), without Arelle.
+"""Resolve S.27.01.01 (solo, entry point ars) or S.27.01.04 (group, entry point arg) natural-catastrophe cells from
+EIOPA's Solvency II XBRL taxonomy (table linkbase + XDT definition linkbase), without Arelle.
 
 Usage: python3 scripts/build_eiopa_s2701_map.py <taxonomy_root> <annotated_templates.xlsx> <version> <out.json>
+           <reportable.json> [<template: s.27.01.01 | s.27.01.04> <entry point: ars | arg>]
 
 - taxonomy_root: folder holding META-INF/ and eiopa.europa.eu/ (unzipped package)
 - Cells are keyed "Rxxxx|Cxxxx" (ITS 2023/894 row/column codes, read from the
@@ -395,9 +396,9 @@ def ann_cell(ann, rc, cc):
 
 # ---------------- main -----------------
 
-def main(tax_root, xlsx, version, out_path, reportable_json):
+def main(tax_root, xlsx, version, out_path, reportable_json, tpl='s.27.01.01', ep='ars'):
     tax = Taxonomy(tax_root)
-    tabdirs = sorted(glob.glob(os.path.join(tax.local_base, 'eu/xbrl/s2md/fws/solvency/solvency2/*/tab/s.27.01.01.*')))
+    tabdirs = sorted(glob.glob(os.path.join(tax.local_base, 'eu/xbrl/s2md/fws/solvency/solvency2/*/tab/%s.*' % tpl)))
     fws_dir = os.path.dirname(os.path.dirname(tabdirs[0]))
     met_xsd = os.path.join(tax.local_base, 'eu/xbrl/s2md/dict/met/met.xsd')
     met_ns, met_ids = tax.xsd(met_xsd)
@@ -539,14 +540,14 @@ def main(tax_root, xlsx, version, out_path, reportable_json):
         'find': 'http://www.eurofiling.info/xbrl/ext/filing-indicators'})
 
     fws_date = os.path.basename(fws_dir)
-    ep_file = os.path.join(fws_dir, 'mod', 'ars.xsd')
+    ep_file = os.path.join(fws_dir, 'mod', '%s.xsd' % ep)
     ep_txt = open(ep_file, encoding='utf-8-sig').read()
-    ep_tables = sorted(set(re.findall(r'tab/(s\.27\.01\.01\.\d\d)/', ep_txt)))
-    fchk = open(os.path.join(fws_dir, 'mod', 'ars-find-check.xml'), encoding='utf-8-sig').read()
+    ep_tables = sorted(set(re.findall(r'tab/(%s\.\d\d)/' % re.escape(tpl), ep_txt)))
+    fchk = open(os.path.join(fws_dir, 'mod', '%s-find-check.xml' % ep), encoding='utf-8-sig').read()
     m = re.search(r"test=\"\$filingIndicator = \(([^)]*)\)", fchk)
     allowed = re.findall(r"'([^']+)'", m.group(1)) if m else []
     mandatory = re.findall(r"test=\"\. = '([^']+)'\"", fchk)
-    ep_label = re.search(r'role/label" xml:lang="en">([^<]+)<', open(os.path.join(fws_dir, 'mod', 'ars-lab-en.xml'), encoding='utf-8-sig').read())
+    ep_label = re.search(r'role/label" xml:lang="en">([^<]+)<', open(os.path.join(fws_dir, 'mod', '%s-lab-en.xml' % ep), encoding='utf-8-sig').read())
 
     grey_cmp = {}
     for tid, tc in all_cells_by_table.items():
@@ -576,7 +577,7 @@ def main(tax_root, xlsx, version, out_path, reportable_json):
         'taxonomy_version': version,
         'framework_date': fws_date,
         'entry_point': {
-            'schemaRef': 'http://eiopa.europa.eu/eu/xbrl/s2md/fws/solvency/solvency2/%s/mod/ars.xsd' % fws_date,
+            'schemaRef': 'http://eiopa.europa.eu/eu/xbrl/s2md/fws/solvency/solvency2/%s/mod/%s.xsd' % (fws_date, ep),
             'label': ep_label.group(1) if ep_label else None,
             'includes_tables': [t.upper() for t in ep_tables],
             'allowed_filing_indicators_include_S.27.01': 'S.27.01' in allowed,
@@ -587,7 +588,7 @@ def main(tax_root, xlsx, version, out_path, reportable_json):
             'elements': {'container': 'find:fIndicators', 'indicator': 'find:filingIndicator',
                          'filed_attribute': 'find:filed (boolean, default true)',
                          'namespace': 'http://www.eurofiling.info/xbrl/ext/filing-indicators'},
-            'note': 'filing-indicator-code label on every S.27.01.01.xx table is the template-level code; one indicator covers all 28 tables.',
+            'note': 'filing-indicator-code label on every %s.xx table is the template-level code; one indicator covers all 28 tables.' % tpl.upper(),
         },
         'namespaces': namespaces,
         'tables': {k: v for k, v in tables.items()},
@@ -610,19 +611,20 @@ def main(tax_root, xlsx, version, out_path, reportable_json):
         'other_s2701_cells': {k: {kk: vv for kk, vv in v.items() if kk in ('table', 'concept', 'dims', 'xdt_valid')}
                               for k, v in sorted(cells.items()) if tuple(k.split('|')) not in our},
     }
-    # S.01.01 content-of-submission row for S.27.01.01
-    s0101 = os.path.join(fws_dir, 'tab', 's.01.01.01.01')
+    # S.01.01 content-of-submission row for the template (S.01.01.01 solo, S.01.01.04 group)
+    s01 = 's.01.01.%s.01' % tpl.split('.')[-1]
+    s0101 = os.path.join(fws_dir, 'tab', s01)
     if os.path.isdir(s0101):
-        codes, _ = parse_codes(os.path.join(s0101, 's.01.01.01.01-lab-codes.xml'))
-        _, axes, _ = parse_rend(tax, os.path.join(s0101, 's.01.01.01.01-rend.xml'), codes)
-        lab = open(os.path.join(s0101, 's.01.01.01.01-lab-en.xml'), encoding='utf-8').read()
+        codes, _ = parse_codes(os.path.join(s0101, s01 + '-lab-codes.xml'))
+        _, axes, _ = parse_rend(tax, os.path.join(s0101, s01 + '-rend.xml'), codes)
+        lab = open(os.path.join(s0101, s01 + '-lab-en.xml'), encoding='utf-8').read()
         for y in axes['y']:
             nid = y['nodes'][0]
-            if re.search(r'#%s"[^>]*/>\s*<label:label[^>]*>S\.27\.01\.01 ' % re.escape(nid), lab):
+            if re.search(r'#%s"[^>]*/>\s*<label:label[^>]*>%s ' % (re.escape(nid), re.escape(tpl.upper())), lab):
                 for x in axes['x']:
                     c = y['aspects']['concept'] or x['aspects']['concept']
                     mel = met_ids.get('s2md_' + c[1])
-                    out['s01_01_content_row'] = {'table': 'S.01.01.01.01', 'cell': '%s|%s' % (y['codes'][0], x['codes'][0]),
+                    out['s01_01_content_row'] = {'table': s01.upper(), 'cell': '%s|%s' % (y['codes'][0], x['codes'][0]),
                                                  'concept': tax.q(*c), 'datatype': mel.get('type'),
                                                  'enum_domain': mel.get('{%s}domain' % NS['enum']),
                                                  'enum_linkrole': mel.get('{%s}linkrole' % NS['enum']),
@@ -633,4 +635,4 @@ def main(tax_root, xlsx, version, out_path, reportable_json):
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:6])
+    main(*sys.argv[1:8])

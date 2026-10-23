@@ -20,7 +20,10 @@ export interface Dp {
   figure?: { reported: 'client' | 'tellumen'; client_value: number | string | null; tellumen_value: number | null; delta_pct: number | null; client_provider: string | null }
 }
 export interface Group { group: string; datapoints: Dp[] }
-export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null }; greyed?: boolean; frozen_value?: number | string | null }
+// supply: a value the institution enters for the filing's period; `member` and `choices` for a statement per member from a
+// closed list (a group's method for each related undertaking)
+export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null; member?: string; choices?: Record<string, string> }; greyed?: boolean; frozen_value?: number | string | null }
+export const suppliedKey = (key: string, member?: string | null) => member ? `${key}@${member}` : key
 export interface AnnexSection { title: string; spec?: { template?: string } | null; note: string | null; columns: string[]; col_sources?: string[]; rows: { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }[]; kind?: 'document'; items?: DocItem[] }
 export interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
 export interface Supplied { value: string; status: 'pending' | 'attested'; by?: string | null }
@@ -85,7 +88,7 @@ export function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, la
                             // a cell the template greys out (no instruction names it): hatched, as printed
                             if (c.greyed) return <td key={ci} aria-label="Not reported" style={{ background: 'repeating-linear-gradient(135deg, transparent 0 5px, var(--color-line) 5px 6px)' }} />
                             // a cell the institution enters itself — never a figure aggregated from loan data
-                            if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[c.supply.key]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} /></td>
+                            if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[suppliedKey(c.supply.key, c.supply.member)]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} /></td>
                             const last = ci === cells.length - 1
                             return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                           })}
@@ -216,19 +219,31 @@ function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }: { cell: Ann
     const n = Number(val.replace(/,/g, ''))
     try {
       await api.post('/v1/provided', { framework: cell.supply.framework, datapoint_key: cell.supply.key, reporting_period_end: periodEnd, reporting_entity_id: cell.supply.reporting_entity_id ?? undefined,
-        ...(!Number.isNaN(n) ? { value_num: n } : { value_text: val.trim() }) })
+        ...(cell.supply.member ? { breakdown_member: cell.supply.member } : {}),
+        ...(!cell.supply.choices && !Number.isNaN(n) ? { value_num: n } : { value_text: val.trim() }) })
       toast.success('Sent for attestation by a second person.'); setVal(''); onSaved()
     } catch (e) { toast.error(apiMessage(e, 'Could not submit this value.')) } finally { setBusy(false) }
   }
   // the value frozen in the filing (raw), not its display text: '5000000' and '€5.0m' are the same figure
   const same = (a: string, b: unknown) => b != null && (a === String(b) || (a.trim() !== '' && !Number.isNaN(Number(a)) && Number(a) === Number(b)))
   const newer = supplied && !same(supplied.value, cell.frozen_value) ? supplied : null
+  const choices = cell.supply?.choices
+  const shown = (v: string) => choices?.[v] ?? v                       // a choice by its words, never its code
   return (
     <div className="inline-flex flex-col items-end gap-1">
       <span className="inline-flex items-center gap-1">{frozen !== '—' && <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />}{frozen}</span>
       {newer && <span className="text-[10px] inline-flex items-center gap-0.5" style={{ color: newer.status === 'pending' ? 'var(--color-warn)' : 'var(--color-viz,#a78bfa)' }}>
-        {newer.status === 'pending' ? <><Clock size={8} />{newer.value} awaiting attestation</> : <>{newer.value} attested · refresh the draft</>}</span>}
-      {canEdit && (
+        {newer.status === 'pending' ? <><Clock size={8} />{shown(newer.value)} awaiting attestation</> : <>{shown(newer.value)} attested · refresh the draft</>}</span>}
+      {canEdit && choices && (
+        <div className="flex items-center gap-1">
+          <select value={val} onChange={e => setVal(e.target.value)} disabled={busy} aria-label="Choose the value you state"
+            className="text-[11px] bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-1 py-0.5 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)]">
+            <option value="">Choose…</option>
+            {Object.entries(choices).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </select>
+          {val && <button onClick={submit} disabled={busy} className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: 'color-mix(in oklab, var(--color-sky) 16%, transparent)', color: 'var(--color-sky)' }}>Send</button>}
+        </div>)}
+      {canEdit && !choices && (
         <div className="flex items-center gap-1">
           <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit() }} disabled={busy}
             placeholder="Enter…" aria-label="Value you supply" title="You supply this cell for the filing's period; a second person attests it"

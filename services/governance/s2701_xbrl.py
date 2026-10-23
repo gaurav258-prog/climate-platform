@@ -1,16 +1,23 @@
-"""S.27.01.01 (natural catastrophe risk) as an XBRL instance in EIOPA's Solvency II taxonomy — the part of the
-undertaking's annual quantitative reporting this platform computes.
+"""S.27.01.01 (natural catastrophe risk) — or a group's S.27.01.04 — as an XBRL instance in EIOPA's Solvency II
+taxonomy: the part of the undertaking's or group's annual quantitative reporting this platform computes.
 
 Every cell's XBRL representation — the metric, its data type and the dimension members of its table — is read from
-data/reference/eiopa/s2701_xbrl.<taxonomy>.json, parsed from EIOPA's own table linkbase and cross-checked against
-EIOPA's annotated templates (0 disagreements). The taxonomy is chosen by the reporting reference date. The instance
-follows EIOPA's XBRL Filing Rules: one absolute schemaRef to the annual solo entry point (ars), the entity's LEI
-(scheme http://standards.iso.org/iso/17442), one instant, one ISO 4217 unit, @decimals only, no nil or duplicate fact,
-a cell with nothing to report omitted, one filing indicator 'S.27.01' on a context without dimensions.
+data/reference/eiopa/s2701_xbrl.<taxonomy>.json (solo: S.27.01.01 under the annual solo entry point ars) or
+s2704_xbrl.<taxonomy>.json (group: S.27.01.04 under the annual group entry point arg, each cell with the group members
+'method of consolidation' and 'entities under consolidation'), parsed from EIOPA's own table linkbase and cross-checked
+against EIOPA's annotated templates (0 disagreements). The template is the one the filing froze (s2701.tid_of); the
+taxonomy is chosen by the reporting reference date. The instance follows EIOPA's XBRL Filing Rules: one absolute
+schemaRef to the entry point, the entity's LEI (scheme http://standards.iso.org/iso/17442), one instant, one ISO 4217
+unit, @decimals only, no nil or duplicate fact, a cell with nothing to report omitted, one filing indicator 'S.27.01' on
+a context without dimensions.
 
-It is the S.27.01 contribution to the undertaking's annual submission, not the whole submission: the module also
-requires S.01.01 (content of the submission) and S.01.02 (basic information), and the undertaking's other templates,
-which its QRT package holds. The instance says so.
+A group's S.27.01.04 is produced only on its frozen group-solvency method (services.governance.group_solvency): method 1,
+or a combination (the method-1 part). Method 2 exclusively (the template does not apply), a method not stated, or a
+method-1 undertaking held through a method-2 one is refused with its reason (a catalogue code).
+
+It is the S.27.01 contribution to the annual submission, not the whole submission: the module also requires S.01.01
+(content of the submission) and S.01.02 (basic information), and the other templates, which the QRT package holds. The
+instance says so.
 """
 from __future__ import annotations
 
@@ -25,20 +32,28 @@ _LEI_SCHEME = "http://standards.iso.org/iso/17442"
 
 
 class XbrlError(ValueError):
-    pass
+    """Why no instance is produced; `code` and `params`, where set, are a catalogue message (filing.refused.*)."""
+
+    def __init__(self, message: str, code: str | None = None, **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
-@lru_cache(maxsize=4)
-def _load(version: str) -> dict:
-    with open(os.path.join(_DIR, f"s2701_xbrl.{version}.json")) as f:
+_MAPS = {"S2701": "s2701_xbrl", "S2704": "s2704_xbrl"}       # template → its map files (s2701.TID / GROUP_TID)
+
+
+@lru_cache(maxsize=8)
+def _load(version: str, prefix: str = "s2701_xbrl") -> dict:
+    with open(os.path.join(_DIR, f"{prefix}.{version}.json")) as f:
         return json.load(f)
 
 
-def taxonomy_for(reference_date: date) -> dict:
-    """The EIOPA taxonomy that applies to a reporting reference date."""
+def taxonomy_for(reference_date: date, tid: str = "S2701") -> dict:
+    """The EIOPA taxonomy map of a template that applies to a reporting reference date."""
     d = reference_date.isoformat()
-    for name in sorted(f for f in os.listdir(_DIR) if f.startswith("s2701_xbrl.") and f.endswith(".json")):
-        m = _load(name[len("s2701_xbrl."):-len(".json")])
+    prefix = _MAPS[tid]
+    for name in sorted(f for f in os.listdir(_DIR) if f.startswith(prefix + ".") and f.endswith(".json")):
+        m = _load(name[len(prefix) + 1:-len(".json")], prefix)
         a = m["applies"]
         if a["from"] <= d and (a["until"] is None or d <= a["until"]):
             return m
@@ -68,8 +83,42 @@ def _value(cell: dict, v, m: dict):
     return escape(str(v)), None, None
 
 
-def instance(payload: dict, identity: dict) -> str:
-    """The XBRL instance of the filing's S.27.01.01, from its frozen specification and standard-formula result."""
+def group_refusal(payload: dict, role: str | None = None) -> XbrlError | None:
+    """Why a group filing has no S.27.01.04 instance, or None. A group filing (role 'consolidated') frozen before its
+    group-solvency method was recorded is refused too: its book was not limited to the method-1 part."""
+    st = (payload or {}).get("_group_solvency")
+    if st is None:
+        if role == "consolidated":
+            return XbrlError("a group filing frozen before its group-solvency method was recorded",
+                             "filing.refused.xbrl_group_refresh")
+        return None
+    if st["status"] == "no_related":
+        return XbrlError("no related undertaking with a consolidated book", "filing.refused.xbrl_group_no_related",
+                         group=st["group_name"])
+    if st["status"] == "not_stated":
+        return XbrlError(f"method not stated for {', '.join(st['not_stated'])}", "filing.refused.xbrl_group_not_stated",
+                         undertakings=", ".join(st["not_stated"]))
+    if st["status"] == "nested":
+        x = st["nested"][0]
+        return XbrlError(f"{x['undertaking']} (method 1) is held through {x['held_through']} (method 2)",
+                         "filing.refused.xbrl_group_nested", undertaking=x["undertaking"], held_through=x["held_through"])
+    if st["method"] == "method_2":
+        return XbrlError("method 2 exclusively: S.27.01.04 does not apply (ITS 2023/894 Annex III S.27.01 (c))",
+                         "filing.refused.xbrl_group_method_two", group=st["group_name"])
+    return None
+
+
+def _group_note(payload: dict) -> str:
+    st = (payload or {}).get("_group_solvency")
+    if not st:
+        return ""
+    return (" · group solvency: method 1" if st["method"] == "method_1" else
+            " · group solvency: combination of methods 1 and 2, the method-1 part")
+
+
+def instance(payload: dict, identity: dict, role: str | None = None) -> str:
+    """The XBRL instance of the filing's S.27.01.01 — or, for a group, its S.27.01.04 — from its frozen specification,
+    standard-formula result and (a group's) group-solvency method. `role`: the filing's role ('consolidated' = a group)."""
     import services.regspec as R
     from services.governance import s2701
     from services.governance.filing_annex import _supplied
@@ -78,15 +127,20 @@ def instance(payload: dict, identity: dict) -> str:
     rec = ((payload or {}).get("_specs") or {}).get(s2701.FAMILY) or {}
     if not rec.get("version") or "version" not in sf:
         raise XbrlError("this filing was frozen before S.27.01.01 was on the change route — refresh the draft to export XBRL")
+    why = group_refusal(payload, role)
+    if why is not None:
+        raise why
+    tid = s2701.tid_of(payload)
     ref_date = date.fromisoformat(sf["reference_date"])
-    m = taxonomy_for(ref_date)
+    m = taxonomy_for(ref_date, tid)
+    code = m.get("template", "S.27.01.01")
     missing_rows = [f"{v['label']} ({r})" for r, v in (m.get("rows_added_after_its_2023_894") or {}).items()]
     if missing_rows:
         raise XbrlError(f"EIOPA taxonomy {m['taxonomy_version']} (from {m['applies']['from']}) prints rows that ITS 2023/894 "
                         f"does not: {', '.join(missing_rows)}. Capture the amended template on the change route before "
                         "exporting a report for this reference date.")
     spec = R.load(s2701.FAMILY, rec["version"])
-    grid = s2701.grid(spec, sf, _supplied(payload))
+    grid = s2701.grid(spec, sf, _supplied(payload), tid)
     ccy = ((payload.get("_fx") or {}).get("presentation_currency") or "EUR").upper()
 
     contexts: dict[tuple, str] = {(): "c0"}                 # c0: no dimensions — the filing indicator's context too
@@ -98,7 +152,7 @@ def instance(payload: dict, identity: dict) -> str:
         for col, v in sorted(cols.items()):
             cell = m["cells"].get(f"{row}|{col}")
             if cell is None:
-                raise XbrlError(f"S.27.01.01 {row}/{col} has no XBRL representation in taxonomy {m['taxonomy_version']}")
+                raise XbrlError(f"{code} {row}/{col} has no XBRL representation in taxonomy {m['taxonomy_version']}")
             if row == "R0002":
                 v = _simplification_codes(v)
             if v is None:
@@ -108,7 +162,7 @@ def instance(payload: dict, identity: dict) -> str:
             point = (cell["concept"], key)
             if point in seen:
                 if seen[point][0] != lex:
-                    raise XbrlError(f"S.27.01.01 {seen[point][1]} and {row}/{col} are one EIOPA data point but differ "
+                    raise XbrlError(f"{code} {seen[point][1]} and {row}/{col} are one EIOPA data point but differ "
                                     f"({seen[point][0]} vs {lex})")
                 continue
             seen[point] = (lex, f"{row}/{col}")
@@ -133,9 +187,9 @@ def instance(payload: dict, identity: dict) -> str:
         'xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xbrldi="http://xbrl.org/2006/xbrldi" '
         'xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:find="http://www.eurofiling.info/xbrl/ext/filing-indicators" '
         f"{decl}>",
-        f'  <!-- S.27.01.01 natural catastrophe risk · {escape(identity["name"])} · {escape(identity["note"])} · EIOPA taxonomy '
-        f'{m["taxonomy_version"]} · {escape(sf.get("version_name") or sf["version"])}. The S.27.01 part of the annual submission: '
-        f'S.01.01, S.01.02 and the other templates come from the undertaking\'s QRT package. -->',
+        f'  <!-- {code} natural catastrophe risk · {escape(identity["name"])} · {escape(identity["note"])} · EIOPA taxonomy '
+        f'{m["taxonomy_version"]} · {escape(sf.get("version_name") or sf["version"])}{_group_note(payload)}. The S.27.01 part of '
+        f'the annual submission: S.01.01, S.01.02 and the other templates come from the QRT package. -->',
         f'  <link:schemaRef xlink:type="simple" xlink:href="{m["entry_point"]}"/>',
         f'  <xbrli:unit id="uCCY"><xbrli:measure>iso4217:{ccy}</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uPURE"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',

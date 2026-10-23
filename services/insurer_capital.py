@@ -54,13 +54,16 @@ def programme(session: Session, org_id: str, period_end: date, entity_id: str | 
 
 def natcat_other_regions(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> dict:
     """{peril: {"by_region": {Annex III region: premium}}} — the premiums to be earned for risks outside Annex XIII, as
-    the undertaking states them on S.27.01.01 (supplied template cells, attested under four eyes). A region not
-    attested is absent; with none, the standard formula marks the peril incomplete and never charges zero."""
+    the undertaking states them on S.27.01.01, or a group (an entity with a consolidated book) on S.27.01.04 (supplied
+    template cells, attested under four eyes). A region not attested is absent; with none, the standard formula marks
+    the peril incomplete and never charges zero."""
     import services.regspec as R
     from services.governance import s2701
+    from services.governance.entities import filing_role_for
     spec = R.governing(s2701.FAMILY, period_end=period_end)
     if spec is None:
         return {}
+    tid = s2701.GROUP_TID if filing_role_for(session, org_id, entity_id) == "consolidated" else s2701.TID
     a = _attested(session, org_id, period_end, entity_id)
-    supplied = {k: v["value"] for k, v in a.items() if k.startswith(f"{s2701.TID}.")}
-    return s2701.premiums_from_supplied(spec, supplied)
+    supplied = {k: v["value"] for k, v in a.items() if k.startswith(f"{tid}.")}
+    return s2701.premiums_from_supplied(spec, supplied, tid)
