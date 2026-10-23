@@ -35,7 +35,12 @@
       ],
       "basis": "FEMA occupancyType: 1 single family; 2 2–4 unit residential; 3 residential >4 units; 11 single-family residential; 12 residential non-condo 2–4 units; 13 residential non-condo 5+ units; 15 residential condo association; 16 single residential unit in a multi-unit building (mobile homes, 14, are not houses)"
     },
-    "min_claims_per_bin": 200
+    "min_claims_per_bin": 200,
+    "countries": {
+      "added": "2026-10-23 (E322, the product owner's decision 'Log, guard, re-run')",
+      "rule": "a curve is built and tested from claims in the curve's countries only: FEMA's state field (\"The two-character alpha abbreviation of the state in which the insured property is located\") one of the 50 states or the District of Columbia (ISO 3166-2:US); Puerto Rico, the US Virgin Islands, Guam, American Samoa and the Northern Mariana Islands are ISO 3166-2:US outlying areas with their own ISO 3166-1 codes (PR, VI, GU, AS, MP), in the UN M49 regions of other curves, and a claim with no state cannot be placed — each set aside and counted",
+      "found": "until 2026-10-23 every value of the state field was read, so the measured family and published_curve_test took claims of PR, VI, GU, AS, MP and claims with no state into a US curve; the measured family is rebuilt under this rule and its first build kept under 'superseded'"
+    }
   },
   "test": {
     "held_out": "each flood event with at least 500 claims is predicted from the other events' claims only",
@@ -95,7 +100,12 @@
     "predicted": "each claim's damage ratio read off the curve at its depth (linear between the published points, the last held beyond); an event's predicted total = Σ ratio × the building's value (buildingPropertyValue)",
     "range": "the curve's published range at each depth: the damage fraction ± one published standard deviation, bounded to [0, 1]",
     "pass": "both of the protocol's tests as written in 'test': event totals within ±30% in at least two thirds of events (test.event_total), and the share of claims whose recorded damage ratio lies inside the range between 75% and 85% (test.band) — passed → published, failed → held",
-    "note_stated_before": "the band test was written for a 10th–90th percentile range; a ± one standard deviation range need not hold 75–85% of claims, and the test is applied as written all the same"
+    "note_stated_before": "the band test was written for a 10th–90th percentile range; a ± one standard deviation range need not hold 75–85% of claims, and the test is applied as written all the same",
+    "corrected_2026_10_23": {
+      "decided": "the product owner's decision of 2026-10-23 ('Log, guard, re-run')",
+      "found": "the run of 2026-10-07 read the residential claims of every value of FEMA's state field — Puerto Rico, the US Virgin Islands, Guam, American Samoa, the Northern Mariana Islands and claims with no state among them — while the curve applies to the US (E322)",
+      "correction": "re-run on the claims in the curve's countries only: FEMA's state field (\"The two-character alpha abbreviation of the state in which the insured property is located\") one of the 50 states or the District of Columbia (ISO 3166-2:US); Puerto Rico, the US Virgin Islands, Guam, American Samoa and the Northern Mariana Islands are ISO 3166-2:US outlying areas with their own ISO 3166-1 codes (PR, VI, GU, AS, MP), in the UN M49 regions of other curves, and a claim with no state cannot be placed — each set aside and counted; everything else as registered. The claims and the curve were seen in the first run, so this corrects that run and is not a blind test; the first result is kept on the curve under 'superseded'"
+    }
   },
   "flood_protection": {
     "registered": "2026-10-16",
@@ -167,5 +177,25 @@
     "independence": "the curves were calibrated on EM-DAT's reported damage per event and country, 1980–2017 (Eberenz et al. 2021); this test ranks forecast zones inside the US, which the calibration never saw, but the US event totals behind EM-DAT and NOAA overlap — stated, not removed",
     "limits_stated_before": "NOAA damage figures are the National Weather Service's estimates and are incomplete; a 'Hurricane' record may still carry some water damage; zone outlines of 2025 against 30 years of records; LitPop's 2018 assets against the calibration's 2014 and against 30 years of events; the STORM maps are a long-run climate set against 30 observed years, so a zone the model rates highly may simply not have been hit; Canada is in the curve's region but not in the test. A pass says the chain ranks zones as reported damage does; a fail cannot say which link failed — the curve is held all the same, since its figures stand on the whole chain",
     "amended_before_run": "2026-10-21, after registration (ce7b572) and before any modelled figure was compared with reported damage, at the product owner's decision of the same day: the unit is the NWS forecast office area, not the forecast zone. The registration placed a record in the zone its STATE and CZ_FIPS name on the 18 March 2025 outlines; the build's input check found that $92.7bn of the $238.0bn of wind damage (2024 dollars, 39%) is recorded in zone codes those outlines no longer hold — zones NWS split or renamed, mostly in the 2004–2005 and 2020 seasons — and a match on the same state and zone name recovers 6% of it. Every record names its forecast office (WFO), and the 2025 outlines name each zone's office (CWA), which places 99.9% of the damage. So: a record of the listed states, by zone or by county, is placed in the office area its WFO names; an office area is the 2025 outlines' zones of that office within the listed states; its asset value is the LitPop value of the cells whose centres fall in those zones; a record naming an office the 2025 outlines do not hold ('EYW', $0.21bn) is counted and set aside. Everything else — damage, prices, exposure, the modelled figure (now the asset-weighted mean over the office area's cells), the curves, the metric, the rule and the information figure — is unchanged, with 'zone' read as 'office area'. Also found and fixed before any figure was computed: NOAA writes some amounts without a leading zero ('.5M', '.2B') and the first parser set them aside (E305)."
+  },
+  "published_curve_test_commercial": {
+    "registered": "2026-10-23",
+    "statement": "stated before the test was built or run, at the product owner's decisions of 2026-10-23: (1) 'Commercial only' — the North America commercial curve is tested on NFIP claims of non-residential buildings, mobile homes left out as for houses; the North America industrial curve stays untested, as FEMA's occupancy codes do not separate industrial buildings; (2) 'Event-total test alone' — the curve publishes no range, so the event-total test decides alone",
+    "why_this_data": "a curve's level is judged only by records that give, per building, the water depth, the damage in money and the building's value; the search of 2026-10-23 for such records under an open licence found none in Europe (docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md, item 19) and, outside the US, none with enough claims; the NFIP claims already held give all three for non-residential buildings",
+    "curve": "jrc_huizinga_2017:commercial:021 (North America, commercial)",
+    "claims": "the prepared NFIP claims (services.loss.claims) of FEMA occupancyType 4 'Non-residential building', 6 'Non Residential - Business', 18 'A non-residential building' and 19 'a non-residential unit within a multi-unit building' (NFIP Redacted Claims v3 data dictionary); 17 'Non-residential mobile/manufactured home' left out, as mobile homes (14) are left out of the houses; in the curve's countries only: FEMA's state field (\"The two-character alpha abbreviation of the state in which the insured property is located\") one of the 50 states or the District of Columbia (ISO 3166-2:US); Puerto Rico, the US Virgin Islands, Guam, American Samoa and the Northern Mariana Islands are ISO 3166-2:US outlying areas with their own ISO 3166-1 codes (PR, VI, GU, AS, MP), in the UN M49 regions of other curves, and a claim with no state cannot be placed — each set aside and counted; exteriorWaterDepth in inches with measured_curves' set-asides (no exterior depth, the 999 placeholder, zero or below, above 144 inches), converted to metres (× 0.0254)",
+    "occupancy_codes": [
+      4,
+      6,
+      18,
+      19
+    ],
+    "held_out": "nothing is fitted to the claims, so every event with at least test.min_event_claims claims is held out",
+    "predicted": "as published_curve_test: each claim's damage ratio read off the curve at its depth (linear between the published points, the last held beyond); an event's predicted total = Σ ratio × the building's value (buildingPropertyValue)",
+    "range": "none: the workbook publishes no standard deviation for this curve (its 'spread': 'none published'), so the range test of test.band has nothing to judge and is recorded as not applicable",
+    "pass": "the event-total test as written in test.event_total, alone: the predicted event total within ±30% of the recorded total in at least two thirds of the held-out events — passed → published (its US figures shown as tested), failed → held",
+    "recorded": "on the curve in its family file, as published_curve_test",
+    "seen_before": "before this registration only counts were made, with no curve: on the raw claims file, 24,164 claims of codes 4, 6, 18 and 19 in the 50 states and DC with an exterior depth above 0 and at most 144 inches, a building value above zero and a damage amount, 9 events with at least 500 of them (11,997 claims); the prepared file's own set-asides (no recorded waterDepth, damage above the building's value) may lower them",
+    "limits_stated_before": "NFIP records insured buildings only, valued at the adjuster's actual cash value (as for the houses); 'non-residential' mixes shops, offices, warehouses, places of worship and farm buildings, while the curve is the commercial one; the buildings are those insured in the US while the curve speaks for North America; the North America residential curve failed this test by over-predicting every event (2026-10-07). A pass says the curve's event totals stand within the tolerance on these claims; a fail holds the curve"
   }
 }
