@@ -3,8 +3,8 @@ from the prepared NFIP claims (services.loss.claims), under data/reference/loss_
 events it was not built from.
 
   build()   per depth band: the claims, the share with no damage, the 10th/50th/90th percentile and the mean damage
-            ratio; residential claims only (FEMA's occupancy codes, quoted in the protocol); every claim set aside is
-            counted with its reason
+            ratio; residential claims only (FEMA's occupancy codes, quoted in the protocol) in the curve's countries
+            (E322); every claim set aside is counted with its reason
   test()    each flood event with ≥ 500 claims, predicted from all other events' claims: the event's total damage
             (Σ mean ratio of each claim's band × the building's value) against the recorded total, and the share of
             its claims whose damage ratio falls inside their band's 10th–90th percentile
@@ -21,21 +21,31 @@ from services.loss import claims, registry
 
 INCH = 0.0254
 FAMILY_FILE = registry.REF / "vulnerability" / "nfip_measured.json"
+COUNTRIES = ["US"]                  # the measured curve's countries: the claims it is built and tested from (E322)
 
 
 def protocol() -> dict:
     return json.loads((registry.REF / "loss_protocol.json").read_text(encoding="utf-8"))
 
 
-def _claims():
+def _claims(codes: list[int] | None = None, countries=("US",), use: str = "residential"):
+    """The prepared claims a curve is built or tested from: the curve's countries only (measured_curves 'countries',
+    E322 — FEMA's state field read through services.reference.us_areas), the FEMA occupancy codes given (default the
+    residential codes), and the depth rules; every claim set aside is counted with its reason."""
     import pandas as pd
     import pyarrow.parquet as pq
+
+    from services.reference.us_areas import country
     P = protocol()["measured_curves"]
-    t = pq.read_table(claims.OUT, columns=["floodEvent", "occupancyType", P["depth_field"], "damage_ratio",
+    codes = P["residential_codes"]["codes"] if codes is None else codes
+    t = pq.read_table(claims.OUT, columns=["floodEvent", "state", "occupancyType", P["depth_field"], "damage_ratio",
                                             "buildingDamageAmount", "buildingPropertyValue"]).to_pandas()
+    place = t["state"].map(country)
     d = t[P["depth_field"]]
     steps = [
-        ("not a residential building (FEMA occupancy code)", ~t["occupancyType"].isin(P["residential_codes"]["codes"])),
+        ("no state recorded (the claim cannot be placed in a country)", place.isna()),
+        ("outside the curve's countries (a US outlying area: its own country)", ~place.isin(list(countries))),
+        (f"not a {use} building (FEMA occupancy code)", ~t["occupancyType"].isin(codes)),
         ("no exterior water depth recorded", d.isna()),
         (f"exterior depth recorded as {P['set_aside']['placeholder_in']} (a placeholder)", d == P["set_aside"]["placeholder_in"]),
         ("no water above ground (exterior depth zero or negative)", d <= 0),
@@ -46,10 +56,18 @@ def _claims():
         mask = mask.fillna(False) & ~drop
         aside[why] = int(mask.sum())
         drop |= mask
-    kept = t[~drop].copy()
+    kept = t[~drop].assign(country=place[~drop])
     kept["band"] = np.digitize(kept[P["depth_field"]].to_numpy(), P["bins_in"][1:-1], right=True)
     assert len(kept) + sum(aside.values()) == len(t)
     return kept, aside, len(t)
+
+
+def enough_events(within: int, events: int) -> bool:
+    """The event-total test's count (loss_protocol.json test.event_total): at least the registered share of the held-out
+    events within the tolerance, the share held as a whole-number fraction and compared in whole numbers — 'at least two
+    thirds' is within × 3 ≥ events × 2, never a rounded decimal (E323: 0.67 failed 6 of 9)."""
+    f = protocol()["test"]["event_total"]["share_of_events_required"]
+    return events > 0 and within * f["denominator"] >= events * f["numerator"]
 
 
 def _bands(df) -> list[dict]:
@@ -90,7 +108,7 @@ def test(df) -> dict:
     within = [r for r in rows if r["error"] is not None and abs(r["error"]) <= T["event_total"]["tolerance"]]
     share = len(within) / len(rows) if rows else 0.0
     coverage = inside_all / n_all if n_all else 0.0
-    passed_total = share >= T["event_total"]["share_of_events_required"]
+    passed_total = enough_events(len(within), len(rows))
     passed_band = T["band"]["coverage_min"] <= coverage <= T["band"]["coverage_max"]
     return {"protocol": protocol()["protocol"], "events": rows, "events_tested": len(rows),
             "events_within_tolerance": len(within), "share_within_tolerance": round(share, 4),
@@ -121,7 +139,7 @@ def _non_decreasing(means: list[float], weights: list[int]) -> tuple[list[float]
 
 def build_family() -> dict:
     P = protocol()["measured_curves"]
-    df, aside, n_in = _claims()
+    df, aside, n_in = _claims(countries=COUNTRIES)
     bands = _bands(df)
     thin = [b for b in bands if b["n"] < P["min_claims_per_bin"]]
     if thin:
@@ -140,7 +158,7 @@ def build_family() -> dict:
         "beyond_last": "hold",
         "derivation": {"protocol": protocol()["protocol"], "built": date.today().isoformat(),
                        "depth_field": P["depth_field"], "residential_codes": P["residential_codes"]["codes"],
-                       "claims_in": n_in, "claims_used": int(len(df)), "set_aside": aside,
+                       "claims_in": n_in, "claims_used": int(len(df)), "set_aside": aside, "countries": COUNTRIES,
                        "method": "mean damage ratio at each band's midpoint (central value); the band's 10th and 90th "
                                  "percentiles as the range; the ratio is building damage / building value, both "
                                  "actual cash value as the adjuster recorded them. Damage does not fall as water "
@@ -149,12 +167,25 @@ def build_family() -> dict:
                                  "the bands",
                        "pooled_bands": pooled},
         "curves": [{"key": "nfip_measured:residential:united_states", "occupancy": "residential",
-                    "region": "united_states", "countries": ["US"], "points": points, "bands": bands}],
+                    "region": "united_states", "countries": COUNTRIES, "points": points, "bands": bands}],
         "test": result}
 
 
-def write() -> dict:
+def _summary(fam: dict) -> dict:
+    d, t = fam.get("derivation") or {}, fam.get("test") or {}
+    return {"built": d.get("built"), "claims_used": d.get("claims_used"), "countries": d.get("countries"),
+            "events_tested": t.get("events_tested"), "events_within_tolerance": t.get("events_within_tolerance"),
+            "band_coverage": t.get("band_coverage"), "passed": t.get("passed")}
+
+
+def write(supersedes_because: str | None = None) -> dict:
+    """Build the family and write it; a build it replaces for a stated reason is kept, summarised, under 'superseded'."""
     fam = build_family()
+    if FAMILY_FILE.exists():
+        old = json.loads(FAMILY_FILE.read_text(encoding="utf-8"))
+        fam["superseded"] = old.get("superseded", [])
+        if supersedes_because:
+            fam["superseded"].append({**_summary(old), "because": supersedes_because})
     FAMILY_FILE.parent.mkdir(parents=True, exist_ok=True)
     FAMILY_FILE.write_text(json.dumps(fam, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     return fam

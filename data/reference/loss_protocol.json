@@ -47,8 +47,12 @@
     "min_event_claims": 500,
     "event_total": {
       "tolerance": 0.3,
-      "share_of_events_required": 0.67,
-      "statement": "predicted event total within ±30% of the recorded total in at least two thirds of the held-out events"
+      "share_of_events_required": {
+        "numerator": 2,
+        "denominator": 3
+      },
+      "statement": "predicted event total within ±30% of the recorded total in at least two thirds of the held-out events",
+      "amended_before_run": "2026-10-23, before the commercial curve test (published_curve_test_commercial) was run, at the product owner's decision of the same day ('The words: two thirds'): the share was stored as 0.67 while the statement says 'at least two thirds'; with 9 events, 6 of 9 (0.667) meets the words and failed the number. The words govern, stored exactly as 2 of 3 and compared in whole numbers (events within × 3 ≥ events × 2) (E323). No recorded result changes: the tests run so far had 38 events, where both readings need 26"
     },
     "band": {
       "from_quantile": 0.1,
