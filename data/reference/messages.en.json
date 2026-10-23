@@ -12547,6 +12547,26 @@
     "what": "The file could not be read as a workbook, or it holds no sheet of your sector's books.",
     "next": "Download the standard file again and fill its sheets; renamed sheets are still read."
    }
+  },
+  "intake.book.funds": {
+   "label": "Your funds",
+   "detail": {
+    "what": "One row per fund: its name, type, SFDR article and base currency; a sub-portfolio names its parent fund."
+   }
+  },
+  "intake.book.fund_holdings": {
+   "label": "Your fund holdings",
+   "detail": {
+    "what": "One row per position: the fund, the security's ISIN, its market value and the date of the fund's book."
+   }
+  },
+  "disclose.fund.refused.kind": {
+   "status": 422,
+   "label": "Choose the fund's type and SFDR article",
+   "detail": {
+    "what": "A fund is a fund, a sub-portfolio, a mandate or a fund of funds, and discloses under SFDR article 6, 8 or 9.",
+    "next": "Pick one of each from the lists."
+   }
   }
  },
  "names": {
@@ -13729,6 +13749,26 @@
    "present": "Present day",
    "rcp4p5": "RCP4.5",
    "rcp8p5": "RCP8.5"
+  },
+  "onboarding.vocab.fund_type": {
+   "fund": "Fund",
+   "sub_portfolio": "Sub-portfolio",
+   "mandate": "Mandate",
+   "fund_of_funds": "Fund of funds"
+  },
+  "onboarding.vocab.sfdr_article": {
+   "article_6": "Article 6",
+   "article_8": "Article 8",
+   "article_9": "Article 9"
+  },
+  "onboarding.vocab.asset_class": {
+   "equity": "Equity",
+   "corporate_bond": "Corporate bond",
+   "sovereign_bond": "Sovereign bond",
+   "securitized": "Securitised",
+   "etf": "Exchange-traded fund",
+   "fund": "Fund",
+   "other": "Other"
   }
  }
 }

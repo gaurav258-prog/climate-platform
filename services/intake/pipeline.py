@@ -269,7 +269,7 @@ def _store_controls(session: Session, batch_id: str, ctl: dict) -> None:
 
 def _land(session: Session, org_id: str, tpl: Template, batch_id: str, ctl: dict, *, actor_user: Optional[str],
           actor_token: Optional[str], from_state: str, detail: Optional[dict] = None) -> dict:
-    res = staging.land(session, org_id, tpl.sector, ctl["staged"], batch_id)
+    res = staging.land(session, org_id, tpl.sector, ctl["staged"], batch_id, actor_user)
     landing = bc.landing_check(n_valid=ctl["report"]["n_valid"], n_landed=res["n_landed"],
                                value_valid=ctl["value_valid"], value_landed=res["value_landed"])
     if res["n_landed"] == 0:

@@ -76,6 +76,17 @@ VOCABS: dict[str, Vocab] = {
     # Art. 2(15) operator, 2(15a) micro or small primary operator, 2(15b) downstream operator, 2(17) trader
     "eudr_role": Vocab(("operator", "micro_small_primary_operator", "downstream_operator", "trader")),
     "eudr_supplier_role": Vocab(("operator", "downstream_operator", "trader")),
+    # an asset manager's funds (services/funds/registry.py: FUND_TYPES, SFDR_ARTICLES) and what a holding is
+    "fund_type": Vocab(("fund", "sub_portfolio", "mandate", "fund_of_funds"),
+                       {"sub_fund": "sub_portfolio", "subportfolio": "sub_portfolio", "segregated_mandate": "mandate",
+                        "fof": "fund_of_funds", "funds_of_funds": "fund_of_funds"}),
+    # Regulation (EU) 2019/2088 Art. 6, 8 and 9 — the manager's classification
+    "sfdr_article": Vocab(("article_6", "article_8", "article_9"),
+                          {"6": "article_6", "8": "article_8", "9": "article_9", "art_6": "article_6", "art_8": "article_8",
+                           "art_9": "article_9", "article6": "article_6", "article8": "article_8", "article9": "article_9"}),
+    "asset_class": Vocab(("equity", "corporate_bond", "sovereign_bond", "securitized", "etf", "fund", "other"),
+                         {"share": "equity", "shares": "equity", "stock": "equity", "corporate_bonds": "corporate_bond",
+                          "government_bond": "sovereign_bond", "govt_bond": "sovereign_bond", "abs": "securitized"}),
 }
 
 
@@ -264,6 +275,26 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        "row's book date, from its accounts (Pillar 3 Template 1 column i: a sector-average scope 3 intensity per EUR "
        "million of revenue).", "310000000", aliases=("revenue", "revenue_eur", "annual_revenue", "turnover",
                                                      "net_turnover"), flow=True),
+    # ── an asset manager's funds and their holdings by ISIN (services/ingest/fund_books.py) ──
+    _f("fund_name", "Fund", "name", "The fund's name — on a holding, exactly as on its row of the Funds sheet.",
+       "Kestrel Ridge European Equity", aliases=("fund", "portfolio", "portfolio_name", "product", "product_name")),
+    _f("fund_type", "Fund type", "vocab", "fund, sub_portfolio, mandate or fund_of_funds.", "fund", vocab="fund_type",
+       aliases=("type", "vehicle_type", "structure")),
+    _f("sfdr_classification", "SFDR article", "vocab", "The article of Regulation (EU) 2019/2088 the fund discloses under "
+       "— article_6, article_8 or article_9; your classification, never assumed.", "article_8", vocab="sfdr_article",
+       aliases=("sfdr", "sfdr_article", "sfdr_category", "article")),
+    _f("base_currency", "Base currency", "vocab", "The fund's base currency (ISO 4217).", "EUR", vocab="currency",
+       aliases=("fund_currency", "reference_currency")),
+    _f("parent_fund", "Parent fund", "text", "For a sub-portfolio: the fund it belongs to, by its name on this sheet.",
+       "Kestrel Ridge Funds", aliases=("umbrella", "parent", "umbrella_fund")),
+    _f("fund_lei", "Fund LEI", "id", "The fund's LEI, if it has one — checked against the GLEIF register.",
+       "5493001KJTIIGC8Y1R12", aliases=("lei", "fund_legal_entity_identifier")),
+    _f("isin", "ISIN", "id", "The security's ISIN (12 characters, ISO 6166).", "DE0007164600",
+       aliases=("isin_code", "security_isin", "instrument_isin", "identifier")),
+    _f("market_value_eur", "Market value", "money", "The position's market value on its as-of date.", "18500000",
+       aliases=("market_value", "mv", "value", "position_value", "valuation")),
+    _f("asset_class", "Asset class", "vocab", "equity, corporate_bond, sovereign_bond, securitized, etf, fund or other.",
+       "equity", vocab="asset_class", aliases=("instrument_type", "security_type", "class")),
     # ── EUDR (Regulation (EU) 2023/1115): parties, placings / exports and the plots they came from ──
     _f("party_name", "Name", "name", "The business or person's name (Art. 9(1)(e)-(f)).", "Ashanti Cocoa Cooperative",
        aliases=("name", "supplier", "supplier_name", "customer", "customer_name", "company", "company_name")),

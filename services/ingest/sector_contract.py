@@ -147,4 +147,6 @@ class Sector:
     asset_book: bool = True                 # a book of located assets whose facts are observed per source (intake
                                             # observations); False for records that point to other books (EUDR parties,
                                             # movements, their plots) — identified by the undertaking's own ids only
+    money_record: bool = False              # the write reads each record's amounts as sent (_money), not only in EUR — a
+                                            # book whose own store keeps the native amount (fund positions)
     notes: dict = field(default_factory=dict)

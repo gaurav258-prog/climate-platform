@@ -27,7 +27,8 @@ pytestmark = pytest.mark.integration
 ROOT = Path(__file__).resolve().parents[2]
 NORDKAP = "44444444-4444-4444-8444-444444444444"
 # where the codes are raised or rendered
-FILES = ["api/routers/funds.py", "api/routers/eet.py", "api/routers/sfdr_documents.py", "api/routers/esrs.py",
+FILES = ["api/routers/funds.py", "services/funds/registry.py", "services/funds/holding.py", "services/funds/onboarding.py",
+         "services/ingest/fund_books.py", "api/routers/eet.py", "api/routers/sfdr_documents.py", "api/routers/esrs.py",
          "api/routers/periods.py", "services/fund_messages.py", "services/governance/sfdr_pai_answers.py",
          "services/governance/sfdr_answers.py", "services/governance/sfdr_product.py", "services/governance/template_answers.py",
          "services/eet/fields.py", "services/eet/publication.py", "services/eet/share_classes.py", "services/eet/generator.py",

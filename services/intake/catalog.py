@@ -79,6 +79,12 @@ TEMPLATES: dict[str, Template] = {
     "realestate_properties": Template("realestate_properties", si.REALESTATE, "reit", "property schedule", ("csv", "xlsx"),
                                       lambda df: T.PROPERTY_TEMPLATE_FIELDS, lambda df: "property_value_eur",
                                       "properties.upload", loss_book="realestate"),
+    # an asset manager's funds, then their holdings by ISIN (services/ingest/fund_books.py) — a fund before its positions
+    "funds": Template("funds", si.SECTORS["funds"], "asset_manager", "funds", ("csv", "xlsx"),
+                      lambda df: T.FUND_TEMPLATE_FIELDS, lambda df: None, "funds.upload", sheet="Funds"),
+    "fund_holdings": Template("fund_holdings", si.SECTORS["fund_holdings"], "asset_manager", "fund holdings", ("csv", "xlsx"),
+                              lambda df: T.FUND_HOLDING_TEMPLATE_FIELDS, lambda df: "market_value_eur", "fund_holdings.upload",
+                              sheet="Fund holdings"),
     "assetmgmt_holdings": Template("assetmgmt_holdings", si.HOLDINGS, "asset_manager", "holdings book", ("csv", "xlsx"),
                                    lambda df: T.HOLDING_TEMPLATE_FIELDS, lambda df: "position_value_eur", "holdings.upload",
                                    loss_book="assetmgmt"),

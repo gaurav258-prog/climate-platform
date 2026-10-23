@@ -132,3 +132,24 @@ def test_e321_an_empty_currency_column_declares_nothing_so_the_currency_is_asked
     stated = _rows("bank_assets", tag, currency="EUR", book_date="2026-06-30")          # stated on the rows instead
     out = workbooks.check(s, org_id, "bank", _filled("bank", {"bank_assets": stated}), f"{tag}.xlsx")
     assert next(r for r in out["sheets"] if r["book"] == "bank_assets")["gate"] == "pass"
+
+
+def test_e322_a_household_mortgage_needs_no_enterprise_value_a_company_loan_does(session_rolled_back):
+    """E322: the loan tape required the counterparty's EVIC on every loan, a household's mortgage included — a figure a
+    household does not have, so a mortgage bank had to invent one. Now a household, government or central bank states
+    none (and one stated is refused); a company's loan still must, and a loan that does not say is treated as a company's."""
+    s, tag = session_rolled_back, uuid.uuid4().hex[:8]
+    org_id, _ = _org_and_admin(s, "bank")
+    homes = [{k: v for k, v in r.items() if k != "counterparty_evic_eur"} | {"counterparty_sector": "household"}
+             for r in _rows("bank_assets", tag, 2)]
+    company = [{k: v for k, v in r.items() if k != "counterparty_evic_eur"} | {"counterparty_sector": "non_financial_corporation"}
+               for r in _rows("bank_assets", tag + "c", 1)]
+    unsaid = [{k: v for k, v in r.items() if k != "counterparty_evic_eur"} for r in _rows("bank_assets", tag + "u", 1)]
+    stated = [r | {"counterparty_sector": "household"} for r in _rows("bank_assets", tag + "h", 1)]   # carries an EVIC
+    out = workbooks.check(s, org_id, "bank", _filled("bank", {"bank_assets": homes + company + unsaid + stated}),
+                          f"{tag}.xlsx", **BOOK)
+    loans = next(r for r in out["sheets"] if r["book"] == "bank_assets")
+    assert loans["n_valid"] == 2 and loans["n_error"] == 3, loans
+    said = {e["row"]: " ".join(e["problems"]) for e in loans["errors"]}
+    assert "Counterparty EVIC is missing" in said[4] and "Counterparty EVIC is missing" in said[5]
+    assert "Household has no Counterparty EVIC" in said[6]

@@ -37,7 +37,8 @@ def _customer_file(key: str, tag: str, n: int = 4, value_bump: float = 0.0) -> p
     # the value that ties the file together, whether or not the template requires it (policies: sum insured; sites:
     # site value) — without it a re-sent month would be byte-identical, which the receipt check rightly refuses
     value = tpl.value_field(pd.DataFrame(columns=[s["name"] for s in every]))
-    specs = [s for s in every if s.get("required") or s["name"] in ("external_ref", value)]
+    # a company's loan states its counterparty's enterprise value (E322: required for a company, not for a household)
+    specs = [s for s in every if s.get("required") or s["name"] in ("external_ref", value, "counterparty_evic_eur")]
     rows = []
     for i in range(n):
         r = {}

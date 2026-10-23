@@ -16,7 +16,7 @@ What the platform runs on and how it is built, tested and deployed. The architec
 | TypeScript | `~6.0.2` → 6.0.3 | `web/package.json` / lock file |
 | PostgreSQL (CI) | `timescale/timescaledb:latest-pg16` | `.github/workflows/ci.yml` integration-tests service |
 | PostgreSQL (local stack) | `timescale/timescaledb:latest-pg16` | `docker-compose.yml` service db |
-| Database migrations | 315 revisions, head `intake_sheet_20261023` | `core/db/migrations/versions/` |
+| Database migrations | 316 revisions, head `fund_pos_money_20261023` | `core/db/migrations/versions/` |
 
 ## 2. Backend dependencies (Python)
 

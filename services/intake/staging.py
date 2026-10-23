@@ -126,9 +126,12 @@ def persist(session: Session, batch_id: str, st: dict) -> None:
         """), rows)
 
 
-def land(session: Session, org_id: str, sector: Sector, st: dict, batch_id: Optional[str] = None) -> dict:
+def land(session: Session, org_id: str, sector: Sector, st: dict, batch_id: Optional[str] = None,
+         actor_id: Optional[str] = None) -> dict:
     """Write the staged records: new assets inserted, existing assets updated with the values the file gives (a blank
-    never clears a value), unchanged assets left alone. Then read the book back and reconcile what landed."""
+    never clears a value), unchanged assets left alone. Then read the book back and reconcile what landed. `actor_id`:
+    who landed it (the sender, or the second person who approved) — a book that audits its own writes names them."""
+    st["ctx"]["actor_id"] = actor_id
     new, updates, unchanged_ids = [], [], []
     for s in st["staged"]:
         rec, m = dict(s["record"]), s["match"]
@@ -156,6 +159,9 @@ def land(session: Session, org_id: str, sector: Sector, st: dict, batch_id: Opti
     after = {e["entity_id"]: e for e in sector.existing(session, org_id) if e["entity_id"] in ids}
     value_landed = float(sum(e.get(sector.value_field) or 0 for e in after.values()))
     notes: dict = {"n_new": len(new), "n_updated": len(updates), "n_unchanged": len(unchanged_ids)}
+    for rep in st["ctx"].get("onboarding") or []:             # holdings by ISIN: what the register could not resolve
+        cov = rep.get("coverage") or {}
+        notes.setdefault("isins_not_found", []).extend(cov.get("unmatched", []) + cov.get("errored", []))
     needs_polygon = sum(1 for s in st["staged"] if s["record"].get("_needs_polygon"))
     if needs_polygon:
         notes["needs_polygon"] = needs_polygon

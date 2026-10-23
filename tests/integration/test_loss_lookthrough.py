@@ -179,8 +179,9 @@ def test_euros_on_the_holding_are_the_share_times_physical_value_times_its_part(
 
 
 def test_the_physical_asset_value_arrives_with_the_holding_at_its_closing_rate():
-    from api.routers.funds import Holding, _issuer_financials_eur
     from core.errors import UserError
+    from services.funds.holding import Holding
+    from services.funds.holding import financials_eur as _issuer_financials_eur
     from services.reference.fx import rate_for
     with pytest.raises(UserError) as refused:                     # its currency is never assumed
         Holding(isin="US0000000001", market_value_eur=1e6, physical_asset_value=4e9)
