@@ -7,6 +7,7 @@ Read as published: 'Quantidade produzida' (variable 214, tonnes) and 'Área colh
 harvested area. The national series stays FAOSTAT's (national precedence) — this source is regional only.
 
 What the reader sets aside, counted and shown with the release:
+  * a year before the product's current basis (the registry's from_year — coffee is surveyed green-bean from 2002)
   * a value IBGE does not give as a number ('-' zero or none, '...' not available, 'X' suppressed)
   * an area with no production figure for the year
 A unit other than tonnes and hectares, or a product name other than the registry's, is refused — never guessed.
@@ -32,10 +33,12 @@ FetchError = P.PublisherError
 PUBLISHER = "IBGE (SIDRA)"
 
 
-def crops() -> dict[tuple[str, str], tuple[str, str]]:
-    """{(table, product code): (our commodity, IBGE's product name)} from the crop registry."""
+def crops() -> dict[tuple[str, str], tuple[str, str, int | None]]:
+    """{(table, product code): (our commodity, IBGE's product name, first year on the current basis or None)} from the
+    crop registry."""
     from ml.features.crop_registry import crops as registry
-    return {(c["ibge_pam"]["table"], c["ibge_pam"]["product"]): (c["commodity"], c["ibge_pam"]["label"])
+    return {(c["ibge_pam"]["table"], c["ibge_pam"]["product"]):
+            (c["commodity"], c["ibge_pam"]["label"], c["ibge_pam"].get("from_year"))
             for c in registry() if c.get("ibge_pam")}
 
 
@@ -89,13 +92,16 @@ def _read(data: bytes, ufs: tuple[tuple[str, str], ...]) -> tuple[list[dict], li
         table, product = key.split("/")
         if (table, product) not in by_product:
             continue                                        # a product the registry no longer names: not read
-        commodity, label = by_product[(table, product)]
+        commodity, label, from_year = by_product[(table, product)]
         for r in rows[1:]:
             if r["D4C"] != product or r["D4N"] != label:
                 raise FetchError("agri.feed.unexpected_member", source=PUBLISHER, crop=commodity,
                                  member=f"product {r['D4C']} '{r['D4N']}'", where=f"table {table}")
             field, unit = VARIABLES.get(r["D2C"], (None, None))
             if field is None:
+                continue
+            if from_year and int(r["D3C"]) < from_year:
+                aside.add("before_basis", year=str(from_year))     # another measure under the same code
                 continue
             if r["V"] in NOT_PUBLISHED or not r["V"].strip():
                 aside.add("not_published", why=NOT_PUBLISHED.get(r["V"], "no value"))

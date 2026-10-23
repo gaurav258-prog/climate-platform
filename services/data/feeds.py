@@ -159,6 +159,11 @@ FEEDS: list[dict] = [
     {"key": "crop_production_ibge_pam", "category": "reference", "cadence_days": 30,
      "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: IBGE — Produção Agrícola Municipal (SIDRA tables 1612 and 1613)"},
+    # Argentina's crop estimates for Buenos Aires province, as the province republishes them (CC BY 4.0); reviewed feed.
+    {"key": "crop_production_magyp_pba", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: Ministerio de Economía, Secretaría de Agricultura, Ganadería y Pesca — Estimaciones agrícolas, "
+                    "via the Provincia de Buenos Aires open data portal (CC BY 4.0)"},
     # checked against the CDS month list (no download); calibrations re-run, publication changes proposed for
     # review (E163).
     {"key": "weather_era5_land_global", "category": "reference", "cadence_days": 30,

@@ -109,3 +109,46 @@ def test_e330_the_crop_coverage_routes_load_shapely_at_import():
     out = subprocess.run([sys.executable, "-c", "import sys, api.routers.supply; print('shapely' in sys.modules)"],
                          capture_output=True, text=True, timeout=300)
     assert out.stdout.strip().endswith("True"), out.stderr[-500:]
+
+
+def test_coffee_is_read_from_ibges_current_basis_only():
+    """IBGE surveys green-bean coffee from 2002; earlier years of the same code are another measure — set aside."""
+    from services.reference import ibge_pam as I
+    I._read.cache_clear()
+    rows = [("31", "214", 2001, "Toneladas", "2000000"), ("31", "216", 2001, "Hectares", "1000000"),
+            ("31", "214", 2002, "Toneladas", "1500000"), ("31", "216", 2002, "Hectares", "1000000")]
+    data = json.dumps({"1613/2723": _sidra("2723", "Café (em grão) Total", rows)}).encode()
+    got = I.parse(data, {"31": "BR-MG"})
+    assert [r["season_year"] for r in got] == [2002] and got[0]["yoy_change_pct"] is None   # never joined to 2001
+    assert any(a["code"].endswith("before_basis") and a["rows"] == 2 for a in I.set_aside(data, {"31": "BR-MG"}))
+
+
+def test_the_buenos_aires_reader_sums_partidos_into_the_harvest_year():
+    from services.reference import magyp_pba as M
+    M._read.cache_clear()
+    csv_text = ("cultivo,campania,municipio_id,municipio_nombre,superficie_sembrada,superficie_cosechada,produccion,rendimiento\n"
+                "Trigo total,2022/23,06001,A,100,90,180,2000\nTrigo total,2022/23,06999,Ignorado,10,10,30,3000\n"
+                "Soja total,2022/23,06001,A,100,100,190,1900\nSoja total,2021/22,06001,A,100,100,SD,\n"
+                "Avena,2022/23,06001,A,5,5,5,1000\n")
+    rows = {(r["commodity"], r["season_year"]): r for r in M.parse(csv_text.encode(), {"06": "AR-B"})}
+    assert set(rows) == {("Wheat", 2022), ("Soybean", 2023)}     # wheat: the campaign's first year; soy: its second
+    assert rows[("Wheat", 2022)]["production_tonnes"] == 210 and rows[("Wheat", 2022)]["area_harvested_ha"] == 100
+    assert rows[("Soybean", 2023)]["yield_tonnes_ha"] == 1.9
+    aside = {a["code"].rsplit(".", 1)[1]: a["rows"] for a in M.set_aside(csv_text.encode(), {"06": "AR-B"})}
+    assert aside == {"not_published": 1, "area_only": 1}         # the 'SD' production; its year then has area only
+
+
+def test_each_buenos_aires_crops_harvest_year_agrees_with_its_season():
+    """The registry states which campaign year a crop's figures belong to; it must be the calendar year the crop's
+    Buenos Aires season ends in MIRCA-OS (the protocol's season reference): within one year → 'first', across the new
+    year → 'second'. A wrong year would compare a harvest with the weather of another season."""
+    from ml.features.crop_registry import crop, crops
+    from services.calibration import seasons
+    for c in crops():
+        if not c.get("magyp_pba"):
+            continue
+        names = crop(c["commodity"])["season_source"]["mirca_os"]
+        se = seasons.mirca_season(c["commodity"], 32, names, None, province="Buenos Aires")
+        if "held" in se:
+            continue
+        assert c["magyp_pba"]["harvest_year"] == ("second" if se["prev_months"] else "first"), c["commodity"]

@@ -48,6 +48,10 @@
     "product": "2699",
     "label": "Cevada (em grão)"
    },
+   "magyp_pba": {
+    "cultivo": "Cebada total",
+    "harvest_year": "first"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -134,7 +138,9 @@
    "ibge_pam": {
     "table": "1613",
     "product": "2723",
-    "label": "Café (em grão) Total"
+    "label": "Café (em grão) Total",
+    "from_year": 2002,
+    "from_year_basis": "IBGE's metadata: 'Café (em grão), exceto torrado, moído ou descafeinado: produto pesquisado a partir de 2002' — the green-bean product is surveyed from 2002; earlier years of the same SIDRA code are another basis, so they are not read"
    },
    "crop_map": {
     "map": "mapspam2020",
@@ -165,6 +171,10 @@
    ],
    "statcan_crop": "Wheat, durum",
    "statcan_label": "durum wheat",
+   "magyp_pba": {
+    "cultivo": "Trigo candeal",
+    "harvest_year": "first"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -199,6 +209,10 @@
     "table": "1612",
     "product": "2711",
     "label": "Milho (em grão)"
+   },
+   "magyp_pba": {
+    "cultivo": "Maíz",
+    "harvest_year": "second"
    },
    "crop_map": {
     "map": "mapspam2020",
@@ -274,6 +288,10 @@
    ],
    "statcan_crop": "Canola (rapeseed)",
    "statcan_label": "canola (rapeseed)",
+   "magyp_pba": {
+    "cultivo": "Colza",
+    "harvest_year": "second"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -338,6 +356,10 @@
     "product": "2714",
     "label": "Sorgo (em grão)"
    },
+   "magyp_pba": {
+    "cultivo": "Sorgo",
+    "harvest_year": "second"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -370,6 +392,10 @@
     "table": "1612",
     "product": "2713",
     "label": "Soja (em grão)"
+   },
+   "magyp_pba": {
+    "cultivo": "Soja total",
+    "harvest_year": "second"
    },
    "crop_map": {
     "map": "mapspam2020",
@@ -431,6 +457,10 @@
     "product": "109179",
     "label": "Girassol (em grão)"
    },
+   "magyp_pba": {
+    "cultivo": "Girasol",
+    "harvest_year": "second"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -464,6 +494,10 @@
     "table": "1612",
     "product": "2716",
     "label": "Trigo (em grão)"
+   },
+   "magyp_pba": {
+    "cultivo": "Trigo total",
+    "harvest_year": "first"
    },
    "crop_map": {
     "map": "mapspam2020",

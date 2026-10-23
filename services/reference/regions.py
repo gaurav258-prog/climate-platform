@@ -3,7 +3,7 @@
   ISO 3166-2 subdivisions — data/reference/regions/: each national authority's own list, kept exactly as published,
   with the rule that forms the ISO code from it (provenance.json): US — Census Bureau state FIPS/ANSI codes,
   'US-' + USPS code; BR — IBGE federative units, 'BR-' + sigla; CA — Statistics Canada SGC 2021 Table B, which states
-  each province's ISO 3166-2 code. A country without a list here has no named regions.
+  each province's ISO 3166-2 code; AR — the Georef API's provinces, which state their ISO 3166-2 code (iso_id). A country without a list here has no named regions.
   NUTS (EU regions) — Eurostat/GISCO NUTS 2021 (data/reference/geo/nuts3_eu_20m_2021.geojson); a NUTS code's parents
   are its prefixes (NUTS-1 three characters, NUTS-2 four), so every level is read from the level-3 file.
 
@@ -86,7 +86,15 @@ def ca_sgc_codes() -> dict[str, str]:
     return {r[0]: r[4] for r in t.rows if len(r) >= 5 and r[0].isdigit() and r[4].startswith("CA-")}
 
 
-_READERS = {"US": _us, "BR": _br, "CA": _ca}
+def _ar(raw: bytes) -> dict[str, str]:
+    """Georef's provinces: {iso_id: nombre} — the API states each province's ISO 3166-2 code."""
+    out = {p["iso_id"]: p["nombre"] for p in json.loads(raw)["provincias"]}
+    if len(out) != 24:
+        raise ValueError(f"Georef listed {len(out)} provinces — 24 expected")
+    return out
+
+
+_READERS = {"US": _us, "BR": _br, "CA": _ca, "AR": _ar}
 
 
 @lru_cache(maxsize=None)

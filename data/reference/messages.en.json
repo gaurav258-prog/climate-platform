@@ -3063,6 +3063,13 @@
     "why": "The platform checks IBGE every month. A new release waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
    }
   },
+  "reference.release.source.magyp_pba": {
+   "label": "Argentina crop estimates — Buenos Aires province",
+   "detail": {
+    "what": "Harvested area and production for the province of Buenos Aires, from the national agriculture secretariat's estimates as the province publishes them by district.",
+    "why": "The platform checks the province's file every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
   "reference.release.reading_changed": {
    "label": "Our reading of this source changed",
    "detail": {
@@ -3100,6 +3107,12 @@
    "label": "Not published ({why})",
    "detail": {
     "what": "The publisher marks the value as not published — not available, confidential, or too unreliable to publish. The row is not read."
+   }
+  },
+  "reference.release.aside.before_basis": {
+   "label": "Before the product's current basis ({year})",
+   "detail": {
+    "what": "The publisher measures the product on its current basis from {year}; earlier years of the same series are another measure, so they are not read and never joined to the later years."
    }
   },
   "reference.release.aside.state_group": {
@@ -11296,6 +11309,13 @@
    "detail": {
     "what": "Production and harvested area for each Brazilian state for the crops grown there, from IBGE's annual municipal agricultural production survey.",
     "why": "Values IBGE does not give as a number are set aside and shown with the release. It is checked monthly; a new release is held with its differences and used only after review."
+   }
+  },
+  "platform.feed.crop_production_magyp_pba": {
+   "label": "Argentina crop estimates (Buenos Aires province)",
+   "detail": {
+    "what": "Harvested area and production for the province of Buenos Aires for its main crops, from the national agriculture secretariat's estimates as the province republishes them.",
+    "why": "Values marked without data are set aside and shown with the release. It is checked monthly; a new file is held with its differences and used only after review."
    }
   },
   "platform.feed.weather_era_land_global": {

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(not (R.ROOT / R.reference()["iso3166_2"]["file"]
 
 @pytest.mark.parametrize("lat,lon,code", [(38.5, -98.5, "US-KS"), (52.1, -106.6, "CA-SK"), (-29.7, -53.8, "BR-RS"),
                                           (39.6, -3.0, "ES42"), (41.6, -0.9, "ES24"), (35.1, 33.4, "CY00"),
-                                          (5.6, -0.2, None), (30.0, -40.0, None)])
+                                          (-37.0, -60.0, "AR-B"), (5.6, -0.2, None), (30.0, -40.0, None)])
 def test_a_place_belongs_to_the_region_that_contains_it(lat, lon, code):
     assert R.region_of(lat, lon) == code
 
@@ -26,4 +26,5 @@ def test_every_region_is_a_code_of_the_reference_with_its_publishers_name():
     assert not any("~" in c for c in codes)                       # Natural Earth placeholders are never codes
     assert regions.name("ES42") == "Castilla-La Mancha" and regions.name("US-KS") == "Kansas"
     assert R.country_of("EL30") == "GR" and R.country_of("US-KS") == "US" and R.country_of("ES42") == "ES"
-    assert R.scheme_of("US") == "iso3166_2" and R.scheme_of("ES") == "nuts2" and R.scheme_of("AR") is None
+    assert R.scheme_of("US") == "iso3166_2" and R.scheme_of("ES") == "nuts2" and R.scheme_of("AR") == "iso3166_2"
+    assert R.scheme_of("MX") is None and regions.name("AR-B") == "Buenos Aires"

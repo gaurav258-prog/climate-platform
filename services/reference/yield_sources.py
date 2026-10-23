@@ -132,9 +132,17 @@ def _ibge_pam() -> YieldSource:
                        download=lambda: I.download(), set_aside=lambda data, c: I.set_aside(data, c))
 
 
+def _magyp_pba() -> YieldSource:
+    from services.reference import magyp_pba as M
+    return YieldSource(key="magyp_pba", feed_key="crop_production_magyp_pba", label=lambda: M.SOURCE, url=lambda: M.BASE,
+                       countries=lambda s: M.countries(s), reader=lambda c: M.reader(c),
+                       parse=lambda data, c: M.parse(data, c), published=lambda lm, et: M.published(lm, et),
+                       download=lambda: M.download(), set_aside=lambda data, c: M.set_aside(data, c))
+
+
 _BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "eurostat_regional": _eurostat_regional,
              "usda_fas": _usda_fas, "usda_nass": _usda_nass, "usda_nass_county": _usda_nass_county,
-             "statcan": _statcan, "ibge_pam": _ibge_pam}
+             "statcan": _statcan, "ibge_pam": _ibge_pam, "magyp_pba": _magyp_pba}
 
 
 def get(key: str) -> YieldSource:
