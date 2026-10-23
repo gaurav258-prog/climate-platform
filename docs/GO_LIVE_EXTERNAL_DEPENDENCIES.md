@@ -8,7 +8,7 @@ already built and tested**; this file exists so none of these is forgotten when 
 Companion docs: agri last-mile detail is in [`AGRI_OPS_READINESS.md`](AGRI_OPS_READINESS.md). Every item below
 degrades honestly in-product today (shows "pending" / "prepared" / withholds the figure) — nothing is faked.
 
-_Last reviewed: 2026-10-22._
+_Last reviewed: 2026-10-23 (XBRL items 1, 2, 16, 17 re-checked against the publishers' latest packages)._
 
 ## Status at a glance
 
@@ -16,8 +16,8 @@ _Last reviewed: 2026-10-22._
 |---|------|------|---------------|----------|------------------------------|
 | 9 | EBA Template 3 "Chemicals" NACE code list | Bank Pillar 3 Template 3 | full official crosswalk built for the other 7 sectors (extracted + OCR'd from the real Annex XL table) + a disclosed fallback for Chemicals | **EBA itself has not published it** — confirmed via their own Q&A (not a research gap) | EBA publishes the NACE list (next DPM release) → replace the division-20 fallback in `transition_alignment.py` |
 | 10 | NACE Rev. 2.1 transition (Template 3 only — Templates 1/5 already handled) | Bank Pillar 3, all templates using NACE | Templates 1/5 read NACE at section level (stable across the revision per JBRC's own advice); Template 3's crosswalk is fine-grained class/group level | EBA/JBRC guidance for Template 3 specifically not yet published as of the June-2025 JBRC advice | EBA/JBRC publish a Rev-2.1 equivalent of the Annex XL crosswalk → rebuild `_ANNEX_XL_NACE_CROSSWALK` against it |
-| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | the ESRS statement per undertaking and year, each figure keyed by concept (`data/reference/esrs/concepts.json`); **JSON export only — no ESRS XBRL** (the provisional engine was removed, E60/E66) | the finalised taxonomy for the ESRS as amended (Aug-2024 set being superseded, draft at SRB 29-Jul-2026); mandatory tagging suspended until the ESEF RTS is updated | the finalised element list, verified against the XSD package → we build the binding concept → element and the iXBRL export on it |
-| 2 | EBA Pillar 3 ESG taxonomy (P3DH DPM) | Bank Pillar 3 XBRL | the templates to the ITS (Annex XL) per filing, exported as JSON and a workbook; **no Pillar 3 XBRL** — the instance under a Tellumen-made namespace was removed (E104, as E60/E95), and filings of every date are refused the format | the EBA's DPM and XBRL taxonomy for the Pillar 3 Data Hub | the published taxonomy package → we build the binding (each template cell → its DPM datapoint, verified against the package) and the export on it |
+| 1 | EFRAG ESRS taxonomy element map | Agri / CSRD iXBRL | the ESRS statement per undertaking and year, each figure keyed by concept (`data/reference/esrs/concepts.json`); **JSON export only — no ESRS XBRL** (the provisional engine was removed, E60/E66) | EFRAG's taxonomy for the revised ESRS (Delegated Reg. 2026/1563) is a **draft** in consultation until 11 Nov 2026, final due to ESMA and the Commission by end-2026; EFRAG says it 'replaces' the Aug-2024 set and that tagging is 'not yet mandatory'. Product owner, 2026-10-23: keep the gap until the final (do not bind the Aug-2024 set) | EFRAG's final revised-ESRS taxonomy → we bind the concepts to its elements per ESRS version, verified against the package, and build the iXBRL export on it |
+| 2 | EBA Pillar 3 ESG taxonomy (P3DH DPM) | Bank Pillar 3 data hub (xBRL-CSV) | **Built 2026-10-23.** Every Template 1–10 cell bound to its EBA datapoint, read from the EBA's 4.2 package (module ESGDIS 2.1.0, reference dates from 31 Mar 2026): 2,564 cells + the open tables' columns and code lists, 0 EBA datapoints unbound (`data/reference/eba/p3esg_xbrlcsv.4.2.json`, `scripts/build_eba_p3esg_map.py`). Export `xbrlcsv` builds EBA's report package from the frozen filing (`services/governance/p3esg_xbrlcsv.py`); validated with Arelle on the EBA's taxonomy and on EBA Filing Rules v5.8 (`scripts/validate_p3esg_xbrlcsv.py`, CI job `xbrl-validation`) | EBA's 4.4 module (12 Oct 2026) follows the amending ITS, still a final draft; EBA switches off all its ESGDIS rules (Template 2 column p bound since the EBA's Q&A 2022_6625 states its denominator, E341) | adoption of the amending ITS → capture it on the change route and bind the 4.4 module the same way |
 | 3 | EUDR information-system registration + interface spec | Agri / EUDR statements | filing lifecycle built; reference recorded by hand | customer registration (EU Login) | published interface spec + test access → we map + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
@@ -29,8 +29,8 @@ _Last reviewed: 2026-10-22._
 | 13 | **SFTP server for drop-folder channels** | All sectors — data intake | drop-folder channels behind an inbox storage interface (`services/intake/inbox.py`, local backend), sweep every 5 min through the full intake pipeline with one pick-up per folder at a time, processed/ and refused/ (with reason) filing, SFTP key registration + `authorized_keys` rendering, admin UI (`services/intake/{dropfolder,inbox,sftp_keys}.py`, `/v1/intake/channels`, `/v1/intake/sftp-keys`) | an SFTP endpoint per deployment (OpenSSH chroot or a managed service such as AWS Transfer Family), one login per organisation, key-based, chrooted to `INTAKE_DROP_DIR/<org_id>` | point the server at `INTAKE_DROP_DIR` (or, with a bucket, add the object-store inbox backend) and load each organisation's `authorized_keys()` → customer systems write to `/<template>/incoming` |
 | 14 | **Production Kubernetes cluster** | All sectors — deployment | CI builds, tests and pushes the image (`ghcr.io/<owner>/climate-platform:<sha>`, Python 3.14) on every push to main; the deploy job applies `infra/k8s/*` and waits for the rollout, and skips with a notice while no cluster is connected (error log E26) | a cluster (namespace `climate-platform`), its secrets pre-created (`infra/k8s/secret.yaml`), and the GitHub `production` environment approval gate | set the repository secret `KUBECONFIG` (base64 kubeconfig) → the next push to main deploys |
 | 15 | S.27.01.01 rows added from 2027 (EIOPA taxonomy 2.10.0) | Insurer Solvency II | 2027 calculation; form names regions without a row; 2027 XBRL refused with the rows named | the amending ITS / legal act not yet identified (Cellar: none, 2026-09-30) | the act → new spec version on the change route, `s2701.REGION_ROW` extended |
-| 16 | EIOPA XBRL validation files | Insurer Solvency II XBRL | Arelle validation with EIOPA's rules (`scripts/validate_s2701_xbrl.py`), run by the E2E test when present | EIOPA / Eurofiling files are not redistributed in the repository | set `EIOPA_XBRL_PACKAGE` and `EIOPA_IAF_FILE` in CI |
-| 17 | Official SFDR PAI XBRL taxonomy | Asset manager SFDR PAI XBRL / iXBRL | the PAI statement per fund and entity (RTS Table 1), exported as JSON and a workbook; **no SFDR XBRL** — the instance and Inline XBRL under a Tellumen-made namespace were removed (E113, as E60/E95/E104); filings of every date are refused the format (409), the fund routes answer 410 | no official SFDR PAI XBRL taxonomy is held | an official taxonomy package → we bind each Table 1 indicator to its element (verified against the package), validate, and offer the format again |
+| 16 | EIOPA XBRL validation files | Insurer Solvency II XBRL | **Closed 2026-10-23.** EIOPA's latest packages pinned (address, size, SHA-256) in `data/reference/eiopa/s2701_xbrl.<version>.json`: 2.8.2 NACE 2.1 hotfix (to Q4/Annual 2026) with EIOPA's deactivation list of 3 Jun 2026, and 2.10.0 (from Q1 2027); both cell maps re-checked against them (710/710 cells, 0 differences). `scripts/validate_s2701_xbrl.py` runs EIOPA's rules with the functions taken from EIOPA's own package; CI job `xbrl-validation` fetches the pinned files (`scripts/fetch_xbrl_packages.py`, cached) and fails if they are missing (E338) | none — EIOPA publishes the files; CI fetches them as pinned | — |
+| 17 | Official SFDR PAI XBRL taxonomy | Asset manager SFDR PAI XBRL / iXBRL | the PAI statement per fund and entity (RTS Table 1), exported as JSON and a workbook; **no SFDR XBRL** — the instance and Inline XBRL under a Tellumen-made namespace were removed (E113, as E60/E95/E104); filings of every date are refused the format (409), the fund routes answer 410 | **none is published (checked 2026-10-23):** the ESAs' 2023 draft RTS that would have required Inline XBRL was not adopted (Cellar: RTS 2022/1288 amended only by 2023/363), no SFDR taxonomy exists, and SFDR itself is under Level 1 review (ESMA, 28 Sep 2026) | an official taxonomy package → we bind each Table 1 indicator to its element (verified against the package), validate, and offer the format again |
 | 18 | Coastal flood inundation maps (WRI Aqueduct Floods, coastal) — **RESOLVED 2026-10-23** | Loss engine — coastal flood losses, all sectors | coastal flood is a peril of the loss engine: WRI's coastal maps (with subsidence; present day and RCP4.5/8.5 2030/2050/2080 at the 5th, 50th and 95th percentile of sea-level rise; 9 return periods) registered as `aqueduct_coastal_flood`, read through the adopted depth curves (the JRC curves, on WRI's own statement), on the one warming timeline | — (WRI's host answers again at the same address, all 410 coastal files, re-uploaded 2026-03-27) | open: coastal defences (item 19); a test on observed coastal losses before any coastal figure leaves 'untested' |
 | 19 | Building-level flood loss records for the European damage curves | Loss engine — flood figures in Europe, all sectors | the curve test machinery (`services/loss/published_test.py`: event totals of Σ curve ratio × building value against recorded damage, under `data/reference/loss_protocol.json`); the European curves stay held on the regional HANZE test (2026-10-20), which cannot judge a curve | no openly licensed European record gives, per building, the water depth, the damage in money and the building's value (search of 2026-10-23): the holders that have them license them for research only or on request | a data-use agreement that allows commercial use and publishing the test's result → we register the test before reading the damage, run it, and the curves' standings follow |
 | 20 | Coastal flood protection standards — **BUILT for Europe 2026-10-23** | Loss engine — defended coastal flood losses | COASTPROS-EU (Zenodo 10.5281/zenodo.15024139, CC BY 4.0; 148 coastal NUTS2 regions, 24 countries) registered as protection layer `coastpros_eu` and applied with the river-flood rule; its text read 'clean entries only' (decided): a level, or a range giving a defended range | outside Europe's listed coastal regions, and where a region states a list, a condition or no level, protection stays unknown (undefended, labelled) | a global coastal protection-standards dataset → the same registration |
@@ -38,7 +38,22 @@ _Last reviewed: 2026-10-22._
 
 ---
 
-## 1 · EFRAG ESRS Set 1 taxonomy element map  *(external artifact — mid-replacement, not simply "not yet published")*
+## 1 · EFRAG ESRS taxonomy element map  *(external artifact — the revised-ESRS taxonomy is a draft)*
+- **Re-checked 2026-10-23 (EFRAG's own pages):**
+  - Final: the **ESRS Set 1 XBRL Taxonomy** of 30 Aug 2024 (`xbrl.efrag.org/downloads/ESRS-Set1-XBRL-Taxonomy.zip`,
+    1.9 MB) — for ESRS Set 1 ('which the EC adopted on 31 July 2023').
+  - Draft: EFRAG's **Draft XBRL Taxonomy for the Revised ESRS** (17 Sep 2026, entry point
+    `xbrl.efrag.org/taxonomy/esrs/2026-08-30/esrs.xsd`). EFRAG: "The Draft XBRL Taxonomy replaces the taxonomy released
+    by EFRAG in August 2024"; the consultation closes 11 Nov 2026; "EFRAG intends to submit the final XBRL Taxonomy to
+    ESMA and the European Commission by the end of 2026"; "Digital tagging of ESRS disclosures is not yet mandatory".
+    ([EFRAG news, 17 Sep 2026](https://www.efrag.org/en/news-and-calendar/news/efrag-releases-draft-esrs-xbrl-taxonomy-for-the-revised-esrs-and-launches-public-consultation))
+  - Licence: EFRAG's website disclaimer states reuse of its content "is prohibited without the prior written permission
+    of EFRAG"; the package's own terms were not read (nothing downloaded).
+- **Decided by the product owner, 2026-10-23 (decision tree in the XBRL session):** keep the named gap until EFRAG's final
+  revised-ESRS taxonomy — do not bind the Aug-2024 set to the versions it covers (2023/2772; as amended by 2025/1416).
+  Reasons on the record: tagging is not mandatory, EFRAG says the 2024 set is being replaced, and the licence wording is
+  unclear. Re-check when EFRAG delivers the final (end-2026); then ask before downloading, read the package's licence,
+  bind per ESRS version (the platform carries three: `esrs_fy2026_version`), validate with Arelle.
 - **Hook (2026-09-30):** none yet, by design. The provisional `tesrs:` profile, `services/intelligence/esrs_taxonomy.py`,
   `esrs_xbrl.py` and `config/efrag_esrs_binding.json` were **removed** (E60), and the CSRD package's XBRL with invented
   element names retired (E66): an XBRL file under names EFRAG never published is not a filing. The ESRS statement
@@ -81,18 +96,49 @@ _Last reviewed: 2026-10-22._
   per ESRS version, and the iXBRL/ESEF export on it, tested with Arelle. The history above (16 CONCEPTS, `tesrs:`) is
   kept as the record of why the provisional profile was never a filing format. **Do not invent element IDs.**
 
-## 2 · EBA Pillar 3 ESG taxonomy (P3DH DPM)  *(external artifact — EBA taxonomy pending)*
-- **State (E104, 2026-10-01):** there is **no Pillar 3 XBRL export**. The earlier export wrote an instance under a
-  Tellumen-made namespace (`https://taxonomy.tellumen.eu/p3esg/2024`) with 13 facts of our own naming, four of them
-  not template cells, waiting for element ids to be "dropped in" (`config/eba_p3esg_binding.json`). An instance under
-  invented element names is not a filing, so it was removed, as the ESRS XBRL (E60) and the EU Taxonomy XBRL (E95)
-  were: `bank_p3esg` exports JSON and the templates in a workbook (`filings.EXPORT_FORMATS`), and an XBRL request for
-  a filing of any date is refused (409). Guard: `tests/integration/test_filing_export.py`.
-- **Needed:** the EBA's own DPM and XBRL taxonomy for the **Pillar 3 Data Hub (P3DH)** — not held.
-- **Owner:** the EBA publishes it; building the binding is us.
-- **When it lands:** bind each template cell of the governing specification (`data/reference/regspec/bank_p3esg`)
-  to its DPM datapoint, every element verified against the taxonomy package (not a PDF), validate the instance with
-  the EBA's own rules, then offer the format again. **Do not invent element IDs.**
+## 2 · EBA Pillar 3 ESG taxonomy (P3DH DPM)  *(BUILT 2026-10-23 on the EBA's 4.2 package)*
+- **What the EBA publishes (checked 2026-10-23):** reporting framework 4.2's taxonomy package (13 Jan 2026) carries the
+  Pillar 3 data hub's ESG disclosure module ESGDIS 2.1.0 for Implementing Regulation (EU) 2024/3172 — its metadata states
+  'FromReferenceDate 2026-03-31' and no end date. Framework 4.4 (final technical package, 12 Oct 2026) carries the ESG
+  disclosures of the EBA's 'final draft amending Pillar 3 Implementing Technical Standards' (first reference date
+  12/2026), which the Commission has not adopted — not bound (the platform runs the adopted text). Implementing
+  Regulation (EU) 2026/722 (in force 16 Apr 2026) amends 2024/3172 for institutions' use of the EBA single access point.
+- **Binding (data model):** `scripts/build_eba_p3esg_map.py` reads every datapoint's cell code from the EBA's table
+  metadata and its row and column from the EBA's own labels, bound to the ITS cells of the spec
+  (`data/reference/regspec/bank_p3esg/its_2024_3172.json`): 2,564 cells, the open tables' columns (Templates 3, 5 row
+  13, 10) and their code-list members (IEA sector, NACE, instrument, counterparty), 0 EBA datapoints unbound. Every
+  difference is recorded in `data/reference/eba/p3esg_xbrlcsv.4.2.json` 'differences': ITS cells with no datapoint (the
+  greyed ones), EBA labels whose number differs from the ITS ('0.1 GAR', a 'qe.' for column ae), and Template 10's two
+  'Other counterparties' rows bound by elimination.
+- **Templates rebuilt to their instructions on the way (E339, decided 2026-10-23):** Template 3 is one row per IEA
+  sector × Annex XL NACE code × metric (Annex XL point 4(e)); Template 5 row 13 is broken down by NACE section; the
+  Annex XL crosswalk now equals the EBA's machine-readable list code for code (08.11, not 81.1).
+- **Export:** format `xbrlcsv` (`services/governance/p3esg_xbrlcsv.py`, from the frozen filing): EBA file name, report
+  package, parameters, a filing indicator for each of the 13 templates, one CSV per table. Refused, with the reason: a
+  reference date before 31 Mar 2026; a whole-organisation filing (the data hub names a report individual or
+  consolidated); an entity without its own LEI.
+- **Validation:** `scripts/validate_p3esg_xbrlcsv.py` — Arelle on the EBA's Dictionary, Frameworks and latest rule set
+  (SET 4.3.0.1, 14 Sep 2026), with the Eurofiling base files the EBA's entry point imports taken from EIOPA's pinned
+  package (the EBA's package does not carry them); plus the EBA Filing Rules v5.8 for xBRL-CSV. The EBA's severity sets
+  switch off all 2,743 ESGDIS assertions (as for every Pillar 3 disclosure module), so validation is the taxonomy's
+  (datapoint, type, dimensions, code lists) and the filing rules'. Proven both ways: the package passes; a wrong amount
+  or a NACE code outside the EBA's list fails.
+- **Settled by the EBA's Q&A (checked 2026-10-23, the standing check for every regulatory reading; E341):** Template 2
+  column p is 'the percentage of the exposures without EPC label of the collateral for which the institution is providing
+  EP estimates' (Q&A 2022_6625, final, 17 Feb 2023), so column a = columns b-g + o × (1 − p): the platform computes it so
+  (blank where an EP score does not say whether it is estimated), prints it as a percentage and the file carries it
+  (pi977). ITS 2024/3172 keeps the 2022/2453 wording the Q&A answers. Template 3 column e is 'the nominal value' of the
+  metric at its latest reference date (Q&A 2023_6859, final, 15 Dec 2023): the file (ri956) and the form carry the value
+  at its year. Every reading in data/reference/eba/p3esg_xbrlcsv.4.2.json records the Q&As found (id, status, date, the
+  EBA's words) or 'none found'.
+- **Recorded, not open:** the EBA's checks that a Template 3 distance be zero or more were questioned twice and rejected
+  as 'already identified and will be considered for the forthcoming release' (Q&As 2024_7100, 2024_7254); the platform
+  writes the ITS formula's signed result, and release 4.2 switches those checks off. A blank cell has no fact, and the
+  EBA's filing rule 1.7 lets its checks read it as zero in a template indicated as reported (no Pillar 3 Q&A found on
+  blank cells). The accompanying narrative (K_00.03) is indicated as not reported: the platform holds no narrative per
+  template.
+- **When the amending ITS is adopted:** capture it on the change route, rebuild the binding from the EBA's 4.4 package
+  (`scripts/build_eba_p3esg_map.py`) and pin it; the module is chosen by reference date.
 
 ## 3 · EUDR information system: registration + machine interface  *(customer, then us)*
 - **Built (E108):** each shipment's due diligence statement is a filing (`services/eudr/filing.py`): prepared from the
@@ -164,13 +210,30 @@ _Last reviewed: 2026-10-22._
 - **Needed:** the amending implementing act (or EIOPA's published ITS) → capture it on the change route as a new
   version of `sii_qrt_natcat`, extend `s2701.REGION_ROW`, sign off.
 
-## 16 · EIOPA XBRL validation files  *(external files, not redistributed — needed where validation runs)*
-- `scripts/validate_s2701_xbrl.py` validates an S.27.01.01 instance with Arelle against EIOPA's taxonomy and EIOPA's
-  own validation rules (15 rules apply to the end-to-end filing; all pass except BV264, which needs the undertaking's
-  man-made / other catastrophe sub-modules from its own package).
-- **Needs:** `EIOPA_XBRL_PACKAGE` = EIOPA_SolvencyII_XBRL_Taxonomy_2.8.2_Final_with_external_files.zip
-  (dev.eiopa.europa.eu) and `EIOPA_IAF_FILE` = interval-arithmetics.xml (www.eurofiling.info/eu/fr/xbrl/func/). The
-  end-to-end test runs the validation when both are set and skips that step otherwise → set both in CI.
+## 16 · EIOPA XBRL validation files  *(CLOSED 2026-10-23 — EIOPA's latest packages pinned and fetched by CI)*
+- **Which package for which date (EIOPA's page, 2026-10-23):** "2.8.2 … is applicable from the Q42024 / annual 2024
+  reference periods until Q4/Annual 2026 included"; its *Optional NACE 2.1 Hotfix* (30 Jun 2025) is the latest package
+  for those dates — "this hotfix maintains the same schemas and entry points as the current system", "The update is
+  instance backwards compatible"; "2.10.0 release will be applicable from Q1/2027 reporting reference period"
+  (published 3 Jul 2026). **2.9.0 is not Solvency II** — it is EIOPA's Pension Funds taxonomy.
+- **Pinned** in `data/reference/eiopa/s2701_xbrl.<version>.json` ('package', 'deactivations', 'verified'): file, address,
+  size, SHA-256, EIOPA's licence (v1.4 of 07/10/2025 — commercial use and distribution allowed, naming EIOPA as owner
+  and its download page). 2.8.2 also pins EIOPA's current deactivation list for the annual solo entry point
+  (`deactivations/282/ars-ignore-val.xml`, 3 Jun 2026, 30 rules): the package's own copy, frozen at release, switches
+  nothing off. Both cell maps were rebuilt from the packages (`scripts/build_eiopa_s2701_map.py`): 710 of 710 cells,
+  0 differences.
+- **Validation:** `scripts/validate_s2701_xbrl.py` picks the package by the instance's entry point, refuses a file whose
+  checksum is not the pinned one, links Eurofiling's function implementations from EIOPA's own package (iaf, math,
+  isin-check, custom-margin, extra-functions — EIOPA's rules call them; no separate Eurofiling download) and EIOPA's
+  deactivation list. Result on the 2.8.2 hotfix (2026-10-23): no instance error; 21 EIOPA rules evaluated on the
+  engine-built instance (15 on the end-to-end filing), all pass except BV264, which needs the undertaking's man-made /
+  other catastrophe sub-modules from its own package.
+- **How CI gets it:** job `xbrl-validation` (`.github/workflows/ci.yml`) runs `scripts/fetch_xbrl_packages.py` — HEAD
+  first, the pinned size and SHA-256 or refused, nothing else fetched — caches `.xbrl-packages/`, and runs
+  `tests/unit/test_xbrl_packages.py` with `XBRL_VALIDATION_REQUIRED=1` (a missing package fails the job; the image build
+  waits on it). Locally: `XBRL_PACKAGES_DIR=<dir> venv/bin/python -m scripts.fetch_xbrl_packages`, then the end-to-end
+  test validates when `XBRL_PACKAGES_DIR` is set. The 2.10.0 validation runs once item 15 closes (a 2027 export is
+  refused until then).
 
 ## 17 · Official SFDR PAI XBRL taxonomy  *(external artifact — none held)*
 - **State (E113, 2026-10-02):** there is **no SFDR PAI XBRL or Inline XBRL export**. The earlier export
@@ -183,7 +246,17 @@ _Last reviewed: 2026-10-22._
   reason. Guard: `tests/integration/test_filing_export.py` (no `taxonomy.tellumen.eu` anywhere in services, api, ml).
 - **What the regulation asks today:** RTS 2022/1288 Art. 4 — the participant "shall publish on their website" the
   statement (quoted in `data/reference/regspec/sfdr_pai/rts_2022_1288.json`); the workbook carries the Table 1 columns.
-- **Needed:** an official SFDR PAI XBRL taxonomy package — not held.
+- **Re-checked 2026-10-23 — none is published:**
+  - The ESAs' Final Report on draft RTS (JC 2023 55, 30 Nov 2023) proposed: "Financial market participants shall
+    prepare the information required by this Regulation in XHTML format and shall mark up the information contained
+    therein using the XBRL markup language" — a draft that names no taxonomy.
+  - It was not adopted: the EU's Cellar register lists one act amending Delegated Regulation 2022/1288 — Delegated
+    Regulation 2023/363 (in force 20 Feb 2023), which is about taxonomy-aligned investment disclosures, not XBRL.
+  - SFDR itself is under review: "Pending the outcome of the Level 1 negotiations on the Sustainable Finance Disclosure
+    Regulation (SFDR), ESMA, together with the EBA and EIOPA, will start preparing for potential technical input"
+    (ESMA22-1669215091-6873, 28 Sep 2026); "The SFDR proposal already includes an amended timeline for the submission
+    of information to ESAP" (same, §71).
+- **Needed:** an official SFDR PAI XBRL taxonomy package — not published.
 - **When it lands:** bind each Table 1 indicator of the governing specification (`data/reference/regspec/sfdr_pai`) to
   its element, every element verified against the taxonomy package (not a PDF), validate the instance with the
   publisher's rules, then offer the format again. **Do not invent element IDs.**

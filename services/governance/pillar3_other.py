@@ -59,21 +59,22 @@ def qualitative_rows(spec: dict, tid: str) -> list[dict]:
     return out
 
 
-def template3_values(spec: dict, assets: list[dict], reference_year: int) -> dict:
+def template3_values(spec: dict, assets: list[dict], reference_year: int) -> dict[str, list[dict]]:
+    """Template 3 per printed sector row (1-8): its rows as Annex XL point 4(e) asks — one per NACE code of column (b)
+    the sector's exposures fall under, with the sector's alignment metric (transition_alignment.template3_rows). A
+    sector with no exposure has no row. Column e carries the metric's value at the year of reference (EBA Q&A 2023_6859:
+    'the nominal value related to the latest reference date'). Column g (the institution's target for the metric) is
+    supplied per sector row."""
     from services.governance import transition_alignment as TA
-    by = {r["sector"]: r for r in TA.template3_grid(assets)["rows"]}
-    codes: dict[str, list[str]] = {}
-    for code, sec in TA._ANNEX_XL_NACE_CROSSWALK:
-        codes.setdefault(sec, []).append(code)
-    out = {}
+    rows = TA.template3_rows(assets)
+    out: dict[str, list[dict]] = {}
     for rid, secs in T3_SECTORS.items():
-        rows = [by[s] for s in secs if s in by]
-        gross = sum(r["gross"] for r in rows) if rows else 0
-        metric = "; ".join(f"{r['metric']}: {r['current_intensity']} {r['unit']}" for r in rows if r["current_intensity"] is not None)
-        dist = [r["distance_pct"] for r in rows if r["distance_pct"] is not None]
-        out[rid] = {"b": ", ".join(sorted({c for s in secs for c in codes.get(s, [])})) or None, "c": gross,
-                    "d": metric or None, "e": reference_year if rows else None,
-                    "f": (dist[0] if len(dist) == 1 else None) if dist else None, "g": None}
+        out[rid] = [{"nace": r["nace"], "b": r["nace_dotted"], "c": r["gross"],
+                     "d": f"{r['metric']} ({r['unit']})", "metric": f"{r['metric']} ({r['unit']})",
+                     "value": r["current_intensity"], "year": reference_year,
+                     "e": f"{r['current_intensity']} ({reference_year})" if r["current_intensity"] is not None else None,
+                     "f": r["distance_pct"], "n": r["n"]}
+                    for r in rows if r["sector"] in secs]
     return out
 
 

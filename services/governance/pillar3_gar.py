@@ -107,7 +107,7 @@ _EPC = dict(zip("hijklmn", "ABCDEFG"))
 BINDING: dict[str, dict] = {
     "T2": {"rows": {k: "computed:filter" for k in T2_ROWS},
            "columns": {"a": "computed:gross", **{c: "input:ep_score_kwh_m2" for c in _EP_BUCKETS},
-                       **{c: "input:epc_label" for c in _EPC}, "o": "input:epc_label=none", "p": "input:ep_score_estimated"}},
+                       **{c: "input:epc_label" for c in _EPC}, "o": "input:epc_label=none", "p": "computed:share_estimated"}},
     "T7": {"rows": {k: ("n/a" if v.get("heading") else "computed:sum" if "sum" in v else "computed:filter") for k, v in T7_ROWS.items()},
            "columns": {c: ("computed:gross" if m == "gross" else f"input:taxonomy_{m}") for c, (o, m) in _COLS_ASSETS.items()}},
     "T9_1": {"rows": {k: ("n/a" if v.get("heading") else "computed:sum" if "sum" in v else "computed:filter") for k, v in T91_ROWS.items()},
@@ -124,6 +124,18 @@ BINDING: dict[str, dict] = {
 
 
 # ───────────────────────────── facts and filters ─────────────────────────────
+
+def _t2_share_estimated(pop: list) -> float | None:
+    """Template 2 column p: the percentage of the exposures without an EPC label (column o) for which the institution
+    provides an EP estimate — EBA Q&A 2022_6625 (final, 17 Feb 2023), so that column a = columns b-g + o × (1 − p). An
+    exposure without an EP score carries no estimate; one with a score that does not state whether it is estimated
+    leaves p blank, as does a row with nothing in column o."""
+    no_epc = [(f, x) for f, x in pop if f["epc"] not in _EPC.values()]
+    den = sum(x for _, x in no_epc)
+    if not den or any(f["ep"] is not None and f["ep_estimated"] is None for f, _ in no_epc):
+        return None
+    return round(100 * sum(x for f, x in no_epc if f["ep"] is not None and f["ep_estimated"]) / den, 2)
+
 
 def _in_bucket(e: float, bounds: tuple) -> bool:
     lo, hi = bounds
@@ -253,7 +265,7 @@ def build(spec: dict, assets: list[dict], period_end: date | None = None) -> dic
         for c, lbl in _EPC.items():
             row[c] = sum(x for f, x in epc_known if f["epc"] == lbl) if epc_known else None
         row["o"] = sum(x for f, x in pop if f["epc"] not in _EPC.values())
-        row["p"] = (sum(x for f, x in pop if f["ep_estimated"]) if any(f["ep_estimated"] is not None for f, _ in pop) else None)
+        row["p"] = _t2_share_estimated(pop)
         row["_n"] = len(pop)
         t2[rid] = row
     counts = {"exposures": len(tagged), "new_in_period": len(new),

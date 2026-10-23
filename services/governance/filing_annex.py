@@ -734,6 +734,48 @@ def _spec_values_section(spec: dict, tid: str, values: dict, key: str, binding: 
             "spec": {"version": spec["version"], "template": tid, "sha256": spec["_sha256"]}}
 
 
+def _t3_section(spec: dict, values: dict, supplied: dict) -> dict:
+    """Template 3 as Annex XL point 4(e) asks: under each printed sector row, a row per NACE code of column (b) the
+    sector's exposures fall under (pillar3_other.template3_values). Column g, the institution's target for the sector's
+    metric, is entered once per sector row (key 'T3.<row>.g') and printed on each of its NACE rows."""
+    import services.regspec as R
+    from services.governance.pillar3_other import BINDING
+    t = R.template(spec, "T3")
+    cols = [c for c in t["columns"] if c["id"] != "r0"]
+    rows = []
+    for r in t["rows"]:
+        if BINDING["T3"]["rows"].get(r["id"], "n/a") == "n/a":
+            rows.append({"type": "row", "cells": [_txt(f"{r['id']} · {r['label']}")] + [_txt("") for _ in cols[1:]]})
+            continue
+        key = f"T3.{r['id']}.g"
+        got = (supplied or {}).get(key)
+        target = "—" if got is None else (f"{got:,}" if isinstance(got, (int, float)) else str(got))
+        subs = values.get(r["id"]) or [None]
+        for i, v in enumerate(subs):
+            cells = [_txt(f"{r['id']} · {r['label']}" + (f" — NACE {v['b']}" if v else ""))]
+            for c in cols[1:]:
+                if c["id"] == "g":
+                    cell = _mnum(target, "manual")
+                    cells.append({**cell, "key": key, "frozen_value": got,
+                                  "supply": {"framework": "bank_p3esg", "key": key}} if i == 0 else cell)
+                elif v is None or v.get(c["id"]) is None:
+                    cells.append(_mnum("—", "computed"))
+                elif c["id"] == "c":
+                    cells.append(_mnum(_eur(v["c"]), "computed"))
+                elif c["id"] == "f":
+                    cells.append(_mnum(f"{v['f']:.2f}%", "computed"))
+                else:
+                    cells.append(_mnum(str(v[c["id"]]), "computed"))
+            rows.append({"type": "row", "cells": cells})
+    notes = [_col_groups(t["columns"]), t.get("note"),
+             "One row per NACE code of column (b) under each sector, as Annex XL point 4(e) asks; the target (column g) is "
+             "entered once per sector and printed on each of its rows.", " ".join(_readings(spec, "T3"))]
+    return {"title": _p3_title(spec, "T3"), "key": "t3", "columns": ["Row"] + [_col_head(c) for c in cols[1:]],
+            "col_sources": [""] + ["integrated" if c["id"] == "g" else "computed" for c in cols[1:]],
+            "rows": rows, "note": " ".join(n for n in notes if n),
+            "spec": {"version": spec["version"], "template": "T3", "sha256": spec["_sha256"]}}
+
+
 def _printed(c: dict) -> str:
     """A column as the template prints it: its printed id where its address differs (a misprinted duplicate, 'ae' twice,
     is addressed ae_2 but shown 'ae')."""
@@ -775,8 +817,12 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
         txt = (f"{v:,.0f}" if kind == "t" else f"{v}%" if kind == "pct" else f"{v}y" if kind == "yrs" else _eur(v))
         return _mnum(txt, src)
 
-    rows = [{"type": "row", "cells": [_txt(f"{r['id']} · {r['label']}")] + [cell(c["id"], r["values"].get(c["id"])) for c in cols]}
-            for r in grid["rows"]]
+    rows = []
+    for r in grid["rows"]:
+        rows.append({"type": "row", "cells": [_txt(f"{r['id']} · {r['label']}")] + [cell(c["id"], r["values"].get(c["id"])) for c in cols]})
+        for b in r.get("breakdown") or []:            # T5 row 13 by NACE section (pillar3_grids.build)
+            rows.append({"type": "row", "cells": [_txt(f"{r['id']} · {b['label']}")] + [cell(c["id"], b["values"].get(c["id"]))
+                                                                                          for c in cols]})
     st = grid["stated"]
     supplied = [f"{lbl} stated for {st[k]:,} of {st['all']:,} exposures" if tid == "T1"
                 else f"{lbl} stated for {st[k]:,} of {st['sens']:,} physical-risk-sensitive exposures" for k, lbl in
@@ -882,11 +928,8 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         from services.governance import pillar3_gar, pillar3_other
         gar = pillar3_gar.build(spec, assets, period_end)
         sections.append(_spec_values_section(spec, "T2", gar["T2"], "t2", pillar3_gar.BINDING["T2"], "money",
-                                             note=_gar_note(gar["counts"], "T2")))
-        sections.append(_spec_values_section(spec, "T3", pillar3_other.template3_values(spec, assets, period_end.year), "t3",
-                                             pillar3_other.BINDING["T3"], "money", fmt_cols={"b": "text", "d": "text", "e": "text",
-                                                                                              "f": "pct", "g": "text"},
-                                             supplied=_supplied(payload)))
+                                             fmt_cols={"p": "pct"}, note=_gar_note(gar["counts"], "T2")))
+        sections.append(_t3_section(spec, pillar3_other.template3_values(spec, assets, period_end.year), _supplied(payload)))
         sections.append(_spec_values_section(spec, "T4", pillar3_other.template4_values(assets), "t4",
                                              pillar3_other.BINDING["T4"], "money", fmt_cols={"b": "pct", "d": "yrs", "e": "count"}))
 

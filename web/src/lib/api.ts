@@ -118,12 +118,26 @@ export function upload<T>(path: string, file: File, field = 'file', extra?: Reco
 
 // Authenticated file download: fetches with the bearer, streams to a Blob, triggers a browser save.
 // A plain <a href> can't carry the JWT, so tenant-scoped .xlsx endpoints need this.
-export async function download(path: string, filename: string): Promise<void> {
+// The name the server gives a file (Content-Disposition: RFC 5987 filename*, else filename).
+export function serverFilename(header: string | null): string | null {
+  if (!header) return null
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(header)
+  if (star) return decodeURIComponent(star[1])
+  const plain = /filename="([^"]+)"/i.exec(header)
+  return plain ? plain[1] : null
+}
+
+// `filename` omitted: the file keeps the server's name (a regulator's package whose name is part of the format).
+export async function download(path: string, filename?: string): Promise<void> {
   const token = getToken()
   const res = await fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-  if (!res.ok) throw new ApiError(res.status, await res.text())
+  if (!res.ok) {                                  // the refusal read as request() reads it, never as raw text (E340)
+    const text = await res.text()
+    const data = text ? safeJson(text) : null
+    throw new ApiError(res.status, (data as { detail?: unknown })?.detail ?? data ?? text)
+  }
   const blob = await res.blob()
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob); a.download = filename; a.click()
+  a.href = URL.createObjectURL(blob); a.download = filename ?? serverFilename(res.headers.get('Content-Disposition')) ?? 'download'; a.click()
   URL.revokeObjectURL(a.href)
 }

@@ -228,7 +228,7 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     from services.governance.pillar3_grids import BINDING, build
     total = next(rid for rid, how in BINDING["T1"]["rows"].items() if how == "computed:total")
     gross = next(r for r in build(_p3_spec(p), "T1", p["assets"], t1=rec)["rows"] if r["id"] == total)["values"]["a"]
-    assert dps["emissions.company_reported_pct"]["value"] == round((x("e1") + x("e2") + x("e4")) / gross * 100, 1)  # e3 is not
+    assert dps["emissions.company_reported_pct"]["value"] == round((x("e1") + x("e2") + x("e4")) / gross * 100, 2)  # e3 is not
     t1 = next(sec for sec in form["annex"]["sections"] if sec.get("key") == "t1")
     assert "sector-average" in t1["note"] and "Source X" in t1["note"] and "Scope 3 phase-in on" in t1["note"]
 
@@ -281,7 +281,7 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     assert not _findings(api, h, fid)["t1_k_reading_stated"]["passed"]
     _switch(api, h, checker, **{T1.K_READING: "scopes_estimated"})
     dps, _ = _form(api, h, _file(api, h))
-    assert dps["emissions.company_reported_pct"]["value"] == round((x("e1") + x("e2") + x("e4")) / gross * 100, 1)
+    assert dps["emissions.company_reported_pct"]["value"] == round((x("e1") + x("e2") + x("e4")) / gross * 100, 2)
     _switch(api, h, checker, **{T1.K_READING: "all_three_scopes"})
     dps, _ = _form(api, h, _file(api, h))
     assert dps["emissions.company_reported_pct"]["value"] == 0.0

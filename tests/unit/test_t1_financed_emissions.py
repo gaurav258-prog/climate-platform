@@ -79,7 +79,7 @@ def test_scopes_1_to_3_attributed_by_exposure_over_total_liabilities():
     v = _total(BOOK, _rec())
     assert v["i"] == pytest.approx(0.1 * 115 + 0.5 * 46)
     assert v["j"] == pytest.approx(0.1 * 100 + 0.5 * 40)
-    assert v["k"] == round(100_000 / 1_000_000 * 100, 1)      # reported: loan 1's gross over the row's gross
+    assert v["k"] == round(100_000 / 1_000_000 * 100, 2)      # reported: loan 1's gross over the row's gross
 
 
 def test_scopes_1_and_2_leave_column_j_blank_and_k_follows_the_stated_reading():
@@ -188,7 +188,7 @@ def test_scope_3_from_the_stated_sector_average_intensity():
     v = _total(book, _rec(scope3_sector_average="intensity_x_total_liabilities", sector_intensity=_SA))
     assert v["i"] == pytest.approx(0.1 * 115 + 0.5 * 46 + 0.1 * (30 + 500))
     assert v["j"] == pytest.approx(0.1 * 100 + 0.5 * 40 + 50.0)
-    assert v["k"] == round(100_000 / 1_200_000 * 100, 1)        # only loan 1 rests on company-specific reporting
+    assert v["k"] == round(100_000 / 1_200_000 * 100, 2)        # only loan 1 rests on company-specific reporting
 
 
 def test_scope_3_from_the_stated_revenue_intensity():

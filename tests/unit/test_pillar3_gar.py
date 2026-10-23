@@ -86,5 +86,26 @@ def test_template2_golden_book(version):
     assert (t2["1"]["a"], t2["2"]["a"], t2["3"]["a"]) == (700, 400, 300)   # EU: all, commercial, residential
     assert (t2["1"]["b"], t2["1"]["d"]) == (300, 400)                   # EP ≤ 100 and 200-300 buckets
     assert (t2["1"]["i"], t2["1"]["o"]) == (300, 400)                   # EPC B; without an EPC label
-    assert t2["5"]["a"] == 300 and t2["1"]["p"] == 300                  # EP score estimated
+    assert t2["5"]["a"] == 300                                          # EP score estimated
+    # column p is a share of column o: the one exposure without an EPC label does not say whether its score is estimated
+    assert t2["1"]["p"] is None
     assert t2["6"]["a"] == 0                                            # nothing collateralised outside the EU
+
+
+@pytest.mark.parametrize("version", ADOPTED)
+def test_template2_column_p_is_the_share_of_column_o_with_an_ep_estimate(version):
+    """E341: column p is 'the percentage of the exposures without EPC label of the collateral for which the institution
+    is providing EP estimates' (EBA Q&A 2022_6625, final), so column a = columns b-g + o × (1 − p) and = h-n + o. It was
+    computed as the amount of every estimated exposure, labelled or not."""
+    res = dict(immovable_collateral="residential", counterparty_sector="household")
+    book = [_a(100, epc_label="A", ep_score_kwh_m2=40, ep_score_estimated=False, **res),
+            _a(50, epc_label="C", ep_score_kwh_m2=120, ep_score_estimated=True, **res),   # label, score estimated (Q&A 2024_6983)
+            _a(200, ep_score_kwh_m2=150, ep_score_estimated=True, **res),                 # no label, score estimated
+            _a(300, **res)]                                                               # no label, no score
+    t2 = G.build(R.load("bank_p3esg", version), book, PE)["T2"]
+    r = t2["1"]
+    assert (r["a"], r["o"], r["p"]) == (650, 500, 40.0)
+    assert r["a"] == sum(r[c] or 0 for c in "bcdefg") + r["o"] * (1 - r["p"] / 100) == sum(r[c] or 0 for c in "hijklmn") + r["o"]
+    assert t2["5"]["a"] == 250 and t2["5"]["p"] == 100.0                  # the estimated row: its one unlabelled exposure
+    # a score without the estimated flag leaves the share unknown — blank, never a guess
+    assert G.build(R.load("bank_p3esg", version), book + [_a(10, ep_score_kwh_m2=90, **res)], PE)["T2"]["1"]["p"] is None

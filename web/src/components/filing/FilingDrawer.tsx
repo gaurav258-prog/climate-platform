@@ -152,19 +152,25 @@ function FrozenReport({ f, onShare }: { f: Detail; onShare: () => void }) {
         <div className="pt-3 border-t border-[var(--color-line)] flex flex-wrap items-center gap-2">
           <span className="text-[12px] text-[var(--color-faint)] mr-1">Download</span>
           {f.export_formats!.map(fmt => (
-            <button key={fmt} className={btn} onClick={() => download(`/v1/filings/${f.filing_id}/export?format=${fmt}`, `${f.framework}-${f.period_label}-v${s.version}.${fmt}`)
-              .catch(e => toast.error(apiMessage(e, 'Could not download the export.')))}><Download size={12} /> {fmt.toUpperCase()}</button>))}
+            <button key={fmt} className={btn} onClick={() => download(`/v1/filings/${f.filing_id}/export?format=${fmt}`,
+              SERVER_NAMED.has(fmt) ? undefined : `${f.framework}-${f.period_label}-v${s.version}.${fmt}`)
+              .catch(e => toast.error(apiMessage(e, 'Could not download the export.')))}><Download size={12} /> {FORMAT_LABEL[fmt] ?? fmt.toUpperCase()}</button>))}
           <button className={btn} onClick={() => download(`/v1/filings/${f.filing_id}/assurance-pack`, `assurance-${f.framework}-${f.period_label}.zip`)
             .catch(e => toast.error(apiMessage(e, 'Could not download the assurance pack.')))}><ShieldCheck size={12} /> Assurance pack</button>
           <button className={btn} onClick={onShare}><Send size={12} /> Share with auditor</button>
           <InfoButton compact details={{ title: 'Downloads', sections: [
             { heading: HEADING.shows, body: 'Each file is rendered from the frozen report, so it matches the fingerprint above.' },
+            ...(f.export_formats!.includes('xbrlcsv') ? [{ heading: 'xBRL-CSV', body: "The file the EBA's Pillar 3 data hub takes: every template figure on the EBA's own datapoint. Its name is the EBA's naming; keep it as downloaded." }] : []),
             { heading: 'Assurance pack', body: 'The evidence behind this filing for an auditor: the method, the validation record, the four-eyes approvals, where each figure came from, and a list of every file with its fingerprint.' },
             { heading: 'Share with auditor', body: 'Sends the auditor a link to the assurance pack. The link expires, counts downloads, can be revoked, and every access is logged.' }] }} />
         </div>)}
     </Card>
   )
 }
+
+// formats whose label is not the format code, and whose file name is part of the format (kept as the server sends it)
+const FORMAT_LABEL: Record<string, string> = { xbrlcsv: 'xBRL-CSV' }
+const SERVER_NAMED = new Set(['xbrlcsv'])
 
 function StageRail({ status }: { status: string }) {
   if (status === 'rejected' || status === 'superseded' || status === 'withdrawn')

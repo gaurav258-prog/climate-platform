@@ -8,6 +8,27 @@
   "quote": "Applicable: From Q1/2027 reporting reference period onwards"
  },
  "entry_point": "http://eiopa.europa.eu/eu/xbrl/s2md/fws/solvency/solvency2/2026-06-30/mod/ars.xsd",
+ "package": {
+  "release": "Insurance Data Point Model and Taxonomy 2.10.0 (published on 03/07/2026)",
+  "file": "EIOPA_SolvencyII_XBRL_Taxonomy_2.10.0_with_external_files.zip",
+  "url": "https://dev.eiopa.europa.eu/Taxonomy/Full/2.10.0/S2/EIOPA_SolvencyII_XBRL_Taxonomy_2.10.0_with_external_files.zip",
+  "bytes": 51397480,
+  "sha256": "da8eda7f6a82f5234611a19f62be92401752b538a20cb8de8d3396ab7e7c0c05",
+  "why_this_one": "EIOPA: 'The EIOPA Solvency II DPM and the XBRL taxonomy 2.10.0 release is to be used from Q1 2027 reference date' (release notes EIOPA-26-488, I)",
+  "source_page": "https://www.eiopa.europa.eu/tools-and-data/supervisory-reporting-dpm-and-xbrl_en",
+  "licence": {
+   "name": "EIOPA XBRL Taxonomy Licence Agreement, version 1.4 (07/10/2025)",
+   "url": "https://www.eiopa.europa.eu/system/files/2019-09/eiopa_dpm_and_taxonomy_license.pdf",
+   "quote": "Abovementioned rights can be exercised for commercial and non-commercial purposes provided that it is mentioned that (i) EIOPA is the owner of the copyright on the Taxonomy and that (ii) the Taxonomy is available for download, free of charge, on the following website: https://www.eiopa.europa.eu/tools-and-data/supervisory-reporting-dpm-and-xbrl_en",
+   "attribution": "EIOPA owns the copyright on the Solvency II DPM and XBRL taxonomy; it is available free of charge at https://www.eiopa.europa.eu/tools-and-data/supervisory-reporting-dpm-and-xbrl_en"
+  }
+ },
+ "deactivations": null,
+ "deactivations_note": "none published apart as of 2026-10-23: https://dev.eiopa.europa.eu/Taxonomy/Full/deactivations/2100/ars-ignore-val.xml answers 404; the package's own copy (4 rules) applies",
+ "verified": {
+  "date": "2026-10-23",
+  "how": "scripts/build_eiopa_s2701_map.py run on the 2.10.0 package and EIOPA_Solvency_II_DPM_Annotated_Templates_2.10.0.xlsx: 710 of 710 cells resolved, 0 disagreements with the annotated templates, 0 differences from this map"
+ },
  "mandatory_filing_indicators": [
   "S.01.01",
   "S.01.02"

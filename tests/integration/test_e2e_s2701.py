@@ -158,13 +158,13 @@ def _check_xbrl(content: bytes, sf: dict) -> None:
     total = next(f for f in els if etree.QName(f).localname == "mi685"
                  and ctx[f.get("contextRef")] == (("s2c_dim:EA", "s2c_VM:x20"), ("s2c_dim:RT", "s2c_RT:x102"), ("s2c_dim:VG", "s2c_AM:x80")))
     assert int(total.text) == sf["natcat_scr_eur"]                             # R0010/C0030 — after risk mitigation
-    if os.environ.get("EIOPA_XBRL_PACKAGE") and os.environ.get("EIOPA_IAF_FILE"):
+    if os.environ.get("XBRL_PACKAGES_DIR"):                                 # EIOPA's pinned package (scripts/fetch_xbrl_packages.py)
         from scripts.validate_s2701_xbrl import validate
         with tempfile.NamedTemporaryFile("wb", suffix=".xbrl", delete=False) as t:
             t.write(content)
         res = validate(t.name)
-        if os.environ.get("EIOPA_VALIDATION_REPORT"):                       # the run's record, when asked for
-            with open(os.environ["EIOPA_VALIDATION_REPORT"], "w") as out:
+        if os.environ.get("XBRL_VALIDATION_REPORT"):                        # the run's record, when asked for
+            with open(os.environ["XBRL_VALIDATION_REPORT"], "w") as out:
                 json.dump({**res, "evaluated": {k: list(v) for k, v in res["evaluated"].items()}}, out, indent=1)
         assert not res["instance_errors"] and not res["failed_in_scope"], res
         assert set(res["failed_needing_other_submodules"]) <= {"BV264_1-1"}      # needs man-made / other sub-modules

@@ -76,16 +76,24 @@ def test_unavailable_format_is_refused():
 
 
 @pytest.mark.integration
-def test_pillar3_has_no_xbrl_until_the_eba_taxonomy_is_bound():
-    """E104: the Pillar 3 XBRL was an instance under a Tellumen-made namespace (taxonomy.tellumen.eu) — not a filing. It
-    is removed, as E95 / E60 did: the report exports JSON and the templates in a workbook, and an XBRL request for a
-    filing of any date is refused. The Pillar 3 Tellumen-made namespace is left nowhere in the code."""
+def test_pillar3_goes_to_the_eba_data_hub_as_xbrl_csv_and_never_under_a_made_up_namespace():
+    """E104 removed an XBRL instance under a Tellumen-made namespace (taxonomy.tellumen.eu) — not a filing. Pillar 3 now
+    exports the EBA's own xBRL-CSV package (module ESGDIS, bound from the EBA's package); an XBRL-XML request is refused,
+    and a filing dated before the EBA's module applies is refused the package with the date it applies from."""
     from pathlib import Path
 
     from services.governance.filing_export import _xbrl, formats_for
-    assert formats_for("bank_p3esg") == ("json", "xlsx")
+    assert formats_for("bank_p3esg") == ("json", "xlsx", "xbrlcsv")
     with pytest.raises(ExportError):
         _xbrl(None, "x", "bank_p3esg", {}, {})
+    with get_session() as s:
+        fid = s.execute(text("SELECT filing_id::text FROM regulatory_filing WHERE framework = 'bank_p3esg' AND period_end < "
+                             "'2026-03-31' AND snapshot_id IS NOT NULL ORDER BY seq DESC LIMIT 1")).scalar()
+        org = s.execute(text("SELECT org_id::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid)"), {"f": fid}).scalar()
+        from core.errors import UserError
+        with pytest.raises(UserError) as e:
+            export_filing(s, org, fid, "xbrlcsv")
+        assert e.value.code == "filing.refused.xbrlcsv_reference_date" and e.value.params["start"] == "2026-03-31"
     root = Path(__file__).resolve().parents[2]
     assert not (root / "config" / "eba_p3esg_binding.json").exists()
     for d in ("services", "api", "ml"):

@@ -8,6 +8,33 @@
   "quote": "Applicable: Q4 2024 through Q4/Annual 2026"
  },
  "entry_point": "http://eiopa.europa.eu/eu/xbrl/s2md/fws/solvency/solvency2/2024-10-15/mod/ars.xsd",
+ "package": {
+  "release": "Insurance DPM and Taxonomy 2.8.2 - Optional NACE 2.1 Hotfix (published on 30/06/2025)",
+  "file": "EIOPA_SolvencyII_XBRL_Taxonomy_2.8.2_Hotfix_with_external_files.zip",
+  "url": "https://dev.eiopa.europa.eu/Taxonomy/Full/2.8.2_hotfix/S2/EIOPA_SolvencyII_XBRL_Taxonomy_2.8.2_Hotfix_with_external_files.zip",
+  "bytes": 47267221,
+  "sha256": "35ca352a7f3864b86c47e7b35b1cd5467f511f3ae70612d4cfa619c66bbd061b",
+  "why_this_one": "the latest Solvency II package EIOPA has published for reference dates up to Q4/Annual 2026; EIOPA: 'Technically, this hotfix maintains the same schemas and entry points as the current system' and 'The update is instance backwards compatible' (S.27.01 carries no NACE code)",
+  "source_page": "https://www.eiopa.europa.eu/tools-and-data/supervisory-reporting-dpm-and-xbrl_en",
+  "licence": {
+   "name": "EIOPA XBRL Taxonomy Licence Agreement, version 1.4 (07/10/2025)",
+   "url": "https://www.eiopa.europa.eu/system/files/2019-09/eiopa_dpm_and_taxonomy_license.pdf",
+   "quote": "Abovementioned rights can be exercised for commercial and non-commercial purposes provided that it is mentioned that (i) EIOPA is the owner of the copyright on the Taxonomy and that (ii) the Taxonomy is available for download, free of charge, on the following website: https://www.eiopa.europa.eu/tools-and-data/supervisory-reporting-dpm-and-xbrl_en",
+   "attribution": "EIOPA owns the copyright on the Solvency II DPM and XBRL taxonomy; it is available free of charge at https://www.eiopa.europa.eu/tools-and-data/supervisory-reporting-dpm-and-xbrl_en"
+  }
+ },
+ "deactivations": {
+  "file": "ars-ignore-val.xml",
+  "url": "https://dev.eiopa.europa.eu/Taxonomy/Full/deactivations/282/ars-ignore-val.xml",
+  "bytes": 16988,
+  "sha256": "53bf06a56355688e81c8edfd470f5cf63158447f677b9c368149af50994f40e9",
+  "published": "2026-06-03",
+  "quote": "Validation deactivation files will continue to be provided as before at dev.eiopa.europa.eu (EIOPA, release notes 2.10.0, V.4); the package's own copy of this file, frozen at release, deactivates nothing"
+ },
+ "verified": {
+  "date": "2026-10-23",
+  "how": "scripts/build_eiopa_s2701_map.py run on the 2.8.2 Hotfix package and EIOPA_Solvency_II_DPM_Annotated_Templates_2.8.2_Hotfix.xlsx: 710 of 710 cells resolved, 0 disagreements with the annotated templates, 0 differences from this map (metric, members, entry point, namespaces)"
+ },
  "mandatory_filing_indicators": [
   "S.01.02",
   "S.01.01"

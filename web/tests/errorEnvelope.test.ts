@@ -24,3 +24,17 @@ test('no screen reads a refusal from the top of the error body only', () => {
   const bad = files(SRC).filter(f => TOP_ONLY.test(readFileSync(f, 'utf8')))
   assert.deepEqual(bad, [])
 })
+
+// A refused download (lib/api.ts download) built its error from the raw response text, so the toast printed the whole
+// JSON envelope instead of the reason (E340). Every ApiError is built from the parsed body.
+export const RAW_BODY = /new ApiError\([^)]*await res\.text\(\)\)/
+
+test('the check finds an error built from the raw response text', () => {
+  assert.ok(RAW_BODY.test('if (!res.ok) throw new ApiError(res.status, await res.text())'))
+  assert.ok(!RAW_BODY.test("throw new ApiError(res.status, (data as { detail?: unknown })?.detail ?? data ?? text)"))
+})
+
+test('no request builds its error from the raw response text', () => {
+  const bad = files(SRC).filter(f => RAW_BODY.test(readFileSync(f, 'utf8')))
+  assert.deepEqual(bad, [])
+})

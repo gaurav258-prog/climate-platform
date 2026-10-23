@@ -1,5 +1,5 @@
 {
- "_about": "NACE → IEA sector crosswalk for Pillar 3 Template 3, transcribed from the 'List of NACE sectors to be considered' table in Annex XL of Implementing Regulation (EU) 2022/2453 (a scanned image in the Official Journal, read directly). Codes are digit strings matched by longest prefix; single-digit NACE divisions carry their leading zero ('051' = group 05.1, not division 51). Chemicals has no published code list (EBA Q&A 2024_7085; Q&A 2025_7451 rejected): NACE division 20 is used as a declared fallback (chemicals_fallback_division).",
+ "_about": "NACE → IEA sector crosswalk for Pillar 3 Template 3, transcribed from the 'List of NACE sectors to be considered' table in Annex XL of Implementing Regulation (EU) 2022/2453 (a scanned image in the Official Journal, read directly). Codes are digit strings matched by longest prefix; single-digit NACE divisions carry their leading zero ('051' = group 05.1, not division 51). Chemicals has no published code list (EBA Q&A 2024_7085; Q&A 2025_7451 rejected): NACE division 20 is used as a declared fallback (chemicals_fallback_division). Checked against the EBA's machine-readable list of the same table (the Template 3 NACE key, 'NACE codes for potential climate change transition risk', taxonomy release 4.2): equal code for code; the cement entry read '811' (NACE 81.1, facility support) where the table has 08.11 (quarrying of limestone, gypsum, chalk) — corrected 2026-10-23 (E339).",
  "source": "Implementing Regulation (EU) 2022/2453, Annex XL, Template 3 — 'List of NACE sectors to be considered' (OJ L 324, 19.12.2022)",
  "chemicals_fallback_division": "20",
  "crosswalk": [
@@ -292,7 +292,7 @@
    "sector": "cement"
   },
   {
-   "nace": "811",
+   "nace": "0811",
    "sector": "cement"
   },
   {

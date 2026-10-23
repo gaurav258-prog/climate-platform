@@ -5599,6 +5599,45 @@
     "next": "Try another format. If it keeps happening, raise a request in Support."
    }
   },
+  "filing.refused.xbrlcsv_reference_date": {
+   "status": 409,
+   "label": "Not available for this reference date",
+   "detail": {
+    "what": "The EBA's data hub format for these templates applies from reference date {start}. This filing's reference date is {date}.",
+    "next": "Download the workbook for this date."
+   }
+  },
+  "filing.refused.xbrlcsv_level": {
+   "status": 409,
+   "label": "Prepare it for a legal entity",
+   "detail": {
+    "what": "The EBA's data hub names every report as individual or consolidated. This filing covers the whole organisation without saying which.",
+    "next": "Prepare the filing for a reporting entity — the institution itself, or the group it consolidates — then download again."
+   }
+  },
+  "filing.refused.xbrlcsv_entity_lei": {
+   "status": 409,
+   "label": "Add the entity's own identifier",
+   "detail": {
+    "what": "The EBA's data hub names the report by the institution's own legal entity identifier. {name} has none on file.",
+    "next": "Add its identifier under Admin, Entities, then download again."
+   }
+  },
+  "filing.refused.xbrlcsv_spec": {
+   "status": 409,
+   "label": "Not available for this template version",
+   "detail": {
+    "what": "The data hub format is bound to the templates of Implementing Regulation (EU) 2024/3172. This filing was prepared under {version}."
+   }
+  },
+  "filing.refused.xbrlcsv_no_book": {
+   "status": 409,
+   "label": "Refresh the draft first",
+   "detail": {
+    "what": "This filing was frozen without its exposures, which the data hub file is built from.",
+    "next": "Refresh the draft, then download again."
+   }
+  },
   "filing.refused.override_reason": {
    "status": 409,
    "label": "Give a reason for the change",

@@ -296,7 +296,7 @@ def _t1_ijk(g: dict, n: dict, t1: dict | None) -> dict:
     from services.governance.pillar3_t1 import gaps, k_value
     if t1 is None:                                     # as a filing frozen before the stated method printed them
         return {"i": g["ghg"] if n["ghg"] else None, "j": g["ghg3"] if n["ghg3"] else None,
-                "k": (round(g["rep"] / g["gross"] * 100, 1) if g["gross"] else None) if n["rep"] else None}
+                "k": (round(g["rep"] / g["gross"] * 100, 2) if g["gross"] else None) if n["rep"] else None}
     if gaps(t1):
         return {"i": None, "j": None, "k": None}
     est = t1.get("estimation")
@@ -346,6 +346,14 @@ def build(spec: dict, template_id: str, assets: list[dict], level: float | None 
         pop = [a for a, cp, col in tagged if keep(a, cp, col)]
         g, n = _cells(pop, template_id, level, t1)
         row = {"id": r["id"], "label": r["label"], "n": n["all"], "values": _columns(g, n, template_id, t1)}
+        if binding[r["id"]] == "computed:other_sections":  # 'breakdown below where relevant': one row per NACE section
+            labels = _nace.section_labels()                # (decided 2026-10-23; the EBA's table keys each by NACE)
+            row["breakdown"] = []
+            for sec in sorted({_nace.section(a.get("nace_code")) for a in pop}):
+                part = [a for a in pop if _nace.section(a.get("nace_code")) == sec]
+                gs, ns = _cells(part, template_id, level, t1)
+                row["breakdown"].append({"section": sec, "label": f"{sec} - {labels.get(sec, '')}".rstrip(" -"),
+                                         "n": ns["all"], "values": _columns(gs, ns, template_id, t1)})
         if template_id == "T1" and t1 is not None:   # column j's Article 5 phase-in on the reference date (pillar3_t1)
             from services.governance.pillar3_t1 import phase_in_summary, ref_date
             row["scope3_phase_in"] = phase_in_summary(pop, ref_date(t1))

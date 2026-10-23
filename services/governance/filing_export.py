@@ -82,6 +82,9 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
         xml = _xbrl(session, org_id, filing["framework"], payload, basis, filing.get("entity_id"))
         return f"{stem}.xbrl", "application/xml", xml.encode("utf-8")
 
+    if fmt == "xbrlcsv":                               # the EBA's Pillar 3 data hub package (module ESGDIS)
+        return _xbrlcsv(session, org_id, filing, payload, snap)
+
     if fmt == "ixbrl":
         doc = _ixbrl(session, org_id, filing["framework"], payload, basis)
         return f"{stem}.xhtml", "application/xhtml+xml", doc.encode("utf-8")
@@ -255,11 +258,32 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
             import logging
             logging.getLogger(__name__).info("XBRL instance refused: %s", e)
             raise ExportError("filing.refused.export_failed") from e
-    # No XBRL for Pillar 3 ESG (E104): the EBA's own taxonomy (the Pillar 3 Data Hub DPM) is not bound, and an instance
-    # under Tellumen-made element names is not a filing — as the EU Taxonomy report (E95) and the ESRS (E60). No XBRL for
-    # SFDR PAI (E113): no official SFDR PAI taxonomy is held. Filings of every date are refused: the format is not
-    # offered for the report type (filings.EXPORT_FORMATS).
+    # Pillar 3 ESG goes to the EBA's data hub as xBRL-CSV, the format the EBA's module takes ('xbrlcsv'); an XBRL-XML
+    # instance under Tellumen-made element names was never a filing (E104, as the EU Taxonomy report E95 and the ESRS
+    # E60). No XBRL for SFDR PAI (E113): no official SFDR PAI taxonomy is published. Refused for every date: the format
+    # is not offered for the report type (filings.EXPORT_FORMATS).
     raise ExportError("filing.refused.export_format", format="XBRL")
+
+
+def _xbrlcsv(session: Session, org_id: str, filing: dict, payload: dict, snap: dict) -> tuple[str, str, bytes]:
+    """The EBA's xBRL-CSV report package for the Pillar 3 data hub: identified by the filing entity's LEI and level
+    (individual / consolidated), its country, and the time the filing was frozen (the creation time stamp of EBA's file
+    name — the same file every time it is downloaded)."""
+    from datetime import datetime
+
+    from services.governance.p3esg_xbrlcsv import package
+    ident = _identity(session, org_id, filing.get("entity_id"))
+    # the data hub names the report by the institution's own LEI and has no place to say it is borrowed
+    own = not filing.get("entity_id") or ident["note"].startswith("identified by the filing entity's own LEI")
+    where = session.execute(text("SELECT country FROM reporting_entities WHERE org_id = :o AND entity_id = :e"),
+                            {"o": org_id, "e": filing["entity_id"]}).scalar() if filing.get("entity_id") else None
+    country = (where or session.execute(text("SELECT country FROM organizations WHERE org_id = :o"), {"o": org_id}).scalar()
+               or "").strip()
+    created = snap["created_at"] if isinstance(snap["created_at"], datetime) else datetime.fromisoformat(str(snap["created_at"]))
+    name, data, _ = package(payload, {**ident, "currency": presentation_of(payload), "own_lei": own,
+                                      "entity": filing.get("entity_name") or "The filing entity"},
+                            role=filing.get("filing_role"), country=country, created=created)
+    return name, "application/zip", data
 
 
 def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:

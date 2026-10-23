@@ -51,6 +51,17 @@ _CHEMICALS_FALLBACK = _XWALK["chemicals_fallback_division"]
 
 
 def _iea_sector(nace_code) -> str | None:
+    hit = iea_match(nace_code)
+    return hit[1] if hit else None
+
+
+def nace_dotted(code: str) -> str:
+    """An Annex XL code as printed: '0811' → '08.11', '235' → '23.5', '50' → '50'."""
+    return code[:2] + ("." + code[2:] if len(code) > 2 else "")
+
+
+def iea_match(nace_code) -> tuple[str, str] | None:
+    """(the Annex XL code the exposure's NACE code falls under, its IEA sector) — the code is the one column (b) prints."""
     if not nace_code:
         return None
     digits = "".join(ch for ch in str(nace_code) if ch.isdigit())
@@ -66,9 +77,9 @@ def _iea_sector(nace_code) -> str | None:
         if digits.startswith(code) and (best is None or len(code) > len(best[0])):
             best = (code, sector)
     if best:
-        return best[1]
+        return best
     if digits[:2] == _CHEMICALS_FALLBACK:     # chemicals: no published code list — declared fallback (reference file)
-        return "chemicals"
+        return (_CHEMICALS_FALLBACK, "chemicals")
     return None
 
 
@@ -124,6 +135,38 @@ def template3_grid(assets: list[dict]) -> dict:
                           "from the counterparty's disclosures or a specialist climate-data vendor (e.g. TPI, "
                           "Asset Resolution). Not financed emissions; not computable from the physical-risk engine.",
     }
+
+
+def template3_rows(assets: list[dict]) -> list[dict]:
+    """Template 3's rows as Annex XL point 4(e) asks — 'a row in the template for each relevant combination of sectors
+    disclosed in column (b) and alignment metrics included in column (d)': one per IEA sector, Annex XL NACE code the
+    exposures fall under, and the sector's metric. Each row's intensity, distance and gross carrying amount are those of
+    its own exposures, computed as template3_grid computes a sector's; the distance to two decimals of a percentage
+    point (the EBA's accuracy for percentages: four decimals of a ratio)."""
+    by: dict[tuple[str, str], dict] = {}
+    for a in assets:
+        hit = iea_match(a.get("nace_code"))
+        v = _val(a) if hit else 0
+        if not v:
+            continue
+        code, sec = hit
+        row = by.setdefault((sec, code), {"gross": 0.0, "int_wsum": 0.0, "int_w": 0.0, "n": 0})
+        row["gross"] += v
+        row["n"] += 1
+        ci = a.get("emission_intensity")
+        if isinstance(ci, (int, float)) and ci > 0:
+            row["int_wsum"] += ci * v
+            row["int_w"] += v
+    rows = []
+    for (sec, code), r in sorted(by.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+        b = IEA_NZE2050[sec]
+        cur = round(r["int_wsum"] / r["int_w"], 2) if r["int_w"] else None
+        tgt = b["target_2030"]
+        rows.append({"sector": sec, "nace": code, "nace_dotted": nace_dotted(code), "metric": b["metric"], "unit": b["unit"],
+                     "gross": r["gross"], "current_intensity": cur, "iea_2030": tgt, "n": r["n"],
+                     "distance_pct": round(100 * (cur - tgt) / tgt, 2) if (cur is not None and tgt) else None,
+                     "coverage_pct": round(100 * r["int_w"] / r["gross"], 0) if r["gross"] else 0})
+    return rows
 
 
 _MAJORS = json.loads((_REF / "carbon_majors_top20.json").read_text())

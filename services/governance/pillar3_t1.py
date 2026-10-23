@@ -273,7 +273,7 @@ def k_value(g: dict, n: dict, rec: dict) -> float | None:
     est = rec.get("estimation")
     if est == "not_yet_estimating" or (est == "scope_1_2" and rec.get("k_scope_1_2") == "all_three_scopes"):
         return 0.0
-    return None if n["rep_unknown"] else round(g["rep"] / g["gross"] * 100, 1)
+    return None if n["rep_unknown"] else round(g["rep"] / g["gross"] * 100, 2)   # 0.01 %: the EBA's 4 decimals of a ratio
 
 
 def missing_narrative(rec: dict | None) -> list[dict]:

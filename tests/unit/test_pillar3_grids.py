@@ -122,7 +122,8 @@ def test_the_form_follows_the_frozen_spec():
     spec = R.load("bank_p3esg", "its_2024_3172")
     assert "2024/3172" in t5["title"] and t5["spec"]["sha256"] == spec["_sha256"]
     assert [c.split(" · ")[0] for c in t5["columns"][1:]] == [c["id"] for c in R.template(spec, "T5")["columns"]][1:]
-    assert len(t5["rows"]) == 13
+    ids = [r["cells"][0]["text"].split(" · ")[0] for r in t5["rows"]]
+    assert ids[:13] == [str(i) for i in range(1, 14)] and set(ids[13:]) <= {"13"}   # row 13, then its NACE sections
 
 
 def test_template5_is_sensitive_at_the_stated_level_and_a_gap_without_it():
@@ -143,7 +144,8 @@ def test_a_filing_frozen_before_the_stated_method_is_re_read_on_its_own_definiti
     assert stated_level({"assets": BOOK}) == LEGACY_LEVEL == 50.0           # High + Very high, as it was filed
     annex = build_annex("bank_p3esg", {}, [], {"assets": BOOK, "_spec": {"version": ADOPTED[-1]}})
     t5 = next(s for s in annex["sections"] if s.get("key") == "t5")
-    assert len(t5["rows"]) == 13
+    ids = [r["cells"][0]["text"].split(" · ")[0] for r in t5["rows"]]
+    assert ids[:13] == [str(i) for i in range(1, 14)] and set(ids[13:]) <= {"13"}   # row 13, then its NACE sections
 
 
 def test_the_gross_carrying_amount_is_the_outstanding_balance_never_the_collateral_value():

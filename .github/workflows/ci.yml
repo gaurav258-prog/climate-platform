@@ -144,11 +144,46 @@ jobs:
       - name: Unit tests (node --test)
         run: npm test
 
+  # ── XBRL exports on the publishers' own packages and rules ─────────────
+  xbrl-validation:
+    name: XBRL validation (official packages)
+    runs-on: ubuntu-latest
+    env:
+      # The packages are pinned (address, size, SHA-256) in data/reference/eiopa and data/reference/eba and fetched from
+      # the publishers only as pinned (scripts/fetch_xbrl_packages.py); never committed. REQUIRED: a missing package
+      # fails this job instead of letting the validation be skipped.
+      XBRL_PACKAGES_DIR: ${{ github.workspace }}/.xbrl-packages
+      XBRL_VALIDATION_REQUIRED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[all,dev]"
+
+      - name: Cache the pinned packages
+        uses: actions/cache@v4
+        with:
+          path: .xbrl-packages
+          key: xbrl-packages-${{ hashFiles('data/reference/eiopa/s2701_xbrl.*.json', 'data/reference/eba/p3esg_xbrlcsv.*.json') }}
+
+      - name: Fetch the pinned packages (sizes and checksums checked; nothing else is fetched)
+        run: python -m scripts.fetch_xbrl_packages
+
+      - name: Validate the exports with Arelle on the packages (S.27.01.01 on EIOPA's, Pillar 3 on the EBA's)
+        run: pytest tests/unit/test_xbrl_packages.py tests/unit/test_p3esg_xbrlcsv.py -q --tb=short
+
   # ── Docker build + push (main branch only) ─────────────────────────────
   build-push:
     name: Build & push image
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, lint, web]
+    needs: [unit-tests, integration-tests, lint, web, xbrl-validation]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     permissions:
