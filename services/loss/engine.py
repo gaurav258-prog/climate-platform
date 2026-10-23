@@ -2,8 +2,9 @@
 walked through the same decision tree, each result a figure with its range and standing, or the named gap that
 stopped it.
 
-  1  intensity here?      the layer's samples at the asset (services.loss.intensity) — none, or outside coverage → gap
-  2  method adopted?      the institution's adopted curve family for the peril (calc settings loss_curve_family_*) → gap
+  1  method adopted?      the institution's adopted curve family for the peril (calc settings loss_curve_family_*) → gap;
+                          first, because a run reads the hazard only for a peril with adopted curves (E324)
+  2  intensity here?      the layer's samples at the asset (services.loss.intensity) — none, or outside coverage → gap
   3  use known?           the stated occupancy, else the declared crosswalk (services.loss.registry.occupancy_of) → gap
   4  curve here?          the adopted family's curve for that use in the asset's country → gap
   5  value stated?        the asset's value (portfolio_entities.primary_value_eur) → gap
@@ -300,6 +301,8 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
         return {**base, **gaps.gap("loss.gap.head_office_only")}
     if asset.get("latitude") is None or asset.get("longitude") is None:
         return {**base, **gaps.gap("loss.gap.no_location")}
+    if not family_key:             # a run reads the hazard only for a peril with adopted curves: the choice comes first (E324)
+        return {**base, **gaps.gap("loss.gap.no_curves_chosen", peril=gaps.peril_name(peril))}
     lat, lon = float(asset["latitude"]), float(asset["longitude"])
     layer_key, version, s = _present_samples(session, asset, peril, lat, lon)
     if peril == "flood":
@@ -360,6 +363,8 @@ def assess_projected(session: Session, asset: dict, peril: str, family_key: Opti
         return {**base, **why}
     if asset.get("latitude") is None or asset.get("longitude") is None:
         return {**base, **gaps.gap("loss.gap.no_location")}
+    if not family_key:             # as today's run: no adopted curves, nothing read — the choice comes first (E324)
+        return {**base, **gaps.gap("loss.gap.no_curves_chosen", peril=gaps.peril_name(peril))}
     L = registry.layer(PROJECTED_FLOOD)
     lat, lon = float(asset["latitude"]), float(asset["longitude"])
     today_v = {"scenario": L["present"]["scenario"], "period": L["present"]["year"], "climate_model": L["present"]["model"]}

@@ -358,3 +358,16 @@ def test_an_insurers_physical_value_is_building_and_contents_not_business_interr
     assert "business_interruption" not in engine._ASSET_VALUE["insurance"][0]
     assert set(engine._ASSET_VALUE) == set(engine._BUILDING_VALUE)       # every book states both rules
     assert all(engine._ASSET_VALUE[b][0] == "NULL" for b in ("assetmgmt", "insurer_investments"))
+
+
+def test_e324_with_no_curves_chosen_the_gap_says_so_not_that_the_hazard_is_unread(session_rolled_back):
+    """E324: a new organisation with no adopted curves saw every loss as 'Hazard not read here yet — run losses again',
+    though a run reads the hazard only for perils with adopted curves, so running again could never help. The choice
+    is the first obstacle and the gap names it — today's run and a projected one alike."""
+    from services.loss import engine
+    asset = {"entity_id": "x", "latitude": 37.77, "longitude": -3.79, "table": "portfolio_entities",
+             "occupancy": "residential", "country": "ES"}        # a place no sample has been read at
+    for peril in ("flood", "storm"):
+        assert engine.assess(session_rolled_back, asset, peril, None)["gap_code"] == "loss.gap.no_curves_chosen"
+    assert engine.assess_projected(session_rolled_back, asset, "flood", None, "hot_house_3_5c", "2050")["gap_code"] \
+        == "loss.gap.no_curves_chosen"
