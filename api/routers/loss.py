@@ -143,7 +143,7 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                lr.occupancy, lr.curve_key, CAST(lr.eal_eur AS FLOAT) AS eal_eur, CAST(lr.eal_low_eur AS FLOAT) AS eal_low_eur,
                CAST(lr.eal_high_eur AS FLOAT) AS eal_high_eur, lr.standing, lr.loss_at_rp, lr.gap,
                CAST(lr.eal_same_source_today_eur AS FLOAT) AS eal_same_source_today_eur, lr.model_eal,
-               lr.flood_layer, lr.protection_rp_years, lr.protection_basis, lr.caution,
+               lr.flood_layer, lr.protection_rp_years, lr.protection_rp_high_years, lr.protection_basis, lr.caution,
                lr.gap_code, lr.gap_params, lr.protection_code, lr.caution_code,
                CAST(lr.eal_defended_eur AS FLOAT) AS eal_defended_eur,
                CAST(lr.eal_defended_low_eur AS FLOAT) AS eal_defended_low_eur,
@@ -184,16 +184,22 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                                        "eal_same_source_today_eur": None, "defended_results": 0,
                                        "eal_defended_low_eur": 0.0, "eal_defended_eur": 0.0, "eal_defended_high_eur": 0.0,
                                        "eal_undefended_same_results_eur": 0.0, "protection_unknown_results": 0,
-                                       "eal_protection_unknown_eur": 0.0})
+                                       "eal_protection_unknown_eur": 0.0, "defended_range_results": 0,
+                                       "eal_defended_range_low_eur": 0.0, "eal_defended_range_high_eur": 0.0})
         t["results"] += 1
         for f in ("eal_low_eur", "eal_eur", "eal_high_eur"):
             t[f] = round(t[f] + (r[f] or 0.0), 2)
+        if r["eal_defended_low_eur"] is not None:           # every defended figure, a level or a range: low and high
+            t["defended_range_results"] += 1
+            t["eal_defended_range_low_eur"] = round(t["eal_defended_range_low_eur"] + r["eal_defended_low_eur"], 2)
+            t["eal_defended_range_high_eur"] = round(t["eal_defended_range_high_eur"] + r["eal_defended_high_eur"], 2)
         if r["eal_defended_eur"] is not None:
             t["defended_results"] += 1
             t["eal_undefended_same_results_eur"] = round(t["eal_undefended_same_results_eur"] + r["eal_eur"], 2)
             for f in ("eal_defended_low_eur", "eal_defended_eur", "eal_defended_high_eur"):
                 t[f] = round(t[f] + r[f], 2)
-        elif r["peril"] == "flood" and (r["protection_code"] in _PROTECTION_UNKNOWN or
+        elif r["eal_defended_low_eur"] is None and r["peril"] in ("flood", "coastal_flood") and (
+                r["protection_code"] in _PROTECTION_UNKNOWN or
                                         (r["protection_basis"] or "").startswith("protection unknown")):   # rows before codes
             t["protection_unknown_results"] += 1
             t["eal_protection_unknown_eur"] = round(t["eal_protection_unknown_eur"] + r["eal_eur"], 2)
@@ -207,6 +213,8 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                             "An issuer site's figure is a share of its own value: shares are never added across sites "
                             "(unit 'share': the count and the largest share). "
                             "The defended sum covers only the results with a protection level (defended_results), "
+                            "and the defended range (defended_range_*) every result with a defended figure, its low and "
+                            "high — a coastal region that states a range of levels gives a range, never one figure; "
                             "beside the undefended sum of the same results; results whose protection is unknown are "
                             "summed apart, undefended. "
                             "A projected run's figure is compared only with the same source's present day "
@@ -243,7 +251,8 @@ def _placement_message(scenario: str, horizon: str, read: dict, peril: str = "fl
     return _message("loss.projection.on_map" if p["lower"] == p["upper"] else "loss.projection.between", params)
 
 
-_PROTECTION_UNKNOWN = {"loss.protection.not_read", "loss.protection.no_value", "loss.protection.off_map"}
+_PROTECTION_UNKNOWN = {"loss.protection.not_read", "loss.protection.no_value", "loss.protection.off_map",
+                       "loss.protection.not_a_level", "loss.protection.coastal_no_entry", "loss.protection.coastal_off_map"}
 
 
 def _message(code: str, params: Optional[dict] = None) -> dict:
@@ -257,7 +266,8 @@ def _messages_of(r: dict) -> None:
     """A result's messages, rendered from their codes; a row recorded before codes keeps its own wording."""
     r["gap_message"] = (_message(r["gap_code"], r["gap_params"]) if r.get("gap_code")
                         else {"label": r["gap"], "detail": {"what": r["gap"]}} if r.get("gap") else None)
-    years = {"years": f"{r['protection_rp_years']:g}"} if r.get("protection_rp_years") else {}
+    years = ({"years": f"{r['protection_rp_years']:g}"} if r.get("protection_rp_years") else {}) | (
+        {"high": f"{r['protection_rp_high_years']:g}"} if r.get("protection_rp_high_years") else {})
     r["protection_message"] = (_message(r["protection_code"], years) if r.get("protection_code")
                                else {"label": r["protection_basis"], "detail": {"what": r["protection_basis"]}}
                                if r.get("protection_basis") else None)

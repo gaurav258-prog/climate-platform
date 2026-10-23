@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3141 table columns, 360 foreign keys, 97 unique constraints, 316 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 317 migration revisions in `core/db/migrations/versions/`, head `register_sites_20261023`. Extensions present: plpgsql.
+The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3143 table columns, 360 foreign keys, 97 unique constraints, 318 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 318 migration revisions in `core/db/migrations/versions/`, head `coastal_protection_20261023`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -28,7 +28,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Golden score layer & hazard data | 21 | 234 | 2 | 1 | 0 | 1 |
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
 | Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
-| Loss engine | 6 | 87 | 2 | 1 | 1 | 6 |
+| Loss engine | 6 | 89 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
@@ -1922,12 +1922,14 @@ Foreign keys to other domains:
 | `status` | character varying(16) | no |  |  |
 | `design_rp_years` | double precision | yes |  |  |
 | `sampled_at` | timestamp with time zone | no | `now()` |  |
+| `design_rp_high_years` | double precision | yes |  |  |
 
 - Check `flood_protection_samples_check`: `CHECK ((((status)::text = 'sampled'::text) = (design_rp_years IS NOT NULL)))`
 - Check `flood_protection_samples_design_rp_years_check`: `CHECK ((design_rp_years >= (1)::double precision))`
 - Check `flood_protection_samples_latitude_check`: `CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))`
 - Check `flood_protection_samples_longitude_check`: `CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))`
-- Check `flood_protection_samples_status_check`: `CHECK (((status)::text = ANY ((ARRAY['sampled'::character varying, 'no_value'::character varying, 'outside_coverage'::character varying])::text[])))`
+- Check `flood_protection_samples_range`: `CHECK (((design_rp_high_years IS NULL) OR (((status)::text = 'sampled'::text) AND (design_rp_high_years > design_rp_years))))`
+- Check `flood_protection_samples_status_check`: `CHECK (((status)::text = ANY ((ARRAY['sampled'::character varying, 'no_value'::character varying, 'outside_coverage'::character varying, 'not_a_level'::character varying])::text[])))`
 - Index: `CREATE UNIQUE INDEX ux_flood_protection_sample ON public.flood_protection_samples USING btree (layer_key, layer_version, latitude, longitude)`
 - Trigger `trg_flood_protection_samples_guard`: BEFORE DELETE OR UPDATE for each row → `public.guard_flood_protection_samples`
 
@@ -2020,15 +2022,16 @@ Foreign keys to other domains:
 | `eal_defended_ratio_low` | double precision | yes |  |  |
 | `eal_defended_ratio_high` | double precision | yes |  |  |
 | `ratio_at_rp` | jsonb | yes |  |  |
+| `protection_rp_high_years` | double precision | yes |  |  |
 
 - Primary key: (run_id, asset_kind, asset_id, peril)
 - Check `ck_loss_results_range`: `CHECK (((gap IS NOT NULL) OR ((eal_eur IS NOT NULL) AND (eal_low_eur IS NOT NULL) AND (eal_high_eur IS NOT NULL) AND (eal_low_eur <= eal_eur) AND (eal_eur <= eal_high_eur)) OR ((eal_ratio IS NOT NULL) AND (eal_ratio_low IS NOT NULL) AND (eal_ratio_high IS NOT NULL) AND (eal_ratio_low <= eal_ratio) AND (eal_ratio <= eal_ratio_high))))`
 - Check `ck_loss_results_standing`: `CHECK (((gap IS NULL) = (standing IS NOT NULL)))`
 - Check `loss_results_asset_kind_check`: `CHECK (((asset_kind)::text = ANY ((ARRAY['portfolio_entity'::character varying, 'company_site'::character varying, 'issuer_site'::character varying])::text[])))`
 - Check `loss_results_defended_needs_figure`: `CHECK (((eal_defended_eur IS NULL) OR ((eal_eur IS NOT NULL) AND (protection_rp_years IS NOT NULL) AND (eal_defended_eur <= eal_eur))))`
-- Check `loss_results_defended_range`: `CHECK (((eal_defended_eur IS NULL) = ((eal_defended_low_eur IS NULL) AND (eal_defended_high_eur IS NULL))))`
+- Check `loss_results_defended_range`: `CHECK ((((eal_defended_eur IS NULL) = ((eal_defended_low_eur IS NULL) AND (eal_defended_high_eur IS NULL))) OR ((protection_rp_high_years IS NOT NULL) AND (eal_defended_eur IS NULL) AND (eal_defended_low_eur IS NOT NULL) AND (eal_defended_high_eur IS NOT NULL) AND (eal_defended_low_eur <= eal_defended_high_eur) AND (eal_eur IS NOT NULL) AND (eal_defended_high_eur <= eal_high_eur))))`
 - Check `loss_results_defended_ratio`: `CHECK (((eal_defended_ratio IS NULL) OR ((eal_ratio IS NOT NULL) AND (protection_rp_years IS NOT NULL) AND (eal_defended_ratio <= eal_ratio))))`
-- Check `loss_results_defended_ratio_range`: `CHECK (((eal_defended_ratio IS NULL) = ((eal_defended_ratio_low IS NULL) AND (eal_defended_ratio_high IS NULL))))`
+- Check `loss_results_defended_ratio_range`: `CHECK ((((eal_defended_ratio IS NULL) = ((eal_defended_ratio_low IS NULL) AND (eal_defended_ratio_high IS NULL))) OR ((protection_rp_high_years IS NOT NULL) AND (eal_defended_ratio IS NULL) AND (eal_defended_ratio_low IS NOT NULL) AND (eal_defended_ratio_high IS NOT NULL) AND (eal_defended_ratio_low <= eal_defended_ratio_high) AND (eal_ratio IS NOT NULL) AND (eal_defended_ratio_high <= eal_ratio_high))))`
 - Check `loss_results_eal_defended_eur_check`: `CHECK ((eal_defended_eur >= (0)::numeric))`
 - Check `loss_results_eal_defended_high_eur_check`: `CHECK ((eal_defended_high_eur >= (0)::numeric))`
 - Check `loss_results_eal_defended_low_eur_check`: `CHECK ((eal_defended_low_eur >= (0)::numeric))`
@@ -2048,6 +2051,7 @@ Foreign keys to other domains:
 - Check `loss_results_figure_unit`: `CHECK ((((eal_ratio IS NOT NULL) = ((gap IS NULL) AND ((asset_kind)::text = 'issuer_site'::text))) AND ((eal_ratio IS NULL) OR ((eal_eur IS NULL) AND (exposed_value_eur IS NULL) AND (loss_at_rp IS NULL)))))`
 - Check `loss_results_gap_code_with_gap`: `CHECK (((gap_code IS NULL) OR (gap IS NOT NULL)))`
 - Check `loss_results_occupancy_check`: `CHECK (((occupancy)::text = ANY ((ARRAY['residential'::character varying, 'commercial'::character varying, 'industrial'::character varying, 'transport'::character varying, 'infrastructure'::character varying, 'agriculture'::character varying])::text[])))`
+- Check `loss_results_protection_range`: `CHECK (((protection_rp_high_years IS NULL) OR (protection_rp_high_years > protection_rp_years)))`
 - Check `loss_results_protection_rp_years_check`: `CHECK ((protection_rp_years >= (1)::double precision))`
 - Check `loss_results_standing_check`: `CHECK (((standing)::text = ANY ((ARRAY['published'::character varying, 'held'::character varying, 'untested'::character varying])::text[])))`
 - Trigger `trg_loss_results_guard`: BEFORE DELETE OR UPDATE for each row → `public.guard_loss_results`

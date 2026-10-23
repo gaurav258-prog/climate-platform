@@ -936,6 +936,45 @@
       ],
       "licence": "CC BY 4.0 (copyright.txt held beside the data, the same notice as the flood maps')",
       "rule": "data/reference/loss_protocol.json → flood_protection"
+    },
+    "coastpros_eu": {
+      "name": "COASTPROS-EU coastal protection standards",
+      "peril": "coastal_flood",
+      "metric": "design_return_period",
+      "unit": "years",
+      "version": "2025-03-14",
+      "kind": "regions",
+      "source": "COASTPROS-EU: coastal flood protection standards per coastal NUTS2 region of Europe (148 regions, 24 countries), compiled from georeferenced defence data, policy design standards and, where neither was found, the levels modelled by Tiggeloven et al. (2020)",
+      "url": "https://doi.org/10.5281/zenodo.15024139",
+      "citation": "De Plaen, J. J.-F. G., Colmenares, M., Koks, E., Scussolini, P. et al. (2025): COASTPROS-EU [dataset], Zenodo, doi:10.5281/zenodo.15024139",
+      "creators": "as the record lists them: De Plaen, Joël J.-F. G.; Colmenares, Maria; Koks, Elco; Scussolini, Paolo; Lena, Reimann; Lincke, Daniel; Kiesel, Joshua; Wolff, Claudia; Tiggeloven, Timothy; Peregrina Gonzalez, Edgar Daniel; Le Cozannet, Goneri; Sayers, Paul",
+      "file": "data/datasets/coastpros_eu/COASTPROS.shp",
+      "manifest": "data/reference/supply_datasets.json → coastpros_eu",
+      "crs": "EPSG:4326",
+      "resolution_m": null,
+      "reads": "SUMMARY RE",
+      "reads_basis": "the dataset's metadata: 'SUMMARY RETURN PERIOD: Provides the most detailed information collected on the coastal defence for each NUTS2 based on the previous columns. If available, it will list the georeferenced defence standards. If not, it will provide policy guidelines. If not, available we finally resort to the values modelled by Tiggeloven et., al. (2020).' (COASTPROS-EU.xlsx, sheet Metadata; the shapefile's column 'SUMMARY RE')",
+      "reading": {
+        "decided": {
+          "by": "product owner",
+          "date": "2026-10-23"
+        },
+        "rule": "clean entries only: a single number is the region's design level; a plain range 'a-b' is a range of levels — the defended loss a range, low at the upper level, high at the lower level, with no central figure; a list, a condition or a note is no level (protection unknown); an empty entry is no value (protection unknown)"
+      },
+      "reads_as": "the NUTS2 region holding the asset's location (a point in a listed region's polygon, the polygon's edge included); a location in no listed region is off the map — protection unknown",
+      "codes": {
+        "no_value": "loss.protection.coastal_no_entry",
+        "not_a_level": "loss.protection.not_a_level",
+        "outside_coverage": "loss.protection.coastal_off_map"
+      },
+      "coverage": "the coasts of 24 European countries (AL, BE, DE, DK, EE, EL, ES, FI, FR, HR, IE, IT, LT, LV, ME, MK, MT, NL, NO, PL, PT, SE, SI, UK — the dataset's own codes)",
+      "applies_to": [
+        "aqueduct_coastal_flood"
+      ],
+      "applies_basis": "WRI applies protection standards to coastal floods as to river floods: 'FLOPROS is a database of current protection standards for both riverine and coastal floods' and 'The flood protection is added to the risk curve as a vertical line' (Ward et al. 2020, section 6)",
+      "licence": "CC BY 4.0",
+      "licence_status": "verified: the Zenodo record (API, record 15024139) states license 'cc-by-4.0' (2026-10-23)",
+      "rule": "data/reference/loss_protocol.json → flood_protection"
     }
   }
 }

@@ -301,6 +301,25 @@ def _defences(session: Session, lat: float, lon: float, rows: dict, places: int 
             "eal_defended_high_eur": round(protection.defended_eal(high, rp), places)}
 
 
+def _coastal_defences(session: Session, lat: float, lon: float, rows: dict, places: int = CENTS) -> dict:
+    """Step 8 for coastal flood (the product owner's decisions of 2026-10-23): the region's published coastal standard
+    (COASTPROS-EU) applied with the same rule. A single level as for river flood; a stated range has no central defended
+    figure — low is the curve-low loss with defences at the upper level, high the curve-high loss at the lower level."""
+    lo_rp, hi_rp, code = protection.at_range(session, lat, lon, protection.LAYERS["coastal_flood"])
+    if lo_rp is None:
+        return gaps.protection(code)
+    low, central, high = ({k: v[i] for k, v in rows.items()} for i in range(3))
+    if hi_rp is None:
+        return {"protection_rp_years": lo_rp, **gaps.protection(code, lo_rp),
+                "eal_defended_eur": round(protection.defended_eal(central, lo_rp), places),
+                "eal_defended_low_eur": round(protection.defended_eal(low, lo_rp), places),
+                "eal_defended_high_eur": round(protection.defended_eal(high, lo_rp), places)}
+    return {"protection_rp_years": lo_rp, "protection_rp_high_years": hi_rp, **gaps.protection(code, lo_rp, hi_rp),
+            "eal_defended_eur": None,
+            "eal_defended_low_eur": round(protection.defended_eal(low, hi_rp), places),
+            "eal_defended_high_eur": round(protection.defended_eal(high, lo_rp), places)}
+
+
 def assess(session: Session, asset: dict, peril: str, family_key: Optional[str]) -> dict:
     """One asset and peril through the decision tree, today's climate (no database writes)."""
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
@@ -331,8 +350,8 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
            **_summary(rows, places)}
     if peril == "flood":
         out.update(_defences(session, lat, lon, rows, places), **gaps.caution(any(r["caution"] for r in s.values())))
-    elif peril == "coastal_flood":            # no coastal protection standard is held: the undefended figure
-        out.update(gaps.protection("loss.protection.coastal_not_held"))
+    elif peril == "coastal_flood":
+        out.update(_coastal_defences(session, lat, lon, rows, places))
     return _as_share(out) if asset.get("per_unit") else out
 
 
@@ -371,6 +390,10 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                    else {p: projection.inputs(p, scenario, horizon) for p in LAYERS}),
         "flood_protection": None if projected else {
             "layer": protection.LAYER, "version": protection.layer()["version"], "rule": protocol["flood_protection"]},
+        "coastal_protection": None if projected else {
+            "layer": protection.LAYERS["coastal_flood"],
+            "version": protection.layer(protection.LAYERS["coastal_flood"])["version"],
+            "reading": protection.layer(protection.LAYERS["coastal_flood"])["reading"], "rule": "flood_protection"},
         "flood_headline": settings.get("loss_flood_headline"),
         "families_adopted": adopted,
         "readings": {p: {"layer": k, "metric": curves.families()[adopted[p]]["metric"],
@@ -407,18 +430,21 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                                       eal_low_eur, eal_high_eur, standing, loss_at_rp, gap, eal_same_source_today_eur,
                                       model_eal, flood_layer, protection_rp_years, protection_basis, eal_defended_eur,
                                       eal_defended_low_eur, eal_defended_high_eur, caution, gap_code, gap_params,
-                                      protection_code, caution_code, eal_ratio, eal_ratio_low, eal_ratio_high,
+                                      protection_code, caution_code, protection_rp_high_years, eal_ratio, eal_ratio_low,
+                                      eal_ratio_high,
                                       eal_defended_ratio, eal_defended_ratio_low, eal_defended_ratio_high, ratio_at_rp)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
                     :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
                     :eal_same_source_today_eur, CAST(:model_eal AS jsonb), :flood_layer, :protection_rp_years,
                     :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution,
-                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code, :eal_ratio, :eal_ratio_low,
+                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code, :protection_rp_high_years,
+                    :eal_ratio, :eal_ratio_low,
                     :eal_ratio_high, :eal_defended_ratio, :eal_defended_ratio_low, :eal_defended_ratio_high,
                     CAST(:ratio_at_rp AS jsonb))"""),
             [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
               "eal_same_source_today_eur": None, "flood_layer": None, "protection_rp_years": None,
-              "protection_basis": None, "eal_defended_eur": None, "eal_defended_low_eur": None,
+              "protection_basis": None, "protection_rp_high_years": None, "eal_defended_eur": None,
+              "eal_defended_low_eur": None,
               "eal_defended_high_eur": None, "caution": None, "gap_code": None, "protection_code": None,
               "caution_code": None, **{c: None for c in _SHARE.values()}, **r,
               "gap_params": json.dumps(r["gap_params"]) if r.get("gap_params") else None,

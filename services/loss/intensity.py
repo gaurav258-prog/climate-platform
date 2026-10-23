@@ -293,8 +293,8 @@ def prepare_book(session: Session, assets: list[dict], perils: Iterable[str], pr
                 out[k] = sample(session, k, sorted({(float(a["latitude"]), float(a["longitude"])) for a in assets
                                                     if a.get("latitude") is not None and a.get("longitude") is not None
                                                     and (a.get("country") or "").strip().upper() in cover}))
-        if peril == "flood":
-            out[protection.LAYER] = protection.sample(session, pts)
+        if peril in protection.LAYERS:                 # river flood: the JRC map; coastal flood: COASTPROS-EU
+            out[protection.LAYERS[peril]] = protection.sample(session, pts, key=protection.LAYERS[peril])
     return out
 
 

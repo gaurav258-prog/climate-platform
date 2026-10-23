@@ -2407,6 +2407,13 @@
     "why": "Source: the JRC map of estimated flood-protection standards in Europe."
    }
   },
+  "loss.protection.range": {
+   "label": "Defended to 1-in-{years} to 1-in-{high} years",
+   "detail": {
+    "what": "The region's published coastal protection standard is a range, from 1-in-{years} to 1-in-{high} years. The defended loss is a range too: the lower figure with defences built to the upper level, the higher with defences built to the lower level.",
+    "why": "Losses from floods more frequent than the defences' design level are set to zero; with two levels stated, no single defended figure is given."
+   }
+  },
   "loss.protection.not_read": {
    "label": "Protection unknown",
    "detail": {
@@ -2431,6 +2438,24 @@
    "detail": {
     "what": "Defences are not applied to future climates yet.",
     "why": "The projections' publisher moves protection levels with the climate, using its own protection data — a method not yet decided."
+   }
+  },
+  "loss.protection.not_a_level": {
+   "label": "Protection unknown: no single level stated",
+   "detail": {
+    "what": "The region's published coastal protection standard is not one level or a range — it is a list, depends on land use, or is a note. The loss shown is undefended."
+   }
+  },
+  "loss.protection.coastal_no_entry": {
+   "label": "Protection unknown: no standard stated",
+   "detail": {
+    "what": "The published coastal protection standards list this region without a level. The loss shown is undefended."
+   }
+  },
+  "loss.protection.coastal_off_map": {
+   "label": "Protection unknown: no coastal standard here",
+   "detail": {
+    "what": "The location is in no region of the published coastal protection standards, which cover the coasts of 24 European countries. The loss shown is undefended."
    }
   },
   "loss.protection.coastal_not_held": {

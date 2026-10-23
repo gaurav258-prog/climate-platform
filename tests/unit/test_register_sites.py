@@ -95,3 +95,23 @@ def test_coastal_no_data_is_outside_the_map_and_river_no_data_is_dry(tmp_path, m
     assert (rows[0]["status"], rows[0]["value"]) == sea
     assert (rows[1]["status"], rows[1]["value"], rows[1]["cell_fraction"]) == ("sampled", 0.0, 0.0)
     assert (rows[2]["value"], rows[2]["cell_fraction"], rows[2]["cell_mean"]) == (1.5, 1.0, 1.5)
+
+
+@pytest.mark.parametrize("entry, level", [
+    ("1000", (1000.0, None)), ("46.10616425857143", (46.10616425857143, None)), ("1000-3000", (1000.0, 3000.0)),
+    ("100-50", (50.0, 100.0)), ("10000 - 30000", (10000.0, 30000.0)), ("100-100", (100.0, None)),
+    ("20, 100 , 1000", None), ("5-10: agricultural area, 20-100: populated areas", None),
+    ("100 (or DL: 1/200 + 0,5 m)", None), ("", None), (None, None), (float("nan"), None)])
+def test_a_coastal_standard_is_read_as_a_level_a_range_or_nothing(entry, level):
+    """COASTPROS-EU entries read by the product owner's rule of 2026-10-23: clean entries only."""
+    from services.loss.protection import level_of
+    assert level_of(entry) == level
+
+
+def test_the_coastal_standards_name_a_catalogue_reason_for_every_unknown():
+    from core import messages
+    from services.loss import protection
+    P = protection.layer(protection.LAYERS["coastal_flood"])
+    assert P["kind"] == "regions" and P["applies_to"] == ["aqueduct_coastal_flood"]
+    for code in (*P["codes"].values(), "loss.protection.range", "loss.protection.level"):
+        assert code in messages.catalogue()

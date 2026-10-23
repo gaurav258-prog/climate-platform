@@ -70,9 +70,9 @@ def projection(peril: str, scenario: str, horizon: str, layer_key: Optional[str]
     return None
 
 
-def protection(code: str, years: Optional[float] = None) -> dict:
-    """The defence basis a flood result carries: its code and its label."""
-    params = {"years": f"{years:g}"} if years is not None else {}
+def protection(code: str, years: Optional[float] = None, high: Optional[float] = None) -> dict:
+    """The defence basis a flood result carries: its code and its label (a range of levels names both)."""
+    params = ({"years": f"{years:g}"} if years is not None else {}) | ({"high": f"{high:g}"} if high is not None else {})
     return {"protection_code": code, "protection_basis": messages.label(code, **params)}
 
 

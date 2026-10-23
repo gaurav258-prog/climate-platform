@@ -5037,5 +5037,63 @@
     "sha256": "76213070b72f56839b85f1519dba80936de3c6c3de8c57159e2249f234130318"
    }
   ]
+ },
+ "coastpros_eu": {
+  "source": "COASTPROS-EU: coastal flood protection standards per coastal NUTS2 region (Zenodo)",
+  "url": "https://doi.org/10.5281/zenodo.15024139",
+  "approved": "product owner, 2026-10-23 (about 1.3 MB)",
+  "published": "2025-03-14",
+  "licence": "CC BY 4.0",
+  "licence_status": "verified: the Zenodo record states license 'cc-by-4.0'",
+  "files": [
+   {
+    "file": "data/datasets/coastpros_eu/output.png",
+    "bytes": 139787,
+    "md5": "5ceb2bc07b741236b6afb8e8e9ba4e83",
+    "sha256": "0e5939f174ba6d8927f2aaa81cfb64ae1cf74fadf6aad47b26a50b6945187a28"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS.shp",
+    "bytes": 134348,
+    "md5": "d8cdb41136c1c4b8bb1e920395be3ab1",
+    "sha256": "7c063bea442c1e53283f28a70a4a893ddfcbee29b784bfaf0e85094fcf93b434"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS.prj",
+    "bytes": 145,
+    "md5": "c742bee3d4edfc2948a2ad08de1790a5",
+    "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS_attribute_table.xlsx",
+    "bytes": 145720,
+    "md5": "7e501569efdd43e88b39bbd94d6a4fb3",
+    "sha256": "311b34dc7c0f3a575f6e870e0f5f5c25ee2b33e4cfc8e05bf6e65c7ce18235f9"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS-EU.xlsx",
+    "bytes": 650677,
+    "md5": "daf959a2d3d60fe7d2b9870a29f71992",
+    "sha256": "ff98b40c7a181e6fe079a0ff24d574ce2c67fac06e4efd14706b0a238e00dbf8"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS.shx",
+    "bytes": 1284,
+    "md5": "37c4c72187aad09805c0ba9d7a74f15a",
+    "sha256": "3df662882f7b09ebbf568fad39fc20a827fbdd557abebc1f0fd1844ca530caac"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS.dbf",
+    "bytes": 218306,
+    "md5": "4830142c089808b0ce64461671b84060",
+    "sha256": "3e7962b28e654586e1100b376d364304e30b1a07f90b65d994853d0f0ff379de"
+   },
+   {
+    "file": "data/datasets/coastpros_eu/COASTPROS.cpg",
+    "bytes": 5,
+    "md5": "ae3b3df9970b49b6523e608759bc957d",
+    "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+   }
+  ]
  }
 }

@@ -54,7 +54,7 @@ def test_today_s_coastal_figure_is_read_through_the_depth_curves_untested_and_un
     c = _results(s, engine.run(s, org, "realestate")["run_id"])["coastal_flood"]
     assert c["gap"] is None and float(c["eal_eur"]) > 0 and c["flood_layer"] == "aqueduct_coastal_flood"
     assert c["standing"] == "untested"                           # the curves' river-flood test does not reach coast
-    assert c["protection_code"] == "loss.protection.coastal_not_held" and c["eal_defended_eur"] is None
+    assert c["protection_code"] == "loss.protection.not_read" and c["eal_defended_eur"] is None   # no standard read
     assert float(c["eal_low_eur"]) <= float(c["eal_eur"]) <= float(c["eal_high_eur"])
 
 
@@ -102,3 +102,48 @@ def test_the_future_storm_set_serves_2030_between_the_present_and_its_warming(se
     assert (placed["lower"], placed["upper"]) == ("present", "ssp585:2015-2050") and 0 < placed["w"] < 1
     later = _results(s, engine.run(s, org, "realestate", "hot_house_3_5c", "2050")["run_id"])["storm"]
     assert later["gap_code"] == "loss.gap.beyond_warming"
+
+
+def _standard(s, status: str, low=None, high=None, lat=LAT, lon=LON):
+    from services.loss import protection
+    P = protection.layer(protection.LAYERS["coastal_flood"])
+    s.execute(text("""INSERT INTO flood_protection_samples (layer_key, layer_version, latitude, longitude, status,
+                      design_rp_years, design_rp_high_years) VALUES (:k, :v, :la, :lo, :st, :a, :b)"""),
+              {"k": protection.LAYERS["coastal_flood"], "v": P["version"], "la": lat, "lo": lon, "st": status, "a": low,
+               "b": high})
+
+
+def test_a_stated_coastal_level_defends_as_river_flood_is_defended(coastal_org):
+    from services.loss import protection
+    s, org = coastal_org
+    _samples(s, "aqueduct_coastal_flood", _coast(1.0))
+    _standard(s, "sampled", 50.0)
+    c = _results(s, engine.run(s, org, "realestate")["run_id"])["coastal_flood"]
+    losses = {int(rp): v["central"] for rp, v in c["loss_at_rp"].items()}
+    assert c["protection_code"] == "loss.protection.level" and float(c["protection_rp_years"]) == 50.0
+    assert float(c["eal_defended_eur"]) == pytest.approx(protection.defended_eal(losses, 50.0), abs=0.01)
+    assert float(c["eal_defended_eur"]) < float(c["eal_eur"]) and c["protection_rp_high_years"] is None
+
+
+def test_a_stated_range_of_levels_gives_a_defended_range_with_no_central_figure(coastal_org):
+    from services.loss import protection
+    s, org = coastal_org
+    _samples(s, "aqueduct_coastal_flood", _coast(1.0))
+    _standard(s, "sampled", 50.0, 500.0)
+    c = _results(s, engine.run(s, org, "realestate")["run_id"])["coastal_flood"]
+    low = {int(rp): v["low"] for rp, v in c["loss_at_rp"].items()}
+    high = {int(rp): v["high"] for rp, v in c["loss_at_rp"].items()}
+    assert c["protection_code"] == "loss.protection.range" and float(c["protection_rp_high_years"]) == 500.0
+    assert c["eal_defended_eur"] is None
+    assert float(c["eal_defended_low_eur"]) == pytest.approx(protection.defended_eal(low, 500.0), abs=0.01)
+    assert float(c["eal_defended_high_eur"]) == pytest.approx(protection.defended_eal(high, 50.0), abs=0.01)
+    assert float(c["eal_defended_low_eur"]) < float(c["eal_defended_high_eur"]) <= float(c["eal_high_eur"])
+
+
+def test_a_region_stating_no_single_level_leaves_protection_unknown(coastal_org):
+    s, org = coastal_org
+    _samples(s, "aqueduct_coastal_flood", _coast(1.0))
+    _standard(s, "not_a_level")
+    c = _results(s, engine.run(s, org, "realestate")["run_id"])["coastal_flood"]
+    assert c["protection_code"] == "loss.protection.not_a_level" and c["eal_defended_low_eur"] is None
+    assert float(c["eal_eur"]) > 0
