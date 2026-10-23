@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3117 table columns, 357 foreign keys, 96 unique constraints, 305 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 316 migration revisions in `core/db/migrations/versions/`, head `fund_pos_money_20261023`. Extensions present: plpgsql.
+The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3141 table columns, 360 foreign keys, 97 unique constraints, 316 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 317 migration revisions in `core/db/migrations/versions/`, head `register_sites_20261023`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -30,7 +30,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
 | Loss engine | 6 | 87 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
-| Asset management (issuers, securities, funds) | 22 | 247 | 20 | 14 | 1 | 1 |
+| Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 339 | 15 | 7 | 3 | 5 |
 | Regulatory reporting & filings | 26 | 368 | 16 | 19 | 15 | 7 |
@@ -47,7 +47,7 @@ flowchart LR
   scores["Golden score layer & hazard data (21)"]
   models["Models & validation (9)"]
   books["Financial books (bank, insurer, real estate, portfolio) (24)"]
-  assetmgmt["Asset management (issuers, securities, funds) (22)"]
+  assetmgmt["Asset management (issuers, securities, funds) (23)"]
   eudr["EUDR (14)"]
   agri["Agri-food supply chain & crops (26)"]
   filings["Regulatory reporting & filings (26)"]
@@ -77,7 +77,7 @@ flowchart LR
 
 ## 2. Tenancy and access control
 
-The tenant table is `organizations`. **122 of the other 260 tables** carry an `org_id` column; 105 of them declare it a foreign key to `organizations`, and in 15 it accepts NULL. Counting every column, **118 tables** hold at least one foreign key to `organizations`; the columns other than `org_id` that do so are `actor_org_id` (1), `provisioned_org_id` (1), `recipient_org_id` (1), `regulator_org_id` (10), `subject_org_id` (3), `supervised_org_id` (6). **0 tables** have row-level security enabled and **0** row-level policies exist (`pg_class.relrowsecurity`, `pg_policies`): the database does not filter rows by tenant itself. How the application scopes reads and writes to the signed-in organisation and checks permissions: [SOFTWARE_DESCRIPTION.md §6](SOFTWARE_DESCRIPTION.md#6-security-multi-tenancy--access-control).
+The tenant table is `organizations`. **122 of the other 261 tables** carry an `org_id` column; 105 of them declare it a foreign key to `organizations`, and in 15 it accepts NULL. Counting every column, **118 tables** hold at least one foreign key to `organizations`; the columns other than `org_id` that do so are `actor_org_id` (1), `provisioned_org_id` (1), `recipient_org_id` (1), `regulator_org_id` (10), `subject_org_id` (3), `supervised_org_id` (6). **0 tables** have row-level security enabled and **0** row-level policies exist (`pg_class.relrowsecurity`, `pg_policies`): the database does not filter rows by tenant itself. How the application scopes reads and writes to the signed-in organisation and checks permissions: [SOFTWARE_DESCRIPTION.md §6](SOFTWARE_DESCRIPTION.md#6-security-multi-tenancy--access-control).
 
 | Domain | Tables | With org_id | org_id → organizations | org_id nullable | Any foreign key → organizations |
 |---|---|---|---|---|---|
@@ -88,7 +88,7 @@ The tenant table is `organizations`. **122 of the other 260 tables** carry an `o
 | Models & validation | 9 | 2 | 1 | 0 | 1 |
 | Loss engine | 6 | 1 | 1 | 0 | 1 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 14 | 12 | 0 | 12 |
-| Asset management (issuers, securities, funds) | 22 | 14 | 14 | 5 | 14 |
+| Asset management (issuers, securities, funds) | 23 | 14 | 14 | 5 | 14 |
 | EUDR | 14 | 8 | 7 | 0 | 7 |
 | Agri-food supply chain & crops | 26 | 6 | 6 | 0 | 6 |
 | Regulatory reporting & filings | 26 | 22 | 19 | 1 | 19 |
@@ -2820,7 +2820,7 @@ Foreign keys to other domains:
 | `webhook_status` | character varying(50) | yes |  |  |
 | `webhook_response` | jsonb | yes |  |  |
 
-### 4.8 Asset management (issuers, securities, funds) (22 tables)
+### 4.8 Asset management (issuers, securities, funds) (23 tables)
 
 ```mermaid
 erDiagram
@@ -2884,6 +2884,12 @@ erDiagram
     uuid facility_id PK
     uuid issuer_id FK
   }
+  issuer_site_candidates {
+    uuid candidate_id PK
+    uuid issuer_id FK
+    uuid decided_by FK
+    uuid facility_id FK
+  }
   issuer_taxonomy_kpi {
     uuid kpi_id PK
     uuid issuer_id FK
@@ -2936,6 +2942,8 @@ erDiagram
   issuers ||--o{ issuer_emissions : "issuer_id"
   issuers ||--o{ issuer_esg_metrics : "issuer_id"
   issuers ||--o{ issuer_facilities : "issuer_id"
+  issuer_facilities |o--o{ issuer_site_candidates : "facility_id"
+  issuers ||--o{ issuer_site_candidates : "issuer_id"
   issuers ||--o{ issuer_taxonomy_kpi : "issuer_id"
   issuers ||--o{ issuer_transition_scores_retired_20260930 : "issuer_id"
   issuers ||--o{ issuer_voluntary_pai : "issuer_id"
@@ -2953,6 +2961,7 @@ Foreign keys to other domains:
 | Table | Columns | References | Domain |
 |---|---|---|---|
 | `assetmgmt_holding_valuations` | overridden_by | `users` | Identity & access |
+| `issuer_site_candidates` | decided_by | `users` | Identity & access |
 
 #### `assetmgmt_holding_valuations`
 
@@ -3214,12 +3223,56 @@ Foreign keys to other domains:
 | `source_ref` | character varying(160) | yes |  |  |
 | `data_vintage` | date | yes |  |  |
 | `confidence` | numeric(4,3) | yes |  |  |
+| `match_basis` | character varying(20) | yes |  |  |
+| `owner_share` | numeric(9,6) | yes |  |  |
+| `site_facts` | jsonb | yes |  |  |
 
 - Check `issuer_facilities_confidence_check`: `CHECK (((confidence IS NULL) OR ((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))))`
-- Check `issuer_facilities_source_check`: `CHECK (((source)::text = ANY ((ARRAY['climate_trace'::character varying, 'gem'::character varying, 'osm'::character varying, 'disclosure'::character varying, 'client'::character varying, 'manual'::character varying])::text[])))`
-- Check `issuer_facilities_weight_basis_check`: `CHECK (((weight_basis)::text = ANY ((ARRAY['revenue'::character varying, 'assets'::character varying, 'production_capacity'::character varying, 'headcount'::character varying, 'equal'::character varying])::text[])))`
+- Check `issuer_facilities_match_basis_check`: `CHECK (((match_basis)::text = ANY ((ARRAY['register_lei'::character varying, 'reviewed_name'::character varying])::text[])))`
+- Check `issuer_facilities_not_stated_zero`: `CHECK ((((weight_basis)::text <> 'not_stated'::text) OR (materiality_weight = (0)::numeric)))`
+- Check `issuer_facilities_owner_share_check`: `CHECK (((owner_share > (0)::numeric) AND (owner_share <= (1)::numeric)))`
+- Check `issuer_facilities_register_weight`: `CHECK (((match_basis IS NULL) OR (((weight_basis)::text = 'not_stated'::text) AND (materiality_weight = (0)::numeric) AND (source_ref IS NOT NULL) AND (site_facts IS NOT NULL))))`
+- Check `issuer_facilities_source_check`: `CHECK (((source)::text = ANY ((ARRAY['climate_trace'::character varying, 'gem'::character varying, 'osm'::character varying, 'disclosure'::character varying, 'client'::character varying, 'manual'::character varying, 'eea_ied'::character varying])::text[])))`
+- Check `issuer_facilities_weight_basis_check`: `CHECK (((weight_basis)::text = ANY ((ARRAY['revenue'::character varying, 'assets'::character varying, 'production_capacity'::character varying, 'headcount'::character varying, 'equal'::character varying, 'not_stated'::character varying])::text[])))`
 - Index: `CREATE INDEX ix_facilities_h3 ON public.issuer_facilities USING btree (h3_cell)`
 - Index: `CREATE INDEX ix_facilities_issuer ON public.issuer_facilities USING btree (issuer_id)`
+- Index: `CREATE UNIQUE INDEX ux_facilities_register_site ON public.issuer_facilities USING btree (issuer_id, source, source_ref) WHERE (match_basis IS NOT NULL)`
+
+#### `issuer_site_candidates`
+
+| Column | Type | Null | Default | Key / notes |
+|---|---|---|---|---|
+| `candidate_id` | uuid | no | `gen_random_uuid()` | PK |
+| `issuer_id` | uuid | no |  | FK → issuers.issuer_id (on delete cascade) |
+| `register` | character varying(20) | no |  |  |
+| `register_ref` | character varying(160) | no |  |  |
+| `register_vintage` | character varying(80) | no |  |  |
+| `name` | character varying(300) | yes |  |  |
+| `latitude` | double precision | no |  |  |
+| `longitude` | double precision | no |  |  |
+| `country` | character varying(2) | yes |  |  |
+| `site_facts` | jsonb | no |  |  |
+| `owner_named` | character varying(300) | no |  |  |
+| `matched_lei` | character varying(20) | no |  |  |
+| `matched_name` | character varying(300) | no |  |  |
+| `relation` | character varying(30) | no |  |  |
+| `rule` | character varying(200) | no |  |  |
+| `status` | character varying(12) | no | `'pending'::character varying` |  |
+| `decided_by` | uuid | yes |  | FK → users.user_id |
+| `decided_at` | timestamp with time zone | yes |  |  |
+| `note` | text | yes |  |  |
+| `facility_id` | uuid | yes |  | FK → issuer_facilities.facility_id |
+| `created_at` | timestamp with time zone | no | `now()` |  |
+
+- Unique `issuer_site_candidates_issuer_id_register_register_ref_key`: (issuer_id, register, register_ref)
+- Check `issuer_site_candidates_check`: `CHECK ((((status)::text = 'pending'::text) = ((decided_by IS NULL) AND (decided_at IS NULL))))`
+- Check `issuer_site_candidates_check1`: `CHECK ((((status)::text = 'confirmed'::text) = (facility_id IS NOT NULL)))`
+- Check `issuer_site_candidates_latitude_check`: `CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))`
+- Check `issuer_site_candidates_longitude_check`: `CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))`
+- Check `issuer_site_candidates_register_check`: `CHECK (((register)::text = 'eea_ied'::text))`
+- Check `issuer_site_candidates_relation_check`: `CHECK (((relation)::text = ANY ((ARRAY['issuer'::character varying, 'consolidated_entity'::character varying])::text[])))`
+- Check `issuer_site_candidates_status_check`: `CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'confirmed'::character varying, 'rejected'::character varying])::text[])))`
+- Index: `CREATE INDEX ix_site_candidates_status ON public.issuer_site_candidates USING btree (status, issuer_id)`
 
 #### `issuer_taxonomy_kpi`
 

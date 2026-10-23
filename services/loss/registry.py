@@ -159,6 +159,9 @@ def check() -> list[str]:
             out.append(f"event set {k}: peril '{E['peril']}' is not a hazard type")
         if not (E.get("licence") and E.get("doi") and E.get("years_simulated", 0) > 0):
             out.append(f"event set {k}: needs a licence, a DOI and the simulated years")
+        record = str(E.get("doi") or "").split("/")[-1].split(".")[0]
+        if not record or record not in (E.get("url") or ""):    # the record's own address, never one typed from memory
+            out.append(f"event set {k}: its url must be its record's — holding the DOI's record number {record}")
     occ = _occupancy()
     for table, walk in occ["crosswalk"].items():
         for t, c in walk.items():

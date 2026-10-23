@@ -16,7 +16,9 @@ a company, never a building (E307): its loss is looked through to the issuer's l
 Which weights count (decided 2026-10-22): a weight on the 'assets' basis is a share of the issuer's value; the
 organisation may state, as a governed method choice, the other bases it accepts (interpretation switches
 loss_site_weight_<basis>: revenue, production capacity, headcount) — not stated, those sites are a named gap. An 'equal'
-weight states no measure and never counts. An issuer whose only site is its head-office proxy (services.reference.
+weight states no measure and never counts. A site located from a public register of facilities (Climate TRACE, the EEA's
+industrial register; decided 2026-10-23) has no weight of its own: basis 'not_stated', a named gap until its share of the
+company's value is provided — never assumed. An issuer whose only site is its head-office proxy (services.reference.
 footprint) has no physical site located: a named gap. Today's climate only (baseline, current), the engine's
 issuer-sites book.
 """
@@ -32,9 +34,10 @@ from services.loss import curves
 from services.loss import figures as door
 
 BOOK = "issuer_sites"
-PERILS = ("flood", "storm")
+PERILS = ("flood", "coastal_flood", "storm")
 VALUE_BASIS = "assets"                                     # a weight on this basis is a share of value, always
 STATED_BASES = ("revenue", "production_capacity", "headcount")
+NOT_STATED = "not_stated"                                 # a located site whose share of the company nobody states
 COUNTS = "counts_as_value"                                # the switch value that accepts a basis
 CARRIED_BASIS = "asset_value"                             # a curve whose share is of the site's whole physical value
 TOLERANCE = 1e-9                                          # weights stored to six decimals; a sum above 1 + this is over
@@ -112,10 +115,10 @@ def _issuer(sites: list[dict], run: Optional[dict], accepted: list[str], headlin
     real = [s for s in sites if not s["proxy"]]
     if not real:
         return {**out, "why": _msg("lookthrough.gap.head_office_only")}
-    if run is None:
-        return {**out, "why": _msg("lookthrough.gap.no_run")}
-    tested = {(f["asset_id"], f["peril"]): f for f in run["figures"]}
-    withheld = {(w["asset_id"], w["peril"]): w for w in run["not_carried"]}
+    if run is None and any(s["weight_basis"] in accepted for s in real):   # a run cannot supply a missing weight:
+        return {**out, "why": _msg("lookthrough.gap.no_run")}             # with none counting, that reason comes first
+    tested = {(f["asset_id"], f["peril"]): f for f in run["figures"]} if run else {}
+    withheld = {(w["asset_id"], w["peril"]): w for w in run["not_carried"]} if run else {}
     total = {"central": 0.0, "low": 0.0, "high": 0.0}
     counted = covered = 0.0
     waiting = carried = False
@@ -124,8 +127,9 @@ def _issuer(sites: list[dict], run: Optional[dict], accepted: list[str], headlin
         site = {k: s[k] for k in ("facility_id", "name", "facility_type", "country", "region", "weight", "weight_basis")}
         site.update(counts=counts, why=None, hazards=[])
         if not counts:
-            site["why"] = _msg("lookthrough.site.basis_not_accepted",
-                               basis=messages.name("lookthrough.basis", s["weight_basis"]))
+            site["why"] = (_msg("lookthrough.site.weight_not_stated") if s["weight_basis"] == NOT_STATED else
+                           _msg("lookthrough.site.basis_not_accepted",
+                                basis=messages.name("lookthrough.basis", s["weight_basis"])))
             out["not_carried"][site["why"]["code"]] = out["not_carried"].get(site["why"]["code"], 0) + 1
             out["sites"].append(site)
             continue
@@ -158,7 +162,8 @@ def _issuer(sites: list[dict], run: Optional[dict], accepted: list[str], headlin
         out["sites"].append(site)
     out.update(counted=counted, covered=covered)
     if not any(s["counts"] for s in out["sites"]):
-        return {**out, "why": _msg("lookthrough.gap.no_weighted_site")}
+        unstated = all(s["weight_basis"] == NOT_STATED for s in real)
+        return {**out, "why": _msg("lookthrough.gap.weights_not_stated" if unstated else "lookthrough.gap.no_weighted_site")}
     if counted > 1 + TOLERANCE:
         return {**out, "why": _msg("lookthrough.gap.weights_exceed", total=f"{counted:.0%}")}
     if waiting:                    # a sum without the flood figures waiting for the stated lead would understate it

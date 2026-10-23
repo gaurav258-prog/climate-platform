@@ -44,8 +44,8 @@ def _orsa_qualifying(which: str) -> list[str]:
 def _loss_families(peril: str) -> list[str]:
     """The damage-curve families a loss may be computed with for this peril: the sound, registered families
     (services.loss.curves; a refused family is never offered)."""
-    from services.loss.curves import families
-    return sorted(k for k, f in families().items() if f["peril"] == peril)
+    from services.loss.curves import families, perils
+    return sorted(k for k, f in families().items() if peril in perils(f))
 
 
 def _site_weight_switches() -> dict:
@@ -129,6 +129,11 @@ INTERPRETATION_SCHEMA: dict = {
     "loss_curve_family_flood": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("flood"),
         "label": "Flood damage curves (loss figures)",
+        "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
+    },
+    "loss_curve_family_coastal_flood": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("coastal_flood"),
+        "label": "Coastal flood damage curves (loss figures)",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
     "loss_curve_family_storm": {

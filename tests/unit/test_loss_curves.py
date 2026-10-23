@@ -107,3 +107,37 @@ def test_a_family_that_requires_a_spread_refuses_a_curve_silent_about_it():
     c = next(c for c in bad["curves"] if c.get("sd"))
     c["sd"] = c["sd"][:-1]
     assert any("standard deviation" in p for p in curves.check_family(bad))
+
+
+def test_a_further_peril_needs_a_layer_measuring_it_and_its_quoted_basis():
+    ok = _with(also_perils={"coastal_flood": {"basis": "quoted", "sources": [{"title": "t"}]}})
+    assert curves.check_family(ok) == [] and curves.perils(ok) == ("flood", "coastal_flood")
+    assert any("quoted basis" in p for p in curves.check_family(_with(also_perils={"coastal_flood": {"basis": "quoted"}})))
+    assert any("no intensity layer measures seismic" in p
+               for p in curves.check_family(_with(also_perils={"seismic": {"basis": "q", "sources": [{}]}})))
+
+
+def test_a_test_decides_the_standing_of_the_family_s_own_peril_only():
+    from services.loss.engine import standing
+    fam = {"peril": "flood", "curves": [], "test": {"passed": True, "countries": ["US"]}}
+    assert standing(fam, "US", {"test": {"passed": True}}, "flood") == "published"
+    assert standing(fam, "US", {"test": {"passed": True}}, "coastal_flood") == "untested"
+    assert standing(fam, "US", {}, "coastal_flood") == "untested"
+
+
+def test_the_jrc_curves_serve_coastal_flood_on_the_maps_publisher_s_own_statement():
+    fam = curves.families()["jrc_huizinga_2017"]
+    assert "coastal_flood" in curves.perils(fam)
+    assert "Huizinga et al. (2017)" in fam["also_perils"]["coastal_flood"]["basis"]
+
+
+def test_a_family_s_option_label_fits_every_peril_and_region_it_serves():
+    """E327: the JRC family was offered as 'European river-flood damage curves' — its curves cover six continental
+    regions, and it serves coastal flood too."""
+    from core import messages
+    for key, fam in curves.families().items():
+        label = messages.names()["filing.election"].get(key, "")
+        if "european" in label.lower():
+            assert all(c["region"] == "150" for c in fam["curves"]), f"{key}: '{label}' but its curves reach beyond Europe"
+        if len(curves.perils(fam)) > 1:
+            assert "river" not in label.lower() and "coastal" not in label.lower(), f"{key}: '{label}' names one peril"

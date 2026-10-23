@@ -678,6 +678,238 @@
         "nodes_without_both_maps": 0,
         "passed": true
       }
+    },
+    "aqueduct_coastal_flood": {
+      "name": "WRI Aqueduct coastal flood maps",
+      "peril": "coastal_flood",
+      "metric": "water_depth",
+      "unit": "m",
+      "version": "v2.0",
+      "source": "WRI Aqueduct Floods hazard maps v2.0, coastal inundation: extreme sea levels (tide and storm surge) from the Global Tide and Surge Reanalysis enriched with IBTrACS cyclone tracks, spread over the MERIT terrain at 30″ by a GIS inundation routine",
+      "url": "https://aqueduct.wridata.org/AqueductFloods20",
+      "citation": "Ward, P.J., H.C. Winsemius, S. Kuzma, et al. 2020. 'Aqueduct Floods Methodology.' Technical Note. Washington, D.C.: World Resources Institute",
+      "method_file": "data/datasets/sources/wri_aqueduct_floods_methodology_2020.pdf",
+      "method_basis": "'We used all tracks over the period 1979–2014, converted these into wind and pressure fields, and simulated water levels accordingly. We combined the time series of GTSR and the cyclone track simulations by using the highest value found within the time series and established extreme values using a Gumbel extreme value distribution fit on the annual extremes. To translate near-shore tide and surge levels to overland inundation, we applied a GIS-based inundation routine … The routine inundates areas that are hydraulically connected to the sea at a given extreme sea level' (Ward et al. 2020, appendix A.1.3)",
+      "resolution_m": 1000,
+      "resolution_basis": "'The model uses the Multi-Error-Removed Improved-Terrain (MERIT) DEM (Yamazaki et al. 2017) at a 30″ × 30″ resolution as underlying topography' (Ward et al. 2020, appendix A.1.3)",
+      "return_periods": [
+        2,
+        5,
+        10,
+        25,
+        50,
+        100,
+        250,
+        500,
+        1000
+      ],
+      "files": {
+        "dir": "data/datasets/aqueduct_coastal",
+        "pattern": "inuncoast_{scenario}_wtsub_{year}_rp{rp:04d}_{projection}.tif",
+        "manifest": "data/reference/supply_datasets.json → aqueduct_floods_coastal",
+        "dictionary": "WRI's data dictionary (_Aqueduct_Floods_Data_Dictionary.xlsx, read 2026-10-23): projection '0' = '95th percentile (default)', '0_perc_05' = '5th percentile', '0_perc_50' = '50th percentile'; 'wtsub' = 'Subsidence included'"
+      },
+      "dry_below": 0.0,
+      "dry_basis": "Aqueduct counts a cell as impacted 'when water levels exceed 0 m' (Ward et al. 2020, section 2): a depth of 0 m is dry",
+      "no_data": {
+        "value": -9999,
+        "reads_as": "outside",
+        "basis": "'The value of -9999 is used as NoData' (WRI's catalogue record for the maps, datasets.wri.org, read 2026-10-23); on the coastal maps no-data is the sea and land beyond the maps' reach (read 2026-10-23: open North Sea −9999, Dutch coastal land 0 m or a depth) — a location there is outside the map, with no value, never a zero"
+      },
+      "reads_as": "the 30″ pixel holding the asset, as Aqueduct reads urban damage 'from the occurring water depth in that grid cell' (section 2): share 1 when the pixel is wet, its depth as the mean",
+      "present": {
+        "scenario": "present",
+        "year": "present",
+        "model": "",
+        "file": {
+          "scenario": "historical",
+          "year": "hist",
+          "projection": "0"
+        },
+        "covers": "extreme sea levels of 1979–2014 (the GTSR reanalysis and IBTrACS cyclone tracks, appendix A.1.3), today's sea level"
+      },
+      "pathways": [
+        "rcp4p5",
+        "rcp8p5"
+      ],
+      "members": {
+        "p05": "0_perc_05",
+        "p50": "0_perc_50",
+        "p95": "0"
+      },
+      "members_basis": "sea-level rise from RISES-AM (Jevrejeva et al. 2014): 'We chose the 50 percent projection for this project and have also established inundation estimates using the 5th and 95th percentiles' (Ward et al. 2020, appendix A.1.3); a member is the map at that percentile",
+      "periods": {
+        "2030": "2030",
+        "2050": "2050",
+        "2080": "2080"
+      },
+      "subsidence": {
+        "included": true,
+        "decided": {
+          "by": "product owner",
+          "date": "2026-10-23"
+        },
+        "basis": "the maps that include it ('wtsub' — 'Subsidence included', the data dictionary): 'Land subsidence—the lowering of the land level—is an important variable used for calculating future flood risk. In many coastal areas, groundwater extraction is the dominant cause of human-induced land subsidence' (Ward et al. 2020, section 3); a map placed on the warming timeline carries its year's subsidence with it — the product owner's choice of 2026-10-23"
+      },
+      "flood_protection": "'The hazard layers have been simulated without considering the presence of flood protection' (section 3); no published coastal protection standard is held, so every coastal figure is the undefended one",
+      "coverage": "coastal flooding (tide and storm surge, with sea-level rise and subsidence in the future maps), global coasts. River flooding is the flood peril's: 'simply adding damage estimates for riverine and coastal together could result in double-counting; on the other, some areas may suffer increased hazard due to compound effects' (Ward et al. 2020, section 8) — the two are shown side by side, never added",
+      "licence": "CC BY 4.0",
+      "licence_status": "verified: WRI's catalogue record for the dataset (datasets.wri.org API, package aqueduct-floods-hazard-maps) states license_id 'cc-by'; attribution: the citation above — one package for the riverine and coastal maps (2026-10-07; re-read 2026-10-23)",
+      "use": {
+        "decided": {
+          "by": "product owner",
+          "date": "2026-10-23"
+        },
+        "role": "today's coastal flood figure (its present-day map) and projected runs (its pathway maps)",
+        "compared_with": "its own present-day map only",
+        "range": "central: the 50th percentile of sea-level rise; low: the 5th percentile's curve-low figure; high: the 95th percentile's curve-high figure — the spread of sea-level rise and of the curve together",
+        "central_member": "p50",
+        "timeline": {
+          "decided": {
+            "by": "product owner",
+            "date": "2026-10-23"
+          },
+          "axis": "data/reference/climate/warming_axis.json",
+          "rule": "a pathway-year reads the two maps whose warming brackets its own — the present day or any pathway's map — the water depth blended by how far its warming lies between theirs, then the damage curve applied; warmer than every map, a named gap",
+          "present_years": [
+            1979,
+            2014
+          ],
+          "present_made_from": "observations — extreme sea levels from the GTSR reanalysis and IBTrACS best tracks of 1979–2014 (appendix A.1.3), measured on the observed record",
+          "maps": {
+            "rcp4p5": "ssp245",
+            "rcp8p5": "ssp585"
+          },
+          "maps_basis": "same 2100 radiative forcing: RCP4.5 ↔ SSP2-4.5, RCP8.5 ↔ SSP5-8.5; each map is climate-model output, measured on the assessed series of the SSP with its forcing",
+          "periods": {
+            "2030": [
+              2030,
+              2030
+            ],
+            "2050": [
+              2050,
+              2050
+            ],
+            "2080": [
+              2080,
+              2080
+            ]
+          },
+          "periods_basis": "the source's years: 'In Aqueduct Floods, flood risk is calculated for 2010, 2030, 2050, and 2080' (Ward et al. 2020, section 2) — a coastal map holds the sea level of its year, measured on the year's assessed 20-year level"
+        }
+      }
+    },
+    "storm_cc_wind": {
+      "name": "STORM future tropical-cyclone wind maps",
+      "peril": "storm",
+      "metric": "max_sustained_wind_10min",
+      "unit": "m/s",
+      "version": "cc-v1",
+      "source": "derived from the event set storm_cc (STORM Climate Change synthetic tracks): per climate model and synthetic year, the highest wind at the point — the method of storm_v4_wind",
+      "derived_from": "storm_cc",
+      "wind_field": "modified Rankine vortex as ml.scoring.storm_physics (the calibrated storm channel)",
+      "resolution_m": null,
+      "return_periods": [
+        10,
+        25,
+        50,
+        100,
+        200,
+        250,
+        500,
+        1000
+      ],
+      "coverage": "the six STORM basins (EP, NA, NI, SI, SP, WP)",
+      "licence": "CC0 1.0",
+      "licence_status": "verified: the dataset record (figshare API, article 14237678) states licence 'CC0' (2026-10-23)",
+      "metric_basis": "the record's README: entry 9 'Maximum wind speed' in m/s, the columns 'copied from Bloemendaal et al 2020' — the measure of storm_v4_wind (STORM's 'Vmax10: 10-minute mean maximum sustained wind speed')",
+      "domain_note": "STORM's basins run 'with lat boundaries set at 60 N/S' (SELECT_BASIN.py, line 92) with no extratropical transition, and its tracks reach Europe more often than observed ones (Madrid: 15% of simulated years within 400 km against 3 of 46 observed seasons, 2026-10-06): a loss is computed only where an adopted cyclone curve covers the country",
+      "conversions": {
+        "max_sustained_wind_1min": {
+          "divide_by": 0.88,
+          "decided": "the product owner's decision of 2026-10-20 for STORM's winds (storm_v4_wind), which this set shares: the same generator, its tracks' winds in the same measure ('Maximum wind speed m/s', the columns 'copied from Bloemendaal et al 2020', the record's README)",
+          "basis": "STORM turned the warning centres' 1-minute winds into its 10-minute ones: 'These wind speeds are multiplied by a factor of 0.88 to convert them to U10' (Bloemendaal et al. 2020, Methods, Input datasets, citing Harper, Kepert & Ginger's guidelines, WMO 2008); dividing by 0.88 restores that 1-minute basis. CLIMADA, the code the Eberenz curves were calibrated with, does the same for STORM: 'STORM_1MIN_WIND_FACTOR = 0.88' and 'tracks_df[\"wind\"] /= STORM_1MIN_WIND_FACTOR'. The final WMO guidelines (WMO/TD-No. 1555, section 1.5) recommend 0.93 for at-sea storm maxima and say this 'is about 5% higher than the \"traditional\" value of 0.88, which is seen to be more appropriate to an off-land exposure' (Table 1.2: at-sea 0.93, off-sea 0.90, off-land 0.87, in-land 0.84).",
+          "sources": [
+            {
+              "title": "Generation of a global synthetic tropical cyclone hazard dataset using STORM",
+              "authors": "Bloemendaal, N. et al.",
+              "year": 2020,
+              "publisher": "Scientific Data 7, 40",
+              "doi": "10.1038/s41597-020-0381-2",
+              "read": "Europe PMC full text PMC7005259, 2026-10-20"
+            },
+            {
+              "title": "climada/hazard/tc_tracks.py",
+              "publisher": "CLIMADA (ETH Zürich), github.com/CLIMADA-project/climada_python",
+              "commit": "0b5bb0b1525385da91f948ab309d16a9296a8864",
+              "lines": "192–197, 1533",
+              "read": "2026-10-20"
+            },
+            {
+              "title": "Guidelines for converting between various wind averaging periods in tropical cyclone conditions (WMO/TD-No. 1555)",
+              "authors": "Harper, B. A., Kepert, J. D. and Ginger, J. D.",
+              "year": 2010,
+              "publisher": "World Meteorological Organization",
+              "url": "https://library.wmo.int/idurl/4/48652",
+              "file": "data/datasets/wmo_td1555/WMO_TC_Wind_Averaging_27_Aug_2010.pdf",
+              "sha256": "b80dfa94120dc3d7bdf848730617f4ef172497e4872b372d179a9879ef663995",
+              "copy": "the lead author's copy (systemsengineeringaustralia.com.au, Systems Engineering Australia), dated 27-Aug-2010, cover 'WMO/TD-No. 1555'; WMO's library sits behind a human check"
+            }
+          ]
+        }
+      },
+      "present": {
+        "layer": "storm_v4_wind",
+        "scenario": "present",
+        "year": "present",
+        "model": "",
+        "covers": "STORM's present climate: 10,000 years generated from IBTrACS 1980–2018"
+      },
+      "pathways": [
+        "ssp585"
+      ],
+      "models": [
+        "CMCC-CM2-VHR4",
+        "CNRM-CM6-1-HR",
+        "EC-Earth3P-HR",
+        "HadGEM3-GC31-HM"
+      ],
+      "periods": {
+        "2015-2050": "2015–2050"
+      },
+      "use": {
+        "decided": {
+          "by": "product owner",
+          "date": "2026-10-22"
+        },
+        "role": "projected runs only; today's tropical-cyclone figure stays storm_v4_wind",
+        "compared_with": "the same generator's present climate (storm_v4_wind) only",
+        "range": "central: the median of the four models — the mean of the two middle models' figures, ranked by expected yearly loss; low: the lowest model's curve-low figure; high: the highest model's curve-high figure",
+        "timeline": {
+          "decided": {
+            "by": "product owner",
+            "date": "2026-10-22"
+          },
+          "axis": "data/reference/climate/warming_axis.json",
+          "rule": "a pathway-year reads the two maps whose warming brackets its own — the present climate or the future set — the wind at each return period blended by how far its warming lies between theirs, then the damage curve applied; warmer than every map, a named gap",
+          "present_years": [
+            1980,
+            2018
+          ],
+          "present_made_from": "observations — STORM's input is drawn 'from the global historical dataset IBTrACS for the time period 1980–2018 (38 years of data)' (Bloemendaal et al. 2020, Scientific Data 7, 40), measured on the observed record",
+          "maps": {
+            "ssp585": "ssp585"
+          },
+          "maps_basis": "the record: 'The dataset is generated by extracting the climate change signal from each of the four general circulation models listed below, and adding this signal to the historical data from IBTrACS … and resembles future-climate (2015-2050; RCP8.5/SSP5) conditions' (figshare article 14237678, read 2026-10-23)",
+          "periods": {
+            "2015-2050": [
+              2015,
+              2050
+            ]
+          },
+          "periods_basis": "the record's period: 'future-climate (2015-2050; RCP8.5/SSP5) conditions'"
+        }
+      }
     }
   },
   "protection_layers": {

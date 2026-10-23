@@ -9,7 +9,11 @@ data/reference/event_sets.json) held as compact arrays, and the wind each locati
                    (ml.scoring.storm_return_level.INFLUENCE_KM); basins are independent simulations, so a location
                    reached from two basins takes the higher of the two in each year
   rows(...)        the storm_v4_wind layer's rows for a location: the return level at each registered return period,
-                   the empirical (1 − 1/T) quantile of the 10,000 annual maxima (a quiet year counts as zero)"""
+                   the empirical (1 − 1/T) quantile of the 10,000 annual maxima (a quiet year counts as zero)
+
+The STORM Climate Change set (event set storm_cc: 10,000 years per climate model) is held and read the same way, one
+set of arrays per model under data/datasets/storm_v4_future/compact/<model> — compact("storm_cc", model) — and gives
+the storm_cc_wind layer's rows per model (member_rows): the same wind field, the same return levels."""
 from __future__ import annotations
 
 import hashlib
@@ -29,22 +33,27 @@ FIELDS = ("gyear", "tc", "lat", "lon", "vmax", "rmw")
 YEARS = 10_000
 
 
-def _src() -> dict:
-    return registry.event_sets()["storm_v4"]
+def _src(event_set: str = "storm_v4") -> dict:
+    return registry.event_sets()[event_set]
 
 
-def compact() -> dict:
+def _out(event_set: str = "storm_v4", member: str | None = None):
+    return OUT if event_set == "storm_v4" else ROOT / "data" / "datasets" / "storm_v4_future" / "compact" / member
+
+
+def compact(event_set: str = "storm_v4", member: str | None = None) -> dict:
     """Read the published files once into per-basin arrays; record each array file's size and sha-256."""
     import pandas as pd
-    E = _src()
-    src_dir = ROOT / E["files"]["dir"]
+    E = _src(event_set)
+    src_dir = ROOT / E["files"]["dir"].format(model=member)
     cols = E["columns"]
-    OUT.mkdir(parents=True, exist_ok=True)
+    out_dir = _out(event_set, member)
+    out_dir.mkdir(parents=True, exist_ok=True)
     record = {}
     for basin in BASINS:
         parts = []
         for idx in range(E["files"]["per_basin"]):
-            f = src_dir / E["files"]["pattern"].format(basin=basin, index=idx)
+            f = src_dir / E["files"]["pattern"].format(basin=basin, index=idx, model=member)
             df = pd.read_csv(f, header=None, names=cols, usecols=["year", "tc_number", "lat", "lon_0_360", "max_wind_ms",
                                                                   "rmw_km"], dtype="float64")
             df["gyear"] = idx * E["files"]["years_per_file"] + df["year"].astype("int64")
@@ -58,7 +67,7 @@ def compact() -> dict:
         arr = {k: v[order] for k, v in arr.items()}
         if int(arr["gyear"].max()) >= YEARS:
             raise ValueError(f"{basin}: a synthetic year beyond {YEARS}")
-        out = OUT / f"{basin}.npz"
+        out = out_dir / f"{basin}.npz"
         tmp = out.with_suffix(".part.npz")
         np.savez(tmp, **arr)
         tmp.replace(out)
@@ -67,33 +76,34 @@ def compact() -> dict:
         log.info("%s: %d track points", basin, arr["lat"].size)
     _basins.cache_clear()
     from scripts.fetch_supply_datasets import record as record_entry
-    record_entry("storm_v4_compact", {"source": "derived from the event set storm_v4 (data/reference/event_sets.json) by "
-                                                "services.loss.storm_events.compact", "licence": E["licence"],
-                                      "version": E["version"], "files": list(record.values())})
+    key = "storm_v4_compact" if event_set == "storm_v4" else f"{event_set}_compact_{member}"
+    record_entry(key, {"source": f"derived from the event set {event_set}{f' (model {member})' if member else ''} "
+                                 "(data/reference/event_sets.json) by services.loss.storm_events.compact",
+                       "licence": E["licence"], "version": E["version"], "files": list(record.values())})
     return record
 
 
-@lru_cache(maxsize=1)
-def _basins() -> dict[str, dict[str, np.ndarray]]:
+@lru_cache(maxsize=2)
+def _basins(event_set: str = "storm_v4", member: str | None = None) -> dict[str, dict[str, np.ndarray]]:
     out = {}
     for b in BASINS:
-        f = OUT / f"{b}.npz"
+        f = _out(event_set, member) / f"{b}.npz"
         if f.exists():
             z = np.load(f)
             out[b] = {k: z[k] for k in FIELDS}
     return out
 
 
-def held() -> bool:
-    return len(_basins()) == len(BASINS)
+def held(event_set: str = "storm_v4", member: str | None = None) -> bool:
+    return len(_basins(event_set, member)) == len(BASINS)
 
 
-def annual_max(lat: float, lon: float) -> np.ndarray:
+def annual_max(lat: float, lon: float, event_set: str = "storm_v4", member: str | None = None) -> np.ndarray:
     """The highest wind (m/s) any synthetic track produced at the point in each of the 10,000 years."""
     from ml.scoring.storm_physics import wind_field
     from ml.scoring.storm_return_level import BBOX_DEG, INFLUENCE_KM, _haversine
     out = np.zeros(YEARS, dtype=np.float64)
-    for b in _basins().values():
+    for b in _basins(event_set, member).values():
         lo, hi = np.searchsorted(b["lat"], [lat - BBOX_DEG, lat + BBOX_DEG])
         if hi <= lo:
             continue
@@ -122,6 +132,25 @@ def rows(lat: float, lon: float, _tiles=None) -> list[dict]:
     am = annual_max(lat, lon)
     return [{**base, "rp_years": rp, "status": "sampled", "value": float(np.quantile(am, 1.0 - 1.0 / rp))}
             for rp in L["return_periods"]]
+
+
+def member_rows(key: str, variant: dict, points: list[tuple[float, float]]) -> list[dict] | None:
+    """A wind layer derived from a per-model event set (storm_cc_wind): its rows for one model's map at many locations,
+    each the return levels of that model's 10,000 annual maxima — the method of rows(). None when the model's arrays are
+    not built (nothing is recorded)."""
+    import h3
+    L = registry.layer(key)
+    es, model = L["derived_from"], variant["climate_model"]
+    if not held(es, model):
+        return None
+    out = []
+    for lat, lon in points:
+        am = annual_max(lat, lon, es, model)
+        base = {"layer_key": key, "layer_version": L["version"], "latitude": lat, "longitude": lon,
+                "h3_cell": h3.latlng_to_cell(lat, lon, 8), "cell_fraction": None, "cell_mean": None, **variant}
+        out += [{**base, "rp_years": rp, "status": "sampled", "value": float(np.quantile(am, 1.0 - 1.0 / rp))}
+                for rp in L["return_periods"]]
+    return out
 
 
 def manifest() -> dict:

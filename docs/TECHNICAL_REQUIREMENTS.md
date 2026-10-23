@@ -16,7 +16,7 @@ What the platform runs on and how it is built, tested and deployed. The architec
 | TypeScript | `~6.0.2` → 6.0.3 | `web/package.json` / lock file |
 | PostgreSQL (CI) | `timescale/timescaledb:latest-pg16` | `.github/workflows/ci.yml` integration-tests service |
 | PostgreSQL (local stack) | `timescale/timescaledb:latest-pg16` | `docker-compose.yml` service db |
-| Database migrations | 316 revisions, head `fund_pos_money_20261023` | `core/db/migrations/versions/` |
+| Database migrations | 317 revisions, head `register_sites_20261023` | `core/db/migrations/versions/` |
 
 ## 2. Backend dependencies (Python)
 
@@ -168,7 +168,7 @@ Scripts: `npm run dev` → `vite`, `npm run build` → `tsc -b && vite build`, `
 
 ### API
 
-FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **661 operations on 584 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
+FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **663 operations on 586 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
 
 | Tag | Operations |
 |---|---|
@@ -184,8 +184,8 @@ FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **
 | Banking | 19 |
 | Me | 18 |
 | Insurance | 17 |
+| Platform operator | 17 |
 | Auth | 16 |
-| Platform operator | 15 |
 | European ESG Template (EET) | 14 |
 | Transmission | 13 |
 | onboarding | 13 |

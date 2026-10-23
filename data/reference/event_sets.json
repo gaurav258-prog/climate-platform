@@ -42,6 +42,56 @@
         "distance_to_land_km"
       ],
       "time_step_hours": 3
+    },
+    "storm_cc": {
+      "peril": "storm",
+      "version": "v1",
+      "source": "Bloemendaal et al., STORM Climate Change synthetic tropical cyclone tracks",
+      "doi": "10.4121/14237678.v1",
+      "url": "https://doi.org/10.4121/14237678.v1",
+      "published": "2022-02-24",
+      "licence": "CC0 1.0",
+      "years_simulated": 10000,
+      "per": "climate model: 'each model has its own 10.000 years of STORM data' (the record)",
+      "models": {
+        "CMCC-CM2-VHR4": "CMCC.zip",
+        "CNRM-CM6-1-HR": "CNRM.zip",
+        "EC-Earth3P-HR": "ECEARTH.zip",
+        "HadGEM3-GC31-HM": "HADGEM.zip"
+      },
+      "basins": [
+        "EP",
+        "NA",
+        "NI",
+        "SI",
+        "SP",
+        "WP"
+      ],
+      "files": {
+        "dir": "data/datasets/storm_v4_future/tracks/{model}",
+        "per_basin": 10,
+        "years_per_file": 1000,
+        "pattern": "STORM_DATA_{model}_{basin}_1000_YEARS_{index}_IBTRACSDELTA.txt",
+        "archives": "data/datasets/storm_v4_future/raw",
+        "provenance": "data/datasets/storm_v4_future/provenance.json"
+      },
+      "columns": [
+        "year",
+        "month",
+        "tc_number",
+        "time_step",
+        "basin_id",
+        "lat",
+        "lon_0_360",
+        "min_pressure_hpa",
+        "max_wind_ms",
+        "rmw_km",
+        "category",
+        "landfall",
+        "distance_to_land_km"
+      ],
+      "time_step_hours": 3,
+      "scenario": "'resembles future-climate (2015-2050; RCP8.5/SSP5) conditions' (the record)"
     }
   }
 }

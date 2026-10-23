@@ -20,7 +20,8 @@ router = APIRouter(prefix="/v1/loss", tags=["Loss"])
 def _family_view(key: str, f: dict) -> dict:
     from core import messages
     t = f.get("test") or {}
-    return {"family": key, "name": messages.names().get("family", {}).get(key, key), "kind": f.get("kind", "published"), "peril": f["peril"], "metric": f["metric"], "unit": f["unit"],
+    from services.loss.curves import perils
+    return {"family": key, "name": messages.names().get("family", {}).get(key, key), "kind": f.get("kind", "published"), "peril": f["peril"], "perils": list(perils(f)), "metric": f["metric"], "unit": f["unit"],
             "damage_basis": f.get("damage_basis"), "source": f.get("source"), "licence": f.get("licence"),
             "curves": [{"key": c["key"], "occupancy": c["occupancy"], "region": c.get("region"),
                         "countries": c["countries"], "points": c["points"], "bands": c.get("bands"),
@@ -36,11 +37,11 @@ def _family_view(key: str, f: dict) -> dict:
 @router.get("/families", summary="Damage-curve families: usable ones with their test, refused ones with why, and the adopted")
 def families(session: DbSession, ctx: dict = Depends(require_permission("modules.view"))):
     from services.calc_settings import get_calc_settings
-    from services.loss import curves
+    from services.loss import curves, engine
     settings = get_calc_settings(session, ctx["org"]["org_id"])
     return {"families": [_family_view(k, f) for k, f in sorted(curves.families().items())],
             "refused": [{"family": k, "name": _family_name(k), "reasons": v} for k, v in sorted(curves.refused().items())],
-            "adopted": {p: settings.get(f"loss_curve_family_{p}") for p in ("flood", "storm")},
+            "adopted": {p: settings.get(f"loss_curve_family_{p}") for p in engine.LAYERS},
             "dependence": {"flood": settings.get("loss_flood_dependence")},
             "headline": {"flood": settings.get("loss_flood_headline")}}
 
@@ -92,20 +93,30 @@ def start_run(body: RunRequest, ctx: dict = Depends(require_permission("reports.
     return {"status": "started", "book": body.book, "scenario": body.scenario, "horizon": body.horizon, "job": job}
 
 
-@router.get("/projection", summary="What a projected run can serve: scenarios and horizons, and why the rest are gaps")
+@router.get("/projection", summary="What a projected run can serve, per hazard: scenarios and horizons, and why the rest are gaps")
 def projection(ctx: dict = Depends(require_permission("modules.view"))):
-    from services.loss import engine, registry
-    L = registry.layer(engine.PROJECTED_FLOOD)
-    from services.loss import timeline
+    from services.loss import engine, registry, timeline
+    from services.loss import gaps as G
+    from services.loss import projection as P
 
-    def cell(sc: str, h: str) -> dict:
-        g = engine.projection_gap("flood", sc, h)
+    def cell(peril: str, sc: str, h: str) -> dict:
+        g = P.gap(peril, sc, h)
         return {"scenario": sc, "horizon": h, "gap": g and _message(g["gap_code"], g["gap_params"]),
-                "placement": None if g else _placement_message(sc, h, {"placement": timeline.place(engine.PROJECTED_FLOOD, sc, h)})}
-    cells = [cell(sc, h) for sc in engine.SCENARIOS if sc != "baseline" for h in engine.HORIZONS if h != "current"]
-    return {"source": L["source"], "citation": L["citation"], "licence": L["licence"], "periods": L["periods"],
-            "models": L["models"], "use": L["use"], "present_day_check": L.get("present_day_check"), "flood": cells,
-            "storm": _message("loss.gap.no_projection_peril", {"peril": "tropical cyclone"})}
+                "placement": None if g else _placement_message(
+                    sc, h, {"key": P.SOURCES[peril], "placement": timeline.place(P.SOURCES[peril], sc, h)}, peril)}
+    out = {}
+    for peril in engine.LAYERS:
+        key = P.SOURCES.get(peril)
+        if key is None:
+            out[peril] = {"gap": _message("loss.gap.no_projection_peril", {"peril": G.peril_name(peril)}), "cells": []}
+            continue
+        L = registry.layer(key)
+        out[peril] = {"source": L["source"], "citation": L.get("citation"), "licence": L["licence"],
+                      "periods": L["periods"], "members": P.members(L), "use": L["use"],
+                      "present_day_check": L.get("present_day_check"),
+                      "cells": [cell(peril, sc, h) for sc in engine.SCENARIOS if sc != "baseline"
+                                for h in engine.HORIZONS if h != "current"]}
+    return {"perils": out}
 
 
 @router.get("/runs", summary="This org's loss runs, newest first")
@@ -202,8 +213,8 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                             "(eal_same_source_today_eur), never with a today run's figure",
             "gaps": sorted(gaps.values(), key=lambda g: -g["count"]),
             "results": results, "book_curve": ep,
-            "placement": _placement_message(run["scenario"], run["time_horizon"],
-                                            ((run["inputs"] or {}).get("layers") or {}).get("flood") or {})}
+            "placements": {p: m for p, read in (((run["inputs"] or {}).get("layers") or {}).items())
+                           if (m := _placement_message(run["scenario"], run["time_horizon"], read or {}, p))}}
 
 
 def _map_name(key: str) -> str:
@@ -212,20 +223,23 @@ def _map_name(key: str) -> str:
     if key == "present":
         return messages.name("loss.projection_map", "present")
     pathway, period = key.split(":")
-    return f"{messages.name('loss.projection_map', pathway)} {period}"
+    return f"{messages.name('loss.projection_map', pathway)} {period.replace('-', '–')}"
 
 
-def _placement_message(scenario: str, horizon: str, flood: dict) -> Optional[dict]:
-    """Where a projected pathway-year read the flood maps on the platform's timeline, as a catalogue message — or None
+def _placement_message(scenario: str, horizon: str, read: dict, peril: str = "flood") -> Optional[dict]:
+    """Where a projected pathway-year read a hazard's maps on the platform's timeline, as a catalogue message — or None
     for today's climate, a run recorded before the timeline, or a pathway-year warmer than every map."""
     from core import messages
-    p = flood.get("placement")
+    from services.loss import registry
+    p = read.get("placement")
     if scenario == "baseline" or not p:
         return None
     t = p["target"]
+    depth = registry.layer(read.get("key") or "aqueduct_river_flood")["metric"] == "water_depth"
     params = {"scenario": messages.name("scenario", scenario), "year": horizon, "warming": f"{t['central']:+.1f}",
               "low": f"{t['low']:+.1f}", "high": f"{t['high']:+.1f}", "lower": _map_name(p["lower"]),
-              "upper": _map_name(p["upper"])}
+              "upper": _map_name(p["upper"]), "hazard": messages.name("peril", peril).capitalize(),
+              "measure": messages.name("loss.projection_measure", "depth" if depth else "wind")}
     return _message("loss.projection.on_map" if p["lower"] == p["upper"] else "loss.projection.between", params)
 
 
