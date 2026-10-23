@@ -4,7 +4,7 @@ events it was not built from.
 
   build()   per depth band: the claims, the share with no damage, the 10th/50th/90th percentile and the mean damage
             ratio; residential claims only (FEMA's occupancy codes, quoted in the protocol) in the curve's countries
-            (E322); every claim set aside is counted with its reason
+            (E325); every claim set aside is counted with its reason
   test()    each flood event with ≥ 500 claims, predicted from all other events' claims: the event's total damage
             (Σ mean ratio of each claim's band × the building's value) against the recorded total, and the share of
             its claims whose damage ratio falls inside their band's 10th–90th percentile
@@ -21,7 +21,7 @@ from services.loss import claims, registry
 
 INCH = 0.0254
 FAMILY_FILE = registry.REF / "vulnerability" / "nfip_measured.json"
-COUNTRIES = ["US"]                  # the measured curve's countries: the claims it is built and tested from (E322)
+COUNTRIES = ["US"]                  # the measured curve's countries: the claims it is built and tested from (E325)
 
 
 def protocol() -> dict:
@@ -30,7 +30,7 @@ def protocol() -> dict:
 
 def _claims(codes: list[int] | None = None, countries=("US",), use: str = "residential"):
     """The prepared claims a curve is built or tested from: the curve's countries only (measured_curves 'countries',
-    E322 — FEMA's state field read through services.reference.us_areas), the FEMA occupancy codes given (default the
+    E325 — FEMA's state field read through services.reference.us_areas), the FEMA occupancy codes given (default the
     residential codes), and the depth rules; every claim set aside is counted with its reason."""
     import pandas as pd
     import pyarrow.parquet as pq
@@ -65,7 +65,7 @@ def _claims(codes: list[int] | None = None, countries=("US",), use: str = "resid
 def enough_events(within: int, events: int) -> bool:
     """The event-total test's count (loss_protocol.json test.event_total): at least the registered share of the held-out
     events within the tolerance, the share held as a whole-number fraction and compared in whole numbers — 'at least two
-    thirds' is within × 3 ≥ events × 2, never a rounded decimal (E323: 0.67 failed 6 of 9)."""
+    thirds' is within × 3 ≥ events × 2, never a rounded decimal (E326: 0.67 failed 6 of 9)."""
     f = protocol()["test"]["event_total"]["share_of_events_required"]
     return events > 0 and within * f["denominator"] >= events * f["numerator"]
 

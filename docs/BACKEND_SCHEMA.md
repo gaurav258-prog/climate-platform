@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3115 table columns, 357 foreign keys, 96 unique constraints, 305 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 314 migration revisions in `core/db/migrations/versions/`, head `lookthrough_20261022`. Extensions present: plpgsql.
+The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3117 table columns, 357 foreign keys, 96 unique constraints, 305 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 316 migration revisions in `core/db/migrations/versions/`, head `fund_pos_money_20261023`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -30,14 +30,14 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
 | Loss engine | 6 | 87 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
-| Asset management (issuers, securities, funds) | 22 | 246 | 20 | 14 | 1 | 1 |
+| Asset management (issuers, securities, funds) | 22 | 247 | 20 | 14 | 1 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 339 | 15 | 7 | 3 | 5 |
 | Regulatory reporting & filings | 26 | 368 | 16 | 19 | 15 | 7 |
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
 | Workflow, decisions & controls | 23 | 278 | 7 | 19 | 26 | 1 |
-| Data intake & integration | 16 | 189 | 7 | 9 | 7 | 3 |
+| Data intake & integration | 16 | 190 | 7 | 9 | 7 | 3 |
 | Reference data, FX, settings & audit | 14 | 87 | 1 | 2 | 2 | 2 |
 
 Foreign keys between the other domains (an arrow points from the referencing domain to the referenced one; the label is the number of foreign keys; links into Tenants and Identity are in the table above):
@@ -3037,6 +3037,7 @@ Foreign keys to other domains:
 | `as_of_date` | date | no |  |  |
 | `created_at` | timestamp with time zone | no | `now()` |  |
 | `currency` | character varying(3) | no | `'EUR'::character varying` |  |
+| `money_source` | jsonb | yes |  |  |
 
 - Unique `fund_positions_fund_id_security_id_as_of_date_key`: (fund_id, security_id, as_of_date)
 - Index: `CREATE INDEX ix_positions_fund ON public.fund_positions USING btree (fund_id, as_of_date)`
@@ -6848,6 +6849,7 @@ Foreign keys to other domains:
 | `book_date` | date | yes |  |  |
 | `money_report` | jsonb | yes |  |  |
 | `imported_seq` | bigint | yes |  | unique |
+| `sheet` | text | yes |  |  |
 
 - Check `ck_ingest_batch_4eyes`: `CHECK (((state <> 'imported'::text) OR (gate_status = 'pass'::text) OR (approval_request_id IS NOT NULL)))`
 - Check `ck_ingest_batch_awaiting`: `CHECK (((state <> 'awaiting_approval'::text) OR (approval_request_id IS NOT NULL)))`

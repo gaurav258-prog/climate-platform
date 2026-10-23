@@ -16,7 +16,7 @@ What the platform runs on and how it is built, tested and deployed. The architec
 | TypeScript | `~6.0.2` → 6.0.3 | `web/package.json` / lock file |
 | PostgreSQL (CI) | `timescale/timescaledb:latest-pg16` | `.github/workflows/ci.yml` integration-tests service |
 | PostgreSQL (local stack) | `timescale/timescaledb:latest-pg16` | `docker-compose.yml` service db |
-| Database migrations | 314 revisions, head `lookthrough_20261022` | `core/db/migrations/versions/` |
+| Database migrations | 316 revisions, head `fund_pos_money_20261023` | `core/db/migrations/versions/` |
 
 ## 2. Backend dependencies (Python)
 
@@ -168,14 +168,14 @@ Scripts: `npm run dev` → `vite`, `npm run build` → `tsc -b && vite build`, `
 
 ### API
 
-FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **657 operations on 580 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
+FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **661 operations on 584 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
 
 | Tag | Operations |
 |---|---|
 | Regulator portal | 53 |
 | Agriculture / Supply chain | 42 |
+| Integration | 41 |
 | Reporting cockpit | 39 |
-| Integration | 37 |
 | Asset Management — Funds | 33 |
 | EUDR | 32 |
 | Regulatory tasks | 28 |

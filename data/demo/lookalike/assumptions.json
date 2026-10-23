@@ -1,0 +1,74 @@
+{
+ "weserland": {
+  "name": "Weserland Hypothekenbank",
+  "type": "bank",
+  "country": "DE",
+  "currency": "EUR",
+  "book_date": "2026-06-30",
+  "about": "German mortgage bank: residential mortgages to households",
+  "assumptions": {
+   "homes": 1000,
+   "appraised_value_eur_by_area_type": {
+    "urban": 480000,
+    "intermediate": 360000,
+    "rural": 290000
+   },
+   "loan_to_value": 0.6,
+   "why": "Germany publishes no official house price level per area (Destatis: index only), so each home's value is this stated figure by Eurostat's urban-rural type of its region."
+  }
+ },
+ "brezal": {
+  "name": "Brezal Patrimonio SOCIMI",
+  "type": "reit",
+  "country": "ES",
+  "currency": "EUR",
+  "book_date": "2026-06-30",
+  "about": "Spanish residential-rental REIT",
+  "assumptions": {
+   "buildings": 60,
+   "floor_m2_per_building": 3200,
+   "net_yield": 0.035,
+   "why": "The ministry's appraised value per m² is official; the size of each building and the yield are the REIT's stated assumptions."
+  }
+ },
+ "skarvholm": {
+  "name": "Skarvholm Försäkring",
+  "type": "insurer",
+  "country": "SE",
+  "currency": "SEK",
+  "book_date": "2025-12-31",
+  "about": "Swedish home insurer",
+  "assumptions": {
+   "homes": 500,
+   "why": "Each home's building value is Statistics Sweden's 2024 building price per m² (land excluded) times its average floor space per new dwelling — both official; contents are not insured in this book."
+  }
+ },
+ "kestrel": {
+  "name": "Kestrel Ridge Investment Management",
+  "type": "asset_manager",
+  "country": "LU",
+  "currency": "EUR",
+  "book_date": "2026-09-30",
+  "about": "manager of an Article 8 European equity fund",
+  "assumptions": {
+   "fund": "Kestrel Ridge European Equity",
+   "fund_value_eur": 1200000000,
+   "holdings": 120,
+   "why": "Real listed companies by ISIN, equally weighted — the fund's size and weights are stated; no figure about any company is made up (their emissions and Taxonomy shares stay gaps)."
+  }
+ },
+ "quejigo": {
+  "name": "Olivar del Quejigo",
+  "type": "manufacturer",
+  "country": "ES",
+  "currency": "EUR",
+  "book_date": "2025-12-31",
+  "about": "olive-oil producer in Jaén: mills and sourcing plots",
+  "assumptions": {
+   "sites": 8,
+   "plots": 120,
+   "plot_area_ha": 15,
+   "why": "Each plot's spend is its stated area times Jaén's official 2025 olive yield (dry or irrigated, drawn at Jaén's official irrigated share), the official oil per olive, and the official weekly oil prices weighted by Jaén's own oil by grade."
+  }
+ }
+}

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from services.ingest.sector_ingest import BANK, RowIssue
 
 # Mirrors ASSET_TEMPLATE_FIELDS' required set — the fields a loan-tape row must carry.
-BANK_REQUIRED = ["asset_name", "asset_type", "latitude", "longitude", "appraised_value_eur", "sector", "counterparty_evic_eur"]
+BANK_REQUIRED = ["asset_name", "asset_type", "latitude", "longitude", "appraised_value_eur", "sector"]   # EVIC: a company's only (E322)
 
 
 def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict],

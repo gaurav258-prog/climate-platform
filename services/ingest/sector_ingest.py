@@ -28,6 +28,9 @@ from services.ingest import (
 from services.ingest import (
     eudr_sectors as _eudr,  # the EUDR books (parties, movements, their plots)
 )
+from services.ingest import (
+    fund_books as _funds,  # an asset manager's funds and their holdings by ISIN
+)
 from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector are re-exported for callers
     RowIssue,
     Sector,
@@ -75,12 +78,24 @@ _PE_COMMON = ("entity_name", "latitude", "longitude", "h3_cell", "region", "coun
 
 # ── bank: loan tape → portfolio_entities (banking) + ext_banking ──
 
+# counterparties without an enterprise value (FINREP Annex V Part 1 sectors): their loans carry no EVIC (E322) — PCAF
+# attributes a household's mortgage by the property's value, a sovereign by GDP, never by an EVIC
+NO_ENTERPRISE_VALUE = ("household", "general_government", "central_bank")
+
 def _bank_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name, atype, sector = _s(row, "asset_name"), _s(row, "asset_type"), _s(row, "sector")
     if not (name and atype and sector):
         raise RowIssue(f"{field_name('asset_name')}, {field_name('asset_type').lower()} and {field_name('sector').lower()} are required")
-    evic = _positive(row, "counterparty_evic_eur", "counterparty_evic_eur")
+    cp_sector = _vocab(row, "counterparty_sector", "counterparty_sector")
+    if cp_sector in NO_ENTERPRISE_VALUE:          # a household, government or central bank has no enterprise value (E322)
+        if _m(row, "counterparty_evic_eur") is not None:
+            from core.messages import name as _name
+            raise RowIssue(f"{_name('onboarding.vocab.counterparty_sector', cp_sector)} has no "
+                           f"{field_name('counterparty_evic_eur')} — leave it blank")
+        evic = None
+    else:
+        evic = _positive(row, "counterparty_evic_eur", field_name("counterparty_evic_eur"))
     origination = _s(row, "loan_origination_date")
     return {"entity_name": name, "entity_type": atype, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": _s(row, "region"), "country": _s(row, "country"),
@@ -93,7 +108,7 @@ def _bank_build(ctx: dict, row: dict) -> dict:
             "counterparty_evic_eur": evic,
             "counterparty_govt_level": _vocab(row, "counterparty_govt_level", "govt_level"),
             "no_stated_maturity": _bool(row, "no_stated_maturity"),
-            "counterparty_sector": _vocab(row, "counterparty_sector", "counterparty_sector"),
+            "counterparty_sector": cp_sector,
             "immovable_collateral": _vocab(row, "immovable_collateral", "immovable_collateral"),
             "building_value_eur": _m(row, "building_value_eur"), "occupancy": _vocab(row, "occupancy", "occupancy")}
 
@@ -710,13 +725,14 @@ YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", tu
 
 
 SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, _bank_cp.COUNTERPARTIES, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES,
-                                                 YEAR_END, *_eudr.SECTORS)}
+                                                 YEAR_END, *_eudr.SECTORS, *_funds.SECTORS)}
 
 
 def write(session: Session, sector: Sector, org_id: str, ctx: dict, new: list[dict], updates: list[dict]) -> dict:
     """Write already-decided records. Returns the cells whose location is new or changed, for scoring."""
-    def clean(r: dict) -> dict:     # a history record keeps its money record (_money): it is written with the statement
-        return {k: v for k, v in r.items() if not k.startswith("_") or (sector.history and k == "_money")}
+    def clean(r: dict) -> dict:     # a history record keeps its money record (_money): it is written with the statement;
+        keep = sector.history or sector.money_record                  # so does a book that stores the amount as sent
+        return {k: v for k, v in r.items() if not k.startswith("_") or (keep and k == "_money")}
     new_c, upd_c = [clean(r) for r in new], [clean(r) for r in updates]
     if new_c:
         sector.insert(session, org_id, ctx, new_c)

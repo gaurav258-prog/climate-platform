@@ -57,8 +57,10 @@ def _ref(what: str) -> dict:
 ASSET_TEMPLATE_FIELDS = _template(
     ("asset_name", True), ("asset_type", True), ("latitude", True), ("longitude", True), ("appraised_value_eur", True),
     ("sector", True, {"description": "Sector / NACE classification.", "example": "Commercial real estate"}),
-    ("counterparty_evic_eur", True, {"description": "Enterprise Value Including Cash of the borrowing counterparty (market cap + "
-                                     "total debt + cash). Required for PCAF-attributed financed emissions."}),
+    ("counterparty_evic_eur", False, {"description": "Enterprise value including cash of a company that borrows (market cap + "
+                                      "total debt + cash): required for a company — the denominator of its PCAF-attributed "
+                                      "financed emissions. A household, a government or a central bank has none: leave it "
+                                      "blank and say so in Counterparty sector."}),
     ("outstanding_loan_balance_eur", False), ("loan_origination_date", False), ("region", False), ("country", False),
     ("borrower_entity_id", False), ("minimum_safeguards_status", False), ("counterparty_govt_level", False),
     ("no_stated_maturity", False), ("counterparty_sector", False), ("immovable_collateral", False),
@@ -152,6 +154,17 @@ BANK_COUNTERPARTY_TEMPLATE_FIELDS = _template(
                           "figures are taken from (YYYY-MM-DD) — required with them: the total liabilities are its balance "
                           "sheet on that day (closing rate), the revenue is for the year ending on it (average rate of the "
                           "year)."}),
+)
+
+FUND_TEMPLATE_FIELDS = _template(
+    ("fund_name", True), ("fund_type", True), ("sfdr_classification", True), ("base_currency", True), ("parent_fund", False),
+    ("fund_lei", False),
+)
+FUND_HOLDING_TEMPLATE_FIELDS = _template(
+    ("fund_name", True), ("isin", True), ("market_value_eur", True), ("currency", False),
+    ("book_date", True, {"label": "As-of date", "description": "The date of the fund's book this position is in "
+                         "(YYYY-MM-DD). A value in another currency converts to EUR at that day's closing rate."}),
+    ("asset_class", False),
 )
 
 EUDR_SUPPLIER_TEMPLATE_FIELDS = _template(

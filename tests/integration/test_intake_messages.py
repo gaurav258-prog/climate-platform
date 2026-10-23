@@ -34,7 +34,8 @@ FILES = ["services/ingest/batch_controls.py", "services/intake/pipeline.py", "se
          "services/governance/filing_lineage.py", "services/governance/pillar3_lineage.py",
          "services/governance/record_retention.py", "services/governance/data_revisions.py",
          "services/governance/filing_variance.py", "services/governance/engine_runs.py",
-         "services/governance/data_dictionary.py", "services/governance/prior_filings.py", "api/routers/prior_filings.py"]
+         "services/governance/data_dictionary.py", "services/governance/prior_filings.py", "api/routers/prior_filings.py",
+         "services/intake/workbooks.py", "services/intake/after_landing.py", "api/routers/intake_workbook.py"]
 CODE = re.compile(r"intake\.[a-z_]+(?:\.[a-z_]+)+")
 SAMPLE = dict(accepted="1,000.00", actual=4, age=12, book="loan tape", book_date="2026-06-30", columns="asset name", content="plain text",
               country="Japan", currencies="USD", currency="USD", date="2026-06-30", declared=5, difference="1.00", differences=2,
@@ -42,7 +43,7 @@ SAMPLE = dict(accepted="1,000.00", actual=4, age=12, book="loan tape", book_date
               figures="Total book value", format="Legacy Excel", formats="CSV or XLSX", hazard="Flooding", law="An act, Art. 1",
               limit=5, mapped=30, mapping="Core banking", mb="12", n=3, note="It sets no period.", now=50, official="1.08",
               official_source="the ECB", ours="Germany", pct=6.5, pct_value=2.5, prior=70, raw="2,000.00", rejected="1,000.00",
-              report="ESRS statement", rows="4, 7", scored=10, since="2026-01-01", source="the ECB", start="2025-07-01",
+              report="ESRS statement", rows="4, 7", scored=10, sector="Bank", since="2026-01-01", source="the ECB", start="2025-07-01",
               state="imported", successor="ESRS statement", symbols="$", units="1.08", validated=4, written="Frnace",
               years=10, yours="France")
 

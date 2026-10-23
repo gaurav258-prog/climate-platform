@@ -5,7 +5,7 @@ areas — American Samoa, Guam, the Northern Mariana Islands, Puerto Rico, the U
 the United States Virgin Islands — are ISO 3166-2:US subdivisions that also hold their own ISO 3166-1 codes (AS, GU, MP,
 PR, UM, VI), and the UN M49 regions place them outside Northern America (data/reference/un_m49_regions.json: Caribbean,
 Micronesia, Polynesia). A dataset's two-letter state field (FEMA's NFIP claims) is read to a country here, never by
-matching it against country codes: 'CA' California is not Canada, 'DE' Delaware is not Germany (E322)."""
+matching it against country codes: 'CA' California is not Canada, 'DE' Delaware is not Germany (E325)."""
 from __future__ import annotations
 
 STATES_AND_DC: frozenset[str] = frozenset({

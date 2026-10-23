@@ -11,6 +11,7 @@ import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 import FactConflicts from '../components/FactConflicts'
 import ValidatedUpload from '../components/ValidatedUpload'
 import BankCounterparties from '../components/BankCounterparties'
+import StandardFile from '../components/StandardFile'
 import { balance } from '../lib/money'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
@@ -53,6 +54,7 @@ export default function DataHub() {
           <div className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)]">Open <ArrowRight size={13} className="group-hover:translate-x-0.5 transition" /></div>
         </Link>
       </div>
+      {type && <Card className="p-5"><StandardFile sector={type} /></Card>}
       <FactConflicts />
       <div className="text-[12px] text-[var(--color-faint)]">Your own calculated figures go under “Provided &amp; reconciled data” in your reports.</div>
     </div>
@@ -72,6 +74,8 @@ export default function DataHub() {
       <SeasonalArrears />
 
       <Step n={1} title="Upload your book" tone="you">
+        <StandardFile sector={type} onDone={refresh} />
+        <div className="my-4 flex items-center gap-3 text-[11.5px] text-[var(--color-faint)]"><span className="h-px flex-1 bg-[var(--color-line)]" />or one book at a time<span className="h-px flex-1 bg-[var(--color-line)]" /></div>
         <ValidatedUpload
           intro={<>Your {cfg.bookNoun} is the source every climate score starts from — one row per {cfg.rowNoun}. We validate every row <b className="text-[var(--color-ink)]">before</b> anything is saved.</>}
           dropLabel={cfg.bookNoun} template={`${cfg.prefix}_${cfg.listKey}`}

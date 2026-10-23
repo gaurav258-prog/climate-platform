@@ -1,8 +1,8 @@
 """The NFIP-claims curve tests (data/reference/loss_protocol.json published_curve_test, corrected 2026-10-23, and
-published_curve_test_commercial): a curve is built and tested only from claims inside its countries (E322 — the first
+published_curve_test_commercial): a curve is built and tested only from claims inside its countries (E325 — the first
 runs took US outlying areas and claims with no state into US curves), the code applies each registration's occupancy
 codes and pass rule, a curve that publishes no range passes or fails on its event totals alone, and the event-total
-share is stored as the registered words say and counted in whole numbers (E323: 0.67 for 'two thirds' failed 6 of 9)."""
+share is stored as the registered words say and counted in whole numbers (E326: 0.67 for 'two thirds' failed 6 of 9)."""
 from __future__ import annotations
 
 import json
@@ -50,7 +50,7 @@ def _claims_file(tmp_path, monkeypatch):
 
 
 def test_claims_outside_the_curves_countries_are_set_aside_and_counted(tmp_path, monkeypatch):
-    """E322: a US curve reads the 50 states and DC only; Puerto Rico, the Virgin Islands and Guam are their own
+    """E325: a US curve reads the 50 states and DC only; Puerto Rico, the Virgin Islands and Guam are their own
     countries (in the Latin America and Oceania curves' regions), and a claim with no state cannot be placed."""
     _claims_file(tmp_path, monkeypatch)
     df, aside, n = measured._claims(countries=["US"])
@@ -99,7 +99,7 @@ def test_a_curve_without_a_range_passes_or_fails_on_its_event_totals_alone(monke
 
 
 def test_every_recorded_claims_test_read_only_its_curves_countries():
-    """The guard on what is recorded (E322): each curve tested on NFIP claims, and the measured family, record the
+    """The guard on what is recorded (E325): each curve tested on NFIP claims, and the measured family, record the
     countries they read — inside the curve's countries — and count the claims set aside as outside them."""
     fams = curves.families()
     seen = 0
@@ -123,7 +123,7 @@ WORDS = {"half": (1, 2), "two thirds": (2, 3), "three quarters": (3, 4)}
 
 
 def test_the_event_share_is_stored_as_its_registered_words_say():
-    """E323: the share is a whole-number fraction equal to the statement's words — never a rounded decimal."""
+    """E326: the share is a whole-number fraction equal to the statement's words — never a rounded decimal."""
     e = measured.protocol()["test"]["event_total"]
     f = e["share_of_events_required"]
     assert isinstance(f, dict) and all(isinstance(f[k], int) and not isinstance(f[k], bool)

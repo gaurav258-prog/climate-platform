@@ -121,3 +121,7 @@ tok_*.txt
 # gridded inputs of the Supply outlook (fetched, checksummed; pinned in data/reference/supply_datasets.json)
 data/datasets/
 data/reference/supply_datasets.lock
+
+# official price files the lookalike books are valued from (downloaded 2026-10-23, never committed; a derived table with
+# each file's checksum is: data/demo/lookalike/prices.json)
+data/lookalike_sources/

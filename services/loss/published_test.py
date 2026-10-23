@@ -1,5 +1,5 @@
 """The held-out test of a published damage curve on observed losses — data/reference/loss_protocol.json,
-published_curve_test (North America residential, stated before it was built or run; corrected 2026-10-23, E322) and
+published_curve_test (North America residential, stated before it was built or run; corrected 2026-10-23, E325) and
 published_curve_test_commercial (North America commercial, registered 2026-10-23). Nothing is fitted to the claims, so
 every event with enough claims is held out; the pass tests are the protocol's own ('test': event totals and range
 coverage — the range test only where the curve publishes a range, as each registration states).
@@ -8,7 +8,7 @@ coverage — the range test only where the curve publishes a range, as each regi
                                      building's value) against the recorded total, and, for a curve with a published
                                      range, the share of claims whose recorded ratio lies inside it — and whether the
                                      registered tests pass; the claims are the registration's occupancy codes in the
-                                     curve's countries (E322)
+                                     curve's countries (E325)
   record(family_key, curve_key, result, supersedes_because)
                                      the result on the curve in its family file (a rebuilt family keeps it); a result it
                                      replaces for a stated reason is kept, summarised, under 'superseded'

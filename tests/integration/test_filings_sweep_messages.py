@@ -28,7 +28,8 @@ pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[2]
 CODED = {"UserError", "FilingError", "ShareClassError", "AnswerError", "ContractError", "DocumentError", "ThirdPartyError"}
-FILES = ["api/routers/filings.py", "api/routers/packages.py", "api/routers/funds.py", "api/routers/insurer_documents.py",
+FILES = ["api/routers/filings.py", "api/routers/packages.py", "api/routers/funds.py", "services/funds/holding.py",
+         "services/funds/onboarding.py", "services/funds/registry.py", "api/routers/insurer_documents.py",
          "api/routers/contracts.py", "api/routers/grc_followups.py", "services/eet/share_classes.py",
          "services/governance/report_snapshots.py", "services/governance/contracts.py",
          "services/governance/insurer_documents.py", "services/intelligence/third_parties.py"]
@@ -165,7 +166,7 @@ def test_the_form_names_where_each_rate_came_from_and_who_signed_the_rules():
 
 def test_the_holdings_model_refuses_through_the_catalogue():
     """The model itself refuses (a look-through's constituents are Holdings too), so every path that builds one does."""
-    from api.routers.funds import Holding
+    from services.funds.holding import Holding
     with pytest.raises(UserError) as refused:
         Holding(isin="US0000000001")
     assert refused.value.code == "filings.holding.no_value" and refused.value.params == {"isin": "US0000000001"}
