@@ -121,9 +121,10 @@ def _score_cards(session) -> list[dict]:
 
 def _impact_cards(session) -> list[dict]:
     from ml.validation.fidelity import fidelity
+    from services.calibration.gates import publishes as gate_publishes
     from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     rows = session.execute(text("""SELECT c.name AS commodity, c.commodity_id::text AS commodity_id, f.origin, f.region_key, f.hazard_driver, f.season_months, f.spei_scale, f.fit_version,
-                                          CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos, f.n_years, f.baseline_from, f.baseline_to, f.created_at,
+                                          CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos, CAST(f.slope AS FLOAT) AS slope, f.n_years, f.baseline_from, f.baseline_to, f.created_at,
                                           cal.calibration_tier, cal.scoring_model, cal.impact_version, cal.sensitivity
                                    FROM sc_commodity_fit f JOIN sc_commodities c ON c.commodity_id = f.commodity_id
                                    LEFT JOIN v_sc_commodity_calibration cal ON cal.commodity_id = f.commodity_id AND cal.origin = f.origin
@@ -132,7 +133,7 @@ def _impact_cards(session) -> list[dict]:
         "SELECT commodity_id::text AS commodity_id, origin, hazard_driver, verdict, method, challenger_version, mean_abs_divergence_pp, computed_at FROM sc_commodity_challenger")).mappings().all()}
     out = []
     for r in rows:
-        published = r["r2_oos"] is not None and r["r2_oos"] >= RANGED_PUBLISH_FLOOR
+        published = gate_publishes(r["r2_oos"], r["slope"])          # the floor and the sign (E327)
         ch = chal.get((r["commodity_id"], r["origin"], r["hazard_driver"]))
         out.append({"ref": f"calibration:{r['commodity_id']}:{r['origin']}:{r['hazard_driver']}", "kind": "impact", "hazard": r["hazard_driver"],
                     "commodity": r["commodity"], "origin": (r["origin"] or "").strip(), "model": r["fit_version"], "scoring_model": r["scoring_model"],

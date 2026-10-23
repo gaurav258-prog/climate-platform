@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3117 table columns, 357 foreign keys, 96 unique constraints, 305 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 316 migration revisions in `core/db/migrations/versions/`, head `fund_pos_money_20261023`. Extensions present: plpgsql.
+The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3118 table columns, 357 foreign keys, 96 unique constraints, 305 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 317 migration revisions in `core/db/migrations/versions/`, head `regional_crops_20261023`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -32,7 +32,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 22 | 247 | 20 | 14 | 1 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
-| Agri-food supply chain & crops | 26 | 339 | 15 | 7 | 3 | 5 |
+| Agri-food supply chain & crops | 26 | 340 | 15 | 7 | 3 | 5 |
 | Regulatory reporting & filings | 26 | 368 | 16 | 19 | 15 | 7 |
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
@@ -3847,6 +3847,7 @@ erDiagram
     varchar commodity PK
     varchar origin PK
     uuid spec_id FK
+    varchar region PK
   }
   crop_calibration_runs {
     uuid run_id PK
@@ -4020,11 +4021,12 @@ Foreign keys to other domains:
 | `reason` | text | yes |  |  |
 | `spec_id` | uuid | yes |  | FK → crop_calibration_specs.spec_id |
 | `generated_at` | timestamp with time zone | no | `now()` |  |
+| `region` | character varying(8) | no | `''::character varying` | PK |
 
-- Primary key: (commodity, origin)
+- Primary key: (commodity, origin, region)
 - Check `crop_calibration_coverage_check`: `CHECK ((((status)::text = 'recipe'::text) = (spec_id IS NOT NULL)))`
 - Check `crop_calibration_coverage_check1`: `CHECK ((((status)::text = 'recipe'::text) = (reason IS NULL)))`
-- Check `crop_calibration_coverage_status_check`: `CHECK (((status)::text = ANY ((ARRAY['recipe'::character varying, 'no_yield_series'::character varying, 'too_few_years'::character varying, 'no_season'::character varying])::text[])))`
+- Check `crop_calibration_coverage_status_check`: `CHECK (((status)::text = ANY ((ARRAY['recipe'::character varying, 'no_yield_series'::character varying, 'too_few_years'::character varying, 'no_season'::character varying, 'small_area'::character varying])::text[])))`
 
 #### `crop_calibration_runs`
 

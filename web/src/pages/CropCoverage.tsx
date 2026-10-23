@@ -12,13 +12,18 @@ import { countryName } from '../lib/countries'
 
 // Crop calibration coverage (E165) — for each crop, every country its crop map holds and what the platform publishes
 // there: a loss and a gain range, a loss range, tested and held (no number), or not calibrated with the reason.
-// Categories, not verdicts. Grows as reviewed data and calibrations land.
+// Categories, not verdicts. Grows as reviewed data and calibrations land. Below it, the same by region: each region
+// whose official statistics publish the crop's yields, tested on its own weather (crop-calib-reg-v1).
 
 type Cat = 'both' | 'loss' | 'held' | 'none'
+type RCat = Cat | 'review'
 interface Row { origin: string; area_share: number; area_ha: number; category: Cat; label: string; why: string | null; drivers: string | null; r2_oos: number | null }
 interface Resp { commodities: { commodity: string; origins: number; generated_at: string }[]; commodity: string | null; rows: Row[]; area_share_pct: Record<Cat, number>; categories: Record<Cat, string>; geometry: Record<string, GeoJSON.Geometry> }
+interface RRow { region: string; name: string; origin: string; area_share: number; area_ha: number; category: RCat; label: string; why: string | null; drivers: string | null; r2_oos: number | null }
+interface RResp { rows: RRow[]; geometry: Record<string, GeoJSON.Geometry>; categories: Record<RCat, string>; counts: Record<RCat, number> }
 
-const COLOR: Record<Cat, string> = { both: '#16a34a', loss: '#0ea5e9', held: '#f59e0b', none: '#94a3b8' }
+const COLOR: Record<RCat, string> = { both: '#16a34a', loss: '#0ea5e9', review: '#6366f1', held: '#f59e0b', none: '#94a3b8' }
+const RANK: Record<RCat, number> = { both: 0, loss: 1, review: 2, held: 3, none: 4 }
 const LIGHT = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
 const DARK = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
 
@@ -38,6 +43,12 @@ export default function CropCoverage() {
   const dark = useDark()
   const fc = useMemo(() => ({ type: 'FeatureCollection' as const, features: (d?.rows ?? []).filter(r => d?.geometry[r.origin])
     .map(r => ({ type: 'Feature' as const, geometry: d!.geometry[r.origin], properties: r })) }), [d])
+  const rq = useQuery({ queryKey: ['crop-coverage-regions', d?.commodity], enabled: !!d?.commodity,
+    queryFn: () => api.get<RResp>(`/v1/supply/coverage/regions?commodity=${encodeURIComponent(d!.commodity!)}`) })
+  const rd = rq.data
+  const rows = useMemo(() => [...(rd?.rows ?? [])].sort((a, b) => RANK[a.category] - RANK[b.category] || (b.r2_oos ?? -9) - (a.r2_oos ?? -9)), [rd])
+  const rfc = useMemo(() => ({ type: 'FeatureCollection' as const, features: rows.filter(r => rd?.geometry[r.region])
+    .map(r => ({ type: 'Feature' as const, geometry: rd!.geometry[r.region], properties: r })) }), [rows, rd])
   return (
     <div className="fadeup space-y-5">
       <ReviewTabs />
@@ -73,6 +84,10 @@ export default function CropCoverage() {
                 style={(f) => { const r = f?.properties as Row; return { color: COLOR[r.category], weight: 0.8, fillColor: COLOR[r.category], fillOpacity: 0.5 } }}
                 onEachFeature={(f, layer) => { const r = f.properties as Row
                   layer.bindTooltip(`<b>${countryName(r.origin)}</b> · ${r.label}<br/>${(r.area_share * 100).toFixed(1)}% of the mapped area`, { sticky: true }) }} />
+              {rfc.features.length > 0 && <GeoJSON key={`r-${d.commodity}-${rfc.features.length}-${dark}`} data={rfc}
+                style={(f) => { const r = f?.properties as RRow; return { color: COLOR[r.category], weight: 1, fillColor: COLOR[r.category], fillOpacity: 0.75 } }}
+                onEachFeature={(f, layer) => { const r = f.properties as RRow
+                  layer.bindTooltip(`<b>${r.name || r.region}</b> (${countryName(r.origin)}) · ${r.label}${r.r2_oos == null ? '' : `<br/>r² ${r.r2_oos.toFixed(2)}`}`, { sticky: true }) }} />}
             </MapContainer>
           </div>
           <Card className="p-0 overflow-hidden">
@@ -94,6 +109,31 @@ export default function CropCoverage() {
               </table>
             </div>
           </Card>
+          {rows.length > 0 && rd && <Card className="p-0 overflow-hidden">
+            <SectionHead icon={Sprout} className="px-5 py-3 border-b border-[var(--color-line)]">{d.commodity} · by region
+              <span className="ml-2 text-[11.5px] font-normal text-[var(--color-faint)]">
+                {(Object.keys(rd.categories) as RCat[]).filter(k => rd.counts[k]).map(k => `${rd.counts[k]} ${rd.categories[k].toLowerCase()}`).join(' · ')}</span>
+              <InfoButton compact details={{ title: 'By region', sections: [
+                { heading: HEADING.shows, body: "Each region whose official statistics publish this crop's yields, tested on its own weather." },
+                { heading: HEADING.read, body: "A region's range applies only to plots inside it, and only once it passes. A held region never removes its country's range." }] }} />
+            </SectionHead>
+            <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+              <table className="w-full text-[12px] tabular-nums">
+                <thead className="sticky top-0 bg-[var(--color-panel)]"><tr className="text-[var(--color-faint)] text-[11px] text-left">
+                  {['Region', 'Country', "Share of the country's area", 'Published', 'Out-of-sample fit (r²)'].map(h => <th key={h} className="font-medium px-3 py-2">{h}</th>)}
+                </tr></thead>
+                <tbody>{rows.map(r => (
+                  <tr key={r.region} className="border-t border-[var(--color-line)]">
+                    <td className="px-3 py-1 text-[var(--color-ink)]">{r.name || r.region}</td>
+                    <td className="px-3">{countryName(r.origin)}</td>
+                    <td className="px-3">{(r.area_share * 100).toFixed(1)}%</td>
+                    <td className="px-3"><span className="inline-flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-sm" style={{ background: COLOR[r.category] }} />{r.label}
+                      {r.why && <InfoButton compact details={{ title: `${d.commodity} · ${r.name || r.region}`, sections: [{ heading: 'Why', body: r.why }] }} />}</span></td>
+                    <td className="px-3">{r.r2_oos == null ? '—' : r.r2_oos.toFixed(2)}</td>
+                  </tr>))}</tbody>
+              </table>
+            </div>
+          </Card>}
         </>}
     </div>
   )

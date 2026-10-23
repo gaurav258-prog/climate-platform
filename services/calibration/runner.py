@@ -60,7 +60,7 @@ def evaluate(session: Session, sp: dict) -> dict:
     if fit is None:
         return {"outcome": "too_few_years", "reason": "fewer than 12 years with a full trend window and a score",
                 "inputs": inputs}
-    if not gates.downside_pass(fit.r2_oos):          # the upside is judged only on a fit that passes the downside gate
+    if not gates.downside(fit.r2_oos, fit.slope):    # the upside is judged only on a fit that passes the downside gate
         up = {"pass": False, "judged": False, "failed": ["not judged — the fit does not pass the downside gate"]}
     else:
         pts = [(scores[y], obs, y) for (y, _p, obs) in fit.loo_samples]
@@ -75,8 +75,9 @@ def _ledger(session: Session, sp: dict, fit: CropFit) -> str:
     res = ValidationResult(
         hazard_type=f"crop_{sp['driver']}", kind="regression",
         predicted=[p for (_y, p, _o) in fit.loo_samples], observed=[o for (_y, _p, o) in fit.loo_samples],
-        labels=[str(y) for y in years], target_source=f"{sp['commodity']} ({sp['origin']}) observed yield — leave-one-out CV",
-        scope=f"{sp['commodity']}/{sp['origin']}", method="loo_cv",
+        labels=[str(y) for y in years],
+        target_source=f"{sp['commodity']} ({sp['yield_region'] or sp['origin']}) observed yield — leave-one-out CV",
+        scope=f"{sp['commodity']}/{sp['yield_region'] or sp['origin']}", method="loo_cv",
         data_vintage=f"leave-one-out over {fit.n_years} years",
         notes=(f"calibration pipeline run of recipe {sp['spec_id']} ({sp['protocol']}): {sp['driver']} → yield anomaly, "
                f"weather {sp['weather_kind']} '{sp['weather_key']}', months {list(sp['season_months'])}"
@@ -95,7 +96,10 @@ def run(session: Session, sp: dict) -> dict:
            "mean": None, "sxx": None, "cov": None, "down": False, "upside": None, "up": False, "vr": None}
     if fit is not None:
         up = ev["upside"]
-        down = gates.downside_pass(fit.r2_oos)
+        down = gates.downside(fit.r2_oos, fit.slope)
+        if gates.downside_pass(fit.r2_oos) and not down:
+            row["reason"] = (f"out-of-sample r² {fit.r2_oos:.2f}, but more {sp['driver']} went with more yield — not a "
+                             "loss response, so no loss range")
         row.update(n=fit.n_years, bf=fit.years[0], bt=fit.years[-1], slope=round(fit.slope, 5),
                    intercept=round(fit.intercept, 5), r2=round(fit.r2, 4), r2oos=fit.r2_oos, rmse=round(fit.rmse, 5),
                    mean=round(fit.score_mean, 5), sxx=round(fit.score_sxx, 5), cov=fit.band_cov68, down=down,
@@ -108,5 +112,5 @@ def run(session: Session, sp: dict) -> dict:
                 :r2oos, :rmse, :mean, :sxx, :cov, :down, CAST(:upside AS jsonb), :up, CAST(:vr AS uuid))
         RETURNING run_id::text"""), row).scalar()
     return {"run_id": run_id, "spec_id": sp["spec_id"], "commodity": sp["commodity"], "origin": sp["origin"],
-            "driver": sp["driver"], "outcome": ev["outcome"], "r2_oos": row["r2oos"], "downside_pass": row["down"],
+            "region": sp["yield_region"], "driver": sp["driver"], "outcome": ev["outcome"], "r2_oos": row["r2oos"], "downside_pass": row["down"],
             "upside_pass": row["up"], "upside_failed": (ev.get("upside") or {}).get("failed")}

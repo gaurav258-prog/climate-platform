@@ -62,6 +62,15 @@ def series(session: Session, commodity: str, country: str, source: str, region_c
     return {int(y): float(v) for y, v in rows}
 
 
+def regional_series(session: Session, commodity: str) -> list[tuple[str, str, str]]:
+    """[(country, region code, source)] — every regional series held for a crop (a production figure stated), each
+    source kept apart; which one a consumer reads is its own stated rule (services.calibration.regional_specs)."""
+    return [tuple(r) for r in session.execute(text("""
+        SELECT DISTINCT country, region_code, source FROM crop_yield_observations
+        WHERE commodity = :c AND region_code <> '' AND production_tonnes IS NOT NULL
+        ORDER BY country, region_code, source"""), {"c": commodity}).all()]
+
+
 def national_source(session: Session, commodity: str, country: str) -> str | None:
     """The source a consumer reads for this crop and country by the stated precedence (None: no national series)."""
     held = set(session.execute(text("""SELECT DISTINCT source FROM crop_yield_observations

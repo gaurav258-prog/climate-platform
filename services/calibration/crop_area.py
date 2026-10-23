@@ -51,8 +51,10 @@ def driver_scores(seas: dict[int, tuple[float, float]], driver: str) -> dict[int
 
 
 def target_of(sp: dict) -> str:
+    """The weather target a recipe reads: a regional recipe, the crop's area inside its yield region; a national one, the
+    crop's area in the origin; a box recipe, its box."""
     if sp["weather_kind"] == "crop_area":
-        return crop_weather.crop_target(sp["commodity"], sp["origin"])
+        return crop_weather.crop_target(sp["commodity"], sp.get("yield_region") or sp["origin"])
     return crop_weather.box_target(sp["weather_key"])
 
 

@@ -3,7 +3,7 @@
  "protocol": "crop-calib-v1",
  "fit": "OLS of the crop's climate anomaly (production detrended by a centred 2x3 moving average; the alternate-bearing cycle removed only for crops whose registry life_cycle is perennial_alternate_bearing) on the driver's 0-100 score, over the years with a full trend window and a score; at least 12 years (ml.features.crop_fit).",
  "downside": {
-  "gate": "out-of-sample (leave-one-out) r2 >= the ranged publish floor (services.intelligence.supply_cogs.RANGED_PUBLISH_FLOOR — one constant, guarded by tests/integration/test_r2_floor_parity.py)",
+  "gate": "out-of-sample (leave-one-out) r2 >= the ranged publish floor (services.intelligence.supply_cogs.RANGED_PUBLISH_FLOOR — one constant, guarded by tests/integration/test_r2_floor_parity.py); and the fit's slope is negative — more of the hazard, less yield (E327, 2026-10-23: a fit where more drought meant more yield is another driver's signal, never a loss range on this one)",
   "verdict": "passes: the fit's loss range publishes; else held — tested, the number withheld"
  },
  "upside": {
@@ -32,5 +32,18 @@
   "weather": "the crop's harvested area in the origin (crop map), monthly SPEI-6 from the global ERA5-Land files, the origin's season (crop_seasons.json)",
   "min_years": "18 years of the national series since 1991 — 12 with a full trend window"
  },
- "weather": "every recipe but soil-water reads the global ERA5-Land weather build (services.calibration.crop_weather): a named box with equal weights, or the crop's growing area; heat scores are standardised by the 1991-2020 seasons (the WMO normal SPEI uses). Soil water reads its regional file (the global files hold no soil moisture)."
+ "weather": "every recipe but soil-water reads the global ERA5-Land weather build (services.calibration.crop_weather): a named box with equal weights, or the crop's growing area; heat scores are standardised by the 1991-2020 seasons (the WMO normal SPEI uses). Soil water reads its regional file (the global files hold no soil moisture).",
+ "regional": {
+  "protocol": "crop-calib-reg-v1",
+  "set": "2026-10-23, before any regional fit was run — the product owner approved the approach the same day (region borders from Natural Earth, the regional yields already held first, then Brazil)",
+  "slot": "a crop × region where the region holds its country's declared regional yield series (data/reference/yield_series.json 'regional_sources') with at least 18 years since 1991, and at least 1% of the crop map's harvested area in the country",
+  "min_area_share": 0.01,
+  "min_years_since_1991": 18,
+  "driver": "as generated recipes: drought, SPEI-6 — one pre-registered driver, never chosen per region by fit",
+  "weather": "the crop's harvested area inside the region (crop map cells whose centre the region's border contains — services.reference.region_shapes)",
+  "season": "the MIRCA-OS units whose 'Province' is the region's official name (their calendars must cover half the mapped area, E168); a region without an official name (NUTS-2) takes its country's season; a FAO-56 crop its country's row",
+  "gates": "the downside and upside gates above, unchanged — the same floor",
+  "applies_to": "a regional publication gives the yield shock of plots inside the region only; every other plot of the country keeps the country's own calibration (or its hold)",
+  "chance_pass": "a series with no climate signal clears the floor out of sample in about 1 of 2,000 fits at 20 years, 1 of 6,700 at 25 and fewer than 1 of 20,000 at 30 (leave-one-out fit as ml.features.crop_fit, 20,000 simulated draws, 2026-10-23)"
+ }
 }

@@ -154,6 +154,11 @@ FEEDS: list[dict] = [
     {"key": "crop_production_statcan", "category": "reference", "cadence_days": 30,
      "invalidates_basis": False, "maturity": "live", "review": True,
      "attribution": "Source: Statistics Canada, Table 32-10-0359-01 (Statistics Canada Open Licence)"},
+    # IBGE Produção Agrícola Municipal (SIDRA 1612/1613), state series; ISO 3166-2 from IBGE's own state list; reviewed
+    # feed.
+    {"key": "crop_production_ibge_pam", "category": "reference", "cadence_days": 30,
+     "invalidates_basis": False, "maturity": "live", "review": True,
+     "attribution": "Source: IBGE — Produção Agrícola Municipal (SIDRA tables 1612 and 1613)"},
     # checked against the CDS month list (no download); calibrations re-run, publication changes proposed for
     # review (E163).
     {"key": "weather_era5_land_global", "category": "reference", "cadence_days": 30,

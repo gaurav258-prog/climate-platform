@@ -13,6 +13,10 @@ size, md5, sha-256), so the exact files the calibrations rest on are pinned. Fil
                                 incl. cocoa, coffee, oil palm (CC BY 4.0); 2015 tables
   ggcmi_phase3_crop_calendar    Jägermeyr et al. 2021 — planting and maturity day per 0.5° cell, rainfed and
                                 irrigated, 18 annual crops (CC BY 4.0)
+  natural_earth_admin1_10m      Natural Earth admin-1 states and provinces, 1:10m (public domain) — the region borders
+                                of services.reference.region_shapes outside the EU
+  gdhy_v1_2_v1_3                Iizumi & Sakai 2020 — 0.5° gridded maize, rice, wheat and soybean yields 1981–2016
+                                (CC BY 4.0): a cross-check of official regional yields only, never a calibration target
 
     python -m scripts.fetch_supply_datasets            # both
     python -m scripts.fetch_supply_datasets --only ggcmi_phase3_crop_calendar
@@ -66,7 +70,32 @@ def _hydroshare_files(resource: str, names: tuple[str, ...]) -> list[dict]:
             for f in d["results"] if f["file_name"] in names]
 
 
+def _published_file(url: str, name: str, version: str) -> list[dict]:
+    """A file whose publisher states no checksum: its size is the publisher's Content-Length, asked before the download;
+    the first fetch pins its sha-256 in the manifest and every later fetch must equal it (md5 None = not stated)."""
+    r = requests.head(url, headers=UA, timeout=60, allow_redirects=True)
+    r.raise_for_status()
+    size = int(r.headers["Content-Length"])
+    return [{"name": name, "size": size, "md5": None, "url": url,
+             "version": f"{version} (last modified {r.headers.get('Last-Modified', 'not stated')})"}]
+
+
 DATASETS = {
+    "natural_earth_admin1_10m": {
+        "files": lambda: _published_file("https://naciscdn.org/naturalearth/10m/cultural/"
+                                         "ne_10m_admin_1_states_provinces.zip",
+                                         "ne_10m_admin_1_states_provinces.zip", "Natural Earth 1:10m admin-1"),
+        "source": "Natural Earth, Admin 1 – States, Provinces, 1:10m cultural vectors (naturalearthdata.com)",
+        "licence": "public domain (naturalearthdata.com/about/terms-of-use)",
+        "attribution": "Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com."},
+    "gdhy_v1_2_v1_3": {
+        "files": lambda: _published_file("https://doi.pangaea.de/10.1594/PANGAEA.909132?format=zip",
+                                         "PANGAEA.909132.zip", "GDHY v1.2 and v1.3 aligned version"),
+        "source": "Iizumi, T. (2019), Global dataset of historical yields v1.2 and v1.3 aligned version, PANGAEA, "
+                  "doi:10.1594/PANGAEA.909132 (Iizumi & Sakai 2020, Scientific Data 7, 97)",
+        "licence": "CC BY 4.0",
+        "attribution": "GDHY v1.2+v1.3 (Iizumi 2019; Iizumi & Sakai 2020), CC BY 4.0 — a cross-check only: modelled "
+                       "from satellite vegetation indices and FAO national statistics, never a calibration target"},
     "mapspam_2020_harvested_area": {
         "files": lambda: _dataverse_files("doi:10.7910/DVN/SWPENT", "global_harvested_area.geotiff"),
         "source": "IFPRI, Global Spatially-Disaggregated Crop Production Statistics Data for 2020 (SPAM 2020), "
@@ -117,14 +146,29 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _pinned(key: str) -> dict[str, str]:
+    """{file: sha-256} the manifest already records for a dataset — what a file without a publisher checksum must equal."""
+    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    return {r["file"]: r["sha256"] for r in manifest.get(key, {}).get("files", [])}
+
+
+def _matches(path: Path, f: dict, pinned: dict[str, str]) -> bool:
+    if not (path.exists() and path.stat().st_size == f["size"]):
+        return False
+    if f["md5"] is not None:
+        return _md5(path) == f["md5"]
+    return f["name"] not in pinned or _sha256(path) == pinned[f["name"]]
+
+
 def fetch(key: str) -> dict:
     spec = DATASETS[key]
     out_dir = DEST / key
     out_dir.mkdir(parents=True, exist_ok=True)
+    pinned = _pinned(key)
     rows = []
     for f in spec["files"]():
         path = out_dir / f["name"]
-        if not (path.exists() and path.stat().st_size == f["size"] and _md5(path) == f["md5"]):
+        if not _matches(path, f, pinned):
             if spec.get("manual"):
                 raise SystemExit(f"{key}: {spec['manual']}" + (" (the file present differs from the publisher's "
                                                                 "checksum)" if path.exists() else ""))
@@ -134,11 +178,14 @@ def fetch(key: str) -> dict:
                 with tmp.open("wb") as w:
                     for chunk in r.iter_content(1 << 20):
                         w.write(chunk)
-            if _md5(tmp) != f["md5"] or tmp.stat().st_size != f["size"]:
+            if (f["md5"] is not None and _md5(tmp) != f["md5"]) or tmp.stat().st_size != f["size"] or (
+                    f["md5"] is None and f["name"] in pinned and _sha256(tmp) != pinned[f["name"]]):
                 tmp.unlink()
-                raise SystemExit(f"{key}/{f['name']}: checksum or size differs from the publisher's — not kept")
+                raise SystemExit(f"{key}/{f['name']}: checksum or size differs from the publisher's (or the pinned "
+                                 "sha-256) — not kept")
             tmp.replace(path)
-        rows.append({"file": f["name"], "bytes": f["size"], "md5": f["md5"], "sha256": _sha256(path), "url": f["url"]})
+        rows.append({"file": f["name"], "bytes": f["size"], "md5": f["md5"] or _md5(path), "sha256": _sha256(path),
+                     "url": f["url"]})
     return {"source": spec["source"], "licence": spec["licence"], "attribution": spec["attribution"],
             "version": spec["files"]()[0]["version"] if rows else None,
             "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

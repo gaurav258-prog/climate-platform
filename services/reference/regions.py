@@ -120,6 +120,19 @@ def nuts() -> dict[str, str]:
     return out
 
 
+@lru_cache(maxsize=1)
+def _nuts2_names() -> dict[str, str]:
+    return json.loads((DIR / provenance()["nuts2_names"]["file"]).read_text(encoding="utf-8"))["names"]
+
+
+def name(code: str) -> str:
+    """A region's name in the publisher's own words — the national list's for an ISO 3166-2 code, Eurostat's for a
+    NUTS-2 code ('' when neither names it)."""
+    if "-" in code[:3]:
+        return of_country(code.split("-", 1)[0]).get(code, "")
+    return _nuts2_names().get(code, "")
+
+
 def known(code: str) -> bool:
     """Is this a region code of the reference? ('' — the national figure — is not a region.)"""
     if not code:

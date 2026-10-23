@@ -2,7 +2,8 @@
 recipe.
 
 A target is either a crop's own growing area in an origin ('crop:<commodity>:<origin>', weighted by harvested area —
-services.calibration.crop_area_weights) or a named region box ('box:<region>', every 0.1° cell inside its inclusive
+services.calibration.crop_area_weights), its area inside a region ('crop:<commodity>:<region code>', the regional
+weights) or a named region box ('box:<region>', every 0.1° cell inside its inclusive
 bounds, equal weights — the cells a regional ERA5-Land file of that box holds). For every cell: the 6-month water balance
 (P − PET) standardised against its own 1991–2020 normal per calendar month (SPEI-6, as ml.features.drought), and the
 temperature anomaly against its 1991–2020 monthly normal; a target's monthly figure is the weighted mean over its cells
@@ -104,21 +105,29 @@ def anomaly(x: np.ndarray, months_of_year: np.ndarray, years: np.ndarray) -> np.
     return out
 
 
-def targets(commodities: list[str], boxes: list[str]) -> list[tuple[str, np.ndarray, np.ndarray]]:
+def targets(commodities: list[str], boxes: list[str], regions: dict[str, list[str]] | None = None
+            ) -> list[tuple[str, np.ndarray, np.ndarray]]:
+    """Every target of a build: each crop's area per origin, each named box, and each crop's area inside the regions
+    listed for it (`regions`: {crop: [region codes]} — 'crop:<crop>:<region>')."""
     out = []
     for c in commodities:
         for origin, (idx, w) in W.weights(c).items():
             out.append((crop_target(c, origin), idx.astype(np.int64), w.astype(np.float64)))
+    for c, regs in sorted((regions or {}).items()):
+        rw = W.regional_weights(c)
+        for r in regs:
+            idx, w = rw[r]
+            out.append((crop_target(c, r), idx.astype(np.int64), w.astype(np.float64)))
     for b in boxes:
         idx = box_cells(b)
         out.append((box_target(b), idx, np.ones(len(idx))))
     return out
 
 
-def build(session: Session, commodities: list[str], boxes: list[str]) -> str:
+def build(session: Session, commodities: list[str], boxes: list[str], regions: dict[str, list[str]] | None = None) -> str:
     """Compute and record a build for the targets. Returns the build id. Not committed here."""
     files = _files()
-    tg = targets(commodities, boxes)
+    tg = targets(commodities, boxes, regions)
     num: dict = {}
     den: dict = {}
     months = years = moy = None
@@ -151,7 +160,9 @@ def build(session: Session, commodities: list[str], boxes: list[str]) -> str:
     if months is None:
         raise RuntimeError("no target has a cell on the grid")
     inputs = {"era5_files": [{"file": p.name, "years": [r.start, r.stop - 1]} for p, r in files],
-              "weights": {c: W.fingerprint(c) for c in commodities}, "boxes": boxes, "scale": SCALE,
+              "weights": {c: W.fingerprint(c) for c in commodities}, "boxes": boxes,
+              "regional_weights": {c: W.fingerprint(c, "region") for c in sorted(regions or {})},
+              "regions": {c: list(r) for c, r in sorted((regions or {}).items())}, "scale": SCALE,
               "baseline": list(BASELINE)}
     build_id = session.execute(text("""
         INSERT INTO crop_weather_builds (inputs, first_month, last_month) VALUES (CAST(:i AS jsonb), :f, :l)

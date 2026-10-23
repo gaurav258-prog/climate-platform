@@ -124,9 +124,17 @@ def _usda_nass_county() -> YieldSource:
                        set_aside=lambda data, c: N.set_aside(data, c))
 
 
+def _ibge_pam() -> YieldSource:
+    from services.reference import ibge_pam as I
+    return YieldSource(key="ibge_pam", feed_key="crop_production_ibge_pam", label=lambda: I.SOURCE, url=lambda: I.BASE,
+                       countries=lambda s: I.countries(s), reader=lambda c: I.reader(c),
+                       parse=lambda data, c: I.parse(data, c), published=lambda lm, et: I.published(lm, et),
+                       download=lambda: I.download(), set_aside=lambda data, c: I.set_aside(data, c))
+
+
 _BUILDERS = {"faostat": _faostat, "eurostat": _eurostat, "eurostat_regional": _eurostat_regional,
              "usda_fas": _usda_fas, "usda_nass": _usda_nass, "usda_nass_county": _usda_nass_county,
-             "statcan": _statcan}
+             "statcan": _statcan, "ibge_pam": _ibge_pam}
 
 
 def get(key: str) -> YieldSource:

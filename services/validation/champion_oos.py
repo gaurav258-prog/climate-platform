@@ -67,7 +67,12 @@ def _production_by_source(session: Session, fit) -> dict:
     for the crop and origin, each kept apart, and the one that reproduces it is picked."""
     from ml.features.yield_series import every_series, series
     if fit.get("yield_source"):
-        return {fit["yield_source"]: series(session, fit["name"], fit["origin"], fit["yield_source"],
+        # a regional fit publishes under its region code; its series is stored under the region's country
+        country = fit["origin"]
+        if fit.get("yield_region"):
+            from services.reference.region_shapes import country_of
+            country = country_of(fit["yield_region"])
+        return {fit["yield_source"]: series(session, fit["name"], country, fit["yield_source"],
                                             fit.get("yield_region") or "")}
     return every_series(session, fit["name"], fit["origin"])
 

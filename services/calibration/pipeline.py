@@ -17,11 +17,13 @@ def adopt_legacy(session: Session) -> list[dict]:
 
 
 def run(session: Session, *, sources: list[str] | None = None, propose: bool = True,
-        reason: str = "Calibration pipeline run") -> dict:
-    """Run the active recipes (those reading one of `sources`, when given). Returns the runs and the proposal.
-    Not committed here — the caller commits (a dry run rolls back)."""
+        reason: str = "Calibration pipeline run", regional: bool | None = None) -> dict:
+    """Run the active recipes (those reading one of `sources`, when given; only the regional — or only the national —
+    ones when `regional` is True/False). Returns the runs and the proposal. Not committed here — the caller commits (a
+    dry run rolls back)."""
     runs = [runner.run(session, sp) for sp in runner.active_specs(session)
-            if sources is None or sp["yield_source"] in sources]
+            if (sources is None or sp["yield_source"] in sources)
+            and (regional is None or bool(sp["yield_region"]) == regional)]
     proposal = publish.propose(session, [r["run_id"] for r in runs], reason) if propose else None
     return {"runs": runs, "proposal": proposal}
 
@@ -38,13 +40,14 @@ def run_job(sources: list[str] | None = None) -> dict:
 
 
 def build_weather(session: Session) -> str:
-    """A weather build for every registry crop with a crop map and every box a box recipe reads (soil water aside)."""
+    """A weather build for every registry crop with a crop map, every box a box recipe reads (soil water aside) and
+    every region holding its country's declared regional yield series of a crop (services.calibration.regional_specs)."""
     from ml.features.crop_registry import crops as registry
-    from services.calibration import crop_weather
+    from services.calibration import crop_weather, regional_specs
     crops = [c["commodity"] for c in registry() if c.get("crop_map")]
     boxes = sorted({sp["weather_key"] for sp in runner.active_specs(session)
                     if sp["weather_kind"] == "box" and sp["driver"] != "soil_water"})
-    return crop_weather.build(session, crops, boxes)
+    return crop_weather.build(session, crops, boxes, regional_specs.weather_regions(session))
 
 
 def refresh_weather(fetch: bool = True) -> dict:
@@ -55,7 +58,7 @@ def refresh_weather(fetch: bool = True) -> dict:
 
     from core.db.session import get_session
     from scripts.fetch_era5_land_global import FetchRunning, fetch_all
-    from services.calibration import registry_specs
+    from services.calibration import regional_specs, registry_specs
     log = logging.getLogger(__name__)
     if fetch:
         try:
@@ -66,8 +69,9 @@ def refresh_weather(fetch: bool = True) -> dict:
         build_id = build_weather(session)
         session.commit()
         generated = registry_specs.generate(session)
+        generated_regional = regional_specs.generate(session)
         session.commit()
         out = run(session, reason=f"Re-run after weather build {build_id}")
         session.commit()
-    return {"build_id": build_id, "generated": generated, "runs": len(out["runs"]),
+    return {"build_id": build_id, "generated": generated, "generated_regional": generated_regional, "runs": len(out["runs"]),
             "proposed": (out["proposal"] or {}).get("runs", 0)}

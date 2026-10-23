@@ -1216,5 +1216,39 @@
     "floodProtection_v2019_paper3.tif.xml"
    ]
   }
+ },
+ "natural_earth_admin1_10m": {
+  "source": "Natural Earth, Admin 1 – States, Provinces, 1:10m cultural vectors (naturalearthdata.com)",
+  "licence": "public domain (naturalearthdata.com/about/terms-of-use)",
+  "attribution": "Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.",
+  "version": "Natural Earth 1:10m admin-1 (last modified Fri, 13 May 2022 05:20:49 GMT)",
+  "fetched_at": "2026-10-23T06:41:05+00:00",
+  "path": "data/datasets/natural_earth_admin1_10m",
+  "files": [
+   {
+    "file": "ne_10m_admin_1_states_provinces.zip",
+    "bytes": 14909524,
+    "md5": "63b322fddc41d4c6877eafe4e763c897",
+    "sha256": "efc59726337323058f9446210adc96673179cd344e053666ee3d28cb58ba2b05",
+    "url": "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces.zip"
+   }
+  ]
+ },
+ "gdhy_v1_2_v1_3": {
+  "source": "Iizumi, T. (2019), Global dataset of historical yields v1.2 and v1.3 aligned version, PANGAEA, doi:10.1594/PANGAEA.909132 (Iizumi & Sakai 2020, Scientific Data 7, 97)",
+  "licence": "CC BY 4.0",
+  "attribution": "GDHY v1.2+v1.3 (Iizumi 2019; Iizumi & Sakai 2020), CC BY 4.0 — a cross-check only: modelled from satellite vegetation indices and FAO national statistics, never a calibration target",
+  "version": "GDHY v1.2 and v1.3 aligned version (last modified Tue, 28 Jan 2020 09:41:10 GMT)",
+  "fetched_at": "2026-10-23T06:41:19+00:00",
+  "path": "data/datasets/gdhy_v1_2_v1_3",
+  "files": [
+   {
+    "file": "PANGAEA.909132.zip",
+    "bytes": 15989683,
+    "md5": "0ec8dce0ffd36c558d103728a9c13e9c",
+    "sha256": "731d03171ff9a5afb4837f51d6941fb58085ee69c62e767810e9395756648c76",
+    "url": "https://doi.pangaea.de/10.1594/PANGAEA.909132?format=zip"
+   }
+  ]
  }
 }

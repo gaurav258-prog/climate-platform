@@ -123,7 +123,8 @@ def test_every_mapped_origin_gets_a_recipe_or_a_reason(session_rolled_back):
     legacy = s.execute(text("""SELECT spec_id::text FROM crop_calibration_specs WHERE commodity = 'Wheat' AND origin = 'MA'
                                AND retired_at IS NULL""")).scalar()
     registry_specs.generate(s)
-    rows = s.execute(text("SELECT commodity, origin, status, reason, spec_id::text FROM crop_calibration_coverage")).mappings().all()
+    rows = s.execute(text("""SELECT commodity, origin, status, reason, spec_id::text FROM crop_calibration_coverage
+                             WHERE region = ''""")).mappings().all()          # the national rows (regional: their own test)
     assert all((r["status"] == "recipe") == (r["reason"] is None) for r in rows)
     by = {(r["commodity"], r["origin"]): r for r in rows}
     from ml.features.crop_registry import crops

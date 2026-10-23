@@ -1,6 +1,7 @@
 """The two gates a calibration run is judged by (data/reference/calibration_protocol.json, E162).
 
-downside   the fit's out-of-sample r² against the ranged publish floor — one constant, shared with the engine
+downside   the fit's out-of-sample r² against the ranged publish floor — one constant, shared with the engine — and its
+           sign: more of the hazard must mean less yield (E327)
 upside     the four rules agreed on 2026-10-04 for the favourable years, every figure out of sample: each year is
            predicted by the fit without it (its own line, rmse and band), so a rule never sees the year it judges
 """
@@ -24,6 +25,22 @@ def protocol() -> dict:
 
 def downside_pass(r2_oos: float | None) -> bool:
     return r2_oos is not None and r2_oos >= RANGED_PUBLISH_FLOOR
+
+
+def damage_sign(slope: float | None) -> bool:
+    """Every driver is a hazard score — higher is more stress — and the published figure is a loss (E327): a fit
+    passes only when more stress means less yield (a negative slope). A positive slope is another driver's signal (more
+    stress, more yield: the wet years hurt), never a loss range on this one."""
+    return slope is not None and slope < 0
+
+
+def downside(r2_oos: float | None, slope: float | None) -> bool:
+    """The downside verdict of a fit: out of sample above the floor AND a damage response — the one rule every reader
+    of a stored fit decides 'publishes' by (and v_sc_commodity_calibration's ranged branch mirrors)."""
+    return downside_pass(r2_oos) and damage_sign(slope)
+
+
+publishes = downside
 
 
 def _fold(pts: list[tuple], i: int, cap: bool, q_min: int) -> tuple[float, float]:

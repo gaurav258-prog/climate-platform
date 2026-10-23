@@ -3056,6 +3056,13 @@
     "why": "The platform compares the file's publication date every month. A new file waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
    }
   },
+  "reference.release.source.ibge_pam": {
+   "label": "IBGE state crop production (Brazil)",
+   "detail": {
+    "what": "Production and harvested area for each Brazilian state, from IBGE's annual municipal agricultural production survey.",
+    "why": "The platform checks IBGE every month. A new release waits on this page until it is reviewed and approved; nothing reaches customers' figures before that."
+   }
+  },
   "reference.release.reading_changed": {
    "label": "Our reading of this source changed",
    "detail": {
@@ -11284,6 +11291,13 @@
     "why": "Final production only: a season before the November survey (the July and September figures are model estimates) and unpublished values are set aside and shown with the release. It is checked monthly for a new file; a new file is held with its differences and used only after review."
    }
   },
+  "platform.feed.crop_production_ibge_pam": {
+   "label": "IBGE state crop production (Brazil)",
+   "detail": {
+    "what": "Production and harvested area for each Brazilian state for the crops grown there, from IBGE's annual municipal agricultural production survey.",
+    "why": "Values IBGE does not give as a number are set aside and shown with the release. It is checked monthly; a new release is held with its differences and used only after review."
+   }
+  },
   "platform.feed.weather_era_land_global": {
    "label": "ERA5-Land monthly weather for crops",
    "detail": {
@@ -12186,6 +12200,13 @@
    "detail": {
     "what": "{source} gives {crop} ({where}) in a unit, {unit}, that the platform's reviewed unit list does not hold, so the file is refused. A unit is never guessed.",
     "next": "A platform operator adds the unit, with its published conversion, to the reviewed list."
+   }
+  },
+  "agri.feed.unexpected_member": {
+   "label": "{source} names something the reviewed list does not",
+   "detail": {
+    "what": "{source} gives {crop} with {member} ({where}), which the platform's reviewed list does not name, so the file is refused. Nothing is guessed.",
+    "next": "A platform operator checks the publisher's current list and updates the crop registry or the region list."
    }
   },
   "agri.feed.no_bushel_weight": {

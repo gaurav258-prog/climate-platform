@@ -1,6 +1,10 @@
 """When a crop grows in an origin (E163) — data/reference/crop_seasons.json: MIRCA-OS 2015 for the crops it covers (one
 share rule), FAO-56 Table 11 rows for olive, citrus and wine grapes in the origins listed. A crop × origin with no season
-is held with the reason, never given a guessed one."""
+is held with the reason, never given a guessed one.
+
+A region's season (region_season) is read the same way from the MIRCA-OS units of that region — the units whose
+'Province' is the region's name in the official list (services.reference.regions); a region the list does not name (a
+NUTS-2 region) takes its country's season, and says so."""
 from __future__ import annotations
 
 import csv
@@ -19,8 +23,9 @@ def reference() -> dict:
 
 
 @lru_cache(maxsize=1)
-def _mirca() -> list[tuple[int, str, float, int, int]]:
-    """[(M49 country code, crop, growing area ha, planting month, maturity month)] — rainfed and irrigated rows."""
+def _mirca() -> list[tuple[int, str, float, int, int, str]]:
+    """[(M49 country code, crop, growing area ha, planting month, maturity month, province)] — rainfed and irrigated
+    rows."""
     ref = reference()["mirca_os"]
     out = []
     for f in ref["files"]:
@@ -28,7 +33,7 @@ def _mirca() -> list[tuple[int, str, float, int, int]]:
             area = float(r["Growing_area"] or 0)
             if area > 0:
                 out.append((int(r["unit_code"]) // 10000, r["Crop"].strip(), area,
-                            int(r["Planting_Month"]), int(r["Maturity_Month"])))
+                            int(r["Planting_Month"]), int(r["Maturity_Month"]), (r["Province"] or "").strip()))
     return out
 
 
@@ -40,17 +45,22 @@ def _in_season(p: int, m: int) -> list[tuple[int, bool]]:
     return [(x, True) for x in range(p, 13)] + [(x, False) for x in range(1, m + 1)]
 
 
-def mirca_season(commodity: str, m49: int, names: list[str], mapped_ha: float | None = None) -> dict:
-    rows = [r for r in _mirca() if r[0] == m49 and r[1] in names]
+def mirca_season(commodity: str, m49: int, names: list[str], mapped_ha: float | None = None,
+                 province: str | None = None) -> dict:
+    """The season from the MIRCA-OS units of a country — or of one province of it (`province`: the unit's 'Province',
+    matched exactly)."""
+    rows = [r for r in _mirca() if r[0] == m49 and r[1] in names and (province is None or r[5] == province)]
     total = sum(r[2] for r in rows)
     if not total:
-        return {"held": f"MIRCA-OS holds no growing area for {', '.join(names)} in this origin"}
+        return {"held": f"MIRCA-OS holds no growing area for {', '.join(names)} in this "
+                        + (f"region ('{province}')" if province else "origin")}
     cover = reference()["mirca_os"]["coverage_min"]
     if mapped_ha and total < cover * mapped_ha:          # the calendars describe a minority of the crop (E168)
         return {"held": f"MIRCA-OS's calendars cover {total:,.0f} ha of the {mapped_ha:,.0f} ha the crop map holds in "
-                        f"the origin ({100 * total / mapped_ha:.0f}%) — less than half, so they do not state its season"}
+                        f"the {'region' if province else 'origin'} ({100 * total / mapped_ha:.0f}%) — less than half, "
+                        "so they do not state its season"}
     share: dict[tuple[int, bool], float] = {}
-    for _c, _n, area, p, m in rows:
+    for _c, _n, area, p, m, _pr in rows:
         for k in _in_season(p, m):
             share[k] = share.get(k, 0.0) + area
     need = reference()["mirca_os"]["share_min"]
@@ -97,3 +107,25 @@ def season(commodity: str, origin: str, m49: int | None, mapped_ha: float | None
     if "fao56" in src:
         return fao56_season(commodity, origin)
     return {"held": "the crop registry states no season source for this crop"}
+
+
+def region_season(commodity: str, region: str, country: str, m49: int | None, region_ha: float | None,
+                  country_ha: float | None) -> dict:
+    """{months, prev_months, basis} or {held: reason} for a crop × region: MIRCA-OS units of the region by its official
+    name (their calendars must cover half the crop map's area in the region, E168); a region without an official name
+    (NUTS-2) takes its country's season; FAO-56 crops take their country's row."""
+    from ml.features.crop_registry import crop
+    from services.reference import regions
+    src = crop(commodity).get("season_source") or {}
+    name = regions.of_country(country).get(region)
+    if "mirca_os" in src and name:
+        if m49 is None:
+            return {"held": "the region's country has no UN M49 code in the country reference"}
+        out = mirca_season(commodity, m49, src["mirca_os"], region_ha, province=name)
+        if "basis" in out:
+            out["basis"] += f", units of '{name}'"
+        return out
+    out = season(commodity, country, m49, country_ha)
+    if "basis" in out:
+        out["basis"] = f"{out['basis']} — the country's season ({region} has no named units)"
+    return out

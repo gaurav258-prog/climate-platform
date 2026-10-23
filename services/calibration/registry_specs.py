@@ -121,7 +121,7 @@ def generate(session: Session) -> dict:
                                protocol=proto["protocol"])
             created += 1
             rows.append({**row, "st": "recipe", "r": None, "spec": sid})
-    session.execute(text("DELETE FROM crop_calibration_coverage"))
+    session.execute(text("DELETE FROM crop_calibration_coverage WHERE region = ''"))
     session.execute(text("""INSERT INTO crop_calibration_coverage (commodity, origin, area_ha, area_share, status, reason, spec_id)
                             VALUES (:c, :o, :a, :sh, :st, :r, CAST(:spec AS uuid))"""), rows)
     counts: dict[str, int] = {}

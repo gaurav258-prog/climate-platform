@@ -20,6 +20,13 @@ from services.reference import crop_releases as R
 from services.reference.yield_sources import _BUILDERS, get
 
 
+def set_aside_lines(counts: list[dict]) -> list[str]:
+    """The rows a reading set aside, one line per reason in the catalogue's words (SetAside.counts: [{code, params,
+    rows}]) — E328: printing them as the old {reason: rows} dict crashed after staging and rolled the release back."""
+    from core import messages
+    return [f"  set aside — {messages.label(a['code'], **a['params'])}: {a['rows']}" for a in counts]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", required=True, choices=sorted(_BUILDERS))
@@ -41,8 +48,8 @@ def main() -> int:
                   f"unchanged {sm['unchanged']}; held but not in the data {sm['held_not_in_file']}; reading changed since "
                   f"the last landed release: {sm['reader_changed_since_last_landed']}; calibrations that may be affected: "
                   f"{len(sm['calibrations_may_be_affected'])}")
-            for why, n in sm.get("set_aside", {}).items():
-                print(f"  set aside — {why}: {n}")
+            for line in set_aside_lines(sm.get("set_aside") or []):
+                print(line)
         if a.dry_run:
             s.rollback()
             print("dry run — nothing staged")

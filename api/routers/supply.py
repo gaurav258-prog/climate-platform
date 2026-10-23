@@ -35,6 +35,7 @@ from api.deps import (
 from api.services.rbac import write_audit
 from core import messages
 from core.errors import UserError
+from services.calibration import coverage as crop_coverage_service  # loads shapely at import (E330)
 from services.ingest.templates import PLOT_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.intelligence.company_sites import (
     SITE_TYPES,
@@ -735,16 +736,17 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
 
     # the calibration / validation record for this crop (every regression we ran, published or held)
     from ml.confidence_grade import grade as _grade
+    from services.calibration.gates import publishes as gate_publishes
     from services.intelligence.adaptation import actions_for
-    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     fits = []
     for f in session.execute(text("""
         SELECT f.origin, f.hazard_driver, CAST(f.r2 AS FLOAT) r2, CAST(f.r2_oos AS FLOAT) r2_oos,
+               CAST(f.slope AS FLOAT) slope,
                CAST(f.band_cov68 AS FLOAT) band_cov68, f.n_years, f.spei_scale, f.season_months,
                f.baseline_from, f.baseline_to, f.source_note
         FROM sc_commodity_fit f WHERE f.commodity_id = :c ORDER BY f.r2_oos DESC NULLS LAST, f.r2 DESC
     """), {"c": commodity_id}).mappings().all():
-        publishes = (f["r2_oos"] or 0) >= RANGED_PUBLISH_FLOOR   # gate on out-of-sample r² (audit F2)
+        publishes = gate_publishes(f["r2_oos"], f["slope"])   # out-of-sample r² (audit F2) and the sign (E327)
         g = _grade(tier="ranged", r2_oos=f["r2_oos"], n_years=f["n_years"], band_cov68=f["band_cov68"]) if publishes else None
         fits.append({**dict(f), "publishes": publishes, "confidence_grade": g.grade if g else None})
 
@@ -782,8 +784,13 @@ def commodity_outlook(commodity_id: str, session: DbSession, org_id: OrgId):
 
 @router.get("/coverage", summary="Where each crop is calibrated — every country its crop map holds, and what is published there")
 def crop_coverage(session: DbSession, org_id: OrgId, commodity: Optional[str] = Query(None, max_length=80)):
-    from services.calibration.coverage import coverage
-    return coverage(session, commodity)
+    return crop_coverage_service.coverage(session, commodity)
+
+
+@router.get("/coverage/regions", summary="Where a crop is calibrated by region — every region holding its country's "
+                                         "regional yields, and what is published there")
+def crop_coverage_regions(session: DbSession, org_id: OrgId, commodity: str = Query(..., min_length=1, max_length=80)):
+    return crop_coverage_service.regional(session, commodity)
 
 
 def _plots_with_hazard(session, org_id, scenario, horizon):
@@ -1044,11 +1051,12 @@ def models(session: DbSession, org_id: OrgId):
     # This is the honest counterpart to the single-event backtests on /validation — it says
     # exactly what we tried and how well it worked, including the crops we withhold.
     from ml.confidence_grade import grade as _grade
+    from services.calibration.gates import publishes as gate_publishes
     from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR, load_oos_challengers
     _oos = load_oos_challengers(session)
     fits = session.execute(text("""
         SELECT co.name AS commodity, f.origin, f.hazard_driver,
-               CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos,
+               CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos, CAST(f.slope AS FLOAT) AS slope,
                CAST(f.band_cov68 AS FLOAT) AS band_cov68,
                f.n_years, f.spei_scale, f.season_months,
                CAST(f.rmse AS FLOAT) AS rmse, f.baseline_from, f.baseline_to, f.source_note,
@@ -1065,7 +1073,7 @@ def models(session: DbSession, org_id: OrgId):
     """)).mappings().all()
     fit_rows = []
     for r in fits:
-        publishes = (r["r2_oos"] or 0) >= RANGED_PUBLISH_FLOOR   # gate on out-of-sample r² (audit F2)
+        publishes = gate_publishes(r["r2_oos"], r["slope"])   # out-of-sample r² (audit F2) and the sign (E327)
         # a published fit carries its Confidence Grade — now including the independent challenger's
         # corroboration verdict; a below-floor (tested-held) fit is shown WITHOUT a grade.
         _oc = _oos.get((r["commodity"], r["origin"], r["hazard_driver"]))

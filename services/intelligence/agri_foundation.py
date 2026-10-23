@@ -24,7 +24,7 @@ SOURCES = (
     ("agri.data.source.crop_statistics", ("crop_production_faostat", "crop_production_eurostat",
                                           "crop_production_eurostat_regional", "crop_production_usda_fas",
                                           "crop_production_usda_nass", "crop_production_usda_nass_county",
-                                          "crop_production_statcan")),
+                                          "crop_production_statcan", "crop_production_ibge_pam")),
     ("agri.data.source.forest", ("deforestation",)),
     ("agri.data.source.prices", ("commodity_prices_wb", "commodity_prices_eu")),
 )

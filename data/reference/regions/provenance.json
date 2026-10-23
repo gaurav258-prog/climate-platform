@@ -39,5 +39,29 @@
    "sha256": "9f6e5f6eb6ac2f5e9a36d5fd01dec77991bddc75118f748a069441a4782970d6",
    "code_rule": "a county is named by its state's ISO 3166-2 code and its 5-digit FIPS code (STATEFP + COUNTYFP): 'US-IA-19001' — ISO 3166-2 does not code counties, so the code is the publisher's own, prefixed"
   }
+ },
+ "shapes": {
+  "about": "The borders of the regions a regional crop calibration is fitted on and applied to (services.reference.region_shapes). A region's code is the one the regional yields are published under; a border is kept only for a code of the lists above (or a NUTS 2021 code).",
+  "nuts2": {
+   "file": "data/reference/geo/nuts3_eu_20m_2021.geojson",
+   "publisher": "Eurostat/GISCO — NUTS 2021, 1:20 million, level 3",
+   "rule": "a NUTS-2 region is the union of the level-3 regions whose code begins with its 4-character code"
+  },
+  "iso3166_2": {
+   "file": "data/datasets/natural_earth_admin1_10m/ne_10m_admin_1_states_provinces.zip",
+   "member": "ne_10m_admin_1_states_provinces.shp",
+   "publisher": "Natural Earth — Admin 1 states and provinces, 1:10m (public domain); pinned in data/reference/supply_datasets.json (natural_earth_admin1_10m)",
+   "countries": [
+    "BR",
+    "CA",
+    "US"
+   ],
+   "rule": "the polygons Natural Earth gives an ISO 3166-2 code (field iso_3166_2), kept only when the code is in that country's official list above; several polygons of one code are one region"
+  }
+ },
+ "nuts2_names": {
+  "file": "nuts2_names.json",
+  "publisher": "Eurostat — the 'geo' labels of the apro_cpshr release landed through review",
+  "rule": "a NUTS-2 region's name is Eurostat's own label in the regional crop statistics it publishes the region's yields under"
  }
 }

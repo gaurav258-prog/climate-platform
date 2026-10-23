@@ -1,4 +1,5 @@
-"""Where each crop grows, per origin, on the ERA5-Land grid (E163): the weights an origin's weather is averaged by.
+"""Where each crop grows, per origin (and per region — services.reference.region_shapes), on the ERA5-Land grid (E163):
+the weights an origin's or a region's weather is averaged by.
 
 A crop names its map and layers in the registry (crop_map); data/reference/crop_maps.json names the files. Each map cell
 with harvested area gives its area to the ERA5-Land 0.1° cell nearest its centre and to the country whose GISCO 2020
@@ -81,9 +82,25 @@ def _countries(ny: int, nx: int, res: float) -> tuple[np.ndarray, tuple[str, ...
     return grid, codes
 
 
-def fingerprint(commodity: str) -> str:
+@lru_cache(maxsize=4)
+def _regions(ny: int, nx: int, res: float) -> tuple[np.ndarray, tuple[str, ...]]:
+    """(index grid — 0 none, k → codes[k-1] — of the region whose polygon contains each cell's centre; codes): the
+    borders of services.reference.region_shapes, rasterised here in the build process only (E170)."""
+    from rasterio.features import rasterize
+    from rasterio.transform import from_origin
+
+    from services.reference import region_shapes
+    borders = region_shapes.shapes()
+    codes = tuple(sorted(borders))
+    grid = rasterize(((borders[c], i + 1) for i, c in enumerate(codes)), out_shape=(ny, nx),
+                     transform=from_origin(-180.0, 90.0, res, res), fill=0, dtype="int32")
+    return grid, codes
+
+
+def fingerprint(commodity: str, partition: str = "country") -> str:
     """What the weights are computed from: the map's recorded checksum (data/reference/supply_datasets.json), the layers,
-    the country file and this module's version."""
+    the borders (the country file, or the region borders of services.reference.region_shapes) and this module's
+    version."""
     cm = crop_map(commodity)
     if not cm:
         return ""
@@ -92,37 +109,52 @@ def fingerprint(commodity: str) -> str:
     h = hashlib.sha256(WEIGHTS_VERSION.encode())
     h.update(json.dumps(manifest.get(key, {}).get("files", []), sort_keys=True).encode())
     h.update(json.dumps(cm, sort_keys=True).encode())
-    h.update((ROOT / reference()["countries"]["file"]).read_bytes()[:1 << 20])
+    if partition == "country":
+        h.update((ROOT / reference()["countries"]["file"]).read_bytes()[:1 << 20])
+    else:
+        from services.reference import region_shapes
+        h.update(f"{partition}:{region_shapes.fingerprint()}".encode())
     return h.hexdigest()[:16]
 
 
-def weights(commodity: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    """{origin ISO2: (ERA5 flat cell index, harvested ha)} for a crop — computed once per fingerprint and kept."""
+def _weights(commodity: str, partition: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     cm = crop_map(commodity)
     if not cm:
         return {}
-    fp = fingerprint(commodity)
-    out_file = DERIVED / f"{commodity.replace(' ', '_')}_{fp}.npz"
+    fp = fingerprint(commodity, partition)
+    tag = "" if partition == "country" else f"{partition}_"
+    out_file = DERIVED / f"{commodity.replace(' ', '_')}_{tag}{fp}.npz"
     if not out_file.exists():
-        _build_isolated(commodity, out_file)
+        _build_isolated(commodity, out_file, partition)
     z = np.load(out_file, allow_pickle=False)
     return {k[:-4]: (z[k], z[k[:-4] + "_w"]) for k in z.files if k.endswith("_idx")}
 
 
-def _build_isolated(commodity: str, out_file: Path) -> None:
+def weights(commodity: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """{origin ISO2: (ERA5 flat cell index, harvested ha)} for a crop — computed once per fingerprint and kept."""
+    return _weights(commodity, "country")
+
+
+def regional_weights(commodity: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """{region code: (ERA5 flat cell index, harvested ha)} — the crop's area inside each region of
+    services.reference.region_shapes (a map cell goes to the region whose polygon contains its centre)."""
+    return _weights(commodity, "region")
+
+
+def _build_isolated(commodity: str, out_file: Path, partition: str = "country") -> None:
     """Build a crop's weights in a process of its own (E170): the build reads the crop map and rasterises the country
     polygons through GDAL, and a native crash there must never take the API or a worker down — it fails this call.
     RASTER_SAMPLER_INPROCESS=1 builds in-process (tests), as the raster sampler does."""
     import os
     if os.environ.get("RASTER_SAMPLER_INPROCESS") == "1":
-        _build(commodity, str(out_file))
+        _build(commodity, str(out_file), partition)
         return
     import multiprocessing as mp
     try:
         ctx = mp.get_context("forkserver")
     except ValueError:
         ctx = mp.get_context("spawn")
-    proc = ctx.Process(target=_build, args=(commodity, str(out_file)), name="crop-weights", daemon=True)
+    proc = ctx.Process(target=_build, args=(commodity, str(out_file), partition), name="crop-weights", daemon=True)
     proc.start()
     proc.join(timeout=1800)
     if proc.is_alive():
@@ -133,7 +165,7 @@ def _build_isolated(commodity: str, out_file: Path) -> None:
         raise RuntimeError(f"building the {commodity} weights failed (exit code {proc.exitcode})")
 
 
-def _build(commodity: str, out_path: str) -> None:  # runs in the build process
+def _build(commodity: str, out_path: str, partition: str = "country") -> None:  # runs in the build process
     cm = crop_map(commodity)
     out_file = Path(out_path)
     total = None
@@ -141,7 +173,7 @@ def _build(commodity: str, out_path: str) -> None:  # runs in the build process
         a, res = _map_array(cm["map"], layer)
         total = a if total is None else total + a
     ny, nx = total.shape
-    grid, codes = _countries(ny, nx, res)
+    grid, codes = _countries(ny, nx, res) if partition == "country" else _regions(ny, nx, res)
     ii, jj = np.nonzero(total > 0)
     lat = 90.0 - (ii + 0.5) * res
     lon = -180.0 + (jj + 0.5) * res

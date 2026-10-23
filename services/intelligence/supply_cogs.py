@@ -54,6 +54,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from ml.confidence_grade import grade as _grade
+from services.intelligence.regional_calibration import cal_of, key_of, resolve_regions, weakest_tier
 
 IMPACT_VERSION = "sc-impact-v0.6"
 
@@ -273,16 +274,16 @@ def _commodity_risk(name, eudr, spend, plots, compound=False, origin_cal=None,
     # water-availability layer). For a CALIBRATED crop, the hazard we display must be the one
     # that actually drives its € — its calibrated driver — not whichever raw score is highest.
     # Olive is drought-driven even where its cells also carry a higher soil_water score.
-    _drivers = {(origin_cal or {}).get(p.get("origin"), {}).get("hazard_driver") for p in scored}
+    _drivers = {(cal_of(origin_cal, p) or {}).get("hazard_driver") for p in scored}
     _drivers.discard(None)
     if len(_drivers) == 1:
         _d = next(iter(_drivers))
         if any(_d in p.get("hazards", {}) for p in scored):
             top_hazard = _d
     def _plot_shock(p):
-        """A plot's loss fraction from ITS origin's validated calibration on the driver hazard; None when the origin
-        has none or the plot is not scored on the driver."""
-        cal = (origin_cal or {}).get(p.get("origin"))
+        """A plot's loss fraction from ITS calibration (its region's, else its origin's — regional_calibration.cal_of)
+        on the driver hazard; None when there is none or the plot is not scored on the driver."""
+        cal = cal_of(origin_cal, p)
         if not cal or not cal.get("hazard_driver"):
             return None
         driver, fit = cal["hazard_driver"], cal.get("fit")
@@ -311,33 +312,35 @@ def _commodity_risk(name, eudr, spend, plots, compound=False, origin_cal=None,
         for p in plots:
             by_origin.setdefault(p.get("origin"), []).append(p)
         for origin, oplots in sorted(by_origin.items(), key=lambda kv: str(kv[0])):
-            cal = origin_cal.get(origin)
-            o_sens = (cal or {}).get("sensitivity")
-            o_share = (cal or {}).get("world_share")
-            driver = (cal or {}).get("hazard_driver")
-            o_fit = (cal or {}).get("fit")
+            # each plot reads its own calibration: its region's where the crop has one, else the country's
+            pcal = [cal_of(origin_cal, p) or {} for p in oplots]
+            o_share = (origin_cal.get(origin) or {}).get("world_share")      # the country's share of world production
+            drivers = sorted({c.get("hazard_driver") for c in pcal if c.get("hazard_driver")})
+            driver = ", ".join(drivers) if drivers else None
             o_spend = sum(p["spend"] for p in oplots) or 1.0
+            regional = sorted({key_of(origin_cal, p) for p in oplots} - {origin})
 
             need = None
-            if driver:
+            if driver and all(c.get("hazard_driver") for c in pcal):
                 # Calibrated origin: only the backtested/fitted hazard may drive the yield shock.
-                scored_on_driver = [p for p in oplots if p.get("hazards", {}).get(driver) is not None]
-                if not o_fit and o_sens is None:
+                unscored = [p for p, c in zip(oplots, pcal) if p.get("hazards", {}).get(c["hazard_driver"]) is None]
+                if any(not c.get("fit") and c.get("sensitivity") is None for c in pcal):
                     o_shock = None
                     need = "a validated sensitivity for this origin's driver hazard"
-                elif len(scored_on_driver) < len(oplots):
+                elif unscored:
                     o_shock = None
-                    need = (f"{driver} not scored on {len(oplots) - len(scored_on_driver)} of {len(oplots)} plots "
+                    need = (f"{driver} not scored on {len(unscored)} of {len(oplots)} plots "
                             f"— the calibrated driver hazard")
-                elif scored_on_driver:
-                    w = sum(p["spend"] for p in scored_on_driver) or 1.0
-                    if o_fit:
-                        # ranged: regression MID loss at each plot's driver score
-                        o_shock = sum(_ranged_plot_band(p["hazards"], o_fit, driver)[1] * p["spend"]
-                                      for p in scored_on_driver) / w
-                    else:
-                        o_shock = sum(_driver_yield_shock(p["hazards"], o_sens, driver) * p["spend"]
-                                      for p in scored_on_driver) / w
+                else:
+                    w = sum(p["spend"] for p in oplots) or 1.0
+                    # ranged: regression MID loss at each plot's driver score; backtested: the sensitivity
+                    o_shock = sum((_ranged_plot_band(p["hazards"], c["fit"], c["hazard_driver"])[1] if c.get("fit")
+                                   else _driver_yield_shock(p["hazards"], c["sensitivity"], c["hazard_driver"]))
+                                  * p["spend"] for p, c in zip(oplots, pcal)) / w
+            elif driver:
+                o_shock = None
+                need = (f"a validated hazard driver for {sum(1 for c in pcal if not c.get('hazard_driver'))} of "
+                        f"{len(oplots)} plots")
             else:
                 # No validated hazard DRIVER for this origin, so no validated yield shock —
                 # exposure only. Name exactly what is missing: if we already know the origin's
@@ -355,8 +358,9 @@ def _commodity_risk(name, eudr, spend, plots, compound=False, origin_cal=None,
                 "yield_shock_pct": round(o_shock * 100, 1) if o_shock is not None else None,
                 "world_share": o_share,
                 "global_shock_contribution_pct": round(contribution * 100, 2) if contribution is not None else None,
-                "calibration": (cal or {}).get("calibration_tier", "uncalibrated"),
+                "calibration": weakest_tier([c.get("calibration_tier", "uncalibrated") for c in pcal]),
                 "hazard_driver": driver,
+                "regions": regional,                    # the regions whose own calibration some plots read
                 # An origin with no calibration row cannot contribute to the world price signal —
                 # surfaced, never silently given another origin's share or another hazard's score.
                 "input_required": need,
@@ -377,8 +381,7 @@ def _commodity_risk(name, eudr, spend, plots, compound=False, origin_cal=None,
     # interval; the mid already equals yield_shock above. floored at 0 — a favourable year is a
     # gain, not "volume at risk". fit_r2 is surfaced so the buyer sees the strength of the fit.
     vol_low_eur = vol_high_eur = fit_r2 = None
-    ranged = [(p, (origin_cal or {}).get(p.get("origin"), {}).get("fit"),
-               (origin_cal or {}).get(p.get("origin"), {}).get("hazard_driver"))
+    ranged = [(p, (cal_of(origin_cal, p) or {}).get("fit"), (cal_of(origin_cal, p) or {}).get("hazard_driver"))
               for p in scored] if origin_cal else []
     ranged = [(p, f, d) for (p, f, d) in ranged if f and d
               and _ranged_plot_band(p["hazards"], f, d) is not None]
@@ -582,7 +585,7 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
 _GRAPH_SQL = """
     SELECT co.name AS commodity, co.eudr_covered, co.demand_elasticity AS elasticity,
            co.stock_to_use, co.measured_basis, p.country AS origin,
-           p.plot_id::text AS plot_id, p.annual_spend_eur AS plot_spend,
+           p.plot_id::text AS plot_id, p.annual_spend_eur AS plot_spend, p.latitude, p.longitude,
            v.hazard_type, v.physical_risk_score
     FROM   sc_sourcing_plots p
     JOIN   sc_commodities   co ON co.commodity_id = p.commodity_id
@@ -755,6 +758,7 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
         })
         pl = c["_plots"].setdefault(r["plot_id"], {
             "spend": float(r["plot_spend"] or 0), "origin": r["origin"], "hazards": {},
+            "lat": r["latitude"], "lon": r["longitude"],
         })
         if r["hazard_type"] is not None and r["physical_risk_score"] is not None:
             pl["hazards"][r["hazard_type"]] = float(r["physical_risk_score"])
@@ -771,4 +775,6 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
         {"o": org_id},
     ).scalar() or 0.0
     overrides = get_commodity_overrides(session, org_id)
-    return compute(commodities, float(total_cogs), overrides, calibrations=get_calibrations(session))
+    calibrations = get_calibrations(session)
+    resolve_regions(commodities, calibrations)
+    return compute(commodities, float(total_cogs), overrides, calibrations=calibrations)

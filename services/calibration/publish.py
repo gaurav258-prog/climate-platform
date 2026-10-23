@@ -1,13 +1,16 @@
 """Publishing calibration runs — reviewed, never automatic (E162; 'calibration.publish', the platform's Approvers
 policy: one approver stated → the platform's system account proposes and one person decides).
 
-  pending_changes   the recorded runs whose figures or upside verdict differ from what their recipe has published
+  pending_changes   the recorded runs whose figures or upside verdict differ from what their recipe has published (a
+                    regional recipe's first publication only when its run passes the downside gate — held, it stays a
+                    recorded run on the coverage page and never stands in for its country)
   propose           one approval request for a batch of runs (the difference summarised); the runs → proposed
   replacement       a newer run whose figures equal the one awaiting a decision adds nothing; one with other figures
                     (new data landed) replaces it, and the batch publishes only its runs still awaiting the decision
   apply_decision    approved → each run publishes: sc_commodity_fit takes its figures and names its recipe, yield series
                     and cycle rule; the origin's calibration row follows the published fit of ITS driver (season, box,
                     baseline years — never a value kept from an older fit); the recipe's previous run → superseded.
+                    A regional recipe publishes under its region code (key), never over its country's calibration.
                     Rejected / returned → the runs close unpublished.
 """
 from __future__ import annotations
@@ -75,6 +78,8 @@ def changes(session: Session, run_id: str) -> dict | None:
         return None                                          # the same figures already await a decision
     pub = _published(session, run["spec_id"])
     if pub is None:
+        if not run["downside_pass"] and get_spec(session, run["spec_id"])["yield_region"]:
+            return None          # a regional fit is published only once it passes; held, it stays a recorded run
         return {"run_id": run_id, "first": True, "replaces": pending["run_id"] if pending else None}
     diff = _diff(pub, run)
     return {"run_id": run_id, "first": False, "diff": diff, "replaces": pending["run_id"] if pending else None} \
@@ -131,17 +136,25 @@ def summarise(session: Session, run_ids: list[str]) -> dict:
         old = session.execute(text("""
             SELECT CAST(f.r2_oos AS FLOAT) AS r2_oos FROM sc_commodity_fit f JOIN sc_commodities c USING (commodity_id)
             WHERE c.name = :c AND f.origin = :o AND f.hazard_driver = :d"""),
-            {"c": sp["commodity"], "o": sp["origin"], "d": sp["driver"]}).mappings().first()
-        rows.append({"run_id": rid, "commodity": sp["commodity"], "origin": sp["origin"], "driver": sp["driver"],
+            {"c": sp["commodity"], "o": key(sp), "d": sp["driver"]}).mappings().first()
+        rows.append({"run_id": rid, "commodity": sp["commodity"], "origin": sp["origin"], "region": sp["yield_region"],
+                     "driver": sp["driver"],
                      "recipe": sp["weather_kind"], "r2_oos": run["r2_oos"],
                      "published_r2_oos": old["r2_oos"] if old else None, "downside_pass": run["downside_pass"],
                      "upside_pass": run["upside_pass"], "upside_failed": (run["upside"] or {}).get("failed"),
                      "first_run": ch.get("first", False)})
     return {"runs": rows,
             "downside_passes": sum(r["downside_pass"] for r in rows), "upside_passes": sum(r["upside_pass"] for r in rows),
-            "gate_flips": [f"{r['commodity']}/{r['origin']} {r['driver']}" for r in rows
+            "gate_flips": [f"{r['commodity']}/{r['region'] or r['origin']} {r['driver']}" for r in rows
                            if r["published_r2_oos"] is not None
                            and downside_pass(r["published_r2_oos"]) != bool(r["downside_pass"])]}
+
+
+def key(sp: dict) -> str:
+    """The origin a recipe publishes under: its yield region for a regional recipe ('US-KS' — read only for the plots
+    inside that region, services.intelligence.regional_calibration), else its country. A regional run never writes the
+    country's own calibration."""
+    return sp["yield_region"] or sp["origin"]
 
 
 def _publish(session: Session, run_id: str, checker: str, reason: str | None) -> None:
@@ -171,7 +184,7 @@ def _publish(session: Session, run_id: str, checker: str, reason: str | None) ->
             baseline_to = EXCLUDED.baseline_to, fit_version = EXCLUDED.fit_version, source_note = EXCLUDED.source_note,
             yield_source = EXCLUDED.yield_source, yield_region = EXCLUDED.yield_region,
             allow_cycle = EXCLUDED.allow_cycle, spec_id = EXCLUDED.spec_id, run_id = EXCLUDED.run_id, created_at = now()"""),
-        {"cid": cid, "o": sp["origin"], "d": sp["driver"], "key": sp["weather_key"], "months": months,
+        {"cid": cid, "o": key(sp), "d": sp["driver"], "key": sp["weather_key"], "months": months,
          "scale": sp["spei_scale"], "proto": sp["protocol"], "note": note, "src": sp["yield_source"],
          "reg": sp["yield_region"], "cyc": sp["allow_cycle"], "run": run_id})
     # the origin's calibration row follows the published fit of its own driver — never a season or box kept from an
@@ -184,7 +197,7 @@ def _publish(session: Session, run_id: str, checker: str, reason: str | None) ->
             season_months = EXCLUDED.season_months, baseline_from = EXCLUDED.baseline_from,
             baseline_to = EXCLUDED.baseline_to
         WHERE sc_commodity_calibration.hazard_driver = EXCLUDED.hazard_driver"""),
-        {"cid": cid, "o": sp["origin"], "d": sp["driver"], "key": sp["weather_key"], "months": months,
+        {"cid": cid, "o": key(sp), "d": sp["driver"], "key": sp["weather_key"], "months": months,
          "proto": sp["protocol"], "bf": run["baseline_from"], "bt": run["baseline_to"]})
     session.execute(text("""UPDATE crop_calibration_runs SET status = 'superseded', decided_by = CAST(:u AS uuid),
                             decided_at = now(), decision_reason = 'a later run of the recipe was published'

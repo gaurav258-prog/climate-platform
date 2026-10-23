@@ -43,6 +43,11 @@
    ],
    "statcan_crop": "Barley",
    "statcan_label": "barley",
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2699",
+    "label": "Cevada (em grão)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -62,6 +67,11 @@
    "nass_production": "SUGARCANE, SUGAR & SEED - PRODUCTION, MEASURED IN TONS",
    "nass_area": "SUGARCANE, SUGAR & SEED - ACRES HARVESTED",
    "nass_label": "sugarcane for sugar and seed — cane for other uses not included",
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2696",
+    "label": "Cana-de-açúcar"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -98,6 +108,11 @@
    "commodity": "Cocoa",
    "fao_item": "Cocoa beans",
    "life_cycle": "perennial_alternate_bearing",
+   "ibge_pam": {
+    "table": "1613",
+    "product": "2722",
+    "label": "Cacau (em amêndoa)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -116,6 +131,11 @@
    "life_cycle": "perennial_alternate_bearing",
    "fas_commodity": "0711100",
    "fas_label": "Coffee, Green (60 kg bags → tonnes) — as FAO",
+   "ibge_pam": {
+    "table": "1613",
+    "product": "2723",
+    "label": "Café (em grão) Total"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -175,6 +195,11 @@
    ],
    "statcan_crop": "Corn for grain",
    "statcan_label": "corn for grain at the standard 15.5% moisture (table note 48)",
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2711",
+    "label": "Milho (em grão)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -215,6 +240,11 @@
    "life_cycle": "perennial",
    "fas_commodity": "4243000",
    "fas_label": "Oil, Palm — the OIL; FAO reports oil palm fruit",
+   "ibge_pam": {
+    "table": "1613",
+    "product": "2728",
+    "label": "Dendê (cacho de coco)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -270,6 +300,11 @@
    "eurostat_regional": [
     "C2000"
    ],
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2692",
+    "label": "Arroz (em casca)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -298,6 +333,11 @@
    "eurostat_regional": [
     "C1700"
    ],
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2714",
+    "label": "Sorgo (em grão)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -326,6 +366,11 @@
    ],
    "statcan_crop": "Soybeans",
    "statcan_label": "soybeans",
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2713",
+    "label": "Soja (em grão)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -381,6 +426,11 @@
    ],
    "statcan_crop": "Sunflower seed",
    "statcan_label": "sunflower seed",
+   "ibge_pam": {
+    "table": "1612",
+    "product": "109179",
+    "label": "Girassol (em grão)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
@@ -410,6 +460,11 @@
    ],
    "statcan_crop": "Wheat, all",
    "statcan_label": "all wheat — spring, durum and winter wheat seeded in the fall (table note 33)",
+   "ibge_pam": {
+    "table": "1612",
+    "product": "2716",
+    "label": "Trigo (em grão)"
+   },
    "crop_map": {
     "map": "mapspam2020",
     "layers": [
