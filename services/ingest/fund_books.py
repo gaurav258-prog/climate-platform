@@ -111,6 +111,8 @@ def _holdings_prepare(session: Session, org_id: str) -> dict:
 def _holdings_build(ctx: dict, row: dict) -> dict:
     fund = _s(row, "fund_name")
     fund_id = ctx["funds"].get(norm_token(fund or ""))
+    if fund_id is None and norm_token(fund or "") in ctx.get("in_file", {}).get("funds", ()):
+        fund_id = f"in-file:{norm_token(fund)}"      # a check of the whole file: its Funds sheet lands first (E323)
     if fund_id is None:
         raise RowIssue(f"fund '{fund}' is not one of your funds — add it on the Funds sheet first")
     isin = (_s(row, "isin") or "").upper().replace(" ", "")

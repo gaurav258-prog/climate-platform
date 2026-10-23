@@ -1,6 +1,8 @@
 """E147: the demo never carries invented data for a real named company — no demo organisation holds data of its own
 (emissions, ESG metrics, Taxonomy KPIs, voluntary PAI values, confirmations) about an issuer that is not one of the
-fictional demo issuers (LEI beginning 'DEMO'), and no demo fund holds a real company's security. E197: no demo asset,
+fictional demo issuers (LEI beginning 'DEMO'). A demo fund may hold a real company's security (the product owner's
+decision of 2026-10-23: lookalike customers hold real listed companies by ISIN, nothing invented about them — which the
+rule above keeps); E147's ban on holding one is withdrawn by that decision. E197: no demo asset,
 its region or a demo counterparty is named with a map-grid code or a type code. Reads the database as it is (the demo
 seeds), changes nothing."""
 from __future__ import annotations
@@ -24,15 +26,6 @@ def test_no_demo_organisation_holds_its_own_data_about_a_real_company(session_ro
         if real:
             found[name] = real[:5]
     assert not found, found
-
-
-def test_no_demo_fund_holds_a_real_company(session_rolled_back):
-    held = session_rolled_back.execute(text("""
-        SELECT DISTINCT o.name || ': ' || i.name FROM fund_positions p JOIN funds f ON f.fund_id = p.fund_id
-        JOIN organizations o ON o.org_id = f.org_id JOIN securities sec ON sec.security_id = p.security_id
-        JOIN issuers i ON i.issuer_id = sec.issuer_id
-        WHERE o.name LIKE '%(demo)%' AND i.lei NOT LIKE 'DEMO%' LIMIT 5""")).scalars().all()
-    assert not held, held
 
 
 GRID = re.compile(r"\bhex [0-9a-f]{4,}|\b8[0-9a-f]{14}\b")      # an H3 cell code, whole or shortened

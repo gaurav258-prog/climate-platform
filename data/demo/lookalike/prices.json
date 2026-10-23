@@ -1,0 +1,116 @@
+{
+ "_about": "Official figures the lookalike books are valued from; built by scripts/lookalike/prices.py on 2026-10-23. Not used: the Norwegian, Danish and Swedish house sale prices (they include the land, so they are not a building's rebuild cost) and Finland's (published per municipality only).",
+ "sources": [
+  {
+   "key": "es_mivau",
+   "file": "es_mivau/VDP006_01.csv",
+   "publisher": "Ministerio de Vivienda y Agenda Urbana (Spain)",
+   "dataset": "Valor tasado de la vivienda (VDP006_01)",
+   "url": "https://cdn.mivau.gob.es/portal-web-mivau/Datos_MIVAU/CSV/VDP006_01.csv",
+   "licence": "CC BY 4.0",
+   "sha256": "21af4264fd80d617857885032a9a3164c19935dfb18afacf3d9b08647ba68a0b",
+   "bytes": 688965,
+   "retrieved": "2026-10-23"
+  },
+  {
+   "key": "se_newbuild",
+   "file": "se_scb_newbuild/newbuild_2024.csv",
+   "publisher": "Statistics Sweden (SCB)",
+   "dataset": "BO0201C PrisPerAreorSM02 — newly built one- or two-dwelling buildings, price per m²",
+   "url": "https://api.scb.se/OV0104/v1/doris/en/ssd/BO/BO0201/BO0201C/PrisPerAreorSM02",
+   "licence": "CC0 1.0",
+   "sha256": "e907a71048a7142e5bd97aa60231013763663e97c23d4acd6251fc9de159c87b",
+   "bytes": 914,
+   "retrieved": "2026-10-23"
+  },
+  {
+   "key": "es_mapa_prices",
+   "file": "es_mapa_prices/precios_medios_nacionales_2026-s36.xlsx",
+   "publisher": "Ministerio de Agricultura, Pesca y Alimentación (Spain)",
+   "dataset": "Precios medios nacionales, 2026 week 36 file",
+   "url": "https://www.mapa.gob.es/dam/mapa/contenido/estadisticas/temas/estadisticas-agrarias/1.economicas/precios-medios/precios_medios_nacionales_2026-s36.xlsx",
+   "licence": "MAPA legal notice: reuse allowed citing source and date",
+   "sha256": "f644b35bd134ed3a2e8e62e4a4fdf4792d058a6ab2dc5bdc72dcaa6bf36f1d83",
+   "bytes": 113219,
+   "retrieved": "2026-10-23"
+  },
+  {
+   "key": "es_mapa_olive",
+   "file": "es_mapa_olive/re1_olivar_formato_tabla_global_25.xlsx",
+   "publisher": "Ministerio de Agricultura, Pesca y Alimentación (Spain)",
+   "dataset": "Superficies y producciones anuales de cultivos — olivar, 2025 (provisional)",
+   "url": "https://www.mapa.gob.es/dam/mapa/contenido/estadisticas/temas/estadisticas-agrarias/2.agricultura/3.-superficies-y-producciones-anuales/reglamento-n--543-2009/re1_olivar_formato_tabla_global_25.xlsx",
+   "licence": "MAPA legal notice: reuse allowed citing source and date",
+   "sha256": "104b7e114d6a96bd62c95e67a9d9d44cc08f073b2d5038f07da4897e060fcad6",
+   "bytes": 54112232,
+   "retrieved": "2026-10-23"
+  }
+ ],
+ "es_residential": {
+  "period": "2026-Q2",
+  "regime": "free-market housing (Libre)",
+  "unit": "EUR per m² (appraised)",
+  "by_nuts3": {
+   "ES511": {
+    "area": "Barcelona",
+    "eur_per_m2": 3204.2
+   },
+   "ES523": {
+    "area": "Valencia/València",
+    "eur_per_m2": 1980.1
+   },
+   "ES617": {
+    "area": "Málaga",
+    "eur_per_m2": 3083.5
+   },
+   "ES618": {
+    "area": "Sevilla",
+    "eur_per_m2": 1889.8
+   },
+   "ES300": {
+    "area": "Madrid, Comunidad de",
+    "eur_per_m2": 4089.6
+   }
+  }
+ },
+ "se_rebuild": {
+  "year": 2024,
+  "area": "Sweden",
+  "price_basis": "gross",
+  "floor_m2_per_dwelling": 114.6,
+  "building_price_sek_per_m2": 33119.0,
+  "note": "building price per m² of useful floor space, land excluded"
+ },
+ "olive_jaen": {
+  "year": 2025,
+  "status": "provisional",
+  "province": "Jaén",
+  "area_dry_ha": 353231.0,
+  "area_irrigated_ha": 235488.0,
+  "yield_dry_kg_ha": 3000.0,
+  "yield_irrigated_kg_ha": 4944.0,
+  "olives_t": 1934835.0,
+  "oil_t": 386975.0,
+  "oil_by_grade_t": {
+   "extra": 4644.0,
+   "virgin": 166399.0,
+   "lampante": 215932.0
+  },
+  "oil_per_olive": 0.2,
+  "prices": {
+   "extra": {
+    "week": "Semana 41",
+    "eur_per_100kg": 331.86
+   },
+   "virgin": {
+    "week": "Semana 41",
+    "eur_per_100kg": 306.99
+   },
+   "lampante": {
+    "week": "Semana 41",
+    "eur_per_100kg": 295.15
+   }
+  },
+  "oil_price_eur_per_100kg_jaen_mix": 300.68
+ }
+}

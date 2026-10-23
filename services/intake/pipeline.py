@@ -146,10 +146,11 @@ def _money_ctx(session: Session, tpl: Template, df: pd.DataFrame, mrep: Optional
 
 
 def _run_controls(session: Session, org_id: str, tpl: Template, sha: str, df: pd.DataFrame,
-                  declared: Optional[dict], exclude_batch: Optional[str] = None, money_ctx: Optional[dict] = None) -> dict:
+                  declared: Optional[dict], exclude_batch: Optional[str] = None, money_ctx: Optional[dict] = None,
+                  in_file: Optional[dict] = None) -> dict:
     specs = enrich_specs(tpl.specs(df))
     labels = {s["name"]: s["label"] for s in specs}
-    st = staging.stage(session, org_id, tpl.sector, df, specs, money_ctx)
+    st = staging.stage(session, org_id, tpl.sector, df, specs, money_ctx, in_file)
     report, normalised = st["report"], st["normalised"]
     vf = tpl.value_field(df)
     vf = vf if vf in df.columns else None
@@ -300,8 +301,10 @@ def _owner_of_token(session: Session, token_id: str) -> Optional[str]:
 
 def preview(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str],
             declared: Optional[dict] = None, via: str = "upload", mapping_profile_id: Optional[str] = None,
-            currency: Optional[str] = None, book_date: Optional[str] = None, sheet: Optional[str] = None) -> dict:
-    """Everything the import will check, run on the file now — nothing stored, nothing written.
+            currency: Optional[str] = None, book_date: Optional[str] = None, sheet: Optional[str] = None,
+            in_file: Optional[dict] = None) -> dict:
+    """Everything the import will check, run on the file now — nothing stored, nothing written. `in_file`: what the
+    same file's earlier sheets state, which sending it would land first (E323; services/intake/workbooks.check).
     (The malware scan runs on submission; the preview says whether a scanner is available.)"""
     tpl = TEMPLATES[template]
     sec = _security(raw, filename, tpl, via)
@@ -311,7 +314,7 @@ def preview(session: Session, org_id: str, template: str, raw: bytes, filename: 
     df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via, sheet), mapping_profile_id)
     _required_missing(session, org_id, tpl, df, {"security": sec})
     ctl = _run_controls(session, org_id, tpl, storage_sha(raw), df, declared,
-                        money_ctx=_money_ctx(session, tpl, df, mrep, currency, book_date, org_id))
+                        money_ctx=_money_ctx(session, tpl, df, mrep, currency, book_date, org_id), in_file=in_file)
     ctl["mapping"] = mrep
     if sec["status"] == "warned":
         ctl["controls"]["gate"] = _security_warned(ctl["controls"]["gate"], sec)

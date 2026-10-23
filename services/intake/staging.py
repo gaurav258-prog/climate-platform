@@ -26,7 +26,7 @@ from services.intake import matching, money, values
 
 
 def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs: list[dict],
-          money_ctx: Optional[dict] = None) -> dict:
+          money_ctx: Optional[dict] = None, in_file: Optional[dict] = None) -> dict:
     df = df.reset_index(drop=True)                             # row i is spreadsheet row i + 2 throughout
     df, value_report = values.normalise(session, df, specs)   # our values for every fixed-list field, unknowns reported
     df, money_report, money_problems, natives = money.convert(session, df, specs, money_ctx or {})
@@ -34,7 +34,7 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
     for e in report["errors"]:                                 # a row already refused also says why its money failed
         e["problems"] += money_problems.get(e["row"] - 2, [])
     normalised = bc.normalise_rows(report["valid_rows"], specs)
-    ctx = sector.prepare(session, org_id)
+    ctx = {**sector.prepare(session, org_id), "in_file": in_file or {}}   # a check: what the file's earlier sheets state
     row_nos = list(report["valid_row_numbers"])
 
     records: list[Optional[dict]] = []

@@ -100,3 +100,21 @@ def test_a_fund_restated_and_rows_that_cannot_stand_say_why(session_rolled_back)
 def test_isin_check_digit():
     assert isin_ok("DE0007164600") and isin_ok("US0378331005") and isin_ok(EUR_ISIN)
     assert not isin_ok("US0378331006") and not isin_ok("US037833100") and not isin_ok("us0378331005")
+
+
+def test_e323_a_check_reads_a_new_funds_holdings_as_sending_would(session_rolled_back):
+    """E323: checking a file with a new fund and its holdings refused every holding ('not one of your funds') though the
+    same file's Funds sheet states the fund and sending it imports them — each sheet was checked alone."""
+    s, tag = session_rolled_back, uuid.uuid4().hex[:8]
+    org_id, _ = _org_and_admin(s, "asset_manager")
+    _cache_securities(s)
+    fund = f"TEST-WB Fund {tag}"
+    out = workbooks.check(s, org_id, "asset_manager", _filled("asset_manager", {
+        "funds": [{"fund_name": fund, "fund_type": "fund", "sfdr_classification": "article_8", "base_currency": "EUR"}],
+        "fund_holdings": [{"fund_name": fund, "isin": EUR_ISIN, "market_value_eur": 1_000, "book_date": "2024-03-01"},
+                          {"fund_name": "Not in this file", "isin": USD_ISIN, "market_value_eur": 1_000,
+                           "book_date": "2024-03-01"}]}), "x.xlsx", currency="EUR")
+    h = next(r for r in out["sheets"] if r["book"] == "fund_holdings")
+    assert h["n_valid"] == 1 and h["n_error"] == 1, h                 # a fund neither stored nor in the file is still refused
+    assert not s.execute(text("SELECT 1 FROM funds WHERE org_id = CAST(:o AS uuid) AND name = :n"),
+                         {"o": org_id, "n": fund}).first()           # nothing stored
