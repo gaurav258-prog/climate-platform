@@ -118,3 +118,45 @@ def test_e323_a_check_reads_a_new_funds_holdings_as_sending_would(session_rolled
     assert h["n_valid"] == 1 and h["n_error"] == 1, h                 # a fund neither stored nor in the file is still refused
     assert not s.execute(text("SELECT 1 FROM funds WHERE org_id = CAST(:o AS uuid) AND name = :n"),
                          {"o": org_id, "n": fund}).first()           # nothing stored
+
+
+def test_issuer_figures_land_through_the_one_write_with_the_years_rates(session_rolled_back):
+    """The Issuer figures sheet (2026-10-23): a row per company and financial year, written by the same write as figures
+    sent with a holding by the API — revenue in another currency at the average rate of the year to its end, EVIC at
+    that day's closing rate — with the amount as sent kept; figures that break the rules refused in the catalogue's
+    words; a valid ISIN no register knows named, never stored."""
+    s, tag = session_rolled_back, uuid.uuid4().hex[:8]
+    org_id, user_id = _org_and_admin(s, "asset_manager")
+    _cache_securities(s)
+    out = _send(s, org_id, user_id, {"issuer_figures": [
+        {"isin": USD_ISIN, "book_date": "2024-12-31", "currency": "USD", "revenue_eur": 2_000_000_000,
+         "evic_eur": 9_000_000_000, "scope1_tco2e": 1200, "board_female_pct": 38, "taxonomy_aligned_pct": 12,
+         "taxonomy_fossil_gas_aligned_pct": 2, "controversial_weapons": "no"},
+        {"isin": EUR_ISIN, "book_date": "2024-12-31", "taxonomy_aligned_pct": 5, "taxonomy_fossil_gas_aligned_pct": 7},
+    ]}, tag, reason="One company's Taxonomy parts are known to be wrong")
+    r = out["issuer_figures"]
+    assert r["state"] == "awaiting_approval" and r["n_valid"] == 1 and r["n_error"] == 1, r
+    checked = workbooks.check(s, org_id, "asset_manager", _filled("asset_manager", {"issuer_figures": [
+        {"isin": EUR_ISIN, "book_date": "2024-12-31", "taxonomy_aligned_pct": 5, "taxonomy_fossil_gas_aligned_pct": 7}]}),
+        "x.xlsx", currency="EUR")
+    said = " ".join(p for e in next(x for x in checked["sheets"] if x["book"] == "issuer_figures")["errors"]
+                    for p in e["problems"])
+    assert "7" in said and "5" in said                                 # the parts and the aligned share, named
+    from services.intake import pipeline
+    pipeline.decide(s, org_id, r["batch_id"], "approved", user_id, "checked with the fund desk")
+    row = s.execute(text("""
+        SELECT CAST(e.revenue_eur AS FLOAT) AS rev, CAST(e.evic_eur AS FLOAT) AS evic, e.scope1_tco2e, e.money_source
+        FROM issuer_emissions e JOIN securities sec ON sec.issuer_id = e.issuer_id
+        WHERE sec.isin = :i AND e.org_id = CAST(:o AS uuid) AND e.source = 'client' AND e.reporting_year = 2024"""),
+        {"i": USD_ISIN, "o": org_id}).mappings().one()
+    from services.intake.money import convert_amount
+    want_rev = convert_amount(s, 2_000_000_000, "USD", "2024-12-31", flow=True, label="r", org_id=org_id)["eur"]
+    want_evic = convert_amount(s, 9_000_000_000, "USD", "2024-12-31", label="e", org_id=org_id)["eur"]
+    assert abs(row["rev"] - want_rev) < 0.01 and abs(row["evic"] - want_evic) < 0.01 and row["rev"] != row["evic"] * 2 / 9
+    sent = row["money_source"]["fields"]["revenue_eur"]
+    assert sent["amount"] == 2_000_000_000 and sent["currency"] == "USD"
+    esg = s.execute(text("""SELECT board_female_pct, controversial_weapons FROM issuer_esg_metrics m
+                            JOIN securities sec ON sec.issuer_id = m.issuer_id
+                            WHERE sec.isin = :i AND m.org_id = CAST(:o AS uuid) AND m.reporting_year = 2024"""),
+                    {"i": USD_ISIN, "o": org_id}).one()
+    assert float(esg[0]) == 38 and esg[1] is False

@@ -10,8 +10,11 @@ sector, every book through the same checks, second-person approval and landing).
                    POST /v1/funds/{id}/holdings does: each ISIN resolved, its issuer located, the position value-weighted.
                    An ISIN the register cannot resolve is reported by the landing check, never positioned.
 
-The issuer data a manager holds (revenue, EVIC, emissions …) has its own financial-year date and currency, so it is not
-read from a holding row here; it is sent with the holdings by the API (and is the next book of the standard file).
+  issuer_figures   one row per company and financial year: what the manager states about a company it holds (revenue,
+                   EVIC, physical asset value, emissions, the adverse-impact facts, Taxonomy shares), dated by the
+                   financial year end — written by the one write the API uses (services/funds/holding.apply_enrichment)
+                   with the same rules (services/funds/holding.IssuerFigures). Voluntary adverse-impact values, keyed by
+                   indicator, still come by the API only.
 """
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest.fields import norm_token
-from services.ingest.sector_contract import RowIssue, Sector, _m, _s, _vocab
+from services.ingest.sector_contract import RowIssue, Sector, _bool, _m, _s, _vocab
 
 ISIN = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 
@@ -173,4 +176,95 @@ FUND_HOLDINGS = Sector("fund_holdings", "isin", "market_value_eur", ("market_val
                        _holdings_prepare, _holdings_build, _holdings_existing, _holdings_write, _holdings_write,
                        table="fund_positions", id_column="position_id", asset_book=False, money_record=True)
 
-SECTORS = (FUNDS, FUND_HOLDINGS)
+
+# ── issuer figures ───────────────────────────────────────────────────────────────────────────────────────────────
+
+ISSUER_FIGURES_FIELDS = ("revenue_eur", "evic_eur", "physical_asset_value_eur", "scope1_tco2e", "scope2_tco2e",
+                         "scope3_tco2e", "nace_code", "energy_consumption_gwh", "non_renewable_consumption_pct",
+                         "non_renewable_production_pct", "biodiversity_sensitive_ops", "emissions_to_water_tonnes",
+                         "hazardous_waste_tonnes", "ungc_oecd_violation", "ungc_oecd_no_monitoring", "gender_pay_gap_pct",
+                         "board_female_pct", "controversial_weapons", "taxonomy_eligible_pct", "taxonomy_aligned_pct",
+                         "taxonomy_aligned_capex_pct", "taxonomy_fossil_gas_aligned_pct", "taxonomy_nuclear_aligned_pct",
+                         "taxonomy_fossil_gas_aligned_capex_pct", "taxonomy_nuclear_aligned_capex_pct",
+                         "taxonomy_dnsh_ok", "taxonomy_min_safeguards_ok")
+_MONEY = ("revenue_eur", "evic_eur", "physical_asset_value_eur")
+_FLAGS = ("biodiversity_sensitive_ops", "ungc_oecd_violation", "ungc_oecd_no_monitoring", "controversial_weapons",
+          "taxonomy_dnsh_ok", "taxonomy_min_safeguards_ok")
+
+
+def _figures_prepare(session: Session, org_id: str) -> dict:
+    return {"org_id": org_id}
+
+
+def _figures_build(ctx: dict, row: dict) -> dict:
+    from core.errors import UserError
+    from services.funds.holding import IssuerFigures
+    isin = (_s(row, "isin") or "").upper().replace(" ", "")
+    if not isin_ok(isin):
+        raise RowIssue(f"'{isin}' is not a valid ISIN (12 characters with a correct check digit)")
+    try:
+        year_end = date.fromisoformat((_s(row, "book_date") or "")[:10])
+    except ValueError:
+        raise RowIssue("the financial year end is required (YYYY-MM-DD)")
+    rec = {k: (_bool(row, k) if k in _FLAGS else _s(row, k) if k == "nace_code" else _m(row, k, 6))
+           for k in ISSUER_FIGURES_FIELDS}
+    if all(v is None for v in rec.values()):
+        raise RowIssue("the row states no figure about the company")
+    try:            # the same rules as figures sent with a holding by the API (taxonomy parts within the aligned share …)
+        IssuerFigures(isin=isin, reporting_year=year_end.year, **{k: v for k, v in rec.items() if v is not None})
+    except UserError as e:
+        said = e.body()["error"]
+        raise RowIssue(said["detail"].get("what") or said["message"]) from e
+    return {**rec, "external_ref": f"{isin}|{year_end.year}", "isin": isin, "financial_year_end": year_end.isoformat(),
+            "reporting_year": year_end.year, "latitude": None, "longitude": None}
+
+
+def _figures_existing(session: Session, org_id: str) -> list[dict]:
+    rows = session.execute(text("""
+        SELECT e.emission_id::text AS entity_id, s.isin, e.reporting_year, CAST(e.revenue_eur AS FLOAT) AS revenue_eur,
+               CAST(e.evic_eur AS FLOAT) AS evic_eur, CAST(e.physical_asset_value_eur AS FLOAT) AS physical_asset_value_eur,
+               CAST(e.scope1_tco2e AS FLOAT) AS scope1_tco2e, CAST(e.scope2_tco2e AS FLOAT) AS scope2_tco2e,
+               CAST(e.scope3_tco2e AS FLOAT) AS scope3_tco2e
+        FROM issuer_emissions e JOIN securities s ON s.issuer_id = e.issuer_id
+        WHERE e.org_id = CAST(:o AS uuid) AND e.source = 'client'"""), {"o": org_id}).mappings().all()
+    return [{**dict(r), "external_ref": f"{r['isin']}|{r['reporting_year']}", "latitude": None, "longitude": None}
+            for r in rows]
+
+
+def _figures_write(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
+    """Each company's figures for each year through the one write the API uses (services/funds/holding.apply_enrichment):
+    an amount sent in another currency converts there at the year's rates, as it does from the API."""
+    from services.funds.holding import IssuerFigures, apply_enrichment
+    from services.reference.resolver import resolve_isin
+    for r in recs:
+        res = resolve_isin(session, r["isin"], org_id=org_id)
+        if res.status not in ("resolved", "cached") or not res.issuer_id:
+            ctx.setdefault("onboarding", []).append({"coverage": {"unmatched": [r["isin"]]}})
+            r["entity_id"] = str(uuid.uuid4())                       # an unresolved ISIN states nothing
+            continue
+        sent = r.get("_money") or {}
+        fig = {k: r[k] for k in ISSUER_FIGURES_FIELDS if r.get(k) is not None and k not in _MONEY}
+        ccys = {e["currency"] for e in sent.values()}
+        for k in _MONEY:
+            if k not in sent:
+                continue
+            if sent[k]["currency"] == "EUR" or len(ccys) > 1:
+                fig[k] = r[k]                                        # in EUR, as the intake converted it
+            else:
+                fig[k.removesuffix("_eur")] = sent[k]["amount"]      # as sent, converted by the one write
+        if len(ccys) == 1 and next(iter(ccys)) != "EUR" and any(k in sent for k in _MONEY):
+            fig["financials_currency"] = next(iter(ccys))
+        apply_enrichment(session, res.issuer_id, org_id,
+                         IssuerFigures(isin=r["isin"], reporting_year=r["reporting_year"],
+                                       financials_date=date.fromisoformat(r["financial_year_end"]), **fig))
+        r["entity_id"] = session.execute(text("""
+            SELECT emission_id::text FROM issuer_emissions WHERE issuer_id = :i AND org_id = CAST(:o AS uuid)
+              AND reporting_year = :y AND source = 'client'"""),
+            {"i": res.issuer_id, "o": org_id, "y": r["reporting_year"]}).scalar() or str(uuid.uuid4())
+
+
+ISSUER_FIGURES = Sector("issuer_figures", "isin", "_no_value", ISSUER_FIGURES_FIELDS[:6],
+                        _figures_prepare, _figures_build, _figures_existing, _figures_write, _figures_write,
+                        table="issuer_emissions", id_column="emission_id", asset_book=False, money_record=True)
+
+SECTORS = (FUNDS, FUND_HOLDINGS, ISSUER_FIGURES)

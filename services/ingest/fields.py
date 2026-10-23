@@ -295,6 +295,69 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        aliases=("market_value", "mv", "value", "position_value", "valuation")),
     _f("asset_class", "Asset class", "vocab", "equity, corporate_bond, sovereign_bond, securitized, etf, fund or other.",
        "equity", vocab="asset_class", aliases=("instrument_type", "security_type", "class")),
+    # ── the figures an asset manager holds about a company it holds, for one financial year (services/ingest/fund_books.py
+    #    ISSUER_FIGURES; the same figures a holding may carry by the API, services/funds/holding.IssuerFigures) ──
+    _f("revenue_eur", "Revenue", "money", "The company's revenue for the financial year ending on the row's date — a "
+       "yearly figure, converted at the average rate of that year.", "31200000000",
+       aliases=("revenue", "turnover", "net_turnover", "sales"), flow=True),
+    _f("evic_eur", "EVIC", "money", "The company's enterprise value including cash at the financial year end (market "
+       "capitalisation, total debt and cash) — what financed emissions are attributed by.", "210000000000",
+       aliases=("evic", "enterprise_value", "enterprise_value_including_cash")),
+    _f("physical_asset_value_eur", "Physical asset value", "money", "The company's buildings, plant, machinery and contents "
+       "at the financial year end — land excluded: what a site's yearly loss is a share of.", "5400000000",
+       aliases=("physical_assets", "ppe", "property_plant_equipment", "tangible_assets")),
+    _f("scope1_tco2e", "Scope 1 emissions", "fraction", "The company's direct greenhouse-gas emissions for the year, in "
+       "tonnes of CO2 equivalent.", "30000", aliases=("scope_1", "scope1", "ghg_scope1"), range=(0, 1e12)),
+    _f("scope2_tco2e", "Scope 2 emissions", "fraction", "Emissions from the energy the company bought for the year, in "
+       "tonnes of CO2 equivalent.", "45000", aliases=("scope_2", "scope2", "ghg_scope2"), range=(0, 1e12)),
+    _f("scope3_tco2e", "Scope 3 emissions", "fraction", "The company's other indirect emissions for the year, in tonnes of "
+       "CO2 equivalent.", "4300000", aliases=("scope_3", "scope3", "ghg_scope3"), range=(0, 1e13)),
+    _f("energy_consumption_gwh", "Energy consumption", "fraction", "The company's energy consumption for the year, in GWh.",
+       "410", aliases=("energy_gwh", "energy_consumption"), range=(0, 1e9)),
+    _f("non_renewable_consumption_pct", "Non-renewable energy consumed", "fraction", "The share of the company's energy "
+       "consumption from non-renewable sources, in per cent.", "62", aliases=("non_renewable_consumption",), range=(0, 100)),
+    _f("non_renewable_production_pct", "Non-renewable energy produced", "fraction", "For an energy producer: the share of "
+       "its energy production from non-renewable sources, in per cent.", "40", aliases=("non_renewable_production",),
+       range=(0, 100)),
+    _f("biodiversity_sensitive_ops", "Sites near sensitive areas", "vocab", "Whether the company has sites or operations in "
+       "or near biodiversity-sensitive areas whose activities negatively affect them: yes or no.", "no", vocab="boolean",
+       aliases=("biodiversity_sensitive", "near_sensitive_areas")),
+    _f("emissions_to_water_tonnes", "Emissions to water", "fraction", "Tonnes of emissions to water the company generated "
+       "in the year.", "12", aliases=("water_emissions",), range=(0, 1e12)),
+    _f("hazardous_waste_tonnes", "Hazardous waste", "fraction", "Tonnes of hazardous and radioactive waste the company "
+       "generated in the year.", "850", aliases=("hazardous_waste",), range=(0, 1e12)),
+    _f("ungc_oecd_violation", "UN Global Compact / OECD violation", "vocab", "Whether the company has been involved in "
+       "violations of the UN Global Compact principles or the OECD Guidelines: yes or no.", "no", vocab="boolean",
+       aliases=("ungc_violation",)),
+    _f("ungc_oecd_no_monitoring", "No compliance processes", "vocab", "Whether the company lacks processes to monitor "
+       "compliance with the UN Global Compact principles or the OECD Guidelines: yes or no.", "no", vocab="boolean",
+       aliases=("ungc_no_monitoring",)),
+    _f("gender_pay_gap_pct", "Gender pay gap", "fraction", "The company's unadjusted gender pay gap, in per cent.", "11.5",
+       aliases=("pay_gap",), range=(-100, 100)),
+    _f("board_female_pct", "Women on the board", "fraction", "Female board members as a share of all board members, in "
+       "per cent.", "38", aliases=("board_gender_diversity",), range=(0, 100)),
+    _f("controversial_weapons", "Controversial weapons", "vocab", "Whether the company is involved in the manufacture or "
+       "selling of controversial weapons: yes or no.", "no", vocab="boolean", aliases=("weapons",)),
+    _f("taxonomy_eligible_pct", "Taxonomy-eligible turnover", "fraction", "The share of the company's turnover from "
+       "Taxonomy-eligible activities, as the company reports it, in per cent.", "41", range=(0, 100)),
+    _f("taxonomy_aligned_pct", "Taxonomy-aligned turnover", "fraction", "The share of the company's turnover from "
+       "Taxonomy-aligned activities, as the company reports it, in per cent.", "12.5", range=(0, 100)),
+    _f("taxonomy_aligned_capex_pct", "Taxonomy-aligned CapEx", "fraction", "The share of the company's capital expenditure "
+       "that is Taxonomy-aligned, as the company reports it, in per cent.", "18", range=(0, 100)),
+    _f("taxonomy_fossil_gas_aligned_pct", "Aligned turnover from fossil gas", "fraction", "The part of the aligned turnover "
+       "from fossil-gas activities, in per cent of turnover.", "0", range=(0, 100)),
+    _f("taxonomy_nuclear_aligned_pct", "Aligned turnover from nuclear", "fraction", "The part of the aligned turnover from "
+       "nuclear activities, in per cent of turnover.", "0", range=(0, 100)),
+    _f("taxonomy_fossil_gas_aligned_capex_pct", "Aligned CapEx from fossil gas", "fraction", "The part of the aligned "
+       "capital expenditure from fossil-gas activities, in per cent of CapEx.", "0", range=(0, 100)),
+    _f("taxonomy_nuclear_aligned_capex_pct", "Aligned CapEx from nuclear", "fraction", "The part of the aligned capital "
+       "expenditure from nuclear activities, in per cent of CapEx.", "0", range=(0, 100)),
+    _f("taxonomy_dnsh_ok", "Does no significant harm", "vocab", "Whether the company's aligned activities meet the "
+       "do-no-significant-harm criteria: yes or no; leave blank where it is not assessed separately.", "yes",
+       vocab="boolean", aliases=("dnsh",)),
+    _f("taxonomy_min_safeguards_ok", "Meets minimum safeguards", "vocab", "Whether the company meets the Taxonomy's "
+       "minimum safeguards: yes or no; leave blank where it is not assessed separately.", "yes", vocab="boolean",
+       aliases=("minimum_safeguards", "min_safeguards")),
     # ── EUDR (Regulation (EU) 2023/1115): parties, placings / exports and the plots they came from ──
     _f("party_name", "Name", "name", "The business or person's name (Art. 9(1)(e)-(f)).", "Ashanti Cocoa Cooperative",
        aliases=("name", "supplier", "supplier_name", "customer", "customer_name", "company", "company_name")),

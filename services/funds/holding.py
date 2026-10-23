@@ -1,6 +1,7 @@
 """A holding by ISIN and the issuer data a manager may state with it — the shape every door shares (moved from
 api/routers/funds.py, 2026-10-23, so the API and the asset manager's standard file read one definition).
 
+  IssuerFigures              what a manager states about a company for one financial year
   Holding / HoldingsUpload   one line of a fund's book, and the book as the API receives it
   financials_eur(...)        the issuer's revenue, EVIC and physical asset value in EUR, with where each came from
   apply_enrichment(...)      the issuer data a holding states, written where each figure is kept
@@ -19,41 +20,11 @@ from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
 from services.reference.emissions_estimation import estimate_emissions
 
 
-class Holding(BaseModel):
+class IssuerFigures(BaseModel):
+    """What a manager states about a company it holds, for one financial year — sent with a holding by the API, or on
+    the Issuer figures sheet of its standard file (services/ingest/fund_books.ISSUER_FIGURES): one definition, one
+    set of rules."""
     isin: str
-    # Supply EITHER market_value_eur (already in EUR) OR market_value + currency
-    # (native, converted to EUR at the book's as-of date). Exactly one is required.
-    market_value_eur: Optional[float] = Field(None, gt=0)  # value in EUR
-    market_value: Optional[float] = Field(None, gt=0)      # value in the position's native currency
-    weight_pct: Optional[float] = None                  # if omitted, derived from value share
-    asset_class: Optional[str] = None                   # equity / corporate_bond / sovereign_bond / … (None → default equity on first resolve)
-    currency: Optional[str] = None                      # ISO 4217 of market_value — required with it, never assumed
-
-    @model_validator(mode="after")
-    def _one_value(self) -> "Holding":
-        # A row the file cannot hold is refused in the catalogue's words, naming the row's ISIN (a UserError is not a
-        # ValueError, so it passes through pydantic to the API's handler as {error, message, detail}, status 422).
-        isin = (self.isin or "").strip() or "—"
-        if self.market_value_eur is None and self.market_value is None:
-            raise UserError("filings.holding.no_value", isin=isin)
-        native = (self.revenue, self.evic, self.physical_asset_value)
-        if any(n is not None and e is not None for n, e in zip(native, (self.revenue_eur, self.evic_eur,
-                                                                       self.physical_asset_value_eur))):
-            raise UserError("filings.holding.financials_twice", isin=isin)
-        if any(n is not None for n in native) and not (self.financials_currency or "").strip():
-            raise UserError("filings.holding.financials_currency", isin=isin)
-        if any(n is not None for n in native) and self.financials_date is None and self.reporting_year is None:
-            raise UserError("filings.holding.financials_date", isin=isin)
-        for basis, aligned, gas, nuc in (
-                ("turnover", self.taxonomy_aligned_pct, self.taxonomy_fossil_gas_aligned_pct, self.taxonomy_nuclear_aligned_pct),
-                ("CapEx", self.taxonomy_aligned_capex_pct, self.taxonomy_fossil_gas_aligned_capex_pct,
-                 self.taxonomy_nuclear_aligned_capex_pct)):
-            if (gas is not None or nuc is not None) and aligned is None:
-                raise UserError("filings.holding.taxonomy_parts_alone", isin=isin, basis=basis)
-            if aligned is not None and (gas or 0) + (nuc or 0) > aligned + 1e-9:
-                raise UserError("filings.holding.taxonomy_parts_exceed", isin=isin, basis=basis,
-                                parts=f"{(gas or 0) + (nuc or 0):g}", aligned=f"{aligned:g}")
-        return self
     # ── Optional issuer data the client already holds (fills SFDR gaps) ──
     nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI
     sector: Optional[str] = None
@@ -106,6 +77,51 @@ class Holding(BaseModel):
     # Voluntary (additional) PAI values, keyed by catalog indicator_key → number or bool.
     voluntary_pai: Optional[dict] = None
 
+    @model_validator(mode="after")
+    def _figures_hold(self) -> "IssuerFigures":
+        # A row the file cannot hold is refused in the catalogue's words, naming the row's ISIN (a UserError is not a
+        # ValueError, so it passes through pydantic to the API's handler as {error, message, detail}, status 422).
+        isin = (self.isin or "").strip() or "—"
+        native = (self.revenue, self.evic, self.physical_asset_value)
+        if any(n is not None and e is not None for n, e in zip(native, (self.revenue_eur, self.evic_eur,
+                                                                       self.physical_asset_value_eur))):
+            raise UserError("filings.holding.financials_twice", isin=isin)
+        if any(n is not None for n in native) and not (self.financials_currency or "").strip():
+            raise UserError("filings.holding.financials_currency", isin=isin)
+        if any(n is not None for n in native) and self.financials_date is None and self.reporting_year is None:
+            raise UserError("filings.holding.financials_date", isin=isin)
+        for basis, aligned, gas, nuc in (
+                ("turnover", self.taxonomy_aligned_pct, self.taxonomy_fossil_gas_aligned_pct, self.taxonomy_nuclear_aligned_pct),
+                ("CapEx", self.taxonomy_aligned_capex_pct, self.taxonomy_fossil_gas_aligned_capex_pct,
+                 self.taxonomy_nuclear_aligned_capex_pct)):
+            if (gas is not None or nuc is not None) and aligned is None:
+                raise UserError("filings.holding.taxonomy_parts_alone", isin=isin, basis=basis)
+            if aligned is not None and (gas or 0) + (nuc or 0) > aligned + 1e-9:
+                raise UserError("filings.holding.taxonomy_parts_exceed", isin=isin, basis=basis,
+                                parts=f"{(gas or 0) + (nuc or 0):g}", aligned=f"{aligned:g}")
+        return self
+
+
+class Holding(IssuerFigures):
+    """One line of a fund's book: the position, and any figures about its company (IssuerFigures)."""
+    # Supply EITHER market_value_eur (already in EUR) OR market_value + currency
+    # (native, converted to EUR at the book's as-of date). Exactly one is required.
+    market_value_eur: Optional[float] = Field(None, gt=0)  # value in EUR
+    market_value: Optional[float] = Field(None, gt=0)      # value in the position's native currency
+    weight_pct: Optional[float] = None                  # if omitted, derived from value share
+    asset_class: Optional[str] = None                   # equity / corporate_bond / sovereign_bond / … (None → default equity on first resolve)
+    currency: Optional[str] = None                      # ISO 4217 of market_value — required with it, never assumed
+
+
+    @model_validator(mode="after")
+    def _one_value(self) -> "Holding":
+        # A row the file cannot hold is refused in the catalogue's words, naming the row's ISIN (a UserError is not a
+        # ValueError, so it passes through pydantic to the API's handler as {error, message, detail}, status 422).
+        isin = (self.isin or "").strip() or "—"
+        if self.market_value_eur is None and self.market_value is None:
+            raise UserError("filings.holding.no_value", isin=isin)
+        return self
+
 
 class HoldingsUpload(BaseModel):
     as_of_date: Optional[date] = None
@@ -115,7 +131,7 @@ class HoldingsUpload(BaseModel):
     complete_book: bool = False
 
 
-def financials_eur(session, h: "Holding", org_id: str | None = None) -> dict:
+def financials_eur(session, h: "IssuerFigures", org_id: str | None = None) -> dict:
     """The issuer's revenue, EVIC and physical asset value in EUR: as given in EUR, or converted from financials_currency
     at the financials date — revenue (a yearly flow) at the average of the 12 months to it, EVIC and the physical asset
     value (balances) at its closing rate. The amounts as sent and the rates are kept (money_source). Raises MoneyError."""
@@ -137,7 +153,7 @@ def financials_eur(session, h: "Holding", org_id: str | None = None) -> dict:
             "money_source": source_record(ccy, d, conv, origin="fund_holdings")}
 
 
-def apply_enrichment(session, issuer_id: str, org_id: str, h: "Holding") -> dict:
+def apply_enrichment(session, issuer_id: str, org_id: str, h: "IssuerFigures") -> dict:
     """Persist the issuer data a client supplied on a holding. Returns which
     fields were written. NACE/sector is a shared fact (enrich only when unknown,
     never clobber); emissions/revenue are the client's PRIVATE disclosure,

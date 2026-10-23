@@ -12567,6 +12567,12 @@
     "what": "A fund is a fund, a sub-portfolio, a mandate or a fund of funds, and discloses under SFDR article 6, 8 or 9.",
     "next": "Pick one of each from the lists."
    }
+  },
+  "intake.book.issuer_figures": {
+   "label": "Your figures about companies you hold",
+   "detail": {
+    "what": "One row per company and financial year: the ISIN of a security you hold, the financial year end, and the figures you have — revenue, enterprise value, physical assets, emissions, the adverse-impact facts and Taxonomy shares."
+   }
   }
  },
  "names": {

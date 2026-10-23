@@ -167,6 +167,24 @@ FUND_HOLDING_TEMPLATE_FIELDS = _template(
     ("asset_class", False),
 )
 
+ISSUER_FIGURE_TEMPLATE_FIELDS = _template(
+    ("isin", True, {"description": "The ISIN of a security of the company you hold (12 characters, ISO 6166)."}),
+    ("book_date", True, {"label": "Financial year end", "description": "The end of the company's financial year the "
+                         "figures are for (YYYY-MM-DD): its revenue converts at the average rate of that year, its EVIC "
+                         "and physical asset value at that day's closing rate."}),
+    ("currency", False, {"description": "ISO 4217 code of this row's amounts (e.g. USD) — the currency of the company's "
+                         "accounts. Overrides the currency declared for the file."}),
+    ("revenue_eur", False), ("evic_eur", False), ("physical_asset_value_eur", False), ("scope1_tco2e", False),
+    ("scope2_tco2e", False), ("scope3_tco2e", False), ("nace_code", False), ("energy_consumption_gwh", False),
+    ("non_renewable_consumption_pct", False), ("non_renewable_production_pct", False), ("biodiversity_sensitive_ops", False),
+    ("emissions_to_water_tonnes", False), ("hazardous_waste_tonnes", False), ("ungc_oecd_violation", False),
+    ("ungc_oecd_no_monitoring", False), ("gender_pay_gap_pct", False), ("board_female_pct", False),
+    ("controversial_weapons", False), ("taxonomy_eligible_pct", False), ("taxonomy_aligned_pct", False),
+    ("taxonomy_aligned_capex_pct", False), ("taxonomy_fossil_gas_aligned_pct", False), ("taxonomy_nuclear_aligned_pct", False),
+    ("taxonomy_fossil_gas_aligned_capex_pct", False), ("taxonomy_nuclear_aligned_capex_pct", False),
+    ("taxonomy_dnsh_ok", False), ("taxonomy_min_safeguards_ok", False),
+)
+
 EUDR_SUPPLIER_TEMPLATE_FIELDS = _template(
     ("party_name", True), ("party_ref", True), ("address", True, {"description": "Postal address (Art. 9(1)(e))."}),
     ("contact_email", True), ("trade_name", False), ("web_address", False), ("country", False),
