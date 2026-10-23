@@ -180,7 +180,7 @@ Animations (`@keyframes`): `drift`, `fadeup`, `sheen`, `toastIn`. `prefers-reduc
 
 ## 7. Shared components
 
-The page kit and overlay primitives other screens build from (101 component files are in `web/src/components/`; the ones below are the shared kit). *Notes* is the comment above each in the code.
+The page kit and overlay primitives other screens build from (102 component files are in `web/src/components/`; the ones below are the shared kit). *Notes* is the comment above each in the code.
 
 | Component | File | Props | Notes |
 |---|---|---|---|

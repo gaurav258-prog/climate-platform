@@ -35,6 +35,7 @@ from core.messages import name, render
 from services.ingest import batch_controls as bc
 from services.ingest.upload_validation import enrich_specs
 from services.intake import malware, mapping, money, profiling, security, staging, storage, values
+from services.intake.after_landing import dispatch as after_landing
 from services.intake.catalog import TEMPLATES, Template
 
 MIN_REASON = 10
@@ -61,12 +62,13 @@ class IntakeError(Exception):
 
 # ───────────────────────────── helpers ─────────────────────────────
 
-def _parse(raw: bytes, detected: str, via: str) -> pd.DataFrame:
+def _parse(raw: bytes, detected: str, via: str, sheet: Optional[str] = None) -> pd.DataFrame:
+    """The file as a table: its first sheet, or — for a sector's standard workbook — the named one."""
     try:
         if via == "api":
             df = pd.DataFrame(json.loads(raw.decode("utf-8")))
         elif detected == "xlsx":
-            df = pd.read_excel(io.BytesIO(raw))
+            df = pd.read_excel(io.BytesIO(raw), sheet_name=sheet or 0)
         else:
             # every cell as written: each field's kind parses its own values (a postal code keeps its leading zero)
             df = pd.read_csv(io.BytesIO(raw), encoding_errors="replace", dtype=str)
@@ -234,16 +236,16 @@ def _record_file(session: Session, org_id: str, raw: bytes, filename: Optional[s
 
 def _new_batch(session: Session, org_id: str, tpl: Template, file: dict, filename: Optional[str], *, via: str,
                user_id: Optional[str], token_id: Optional[str], declared: Optional[dict], reason: Optional[str],
-               profile_id: Optional[str] = None, money_ctx: Optional[dict] = None) -> str:
+               profile_id: Optional[str] = None, money_ctx: Optional[dict] = None, sheet: Optional[str] = None) -> str:
     bid = session.execute(text("""
         INSERT INTO ingest_batches (org_id, template, via, filename, sha256, received_by, token_id, file_id, declared, maker_reason,
-                                    mapping_profile_id, currency, book_date, state)
+                                    mapping_profile_id, currency, book_date, state, sheet)
         VALUES (CAST(:o AS uuid), :t, :via, :f, :s, CAST(:u AS uuid), CAST(:k AS uuid), CAST(:fid AS uuid), CAST(:d AS jsonb), :r,
-                CAST(:mp AS uuid), :ccy, :bd, 'received')
+                CAST(:mp AS uuid), :ccy, :bd, 'received', :sheet)
         RETURNING batch_id::text
     """), {"o": org_id, "t": tpl.key, "via": via, "f": filename, "s": file["sha256"], "u": user_id, "k": token_id,
            "fid": file["file_id"], "d": json.dumps(declared or {}), "r": reason, "mp": profile_id,
-           "ccy": (money_ctx or {}).get("currency"), "bd": (money_ctx or {}).get("book_date")}).scalar()
+           "ccy": (money_ctx or {}).get("currency"), "bd": (money_ctx or {}).get("book_date"), "sheet": sheet}).scalar()
     session.execute(text("""
         INSERT INTO ingest_batch_events (batch_id, org_id, from_state, to_state, actor_user_id, actor_token_id, detail)
         VALUES (CAST(:b AS uuid), CAST(:o AS uuid), NULL, 'received', CAST(:u AS uuid), CAST(:k AS uuid), CAST(:d AS jsonb))
@@ -265,16 +267,6 @@ def _store_controls(session: Session, batch_id: str, ctl: dict) -> None:
     staging.persist(session, batch_id, ctl["staged"])
 
 
-def _dispatch_scoring(cell_coords: dict) -> dict:
-    if not cell_coords:
-        return {}
-    try:   # never inside the request: raster reads run on the jobs layer (worker or child process)
-        from services.tasks.jobs import submit
-        return {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)}
-    except Exception as exc:  # noqa: BLE001 — dispatch is best-effort; the rows are already stored
-        return {"scoring": "deferred", "n_cells": len(cell_coords), "note": f"scoring will run when available ({type(exc).__name__})"}
-
-
 def _land(session: Session, org_id: str, tpl: Template, batch_id: str, ctl: dict, *, actor_user: Optional[str],
           actor_token: Optional[str], from_state: str, detail: Optional[dict] = None) -> dict:
     res = staging.land(session, org_id, tpl.sector, ctl["staged"], batch_id)
@@ -294,7 +286,8 @@ def _land(session: Session, org_id: str, tpl: Template, batch_id: str, ctl: dict
     from api.services.rbac import write_audit
     write_audit(session, org_id=org_id, actor_user_id=actor_user, action=tpl.audit_action, target_type="ingest_batch",
                 target_id=batch_id, detail={"n_rows": res["n_landed"], "batch_id": batch_id, "gate": ctl["controls"]["gate"]["status"]})
-    return {"n_landed": res["n_landed"], "landing": landing, "notes": res["notes"], "processing": _dispatch_scoring(res["cell_coords"])}
+    return {"n_landed": res["n_landed"], "landing": landing, "notes": res["notes"],
+            "processing": after_landing(org_id, tpl, res["cell_coords"], actor_user)}
 
 
 def _owner_of_token(session: Session, token_id: str) -> Optional[str]:
@@ -307,7 +300,7 @@ def _owner_of_token(session: Session, token_id: str) -> Optional[str]:
 
 def preview(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str],
             declared: Optional[dict] = None, via: str = "upload", mapping_profile_id: Optional[str] = None,
-            currency: Optional[str] = None, book_date: Optional[str] = None) -> dict:
+            currency: Optional[str] = None, book_date: Optional[str] = None, sheet: Optional[str] = None) -> dict:
     """Everything the import will check, run on the file now — nothing stored, nothing written.
     (The malware scan runs on submission; the preview says whether a scanner is available.)"""
     tpl = TEMPLATES[template]
@@ -315,7 +308,7 @@ def preview(session: Session, org_id: str, template: str, raw: bytes, filename: 
     if sec["status"] == "blocked":
         raise IntakeError(422, "security_blocked", sec["findings"][0]["msg"]["code"], {"security": sec},
                           **sec["findings"][0]["msg"]["params"])
-    df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via), mapping_profile_id)
+    df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via, sheet), mapping_profile_id)
     _required_missing(session, org_id, tpl, df, {"security": sec})
     ctl = _run_controls(session, org_id, tpl, storage_sha(raw), df, declared,
                         money_ctx=_money_ctx(session, tpl, df, mrep, currency, book_date, org_id))
@@ -338,8 +331,10 @@ def storage_sha(raw: bytes) -> str:
 def submit(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str], *, via: str = "upload",
            user_id: Optional[str] = None, token_id: Optional[str] = None, declared: Optional[dict] = None,
            reason: Optional[str] = None, mapping_profile_id: Optional[str] = None, channel_id: Optional[str] = None,
-           currency: Optional[str] = None, book_date: Optional[str] = None) -> dict:
-    """Receive a batch and take it as far as the principles allow. Returns {"http_status", ...body}."""
+           currency: Optional[str] = None, book_date: Optional[str] = None, sheet: Optional[str] = None) -> dict:
+    """Receive a batch and take it as far as the principles allow. Returns {"http_status", ...body}. `sheet`: the one
+    sheet of a workbook this batch is (a sector's standard workbook — services/intake/workbooks.py); the file stored is
+    the whole workbook, as received."""
     tpl = TEMPLATES[template]
     reason = (reason or "").strip() or None
     sec = _security(raw, filename, tpl, via)
@@ -348,7 +343,8 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
     if sec["status"] == "blocked":
         f = _record_file(session, org_id, raw, filename, sec, {"status": "skipped"}, via=via, user_id=user_id,
                          token_id=token_id, keep_bytes=False)
-        bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason)
+        bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason,
+                          sheet=sheet)
         msg = sec["findings"][0]["message"]
         session.execute(text("UPDATE ingest_batches SET rejected_reason = :r WHERE batch_id = CAST(:b AS uuid)"), {"r": msg, "b": bid})
         _transition(session, bid, org_id, "rejected", actor_user=user_id, actor_token=token_id, from_state="received",
@@ -361,7 +357,8 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
     decision = _malware_decision(scan)
     if decision == "rejected":
         f = _record_file(session, org_id, raw, filename, sec, scan, via=via, user_id=user_id, token_id=token_id, keep_bytes=False)
-        bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason)
+        bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason,
+                          sheet=sheet)
         msg = f"The file was flagged by the malware scanner ({scan.get('signature')}) and has been refused."
         session.execute(text("UPDATE ingest_batches SET rejected_reason = :r WHERE batch_id = CAST(:b AS uuid)"), {"r": msg, "b": bid})
         _transition(session, bid, org_id, "rejected", actor_user=user_id, actor_token=token_id, from_state="received",
@@ -369,7 +366,7 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
         raise IntakeError(422, "malware_detected", "intake.refused.malware", {"batch_id": bid})
 
     # 3. parse + required columns + controls, all in memory before anything is persisted
-    df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via), mapping_profile_id)
+    df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via, sheet), mapping_profile_id)
     _required_missing(session, org_id, tpl, df)
     sha = storage_sha(raw)
     mctx = _money_ctx(session, tpl, df, mrep, currency, book_date, org_id)
@@ -390,7 +387,7 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
     # 4. persist the file and the batch
     f = _record_file(session, org_id, raw, filename, sec, scan, via=via, user_id=user_id, token_id=token_id, keep_bytes=True)
     bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason,
-                     profile_id=mapping_profile_id, money_ctx=mctx)
+                     profile_id=mapping_profile_id, money_ctx=mctx, sheet=sheet)
     if channel_id:
         session.execute(text("UPDATE ingest_batches SET channel_id = CAST(:c AS uuid) WHERE batch_id = CAST(:b AS uuid)"),
                         {"c": channel_id, "b": bid})
@@ -450,7 +447,7 @@ def _load_batch(session: Session, org_id: str, batch_id: str) -> dict:
     b = session.execute(text("""
         SELECT b.batch_id::text, b.template, b.via, b.filename, b.state, b.declared, b.gate_reasons, b.received_by::text,
                b.token_id::text, b.mapping_profile_id::text, b.received_at::date AS received_on, b.match_summary,
-               b.currency, b.book_date, b.money_report->>'flow_policy' AS flow_policy,
+               b.currency, b.book_date, b.money_report->>'flow_policy' AS flow_policy, b.sheet,
                f.sha256, f.detected_type, f.security_findings, f.security_status
         FROM ingest_batches b JOIN intake_files f ON f.file_id = b.file_id
         WHERE b.org_id = CAST(:o AS uuid) AND b.batch_id = CAST(:b AS uuid)
@@ -463,7 +460,8 @@ def _load_batch(session: Session, org_id: str, batch_id: str) -> dict:
 def _recheck(session: Session, org_id: str, tpl: Template, b: dict) -> dict:
     """Re-run every check on the stored bytes, through the SAME pinned mapping at the SAME FX date."""
     raw = storage.get(b["sha256"])   # verified byte-identical to what was received
-    df, mrep = _canonical(session, org_id, tpl, _parse(raw, b["detected_type"], b["via"]), b["mapping_profile_id"], b["received_on"])
+    df, mrep = _canonical(session, org_id, tpl, _parse(raw, b["detected_type"], b["via"], b["sheet"]), b["mapping_profile_id"],
+                          b["received_on"])
     ctl = _run_controls(session, org_id, tpl, b["sha256"], df, b["declared"] or None, exclude_batch=b["batch_id"],
                         money_ctx=_money_ctx(session, tpl, df, mrep, b["currency"], b["book_date"], org_id,
                                              b["flow_policy"]))

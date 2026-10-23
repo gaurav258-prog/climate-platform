@@ -216,6 +216,11 @@ def validate_declaration(session: Session, currency: Optional[str], book_date: O
     return ccy, d
 
 
+def _holds(df: pd.DataFrame, col: str) -> bool:
+    """The file has this column and at least one row states it."""
+    return col in df.columns and not df[col].map(is_blank).all()
+
+
 def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping_report: Optional[dict],
                   currency: Optional[str], book_date, org_id: Optional[str] = None) -> dict:
     """The batch's money context, checked up front: a currency must be declared unless every money field has its own
@@ -223,12 +228,13 @@ def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping
     has a book_date column or carries no amounts at all. Raises MoneyError with what to do."""
     ccy, d = validate_declaration(session, currency, book_date if not isinstance(book_date, date) else book_date.isoformat())
     field_ccy = (mapping_report or {}).get("field_currency") or {}
-    money_fields = [s["name"] for s in specs if s.get("kind") == "money" and s["name"] in df.columns]
-    uncovered = [f for f in money_fields if f not in field_ccy and hidden_column(f) not in df.columns]
-    if uncovered and not ccy and "currency" not in df.columns:
+    # a column counts only where it holds a value: a sector's standard file carries every column, filled or not (E321)
+    money_fields = [s["name"] for s in specs if s.get("kind") == "money" and _holds(df, s["name"])]
+    uncovered = [f for f in money_fields if f not in field_ccy and not _holds(df, hidden_column(f))]
+    if uncovered and not ccy and not _holds(df, "currency"):
         raise DeclarationError("Say which currency the amounts are in — choose it for the file, or add a currency column.",
                                "intake.refused.currency_missing")
-    if money_fields and d is None and "book_date" not in df.columns:     # a file with no amounts converts nothing
+    if money_fields and d is None and not _holds(df, "book_date"):     # a file with no amounts converts nothing
         raise DeclarationError("Say which date the figures describe (the book date) — enter it for the file, or add a "
                                "book date column. Amounts are converted at that date's rates.", "intake.refused.book_date_missing")
     return {"currency": ccy, "book_date": d, "field_currency": field_ccy,

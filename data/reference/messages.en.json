@@ -12444,6 +12444,109 @@
     "what": "{scenario} by {year} is {warming} °C above 1995–2014 (IPCC range {low} to {high} °C), the warming of the {lower} map, which it reads.",
     "why": "Every pathway and year is read at its warming on one timeline, the IPCC's assessment, whatever pathway made the maps."
    }
+  },
+  "intake.workbook.start": {
+   "label": "{sector} — your standard data file",
+   "detail": {
+    "what": "Fill one sheet per book you hold, one row per asset or record. Columns marked * are required; where a column takes fixed values, pick from its list. The Field guide sheet says what each column means, with an example.",
+    "next": "Send the whole file on the Data page, or have your systems send the same sheets by the API. Each sheet is checked on its own; once a sheet is accepted, its scores, losses and indicators are worked out by themselves."
+   }
+  },
+  "intake.book.bank_assets": {
+   "label": "Your loans",
+   "detail": {
+    "what": "One row per loan or facility: the borrower, the collateral's location and value, the balance."
+   }
+  },
+  "intake.book.bank_counterparties": {
+   "label": "Your borrowers' figures",
+   "detail": {
+    "what": "One row per counterparty: its total liabilities and revenue, stated once and used by every loan to it."
+   }
+  },
+  "intake.book.insurance_policies": {
+   "label": "Your insured locations",
+   "detail": {
+    "what": "One row per insured location: where it is, what it is built of, and the sums insured."
+   }
+  },
+  "intake.book.realestate_properties": {
+   "label": "Your properties",
+   "detail": {
+    "what": "One row per property: where it is, its value, income, energy rating and building features."
+   }
+  },
+  "intake.book.assetmgmt_holdings": {
+   "label": "Your holdings",
+   "detail": {
+    "what": "One row per holding: the company held, its sector and the position's value."
+   }
+  },
+  "intake.book.supply_plots": {
+   "label": "Where your crops are grown",
+   "detail": {
+    "what": "One row per sourcing plot: the crop, the plot's location or boundary, and the yearly spend. A boundary too long for one Excel cell is sent as a CSV file instead."
+   }
+  },
+  "intake.book.company_sites": {
+   "label": "Your own sites",
+   "detail": {
+    "what": "One row per site you operate: its type, location and yearly value."
+   }
+  },
+  "intake.book.site_year_end_values": {
+   "label": "Your sites' year-end values",
+   "detail": {
+    "what": "One row per site and financial year: its carrying amount and net revenue."
+   }
+  },
+  "intake.book.eudr_suppliers": {
+   "label": "Your suppliers",
+   "detail": {
+    "what": "One row per supplier of a product under the deforestation regulation."
+   }
+  },
+  "intake.book.eudr_customers": {
+   "label": "Your customers",
+   "detail": {
+    "what": "One row per customer you make products available to."
+   }
+  },
+  "intake.book.eudr_movements": {
+   "label": "What you place or export",
+   "detail": {
+    "what": "One row per placing on the market, making available or export, with its quantity and parties."
+   }
+  },
+  "intake.book.eudr_movement_plots": {
+   "label": "Where each shipment came from",
+   "detail": {
+    "what": "One row per shipment and plot of production, with the production dates."
+   }
+  },
+  "intake.workbook.no_sector": {
+   "status": 404,
+   "label": "No standard file for this sector",
+   "detail": {
+    "what": "There is no standard data file for this kind of organisation.",
+    "next": "Send each book on its own page in Your data."
+   }
+  },
+  "intake.workbook.not_xlsx": {
+   "status": 422,
+   "label": "Send the Excel file",
+   "detail": {
+    "what": "The standard data file is an Excel workbook (.xlsx).",
+    "next": "Download the standard file, fill it in and send it as it is."
+   }
+  },
+  "intake.workbook.unreadable": {
+   "status": 422,
+   "label": "This is not the standard file",
+   "detail": {
+    "what": "The file could not be read as a workbook, or it holds no sheet of your sector's books.",
+    "next": "Download the standard file again and fill its sheets; renamed sheets are still read."
+   }
   }
  },
  "names": {
