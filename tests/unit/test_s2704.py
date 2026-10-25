@@ -120,3 +120,14 @@ def test_the_statement_is_a_closed_choice_per_related_undertaking():
     for code in ("disclose.provided.choice", "disclose.provided.group_only", "disclose.provided.not_related"):
         assert messages.render(code, figure="x", choices="y")["label"]
     assert json.loads(open("data/reference/messages.en.json").read())["messages"]["filing.refused.xbrl_group_method_two"]
+
+
+def test_every_quote_of_the_nat_cat_spec_is_the_acts_own_wording():
+    """Each quote — legal bases, every S.27.01.01 and S.27.01.04 instruction — is found word for word in ITS (EU) 2023/894
+    as retrieved from the Publications Office (data/sources/legal/32023R0894); a misprinted ref is printed so in Annex III."""
+    from services.reference import legal_texts as L
+    quotes = [SPEC["legal_basis"]["quote"], GROUP["legal_basis"]["quote"]] + \
+        [i["quote"] for t in (SOLO, GROUP) for i in t["instructions"]]
+    assert len(quotes) == 285 and [q for q in quotes if L.contains(q) != "32023R0894"] == []
+    for i in (i for i in GROUP["instructions"] if "printed_ref" in i):
+        assert L.contains(f"{i['printed_ref']} {i['item']} {i['quote'][:60]}") == "32023R0894", i["printed_ref"]
