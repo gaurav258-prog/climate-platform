@@ -49,6 +49,13 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
 
     payload = snap.get("payload") or {}
     basis = snap.get("reporting_basis") or {}
+    if filing["framework"] == "insurer_solvency" and fmt in ("xlsx", "xbrl"):
+        # the template is one filer's — an undertaking's or a group's (services.governance.sii_filers); the frozen
+        # record (JSON) stays readable. A filing from before roles were stamped, with no entity, is the whole organisation's.
+        from services.governance.sii_filers import export_refusal
+        why = export_refusal(payload, filing.get("filing_role") or (None if filing.get("entity_id") else "whole_org"))
+        if why is not None:
+            raise ExportError(why[0], **why[1])
     version = snap.get("version")
     sha = (snap.get("payload_sha256") or "")[:8]
     stem = f"{filing['framework']}-{filing['period_label']}-v{version}-{sha}"

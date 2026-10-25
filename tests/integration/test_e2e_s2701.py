@@ -319,7 +319,7 @@ def test_a_reporting_date_after_30_january_2027_is_calculated_on_2026_269(api):
         "building_value_eur": 3_000_000, "reporting_entity": "Iberia Mutual Seguros"}]), "text/csv")},
         data={"currency": "EUR", "book_date": date.today().isoformat()})     # figures as of today (never a future date)
     assert up.status_code == 200, up.text
-    fid, payload = _generate(api, maker, "insurer_solvency", None)
+    fid, payload = _generate(api, maker, "insurer_solvency", SEGUROS)     # the undertaking's own report (sii_filers)
     sf = payload["s2701"]["standard_formula_natcat"]
     assert sf["version"] == "da_2015_35_as_2026_269"
     assert payload["_specs"]["sii_qrt_natcat"]["version"] == "its_2023_894"      # the template in force is unchanged

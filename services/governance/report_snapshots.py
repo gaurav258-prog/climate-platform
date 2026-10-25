@@ -187,10 +187,16 @@ def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value
                                      translation=translation, period_end=period_end)
     out = {"rollup": snap.get("rollup"), "policies": snap.get("policies"), "by_hazard": snap.get("by_hazard"),
            KEY: s2701_natcat(snap, group_scope=value_weights is not None), "method": snap.get("method")}
+    from services.governance.entities import root_of
+    from services.governance.sii_filers import record
+    top = root_of(session, org_id, entity_ids)
     if value_weights is not None:     # a group: S.27.01.04, on the method each related undertaking is stated to use
-        from services.governance.entities import root_of
         from services.governance.group_solvency import statement
-        out["_group_solvency"] = statement(session, org_id, root_of(session, org_id, entity_ids), period_end)
+        out["_group_solvency"] = statement(session, org_id, top, period_end)
+    # who reports this book (services.governance.sii_filers): absent for a whole-organisation book that is no filer's
+    filer = record(session, org_id, top, value_weights is not None)
+    if filer is not None:
+        out["_filer"] = filer
     return out
 
 

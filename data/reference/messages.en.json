@@ -5641,6 +5641,23 @@
     "what": "{group} has no related undertaking whose figures are consolidated, so there is no group template to produce."
    }
   },
+  "filing.refused.sii_whole_org": {
+   "status": 409,
+   "label": "Choose the group or the undertaking",
+   "detail": {
+    "what": "Natural catastrophe risk is reported by an undertaking for itself or by a group, not by an organisation of {count} reporting entities as a whole.",
+    "why": "The whole organisation's book counts every entity in full: it is neither one undertaking's figures nor the group's consolidated figures.",
+    "next": "Prepare it for one of: {choices}."
+   }
+  },
+  "filing.refused.sii_whole_org_frozen": {
+   "status": 409,
+   "label": "Not one undertaking's report",
+   "detail": {
+    "what": "This whole-organisation report was frozen without a record that the organisation is the undertaking reporting it.",
+    "next": "Refresh the draft. If the organisation has two or more reporting entities, prepare the report for the group or for each undertaking instead."
+   }
+  },
   "filing.refused.xbrlcsv_reference_date": {
    "status": 409,
    "label": "Not available for this reference date",

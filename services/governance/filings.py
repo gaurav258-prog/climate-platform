@@ -525,6 +525,9 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
         if fk == "esrs_pack":
             _ensure_esrs_obligations(session, org_id, period_end)
             continue
+        if fk == "insurer_solvency":
+            ensure_sii_obligations(session, org_id, period_end)
+            continue
         if _due_date(fk, period_end) is None:
             # runs from an event (an ORSA's conclusion, a recovery plan's update) — no calendar obligation to invent;
             # the filing's own disclosure date gives its deadline (due_for_filing)
@@ -594,6 +597,74 @@ def _ensure_esrs_obligations(session: Session, org_id: str, period_end: date) ->
                 INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
                 VALUES (:o, 'esrs_pack', :pe, :pl, :due, 'annual', CAST(:e AS uuid), :fr)
             """), {"o": org_id, "pe": period_end, "pl": _period_label(period_end), "due": due, "e": eid, "fr": role})
+
+
+def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> None:
+    """The Solvency II nat-cat obligations its filers owe (services.governance.sii_filers.owed): with two or more
+    reporting entities, one per group and per undertaking and none for the whole organisation; with none or one, the
+    organisation's own plus each entity's that files. The calendar follows the entities: an obligation the calendar made
+    (source 'entity') that is owed no more is removed in every period unless a report was filed for it (submitted or
+    accepted — it stays on record), and takes its filer's role; the current period gains what is missing. A supervisor's
+    date is kept: when the whole organisation is no filer, a supervisor-set whole-organisation deadline is carried onto
+    each filer's obligation for its period (date, note, supervisor and deadline with it), and the whole-organisation row
+    goes unless a report was filed for it. services.supervision.deadlines settles a newly published one the same way."""
+    from services.governance.sii_filers import FRAMEWORK, owed
+    if _due_date(FRAMEWORK, period_end) is None:
+        return
+    now = owed(session, org_id)
+
+    def held() -> list:
+        return session.execute(text("""
+            SELECT ob.obligation_id, ob.period_end, ob.entity_id::text AS entity_id, ob.filing_role, ob.source,
+                   EXISTS(SELECT 1 FROM regulatory_filing rf WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
+                            AND rf.period_end = ob.period_end AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id
+                            AND rf.status IN ('submitted', 'accepted')) AS filed
+            FROM regulatory_obligation ob WHERE ob.org_id = :o AND ob.framework = :fk AND ob.fund_id IS NULL
+        """), {"o": org_id, "fk": FRAMEWORK}).mappings().all()
+
+    if None not in now:
+        # a supervisor's date for a period: its whole-organisation row if still there, else one already carried
+        dated: dict = {}
+        for r in held():
+            if r["source"] == "supervisor" and (r["period_end"] not in dated or r["entity_id"] is None):
+                dated[r["period_end"]] = r
+        for r in dated.values():
+            for eid, role in now.items():
+                p = {"i": r["obligation_id"], "e": eid, "fr": role}
+                if not session.execute(text("""
+                        UPDATE regulatory_obligation ob SET due_date = s.due_date, note = s.note, source = s.source,
+                               supervision_deadline_id = s.supervision_deadline_id, set_by = s.set_by, filing_role = :fr
+                        FROM regulatory_obligation s
+                        WHERE s.obligation_id = :i AND ob.org_id = s.org_id AND ob.framework = s.framework
+                          AND ob.period_end = s.period_end AND ob.entity_id = CAST(:e AS uuid) AND ob.fund_id IS NULL
+                        RETURNING ob.obligation_id"""), p).first():
+                    session.execute(text("""
+                        INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency,
+                                                           note, source, supervision_deadline_id, set_by, entity_id, filing_role)
+                        SELECT org_id, framework, period_end, period_label, due_date, frequency, note, source,
+                               supervision_deadline_id, set_by, CAST(:e AS uuid), :fr
+                        FROM regulatory_obligation WHERE obligation_id = :i"""), p)
+            if r["entity_id"] is None and not r["filed"]:
+                session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
+    have = held()
+    for r in have:
+        if r["source"] != "entity":
+            continue
+        if r["entity_id"] not in now:
+            if not r["filed"]:
+                session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
+        elif r["filing_role"] != now[r["entity_id"]]:
+            session.execute(text("UPDATE regulatory_obligation SET filing_role = :fr WHERE obligation_id = :i"),
+                            {"fr": now[r["entity_id"]], "i": r["obligation_id"]})
+    current = {r["entity_id"] for r in have if r["period_end"] == period_end}
+    for eid, role in now.items():
+        if eid in current:
+            continue
+        session.execute(text("""
+            INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
+            VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), :fr)
+        """), {"o": org_id, "fk": FRAMEWORK, "pe": period_end, "pl": _period_label(period_end), "e": eid, "fr": role,
+               "due": _due_date(FRAMEWORK, period_end), "freq": FRAMEWORKS[FRAMEWORK]["frequency"]})
 
 
 def _ensure_product_obligations(session: Session, org_id: str, fk: str, period_end: date) -> None:
@@ -855,6 +926,15 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
                 "basis": get_settings(session, org_id), "product_scoped": True, "needs_fund": True,
                 "funds": funds_owing(session, org_id), "can_generate": False, "confirm_token": None,
                 "entity_scoped": False, "coverage": None, "gaps": []}
+    from services.governance.sii_filers import choices, whole_org_refusal
+    if whole_org_refusal(session, org_id, framework, entity_id) is not None:
+        # the organisation as a whole is no filer of this report: the preparer chooses the group or the undertaking
+        # first (nothing is computed or confirmed yet)
+        from services.governance.reporting_settings import get_settings
+        return {"framework": framework, "label": FRAMEWORKS[framework]["label"], "period_label": _period_label(period_end),
+                "basis": get_settings(session, org_id), "product_scoped": False, "needs_scope": True,
+                "scopes": choices(session, org_id), "can_generate": False, "confirm_token": None,
+                "entity_scoped": True, "coverage": None, "gaps": []}
     _check_scope(session, org_id, framework, entity_id, fund_id)
     existing = session.execute(text("""
         SELECT status FROM regulatory_filing
@@ -1064,8 +1144,14 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
 
 
 def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date) -> tuple:
-    """_book_basis for callers that report to a preparer: a book that cannot be presented is a FilingError."""
+    """_book_basis for callers that report to a preparer: a book that cannot be presented is a FilingError. The one
+    gate of every book a filing freezes (pre-filing check, generate, refresh, restate): a whole-organisation scope that
+    is no filer's is refused here (services.governance.sii_filers)."""
+    from services.governance.sii_filers import whole_org_refusal
     from services.governance.translation import TranslationError
+    why = whole_org_refusal(session, org_id, framework, entity_id)
+    if why is not None:
+        raise FilingError(why[0], **why[1])
     try:
         return _book_basis(session, org_id, framework, entity_id, period_end)
     except TranslationError as e:

@@ -24,6 +24,9 @@ interface Preflight {
   // a per-product report (SFDR Annexes II–V): the fund it discloses — chosen here when no obligation fixes it
   product_scoped?: boolean; needs_fund?: boolean; funds?: { fund_id: string; name: string; sfdr_classification: string }[]
   fund?: { fund_id: string; name: string; template: string }
+  // a report the organisation as a whole does not file (Solvency II nat-cat with two or more reporting entities): the
+  // group or the undertaking it is prepared for, chosen first
+  needs_scope?: boolean; scopes?: { entity_id: string; name: string; role: 'solo' | 'consolidated' }[]
   // which values of the asset facts to read, and the figures both the customer and the platform produce
   views?: Record<'joint' | 'client' | 'tellumen', { label: string; facts_changed: number }>
   figures?: { datapoint: string; label: string; unit: string | null; client_value: number | string; tellumen_value: number | null; delta_pct: number | null; provider: string | null }[]
@@ -59,6 +62,9 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
   const [figs, setFigs] = useState<Record<string, 'client' | 'tellumen'>>({})
   const d = q.data
   const entities = ents.data?.entities ?? []
+  // once the server says who files this report, only they are offered — the whole organisation is not
+  const [filers, setFilers] = useState<Preflight['scopes'] | null>(null)
+  if (d?.needs_scope && d.scopes && filers === null) setFilers(d.scopes)
 
   const freeze = async () => {
     if (!d?.confirm_token) return
@@ -73,9 +79,9 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
       q.refetch()
     } finally { setBusy(false) }
   }
-  const blockedByExisting = !!d && !d.can_generate && !d.needs_fund                 // one live filing per report, period and scope
+  const blockedByExisting = !!d && !d.can_generate && !d.needs_fund && !d.needs_scope   // one live filing per report, period and scope
   const periodMismatch = !!(obligation && d && obligation.period_end !== d.basis.reporting_period_end.slice(0, 10))
-  const blocked = blockedByExisting || periodMismatch || !!d?.needs_fund
+  const blocked = blockedByExisting || periodMismatch || !!d?.needs_fund || !!d?.needs_scope
 
   const metrics: StatItem[] = d ? [
     d.coverage ? { label: d.coverage.label[0].toUpperCase() + d.coverage.label.slice(1), value: `${d.coverage.pct}%`, sub: `${d.coverage.done} of ${d.coverage.total}` }
@@ -120,14 +126,24 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
               {d.needs_fund && (d.funds ?? []).length === 0 && <div className="text-[12.5px] text-[var(--color-warn)] mt-1">No fund is classified Article 8 or 9 yet.</div>}
             </div>)}
 
-          {!obligation && entities.length > 0 && d.entity_scoped && (
+          {!obligation && (filers || entities.length > 0) && d.entity_scoped && (
             <div>
               <Label info={{ title: 'Reporting scope', body: "A group consolidates its whole subtree, weighting each entity's book by its ownership and consolidation method; a legal entity files its own book." }}>Reporting scope</Label>
-              <select value={entityId} onChange={e => { setEntityId(e.target.value); setConfirmed(false) }} className={select}>
-                <option value="">Whole organisation</option>
-                {entities.filter(e => e.kind === 'group').map(e => <option key={e.entity_id} value={e.entity_id}>Consolidated · {e.name}</option>)}
-                {entities.filter(e => e.kind !== 'group').map(e => <option key={e.entity_id} value={e.entity_id}>{e.name} ({e.n_assets} assets)</option>)}
-              </select>
+              {filers ? (
+                <select value={entityId} onChange={e => { setEntityId(e.target.value); setConfirmed(false) }} className={select}>
+                  <option value="" disabled>Choose the group or the undertaking…</option>
+                  {filers.map(f => <option key={f.entity_id} value={f.entity_id}>{f.role === 'consolidated' ? `Group · ${f.name}` : f.name}</option>)}
+                </select>) : (
+                <select value={entityId} onChange={e => { setEntityId(e.target.value); setConfirmed(false) }} className={select}>
+                  <option value="">Whole organisation</option>
+                  {entities.filter(e => e.kind === 'group').map(e => <option key={e.entity_id} value={e.entity_id}>Consolidated · {e.name}</option>)}
+                  {entities.filter(e => e.kind !== 'group').map(e => <option key={e.entity_id} value={e.entity_id}>{e.name} ({e.n_assets} assets)</option>)}
+                </select>)}
+              {d.needs_scope && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)]">Reported by an undertaking or a group
+                  <InfoButton compact details={{ title: 'Who reports natural catastrophe risk', sections: [
+                    { heading: HEADING.shows, body: "Each undertaking reports its own figures; a group reports its consolidated figures. The whole organisation's book counts every entity in full, so it is neither." },
+                    { heading: 'Legal basis', body: 'Implementing Regulation (EU) 2023/894, Art. 19(1)(s)(i) and Art. 34(1)(s); Annex II and Annex III, S.01.02.' }] }} /></div>)}
             </div>)}
           {entities.length > 0 && !d.entity_scoped && !d.product_scoped && (
             <Label info={d.framework === 'sfdr_pai' ? { title: 'Whole organisation', body: "Each fund's own statement is prepared in the Funds workspace." } : undefined}>Filed for the whole organisation</Label>)}

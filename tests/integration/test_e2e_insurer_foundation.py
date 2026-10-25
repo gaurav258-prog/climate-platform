@@ -6,6 +6,10 @@
   losses with the attested treaty (before it, the net is a named gap — no illustrative treaty, E69) → the Solvency II nat-cat filing freezes (the climate disclosure is retired),
   their frozen figures tie to the engine at the filing's basis, and export → another organisation sees none of it.
 
+  Iberia has three reporting entities, so the whole organisation reports no nat-cat template (an undertaking reports its
+  own, a group its consolidated one — ITS (EU) 2023/894 Art. 19(1)(s)(i) / 34(1)(s); services.governance.sii_filers):
+  the book, the statements and the filing are the undertaking's, Iberia Mutual Seguros.
+
 The API runs in one rolled-back transaction: nothing is left behind.
 """
 from __future__ import annotations
@@ -22,6 +26,8 @@ from tests.integration.money_method import state_method
 
 pytestmark = pytest.mark.integration
 IBERIA = "22222222-2222-4222-8222-222222222222"
+SEGUROS = "496937e3-ea3c-4597-9066-c98cc1c2f742"      # Iberia Mutual Seguros — the undertaking
+GROUP = "bf633fe4-f30e-43a5-a8a4-a73d825aa8c0"         # Iberia Mutual Group — the top
 
 
 def _csv(rows: list[dict]) -> bytes:
@@ -54,7 +60,7 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     rows = [{"policy_name": f"E2E property {i}", "latitude": r["latitude"], "longitude": r["longitude"], "region": r["region"],
              "country": r["country"], "building_value_eur": 4_000_000 + i * 1_000_000, "contents_value_eur": 500_000,
              "construction_type": "joisted_masonry", "year_built": 1985, "number_of_stories": 3, "deductible_pct": 0.01,
-             "postal_code": "46001" if r["country"] == "ES" else ""}
+             "postal_code": "46001" if r["country"] == "ES" else "", "reporting_entity": "Iberia Mutual Seguros"}
             for i, r in enumerate(spots, 1)]
     up = api.post("/v1/insurance/policies/upload", headers=maker, files={"file": ("sov.csv", _csv(rows), "text/csv")}, data={"currency": "EUR", "book_date": pe.isoformat()})
     assert up.status_code == 200, up.text
@@ -74,7 +80,7 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
 
     # 3 · the capital position and the treaty: stated by one person, attested by another — not used before
     from api.routers.insurance import build_disclosure_snapshot
-    before = build_disclosure_snapshot(s, IBERIA, "baseline", "current")["reinsurance"]
+    before = build_disclosure_snapshot(s, IBERIA, "baseline", "current", entity_ids=[SEGUROS])["reinsurance"]
     assert before["program_basis"] == "not_attested" and before["available"] is False and "treaty" in before["gap"]
     stated = {"eligible_own_funds_scr": 180_000_000, "scr_total": 120_000_000, "mcr_total": 45_000_000,
               "ri_quota_share_pct": 30, "ri_xol_attachment_eur": 8_000_000, "ri_xol_limit_eur": 40_000_000,
@@ -82,30 +88,32 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     # a premium on S.27.01.01 itself — windstorm, other region 15 (north-east US): the undertaking's figure, in EUR
     cell = "S2701.R0750.C0040"
     bad = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": cell,
-                                                        "value_num": -5, "reporting_period_end": pe.isoformat()})
+                                                        "value_num": -5, "reporting_period_end": pe.isoformat(),
+                                                        "reporting_entity_id": SEGUROS})
     assert bad.status_code in (400, 422) and "at least 0" in bad.text               # checked where it enters
     stated[cell] = 5_000_000
     requests = []
     for key, v in stated.items():
         r = api.post("/v1/provided", headers=maker, json={"framework": "insurer_solvency", "datapoint_key": key,
-                                                          "value_num": v, "reporting_period_end": pe.isoformat()})
+                                                          "value_num": v, "reporting_period_end": pe.isoformat(),
+                                                          "reporting_entity_id": SEGUROS})
         assert r.status_code == 201, r.text
         requests.append(r.json()["approval_request_id"])
-    assert build_disclosure_snapshot(s, IBERIA, "baseline", "current")["reinsurance"]["program_basis"] == "not_attested"
+    assert build_disclosure_snapshot(s, IBERIA, "baseline", "current", entity_ids=[SEGUROS])["reinsurance"]["program_basis"] == "not_attested"
     own = api.post(f"/v1/approvals/{requests[0]}/decide", headers=maker, json={"decision": "approved"})
     assert own.status_code in (403, 422)                                   # the maker cannot attest their own value
     for rid in requests:
         ok = api.post(f"/v1/approvals/{rid}/decide", headers=checker, json={"decision": "approved", "reason": "per S.23.01 and treaties"})
         assert ok.status_code == 200, ok.text
     from services.insurer_capital import position, programme
-    cap = position(s, IBERIA, pe)
+    cap = position(s, IBERIA, pe, SEGUROS)
     assert (cap["eligible_own_funds_scr"], cap["scr_total"], cap["scr_ratio_pct"]) == (180_000_000, 120_000_000, 150.0)
-    prog, basis = programme(s, IBERIA, pe)
+    prog, basis = programme(s, IBERIA, pe, SEGUROS)
     assert basis == "attested" and prog == {"quota_share_pct": 30.0, "xol_attachment_eur": 8_000_000.0, "xol_limit_eur": 40_000_000.0,
                                             "xol_reinstatements": 1.0, "xol_reinstatement_premium_eur": 2_000_000.0}
 
     # 4 · the book nets with the attested treaty
-    snap = build_disclosure_snapshot(s, IBERIA, "baseline", "current")
+    snap = build_disclosure_snapshot(s, IBERIA, "baseline", "current", entity_ids=[SEGUROS])
     net = snap["reinsurance"]["net"]
     assert snap["reinsurance"]["program_basis"] == "attested" and net["quota_share_pct"] == 30.0
     gross_oep = snap["rollup"]["catastrophe"]["oep_eur"]["rp_200"]
@@ -114,21 +122,30 @@ def test_insurer_foundation_from_the_statement_of_values_to_the_filings(api):
     # 5 · the Solvency II nat-cat and climate filings freeze, tie to the engine at their basis, and export
     from services.governance.reporting_settings import get_settings
     basis_settings = get_settings(s, IBERIA)
-    engine = build_disclosure_snapshot(s, IBERIA, basis_settings["scenario"], basis_settings["horizon"])
+    engine = build_disclosure_snapshot(s, IBERIA, basis_settings["scenario"], basis_settings["horizon"], entity_ids=[SEGUROS])
     # the climate / NatCat disclosure is retired (E87): offered no more, its preparation refused with the reason
     assert "retired" in api.get("/v1/filings/preflight?framework=insurer_climate", headers=maker).text
     for fw in ("insurer_solvency",):
         # a live draft of the demo (from an earlier walkthrough) is withdrawn first, through the governed withdraw
         for (live,) in s.execute(text("""SELECT filing_id::text FROM regulatory_filing WHERE org_id = CAST(:o AS uuid)
-                                         AND framework = :f AND period_end = :pe AND entity_id IS NULL AND status = 'draft'"""),
-                                 {"o": IBERIA, "f": fw, "pe": pe}).all():
+                                         AND framework = :f AND period_end = :pe AND status = 'draft'
+                                         AND (entity_id IS NULL OR entity_id = CAST(:e AS uuid))"""),
+                                 {"o": IBERIA, "f": fw, "pe": pe, "e": SEGUROS}).all():
             assert api.post(f"/v1/filings/{live}/withdraw", headers=maker,
                             json={"reason": "superseded by the end-to-end test filing"}).status_code == 200
-        pf = api.get(f"/v1/filings/preflight?framework={fw}", headers=maker).json()
-        g = api.post("/v1/filings", headers=maker, json={"framework": fw, "confirm_token": pf["confirm_token"]})
+        # the whole organisation is no filer: the preparer is offered the group and the undertakings, never a whole book
+        whole = api.get(f"/v1/filings/preflight?framework={fw}", headers=maker).json()
+        assert whole["needs_scope"] and whole["confirm_token"] is None
+        assert {(x["entity_id"], x["role"]) for x in whole["scopes"]} >= {(GROUP, "consolidated"), (SEGUROS, "solo")}
+        refused = api.post("/v1/filings", headers=maker, json={"framework": fw, "confirm_token": "any"})
+        assert refused.status_code == 409 and refused.json()["error"]["error"] == "filing.refused.sii_whole_org", refused.text
+        pf = api.get(f"/v1/filings/preflight?framework={fw}&entity_id={SEGUROS}", headers=maker).json()
+        g = api.post("/v1/filings", headers=maker, json={"framework": fw, "confirm_token": pf["confirm_token"], "entity_id": SEGUROS})
         assert g.status_code == 201, g.text
         fid = g.json()["filing_id"]
         payload = json.loads(api.get(f"/v1/filings/{fid}/export?format=json", headers=maker).content)["payload"]
+        assert payload["_filer"] == {"level": "undertaking", "entity_id": SEGUROS, "template": "S.27.01.01",
+                                     "basis": "Implementing Regulation (EU) 2023/894 Art. 19(1)(s)(i)"}
         # the frozen book is the engine's at the filing's basis: same policies, same expected loss, same 1-in-200
         roll = payload["rollup"]
         assert roll["n_policies"] == engine["rollup"]["n_policies"] and roll["total_sum_insured_eur"] == engine["rollup"]["total_sum_insured_eur"]

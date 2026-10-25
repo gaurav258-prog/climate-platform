@@ -11,6 +11,7 @@ import services.regspec as R
 from services.governance import s2701
 from services.governance.group_solvency import group_lines
 from services.governance.group_solvency import section as group_section
+from services.governance.sii_filers import unrecorded_whole_org
 
 _ORDER = ("Summary", "Windstorm", "Earthquake", "Flood", "Hail", "Subsidence")
 
@@ -63,6 +64,9 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
             continue
         notes = []
         if name == "Summary":
+            if unrecorded_whole_org(payload):
+                notes.append("Not exported: frozen for the whole organisation without a record that it is the undertaking "
+                             "reporting — refresh the draft, or prepare it for the group or each undertaking.")
             notes.append(f"Standard formula: {sf.get('version_name') or sf.get('version')} ({sf.get('version_source')}). Reinsurance: "
                          f"{'the attested treaty' if sf.get('treaty_basis') == 'attested' else 'none attested — no mitigation'}.")
             notes += [f"Incomplete: {x}" for x in sf.get("incomplete") or []]
