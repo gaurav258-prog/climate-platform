@@ -1,6 +1,8 @@
 """Demo data: choose the loss engine's damage curves for every demo organisation that holds a book (the product owner's
 decision of 2026-10-21) — the choices the demo insurer Alpenrück made: river flood → the JRC global damage curves
-(jrc_huizinga_2017); tropical cyclone → the Eberenz 2021 curves fitted to each storm's damage (eberenz_2021_rmsf).
+(jrc_huizinga_2017); tropical cyclone → the Eberenz 2021 curves fitted to each storm's damage (eberenz_2021_rmsf);
+coastal flood → the same JRC curves, which the coastal maps' publisher applies to coastal depths (the product owner's
+decision of 2026-10-25) — every coastal figure untested until the curves are tested on observed coastal losses.
 
 Each choice goes through the route the Methodology page uses (services.governance.config_governance.
 submit_or_apply_config), made by the organisation's own admin: applied and audited, or opened for a second approver
@@ -21,7 +23,8 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.loss import curves
 
-CHOICES = {"loss_curve_family_flood": "jrc_huizinga_2017", "loss_curve_family_storm": "eberenz_2021_rmsf"}
+CHOICES = {"loss_curve_family_flood": "jrc_huizinga_2017", "loss_curve_family_storm": "eberenz_2021_rmsf",
+           "loss_curve_family_coastal_flood": "jrc_huizinga_2017"}
 
 
 def books(s, org_id: str) -> list[str]:
