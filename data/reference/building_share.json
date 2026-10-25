@@ -1,0 +1,596 @@
+{
+ "_about": "The share of a stated property value that is the building, from official statistics (the product owner's decisions of 2026-10-25); built by scripts/build_building_share.py on 2026-10-25. Read by services/reference/building_share.py; used by the loss engine only for an organisation that adopts it (calc setting loss_building_share).",
+ "sources": [
+  {
+   "key": "es_catastro",
+   "publisher": "Dirección General del Catastro (Spain)",
+   "dataset": "Estadísticas catastrales — urbana, 2026 (values at 31 Dec 2025)",
+   "url": "https://www.catastro.hacienda.gob.es/documentos/estadisticas/URBANA2026.xls",
+   "file": "data/reference_sources/es_catastro_urbana_2026/URBANA2026.xls",
+   "sha256": "cdd514e2d2f5f1995ce94c2d3d91b58a21bf6fcd6a62625e869b125204ef5e94",
+   "bytes": 4072191,
+   "retrieved": "2026-10-25",
+   "licence": "Aviso legal: reproduction authorised citing the source",
+   "measures": "construction value over total cadastral value, all urban uses",
+   "basis_quote": "Orden of 14 October 1998: a market-relation coefficient (RM) of 0.5 'al valor individualizado… mediante la suma del valor del suelo en parcela y del valor de reposición de la construcción' — applied to the sum, so the ratio of the two parts is unchanged."
+  },
+  {
+   "key": "de_eurostat",
+   "publisher": "Eurostat",
+   "dataset": "nama_10_nfa_bs — balance sheets for non-financial assets",
+   "url": "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nama_10_nfa_bs?geo=DE&unit=CP_MEUR&sector=S14_S15&asset10=N111N&asset10=N211N",
+   "file": "data/reference_sources/de_eurostat_nfa_bs/nama_10_nfa_bs_DE_S14_S15.json",
+   "sha256": "7ff95638e29d9f4d64262a490cd8d3ba6d6285827b08f0c10f718889b610c62b",
+   "bytes": 3021,
+   "retrieved": "2026-10-25",
+   "licence": "Eurostat reuse policy (CC BY 4.0)",
+   "measures": "households' dwellings over dwellings plus all land they own — a lower bound"
+  }
+ ],
+ "by_nuts3": {
+  "ES111": {
+   "share": 0.6728,
+   "area": "Coruña (A)",
+   "ine_province": "15",
+   "municipalities": 94,
+   "construction_eur": 33788711581.02,
+   "cadastral_eur": 50221540403.22,
+   "postcodes_in_province": 0.9975,
+   "source": "es_catastro"
+  },
+  "ES112": {
+   "share": 0.7641,
+   "area": "Lugo",
+   "ine_province": "27",
+   "municipalities": 67,
+   "construction_eur": 9658542029.71,
+   "cadastral_eur": 12640515390.21,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES113": {
+   "share": 0.657,
+   "area": "Ourense",
+   "ine_province": "32",
+   "municipalities": 92,
+   "construction_eur": 9339000370.49,
+   "cadastral_eur": 14213952924.85,
+   "postcodes_in_province": 0.9888,
+   "source": "es_catastro"
+  },
+  "ES114": {
+   "share": 0.7175,
+   "area": "Pontevedra",
+   "ine_province": "36",
+   "municipalities": 62,
+   "construction_eur": 23970943004.13,
+   "cadastral_eur": 33410104494.4,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES120": {
+   "share": 0.5061,
+   "area": "Asturias",
+   "ine_province": "33",
+   "municipalities": 78,
+   "construction_eur": 25781078598.48,
+   "cadastral_eur": 50941093235.66,
+   "postcodes_in_province": 0.9976,
+   "source": "es_catastro"
+  },
+  "ES130": {
+   "share": 0.4845,
+   "area": "Cantabria",
+   "ine_province": "39",
+   "municipalities": 102,
+   "construction_eur": 18742590621.95,
+   "cadastral_eur": 38687834143.94,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES230": {
+   "share": 0.6714,
+   "area": "Rioja (La)",
+   "ine_province": "26",
+   "municipalities": 174,
+   "construction_eur": 10650372044.96,
+   "cadastral_eur": 15861829538.94,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES241": {
+   "share": 0.6532,
+   "area": "Huesca",
+   "ine_province": "22",
+   "municipalities": 202,
+   "construction_eur": 7182243290.57,
+   "cadastral_eur": 10996092498.3,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES242": {
+   "share": 0.7596,
+   "area": "Teruel",
+   "ine_province": "44",
+   "municipalities": 236,
+   "construction_eur": 4941432875.16,
+   "cadastral_eur": 6505303032.3,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES243": {
+   "share": 0.4995,
+   "area": "Zaragoza",
+   "ine_province": "50",
+   "municipalities": 293,
+   "construction_eur": 26693730041.74,
+   "cadastral_eur": 53442399185.62,
+   "postcodes_in_province": 0.9894,
+   "source": "es_catastro"
+  },
+  "ES300": {
+   "share": 0.3601,
+   "area": "Madrid",
+   "ine_province": "28",
+   "municipalities": 179,
+   "construction_eur": 188694550277.15,
+   "cadastral_eur": 523980171733.41,
+   "postcodes_in_province": 0.9939,
+   "source": "es_catastro"
+  },
+  "ES411": {
+   "share": 0.6097,
+   "area": "Ávila",
+   "ine_province": "05",
+   "municipalities": 248,
+   "construction_eur": 6230441043.87,
+   "cadastral_eur": 10219366519.71,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES412": {
+   "share": 0.5042,
+   "area": "Burgos",
+   "ine_province": "09",
+   "municipalities": 371,
+   "construction_eur": 12331210511.02,
+   "cadastral_eur": 24457021600.49,
+   "postcodes_in_province": 0.9649,
+   "source": "es_catastro"
+  },
+  "ES413": {
+   "share": 0.6692,
+   "area": "León",
+   "ine_province": "24",
+   "municipalities": 211,
+   "construction_eur": 14139755937.68,
+   "cadastral_eur": 21130159325.57,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES414": {
+   "share": 0.6223,
+   "area": "Palencia",
+   "ine_province": "34",
+   "municipalities": 191,
+   "construction_eur": 4851021891.75,
+   "cadastral_eur": 7795081916.62,
+   "postcodes_in_province": 0.9928,
+   "source": "es_catastro"
+  },
+  "ES415": {
+   "share": 0.6285,
+   "area": "Salamanca",
+   "ine_province": "37",
+   "municipalities": 362,
+   "construction_eur": 9728160716.13,
+   "cadastral_eur": 15477372313.1,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES416": {
+   "share": 0.5678,
+   "area": "Segovia",
+   "ine_province": "40",
+   "municipalities": 209,
+   "construction_eur": 6042606001.13,
+   "cadastral_eur": 10643059010.11,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES417": {
+   "share": 0.5853,
+   "area": "Soria",
+   "ine_province": "42",
+   "municipalities": 183,
+   "construction_eur": 3463764452.25,
+   "cadastral_eur": 5917978446.92,
+   "postcodes_in_province": 0.9925,
+   "source": "es_catastro"
+  },
+  "ES418": {
+   "share": 0.5671,
+   "area": "Valladolid",
+   "ine_province": "47",
+   "municipalities": 225,
+   "construction_eur": 13143497212.04,
+   "cadastral_eur": 23178053221.15,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES419": {
+   "share": 0.639,
+   "area": "Zamora",
+   "ine_province": "49",
+   "municipalities": 248,
+   "construction_eur": 5619408063.79,
+   "cadastral_eur": 8794496112.75,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES421": {
+   "share": 0.557,
+   "area": "Albacete",
+   "ine_province": "02",
+   "municipalities": 87,
+   "construction_eur": 10142783517.57,
+   "cadastral_eur": 18209565664.09,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES422": {
+   "share": 0.6699,
+   "area": "Ciudad Real",
+   "ine_province": "13",
+   "municipalities": 102,
+   "construction_eur": 14019489644.37,
+   "cadastral_eur": 20927249387.11,
+   "postcodes_in_province": 0.9925,
+   "source": "es_catastro"
+  },
+  "ES423": {
+   "share": 0.6979,
+   "area": "Cuenca",
+   "ine_province": "16",
+   "municipalities": 238,
+   "construction_eur": 6731326476.21,
+   "cadastral_eur": 9644769071.75,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES424": {
+   "share": 0.5323,
+   "area": "Guadalajara",
+   "ine_province": "19",
+   "municipalities": 288,
+   "construction_eur": 9614466326.6,
+   "cadastral_eur": 18060487962.58,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES425": {
+   "share": 0.5621,
+   "area": "Toledo",
+   "ine_province": "45",
+   "municipalities": 204,
+   "construction_eur": 21881955354.46,
+   "cadastral_eur": 38930844394.04,
+   "postcodes_in_province": 0.9958,
+   "source": "es_catastro"
+  },
+  "ES431": {
+   "share": 0.7122,
+   "area": "Badajoz",
+   "ine_province": "06",
+   "municipalities": 165,
+   "construction_eur": 17235920668.2,
+   "cadastral_eur": 24201926092.7,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES432": {
+   "share": 0.663,
+   "area": "Cáceres",
+   "ine_province": "10",
+   "municipalities": 223,
+   "construction_eur": 9407816669.27,
+   "cadastral_eur": 14189269635.61,
+   "postcodes_in_province": 0.996,
+   "source": "es_catastro"
+  },
+  "ES511": {
+   "share": 0.4337,
+   "area": "Barcelona",
+   "ine_province": "08",
+   "municipalities": 311,
+   "construction_eur": 144957269490.76,
+   "cadastral_eur": 334256700452.04,
+   "postcodes_in_province": 0.995,
+   "source": "es_catastro"
+  },
+  "ES512": {
+   "share": 0.6297,
+   "area": "Girona",
+   "ine_province": "17",
+   "municipalities": 221,
+   "construction_eur": 28749247157.62,
+   "cadastral_eur": 45655411975.65,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES513": {
+   "share": 0.5983,
+   "area": "Lleida",
+   "ine_province": "25",
+   "municipalities": 231,
+   "construction_eur": 10890605725.27,
+   "cadastral_eur": 18203196853.23,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES514": {
+   "share": 0.6117,
+   "area": "Tarragona",
+   "ine_province": "43",
+   "municipalities": 184,
+   "construction_eur": 24916738702.58,
+   "cadastral_eur": 40733971745.17,
+   "postcodes_in_province": 0.9954,
+   "source": "es_catastro"
+  },
+  "ES521": {
+   "share": 0.6097,
+   "area": "Alicante",
+   "ine_province": "03",
+   "municipalities": 141,
+   "construction_eur": 59177181088.63,
+   "cadastral_eur": 97055640982.53,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES522": {
+   "share": 0.529,
+   "area": "Castellón",
+   "ine_province": "12",
+   "municipalities": 135,
+   "construction_eur": 18483963584.97,
+   "cadastral_eur": 34938644339.54,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES523": {
+   "share": 0.5512,
+   "area": "Valencia",
+   "ine_province": "46",
+   "municipalities": 266,
+   "construction_eur": 66992657461.74,
+   "cadastral_eur": 121530960334.92,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES531": {
+   "share": 0.522,
+   "area": "Balears (Illes)",
+   "ine_province": "07",
+   "municipalities": 67,
+   "construction_eur": 42946619452.4,
+   "cadastral_eur": 82276782484.07,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES532": {
+   "share": 0.522,
+   "area": "Balears (Illes)",
+   "ine_province": "07",
+   "municipalities": 67,
+   "construction_eur": 42946619452.4,
+   "cadastral_eur": 82276782484.07,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES533": {
+   "share": 0.522,
+   "area": "Balears (Illes)",
+   "ine_province": "07",
+   "municipalities": 67,
+   "construction_eur": 42946619452.4,
+   "cadastral_eur": 82276782484.07,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES611": {
+   "share": 0.5215,
+   "area": "Almería",
+   "ine_province": "04",
+   "municipalities": 103,
+   "construction_eur": 18201159100.84,
+   "cadastral_eur": 34902133224.17,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES612": {
+   "share": 0.5262,
+   "area": "Cádiz",
+   "ine_province": "11",
+   "municipalities": 45,
+   "construction_eur": 28325790246.51,
+   "cadastral_eur": 53832492188.59,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES613": {
+   "share": 0.6264,
+   "area": "Córdoba",
+   "ine_province": "14",
+   "municipalities": 77,
+   "construction_eur": 18740451567.24,
+   "cadastral_eur": 29919944208.96,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES614": {
+   "share": 0.5965,
+   "area": "Granada",
+   "ine_province": "18",
+   "municipalities": 174,
+   "construction_eur": 24466111533.39,
+   "cadastral_eur": 41017870496.61,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES615": {
+   "share": 0.6155,
+   "area": "Huelva",
+   "ine_province": "21",
+   "municipalities": 80,
+   "construction_eur": 13525953419.54,
+   "cadastral_eur": 21976659931.72,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES616": {
+   "share": 0.6468,
+   "area": "Jaén",
+   "ine_province": "23",
+   "municipalities": 97,
+   "construction_eur": 15569584500.39,
+   "cadastral_eur": 24071691534.72,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES617": {
+   "share": 0.4485,
+   "area": "Málaga",
+   "ine_province": "29",
+   "municipalities": 103,
+   "construction_eur": 52966667296.94,
+   "cadastral_eur": 118101824848.87,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES618": {
+   "share": 0.5606,
+   "area": "Sevilla",
+   "ine_province": "41",
+   "municipalities": 106,
+   "construction_eur": 41517630602.18,
+   "cadastral_eur": 74054607617.66,
+   "postcodes_in_province": 0.9937,
+   "source": "es_catastro"
+  },
+  "ES620": {
+   "share": 0.5795,
+   "area": "Murcia",
+   "ine_province": "30",
+   "municipalities": 45,
+   "construction_eur": 39500798000.32,
+   "cadastral_eur": 68160412641.61,
+   "postcodes_in_province": 0.9953,
+   "source": "es_catastro"
+  },
+  "ES630": {
+   "share": 0.5416,
+   "area": "Ceuta",
+   "ine_province": "51",
+   "municipalities": 1,
+   "construction_eur": 1553406865.6,
+   "cadastral_eur": 2868258073.73,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES640": {
+   "share": 0.5312,
+   "area": "Melilla",
+   "ine_province": "52",
+   "municipalities": 1,
+   "construction_eur": 1450611168.68,
+   "cadastral_eur": 2730792214.27,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES703": {
+   "share": 0.5106,
+   "area": "Santa Cruz de Tenerife",
+   "ine_province": "38",
+   "municipalities": 54,
+   "construction_eur": 25446184878.61,
+   "cadastral_eur": 49832420717.83,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES704": {
+   "share": 0.5245,
+   "area": "Palmas (Las)",
+   "ine_province": "35",
+   "municipalities": 34,
+   "construction_eur": 27867610631.16,
+   "cadastral_eur": 53129677575.55,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES705": {
+   "share": 0.5245,
+   "area": "Palmas (Las)",
+   "ine_province": "35",
+   "municipalities": 34,
+   "construction_eur": 27867610631.16,
+   "cadastral_eur": 53129677575.55,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES706": {
+   "share": 0.5106,
+   "area": "Santa Cruz de Tenerife",
+   "ine_province": "38",
+   "municipalities": 54,
+   "construction_eur": 25446184878.61,
+   "cadastral_eur": 49832420717.83,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES707": {
+   "share": 0.5106,
+   "area": "Santa Cruz de Tenerife",
+   "ine_province": "38",
+   "municipalities": 54,
+   "construction_eur": 25446184878.61,
+   "cadastral_eur": 49832420717.83,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES708": {
+   "share": 0.5245,
+   "area": "Palmas (Las)",
+   "ine_province": "35",
+   "municipalities": 34,
+   "construction_eur": 27867610631.16,
+   "cadastral_eur": 53129677575.55,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  },
+  "ES709": {
+   "share": 0.5106,
+   "area": "Santa Cruz de Tenerife",
+   "ine_province": "38",
+   "municipalities": 54,
+   "construction_eur": 25446184878.61,
+   "cadastral_eur": 49832420717.83,
+   "postcodes_in_province": 1.0,
+   "source": "es_catastro"
+  }
+ },
+ "by_country": {
+  "DE": {
+   "share": 0.5886,
+   "lower_bound": true,
+   "year": 2024,
+   "dwellings_meur": 7408944.0,
+   "land_meur": 5179063.0,
+   "sector": "households and non-profit institutions (S14_S15)",
+   "source": "de_eurostat"
+  }
+ },
+ "not_covered": {
+  "ES": "Basque Country and Navarra (their own cadastres are not in the Catastro file)"
+ }
+}

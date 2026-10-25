@@ -2,7 +2,9 @@
 decision of 2026-10-21) — the choices the demo insurer Alpenrück made: river flood → the JRC global damage curves
 (jrc_huizinga_2017); tropical cyclone → the Eberenz 2021 curves fitted to each storm's damage (eberenz_2021_rmsf);
 coastal flood → the same JRC curves, which the coastal maps' publisher applies to coastal depths (the product owner's
-decision of 2026-10-25) — every coastal figure untested until the curves are tested on observed coastal losses.
+decision of 2026-10-25) — every coastal figure untested until the curves are tested on observed coastal losses; and, for
+a bank or a property trust, the building share of a stated value from official statistics (2026-10-25: Spain by province,
+Germany nationally as a lower bound — services/reference/building_share.py). A choice a sector cannot make is not offered.
 
 Each choice goes through the route the Methodology page uses (services.governance.config_governance.
 submit_or_apply_config), made by the organisation's own admin: applied and audited, or opened for a second approver
@@ -24,7 +26,7 @@ from core.db.session import get_session
 from services.loss import curves
 
 CHOICES = {"loss_curve_family_flood": "jrc_huizinga_2017", "loss_curve_family_storm": "eberenz_2021_rmsf",
-           "loss_curve_family_coastal_flood": "jrc_huizinga_2017"}
+           "loss_curve_family_coastal_flood": "jrc_huizinga_2017", "loss_building_share": "official_statistics"}
 
 
 def books(s, org_id: str) -> list[str]:
@@ -37,11 +39,12 @@ def books(s, org_id: str) -> list[str]:
 
 
 def main(run: bool = False) -> int:
+    from services.calc_settings import INTERPRETATION_SCHEMA as SETTINGS
     from services.calc_settings import get_calc_settings
     from services.governance.config_governance import submit_or_apply_config
     from services.loss.engine import BOOKS
     usable = curves.families()
-    missing = [v for v in CHOICES.values() if v not in usable]
+    missing = [v for k, v in CHOICES.items() if k.startswith("loss_curve_family_") and v not in usable]
     if missing:
         print(f"refused: {missing} are not usable families ({curves.refused()})")
         return 1
@@ -61,7 +64,8 @@ def main(run: bool = False) -> int:
                 print(f"  {name}: no admin user — left without a choice")
                 continue
             current = get_calc_settings(s, org_id)
-            todo = {k: v for k, v in CHOICES.items() if not current.get(k)}
+            org_type = s.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).scalar()
+            todo = {k: v for k, v in CHOICES.items() if not current.get(k) and org_type in SETTINGS[k]["sectors"]}
             status = "kept"
             if todo:
                 status = submit_or_apply_config(s, org_id=org_id, actor_user_id=admin,

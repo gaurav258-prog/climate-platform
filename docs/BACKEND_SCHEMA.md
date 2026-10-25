@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3144 table columns, 360 foreign keys, 97 unique constraints, 318 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 319 migration revisions in `core/db/migrations/versions/`, head `coastal_protection_20261023`. Extensions present: plpgsql.
+The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3145 table columns, 360 foreign keys, 97 unique constraints, 318 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 320 migration revisions in `core/db/migrations/versions/`, head `loss_value_basis_20261025`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -28,7 +28,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Golden score layer & hazard data | 21 | 234 | 2 | 1 | 0 | 1 |
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
 | Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
-| Loss engine | 6 | 89 | 2 | 1 | 1 | 6 |
+| Loss engine | 6 | 90 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
@@ -2023,6 +2023,7 @@ Foreign keys to other domains:
 | `eal_defended_ratio_high` | double precision | yes |  |  |
 | `ratio_at_rp` | jsonb | yes |  |  |
 | `protection_rp_high_years` | double precision | yes |  |  |
+| `value_basis` | jsonb | yes |  |  |
 
 - Primary key: (run_id, asset_kind, asset_id, peril)
 - Check `ck_loss_results_range`: `CHECK (((gap IS NOT NULL) OR ((eal_eur IS NOT NULL) AND (eal_low_eur IS NOT NULL) AND (eal_high_eur IS NOT NULL) AND (eal_low_eur <= eal_eur) AND (eal_eur <= eal_high_eur)) OR ((eal_ratio IS NOT NULL) AND (eal_ratio_low IS NOT NULL) AND (eal_ratio_high IS NOT NULL) AND (eal_ratio_low <= eal_ratio) AND (eal_ratio <= eal_ratio_high))))`

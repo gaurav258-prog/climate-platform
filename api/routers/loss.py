@@ -149,7 +149,7 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                CAST(lr.eal_defended_low_eur AS FLOAT) AS eal_defended_low_eur,
                CAST(lr.eal_defended_high_eur AS FLOAT) AS eal_defended_high_eur,
                lr.eal_ratio, lr.eal_ratio_low, lr.eal_ratio_high, lr.eal_defended_ratio, lr.eal_defended_ratio_low,
-               lr.eal_defended_ratio_high, lr.ratio_at_rp,
+               lr.eal_defended_ratio_high, lr.ratio_at_rp, lr.value_basis,
                COALESCE(pe.entity_name, cs.name, isf.name || ' · ' || iss.name) AS asset_name,
                COALESCE(pe.country, cs.country, isf.country) AS country
         FROM loss_results lr
@@ -273,6 +273,10 @@ def _messages_of(r: dict) -> None:
                                if r.get("protection_basis") else None)
     r["caution_message"] = (_message(r["caution_code"]) if r.get("caution_code")
                             else {"label": "Publisher's caution", "detail": {"what": r["caution"]}} if r.get("caution") else None)
+    vb = r.get("value_basis")      # the building's part of a value stated with the land, by the official share (2026-10-25)
+    r["value_message"] = (_message("loss.value.building_share_lower_bound" if vb.get("lower_bound") else "loss.value.building_share",
+                                   {"share": f"{100 * vb['share']:.1f}%", "area": vb["area"], "period": vb["period"]})
+                          if vb else None)
 
 
 def _family_name(key: Optional[str]) -> Optional[str]:

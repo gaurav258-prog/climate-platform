@@ -125,3 +125,7 @@ data/reference/supply_datasets.lock
 # official price files the lookalike books are valued from (downloaded 2026-10-23, never committed; a derived table with
 # each file's checksum is: data/demo/lookalike/prices.json)
 data/lookalike_sources/
+
+# official statistics the reference tables are built from (downloaded with approval, never committed; each derived table
+# records its source file's checksum)
+data/reference_sources/

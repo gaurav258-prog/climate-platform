@@ -12685,6 +12685,30 @@
     "what": "This proposed site was already confirmed or rejected; a decision is never changed.",
     "next": "Reload the list."
    }
+  },
+  "admin.switch.loss_building_share": {
+   "label": "Building share of a stated value",
+   "detail": {
+    "what": "Where a loan's appraised value or a property's value includes the land and no building value is stated, the building's part is taken as that value times the official building share for its place: Spain by province (the land registry's construction value over total cadastral value), Germany nationally (households' dwellings over dwellings and all their land — a lower bound, so the loss is understated). Each figure says which share it used.",
+    "why": "Flood damage curves give the share of the building lost, not of the land; a value with the land in it cannot be used as it is.",
+    "next": "Not set, such an asset's flood loss is reported as missing: 'Building value not stated'. A building value you state always comes first."
+   }
+  },
+  "loss.value.building_share": {
+   "label": "Building value from the official share",
+   "detail": {
+    "what": "The book states this asset's value with the land in it. The building's part is taken as {share} of it — the official building share for {area} ({period}).",
+    "why": "Flood damage curves give the share of the building lost, not of the land. Your organisation adopted the official share for a value stated with the land.",
+    "next": "State the asset's building value to use it instead."
+   }
+  },
+  "loss.value.building_share_lower_bound": {
+   "label": "Building value from a lower-bound share",
+   "detail": {
+    "what": "The book states this asset's value with the land in it. The building's part is taken as {share} of it — the only official figure for {area} ({period}), which is a lower bound: the loss is understated.",
+    "why": "The national figure divides households' dwellings by all the land they own, farmland and forest included, so the true building share is higher. No official share by region exists.",
+    "next": "State the asset's building value to use it instead."
+   }
   }
  },
  "names": {
@@ -13316,7 +13340,8 @@
    "period_average": "Average rate for the period",
    "closing": "Closing rate",
    "counts_as_value": "Counts as a share of value",
-   "not_counted": "Does not count"
+   "not_counted": "Does not count",
+   "official_statistics": "The official statistics"
   },
   "filing.scope_reason": {
    "basis_not_stated": "how the sector-average intensity is used is not stated (Methodology)",

@@ -141,6 +141,11 @@ INTERPRETATION_SCHEMA: dict = {
         "label": "Tropical-cyclone damage curves (loss figures)",
         "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
     },
+    "loss_building_share": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": ["official_statistics"],
+        "label": "Building share of a stated property value (loss figures)",
+        "sectors": ["bank", "reit"],
+    },
     "loss_flood_dependence": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": ["comonotonic"],
         "label": "How flood losses across the book combine",

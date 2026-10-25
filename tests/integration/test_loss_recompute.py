@@ -10,7 +10,8 @@ each, with the value they are a share of; and, for a flood figure, the defended 
 at the published protection standard where the asset stands, or none where the protection map has no level there.
 Coastal flood is read like river flood (water depth on its own maps); its defended figure — a stated range of standards —
 is not yet recomputed here.
-Reads the shared database as it is; skips where the lookalikes are not loaded."""
+Reads the shared database as it is; skips where the lookalikes are not loaded. A value derived from an official building share (the organisation's adopted basis) is
+recomputed from the book's stated value and the published share for the place."""
 from __future__ import annotations
 
 import json
@@ -123,7 +124,8 @@ def test_every_recorded_figure_is_recomputed_to_the_cent(session_rolled_back):
                    CAST(x.eal_eur AS FLOAT) AS eal, CAST(x.eal_low_eur AS FLOAT) AS eal_low,
                    CAST(x.eal_high_eur AS FLOAT) AS eal_high, x.loss_at_rp, x.flood_layer, x.protection_rp_years,
                    CAST(x.eal_defended_eur AS FLOAT) AS d, CAST(x.eal_defended_low_eur AS FLOAT) AS d_low,
-                   CAST(x.eal_defended_high_eur AS FLOAT) AS d_high, e.latitude, e.longitude
+                   CAST(x.eal_defended_high_eur AS FLOAT) AS d_high, e.latitude, e.longitude, x.value_basis,
+                   CAST(e.primary_value_eur AS FLOAT) AS book_value, e.country
             FROM loss_results x JOIN portfolio_entities e ON e.entity_id = x.asset_id
             WHERE x.run_id = CAST(:r AS uuid) AND x.gap IS NULL"""), {"r": r["run_id"]}).mappings().all()
         for f in figures:
@@ -132,7 +134,13 @@ def test_every_recorded_figure_is_recomputed_to_the_cent(session_rolled_back):
             stated = s.execute(text(f"""SELECT CAST({VALUE[(r['book'], family['damage_basis'])]} AS FLOAT)
                                         FROM {EXT[r['book']]} x WHERE x.entity_id = CAST(:a AS uuid)"""),
                                {"a": f["asset_id"]}).scalar()
-            assert abs(f["value"] - stated) < 0.005, f                               # the value the book states
+            vb = f["value_basis"]
+            if vb:                       # the book states the value with the land: its building's part by the official share
+                from services.reference.building_share import share_at
+                official = share_at(f["country"], f["latitude"], f["longitude"])
+                assert official and official["share"] == vb["share"] and vb["stated_value_eur"] == f["book_value"], f
+                stated = round(f["book_value"] * vb["share"], 2)
+            assert stated is not None and abs(f["value"] - stated) < 0.005, f        # the value the book states
             depth_peril = f["peril"] in ("flood", "coastal_flood")         # read in water depth on the asset's maps
             layer = f["flood_layer"] if depth_peril else "storm_v4_wind"
             L = LAYERS[layer]

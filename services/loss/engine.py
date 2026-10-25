@@ -373,14 +373,14 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
         raise ValueError("the issuers' sites are assessed in today's climate only")
     settings = get_calc_settings(session, org_id)
     adopted = {p: settings.get(f"loss_curve_family_{p}") for p in LAYERS}
-    assets = _assets(session, org_id, book)
-    results = []
-    from services.loss import projection
+    from services.loss import projection, stated_values
+    assets, results = stated_values.with_building_share(_assets(session, org_id, book), book, settings), []
     for a in assets:
         for peril in LAYERS:
             r = (projection.assess(session, a, peril, adopted[peril], scenario, horizon) if projected
                  else assess(session, a, peril, adopted[peril]))
-            results.append({**r, "asset_kind": a["asset_kind"], "asset_id": a["asset_id"]})
+            results.append({**r, "asset_kind": a["asset_kind"], "asset_id": a["asset_id"],
+                            "value_basis": a.get("value_basis") if r.get("exposed_value_eur") is not None else None})
     gapped = {a["asset_id"] for a in assets} - {r["asset_id"] for r in results if r["gap"] is None}
     protocol = json.loads((registry.REF / "loss_protocol.json").read_text())
     inputs = {
@@ -434,16 +434,15 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                                       model_eal, flood_layer, protection_rp_years, protection_basis, eal_defended_eur,
                                       eal_defended_low_eur, eal_defended_high_eur, caution, gap_code, gap_params,
                                       protection_code, caution_code, protection_rp_high_years, eal_ratio, eal_ratio_low,
-                                      eal_ratio_high,
-                                      eal_defended_ratio, eal_defended_ratio_low, eal_defended_ratio_high, ratio_at_rp)
+                                      eal_ratio_high, eal_defended_ratio, eal_defended_ratio_low, eal_defended_ratio_high,
+                                      ratio_at_rp, value_basis)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
                     :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
                     :eal_same_source_today_eur, CAST(:model_eal AS jsonb), :flood_layer, :protection_rp_years,
                     :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution,
                     :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code, :protection_rp_high_years,
-                    :eal_ratio, :eal_ratio_low,
-                    :eal_ratio_high, :eal_defended_ratio, :eal_defended_ratio_low, :eal_defended_ratio_high,
-                    CAST(:ratio_at_rp AS jsonb))"""),
+                    :eal_ratio, :eal_ratio_low, :eal_ratio_high, :eal_defended_ratio, :eal_defended_ratio_low,
+                    :eal_defended_ratio_high, CAST(:ratio_at_rp AS jsonb), CAST(:value_basis AS jsonb))"""),
             [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
               "eal_same_source_today_eur": None, "flood_layer": None, "protection_rp_years": None,
               "protection_basis": None, "protection_rp_high_years": None, "eal_defended_eur": None,
@@ -453,7 +452,8 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
               "gap_params": json.dumps(r["gap_params"]) if r.get("gap_params") else None,
               "loss_at_rp": json.dumps(r["loss_at_rp"]) if r.get("loss_at_rp") else None,
               "ratio_at_rp": json.dumps(r["ratio_at_rp"]) if r.get("ratio_at_rp") else None,
-              "model_eal": json.dumps(r["model_eal"]) if r.get("model_eal") else None} for r in results])
+              "model_eal": json.dumps(r["model_eal"]) if r.get("model_eal") else None,
+              "value_basis": json.dumps(r["value_basis"]) if r.get("value_basis") else None} for r in results])
     ep = _ep_points(session, run_id, results, settings)
     return {"run_id": run_id, "assets": len(assets), "with_a_figure": len(assets) - len(gapped),
             "results": len(results), "ep_points": ep, "gaps": _gap_summary(results)}
