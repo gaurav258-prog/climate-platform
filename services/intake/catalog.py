@@ -72,6 +72,10 @@ TEMPLATES: dict[str, Template] = {
                                     ("csv", "xlsx"), lambda df: T.BANK_COUNTERPARTY_TEMPLATE_FIELDS,
                                     lambda df: "total_liabilities_eur" if "total_liabilities_eur" in df.columns else None,
                                     "counterparties.upload"),
+    # a mortgaged building's energy use, one row per energy source (PCAF Part A §5.5) — after the loan tape it names
+    "bank_building_energy": Template("bank_building_energy", si.SECTORS["bank_building_energy"], "bank",
+                                     "buildings' energy use", ("csv", "xlsx"), lambda df: T.BANK_BUILDING_ENERGY_TEMPLATE_FIELDS,
+                                     lambda df: None, "building_energy.upload", sheet="Building energy"),
     "insurance_policies": Template("insurance_policies", si.INSURANCE, "insurer", "Statement of Values", ("csv", "xlsx"),
                                    lambda df: T.POLICY_TEMPLATE_FIELDS,
                                    lambda df: "sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur",

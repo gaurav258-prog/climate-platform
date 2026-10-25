@@ -45,6 +45,7 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
             rejected[rn] = "; ".join(money_problems[rn - 2])
             continue
         try:
+            ctx["sent"] = natives.get(rn - 2) or {}           # the row's amounts as sent, for a rule kept in its own currency
             rec = sector.build(ctx, n)
             if sector.group_entities:
                 rec.update(group_entity_fields(ctx, n))

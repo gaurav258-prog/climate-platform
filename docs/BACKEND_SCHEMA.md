@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3145 table columns, 360 foreign keys, 97 unique constraints, 318 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 320 migration revisions in `core/db/migrations/versions/`, head `loss_value_basis_20261025`. Extensions present: plpgsql.
+The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3163 table columns, 362 foreign keys, 98 unique constraints, 332 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 321 migration revisions in `core/db/migrations/versions/`, head `pcaf_mortgages_20261025`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -29,7 +29,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
 | Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
 | Loss engine | 6 | 90 | 2 | 1 | 1 | 6 |
-| Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
+| Financial books (bank, insurer, real estate, portfolio) | 25 | 403 | 13 | 14 | 6 | 2 |
 | Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 340 | 15 | 7 | 3 | 5 |
@@ -46,7 +46,7 @@ Foreign keys between the other domains (an arrow points from the referencing dom
 flowchart LR
   scores["Golden score layer & hazard data (21)"]
   models["Models & validation (9)"]
-  books["Financial books (bank, insurer, real estate, portfolio) (24)"]
+  books["Financial books (bank, insurer, real estate, portfolio) (25)"]
   assetmgmt["Asset management (issuers, securities, funds) (23)"]
   eudr["EUDR (14)"]
   agri["Agri-food supply chain & crops (26)"]
@@ -77,7 +77,7 @@ flowchart LR
 
 ## 2. Tenancy and access control
 
-The tenant table is `organizations`. **122 of the other 261 tables** carry an `org_id` column; 105 of them declare it a foreign key to `organizations`, and in 15 it accepts NULL. Counting every column, **118 tables** hold at least one foreign key to `organizations`; the columns other than `org_id` that do so are `actor_org_id` (1), `provisioned_org_id` (1), `recipient_org_id` (1), `regulator_org_id` (10), `subject_org_id` (3), `supervised_org_id` (6). **0 tables** have row-level security enabled and **0** row-level policies exist (`pg_class.relrowsecurity`, `pg_policies`): the database does not filter rows by tenant itself. How the application scopes reads and writes to the signed-in organisation and checks permissions: [SOFTWARE_DESCRIPTION.md §6](SOFTWARE_DESCRIPTION.md#6-security-multi-tenancy--access-control).
+The tenant table is `organizations`. **123 of the other 262 tables** carry an `org_id` column; 106 of them declare it a foreign key to `organizations`, and in 15 it accepts NULL. Counting every column, **119 tables** hold at least one foreign key to `organizations`; the columns other than `org_id` that do so are `actor_org_id` (1), `provisioned_org_id` (1), `recipient_org_id` (1), `regulator_org_id` (10), `subject_org_id` (3), `supervised_org_id` (6). **0 tables** have row-level security enabled and **0** row-level policies exist (`pg_class.relrowsecurity`, `pg_policies`): the database does not filter rows by tenant itself. How the application scopes reads and writes to the signed-in organisation and checks permissions: [SOFTWARE_DESCRIPTION.md §6](SOFTWARE_DESCRIPTION.md#6-security-multi-tenancy--access-control).
 
 | Domain | Tables | With org_id | org_id → organizations | org_id nullable | Any foreign key → organizations |
 |---|---|---|---|---|---|
@@ -87,7 +87,7 @@ The tenant table is `organizations`. **122 of the other 261 tables** carry an `o
 | Hazard events & zones | 5 | 0 | 0 | 0 | 0 |
 | Models & validation | 9 | 2 | 1 | 0 | 1 |
 | Loss engine | 6 | 1 | 1 | 0 | 1 |
-| Financial books (bank, insurer, real estate, portfolio) | 24 | 14 | 12 | 0 | 12 |
+| Financial books (bank, insurer, real estate, portfolio) | 25 | 15 | 13 | 0 | 13 |
 | Asset management (issuers, securities, funds) | 23 | 14 | 14 | 5 | 14 |
 | EUDR | 14 | 8 | 7 | 0 | 7 |
 | Agri-food supply chain & crops | 26 | 6 | 6 | 0 | 6 |
@@ -2083,7 +2083,7 @@ Foreign keys to other domains:
 - Index: `CREATE INDEX ix_loss_runs_org ON public.loss_runs USING btree (org_id, book, seq)`
 - Trigger `trg_loss_runs_guard`: BEFORE DELETE OR UPDATE for each row → `public.guard_loss_runs`
 
-### 4.7 Financial books (bank, insurer, real estate, portfolio) (24 tables)
+### 4.7 Financial books (bank, insurer, real estate, portfolio) (25 tables)
 
 ```mermaid
 erDiagram
@@ -2102,6 +2102,11 @@ erDiagram
   bank_assets {
     uuid asset_id PK
     uuid org_id FK
+  }
+  bank_building_energy {
+    uuid energy_id PK
+    uuid org_id FK
+    uuid entity_id FK
   }
   bank_counterparties {
     uuid counterparty_id PK
@@ -2191,6 +2196,7 @@ erDiagram
   asset_observations |o--o{ asset_conflicts : "client_observation_id"
   asset_observations |o--o{ asset_conflicts : "tellumen_observation_id"
   bank_assets ||--o| bank_asset_valuations : "asset_id"
+  portfolio_entities ||--o{ bank_building_energy : "entity_id"
   bank_assets ||--o{ climate_hazard_exposure : "asset_id"
   portfolio_entities ||--o| ext_banking : "entity_id"
   portfolio_entities ||--o| ext_insurance : "entity_id"
@@ -2202,7 +2208,7 @@ erDiagram
   parametric_contracts ||--o{ trigger_events : "contract_id"
 ```
 
-12 of these tables reference `organizations` (not drawn).
+13 of these tables reference `organizations` (not drawn).
 
 Foreign keys to other domains:
 
@@ -2329,6 +2335,40 @@ Foreign keys to other domains:
 - Index: `CREATE INDEX idx_bank_assets_timestamp ON public.bank_assets USING btree (org_id, created_at)`
 - Index: `CREATE INDEX ix_bank_assets_entity_id ON public.bank_assets USING btree (entity_id)`
 
+#### `bank_building_energy`
+
+> PCAF mortgages: a mortgaged building's energy use per energy source (Part A §5.5)
+
+| Column | Type | Null | Default | Key / notes |
+|---|---|---|---|---|
+| `energy_id` | uuid | no | `gen_random_uuid()` | PK |
+| `org_id` | uuid | no |  | FK → organizations.org_id (on delete cascade) |
+| `entity_id` | uuid | no |  | FK → portfolio_entities.entity_id (on delete cascade) |
+| `energy_source` | text | no |  |  |
+| `energy_basis` | text | no |  |  |
+| `annual_kwh` | numeric(18,3) | yes |  |  |
+| `kwh_per_m2` | numeric(12,3) | yes |  |  |
+| `buildings` | integer | yes |  |  |
+| `emission_factor_kg_per_kwh` | numeric(12,6) | yes |  |  |
+| `emission_factor_type` | text | yes |  |  |
+| `emission_factor_source` | text | yes |  |  |
+| `energy_year` | integer | yes |  |  |
+| `created_at` | timestamp with time zone | no | `now()` |  |
+| `updated_at` | timestamp with time zone | no | `now()` |  |
+
+- Unique `ux_bank_building_energy`: (entity_id, energy_source)
+- Check `bank_building_energy_annual_kwh_check`: `CHECK ((annual_kwh >= (0)::numeric))`
+- Check `bank_building_energy_buildings_check`: `CHECK ((buildings >= 1))`
+- Check `bank_building_energy_emission_factor_kg_per_kwh_check`: `CHECK ((emission_factor_kg_per_kwh >= (0)::numeric))`
+- Check `bank_building_energy_emission_factor_type_check`: `CHECK ((emission_factor_type = ANY (ARRAY['supplier_specific'::text, 'average'::text])))`
+- Check `bank_building_energy_energy_basis_check`: `CHECK ((energy_basis = ANY (ARRAY['metered'::text, 'energy_label'::text, 'statistics_per_m2'::text, 'statistics_per_building'::text])))`
+- Check `bank_building_energy_energy_source_check`: `CHECK ((energy_source = ANY (ARRAY['natural_gas'::text, 'heating_oil'::text, 'lpg'::text, 'coal'::text, 'electricity'::text, 'district_heating'::text, 'district_cooling'::text])))`
+- Check `bank_building_energy_energy_year_check`: `CHECK (((energy_year >= 1990) AND (energy_year <= 2100)))`
+- Check `bank_building_energy_kwh_per_m2_check`: `CHECK ((kwh_per_m2 >= (0)::numeric))`
+- Check `ck_bank_building_energy_factor`: `CHECK (((emission_factor_kg_per_kwh IS NULL) OR (emission_factor_type IS NOT NULL)))`
+- Check `ck_bank_building_energy_figure`: `CHECK ((((energy_basis = 'metered'::text) AND (annual_kwh IS NOT NULL) AND (kwh_per_m2 IS NULL) AND (buildings IS NULL)) OR ((energy_basis = ANY (ARRAY['energy_label'::text, 'statistics_per_m2'::text])) AND (kwh_per_m2 IS NOT NULL) AND (annual_kwh IS NULL) AND (buildings IS NULL)) OR ((energy_basis = 'statistics_per_building'::text) AND (annual_kwh IS NOT NULL) AND (buildings IS NOT NULL) AND (kwh_per_m2 IS NULL))))`
+- Index: `CREATE INDEX ix_bank_building_energy_org ON public.bank_building_energy USING btree (org_id)`
+
 #### `bank_counterparties`
 
 | Column | Type | Null | Default | Key / notes |
@@ -2448,15 +2488,23 @@ Foreign keys to other domains:
 | `ep_score_estimated` | boolean | yes |  |  |
 | `csrd_subject` | boolean | yes |  |  |
 | `building_value_eur` | numeric(18,2) | yes |  | The collateral building's own value, land excluded (E171) |
+| `pcaf_asset_class` | text | yes |  | The loan's PCAF asset class (Part A, 3rd ed., chapter 5): sets its attribution |
+| `property_value_at_origination_eur` | numeric(18,2) | yes |  | PCAF mortgages: the property value at loan origination (the attribution denominator) |
+| `property_value_fixed_eur` | numeric(18,2) | yes |  | PCAF mortgages: the latest property value, fixed, where the value at origination cannot be obtained |
+| `floor_area_m2` | numeric(12,2) | yes |  |  |
 
 - Check `ck_ext_banking_counterparty_subsector`: `CHECK ((counterparty_subsector = ANY (ARRAY['investment_firm'::text, 'management_company'::text, 'insurance_undertaking'::text])))`
 - Check `ck_ext_banking_cp_sector`: `CHECK ((counterparty_sector = ANY (ARRAY['central_bank'::text, 'general_government'::text, 'credit_institution'::text, 'other_financial_corporation'::text, 'non_financial_corporation'::text, 'household'::text])))`
 - Check `ck_ext_banking_ep_score`: `CHECK ((ep_score_kwh_m2 >= (0)::numeric))`
+- Check `ck_ext_banking_floor_area`: `CHECK ((floor_area_m2 > (0)::numeric))`
 - Check `ck_ext_banking_immovable`: `CHECK ((immovable_collateral = ANY (ARRAY['residential'::text, 'commercial'::text, 'repossessed'::text, 'none'::text])))`
 - Check `ck_ext_banking_instrument_type`: `CHECK ((instrument_type = ANY (ARRAY['loans_and_advances'::text, 'debt_securities'::text, 'equity_instruments'::text, 'derivatives'::text, 'on_demand_interbank'::text, 'cash'::text, 'other_assets'::text])))`
 - Check `ck_ext_banking_loan_purpose`: `CHECK ((loan_purpose = ANY (ARRAY['building_renovation'::text, 'motor_vehicle'::text, 'housing'::text, 'other'::text])))`
+- Check `ck_ext_banking_pcaf_asset_class`: `CHECK ((pcaf_asset_class = ANY (ARRAY['listed_equity_corporate_bonds'::text, 'business_loans_unlisted_equity'::text, 'project_finance'::text, 'commercial_real_estate'::text, 'mortgages'::text, 'motor_vehicle_loans'::text, 'use_of_proceeds'::text, 'securitization_structured_products'::text, 'sovereign_debt'::text, 'sub_sovereign_debt'::text])))`
 - Check `ck_ext_banking_taxonomy_contribution`: `CHECK ((taxonomy_contribution = ANY (ARRAY['transitional'::text, 'enabling'::text, 'adaptation'::text, 'none'::text])))`
 - Check `ck_ext_banking_taxonomy_objective`: `CHECK ((taxonomy_objective = ANY (ARRAY['ccm'::text, 'cca'::text, 'wtr'::text, 'ce'::text, 'ppc'::text, 'bio'::text])))`
+- Check `ck_ext_banking_value_at_origination`: `CHECK ((property_value_at_origination_eur > (0)::numeric))`
+- Check `ck_ext_banking_value_fixed`: `CHECK ((property_value_fixed_eur > (0)::numeric))`
 - Check `ext_banking_building_value_eur_check`: `CHECK ((building_value_eur > (0)::numeric))`
 
 #### `ext_insurance`

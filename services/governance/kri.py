@@ -328,10 +328,13 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
         return a.get("headline_score") is not None and a["headline_score"] >= level
 
     if seg_type == "scope" and seg_value in ("1", "2", "3"):
-        def keep(a):
-            return (a.get(f"ghg{seg_value}") or 0) > 0
+        # the loans behind one scope's bar: each by its part of that scope's financed figure — the attributed emissions
+        # the bar sums (services.scoring.pcaf.asset_financed), mortgages included
+        from services.scoring.pcaf import asset_financed
         def weight(a):
-            return a.get(f"ghg{seg_value}") or 0
+            return asset_financed(a)[f"scope{seg_value}"] or 0.0
+        def keep(a):
+            return weight(a) > 0
         unit = "num"
     elif seg_type == "hazard" and seg_value:
         def keep(a):
@@ -353,11 +356,10 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
                 return _section(a.get("nace_code")) in HIGH_CLIMATE_NACE
             return True                               # total_value / fin_emissions → whole book
         def _pcaf_weight(a):
-            # per-asset PCAF-attributed emissions -- an asset with no EVIC has no attributed value (0, excluded
-            # below), the same rule the pooled figure uses; never mixes an unattributed asset into this drill.
-            from services.scoring.pcaf import attribution_factor
-            af = attribution_factor(a.get("outstanding_loan_balance_eur"), a.get("evic_eur"))
-            return af * sum((a.get(f"ghg{i}") or 0) for i in (1, 2, 3)) if af is not None else 0.0
+            # each loan's part of the KRI's figure, by the rules the figure sums (services.scoring.pcaf.asset_financed):
+            # a company stating all three scopes, a mortgage's scope 1 and 2 — 0 (excluded below) where it is not counted
+            from services.scoring.pcaf import asset_financed
+            return asset_financed(a)["total"] or 0.0
         weight = _pcaf_weight if kri_key == "fin_emissions" else _val
         unit = "num" if kri_key == "fin_emissions" else "eur"
 

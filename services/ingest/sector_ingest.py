@@ -23,6 +23,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest import (
+    bank_building_energy as _bank_energy,  # a mortgaged building's energy use per source (PCAF mortgages)
+)
+from services.ingest import (
     bank_counterparties as _bank_cp,  # the banking book's counterparties (one counterparty, one figure)
 )
 from services.ingest import (
@@ -82,20 +85,84 @@ _PE_COMMON = ("entity_name", "latitude", "longitude", "h3_cell", "region", "coun
 # attributes a household's mortgage by the property's value, a sovereign by GDP, never by an EVIC
 NO_ENTERPRISE_VALUE = ("household", "general_government", "central_bank")
 
+
+def _bank_prepare(session: Session, org_id: str) -> dict:
+    """The holding entities, and each loan's fixed property value (PCAF §5.5: kept for the following years) by its asset
+    ID — as stored in EUR and as it was sent, so a re-sent tape is compared in the loan's own currency."""
+    fixed = {r["external_ref"]: dict(r) for r in session.execute(text("""
+        SELECT e.external_ref, CAST(x.property_value_fixed_eur AS FLOAT) AS eur,
+               COALESCE(e.money_source->'fields'->'property_value_fixed_eur',
+                        x.money_source->'fields'->'property_value_fixed_eur') AS sent
+        FROM portfolio_entities e JOIN ext_banking x ON x.entity_id = e.entity_id
+        WHERE e.org_id = CAST(:o AS uuid) AND e.vertical = 'banking' AND e.source = 'own'
+          AND e.external_ref IS NOT NULL AND x.property_value_fixed_eur IS NOT NULL
+    """), {"o": org_id}).mappings().all()}
+    return {**_default_entity(session, org_id), "fixed_values": fixed}
+
+
+def _same_amount(stored: dict, eur: float, sent: dict | None) -> bool:
+    """A re-sent amount equals the stored one: in the currency it was first sent in where both are on record, else in EUR."""
+    first = stored.get("sent") or {}
+    if first.get("amount") is not None and sent and sent.get("amount") is not None:
+        return (str(first.get("currency") or "").upper() == str(sent.get("currency") or "").upper()
+                and abs(float(first["amount"]) - float(sent["amount"])) < 0.005)
+    return abs(float(stored["eur"]) - eur) < 0.005
+
+
+def _property_values(ctx: dict, row: dict) -> dict:
+    """PCAF mortgages (§5.5): the property's value at origination, or — where it cannot be obtained — the latest value
+    the bank fixes instead. A fixed value is kept for the following years: it needs the loan's own id to be kept by,
+    a blank keeps the one stored, and a different one is refused."""
+    v0, vf = _m(row, "property_value_at_origination_eur"), _m(row, "property_value_fixed_eur")
+    for k, v in (("property_value_at_origination_eur", v0), ("property_value_fixed_eur", vf)):
+        if v is not None and v <= 0:
+            raise RowIssue(f"{field_name(k)} must be greater than zero")
+    ref = _s(row, "external_ref")
+    stored = (ctx.get("fixed_values") or {}).get(ref) if ref else None
+    if vf is not None:
+        if not ref:
+            raise RowIssue(f"{field_name('property_value_fixed_eur')} needs {field_name('external_ref')}: the value is "
+                           "kept fixed for that loan in the following years")
+        if stored is not None and not _same_amount(stored, vf, (ctx.get("sent") or {}).get("property_value_fixed_eur")):
+            raise RowIssue(f"{field_name('property_value_fixed_eur')} is fixed for this loan at the value first stated "
+                           f"(EUR {stored['eur']:,.2f}): it stays for the following years — leave it blank or state "
+                           "that value")
+    elif stored is not None:
+        vf = stored["eur"]                       # a blank keeps the fixed value
+    return {"property_value_at_origination_eur": v0, "property_value_fixed_eur": vf}
+
+
+def _bank_evic(row: dict, cp_sector: str | None, pcaf_class: str | None) -> float | None:
+    """The counterparty's enterprise value: the PCAF attribution denominator of a company's loan in an asset class
+    attributed by it (listed equity and bonds, business loans), so required there. A household, government or central
+    bank has none (E322); a loan in another asset class — a mortgage, a commercial real-estate loan — is attributed by its
+    own denominator, so an EVIC is not asked for (it may be given for a company)."""
+    from services.scoring.pcaf_mortgages import evic_classes
+    if cp_sector in NO_ENTERPRISE_VALUE:
+        if _m(row, "counterparty_evic_eur") is not None:
+            from core.messages import name as _name
+            raise RowIssue(f"{_name('onboarding.vocab.counterparty_sector', cp_sector)} has no "
+                           f"{field_name('counterparty_evic_eur')} — leave it blank")
+        return None
+    if pcaf_class is not None and pcaf_class not in evic_classes():
+        evic = _m(row, "counterparty_evic_eur")
+        if evic is not None and evic <= 0:
+            raise RowIssue(f"{field_name('counterparty_evic_eur')} must be greater than zero")
+        return evic
+    return _positive(row, "counterparty_evic_eur", field_name("counterparty_evic_eur"))
+
+
 def _bank_build(ctx: dict, row: dict) -> dict:
     lat, lon, cell = _location(row)
     name, atype, sector = _s(row, "asset_name"), _s(row, "asset_type"), _s(row, "sector")
     if not (name and atype and sector):
         raise RowIssue(f"{field_name('asset_name')}, {field_name('asset_type').lower()} and {field_name('sector').lower()} are required")
     cp_sector = _vocab(row, "counterparty_sector", "counterparty_sector")
-    if cp_sector in NO_ENTERPRISE_VALUE:          # a household, government or central bank has no enterprise value (E322)
-        if _m(row, "counterparty_evic_eur") is not None:
-            from core.messages import name as _name
-            raise RowIssue(f"{_name('onboarding.vocab.counterparty_sector', cp_sector)} has no "
-                           f"{field_name('counterparty_evic_eur')} — leave it blank")
-        evic = None
-    else:
-        evic = _positive(row, "counterparty_evic_eur", field_name("counterparty_evic_eur"))
+    pcaf_class = _vocab(row, "pcaf_asset_class", "pcaf_asset_class")
+    evic = _bank_evic(row, cp_sector, pcaf_class)
+    floor = _m(row, "floor_area_m2")
+    if floor is not None and floor <= 0:
+        raise RowIssue(f"{field_name('floor_area_m2')} must be greater than zero")
     origination = _s(row, "loan_origination_date")
     return {"entity_name": name, "entity_type": atype, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": _s(row, "region"), "country": _s(row, "country"),
@@ -110,7 +177,8 @@ def _bank_build(ctx: dict, row: dict) -> dict:
             "no_stated_maturity": _bool(row, "no_stated_maturity"),
             "counterparty_sector": cp_sector,
             "immovable_collateral": _vocab(row, "immovable_collateral", "immovable_collateral"),
-            "building_value_eur": _m(row, "building_value_eur"), "occupancy": _vocab(row, "occupancy", "occupancy")}
+            "building_value_eur": _m(row, "building_value_eur"), "occupancy": _vocab(row, "occupancy", "occupancy"),
+            "pcaf_asset_class": pcaf_class, **_property_values(ctx, row), "floor_area_m2": floor}
 
 
 def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
@@ -128,10 +196,12 @@ def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     session.execute(text("""
         INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status,
                                  counterparty_evic_eur, counterparty_govt_level, no_stated_maturity, counterparty_sector,
-                                 immovable_collateral, building_value_eur)
+                                 immovable_collateral, building_value_eur, pcaf_asset_class,
+                                 property_value_at_origination_eur, property_value_fixed_eur, floor_area_m2)
         VALUES (CAST(:entity_id AS uuid), :outstanding_loan_balance_eur, CAST(:loan_origination_date AS date), 'not_assessed',
                 :counterparty_evic_eur, :counterparty_govt_level, :no_stated_maturity, :counterparty_sector, :immovable_collateral,
-                :building_value_eur)
+                :building_value_eur, :pcaf_asset_class, :property_value_at_origination_eur, :property_value_fixed_eur,
+                :floor_area_m2)
     """), recs)
 
 
@@ -145,7 +215,9 @@ def _bank_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
                loan_origination_date = CAST(:loan_origination_date AS date), counterparty_evic_eur = :counterparty_evic_eur,
                counterparty_govt_level = :counterparty_govt_level, no_stated_maturity = :no_stated_maturity,
                counterparty_sector = :counterparty_sector, immovable_collateral = :immovable_collateral,
-               building_value_eur = :building_value_eur
+               building_value_eur = :building_value_eur, pcaf_asset_class = :pcaf_asset_class,
+               property_value_at_origination_eur = :property_value_at_origination_eur,
+               property_value_fixed_eur = :property_value_fixed_eur, floor_area_m2 = :floor_area_m2
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
@@ -154,13 +226,17 @@ BANK = Sector("bank_assets", "entity_name", "primary_value_eur",
               _PE_COMMON + ("entity_type", "sector", "borrower_entity_id", "minimum_safeguards_status",
                             "outstanding_loan_balance_eur", "loan_origination_date", "counterparty_evic_eur", "counterparty_govt_level",
                             "no_stated_maturity", "counterparty_sector", "immovable_collateral", "building_value_eur",
-                            "occupancy"),
-              _default_entity, _bank_build,
+                            "occupancy", "pcaf_asset_class", "property_value_at_origination_eur", "property_value_fixed_eur",
+                            "floor_area_m2"),
+              _bank_prepare, _bank_build,
               _pe_existing("banking", """, CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
                            to_char(x.loan_origination_date, 'YYYY-MM-DD') AS loan_origination_date,
                            CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur, x.counterparty_govt_level,
                            CAST(x.building_value_eur AS FLOAT) AS building_value_eur,
-                           x.no_stated_maturity, x.counterparty_sector, x.immovable_collateral""",
+                           x.no_stated_maturity, x.counterparty_sector, x.immovable_collateral, x.pcaf_asset_class,
+                           CAST(x.property_value_at_origination_eur AS FLOAT) AS property_value_at_origination_eur,
+                           CAST(x.property_value_fixed_eur AS FLOAT) AS property_value_fixed_eur,
+                           CAST(x.floor_area_m2 AS FLOAT) AS floor_area_m2""",
                            "LEFT JOIN ext_banking x ON x.entity_id = e.entity_id"),
               _bank_insert, _bank_update, group_entities=True)
 
@@ -724,7 +800,8 @@ YEAR_END = Sector("site_year_end_values", "site_name", "carrying_amount_eur", tu
                   table="site_period_values", id_column="value_id", history=True)
 
 
-SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, _bank_cp.COUNTERPARTIES, INSURANCE, REALESTATE, HOLDINGS, PLOTS, SITES,
+SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, _bank_cp.COUNTERPARTIES, _bank_energy.BUILDING_ENERGY, INSURANCE,
+                                                 REALESTATE, HOLDINGS, PLOTS, SITES,
                                                  YEAR_END, *_eudr.SECTORS, *_funds.SECTORS)}
 
 

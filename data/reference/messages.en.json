@@ -4836,8 +4836,8 @@
   "kri.indicator.financed_emissions": {
    "label": "Emissions you finance",
    "detail": {
-    "what": "Counterparty emissions, scopes 1 to 3, in tonnes of CO₂ equivalent, attributed by the share you finance: the outstanding loan divided by the counterparty's enterprise value including cash, capped at 100%. Only counterparties that state all three scopes and carry an enterprise value are summed.",
-    "why": "A counterparty that states no emissions is not counted as zero."
+    "what": "Company loans: the counterparty's emissions, scopes 1 to 3, in tonnes of CO₂ equivalent, attributed by the outstanding loan divided by its enterprise value including cash, capped at 100%; only counterparties that state all three scopes are summed. Mortgages: the home's scope 1 and 2 emissions from the energy it uses, attributed by the outstanding balance divided by the property's value when the loan was made.",
+    "why": "A counterparty or home that states no emissions is not counted as zero. Each mortgage carries the standard's data quality score, from 1 (metered energy and the supplier's own factors) to 5 (statistics per building); the book's score is weighted by outstanding balance."
    }
   },
   "kri.indicator.financed_emissions_filed": {
@@ -12505,6 +12505,12 @@
     "what": "One row per counterparty: its total liabilities and revenue, stated once and used by every loan to it."
    }
   },
+  "intake.book.bank_building_energy": {
+   "label": "Your mortgaged homes' energy use",
+   "detail": {
+    "what": "One row per mortgage and energy source: where the figure comes from (metered, the energy label or statistics), the energy a year, and the source's emission factor — what each home's financed emissions are computed from."
+   }
+  },
   "intake.book.insurance_policies": {
    "label": "Your insured locations",
    "detail": {
@@ -12708,6 +12714,73 @@
     "what": "The book states this asset's value with the land in it. The building's part is taken as {share} of it — the only official figure for {area} ({period}), which is a lower bound: the loss is understated.",
     "why": "The national figure divides households' dwellings by all the land they own, farmland and forest included, so the true building share is higher. No official share by region exists.",
     "next": "State the asset's building value to use it instead."
+   }
+  },
+  "pcaf.mortgage.gap.no_outstanding": {
+   "label": "No outstanding balance",
+   "detail": {
+    "what": "The loan's outstanding balance is not stated: it is the part of the property you finance.",
+    "next": "State the outstanding balance on the loan tape."
+   }
+  },
+  "pcaf.mortgage.gap.no_property_value": {
+   "label": "No property value at origination",
+   "detail": {
+    "what": "The share of the home's emissions you finance is the outstanding balance divided by the property's value when the loan was made. Neither that value nor a fixed latest value is stated.",
+    "next": "State the property value at origination. Where it cannot be obtained, state the latest value you have, kept fixed for the following years."
+   }
+  },
+  "pcaf.mortgage.gap.label_without_energy": {
+   "label": "Energy label without its energy use",
+   "detail": {
+    "what": "The home's energy label class is stated, but not its energy use: a class is a range, not a figure.",
+    "next": "Send the home's energy use per energy source on the building energy sheet: per m² from its energy label, metered, or from statistics."
+   }
+  },
+  "pcaf.mortgage.gap.no_energy": {
+   "label": "Home's energy use not stated",
+   "detail": {
+    "what": "No energy use is stated for the home, so its emissions cannot be computed.",
+    "next": "Send the home's energy use per energy source on the building energy sheet."
+   }
+  },
+  "pcaf.mortgage.gap.no_floor_area": {
+   "label": "No floor area",
+   "detail": {
+    "what": "An energy use per m² is multiplied by the home's floor area, which is not stated.",
+    "next": "State the floor area on the loan tape, in the same kind of floor area as the energy figure."
+   }
+  },
+  "pcaf.mortgage.gap.no_emission_factor": {
+   "label": "No emission factor",
+   "detail": {
+    "what": "An energy source of the home has no emission factor (kilograms of CO₂ equivalent per kWh).",
+    "next": "State the factor and whether it is the supplier's own or the average for the area."
+   }
+  },
+  "pcaf.mortgage.score.mixed": {
+   "label": "Quality score not defined: mixed data",
+   "detail": {
+    "what": "The home's energy sources are read in different ways. The standard's data quality table scores one way per home and none for a mix; the emissions are still computed from the stated figures."
+   }
+  },
+  "pcaf.mortgage.score.no_option": {
+   "label": "Quality score not defined for this data",
+   "detail": {
+    "what": "An estimated energy use with the supplier's own emission factor is not one of the standard's data quality options; the emissions are still computed from the stated figures."
+   }
+  },
+  "pcaf.class.not_stated": {
+   "label": "Asset class not stated",
+   "detail": {
+    "what": "The loan's counterparty has no enterprise value, and the loan's asset class in the financed emissions standard is not stated, so no method attributes its emissions.",
+    "next": "State its asset class: mortgages for a loan to buy or refinance a home lived in."
+   }
+  },
+  "pcaf.class.not_built": {
+   "label": "Method for this asset class not built yet",
+   "detail": {
+    "what": "Financed emissions of {asset_class} are not computed yet: the standard attributes them by a method of their own."
    }
   }
  },
@@ -13243,7 +13316,12 @@
    "tested_figures": "Tested figures carried",
    "figures_not_tested": "Figures not carried (curve held or untested)",
    "figures_missing": "Figures that could not be worked out",
-   "flood_lead": "Flood loss that leads"
+   "flood_lead": "Flood loss that leads",
+   "mortgages_financed": "Mortgages: emissions you finance",
+   "mortgages_with_figure": "Mortgages with a figure",
+   "mortgages_covered": "Share of mortgage lending covered",
+   "mortgages_quality": "Mortgage data quality (1 best, 5 lowest)",
+   "mortgages_above_value": "Mortgages above the property's value"
   },
   "kri.unit": {
    "tCO2eq": "tonnes of CO₂ equivalent",
@@ -13919,6 +13997,38 @@
   "loss.projection_measure": {
    "depth": "water depth",
    "wind": "wind at each return period"
+  },
+  "onboarding.vocab.pcaf_asset_class": {
+   "listed_equity_corporate_bonds": "Listed equity and corporate bonds",
+   "business_loans_unlisted_equity": "Business loans and unlisted equity",
+   "project_finance": "Project finance",
+   "commercial_real_estate": "Commercial real estate",
+   "mortgages": "Mortgages",
+   "motor_vehicle_loans": "Motor vehicle loans",
+   "use_of_proceeds": "Use of proceeds structures",
+   "securitization_structured_products": "Securitisations and structured products",
+   "sovereign_debt": "Sovereign debt",
+   "sub_sovereign_debt": "Sub-sovereign debt"
+  },
+  "onboarding.vocab.energy_source": {
+   "natural_gas": "Natural gas",
+   "heating_oil": "Heating oil",
+   "lpg": "Liquefied petroleum gas",
+   "coal": "Coal",
+   "electricity": "Electricity",
+   "district_heating": "District heating",
+   "district_cooling": "District cooling",
+   "biomass": "Wood or other biomass"
+  },
+  "onboarding.vocab.energy_basis": {
+   "metered": "Metered consumption",
+   "energy_label": "From the energy label",
+   "statistics_per_m2": "Statistics per m²",
+   "statistics_per_building": "Statistics per building"
+  },
+  "onboarding.vocab.emission_factor_type": {
+   "supplier_specific": "The supplier's own factor",
+   "average": "Average for the area"
   }
  }
 }

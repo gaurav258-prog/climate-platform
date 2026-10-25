@@ -184,6 +184,17 @@ def book_kri(session: Session, org_id: str) -> dict:
         *([fact("all_scopes", pcaf["n_attributed_all_scopes"], "num")] if "n_attributed_all_scopes" in pcaf else []),
         *([fact("not_attributed", pcaf["not_covered_total"], "t")] if pcaf.get("not_covered_total") else []),
     ]
+    mort = pcaf.get("mortgages") or {}
+    if mort.get("n_loans"):                  # PCAF mortgages (services/scoring/pcaf_mortgages.py), with their quality score
+        pcaf_facts += [
+            fact("mortgages_financed", mort.get("scope12"), "t"),
+            fact("mortgages_with_figure", f"{mort.get('n_with_emissions', 0):,} of {mort['n_loans']:,}", "text"),
+            fact("mortgages_covered", mort.get("coverage_pct"), "pct"),
+            fact("mortgages_quality", mort.get("dq_score"), "num"),
+            *([fact("mortgages_above_value", mort["n_attribution_above_one"], "num")]
+              if mort.get("n_attribution_above_one") else []),
+        ]
+    attributed_any = pcaf.get("n_evic_covered") or mort.get("n_with_emissions")
     kpis = [
         _kpi("total_value", "Total book value", total, "eur", about=msg("kri.indicator.total_value")),
         _kpi("value_at_risk", "Value at material physical risk", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
@@ -201,8 +212,8 @@ def book_kri(session: Session, org_id: str) -> dict:
              facts=[fact("largest_sector", NACE_SECTIONS.get(top, "Unclassified"), "text"),
                     fact("largest_sector_share", _share(cs["top_sector_val"]), "pct")] if top else []),
         _kpi("coverage", "Book scored", cov, "pct", about=msg("kri.indicator.coverage")),
-        # PCAF-attributed, over the counterparties that state emissions AND carry EVIC — none attributable is no figure
-        _kpi("fin_emissions", "Financed emissions", financed_total(em) if pcaf.get("n_evic_covered") else None, "num",
+        # PCAF-attributed: companies stating emissions with an EVIC, mortgages with a figure — none attributable is no figure
+        _kpi("fin_emissions", "Financed emissions", financed_total(em) if attributed_any else None, "num",
              about=msg("kri.indicator.financed_emissions"), facts=pcaf_facts),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct",
              about=msg("kri.indicator.taxonomy_eligible")),

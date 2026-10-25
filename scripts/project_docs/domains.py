@@ -26,7 +26,7 @@ DOMAINS: list[tuple[str, str, list[str]]] = [
     ("loss", "Loss engine", [
         "hazard_intensity_samples", "flood_protection_samples", "loss_*", "asset_building_matches"]),
     ("books", "Financial books (bank, insurer, real estate, portfolio)", [
-        "bank_assets", "bank_asset_valuations", "bank_counterparties", "insurance_*", "insurer_incurred_losses",
+        "bank_assets", "bank_asset_valuations", "bank_counterparties", "bank_building_energy", "insurance_*", "insurer_incurred_losses",
         "parametric_contracts", "trigger_events", "realestate_*", "portfolio_entit*", "ext_*",
         "climate_hazard_exposure", "loan_arrears", "gl_balance", "customer_locations", "asset_observations",
         "asset_conflicts", "site_period_values", "third_party", "scenario_financial_impact"]),
