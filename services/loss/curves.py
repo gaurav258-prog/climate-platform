@@ -6,6 +6,9 @@ curve within it.
 A family file:
   family, peril, metric, unit           e.g. "huizinga_2017", "flood", "water_depth", "m" — the metric and unit of an
                                         intensity layer of the same peril (data/reference/hazard_intensity_layers.json)
+  also_perils {peril: {basis, sources}}  further perils the curves are published for, each with the quoted basis that
+                                        they apply to it and its sources; a test recorded on the family or a curve was
+                                        run on the family's own peril and decides only that peril's standing
   damage_basis                          what the ratio is a share of: "building", "contents" or "building_and_contents"
   source {authors, year, title, publisher, url, file, sha256}   the publication, and the copy held
   licence                               as the publisher states it
@@ -39,8 +42,12 @@ def check_family(doc: dict) -> list[str]:
     """Every problem in one family document; empty when it is sound."""
     out = []
     fam = doc.get("family", "?")
-    if (doc.get("peril"), doc.get("metric"), doc.get("unit")) not in registry.measures():
-        out.append(f"{fam}: no intensity layer measures {doc.get('peril')} as {doc.get('metric')} in {doc.get('unit')}")
+    for peril in (doc.get("peril"), *(doc.get("also_perils") or {})):
+        if (peril, doc.get("metric"), doc.get("unit")) not in registry.measures():
+            out.append(f"{fam}: no intensity layer measures {peril} as {doc.get('metric')} in {doc.get('unit')}")
+    for peril, a in (doc.get("also_perils") or {}).items():
+        if peril == doc.get("peril") or not (a.get("basis") and a.get("sources")):
+            out.append(f"{fam}: a further peril ({peril}) needs its quoted basis and its sources")
     if doc.get("damage_basis") not in BASES:
         out.append(f"{fam}: damage basis must be one of {sorted(BASES)}")
     src = doc.get("source") or {}
@@ -135,6 +142,11 @@ def refused() -> dict[str, list[str]]:
 
 def reload() -> None:
     _load_version.cache_clear()
+
+
+def perils(family: dict) -> tuple[str, ...]:
+    """The perils a family's curves serve: its own, then any further peril registered with its quoted basis."""
+    return (family["peril"], *(family.get("also_perils") or {}))
 
 
 def curve_for(family: str, occupancy: str, country: str) -> dict | None:

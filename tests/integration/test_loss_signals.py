@@ -35,7 +35,7 @@ def _reit(s, monkeypatch, elections: dict) -> str:
     s.execute(text("""INSERT INTO approval_policy (org_id, action_key, requires_approval) VALUES (:o, 'risk.decision', FALSE)
                       ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL DO UPDATE SET requires_approval = FALSE"""),
               {"o": ORG})
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "published")
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: "published")
     return ORG
 
 
@@ -74,7 +74,7 @@ def test_no_run_and_no_tested_figure_are_named(session_rolled_back, monkeypatch)
     s = session_rolled_back
     _reit(s, monkeypatch, {})
     assert signals.yearly_loss(s, ORG)["why"] == "loss.signal.no_run"
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "held")
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: "held")
     _asset(s, ORG)
     _storm_samples(s)
     engine.run(s, ORG, "realestate")
@@ -167,7 +167,7 @@ def test_the_route_answers_in_customer_words(session_rolled_back, monkeypatch):
     assert out["n"] == 2 and out["notice"] is None and out["policy"]["requires_approval"] is False
     assert {f["peril_name"] for x in out["signals"] for f in x["figures"]} == {"tropical cyclone"}
     assert out["gaps"] and out["withheld"]["gap"] >= 1
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "held")
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: "held")
     engine.run(s, ORG, "realestate")
     out = R.loss_signals(s, ctx={"org": {"org_id": ORG, "type": "reit"}, "user": {"id": _actor(s)}})
     assert out["n"] == 0 and out["notice"]["code"] == "loss.signal.no_tested_figure" and out["notice"]["label"]

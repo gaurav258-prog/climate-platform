@@ -20,7 +20,8 @@ router = APIRouter(prefix="/v1/loss", tags=["Loss"])
 def _family_view(key: str, f: dict) -> dict:
     from core import messages
     t = f.get("test") or {}
-    return {"family": key, "name": messages.names().get("family", {}).get(key, key), "kind": f.get("kind", "published"), "peril": f["peril"], "metric": f["metric"], "unit": f["unit"],
+    from services.loss.curves import perils
+    return {"family": key, "name": messages.names().get("family", {}).get(key, key), "kind": f.get("kind", "published"), "peril": f["peril"], "perils": list(perils(f)), "metric": f["metric"], "unit": f["unit"],
             "damage_basis": f.get("damage_basis"), "source": f.get("source"), "licence": f.get("licence"),
             "curves": [{"key": c["key"], "occupancy": c["occupancy"], "region": c.get("region"),
                         "countries": c["countries"], "points": c["points"], "bands": c.get("bands"),
@@ -36,11 +37,11 @@ def _family_view(key: str, f: dict) -> dict:
 @router.get("/families", summary="Damage-curve families: usable ones with their test, refused ones with why, and the adopted")
 def families(session: DbSession, ctx: dict = Depends(require_permission("modules.view"))):
     from services.calc_settings import get_calc_settings
-    from services.loss import curves
+    from services.loss import curves, engine
     settings = get_calc_settings(session, ctx["org"]["org_id"])
     return {"families": [_family_view(k, f) for k, f in sorted(curves.families().items())],
             "refused": [{"family": k, "name": _family_name(k), "reasons": v} for k, v in sorted(curves.refused().items())],
-            "adopted": {p: settings.get(f"loss_curve_family_{p}") for p in ("flood", "storm")},
+            "adopted": {p: settings.get(f"loss_curve_family_{p}") for p in engine.LAYERS},
             "dependence": {"flood": settings.get("loss_flood_dependence")},
             "headline": {"flood": settings.get("loss_flood_headline")}}
 
@@ -92,20 +93,30 @@ def start_run(body: RunRequest, ctx: dict = Depends(require_permission("reports.
     return {"status": "started", "book": body.book, "scenario": body.scenario, "horizon": body.horizon, "job": job}
 
 
-@router.get("/projection", summary="What a projected run can serve: scenarios and horizons, and why the rest are gaps")
+@router.get("/projection", summary="What a projected run can serve, per hazard: scenarios and horizons, and why the rest are gaps")
 def projection(ctx: dict = Depends(require_permission("modules.view"))):
-    from services.loss import engine, registry
-    L = registry.layer(engine.PROJECTED_FLOOD)
-    from services.loss import timeline
+    from services.loss import engine, registry, timeline
+    from services.loss import gaps as G
+    from services.loss import projection as P
 
-    def cell(sc: str, h: str) -> dict:
-        g = engine.projection_gap("flood", sc, h)
+    def cell(peril: str, sc: str, h: str) -> dict:
+        g = P.gap(peril, sc, h)
         return {"scenario": sc, "horizon": h, "gap": g and _message(g["gap_code"], g["gap_params"]),
-                "placement": None if g else _placement_message(sc, h, {"placement": timeline.place(engine.PROJECTED_FLOOD, sc, h)})}
-    cells = [cell(sc, h) for sc in engine.SCENARIOS if sc != "baseline" for h in engine.HORIZONS if h != "current"]
-    return {"source": L["source"], "citation": L["citation"], "licence": L["licence"], "periods": L["periods"],
-            "models": L["models"], "use": L["use"], "present_day_check": L.get("present_day_check"), "flood": cells,
-            "storm": _message("loss.gap.no_projection_peril", {"peril": "tropical cyclone"})}
+                "placement": None if g else _placement_message(
+                    sc, h, {"key": P.SOURCES[peril], "placement": timeline.place(P.SOURCES[peril], sc, h)}, peril)}
+    out = {}
+    for peril in engine.LAYERS:
+        key = P.SOURCES.get(peril)
+        if key is None:
+            out[peril] = {"gap": _message("loss.gap.no_projection_peril", {"peril": G.peril_name(peril)}), "cells": []}
+            continue
+        L = registry.layer(key)
+        out[peril] = {"source": L["source"], "citation": L.get("citation"), "licence": L["licence"],
+                      "periods": L["periods"], "members": P.members(L), "use": L["use"],
+                      "present_day_check": L.get("present_day_check"),
+                      "cells": [cell(peril, sc, h) for sc in engine.SCENARIOS if sc != "baseline"
+                                for h in engine.HORIZONS if h != "current"]}
+    return {"perils": out}
 
 
 @router.get("/runs", summary="This org's loss runs, newest first")
@@ -132,7 +143,7 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                lr.occupancy, lr.curve_key, CAST(lr.eal_eur AS FLOAT) AS eal_eur, CAST(lr.eal_low_eur AS FLOAT) AS eal_low_eur,
                CAST(lr.eal_high_eur AS FLOAT) AS eal_high_eur, lr.standing, lr.loss_at_rp, lr.gap,
                CAST(lr.eal_same_source_today_eur AS FLOAT) AS eal_same_source_today_eur, lr.model_eal,
-               lr.flood_layer, lr.protection_rp_years, lr.protection_basis, lr.caution,
+               lr.flood_layer, lr.protection_rp_years, lr.protection_rp_high_years, lr.protection_basis, lr.caution,
                lr.gap_code, lr.gap_params, lr.protection_code, lr.caution_code,
                CAST(lr.eal_defended_eur AS FLOAT) AS eal_defended_eur,
                CAST(lr.eal_defended_low_eur AS FLOAT) AS eal_defended_low_eur,
@@ -173,16 +184,22 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                                        "eal_same_source_today_eur": None, "defended_results": 0,
                                        "eal_defended_low_eur": 0.0, "eal_defended_eur": 0.0, "eal_defended_high_eur": 0.0,
                                        "eal_undefended_same_results_eur": 0.0, "protection_unknown_results": 0,
-                                       "eal_protection_unknown_eur": 0.0})
+                                       "eal_protection_unknown_eur": 0.0, "defended_range_results": 0,
+                                       "eal_defended_range_low_eur": 0.0, "eal_defended_range_high_eur": 0.0})
         t["results"] += 1
         for f in ("eal_low_eur", "eal_eur", "eal_high_eur"):
             t[f] = round(t[f] + (r[f] or 0.0), 2)
+        if r["eal_defended_low_eur"] is not None:           # every defended figure, a level or a range: low and high
+            t["defended_range_results"] += 1
+            t["eal_defended_range_low_eur"] = round(t["eal_defended_range_low_eur"] + r["eal_defended_low_eur"], 2)
+            t["eal_defended_range_high_eur"] = round(t["eal_defended_range_high_eur"] + r["eal_defended_high_eur"], 2)
         if r["eal_defended_eur"] is not None:
             t["defended_results"] += 1
             t["eal_undefended_same_results_eur"] = round(t["eal_undefended_same_results_eur"] + r["eal_eur"], 2)
             for f in ("eal_defended_low_eur", "eal_defended_eur", "eal_defended_high_eur"):
                 t[f] = round(t[f] + r[f], 2)
-        elif r["peril"] == "flood" and (r["protection_code"] in _PROTECTION_UNKNOWN or
+        elif r["eal_defended_low_eur"] is None and r["peril"] in ("flood", "coastal_flood") and (
+                r["protection_code"] in _PROTECTION_UNKNOWN or
                                         (r["protection_basis"] or "").startswith("protection unknown")):   # rows before codes
             t["protection_unknown_results"] += 1
             t["eal_protection_unknown_eur"] = round(t["eal_protection_unknown_eur"] + r["eal_eur"], 2)
@@ -196,14 +213,16 @@ def get_run(run_id: str, session: DbSession, ctx: dict = Depends(require_permiss
                             "An issuer site's figure is a share of its own value: shares are never added across sites "
                             "(unit 'share': the count and the largest share). "
                             "The defended sum covers only the results with a protection level (defended_results), "
+                            "and the defended range (defended_range_*) every result with a defended figure, its low and "
+                            "high — a coastal region that states a range of levels gives a range, never one figure; "
                             "beside the undefended sum of the same results; results whose protection is unknown are "
                             "summed apart, undefended. "
                             "A projected run's figure is compared only with the same source's present day "
                             "(eal_same_source_today_eur), never with a today run's figure",
             "gaps": sorted(gaps.values(), key=lambda g: -g["count"]),
             "results": results, "book_curve": ep,
-            "placement": _placement_message(run["scenario"], run["time_horizon"],
-                                            ((run["inputs"] or {}).get("layers") or {}).get("flood") or {})}
+            "placements": {p: m for p, read in (((run["inputs"] or {}).get("layers") or {}).items())
+                           if (m := _placement_message(run["scenario"], run["time_horizon"], read or {}, p))}}
 
 
 def _map_name(key: str) -> str:
@@ -212,24 +231,28 @@ def _map_name(key: str) -> str:
     if key == "present":
         return messages.name("loss.projection_map", "present")
     pathway, period = key.split(":")
-    return f"{messages.name('loss.projection_map', pathway)} {period}"
+    return f"{messages.name('loss.projection_map', pathway)} {period.replace('-', '–')}"
 
 
-def _placement_message(scenario: str, horizon: str, flood: dict) -> Optional[dict]:
-    """Where a projected pathway-year read the flood maps on the platform's timeline, as a catalogue message — or None
+def _placement_message(scenario: str, horizon: str, read: dict, peril: str = "flood") -> Optional[dict]:
+    """Where a projected pathway-year read a hazard's maps on the platform's timeline, as a catalogue message — or None
     for today's climate, a run recorded before the timeline, or a pathway-year warmer than every map."""
     from core import messages
-    p = flood.get("placement")
+    from services.loss import registry
+    p = read.get("placement")
     if scenario == "baseline" or not p:
         return None
     t = p["target"]
+    depth = registry.layer(read.get("key") or "aqueduct_river_flood")["metric"] == "water_depth"
     params = {"scenario": messages.name("scenario", scenario), "year": horizon, "warming": f"{t['central']:+.1f}",
               "low": f"{t['low']:+.1f}", "high": f"{t['high']:+.1f}", "lower": _map_name(p["lower"]),
-              "upper": _map_name(p["upper"])}
+              "upper": _map_name(p["upper"]), "hazard": messages.name("peril", peril).capitalize(),
+              "measure": messages.name("loss.projection_measure", "depth" if depth else "wind")}
     return _message("loss.projection.on_map" if p["lower"] == p["upper"] else "loss.projection.between", params)
 
 
-_PROTECTION_UNKNOWN = {"loss.protection.not_read", "loss.protection.no_value", "loss.protection.off_map"}
+_PROTECTION_UNKNOWN = {"loss.protection.not_read", "loss.protection.no_value", "loss.protection.off_map",
+                       "loss.protection.not_a_level", "loss.protection.coastal_no_entry", "loss.protection.coastal_off_map"}
 
 
 def _message(code: str, params: Optional[dict] = None) -> dict:
@@ -243,7 +266,8 @@ def _messages_of(r: dict) -> None:
     """A result's messages, rendered from their codes; a row recorded before codes keeps its own wording."""
     r["gap_message"] = (_message(r["gap_code"], r["gap_params"]) if r.get("gap_code")
                         else {"label": r["gap"], "detail": {"what": r["gap"]}} if r.get("gap") else None)
-    years = {"years": f"{r['protection_rp_years']:g}"} if r.get("protection_rp_years") else {}
+    years = ({"years": f"{r['protection_rp_years']:g}"} if r.get("protection_rp_years") else {}) | (
+        {"high": f"{r['protection_rp_high_years']:g}"} if r.get("protection_rp_high_years") else {})
     r["protection_message"] = (_message(r["protection_code"], years) if r.get("protection_code")
                                else {"label": r["protection_basis"], "detail": {"what": r["protection_basis"]}}
                                if r.get("protection_basis") else None)

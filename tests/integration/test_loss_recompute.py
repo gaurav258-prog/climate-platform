@@ -8,6 +8,8 @@ the area under the loss–exceedance curve in annual exceedance probability, the
 the engine. What is recomputed: each return period's loss — low, central and high — and the expected annual loss of
 each, with the value they are a share of; and, for a flood figure, the defended expected annual loss (low, central, high)
 at the published protection standard where the asset stands, or none where the protection map has no level there.
+Coastal flood is read like river flood (water depth on its own maps); its defended figure — a stated range of standards —
+is not yet recomputed here.
 Reads the shared database as it is; skips where the lookalikes are not loaded."""
 from __future__ import annotations
 
@@ -23,7 +25,6 @@ ORGS = [f"{f['name']} (demo)" for f in json.loads((ROOT / "data/demo/lookalike/a
 LAYERS = json.loads((ROOT / "data/reference/hazard_intensity_layers.json").read_text())
 LAYERS = LAYERS.get("layers", LAYERS)
 FAMILIES = {d["family"]: d for d in (json.loads(p.read_text()) for p in (ROOT / "data/reference/vulnerability").glob("*.json"))}
-PERILS = 2                                                   # river flood and storm, every asset
 # where each book states the value a curve's share is taken of, by the curve's basis (the method as decided, E307)
 VALUE = {("insurance", "building"): "x.building_value_eur",
          ("insurance", "asset_value"): "NULLIF(COALESCE(x.building_value_eur, 0) + COALESCE(x.contents_value_eur, 0), 0)",
@@ -89,7 +90,7 @@ def annual(losses: dict[int, float]) -> float:
 
 def _runs(s) -> list[dict]:
     return [dict(r) for r in s.execute(text("""
-        SELECT DISTINCT ON (r.org_id, r.book) r.run_id::text, r.book, r.n_assets, o.name
+        SELECT DISTINCT ON (r.org_id, r.book) r.run_id::text, r.book, r.n_assets, o.name, r.inputs
         FROM loss_runs r JOIN organizations o ON o.org_id = r.org_id
         WHERE o.name = ANY(:n) AND r.scenario = 'baseline' AND r.time_horizon = 'current'
         ORDER BY r.org_id, r.book, r.seq DESC"""), {"n": ORGS}).mappings()]
@@ -105,7 +106,7 @@ def test_every_asset_and_peril_has_a_figure_or_a_named_reason(session_rolled_bac
     for r in runs:
         rows = s.execute(text("SELECT gap, gap_code, eal_eur FROM loss_results WHERE run_id = CAST(:r AS uuid)"),
                          {"r": r["run_id"]}).all()
-        assert len(rows) == r["n_assets"] * PERILS, r
+        assert len(rows) == r["n_assets"] * len(r["inputs"]["layers"]), r["name"]     # every peril the run read
         assert all((g is None) == (e is not None) for g, _c, e in rows), r          # a figure or a gap, never both
         assert {c for g, c, _e in rows if g is not None} <= known, r
 
@@ -132,7 +133,8 @@ def test_every_recorded_figure_is_recomputed_to_the_cent(session_rolled_back):
                                         FROM {EXT[r['book']]} x WHERE x.entity_id = CAST(:a AS uuid)"""),
                                {"a": f["asset_id"]}).scalar()
             assert abs(f["value"] - stated) < 0.005, f                               # the value the book states
-            layer = f["flood_layer"] if f["peril"] == "flood" else "storm_v4_wind"
+            depth_peril = f["peril"] in ("flood", "coastal_flood")         # read in water depth on the asset's maps
+            layer = f["flood_layer"] if depth_peril else "storm_v4_wind"
             L = LAYERS[layer]
             divide = 1.0 if family["metric"] == L["metric"] else float(L["conversions"][family["metric"]]["divide_by"])
             samples = s.execute(text("""
@@ -144,7 +146,7 @@ def test_every_recorded_figure_is_recomputed_to_the_cent(session_rolled_back):
             low, losses, high = {}, {}, {}
             for sm in samples:
                 rp = sm["rp_years"]
-                if f["peril"] == "flood":
+                if depth_peril:
                     share, depth = sm["cell_fraction"] or 0.0, sm["cell_mean"] or 0.0
                     if share == 0 or depth <= 0:
                         low[rp] = losses[rp] = high[rp] = 0.0

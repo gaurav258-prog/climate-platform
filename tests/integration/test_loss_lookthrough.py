@@ -79,7 +79,7 @@ def _two_site_company(s, monkeypatch, standing: str = "published"):
     _storm_samples(s, lat=LAT + 0.01, at_100=55.0)
     _flood_samples(s)
     _flood_samples(s, lat=LAT + 0.01)
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: standing)
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: standing)
     run = engine.run(s, org, "issuer_sites")
     return org, fund, issuer, pos, run
 
@@ -127,8 +127,8 @@ def test_an_untested_or_failed_figure_is_never_carried(session_rolled_back, monk
     a = lookthrough.issuers(s, org, [issuer])["issuers"][issuer]
     assert a["share"] is None and a["why"]["code"] == "lookthrough.gap.no_tested_figure"
     plant = next(x for x in a["sites"] if x["name"] == "Plant")
-    assert {h["why"]["code"] for h in plant["hazards"]} == {"lookthrough.site.untested"}
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "held")
+    assert {h["why"]["code"] for h in plant["hazards"] if h["peril"] != "coastal_flood"} == {"lookthrough.site.untested"}
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: "held")
     engine.run(s, org, "issuer_sites")
     a = lookthrough.issuers(s, org, [issuer])["issuers"][issuer]
     assert a["why"]["code"] == "lookthrough.gap.no_tested_figure" and a["not_carried"].get("lookthrough.site.held") == 2
@@ -148,7 +148,7 @@ def test_what_stops_the_share_is_named(session_rolled_back, monkeypatch):
     assert why()[over] == "lookthrough.gap.no_run"                       # no run of the issuers' sites yet
     _storm_samples(s)
     _storm_samples(s, lat=LAT + 0.01)
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "published")
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: "published")
     run = engine.run(s, org, "issuer_sites")
     assert why() == {nothing: "lookthrough.gap.no_sites", hq: "lookthrough.gap.head_office_only",
                      over: "lookthrough.gap.weights_exceed", equal: "lookthrough.gap.no_weighted_site"}

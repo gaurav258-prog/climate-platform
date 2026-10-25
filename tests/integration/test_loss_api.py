@@ -31,7 +31,7 @@ def test_families_show_their_test_and_the_refused_say_why(api):
         assert f["kind"] in ("published", "measured") and f["curves"]
         if f["kind"] == "measured":
             assert f["test"] is not None and "passed" in f["test"]
-    assert set(body["adopted"]) == {"flood", "storm"}
+    assert set(body["adopted"]) == {"flood", "coastal_flood", "storm"}
 
 
 def test_layers_are_listed_with_what_is_sampled(api):
@@ -91,17 +91,22 @@ def test_a_projection_names_both_a_scenario_and_a_year(api):
 
 def test_the_projection_page_says_what_is_served_and_why_the_rest_is_not(api):
     h = _login(api, *ADMIN)
-    body = api.get("/v1/loss/projection", headers=h).json()
-    cells = {(c["scenario"], c["horizon"]): c["gap"] for c in body["flood"]}
-    placed = {(c["scenario"], c["horizon"]): c["placement"] for c in body["flood"]}
+    body = api.get("/v1/loss/projection", headers=h).json()["perils"]
+    river = body["flood"]
+    cells = {(c["scenario"], c["horizon"]): c["gap"] for c in river["cells"]}
+    placed = {(c["scenario"], c["horizon"]): c["placement"] for c in river["cells"]}
     assert cells[("hot_house_3_5c", "2050")] is None and cells[("orderly_1_5c", "2050")] is None   # read at its warming
     assert ("disorderly_2c", "2080") not in cells                                                  # one timeline
     assert cells[("hot_house_3_5c", "2100")]["code"] == "loss.gap.beyond_warming"
     assert "Hot house 3.5 °C by 2100" in cells[("hot_house_3_5c", "2100")]["detail"]["what"]
     assert placed[("orderly_1_5c", "2050")]["code"] == "loss.projection.between"
     assert "RCP" in placed[("orderly_1_5c", "2050")]["detail"]["what"] and placed[("hot_house_3_5c", "2100")] is None
-    assert body["licence"] == "CC BY 4.0" and len(body["models"]) == 5
-    assert body["storm"]["code"] == "loss.gap.no_projection_peril" and body["storm"]["label"] == "No projection for this hazard"
+    assert river["licence"] == "CC BY 4.0" and len(river["members"]) == 5
+    coast = {(c["scenario"], c["horizon"]): c for c in body["coastal_flood"]["cells"]}           # sea-level percentiles
+    assert body["coastal_flood"]["members"] == ["p05", "p50", "p95"] and coast[("orderly_1_5c", "2030")]["gap"] is None
+    storm = {(c["scenario"], c["horizon"]): c for c in body["storm"]["cells"]}                   # the future set: 2030 only
+    assert storm[("hot_house_3_5c", "2030")]["gap"] is None and "SSP5-8.5" in storm[("hot_house_3_5c", "2030")]["placement"]["detail"]["what"]
+    assert storm[("orderly_1_5c", "2050")]["gap"]["code"] == "loss.gap.beyond_warming" and len(body["storm"]["members"]) == 4
 
 
 def test_a_projected_run_carries_the_same_sources_today(api):
@@ -112,4 +117,5 @@ def test_a_projected_run_carries_the_same_sources_today(api):
     assert all("eal_same_source_today_eur" in r and "model_eal" in r for r in body["results"])
     placed = body["run"]["inputs"]["layers"]["flood"]["placement"]           # where 2050 sits on the timeline
     assert (placed["lower"], placed["upper"]) == ("rcp4p5:2050", "rcp8p5:2050")
-    assert body["placement"]["code"] == "loss.projection.between" and "RCP4.5 2050" in body["placement"]["detail"]["what"]
+    m = body["placements"]["flood"]
+    assert m["code"] == "loss.projection.between" and "RCP4.5 2050" in m["detail"]["what"] and "water depth" in m["detail"]["what"]

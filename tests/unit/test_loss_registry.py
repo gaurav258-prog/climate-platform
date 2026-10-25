@@ -119,6 +119,18 @@ def test_the_cyclone_curves_are_usable_only_through_the_registered_conversion(mo
     doc = json.loads((curves.DIR / "eberenz_2021_tdr.json").read_text(encoding="utf-8"))
     assert not any("no intensity layer" in p for p in curves.check_family(doc))
     L = copy.deepcopy(registry.layers())
-    L["storm_v4_wind"].pop("conversions")
+    for layer in L.values():                       # every storm wind layer: the present set and the future set
+        if layer["peril"] == "storm":
+            layer.pop("conversions")
     monkeypatch.setattr(registry, "layers", lambda: L)
     assert any("no intensity layer measures storm as max_sustained_wind_1min" in p for p in curves.check_family(doc))
+
+
+def test_an_event_set_s_url_is_its_record_s(monkeypatch):
+    import copy
+
+    from services.loss import registry
+    E = copy.deepcopy(registry.event_sets())
+    E["storm_cc"]["url"] = "https://data.4tu.nl/articles/dataset/STORM_climate_change_tracks/99999999"
+    monkeypatch.setattr(registry, "event_sets", lambda: E)
+    assert any("its url must be its record's" in p and "14237678" in p for p in registry.check())

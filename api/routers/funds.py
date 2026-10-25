@@ -615,8 +615,9 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
     facilities = session.execute(text("""
         SELECT f.facility_id::text AS facility_id, f.name, f.facility_type, f.country, f.region,
                CAST(f.latitude AS FLOAT) AS lat, CAST(f.longitude AS FLOAT) AS lon, f.h3_cell,
-               CAST(f.materiality_weight AS FLOAT) AS materiality_weight, f.weight_basis
-        FROM issuer_facilities f WHERE f.issuer_id = :i ORDER BY f.materiality_weight DESC
+               CAST(f.materiality_weight AS FLOAT) AS materiality_weight, f.weight_basis, f.source, f.match_basis,
+               CAST(f.owner_share AS FLOAT) AS owner_share, f.site_facts
+        FROM issuer_facilities f WHERE f.issuer_id = :i ORDER BY f.materiality_weight DESC, f.name
     """), {"i": issuer_id}).mappings().all()
 
     # per-facility current scores (the lowest level — the raw golden-source reading)

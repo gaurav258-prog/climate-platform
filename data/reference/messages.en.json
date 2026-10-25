@@ -12475,7 +12475,7 @@
   "loss.projection.between": {
    "label": "Read at {warming} °C",
    "detail": {
-    "what": "{scenario} by {year} is {warming} °C above 1995–2014 (IPCC range {low} to {high} °C). Flood is read between the {lower} and {upper} maps, the water depth weighted by where that warming lies between theirs.",
+    "what": "{scenario} by {year} is {warming} °C above 1995–2014 (IPCC range {low} to {high} °C). {hazard} is read between the {lower} and {upper} maps, the {measure} weighted by where that warming lies between theirs.",
     "why": "Every pathway and year is read at its warming on one timeline, the IPCC's assessment, whatever pathway made the maps."
    }
   },
@@ -12614,6 +12614,77 @@
    "detail": {
     "what": "One row per company and financial year: the ISIN of a security you hold, the financial year end, and the figures you have — revenue, enterprise value, physical assets, emissions, the adverse-impact facts and Taxonomy shares."
    }
+  },
+  "loss.protection.range": {
+   "label": "Defended to 1-in-{years} to 1-in-{high} years",
+   "detail": {
+    "what": "The region's published coastal protection standard is a range, from 1-in-{years} to 1-in-{high} years. The defended loss is a range too: the lower figure with defences built to the upper level, the higher with defences built to the lower level.",
+    "why": "Losses from floods more frequent than the defences' design level are set to zero; with two levels stated, no single defended figure is given."
+   }
+  },
+  "loss.protection.not_a_level": {
+   "label": "Protection unknown: no single level stated",
+   "detail": {
+    "what": "The region's published coastal protection standard is not one level or a range — it is a list, depends on land use, or is a note. The loss shown is undefended."
+   }
+  },
+  "loss.protection.coastal_no_entry": {
+   "label": "Protection unknown: no standard stated",
+   "detail": {
+    "what": "The published coastal protection standards list this region without a level. The loss shown is undefended."
+   }
+  },
+  "loss.protection.coastal_off_map": {
+   "label": "Protection unknown: no coastal standard here",
+   "detail": {
+    "what": "The location is in no region of the published coastal protection standards, which cover the coasts of 24 European countries. The loss shown is undefended."
+   }
+  },
+  "loss.protection.coastal_not_held": {
+   "label": "Undefended: no coastal defence levels held",
+   "detail": {
+    "what": "The coastal flood maps are drawn without flood defences, and no published level of coastal protection is held for this place. The loss shown is undefended.",
+    "why": "A defended figure needs the height or return period the local coastal defences are built to."
+   }
+  },
+  "admin.switch.loss_curve_family_coastal_flood": {
+   "label": "Coastal flood damage curves",
+   "detail": {
+    "what": "The family of damage curves your coastal flood losses are computed with: each asset's use and country select the curve within it.",
+    "why": "Coastal figures stay untested until the curves are tested on observed coastal losses.",
+    "next": "Not set, every coastal flood loss is reported as missing."
+   }
+  },
+  "lookthrough.gap.weights_not_stated": {
+   "label": "Sites located, shares of value not stated",
+   "detail": {
+    "what": "This company's sites are located from public registers of facilities, with their owners, but no site's share of the company's value is stated.",
+    "why": "A site's loss is weighted into the company's by its share of the company's value; no share is assumed.",
+    "next": "Add each site's share of the company's value, measured on its assets."
+   }
+  },
+  "lookthrough.site.weight_not_stated": {
+   "label": "Located, share of the company not stated",
+   "detail": {
+    "what": "This site's location and owner come from a public register of facilities, which does not state the site's share of the company's value.",
+    "why": "A site's loss is weighted into the company's by its share of the company's value; no share is assumed.",
+    "next": "Add the site's share of the company's value, measured on its assets."
+   }
+  },
+  "sites.review.error.not_found": {
+   "label": "No such proposed site",
+   "status": 404,
+   "detail": {
+    "what": "The proposed site does not exist."
+   }
+  },
+  "sites.review.error.decided": {
+   "label": "Already decided",
+   "status": 409,
+   "detail": {
+    "what": "This proposed site was already confirmed or rejected; a decision is never changed.",
+    "next": "Reload the list."
+   }
   }
  },
  "names": {
@@ -12715,7 +12786,8 @@
   "peril": {
    "flood": "river flood",
    "storm": "tropical cyclone",
-   "seismic": "earthquake"
+   "seismic": "earthquake",
+   "coastal_flood": "coastal flood"
   },
   "scenario": {
    "baseline": "Current policies",
@@ -13226,7 +13298,7 @@
    "not_stated": "Not stated",
    "exempted": "Exempted by the Member State",
    "not_exempted": "Not exempted",
-   "jrc_huizinga_2017": "European river-flood damage curves",
+   "jrc_huizinga_2017": "JRC global flood damage curves (2017)",
    "nfip_measured": "Measured US flood claims",
    "eberenz_2021_rmsf": "Regional cyclone damage curves, fitted to each storm's damage",
    "eberenz_2021_tdr": "Regional cyclone damage curves, fitted to total damage",
@@ -13790,12 +13862,14 @@
    "revenue": "revenue",
    "production_capacity": "production capacity",
    "headcount": "headcount",
-   "equal": "equal shares"
+   "equal": "equal shares",
+   "not_stated": "no stated measure"
   },
   "loss.projection_map": {
    "present": "Present day",
    "rcp4p5": "RCP4.5",
-   "rcp8p5": "RCP8.5"
+   "rcp8p5": "RCP8.5",
+   "ssp585": "SSP5-8.5"
   },
   "onboarding.vocab.fund_type": {
    "fund": "Fund",
@@ -13816,6 +13890,10 @@
    "etf": "Exchange-traded fund",
    "fund": "Fund",
    "other": "Other"
+  },
+  "loss.projection_measure": {
+   "depth": "water depth",
+   "wind": "wind at each return period"
   }
  }
 }

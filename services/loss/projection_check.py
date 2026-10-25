@@ -26,7 +26,7 @@ LAYER = "aqueduct_river_flood"
 def _present_path(rp: int = 100):
     L = registry.layer(LAYER)
     v = {"scenario": L["present"]["scenario"], "period": L["present"]["year"], "climate_model": L["present"]["model"]}
-    return intensity.aqueduct_path(v, rp)
+    return intensity.map_path(LAYER, v, rp)
 
 
 def aqueduct_box(b) -> Optional[tuple[float, float]]:

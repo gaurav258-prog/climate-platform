@@ -7,6 +7,7 @@ import { Card, Button, PageHeader, SectionHead, StatGrid } from '../components/u
 import { StatusChip } from '../components/StatusChip'
 import { HEADING, InfoButton, type Message } from '../components/Details'
 import { ChangeBar, Legend, ReleaseReview, STATUS, Stepper, day, num, type Release } from './ReferenceReleaseReview'
+import IssuerSiteReview from '../components/IssuerSiteReview'
 
 // Reference data releases, to the UI standard (2026-10-16): a reviewed publisher's new file is staged with its
 // difference against what the platform holds and is applied only when approved — by two people, or proposed by the
@@ -94,6 +95,8 @@ export default function ReferenceReleases() {
           </Card>
 
           <ApproverRule />
+
+          <IssuerSiteReview />
 
           <Card className="p-0 overflow-hidden">
             <div className="px-5 py-3 border-b border-[var(--color-line)] flex flex-wrap items-center justify-between gap-2">

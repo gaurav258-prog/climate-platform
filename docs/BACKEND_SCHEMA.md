@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **261 tables** (1 in `migration_meta`, 260 in `public`), 14 views, 3118 table columns, 357 foreign keys, 96 unique constraints, 305 check constraints, 300 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 317 migration revisions in `core/db/migrations/versions/`, head `regional_crops_20261023`. Extensions present: plpgsql.
+The database as the migrations build it: **262 tables** (1 in `migration_meta`, 261 in `public`), 14 views, 3144 table columns, 360 foreign keys, 97 unique constraints, 318 check constraints, 302 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 319 migration revisions in `core/db/migrations/versions/`, head `coastal_protection_20261023`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -28,9 +28,9 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Golden score layer & hazard data | 21 | 234 | 2 | 1 | 0 | 1 |
 | Hazard events & zones | 5 | 64 | 1 | 0 | 0 | 0 |
 | Models & validation | 9 | 120 | 4 | 1 | 1 | 3 |
-| Loss engine | 6 | 87 | 2 | 1 | 1 | 6 |
+| Loss engine | 6 | 89 | 2 | 1 | 1 | 6 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 385 | 12 | 13 | 6 | 2 |
-| Asset management (issuers, securities, funds) | 22 | 247 | 20 | 14 | 1 | 1 |
+| Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 340 | 15 | 7 | 3 | 5 |
 | Regulatory reporting & filings | 26 | 368 | 16 | 19 | 15 | 7 |
@@ -47,7 +47,7 @@ flowchart LR
   scores["Golden score layer & hazard data (21)"]
   models["Models & validation (9)"]
   books["Financial books (bank, insurer, real estate, portfolio) (24)"]
-  assetmgmt["Asset management (issuers, securities, funds) (22)"]
+  assetmgmt["Asset management (issuers, securities, funds) (23)"]
   eudr["EUDR (14)"]
   agri["Agri-food supply chain & crops (26)"]
   filings["Regulatory reporting & filings (26)"]
@@ -77,7 +77,7 @@ flowchart LR
 
 ## 2. Tenancy and access control
 
-The tenant table is `organizations`. **122 of the other 260 tables** carry an `org_id` column; 105 of them declare it a foreign key to `organizations`, and in 15 it accepts NULL. Counting every column, **118 tables** hold at least one foreign key to `organizations`; the columns other than `org_id` that do so are `actor_org_id` (1), `provisioned_org_id` (1), `recipient_org_id` (1), `regulator_org_id` (10), `subject_org_id` (3), `supervised_org_id` (6). **0 tables** have row-level security enabled and **0** row-level policies exist (`pg_class.relrowsecurity`, `pg_policies`): the database does not filter rows by tenant itself. How the application scopes reads and writes to the signed-in organisation and checks permissions: [SOFTWARE_DESCRIPTION.md §6](SOFTWARE_DESCRIPTION.md#6-security-multi-tenancy--access-control).
+The tenant table is `organizations`. **122 of the other 261 tables** carry an `org_id` column; 105 of them declare it a foreign key to `organizations`, and in 15 it accepts NULL. Counting every column, **118 tables** hold at least one foreign key to `organizations`; the columns other than `org_id` that do so are `actor_org_id` (1), `provisioned_org_id` (1), `recipient_org_id` (1), `regulator_org_id` (10), `subject_org_id` (3), `supervised_org_id` (6). **0 tables** have row-level security enabled and **0** row-level policies exist (`pg_class.relrowsecurity`, `pg_policies`): the database does not filter rows by tenant itself. How the application scopes reads and writes to the signed-in organisation and checks permissions: [SOFTWARE_DESCRIPTION.md §6](SOFTWARE_DESCRIPTION.md#6-security-multi-tenancy--access-control).
 
 | Domain | Tables | With org_id | org_id → organizations | org_id nullable | Any foreign key → organizations |
 |---|---|---|---|---|---|
@@ -88,7 +88,7 @@ The tenant table is `organizations`. **122 of the other 260 tables** carry an `o
 | Models & validation | 9 | 2 | 1 | 0 | 1 |
 | Loss engine | 6 | 1 | 1 | 0 | 1 |
 | Financial books (bank, insurer, real estate, portfolio) | 24 | 14 | 12 | 0 | 12 |
-| Asset management (issuers, securities, funds) | 22 | 14 | 14 | 5 | 14 |
+| Asset management (issuers, securities, funds) | 23 | 14 | 14 | 5 | 14 |
 | EUDR | 14 | 8 | 7 | 0 | 7 |
 | Agri-food supply chain & crops | 26 | 6 | 6 | 0 | 6 |
 | Regulatory reporting & filings | 26 | 22 | 19 | 1 | 19 |
@@ -1922,12 +1922,14 @@ Foreign keys to other domains:
 | `status` | character varying(16) | no |  |  |
 | `design_rp_years` | double precision | yes |  |  |
 | `sampled_at` | timestamp with time zone | no | `now()` |  |
+| `design_rp_high_years` | double precision | yes |  |  |
 
 - Check `flood_protection_samples_check`: `CHECK ((((status)::text = 'sampled'::text) = (design_rp_years IS NOT NULL)))`
 - Check `flood_protection_samples_design_rp_years_check`: `CHECK ((design_rp_years >= (1)::double precision))`
 - Check `flood_protection_samples_latitude_check`: `CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))`
 - Check `flood_protection_samples_longitude_check`: `CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))`
-- Check `flood_protection_samples_status_check`: `CHECK (((status)::text = ANY ((ARRAY['sampled'::character varying, 'no_value'::character varying, 'outside_coverage'::character varying])::text[])))`
+- Check `flood_protection_samples_range`: `CHECK (((design_rp_high_years IS NULL) OR (((status)::text = 'sampled'::text) AND (design_rp_high_years > design_rp_years))))`
+- Check `flood_protection_samples_status_check`: `CHECK (((status)::text = ANY ((ARRAY['sampled'::character varying, 'no_value'::character varying, 'outside_coverage'::character varying, 'not_a_level'::character varying])::text[])))`
 - Index: `CREATE UNIQUE INDEX ux_flood_protection_sample ON public.flood_protection_samples USING btree (layer_key, layer_version, latitude, longitude)`
 - Trigger `trg_flood_protection_samples_guard`: BEFORE DELETE OR UPDATE for each row → `public.guard_flood_protection_samples`
 
@@ -2020,15 +2022,16 @@ Foreign keys to other domains:
 | `eal_defended_ratio_low` | double precision | yes |  |  |
 | `eal_defended_ratio_high` | double precision | yes |  |  |
 | `ratio_at_rp` | jsonb | yes |  |  |
+| `protection_rp_high_years` | double precision | yes |  |  |
 
 - Primary key: (run_id, asset_kind, asset_id, peril)
 - Check `ck_loss_results_range`: `CHECK (((gap IS NOT NULL) OR ((eal_eur IS NOT NULL) AND (eal_low_eur IS NOT NULL) AND (eal_high_eur IS NOT NULL) AND (eal_low_eur <= eal_eur) AND (eal_eur <= eal_high_eur)) OR ((eal_ratio IS NOT NULL) AND (eal_ratio_low IS NOT NULL) AND (eal_ratio_high IS NOT NULL) AND (eal_ratio_low <= eal_ratio) AND (eal_ratio <= eal_ratio_high))))`
 - Check `ck_loss_results_standing`: `CHECK (((gap IS NULL) = (standing IS NOT NULL)))`
 - Check `loss_results_asset_kind_check`: `CHECK (((asset_kind)::text = ANY ((ARRAY['portfolio_entity'::character varying, 'company_site'::character varying, 'issuer_site'::character varying])::text[])))`
 - Check `loss_results_defended_needs_figure`: `CHECK (((eal_defended_eur IS NULL) OR ((eal_eur IS NOT NULL) AND (protection_rp_years IS NOT NULL) AND (eal_defended_eur <= eal_eur))))`
-- Check `loss_results_defended_range`: `CHECK (((eal_defended_eur IS NULL) = ((eal_defended_low_eur IS NULL) AND (eal_defended_high_eur IS NULL))))`
+- Check `loss_results_defended_range`: `CHECK ((((eal_defended_eur IS NULL) = ((eal_defended_low_eur IS NULL) AND (eal_defended_high_eur IS NULL))) OR ((protection_rp_high_years IS NOT NULL) AND (eal_defended_eur IS NULL) AND (eal_defended_low_eur IS NOT NULL) AND (eal_defended_high_eur IS NOT NULL) AND (eal_defended_low_eur <= eal_defended_high_eur) AND (eal_eur IS NOT NULL) AND (eal_defended_high_eur <= eal_high_eur))))`
 - Check `loss_results_defended_ratio`: `CHECK (((eal_defended_ratio IS NULL) OR ((eal_ratio IS NOT NULL) AND (protection_rp_years IS NOT NULL) AND (eal_defended_ratio <= eal_ratio))))`
-- Check `loss_results_defended_ratio_range`: `CHECK (((eal_defended_ratio IS NULL) = ((eal_defended_ratio_low IS NULL) AND (eal_defended_ratio_high IS NULL))))`
+- Check `loss_results_defended_ratio_range`: `CHECK ((((eal_defended_ratio IS NULL) = ((eal_defended_ratio_low IS NULL) AND (eal_defended_ratio_high IS NULL))) OR ((protection_rp_high_years IS NOT NULL) AND (eal_defended_ratio IS NULL) AND (eal_defended_ratio_low IS NOT NULL) AND (eal_defended_ratio_high IS NOT NULL) AND (eal_defended_ratio_low <= eal_defended_ratio_high) AND (eal_ratio IS NOT NULL) AND (eal_defended_ratio_high <= eal_ratio_high))))`
 - Check `loss_results_eal_defended_eur_check`: `CHECK ((eal_defended_eur >= (0)::numeric))`
 - Check `loss_results_eal_defended_high_eur_check`: `CHECK ((eal_defended_high_eur >= (0)::numeric))`
 - Check `loss_results_eal_defended_low_eur_check`: `CHECK ((eal_defended_low_eur >= (0)::numeric))`
@@ -2048,6 +2051,7 @@ Foreign keys to other domains:
 - Check `loss_results_figure_unit`: `CHECK ((((eal_ratio IS NOT NULL) = ((gap IS NULL) AND ((asset_kind)::text = 'issuer_site'::text))) AND ((eal_ratio IS NULL) OR ((eal_eur IS NULL) AND (exposed_value_eur IS NULL) AND (loss_at_rp IS NULL)))))`
 - Check `loss_results_gap_code_with_gap`: `CHECK (((gap_code IS NULL) OR (gap IS NOT NULL)))`
 - Check `loss_results_occupancy_check`: `CHECK (((occupancy)::text = ANY ((ARRAY['residential'::character varying, 'commercial'::character varying, 'industrial'::character varying, 'transport'::character varying, 'infrastructure'::character varying, 'agriculture'::character varying])::text[])))`
+- Check `loss_results_protection_range`: `CHECK (((protection_rp_high_years IS NULL) OR (protection_rp_high_years > protection_rp_years)))`
 - Check `loss_results_protection_rp_years_check`: `CHECK ((protection_rp_years >= (1)::double precision))`
 - Check `loss_results_standing_check`: `CHECK (((standing)::text = ANY ((ARRAY['published'::character varying, 'held'::character varying, 'untested'::character varying])::text[])))`
 - Trigger `trg_loss_results_guard`: BEFORE DELETE OR UPDATE for each row → `public.guard_loss_results`
@@ -2820,7 +2824,7 @@ Foreign keys to other domains:
 | `webhook_status` | character varying(50) | yes |  |  |
 | `webhook_response` | jsonb | yes |  |  |
 
-### 4.8 Asset management (issuers, securities, funds) (22 tables)
+### 4.8 Asset management (issuers, securities, funds) (23 tables)
 
 ```mermaid
 erDiagram
@@ -2884,6 +2888,12 @@ erDiagram
     uuid facility_id PK
     uuid issuer_id FK
   }
+  issuer_site_candidates {
+    uuid candidate_id PK
+    uuid issuer_id FK
+    uuid decided_by FK
+    uuid facility_id FK
+  }
   issuer_taxonomy_kpi {
     uuid kpi_id PK
     uuid issuer_id FK
@@ -2936,6 +2946,8 @@ erDiagram
   issuers ||--o{ issuer_emissions : "issuer_id"
   issuers ||--o{ issuer_esg_metrics : "issuer_id"
   issuers ||--o{ issuer_facilities : "issuer_id"
+  issuer_facilities |o--o{ issuer_site_candidates : "facility_id"
+  issuers ||--o{ issuer_site_candidates : "issuer_id"
   issuers ||--o{ issuer_taxonomy_kpi : "issuer_id"
   issuers ||--o{ issuer_transition_scores_retired_20260930 : "issuer_id"
   issuers ||--o{ issuer_voluntary_pai : "issuer_id"
@@ -2953,6 +2965,7 @@ Foreign keys to other domains:
 | Table | Columns | References | Domain |
 |---|---|---|---|
 | `assetmgmt_holding_valuations` | overridden_by | `users` | Identity & access |
+| `issuer_site_candidates` | decided_by | `users` | Identity & access |
 
 #### `assetmgmt_holding_valuations`
 
@@ -3214,12 +3227,56 @@ Foreign keys to other domains:
 | `source_ref` | character varying(160) | yes |  |  |
 | `data_vintage` | date | yes |  |  |
 | `confidence` | numeric(4,3) | yes |  |  |
+| `match_basis` | character varying(20) | yes |  |  |
+| `owner_share` | numeric(9,6) | yes |  |  |
+| `site_facts` | jsonb | yes |  |  |
 
 - Check `issuer_facilities_confidence_check`: `CHECK (((confidence IS NULL) OR ((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))))`
-- Check `issuer_facilities_source_check`: `CHECK (((source)::text = ANY ((ARRAY['climate_trace'::character varying, 'gem'::character varying, 'osm'::character varying, 'disclosure'::character varying, 'client'::character varying, 'manual'::character varying])::text[])))`
-- Check `issuer_facilities_weight_basis_check`: `CHECK (((weight_basis)::text = ANY ((ARRAY['revenue'::character varying, 'assets'::character varying, 'production_capacity'::character varying, 'headcount'::character varying, 'equal'::character varying])::text[])))`
+- Check `issuer_facilities_match_basis_check`: `CHECK (((match_basis)::text = ANY ((ARRAY['register_lei'::character varying, 'reviewed_name'::character varying])::text[])))`
+- Check `issuer_facilities_not_stated_zero`: `CHECK ((((weight_basis)::text <> 'not_stated'::text) OR (materiality_weight = (0)::numeric)))`
+- Check `issuer_facilities_owner_share_check`: `CHECK (((owner_share > (0)::numeric) AND (owner_share <= (1)::numeric)))`
+- Check `issuer_facilities_register_weight`: `CHECK (((match_basis IS NULL) OR (((weight_basis)::text = 'not_stated'::text) AND (materiality_weight = (0)::numeric) AND (source_ref IS NOT NULL) AND (site_facts IS NOT NULL))))`
+- Check `issuer_facilities_source_check`: `CHECK (((source)::text = ANY ((ARRAY['climate_trace'::character varying, 'gem'::character varying, 'osm'::character varying, 'disclosure'::character varying, 'client'::character varying, 'manual'::character varying, 'eea_ied'::character varying])::text[])))`
+- Check `issuer_facilities_weight_basis_check`: `CHECK (((weight_basis)::text = ANY ((ARRAY['revenue'::character varying, 'assets'::character varying, 'production_capacity'::character varying, 'headcount'::character varying, 'equal'::character varying, 'not_stated'::character varying])::text[])))`
 - Index: `CREATE INDEX ix_facilities_h3 ON public.issuer_facilities USING btree (h3_cell)`
 - Index: `CREATE INDEX ix_facilities_issuer ON public.issuer_facilities USING btree (issuer_id)`
+- Index: `CREATE UNIQUE INDEX ux_facilities_register_site ON public.issuer_facilities USING btree (issuer_id, source, source_ref) WHERE (match_basis IS NOT NULL)`
+
+#### `issuer_site_candidates`
+
+| Column | Type | Null | Default | Key / notes |
+|---|---|---|---|---|
+| `candidate_id` | uuid | no | `gen_random_uuid()` | PK |
+| `issuer_id` | uuid | no |  | FK → issuers.issuer_id (on delete cascade) |
+| `register` | character varying(20) | no |  |  |
+| `register_ref` | character varying(160) | no |  |  |
+| `register_vintage` | character varying(80) | no |  |  |
+| `name` | character varying(300) | yes |  |  |
+| `latitude` | double precision | no |  |  |
+| `longitude` | double precision | no |  |  |
+| `country` | character varying(2) | yes |  |  |
+| `site_facts` | jsonb | no |  |  |
+| `owner_named` | character varying(300) | no |  |  |
+| `matched_lei` | character varying(20) | no |  |  |
+| `matched_name` | character varying(300) | no |  |  |
+| `relation` | character varying(30) | no |  |  |
+| `rule` | character varying(200) | no |  |  |
+| `status` | character varying(12) | no | `'pending'::character varying` |  |
+| `decided_by` | uuid | yes |  | FK → users.user_id |
+| `decided_at` | timestamp with time zone | yes |  |  |
+| `note` | text | yes |  |  |
+| `facility_id` | uuid | yes |  | FK → issuer_facilities.facility_id |
+| `created_at` | timestamp with time zone | no | `now()` |  |
+
+- Unique `issuer_site_candidates_issuer_id_register_register_ref_key`: (issuer_id, register, register_ref)
+- Check `issuer_site_candidates_check`: `CHECK ((((status)::text = 'pending'::text) = ((decided_by IS NULL) AND (decided_at IS NULL))))`
+- Check `issuer_site_candidates_check1`: `CHECK ((((status)::text = 'confirmed'::text) = (facility_id IS NOT NULL)))`
+- Check `issuer_site_candidates_latitude_check`: `CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))`
+- Check `issuer_site_candidates_longitude_check`: `CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))`
+- Check `issuer_site_candidates_register_check`: `CHECK (((register)::text = 'eea_ied'::text))`
+- Check `issuer_site_candidates_relation_check`: `CHECK (((relation)::text = ANY ((ARRAY['issuer'::character varying, 'consolidated_entity'::character varying])::text[])))`
+- Check `issuer_site_candidates_status_check`: `CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'confirmed'::character varying, 'rejected'::character varying])::text[])))`
+- Index: `CREATE INDEX ix_site_candidates_status ON public.issuer_site_candidates USING btree (status, issuer_id)`
 
 #### `issuer_taxonomy_kpi`
 

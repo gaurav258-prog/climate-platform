@@ -31,11 +31,15 @@ share of the issuer — so its figure is the share of the value its curve applie
 columns; a head-office proxy (services.reference.footprint) is not a site of the issuer's physical assets and is a named
 gap first. Its figures are weighted into the issuer's share, and into euros on a holding, by services.loss.lookthrough.
 
-A projected run (assess_projected; the product owner's decisions of 2026-10-07, recorded with the aqueduct_river_flood
-layer) reads the published projection's own depths for the scenario's pathway and the horizon's period, one figure per
-climate model: the middle model is the central figure, the models' lowest and highest the range, and the same source's
-present-day figure stands beside it — the only figure a projected loss is compared with. A scenario or horizon the source
-does not publish, and any peril without a registered projection, is a named gap."""
+Coastal flood (the product owner's decisions of 2026-10-23) is read like river flood — water depth by return period
+through the adopted depth curves — from the WRI Aqueduct coastal maps' present day; no coastal protection standard is
+held, so its figure is the undefended one. A curve family's test decides the standing of its own peril only: a coastal
+figure is untested until its curves are tested on observed coastal losses.
+
+A projected run (services.loss.projection) reads each peril's registered projection source on the platform's one
+timeline, one figure per member of the source (climate model, or sea-level-rise percentile): a central figure, the
+members' range, and the same source's present figure beside it — the only figure a projected loss is compared with. A
+scenario or horizon the source does not serve, and any peril without a projection source, is a named gap."""
 from __future__ import annotations
 
 import json
@@ -49,7 +53,7 @@ from sqlalchemy.orm import Session
 from services.loss import curves, gaps, protection, registry
 
 ENGINE_VERSION = "loss-v1"
-LAYERS = {"flood": "jrc_river_flood", "storm": "storm_v4_wind"}
+LAYERS = {"flood": "jrc_river_flood", "coastal_flood": "aqueduct_coastal_flood", "storm": "storm_v4_wind"}
 BOOKS = ("banking", "insurance", "insurer_investments", "realestate", "assetmgmt", "company_sites", "issuer_sites")
 SHARE_BOOKS = ("issuer_sites",)       # books whose figures are a share of value: no site states a value of its own
 SCENARIOS = ("baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c")
@@ -57,7 +61,6 @@ HORIZONS = ("current", "2030", "2050", "2100")     # the platform's horizons (th
 
 
 PRESENT = {"scenario": "present", "period": "present", "climate_model": ""}
-PROJECTED_FLOOD = "aqueduct_river_flood"
 
 
 def _samples(session: Session, layer_key: str, version: str, lat: float, lon: float,
@@ -100,9 +103,12 @@ def eal(losses: dict[int, float]) -> float:
     return out + p[-1] * losses[rps[-1]]
 
 
-def standing(family: dict, country: str, curve: Optional[dict] = None) -> str:
+def standing(family: dict, country: str, curve: Optional[dict] = None, peril: Optional[str] = None) -> str:
     """The figure's standing under data/reference/loss_protocol.json: a curve tested on its own (published_curve_test)
-    is published or held by that test; otherwise the family's test where it covers the country; otherwise untested."""
+    is published or held by that test; otherwise the family's test where it covers the country; otherwise untested. A
+    test was run on the family's own peril: a figure of a further peril the family serves (curves.perils) is untested."""
+    if peril is not None and peril != family["peril"]:
+        return "untested"
     if curve is not None and curve.get("test"):
         return "published" if curve["test"].get("passed") else "held"
     t = family.get("test")
@@ -215,13 +221,15 @@ def _resolve(session: Session, asset: dict, peril: str, family_key: Optional[str
     return {**base, "exposed_value_eur": value}, {"family": family, "curve": curve, "value": value, "country": country}
 
 
-def _rp_figures(curve: dict, value: float, s: dict[int, dict], peril: str,
+def _rp_figures(curve: dict, value: float, s: dict[int, dict], layer_key: str,
                 per: float = 1.0) -> tuple[Optional[dict], Optional[dict]]:
-    """Step 6 per return period: {rp: (low, central, high)}, or the gap that stopped it. A layer's value is read in the
-    curve's own metric by the registered divisor `per` (registry.divisor: 1 for the layer's own metric)."""
+    """Step 6 per return period: {rp: (low, central, high)}, or the gap that stopped it. A water-depth layer is read as
+    the cell's flooded share at its mean flooded depth; any other layer's value at the point, in the curve's own metric
+    by the registered divisor `per` (registry.divisor: 1 for the layer's own metric)."""
+    by_depth = registry.layer(layer_key)["metric"] == "water_depth"
     rows = {}
     for rp, r in sorted(s.items()):
-        if peril == "flood":
+        if by_depth:
             share, depth = (r["cell_fraction"] or 0.0), (r["cell_mean"] or 0.0)
             if share == 0 or depth <= 0:
                 rows[rp] = (0.0, 0.0, 0.0)
@@ -294,18 +302,39 @@ def _defences(session: Session, lat: float, lon: float, rows: dict, places: int 
             "eal_defended_high_eur": round(protection.defended_eal(high, rp), places)}
 
 
+def _coastal_defences(session: Session, lat: float, lon: float, rows: dict, places: int = CENTS) -> dict:
+    """Step 8 for coastal flood (the product owner's decisions of 2026-10-23): the region's published coastal standard
+    (COASTPROS-EU) applied with the same rule. A single level as for river flood; a stated range has no central defended
+    figure — low is the curve-low loss with defences at the upper level, high the curve-high loss at the lower level."""
+    lo_rp, hi_rp, code = protection.at_range(session, lat, lon, protection.LAYERS["coastal_flood"])
+    if lo_rp is None:
+        return gaps.protection(code)
+    low, central, high = ({k: v[i] for k, v in rows.items()} for i in range(3))
+    if hi_rp is None:
+        return {"protection_rp_years": lo_rp, **gaps.protection(code, lo_rp),
+                "eal_defended_eur": round(protection.defended_eal(central, lo_rp), places),
+                "eal_defended_low_eur": round(protection.defended_eal(low, lo_rp), places),
+                "eal_defended_high_eur": round(protection.defended_eal(high, lo_rp), places)}
+    return {"protection_rp_years": lo_rp, "protection_rp_high_years": hi_rp, **gaps.protection(code, lo_rp, hi_rp),
+            "eal_defended_eur": None,
+            "eal_defended_low_eur": round(protection.defended_eal(low, hi_rp), places),
+            "eal_defended_high_eur": round(protection.defended_eal(high, lo_rp), places)}
+
+
 def assess(session: Session, asset: dict, peril: str, family_key: Optional[str]) -> dict:
     """One asset and peril through the decision tree, today's climate (no database writes)."""
     base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
     if asset.get("proxy"):         # where the issuer is registered, not where its physical assets are
         return {**base, **gaps.gap("loss.gap.head_office_only")}
+    if asset.get("position"):      # a holding is never a physical asset (E307): its first reason, whatever the maps hold
+        return {**base, **gaps.gap(asset["no_asset_value"])}
     if asset.get("latitude") is None or asset.get("longitude") is None:
         return {**base, **gaps.gap("loss.gap.no_location")}
     if not family_key:             # a run reads the hazard only for a peril with adopted curves: the choice comes first (E324)
         return {**base, **gaps.gap("loss.gap.no_curves_chosen", peril=gaps.peril_name(peril))}
     lat, lon = float(asset["latitude"]), float(asset["longitude"])
     layer_key, version, s = _present_samples(session, asset, peril, lat, lon)
-    if peril == "flood":
+    if registry.layer(layer_key)["metric"] == "water_depth":
         base["flood_layer"] = layer_key
     why = gaps.intensity(s, layer_key)
     if why:
@@ -316,104 +345,17 @@ def assess(session: Session, asset: dict, peril: str, family_key: Optional[str])
     per = registry.divisor(layer_key, ctx["family"]["metric"])
     if per is None:                # the map serving this asset cannot be read in the curves' metric
         return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}
-    rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril, per)
+    rows, why = _rp_figures(ctx["curve"], ctx["value"], s, layer_key, per)
     if rows is None:
         return {**base, **why}
     places = SHARE_PLACES if asset.get("per_unit") else CENTS
-    out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]), **_summary(rows, places)}
+    out = {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"], peril),
+           **_summary(rows, places)}
     if peril == "flood":
         out.update(_defences(session, lat, lon, rows, places), **gaps.caution(any(r["caution"] for r in s.values())))
+    elif peril == "coastal_flood":
+        out.update(_coastal_defences(session, lat, lon, rows, places))
     return _as_share(out) if asset.get("per_unit") else out
-
-
-PROJECTED = {"flood": PROJECTED_FLOOD}      # each peril's projection source; a peril not listed has none yet
-
-
-def projection_gap(peril: str, scenario: str, horizon: str) -> Optional[dict]:
-    """Why a projected run has no figure for this peril, scenario and horizon (a gap's fields) — or None."""
-    return gaps.projection(peril, scenario, horizon, PROJECTED.get(peril))
-
-
-def _blend(lower: dict[int, dict], upper: dict[int, dict], w: float, dry_below: float) -> dict[int, dict]:
-    """The hazard between two maps, by warming (the product owner's decision of 2026-10-22): per return period the water
-    depth — a dry pixel's depth is none — blended linearly by w; the pixel is wet where the blended depth is above the
-    source's dry level."""
-    out = {}
-    for rp in sorted(set(lower) & set(upper)):
-        a, b = lower[rp], upper[rp]
-        da = (a["cell_fraction"] or 0.0) * (a["cell_mean"] or 0.0)
-        db = (b["cell_fraction"] or 0.0) * (b["cell_mean"] or 0.0)
-        depth = da + (db - da) * w
-        wet = depth > dry_below
-        out[rp] = {"status": "sampled", "cell_fraction": 1.0 if wet else 0.0, "cell_mean": depth if wet else 0.0}
-    return out
-
-
-def assess_projected(session: Session, asset: dict, peril: str, family_key: Optional[str], scenario: str,
-                     horizon: str) -> dict:
-    """One asset and peril in a projected climate (product owner's decisions, 2026-10-07 and 2026-10-22): the pathway-year
-    reads the two maps of the source that bracket its warming on the platform's timeline (services.loss.timeline) — for
-    each climate model, the water depth blended between them by warming (the present day, made from observed weather, is
-    the same for every model); central = the middle model (by expected annual loss), its whole loss curve; low = the
-    lowest curve-low of the models, high = the highest curve-high, per return period and for the annual figure; beside it
-    the same source's present-day figure, the only figure it is compared with."""
-    base = {"peril": peril, "exposed_value_eur": None, "occupancy": None, "curve_key": None}
-    why = projection_gap(peril, scenario, horizon)
-    if why:
-        return {**base, **why}
-    if asset.get("latitude") is None or asset.get("longitude") is None:
-        return {**base, **gaps.gap("loss.gap.no_location")}
-    if not family_key:             # as today's run: no adopted curves, nothing read — the choice comes first (E324)
-        return {**base, **gaps.gap("loss.gap.no_curves_chosen", peril=gaps.peril_name(peril))}
-    L = registry.layer(PROJECTED_FLOOD)
-    lat, lon = float(asset["latitude"]), float(asset["longitude"])
-    today_v = {"scenario": L["present"]["scenario"], "period": L["present"]["year"], "climate_model": L["present"]["model"]}
-    today = _samples(session, PROJECTED_FLOOD, L["version"], lat, lon, today_v)
-    why = gaps.intensity(today, PROJECTED_FLOOD)
-    if why:
-        return {**base, **why}
-    base, ctx = _resolve(session, asset, peril, family_key, base)
-    if ctx is None:
-        return base
-    from services.loss import timeline
-    where = timeline.place(PROJECTED_FLOOD, scenario, horizon)
-    per = registry.divisor(PROJECTED_FLOOD, ctx["family"]["metric"])
-    if per is None:
-        return {**base, **gaps.gap("loss.gap.curves_not_usable", peril=gaps.peril_name(peril))}
-
-    def read(key: str, m: str) -> dict[int, dict]:
-        if key == "present":
-            return today
-        pathway, period = key.split(":")
-        return _samples(session, PROJECTED_FLOOD, L["version"], lat, lon,
-                        {"scenario": pathway, "period": period, "climate_model": m})
-    per_model = {}
-    for m in L["models"]:
-        lo, hi = read(where["lower"], m), read(where["upper"], m)
-        why = gaps.intensity(lo, PROJECTED_FLOOD) or gaps.intensity(hi, PROJECTED_FLOOD)
-        if why:
-            return {**base, **why}
-        s = _blend(lo, hi, where["w"], L["dry_below"])
-        rows, why = _rp_figures(ctx["curve"], ctx["value"], s, peril, per)
-        if rows is None:
-            return {**base, **why}
-        per_model[m] = _summary(rows)
-    today_rows, why = _rp_figures(ctx["curve"], ctx["value"], today, peril, per)
-    if today_rows is None:
-        return {**base, **why}
-    ranked = sorted(per_model.values(), key=lambda x: x["eal_eur"])
-    middle = ranked[len(ranked) // 2]
-    rps = sorted(middle["loss_at_rp"], key=int)
-    return {**base, "gap": None, "standing": standing(ctx["family"], ctx["country"], ctx["curve"]),
-            "flood_layer": PROJECTED_FLOOD, **gaps.protection("loss.protection.not_projected"),
-            "eal_eur": middle["eal_eur"],
-            "eal_low_eur": min(x["eal_low_eur"] for x in per_model.values()),
-            "eal_high_eur": max(x["eal_high_eur"] for x in per_model.values()),
-            "loss_at_rp": {rp: {"low": min(x["loss_at_rp"][rp]["low"] for x in per_model.values()),
-                                "central": middle["loss_at_rp"][rp]["central"],
-                                "high": max(x["loss_at_rp"][rp]["high"] for x in per_model.values())} for rp in rps},
-            "eal_same_source_today_eur": _summary(today_rows)["eal_eur"],
-            "model_eal": {m: x["eal_eur"] for m, x in per_model.items()}}
 
 
 def run(session: Session, org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
@@ -433,9 +375,10 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
     adopted = {p: settings.get(f"loss_curve_family_{p}") for p in LAYERS}
     assets = _assets(session, org_id, book)
     results = []
+    from services.loss import projection
     for a in assets:
         for peril in LAYERS:
-            r = (assess_projected(session, a, peril, adopted[peril], scenario, horizon) if projected
+            r = (projection.assess(session, a, peril, adopted[peril], scenario, horizon) if projected
                  else assess(session, a, peril, adopted[peril]))
             results.append({**r, "asset_kind": a["asset_kind"], "asset_id": a["asset_id"]})
     gapped = {a["asset_id"] for a in assets} - {r["asset_id"] for r in results if r["gap"] is None}
@@ -447,14 +390,19 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                                          "countries": registry.layer(r)["coverage_countries"]}
                                         for r, L in registry.layers().items() if L.get("replaces") == k]}
                     for p, k in LAYERS.items()} if not projected
-                   else {"flood": _projection_inputs(scenario, horizon), "storm": None}),
+                   else {p: projection.inputs(p, scenario, horizon) for p in LAYERS}),
         "flood_protection": None if projected else {
             "layer": protection.LAYER, "version": protection.layer()["version"], "rule": protocol["flood_protection"]},
+        "coastal_protection": None if projected else {
+            "layer": protection.LAYERS["coastal_flood"],
+            "version": protection.layer(protection.LAYERS["coastal_flood"])["version"],
+            "reading": protection.layer(protection.LAYERS["coastal_flood"])["reading"], "rule": "flood_protection"},
         "flood_headline": settings.get("loss_flood_headline"),
         "families_adopted": adopted,
         "readings": {p: {"layer": k, "metric": curves.families()[adopted[p]]["metric"],
                          "divide_by": registry.divisor(k, curves.families()[adopted[p]]["metric"])}
-                     for p, k in LAYERS.items() if not projected and adopted.get(p) in curves.families()},
+                     for p, k in (projection.SOURCES if projected else LAYERS).items()
+                     if adopted.get(p) in curves.families()},
         "families": {k: {"kind": f.get("kind", "published"), "source_sha256": f["source"]["sha256"],
                          "test_passed": (f.get("test") or {}).get("passed")} for k, f in curves.families().items()
                      if k in adopted.values()},
@@ -485,18 +433,21 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
                                       eal_low_eur, eal_high_eur, standing, loss_at_rp, gap, eal_same_source_today_eur,
                                       model_eal, flood_layer, protection_rp_years, protection_basis, eal_defended_eur,
                                       eal_defended_low_eur, eal_defended_high_eur, caution, gap_code, gap_params,
-                                      protection_code, caution_code, eal_ratio, eal_ratio_low, eal_ratio_high,
+                                      protection_code, caution_code, protection_rp_high_years, eal_ratio, eal_ratio_low,
+                                      eal_ratio_high,
                                       eal_defended_ratio, eal_defended_ratio_low, eal_defended_ratio_high, ratio_at_rp)
             VALUES (CAST(:run AS uuid), :asset_kind, CAST(:asset_id AS uuid), :peril, :exposed_value_eur, :occupancy,
                     :curve_key, :eal_eur, :eal_low_eur, :eal_high_eur, :standing, CAST(:loss_at_rp AS jsonb), :gap,
                     :eal_same_source_today_eur, CAST(:model_eal AS jsonb), :flood_layer, :protection_rp_years,
                     :protection_basis, :eal_defended_eur, :eal_defended_low_eur, :eal_defended_high_eur, :caution,
-                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code, :eal_ratio, :eal_ratio_low,
+                    :gap_code, CAST(:gap_params AS jsonb), :protection_code, :caution_code, :protection_rp_high_years,
+                    :eal_ratio, :eal_ratio_low,
                     :eal_ratio_high, :eal_defended_ratio, :eal_defended_ratio_low, :eal_defended_ratio_high,
                     CAST(:ratio_at_rp AS jsonb))"""),
             [{"run": run_id, "eal_eur": None, "eal_low_eur": None, "eal_high_eur": None, "standing": None,
               "eal_same_source_today_eur": None, "flood_layer": None, "protection_rp_years": None,
-              "protection_basis": None, "eal_defended_eur": None, "eal_defended_low_eur": None,
+              "protection_basis": None, "protection_rp_high_years": None, "eal_defended_eur": None,
+              "eal_defended_low_eur": None,
               "eal_defended_high_eur": None, "caution": None, "gap_code": None, "protection_code": None,
               "caution_code": None, **{c: None for c in _SHARE.values()}, **r,
               "gap_params": json.dumps(r["gap_params"]) if r.get("gap_params") else None,
@@ -506,17 +457,6 @@ def run(session: Session, org_id: str, book: str, scenario: str = "baseline", ho
     ep = _ep_points(session, run_id, results, settings)
     return {"run_id": run_id, "assets": len(assets), "with_a_figure": len(assets) - len(gapped),
             "results": len(results), "ep_points": ep, "gaps": _gap_summary(results)}
-
-
-def _projection_inputs(scenario: str, horizon: str) -> dict:
-    """What a projected run read, recorded with it: the source, and where the pathway-year sits on the timeline — its
-    warming, the two maps that bracket it and the weight between them (or that it is warmer than every map)."""
-    from services.loss import timeline
-    L = registry.layer(PROJECTED_FLOOD)
-    use = L["use"]
-    return {"key": PROJECTED_FLOOD, "version": L["version"], "models": L["models"], "decided": use["decided"],
-            "compared_with": use["compared_with"], "range": use["range"], "reads_as": L["reads_as"],
-            "licence": L["licence"], "timeline": use["timeline"], "placement": timeline.place(PROJECTED_FLOOD, scenario, horizon)}
 
 
 def _ep_points(session: Session, run_id: str, results: list[dict], settings: dict) -> int:
@@ -544,17 +484,17 @@ def _gap_summary(results: list[dict]) -> dict[str, int]:
 
 def run_job(org_id: str, book: str, scenario: str = "baseline", horizon: str = "current",
             created_by: Optional[str] = None) -> dict:
-    """The background job (services.tasks.jobs 'loss.run'): its own session, committed. A run of today's climate first
-    samples whatever its book's locations are missing (services.loss.intensity.prepare_book) for the perils with an
-    adopted curve family."""
+    """The background job (services.tasks.jobs 'loss.run'): its own session, committed. A run first samples whatever
+    its book's locations are missing (services.loss.intensity.prepare_book) for the perils with an adopted curve family
+    — today's maps, or for a projected run the projection sources' maps."""
     from core.db.session import get_session
     with get_session() as session:
-        if scenario == "baseline" and book in BOOKS:
+        if book in BOOKS:
             from services.calc_settings import get_calc_settings
             from services.loss.intensity import prepare_book
             settings = get_calc_settings(session, org_id)
             prepare_book(session, [a for a in _assets(session, org_id, book) if not a.get("proxy")],
-                         [p for p in LAYERS if settings.get(f"loss_curve_family_{p}")])
+                         [p for p in LAYERS if settings.get(f"loss_curve_family_{p}")], projected=scenario != "baseline")
         out = run(session, org_id, book, scenario, horizon, created_by)
         session.commit()
     return out

@@ -13,6 +13,10 @@ The live database is never touched. The scratch database is created and dropped 
 (MIGCHECK_ADMIN_URL, default: the local superuser via the socket) and owned by the application's role (from
 DATABASE_URL), so the migrations themselves run with the application's own privileges.
 
+A run that is not done within MIGCHECK_LIMIT_S seconds (default 1800; a whole run takes about six minutes) stops and
+fails, naming the revision it reached (E335): the gate holds the machine's shared lock while it runs, and a run that
+ran 3.5 hours held every other session's gate.
+
     venv/bin/python -m scripts.check_migration_roundtrip          (exit 0 = ok)
 """
 from __future__ import annotations
@@ -34,6 +38,15 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 # DROP ... WITH (FORCE) destroy another's check midway. MIGCHECK_DB names the prefix; the process id makes it unique.
 PREFIX = os.environ.get("MIGCHECK_DB", "climate_migcheck")
 SCRATCH = f"{PREFIX}_{os.getpid()}"
+LIMIT_S = float(os.environ.get("MIGCHECK_LIMIT_S", "1800"))
+
+
+def _over_time(t0: float, where: str) -> str | None:
+    """Why the run stops here — longer than the limit — or None."""
+    took = time.time() - t0
+    return (f"stopped after {took:.0f}s at {where}: longer than the {LIMIT_S:.0f}s limit (MIGCHECK_LIMIT_S); a whole run "
+            "takes minutes, so something is slowing the scratch database or a migration — find it before running the "
+            "gate again") if took > LIMIT_S else None
 
 _SNAPSHOT_SQL = {
     "column": """SELECT table_name || '.' || column_name || ' ' || data_type || COALESCE('(' || character_maximum_length || ')', '')
@@ -151,11 +164,17 @@ def main() -> int:
                 failures.append(f"upgrade to {rev} left the version table at {sorted(now)}, a state already passed")
                 return _report(failures, t0)
             snapshots[now] = _snapshot(conn)
+            if late := _over_time(t0, f"the upgrade to {rev}"):
+                failures.append(late)
+                return _report(failures, t0)
         head, head_schema = _heads(conn), _snapshot(conn)
         print(f"built {len(order)} revisions up to {sorted(head)}")
 
         while at := _heads(conn):                                  # down: undo the newest head, mirroring the way up
             newest = max(at, key=rank.__getitem__)
+            if late := _over_time(t0, f"the downgrade of {newest}"):
+                failures.append(late)
+                return _report(failures, t0)
             want = state_before[newest]
             problem = _refusal_problem(cfg, conn, script, newest, at)
             if problem:

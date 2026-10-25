@@ -191,7 +191,7 @@ def test_a_projection_reads_the_two_maps_that_bracket_its_warming(session_rolled
     assert len(model_eal) == 5 and float(f["eal_eur"]) == sorted(model_eal.values())[2]      # the middle model
     assert float(f["eal_low_eur"]) <= min(model_eal.values()) and float(f["eal_high_eur"]) >= max(model_eal.values())
     assert float(f["eal_same_source_today_eur"]) < float(f["eal_eur"])                      # deeper water than today
-    assert r["storm"]["gap_code"] == "loss.gap.no_projection_peril" and r["storm"]["gap"] == "No projection for this hazard"
+    assert r["storm"]["gap_code"] == "loss.gap.beyond_warming"      # the future storm set sits at +0.83 °C: 2030 only
     run = s.execute(text("SELECT inputs FROM loss_runs WHERE run_id = CAST(:r AS uuid)"), {"r": out["run_id"]}).scalar()
     placed = run["layers"]["flood"]["placement"]
     assert (placed["lower"], placed["upper"]) == ("rcp8p5:2050", "rcp4p5:2080") and placed["axis"] == "axis-v1"
@@ -282,7 +282,7 @@ def test_the_one_door_hands_out_tested_figures_only(session_rolled_back, monkeyp
     assert out["withheld"].get("gap") and out["gaps"].get("loss.gap.no_building_value") == 1
     assert sum(out["gaps"].values()) == out["withheld"]["gap"]           # every gap counted by its code
     real = engine.standing
-    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None: "published" if c == "US" else real(f, c, cv))
+    monkeypatch.setattr(engine, "standing", lambda f, c, cv=None, p=None: "published" if c == "US" else real(f, c, cv, p))
     run = engine.run(s, org, "realestate")["run_id"]
     out = figures.tested(s, org, "realestate")
     assert out["run_id"] == run                                  # the latest run, by sequence
@@ -369,5 +369,6 @@ def test_e324_with_no_curves_chosen_the_gap_says_so_not_that_the_hazard_is_unrea
              "occupancy": "residential", "country": "ES"}        # a place no sample has been read at
     for peril in ("flood", "storm"):
         assert engine.assess(session_rolled_back, asset, peril, None)["gap_code"] == "loss.gap.no_curves_chosen"
-    assert engine.assess_projected(session_rolled_back, asset, "flood", None, "hot_house_3_5c", "2050")["gap_code"] \
+    from services.loss import projection
+    assert projection.assess(session_rolled_back, asset, "flood", None, "hot_house_3_5c", "2050")["gap_code"] \
         == "loss.gap.no_curves_chosen"

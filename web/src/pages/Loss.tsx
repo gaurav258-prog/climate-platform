@@ -30,11 +30,14 @@ interface ProtectionLayer { key: string; name: string; resolution_m: number; lic
 interface RunRow { run_id: string; book: string; scenario: string; time_horizon: string; as_of: string; n_assets: number; n_gaps: number; created_at: string }
 interface Band { low: number; central: number; high: number }
 interface Result { asset_id: string; asset_name: string | null; country_name: string | null; peril: string; exposed_value_eur: number | null; occupancy: string | null; curve_name: string | null; flood_layer: string | null; eal_eur: number | null; eal_low_eur: number | null; eal_high_eur: number | null; standing: Standing | null; loss_at_rp: Record<string, Band> | null; gap: string | null; gap_message: Message | null; eal_same_source_today_eur: number | null; protection_rp_years: number | null; protection_message: Message | null; caution_message: Message | null; eal_defended_eur: number | null; eal_defended_low_eur: number | null; eal_defended_high_eur: number | null
-  eal_ratio: number | null; eal_ratio_low: number | null; eal_ratio_high: number | null; eal_defended_ratio: number | null; ratio_at_rp: Record<string, Band> | null }
-interface Total { peril: string; standing: Standing; results: number; unit?: 'eur' | 'share'; share_max?: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null; defended_results: number; eal_defended_eur: number; eal_defended_low_eur: number; eal_defended_high_eur: number; eal_undefended_same_results_eur: number; protection_unknown_results: number; eal_protection_unknown_eur: number }
+  eal_ratio: number | null; eal_ratio_low: number | null; eal_ratio_high: number | null; eal_defended_ratio: number | null; ratio_at_rp: Record<string, Band> | null
+  eal_defended_ratio_low?: number | null; eal_defended_ratio_high?: number | null }
+interface Total { peril: string; standing: Standing; results: number; unit?: 'eur' | 'share'; share_max?: number; eal_low_eur: number; eal_eur: number; eal_high_eur: number; eal_same_source_today_eur: number | null; defended_results: number; eal_defended_eur: number; eal_defended_low_eur: number; eal_defended_high_eur: number; eal_undefended_same_results_eur: number; protection_unknown_results: number; eal_protection_unknown_eur: number
+  defended_range_results?: number; eal_defended_range_low_eur?: number; eal_defended_range_high_eur?: number }
 interface Gap { code: string | null; reason: string; detail: Message['detail']; count: number }
-interface RunDetail { run: RunRow; totals: Total[]; gaps: Gap[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[]; placement: Message | null }
-interface Projection { periods: Record<string, string>; flood: { scenario: string; horizon: string; gap: Message | null; placement: Message | null }[] }
+interface RunDetail { run: RunRow; totals: Total[]; gaps: Gap[]; results: Result[]; book_curve: { peril: string; rp_years: number; loss_eur: number }[]; placements: Record<string, Message> }
+interface ProjectionCell { scenario: string; horizon: string; gap: Message | null; placement: Message | null }
+interface Projection { perils: Record<string, { gap?: Message; cells: ProjectionCell[] }> }
 
 const BOOKS: Record<string, { key: string; label: string }[]> = {
   bank: [{ key: 'banking', label: 'Loan book' }],
@@ -50,7 +53,8 @@ const STANDING: Record<Standing, { label: string; tone: 'good' | 'warn' | 'neutr
   held: { label: 'Failed its test', tone: 'warn', what: 'The damage curve was tested on observed losses and failed; the figure is shown for reference, not for use.' },
   untested: { label: 'Untested', tone: 'neutral', what: 'There are no observed losses to test the damage curve against where this asset is.' },
 }
-const PERIL: Record<string, string> = { flood: 'River flood', storm: 'Tropical cyclone' }
+const PERIL: Record<string, string> = { flood: 'River flood', coastal_flood: 'Coastal flood', storm: 'Tropical cyclone' }
+const PERILS = Object.keys(PERIL)
 const SCENARIO: Record<string, string> = { baseline: 'Today', disorderly_2c: 'Disorderly 2 °C', hot_house_3_5c: 'Hot house 3.5 °C', orderly_1_5c: 'Orderly 1.5 °C' }
 const HORIZONS = ['2030', '2050', '2100']     // the platform's horizons — one timeline
 const LAYER_STATUS: Record<string, string> = { in_use: 'in_use', candidate: 'candidate', refused: 'refused' }
@@ -62,10 +66,10 @@ function StandingChip({ s }: { s: Standing }) {
 }
 
 const ABOUT = [
-  { heading: HEADING.shows, body: 'Each asset’s expected yearly loss from river flood and tropical cyclone, read off the damage curve your organisation chose at the hazard’s physical strength — flood depth in metres, wind speed in metres per second — at each return period.' },
-  { heading: HEADING.read, body: 'Every figure is a range. Flood losses appear twice: undefended, as the flood maps show the hazard, and defended, with losses from floods more frequent than the local protection level set to zero. Each figure carries the standing its damage curve earned on observed losses: tested, failed its test, or untested.' },
-  { heading: HEADING.sources, body: 'Flood depth: JRC river-flood maps (European maps in Europe, global maps elsewhere). Flood protection: JRC map of estimated flood-protection standards in Europe. Cyclone wind: STORM. Damage curves: the family your organisation chose. Details under Methods and data sources.' },
-  { heading: HEADING.limits, body: 'A figure that cannot be computed is shown as missing, with its reason — never as zero. Flood maps show river floods only; coastal and surface-water flooding are separate hazards.' },
+  { heading: HEADING.shows, body: 'Each asset’s expected yearly loss from river flood, coastal flood and tropical cyclone, read off the damage curve your organisation chose at the hazard’s physical strength — water depth in metres, wind speed in metres per second — at each return period.' },
+  { heading: HEADING.read, body: 'Every figure is a range. River flood losses appear twice: undefended, as the flood maps show the hazard, and defended, with losses from floods more frequent than the local protection level set to zero. Coastal flood losses appear undefended and, where the region’s published coastal standard states a level or a range of levels, defended — as a range where a range is stated. Each figure carries the standing its damage curve earned on observed losses: tested, failed its test, or untested.' },
+  { heading: HEADING.sources, body: 'River flood depth: JRC river-flood maps (European maps in Europe, global maps elsewhere). Coastal flood depth: WRI Aqueduct coastal maps. Flood protection: JRC map of estimated river flood-protection standards in Europe; COASTPROS-EU coastal protection standards for Europe’s coastal regions. Cyclone wind: STORM. Projections: WRI Aqueduct river and coastal maps, STORM future tracks. Damage curves: the family your organisation chose. Details under Methods and data sources.' },
+  { heading: HEADING.limits, body: 'A figure that cannot be computed is shown as missing, with its reason — never as zero. River and coastal flood are shown side by side and never added: where both reach a place, adding them could count the same water twice. Surface-water flooding is a separate hazard.' },
 ]
 
 export default function Loss() {
@@ -79,8 +83,8 @@ export default function Loss() {
   const [horizon, setHorizon] = useState('2050')
   const [methods, setMethods] = useState(false)
   const shareBook = SHARE_BOOKS.has(book)
-  const projCell = scenario === 'baseline' ? null : proj.data?.flood.find(c => c.scenario === scenario && c.horizon === horizon) ?? null
-  const projGap = projCell?.gap ?? null
+  const projCells = scenario === 'baseline' ? [] : PERILS.map(p => ({ peril: p, cell: proj.data?.perils[p]?.cells.find(c => c.scenario === scenario && c.horizon === horizon) ?? null }))
+  const projGap = projCells.length > 0 && projCells.every(c => c.cell?.gap) ? projCells[0].cell!.gap : null
   const [waiting, setWaiting] = useState(0)
   const runs = useQuery({
     queryKey: ['loss-runs', book], enabled: !!book,
@@ -136,12 +140,37 @@ export default function Loss() {
             )}
           </div>
         )}
-        {projGap && <div className="text-[12.5px] text-[var(--color-warn)]"><MessageLine m={projGap} /></div>}
-        {projCell?.placement && <div className="text-[12.5px] text-[var(--color-mute)]"><MessageLine m={projCell.placement} /></div>}
+        {projCells.map(({ peril: p, cell }) => cell && (cell.gap || cell.placement) && (
+          <div key={p} className={`text-[12.5px] ${cell.gap ? 'text-[var(--color-warn)]' : 'text-[var(--color-mute)]'}`}>
+            <span className="text-[var(--color-ink)]">{PERIL[p]}: </span><MessageLine m={(cell.gap ?? cell.placement)!} />
+          </div>
+        ))}
       </Card>
       {shown ? <RunView runId={shown} headline={fams.data?.headline?.flood ?? null} /> : books.length > 0 && !runs.isLoading &&
         <div className="text-[12.5px] text-[var(--color-faint)]">No loss run yet for this book.</div>}
       {methods && <Methods families={fams.data} onClose={() => setMethods(false)} />}
+    </div>
+  )
+}
+
+// Coastal defences: a region may state a range of levels, so the defended coastal loss is a range (low – high).
+function CoastalDefended({ t }: { t: Total }) {
+  const n = t.defended_range_results ?? 0
+  return (
+    <div className="mt-3 space-y-1.5 text-[12px]">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[var(--color-ink)] inline-flex items-center gap-1.5"><ShieldCheck size={13} />Defended
+          <InfoButton compact details={{ title: 'Defended coastal flood', sections: [
+            { heading: HEADING.shows, body: 'The loss with the coastal defences the region’s published standard states: losses from floods more frequent than the defences’ design level are set to zero.' },
+            { heading: HEADING.read, body: 'Where a region states a range of levels, the defended loss is a range: the lower figure with defences built to the upper level, the higher with defences built to the lower level.' },
+            { heading: HEADING.limits, body: 'Published coastal standards cover the coasts of 24 European countries. Elsewhere, or where a region states no single level or range, protection is unknown and only the undefended loss exists.' },
+          ] }} /></span>
+        <span className="tabular-nums text-[var(--color-ink)]">{n ? `${flow(t.eal_defended_range_low_eur ?? 0)} – ${flow(t.eal_defended_range_high_eur ?? 0)}` : '—'}</span>
+      </div>
+      <div className="text-[11px] text-[var(--color-faint)] tabular-nums">{n ? `${n} assets` : 'No defence level known'}</div>
+      {t.protection_unknown_results > 0 && (
+        <div className="text-[var(--color-warn)]">Protection unknown at {t.protection_unknown_results} assets · {flow(t.eal_protection_unknown_eur)} undefended</div>
+      )}
     </div>
   )
 }
@@ -193,7 +222,9 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
   const fmt = (v: number | null | undefined) => shares ? share(v) : flow(v)
   return (
     <div className="space-y-6">
-      {projected && d.placement && <div className="text-[12.5px] text-[var(--color-mute)]"><MessageLine m={d.placement} /></div>}
+      {projected && Object.entries(d.placements ?? {}).map(([p, m]) => (
+        <div key={p} className="text-[12.5px] text-[var(--color-mute)]"><span className="text-[var(--color-ink)]">{PERIL[p] ?? 'Hazard'}: </span><MessageLine m={m} /></div>
+      ))}
       <StatGrid cols={3} items={[
         { label: shares ? 'Sites' : 'Assets', value: d.run.n_assets.toLocaleString(), sub: runLabel(d.run) },
         { label: 'Figures', value: (d.results.length - missing).toLocaleString(), sub: 'one per asset and hazard' },
@@ -214,9 +245,11 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
                 </div>
               ) : t.peril === 'flood' && !projected ? <Compare t={t} headline={headline} /> : (
                 <div className="mt-3">
+                  {t.peril === 'coastal_flood' && !projected && <div className="text-[12.5px] text-[var(--color-ink)]">Undefended</div>}
                   <div className="display text-[26px] tabular-nums">{flow(t.eal_eur)}</div>
                   <div className="text-[11px] text-[var(--color-faint)] mt-1 tabular-nums">{flow(t.eal_low_eur)} – {flow(t.eal_high_eur)} · {t.results} assets</div>
                   {changeVs(t.eal_eur, t.eal_same_source_today_eur) && <StatusChip className="mt-2" label={`${changeVs(t.eal_eur, t.eal_same_source_today_eur)} vs today`} tone="warn" />}
+                  {t.peril === 'coastal_flood' && !projected && <CoastalDefended t={t} />}
                 </div>
               )}
             </Card>
@@ -232,7 +265,7 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
       <Card className="p-5">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <SectionHead>Assets</SectionHead>
-          {['all', 'flood', 'storm'].map(p => (
+          {['all', ...PERILS].map(p => (
             <button key={p} onClick={() => setPeril(p)} className={`px-2.5 py-1 text-[11.5px] rounded-full border ${peril === p ? 'border-[var(--color-sky)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)]'}`}>{p === 'all' ? 'All hazards' : PERIL[p]}</button>
           ))}
         </div>
@@ -258,7 +291,7 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
                         {r.caution_message && <span title={r.caution_message.label}><TriangleAlert size={13} className="text-[var(--color-warn)]" /></span>}
                       </div>
                     </td>
-                    {!projected && <td className="pr-3 text-right">{r.peril !== 'flood' ? '—' : (shares ? r.eal_defended_ratio : r.eal_defended_eur) != null ? fmt(shares ? r.eal_defended_ratio : r.eal_defended_eur) : <span className="text-[var(--color-faint)]">unknown</span>}</td>}
+                    {!projected && <td className="pr-3 text-right">{defended(r, fmt, shares)}</td>}
                     <td>{r.standing && <StandingChip s={r.standing} />}</td>
                   </>)}
                 </tr>
@@ -276,6 +309,17 @@ function RunView({ runId, headline }: { runId: string; headline: 'defended' | 'u
       </Dialog>}
     </div>
   )
+}
+
+// A result's defended figure: one value, a range (a coastal region stating a range of levels), or unknown.
+function defended(r: Result, fmt: (v: number | null | undefined) => string, shares: boolean): React.ReactNode {
+  if (r.peril !== 'flood' && r.peril !== 'coastal_flood') return '—'
+  const mid = shares ? r.eal_defended_ratio : r.eal_defended_eur
+  const lo = shares ? r.eal_defended_ratio_low : r.eal_defended_low_eur
+  const hi = shares ? r.eal_defended_ratio_high : r.eal_defended_high_eur
+  if (mid != null) return fmt(mid)
+  if (lo != null && hi != null) return `${fmt(lo)} – ${fmt(hi)}`
+  return <span className="text-[var(--color-faint)]">unknown</span>
 }
 
 function InfoBody({ m }: { m: Message }) {
@@ -332,7 +376,7 @@ function AssetDetail({ r, projected, shares, onClose }: { r: Result; projected: 
       </div>
       {shares ? fact('Share of its value lost a year', `${yr(r.eal_ratio)} (${yr(r.eal_ratio_low)} – ${yr(r.eal_ratio_high)})`)
         : fact('Expected yearly loss', `${flow(r.eal_eur)} (${flow(r.eal_low_eur)} – ${flow(r.eal_high_eur)})`)}
-      {!projected && r.peril === 'flood' && fact('Defended', (shares ? r.eal_defended_ratio : r.eal_defended_eur) != null ? yr(shares ? r.eal_defended_ratio : r.eal_defended_eur) : '—')}
+      {!projected && (r.peril === 'flood' || r.peril === 'coastal_flood') && fact('Defended', defended(r, yr, shares))}
       {!shares && fact('Building value', r.exposed_value_eur ? balance(r.exposed_value_eur) : '—')}
       {fact('Building use', r.occupancy ?? '—')}
       {fact('Damage curve', r.curve_name ?? '—')}
@@ -357,7 +401,7 @@ function Methods({ families, onClose }: { families?: Families; onClose: () => vo
       <div className="flex items-center justify-between"><div className="text-[16px] font-semibold text-[var(--color-ink)]">Methods and data sources</div><CloseButton onClick={onClose} /></div>
       {h('Damage curves')}
       <div className="space-y-3 text-[13px]">
-        {(['flood', 'storm'] as const).map(p => {
+        {PERILS.map(p => {
           const k = families?.adopted[p]
           const f = families?.families.find(x => x.family === k)
           return <div key={p}><span className="text-[var(--color-mute)]">{PERIL[p]}: </span>{f ? f.name : <>none chosen · <Link to="/admin?tab=Methodology" className="text-[var(--color-sky)]">choose in Methodology</Link></>}</div>

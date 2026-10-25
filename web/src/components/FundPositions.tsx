@@ -23,7 +23,9 @@ interface Pos {
   physical: { headline_score: number | null; headline_bucket: string | null; headline_hazard: string | null } | null
 }
 interface Facility { facility_id: string; name: string; facility_type: string | null; country: string | null; region: string | null
-  scores: { hazard: string; score: number; bucket: string }[] }
+  scores: { hazard: string; score: number; bucket: string }[]
+  source?: string; match_basis?: 'register_lei' | 'reviewed_name' | null; owner_share?: number | null
+  site_facts?: { register?: string } | null }
 interface Issuer {
   issuer?: { issuer_id: string; lei: string | null; name: string; country: string | null; sector: string | null }
   physical?: { per_hazard?: Record<string, { score: number; bucket: string }>; n_facilities?: number; n_scored_facilities?: number }
@@ -39,7 +41,11 @@ const SOURCE: Record<string, string> = {
   disclosed: 'Reported by the company', client: 'Your data', cdp: 'Reported to CDP', vendor: 'Your data vendor',
   estimated: 'Estimated from its sector and revenue',
 }
-const SITE: Record<string, string> = { hq: 'Head office', office: 'Office', plant: 'Plant', warehouse: 'Warehouse' }
+const SITE: Record<string, string> = { hq: 'Head office', office: 'Office', plant: 'Plant', warehouse: 'Warehouse', production_facility: 'Production facility' }
+// a site from a public register: the register, and the company's share of the site where the register states it
+const registerLine = (f: Facility) => !f.match_basis ? null : [
+  f.site_facts?.register, f.owner_share != null ? `${Math.round(f.owner_share * 1000) / 10}% owned` : null,
+].filter(Boolean).join(' · ')
 
 export default function FundPositions({ fundId }: { fundId: string }) {
   const q = useQuery({ queryKey: ['fund-positions', fundId], queryFn: () => api.get<{ positions: Pos[] }>(`/v1/funds/${fundId}/positions`) })
@@ -163,7 +169,8 @@ function IssuerPanel({ issuerId, loss, holding, onClose }: { issuerId: string; l
                     <div key={f.facility_id} className="rounded-lg border border-[var(--color-line)] px-3 py-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-[12.5px] text-[var(--color-ink)] truncate flex items-center gap-1.5"><Factory size={12} className="text-[var(--color-faint)]" />{f.name}</div>
-                        <div className="text-[11.5px] text-[var(--color-faint)]">{[SITE[f.facility_type ?? ''] ?? null, f.region, f.country].filter(Boolean).join(' · ')}</div>
+                        <div className="text-[11.5px] text-[var(--color-faint)]">{[SITE[f.facility_type ?? ''] ?? f.facility_type?.replace(/[-_]/g, ' ') ?? null, f.region, f.country].filter(Boolean).join(' · ')}</div>
+                        {registerLine(f) && <div className="text-[11px] text-[var(--color-faint)]">{registerLine(f)}</div>}
                       </div>
                       {worst && <span className="inline-flex items-center gap-2 shrink-0"><span className="text-[11.5px] text-[var(--color-mute)]">{hazardLabel(worst.hazard)}</span><Meter value={worst.score} tone={sevColor(worst.score)} width="w-12" score /></span>}
                     </div>

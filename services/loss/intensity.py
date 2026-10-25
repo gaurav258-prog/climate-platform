@@ -8,8 +8,11 @@ For the JRC river-flood layers (global, and the European maps with nine return p
 A location off every tile, or on a tile not held at all three return periods, is recorded 'outside_coverage' with no
 value — never a zero.
 
-The projected layer (WRI Aqueduct Floods) is sampled per map — its present day and each pathway × model × period — and
-each sample names its scenario, period and climate model; today's layers carry 'present' / 'present' / ''."""
+A projection source (services.loss.projection.SOURCES) is sampled per map — its present day (unless another layer holds
+it) and each pathway × period × member — and each sample names its scenario, period and member in climate_model: a
+climate model (river flood, tropical cyclone) or a sea-level-rise percentile (coastal flood: p05, p50, p95). The WRI
+Aqueduct maps (river and coastal) are read as the source reads them: the 30″ pixel holding the location. Today's layers
+carry 'present' / 'present' / '' — the coastal maps' present day too, which serves today's coastal figure."""
 from __future__ import annotations
 
 import logging
@@ -57,57 +60,73 @@ def _held(session: Session, key: str, version: str, variant: Optional[dict] = No
         {"k": key, "v": version, "s": v["scenario"], "p": v["period"], "m": v["climate_model"]}).all()}
 
 
-def aqueduct_variants() -> list[dict]:
-    """Every map of the registered Aqueduct layer: its present day, then each pathway × model × period."""
-    L = registry.layer("aqueduct_river_flood")
-    P = L["present"]
-    out = [{"scenario": P["scenario"], "period": P["year"], "climate_model": P["model"]}]
-    out += [{"scenario": s, "period": y, "climate_model": m} for s in L["pathways"] for m in L["models"] for y in L["periods"]]
-    return out
+def map_path(key: str, variant: dict, rp: int) -> Path:
+    """The file of one map of a WRI Aqueduct layer: river maps by scenario, model and year; coastal maps by scenario,
+    year and sea-level-rise percentile (the layer's members name each percentile's file suffix)."""
+    from services.loss.projection import present_variant
+    L = registry.layer(key)
+    f = L["files"]
+    if "{projection}" not in f["pattern"]:
+        name = f["pattern"].format(scenario=variant["scenario"], model=variant["climate_model"], year=variant["period"],
+                                   rp=rp)
+    elif variant == present_variant(L):
+        name = f["pattern"].format(**L["present"]["file"], rp=rp)
+    else:
+        name = f["pattern"].format(scenario=variant["scenario"], year=variant["period"], rp=rp,
+                                   projection=L["members"][variant["climate_model"]])
+    return registry.ROOT / f["dir"] / name
 
 
-def aqueduct_path(variant: dict, rp: int) -> Path:
-    L = registry.layer("aqueduct_river_flood")
-    return registry.ROOT / L["files"]["dir"] / L["files"]["pattern"].format(
-        scenario=variant["scenario"], model=variant["climate_model"], year=variant["period"], rp=rp)
-
-
-def aqueduct_rows(variant: dict, points: list[tuple[float, float]]) -> Optional[list[dict]]:
+def map_rows(key: str, variant: dict, points: list[tuple[float, float]]) -> Optional[list[dict]]:
     """The rows of one Aqueduct map at many locations (no database): the 30″ pixel holding each location, read as the
-    source reads it — wet when the depth exceeds 0 m (share 1, its depth as the mean), dry otherwise; no-data is dry.
-    None when a file is missing or a read failed."""
+    source reads it — wet when the depth exceeds 0 m (share 1, its depth as the mean), dry otherwise. No-data reads as
+    the layer declares (no_data): outside the map (the coastal maps' sea), else dry (the river maps). None when a file is
+    missing or a read failed."""
     import h3
 
     from services.geo import raster_sampler
-    L = registry.layer("aqueduct_river_flood")
+    L = registry.layer(key)
     rows = []
     for rp in L["return_periods"]:
-        path = aqueduct_path(variant, rp)
+        path = map_path(key, variant, rp)
         if not path.exists():
             return None
         got = raster_sampler.sample(str(path), [(lon, lat) for lat, lon in points])
         if got is None:
             return None
+        nd = L.get("no_data") or {}
         for (lat, lon), (v, *_rest) in zip(points, got):
+            base = {"layer_key": key, "layer_version": L["version"], "latitude": lat, "longitude": lon,
+                    "h3_cell": h3.latlng_to_cell(lat, lon, 8), "rp_years": rp, **variant}
+            if nd.get("reads_as") == "outside" and (v != v or v == nd["value"]):      # the sea: no value, never a zero
+                rows.append({**base, "status": "outside_coverage", "value": None, "cell_fraction": None, "cell_mean": None})
+                continue
             depth = 0.0 if (v != v or v <= L["dry_below"]) else float(v)
             wet = depth > L["dry_below"]
-            rows.append({"layer_key": "aqueduct_river_flood", "layer_version": L["version"], "latitude": lat,
-                         "longitude": lon, "h3_cell": h3.latlng_to_cell(lat, lon, 8), "rp_years": rp, "status": "sampled",
-                         "value": depth, "cell_fraction": 1.0 if wet else 0.0, "cell_mean": depth if wet else 0.0, **variant})
+            rows.append({**base, "status": "sampled", "value": depth, "cell_fraction": 1.0 if wet else 0.0,
+                         "cell_mean": depth if wet else 0.0})
     return rows
 
 
-def sample_aqueduct(session: Session, points: Optional[Iterable[tuple[float, float]]] = None, chunk: int = 2000) -> dict:
-    """Sample every Aqueduct map at every location it does not hold yet; commits per map and chunk."""
-    L = registry.layer("aqueduct_river_flood")
+def _rows_of(key: str, variant: dict, points: list[tuple[float, float]]) -> Optional[list[dict]]:
+    if registry.layer(key).get("derived_from"):          # a wind layer derived from an event set (the STORM future set)
+        from services.loss import storm_events
+        return storm_events.member_rows(key, variant, points)
+    return map_rows(key, variant, points)
+
+
+def sample_maps(session: Session, key: str, variants: list[dict],
+                points: Optional[Iterable[tuple[float, float]]] = None, chunk: int = 2000) -> dict:
+    """Sample the given maps of a projection source at every location it does not hold yet; commits per map and chunk."""
+    L = registry.layer(key)
     allp = list(points) if points is not None else asset_points(session)
     counts = {"maps": 0, "sampled": 0, "held": 0, "failed_maps": []}
-    for v in aqueduct_variants():
-        held = _held(session, "aqueduct_river_flood", L["version"], v)
+    for v in variants:
+        held = _held(session, key, L["version"], v)
         todo = [p for p in allp if p not in held]
         counts["held"] += len(held)
         for i in range(0, len(todo), chunk):
-            rows = aqueduct_rows(v, todo[i:i + chunk])
+            rows = _rows_of(key, v, todo[i:i + chunk])
             if rows is None:
                 counts["failed_maps"].append(f"{v['scenario']}/{v['climate_model']}/{v['period']}")
                 break
@@ -115,8 +134,14 @@ def sample_aqueduct(session: Session, points: Optional[Iterable[tuple[float, flo
             session.commit()
             counts["sampled"] += len(rows) // len(L["return_periods"])
         counts["maps"] += 1
-        log.info("aqueduct %s %s %s: %d locations", v["scenario"], v["climate_model"], v["period"], len(todo))
+        log.info("%s %s %s %s: %d locations", key, v["scenario"], v["climate_model"], v["period"], len(todo))
     return counts
+
+
+def sample_projection(session: Session, key: str, points: Optional[Iterable[tuple[float, float]]] = None) -> dict:
+    """Every map of a projection source (services.loss.projection.variants)."""
+    from services.loss.projection import variants
+    return sample_maps(session, key, variants(key), points)
 
 
 def jrc_flood_rows(lat: float, lon: float, tiles=None) -> list[dict]:
@@ -198,8 +223,11 @@ def sample(session: Session, layer_key: str, points: Optional[Iterable[tuple[flo
     """Sample a layer at every location not yet held for its version (all asset locations by default). Commits per
     batch. Returns {held, sampled, outside, failed}."""
     L = registry.layer(layer_key)
-    if layer_key == "aqueduct_river_flood":
-        return sample_aqueduct(session, points)
+    from services.loss.projection import SOURCES, present_variant
+    if layer_key in SOURCES.values():              # a source with maps per pathway: its present-day map when it serves
+        serves_today = L["present"]["scenario"] == "present" and not L["present"].get("layer")
+        today = [present_variant(L)] if serves_today else None                  # today's figure only, else every map
+        return sample_maps(session, layer_key, today, points) if today else sample_projection(session, layer_key, points)
     if layer_key not in _SAMPLERS:
         raise registry.RegistryError(f"layer '{layer_key}' has no sampler yet")
     held = _held(session, layer_key, L["version"])
@@ -239,15 +267,24 @@ def _insert(session: Session, rows: list[dict]) -> None:
             DO NOTHING"""), [{**PRESENT, "caution": None, **r} for r in rows])
 
 
-def prepare_book(session: Session, assets: list[dict], perils: Iterable[str]) -> dict:
-    """Sample, for one book's assets, every present-day layer its run will read and has not sampled yet — each peril's
-    global layer; the layer replacing it where in use, at the assets in its coverage countries; and, for flood, the
-    protection map — so a newly added asset gets its figure from the run itself, not after a separate sampling job.
-    Commits as it samples (the samples are reference data, append-only)."""
-    from services.loss import engine, protection
+def prepare_book(session: Session, assets: list[dict], perils: Iterable[str], projected: bool = False) -> dict:
+    """Sample, for one book's assets, every layer its run will read and has not sampled yet — so a newly added asset
+    gets its figure from the run itself, not after a separate sampling job. Today's climate: each peril's global layer;
+    the layer replacing it where in use, at the assets in its coverage countries; and, for flood, the protection map. A
+    projected run: each peril's projection source, every map, and the layer holding its present day. Commits as it
+    samples (the samples are reference data, append-only)."""
+    from services.loss import engine, projection, protection
     pts = sorted({(float(a["latitude"]), float(a["longitude"])) for a in assets
                   if a.get("latitude") is not None and a.get("longitude") is not None})
     out = {}
+    if projected:
+        for peril in perils:
+            key = projection.SOURCES.get(peril)
+            if key:
+                out[key] = sample_projection(session, key, pts)
+                if projection.present_layer(key) != key:
+                    out[projection.present_layer(key)] = sample(session, projection.present_layer(key), pts)
+        return out
     for peril in perils:
         out[engine.LAYERS[peril]] = sample(session, engine.LAYERS[peril], pts)
         for k, L in registry.layers().items():
@@ -256,8 +293,8 @@ def prepare_book(session: Session, assets: list[dict], perils: Iterable[str]) ->
                 out[k] = sample(session, k, sorted({(float(a["latitude"]), float(a["longitude"])) for a in assets
                                                     if a.get("latitude") is not None and a.get("longitude") is not None
                                                     and (a.get("country") or "").strip().upper() in cover}))
-        if peril == "flood":
-            out[protection.LAYER] = protection.sample(session, pts)
+        if peril in protection.LAYERS:                 # river flood: the JRC map; coastal flood: COASTPROS-EU
+            out[protection.LAYERS[peril]] = protection.sample(session, pts, key=protection.LAYERS[peril])
     return out
 
 
