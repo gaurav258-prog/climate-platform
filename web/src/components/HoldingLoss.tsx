@@ -23,7 +23,7 @@ export interface FundLoss { as_of: string | null; positions: HoldingLossRow[]; i
   value_eur: number; covered_value_eur: number; eur: number | null; eur_low: number | null; eur_high: number | null
   why: (Why & { count: number })[]; accepted_bases: { basis: string; name: string }[]; headline: string | null }
 
-const PERIL: Record<string, string> = { flood: 'River flood', coastal_flood: 'Coastal flood', storm: 'Tropical cyclone' }
+const PERIL: Record<string, string> = { flood: 'River flood', coastal_flood: 'Coastal flood', storm: 'Tropical cyclone', windstorm: 'European windstorm' }
 const SITE: Record<string, string> = { hq: 'Head office', office: 'Office', plant: 'Plant', warehouse: 'Warehouse' }
 const BASIS: Record<string, string> = { assets: 'Assets', revenue: 'Revenue', production_capacity: 'Capacity', headcount: 'Headcount', equal: 'Equal shares' }
 

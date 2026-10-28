@@ -9,7 +9,8 @@ the engine. What is recomputed: each return period's loss — low, central and h
 each, with the value they are a share of; and, for a flood figure, the defended expected annual loss (low, central, high)
 at the published protection standard where the asset stands, or none where the protection map has no level there.
 Coastal flood is read like river flood (water depth on its own maps); its defended figure — a stated range of standards —
-is not yet recomputed here.
+is not yet recomputed here. A wind figure reads the map the run recorded for its peril (tropical cyclone: the STORM maps;
+European windstorm: the PRIMAVERA gust maps), with the curve's published low and high curves where it has them.
 Reads the shared database as it is; skips where the lookalikes are not loaded. A value derived from an official building share (the organisation's adopted basis) is
 recomputed from the book's stated value and the published share for the place."""
 from __future__ import annotations
@@ -50,7 +51,8 @@ def ratio_at(points: list, x: float) -> float:
 def band_at(curve: dict, x: float, central: float) -> tuple[float, float]:
     """The curve's published spread at x: a measured band holding x (its 10th–90th percentile; the last band held
     beyond it); else the published standard deviation (straight lines between its points, its first value below them,
-    its last beyond) as central ± one deviation within 0–1; else, where the publisher states none, no spread."""
+    its last beyond) as central ± one deviation within 0–1; else its published low and high curves; else, where the
+    publisher states none, no spread."""
     bands = curve.get("bands") or []
     for b in bands:
         if b["from_m"] < x <= b["to_m"]:
@@ -60,6 +62,8 @@ def band_at(curve: dict, x: float, central: float) -> tuple[float, float]:
     if curve.get("sd"):
         sd = curve["sd"][0][1] if x <= curve["sd"][0][0] else ratio_at(curve["sd"], x)
         return max(0.0, central - sd), min(1.0, central + sd)
+    if curve.get("range_points"):
+        return ratio_at(curve["range_points"]["low"], x), ratio_at(curve["range_points"]["high"], x)
     assert curve.get("spread") == "none published", curve["key"]
     return central, central
 
@@ -142,7 +146,7 @@ def test_every_recorded_figure_is_recomputed_to_the_cent(session_rolled_back):
                 stated = round(f["book_value"] * vb["share"], 2)
             assert stated is not None and abs(f["value"] - stated) < 0.005, f        # the value the book states
             depth_peril = f["peril"] in ("flood", "coastal_flood")         # read in water depth on the asset's maps
-            layer = f["flood_layer"] if depth_peril else "storm_v4_wind"
+            layer = f["flood_layer"] if depth_peril else r["inputs"]["layers"][f["peril"]]["key"]   # as the run read it
             L = LAYERS[layer]
             divide = 1.0 if family["metric"] == L["metric"] else float(L["conversions"][family["metric"]]["divide_by"])
             samples = s.execute(text("""
@@ -163,7 +167,10 @@ def test_every_recorded_figure_is_recomputed_to_the_cent(session_rolled_back):
                     lo, hi = band_at(curve, depth, c)
                     low[rp], losses[rp], high[rp] = stated * share * min(lo, c), stated * share * c, stated * share * max(hi, c)
                 else:
-                    low[rp] = losses[rp] = high[rp] = stated * ratio_at(curve["points"], float(sm["value"] or 0) / divide)
+                    wind = float(sm["value"] or 0) / divide
+                    c = ratio_at(curve["points"], wind)
+                    lo, hi = band_at(curve, wind, c) if (curve.get("range_points") or curve.get("sd")) else (c, c)
+                    low[rp], losses[rp], high[rp] = stated * min(lo, c), stated * c, stated * max(hi, c)
             recorded = {int(k): v for k, v in f["loss_at_rp"].items()}
             assert set(recorded) == set(losses), f
             for rp in losses:

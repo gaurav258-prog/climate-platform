@@ -31,7 +31,7 @@ def test_families_show_their_test_and_the_refused_say_why(api):
         assert f["kind"] in ("published", "measured") and f["curves"]
         if f["kind"] == "measured":
             assert f["test"] is not None and "passed" in f["test"]
-    assert set(body["adopted"]) == {"flood", "coastal_flood", "storm"}
+    assert set(body["adopted"]) == {"flood", "coastal_flood", "storm", "windstorm"}
 
 
 def test_layers_are_listed_with_what_is_sampled(api):

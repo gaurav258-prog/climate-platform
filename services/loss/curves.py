@@ -18,8 +18,9 @@ A family file:
                                         their spread, and the held-out test with whether it passed)
   curves [{key, occupancy, region, countries [ISO2 …], points [[x, ratio], …], quote | bands}]
                                         a published curve may carry the publisher's standard deviation per point
-                                        (sd [[x, σ], …]) or say "spread": "none published"; with spread_required
-                                        on the family, every curve must say which
+                                        (sd [[x, σ], …]), a low and a high curve read from the publisher's printed
+                                        spread (range_points {low, high, basis}), or say "spread": "none published";
+                                        with spread_required on the family, every curve must say which
   beyond_last                           "hold": the ratio at the last point holds beyond it (no extrapolation)"""
 from __future__ import annotations
 
@@ -87,12 +88,15 @@ def check_family(doc: dict) -> list[str]:
             q = c.get("quote") or {}
             if not (q.get("table") and q.get("page")):
                 out.append(f"{fam}/{k}: the table and page it was transcribed from are not quoted")
-            sd, xs_ = c.get("sd"), [p[0] for p in c.get("points") or []]
+            sd, rng, xs_ = c.get("sd"), c.get("range_points"), [p[0] for p in c.get("points") or []]
             if sd is not None:
                 if [p[0] for p in sd] != xs_ or any(p[1] is None or p[1] < 0 for p in sd):
                     out.append(f"{fam}/{k}: its published standard deviation needs one non-negative value per depth")
+            elif rng is not None:
+                out += _range_problems(fam, k, c["points"] if c.get("points") else [], rng)
             elif c.get("spread") not in ("none published", None) or (doc.get("spread_required") and c.get("spread") is None):
-                out.append(f"{fam}/{k}: a curve states its published spread ('sd') or that none is published")
+                out.append(f"{fam}/{k}: a curve states its published spread ('sd' or 'range_points') or that none is "
+                           "published")
         else:
             bands = c.get("bands") or []
             if not bands or any(b.get("n", 0) <= 0 or b.get("p10") is None or b.get("p90") is None
@@ -106,6 +110,23 @@ def check_family(doc: dict) -> list[str]:
             out.append(f"{fam}/{k}: damage ratios must lie in [0, 1] and never fall as intensity rises")
     if not keys:
         out.append(f"{fam}: no curves")
+    return out
+
+
+def _range_problems(fam: str, k: str, points: list, rng: dict) -> list[str]:
+    """A published low and high curve (range_points): each at the central curve's intensities, each a damage curve, and
+    low ≤ central ≤ high at every point, with the basis it is read on."""
+    out = []
+    lo, hi = rng.get("low") or [], rng.get("high") or []
+    xs = [p[0] for p in points]
+    if [p[0] for p in lo] != xs or [p[0] for p in hi] != xs:
+        out.append(f"{fam}/{k}: its published low and high curves need a ratio at every intensity of the central curve")
+    elif any(not (0 <= a[1] <= c[1] <= b[1] <= 1) for a, c, b in zip(lo, points, hi)):
+        out.append(f"{fam}/{k}: its published range must hold low ≤ central ≤ high within [0, 1] at every intensity")
+    elif any(b[1] < a[1] for side in (lo, hi) for a, b in zip(side, side[1:])):
+        out.append(f"{fam}/{k}: its published low and high curves must never fall as intensity rises")
+    if not rng.get("basis"):
+        out.append(f"{fam}/{k}: its published range states the basis it is read on")
     return out
 
 
@@ -126,7 +147,34 @@ def _load_version(version: tuple) -> tuple[dict[str, dict], dict[str, list[str]]
             refused[doc.get("family", path.stem)] = problems
         else:
             sound[doc["family"]] = doc
+    for fam, problems in wind_overlap(sound).items():
+        refused[fam] = problems
+        sound.pop(fam)
     return sound, refused
+
+
+# The two wind hazards (the product owner's decisions of 2026-10-25): tropical cyclone and European windstorm are shown
+# side by side and never added, so no country may be served by the curves of both.
+WIND_PERILS = ("storm", "windstorm")
+
+
+def wind_overlap(docs: dict[str, dict]) -> dict[str, list[str]]:
+    """{family: [its problem]} for every family whose curves serve a country that a family of the other wind hazard also
+    serves — both are refused, never one chosen over the other."""
+    def wind(d: dict) -> set[str]:
+        return {p for p in perils(d) if p in WIND_PERILS}
+
+    countries = {f: {c for cur in d["curves"] for c in cur["countries"]} for f, d in docs.items() if wind(d)}
+    out: dict[str, list[str]] = {}
+    for a in sorted(countries):
+        for b in sorted(countries):
+            if a < b and wind(docs[a]) != wind(docs[b]) and countries[a] & countries[b]:
+                both = ", ".join(sorted(countries[a] & countries[b]))
+                for f, g in ((a, b), (b, a)):
+                    out.setdefault(f, []).append(
+                        f"{f}: its curves serve {both}, which {g} serves for the other wind hazard — a country's wind is "
+                        "counted under one hazard only")
+    return out
 
 
 def families() -> dict[str, dict]:

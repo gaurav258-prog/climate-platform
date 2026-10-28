@@ -5129,5 +5129,192 @@
     "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
    }
   ]
+ },
+ "primavera_windstorm_compact": {
+  "source": "derived from the event set primavera_windstorm (data/reference/event_sets.json) by services.loss.windstorm_events.compact",
+  "licence": "Open Government Licence v3.0",
+  "version": "v1",
+  "files": [
+   {
+    "file": "data/datasets/primavera_windstorm/compact/winter_max.npz",
+    "bytes": 181115647,
+    "sha256": "235f1f43f658295f1495c2bb784ee8928a8e3b32e55661305beb7b71d2605950",
+    "winters": 1332,
+    "grid": [
+     148,
+     263
+    ],
+    "runs": {
+     "CMCC-CM2-HR4_highresSST-present_r1i1p1f1": {
+      "footprints": 13779,
+      "winters": 64,
+      "central_date_outside_oct_mar": 92,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by CMCC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "CMCC-CM2-VHR4_highresSST-present_r1i1p1f1": {
+      "footprints": 13895,
+      "winters": 63,
+      "central_date_outside_oct_mar": 103,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by CMCC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "CNRM-CM6-1_highresSST-present_r1i1p1f2": {
+      "footprints": 12690,
+      "winters": 64,
+      "central_date_outside_oct_mar": 102,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by CNRM-CERFACS is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file) and at http://www.umr-cnrm.fr/cmip6/. The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "CNRM-CM6-1-HR_highresSST-present_r1i1p1f2": {
+      "footprints": 13830,
+      "winters": 64,
+      "central_date_outside_oct_mar": 101,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by CNRM-CERFACS is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file) and at http://www.umr-cnrm.fr/cmip6/. The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "EC-Earth3P_highresSST-present_r1i1p1f1": {
+      "footprints": 12651,
+      "winters": 62,
+      "central_date_outside_oct_mar": 109,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by EC-Earth-Consortium is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file) and at http://www.ec-earth.org. The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "EC-Earth3P_highresSST-present_r3i1p1f1": {
+      "footprints": 11816,
+      "winters": 60,
+      "central_date_outside_oct_mar": 99,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by EC-Earth-Consortium is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file) and at http://www.ec-earth.org. The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "EC-Earth3P-HR_highresSST-present_r1i1p1f1": {
+      "footprints": 12734,
+      "winters": 64,
+      "central_date_outside_oct_mar": 91,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by EC-Earth-Consortium is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file) and at http://www.ec-earth.org. The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "EC-Earth3P-HR_highresSST-present_r3i1p1f1": {
+      "footprints": 11980,
+      "winters": 60,
+      "central_date_outside_oct_mar": 105,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by EC-Earth-Consortium is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file) and at http://www.ec-earth.org. The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-HM_highresSST-present_r1i1p1f1": {
+      "footprints": 13241,
+      "winters": 64,
+      "central_date_outside_oct_mar": 90,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-HM_highresSST-present_r1i2p1f1": {
+      "footprints": 13116,
+      "winters": 64,
+      "central_date_outside_oct_mar": 112,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-HM_highresSST-present_r1i3p1f1": {
+      "footprints": 12980,
+      "winters": 63,
+      "central_date_outside_oct_mar": 108,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-LM_highresSST-present_r1i14p1f1": {
+      "footprints": 12158,
+      "winters": 64,
+      "central_date_outside_oct_mar": 117,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-LM_highresSST-present_r1i15p1f1": {
+      "footprints": 12120,
+      "winters": 64,
+      "central_date_outside_oct_mar": 98,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-LM_highresSST-present_r1i1p1f1": {
+      "footprints": 12176,
+      "winters": 64,
+      "central_date_outside_oct_mar": 104,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-LM_highresSST-present_r1i2p1f1": {
+      "footprints": 12130,
+      "winters": 64,
+      "central_date_outside_oct_mar": 101,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-LM_highresSST-present_r1i3p1f1": {
+      "footprints": 12227,
+      "winters": 64,
+      "central_date_outside_oct_mar": 102,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-MM_highresSST-present_r1i1p1f1": {
+      "footprints": 12926,
+      "winters": 64,
+      "central_date_outside_oct_mar": 100,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-MM_highresSST-present_r1i2p1f1": {
+      "footprints": 13021,
+      "winters": 64,
+      "central_date_outside_oct_mar": 110,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "HadGEM3-GC31-MM_highresSST-present_r1i3p1f1": {
+      "footprints": 12954,
+      "winters": 64,
+      "central_date_outside_oct_mar": 117,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MOHC is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "MPI-ESM1-2-HR_highresSST-present_r1i1p1f1": {
+      "footprints": 13032,
+      "winters": 64,
+      "central_date_outside_oct_mar": 98,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MPI-M is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses/). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     },
+     "MPI-ESM1-2-XR_highresSST-present_r1i1p1f1": {
+      "footprints": 13197,
+      "winters": 64,
+      "central_date_outside_oct_mar": 115,
+      "file_licence_attribute": [
+       "CMIP6 model data produced by MPI-M is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (https://creativecommons.org/licenses/). Consult https://pcmdi.llnl.gov/CMIP6/TermsOfUse for terms of use governing CMIP6 output, including citation requirements and proper acknowledgment. Further information about this data, including some limitations, can be found via the further_info_url (recorded as a global attribute in this file). The data producers and data providers make no warranty, either express or implied, including, but not limited to, warranties of merchantability and fitness for a particular purpose. All liabilities arising from the supply of the information (including any liability arising in negligence) are excluded to the fullest extent permitted by law."
+      ]
+     }
+    }
+   }
+  ]
  }
 }

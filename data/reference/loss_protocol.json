@@ -201,5 +201,12 @@
     "recorded": "on the curve in its family file, as published_curve_test",
     "seen_before": "before this registration only counts were made, with no curve: on the raw claims file, 24,164 claims of codes 4, 6, 18 and 19 in the 50 states and DC with an exterior depth above 0 and at most 144 inches, a building value above zero and a damage amount, 9 events with at least 500 of them (11,997 claims); the prepared file's own set-asides (no recorded waterDepth, damage above the building's value) may lower them",
     "limits_stated_before": "NFIP records insured buildings only, valued at the adjuster's actual cash value (as for the houses); 'non-residential' mixes shops, offices, warehouses, places of worship and farm buildings, while the curve is the commercial one; the buildings are those insured in the US while the curve speaks for North America; the North America residential curve failed this test by over-predicting every event (2026-10-07). A pass says the curve's event totals stand within the tolerance on these claims; a fail holds the curve"
+  },
+  "europe_windstorm_test": {
+    "searched": "2026-10-25",
+    "question": "do the windstorm losses the platform models for European homes (the PRIMAVERA gust maps through the Prahl et al. 2015 curve) match observed storm losses on records the curve was not built from?",
+    "registered": null,
+    "result": "no test registered: no open, commercially usable record pairs observed European storm losses with insured or building values at a unit whose gust can be read (search of 2026-10-25, notes eu-windstorm-research-losses.md). Spain's Consorcio de Compensación de Seguros pays wind only above 120 km/h gusts (135 km/h before 2011), publishes insured capital for 2025 only, and does not allow third parties to market its site's content; Swiss cantonal building insurers publish storm loss and insured capital by canton and year, several storms mixed, terms not stated; GDV publishes storm and hail as one figure by state and year and does not allow economic use of the material as such; GDV's district-by-day data, which the curve was calibrated on, was provided to its authors, not released; PERILS' zone data is licensed only. Every windstorm figure is 'untested' (services.loss.engine.standing: no test on the family).",
+    "when_data_lands": "docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md item 22: a data-use agreement that allows commercial use and publishing the result → register the test here before the losses are read, as published_curve_test_commercial was"
   }
 }
