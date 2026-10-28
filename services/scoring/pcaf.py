@@ -128,3 +128,82 @@ def attributed_financed_emissions(rows: list[dict], *, exposure_key: str, evic_k
         "evic_coverage_pct": round(100 * n_covered / n_total, 1) if n_total else None,
         "covered_exposure_eur": round(covered_exposure_eur),
     }
+
+
+def _add(*vals: Optional[float]) -> Optional[float]:
+    """A sum over the figures that exist (a missing one is not 0); None when none exists."""
+    got = [v for v in vals if v is not None]
+    return round(sum(got)) if got else None
+
+
+def book_financed_emissions(rows: list[dict], *, exposure_key: str, evic_key: str,
+                            scope_keys: tuple[str, str, str] = ("ghg1", "ghg2", "ghg3")) -> dict:
+    """A loan book's financed emissions, each loan by the method of its PCAF asset class (Part A, 3rd ed., chapter 5;
+    data/reference/pcaf/part_a_2025.json):
+
+      enterprise value   listed equity and bonds, business loans — and a loan whose class is not stated (the book as it
+                         was before the class was asked): attributed_financed_emissions above, its keys at the top level
+      mortgages          services/scoring/pcaf_mortgages.book: the building's scope 1 and 2 by its property value at
+                         origination ('mortgages', with the weighted data quality score)
+      not built          any other class: counted with its outstanding amount under 'not_built', never attributed by an
+                         enterprise value its method does not use
+
+    'combined' keeps the shape every reader takes (scope1, scope2, scope3, total): scope 1 and scope 2 over both methods;
+    scope 3 the companies' (§5.5 covers a mortgage's scope 1 and 2 only); total the companies stating all three scopes
+    (E79) plus the mortgages' scope 1 and 2 — each class over the scopes its method covers (Table 10.2-2, p. 199).
+    'class_not_stated' counts the loans whose counterparty has no enterprise value (a household, government or central
+    bank) and whose class is not stated — no method can attribute them."""
+    from services.ingest.sector_ingest import NO_ENTERPRISE_VALUE
+    from services.scoring import pcaf_mortgages as pm
+    evic_rows: list[dict] = []
+    not_built: dict[str, dict] = {}
+    unstated = {"n": 0, "outstanding_eur": 0.0}
+    for r in rows:
+        cls = r.get("pcaf_asset_class")
+        method = pm.method_of(cls) if cls else "evic"
+        if method == "evic":
+            evic_rows.append(r)
+            if cls is None and r.get(evic_key) is None and r.get("counterparty_sector") in NO_ENTERPRISE_VALUE:
+                unstated["n"] += 1
+                unstated["outstanding_eur"] += float(r.get(exposure_key) or 0)
+        elif method is None:
+            nb = not_built.setdefault(cls, {"n": 0, "outstanding_eur": 0.0})
+            nb["n"] += 1
+            nb["outstanding_eur"] += float(r.get(exposure_key) or 0)
+    out = attributed_financed_emissions(evic_rows, exposure_key=exposure_key, evic_key=evic_key, scope_keys=scope_keys)
+    mort = pm.book(rows)
+    att = out["attributed"]
+    out["mortgages"] = mort
+    out["not_built"] = [{"asset_class": k, "n": v["n"], "outstanding_eur": round(v["outstanding_eur"])}
+                        for k, v in sorted(not_built.items())]
+    out["class_not_stated"] = {"n": unstated["n"], "outstanding_eur": round(unstated["outstanding_eur"])}
+    out["combined"] = {"scope1": _add(att["scope1"], mort["scope1"]), "scope2": _add(att["scope2"], mort["scope2"]),
+                       "scope3": att["scope3"], "total": _add(att["total"], mort["scope12"])}
+    return out
+
+
+def asset_financed(a: dict, *, exposure_key: str = "outstanding_loan_balance_eur", evic_key: str = "evic_eur",
+                   scope_keys: tuple[str, str, str] = ("ghg1", "ghg2", "ghg3")) -> dict:
+    """One loan's part of the book's financed emissions, by the rules the book sums ('combined' above): per scope the
+    attributed figure of a scope the counterparty states; 'total' only where the book's total counts the loan — a
+    company stating all three scopes (E79), or a mortgage with its scope 1 and 2. None where the book does not count it
+    (no enterprise value, a gap, a class not built) — never a missing scope read as 0."""
+    from services.scoring import pcaf_mortgages as pm
+    none = {"scope1": None, "scope2": None, "scope3": None, "total": None}
+    cls = a.get("pcaf_asset_class")
+    method = pm.method_of(cls) if cls else "evic"
+    if method == "mortgage":
+        m = a.get("pcaf_mortgage") or pm.loan(a)
+        if m.get("gaps"):
+            return none
+        return {"scope1": m["financed_scope1_tco2e"], "scope2": m["financed_scope2_tco2e"], "scope3": None,
+                "total": m["financed_tco2e"]}
+    if method != "evic":
+        return none
+    af = attribution_factor(a.get(exposure_key), a.get(evic_key))
+    if af is None:
+        return none
+    vals = [_stated(a.get(k)) for k in scope_keys]
+    out = {name: None if v is None else af * v for name, v in zip(_SCOPES, vals)}
+    out["total"] = af * sum(vals) if all(v is not None for v in vals) else None
+    return out

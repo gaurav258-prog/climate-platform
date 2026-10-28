@@ -1,0 +1,104 @@
+{
+  "_about": "PCAF Global GHG Accounting and Reporting Standard Part A: Financed Emissions, Third Edition (December 2025) — the asset classes and the mortgage method (§5.5) as the platform computes them. The standard is PCAF's copyrighted text (not EU law): each rule is stated here in our own words with its section, table and page, never reproduced; the pinned file is the one to read. Read by services/scoring/pcaf_mortgages.py and services/ingest/fields.py (the PCAF asset classes, the energy sources and the energy bases); checked by tests/unit/test_pcaf_mortgages.py.",
+  "source": {
+    "title": "The Global GHG Accounting and Reporting Standard Part A: Financed Emissions. Third Edition",
+    "publisher": "Partnership for Carbon Accounting Financials (PCAF)",
+    "edition": "Third Edition, December 2025",
+    "url": "https://carbonaccountingfinancials.com/files/standard-launch-2025/PCAF-PartA-2025-V3-15012026.pdf",
+    "sha256": "7c2b6b9725df9723e2837a42faf96cb5af8d821a7936b401d6ca58fbcc394a2c",
+    "pages": 209,
+    "file_created": "2026-01-15",
+    "checked": "2026-10-25: the file at the url (the edition PCAF's standard page links) read in full for §4.2, §5.5, §6.1, the glossary and Annex 10.1-10.2; an earlier build of the same edition (created 2025-11-29, SHA-256 20cc255b7502f1ad76e3205093795a51e9e25d1bc933b4500f4725f35819c16b) has the same §5.5 text and Table 10.1-5"
+  },
+  "qa": {
+    "checked": "2026-10-25",
+    "finding": "PCAF publishes no methodology Q&A. Its Disclosure Checklist FAQ (May 2025, carbonaccountingfinancials.com/files/disclosure_checklist/PCAF-DCL-Part-A-FAQs-May2025.pdf) covers the checklist and review process only: no question on mortgages, property values, energy labels or data quality scores."
+  },
+  "asset_classes": [
+    {"key": "listed_equity_corporate_bonds", "section": "5.1", "method": "evic"},
+    {"key": "business_loans_unlisted_equity", "section": "5.2", "method": "evic"},
+    {"key": "project_finance", "section": "5.3", "method": null},
+    {"key": "commercial_real_estate", "section": "5.4", "method": null},
+    {"key": "mortgages", "section": "5.5", "method": "mortgage"},
+    {"key": "motor_vehicle_loans", "section": "5.6", "method": null},
+    {"key": "use_of_proceeds", "section": "5.7", "method": null},
+    {"key": "securitization_structured_products", "section": "5.8", "method": null},
+    {"key": "sovereign_debt", "section": "5.9", "method": null},
+    {"key": "sub_sovereign_debt", "section": "5.10", "method": null}
+  ],
+  "_asset_classes": "Chapter 5 (p. 33) names the ten asset classes in this order. 'method': the attribution the platform computes for the class — 'evic' the existing enterprise-value attribution (services/scoring/pcaf.attributed_financed_emissions), 'mortgage' §5.5 below; null: not built, the loan's financed emissions are a named gap that says so. 'evic' is PCAF's denominator for a listed company (§5.1; §5.2 for a listed borrower); for a private company §5.2 (pp. 56-57) divides by its total equity and debt from its balance sheet, which the platform does not yet ask for apart from the EVIC (E106, open).",
+  "mortgages": {
+    "section": "5.5",
+    "pages": "83-88",
+    "definition": {
+      "ref": "§5.5, Asset class definition, p. 83; glossary 'Mortgages', p. 180",
+      "rule": "On-balance-sheet loans to buy or to refinance residential property (single homes, and multifamily housing with few units) used only for living in. A refinancing by the original lender replaces the original mortgage; one by another lender is that lender's. Home equity loans and lines of credit, and mortgages to build or renovate a home, are not required by the method. Other considerations, p. 87: no distinction between private and corporate mortgages; off-balance-sheet mortgages are outside the method."
+    },
+    "scopes": {
+      "ref": "§5.5, Emission scopes covered, p. 83",
+      "rule": "The financial institution covers the absolute scope 1 and scope 2 emissions of the energy the financed property uses, the occupants' use included: a whole multifamily property with shared facilities, or the single apartment or house bought.",
+      "covered": [1, 2]
+    },
+    "attribution": {
+      "ref": "§5.5, Attribution of emissions, p. 84",
+      "rule": "Attribution factor of a building = the outstanding amount at the time of GHG accounting / the property value at the time of loan origination (a loan-to-value approach). Where the value at origination is not feasible to obtain, the latest property value available is used and kept fixed for the following years of GHG accounting, so the denominator stays constant (footnote 134: whether the value at origination can be retrieved varies by country).",
+      "cap": null,
+      "_cap": "§5.5 states no upper limit for this factor. PCAF caps the collateral attribution factor of a securitisation (§5.8, p. 122) and the sub-sovereign debt-to-GDP ratio (§5.10, p. 154), not the mortgage factor: the platform computes the formula as written and counts the loans whose factor is above 1 (an open reading for the product owner, 2026-10-25)."
+    },
+    "emissions": {
+      "ref": "§5.5, Equations to calculate financed emissions, p. 84",
+      "rule": "Financed emissions = the sum over buildings of attribution factor × building emissions; a building's emissions = the sum over the energy sources it uses of the energy consumed × the emission factor of that source."
+    },
+    "data_quality": {
+      "ref": "Table 5.5-1, p. 86 (general description); Table 10.1-5, p. 195 (data needs and equations)",
+      "rule": "Score 1 is the highest data quality, 5 the lowest. Every option uses the outstanding amount and the property value at origination; they differ in the building's energy figure and the emission factor.",
+      "options": [
+        {"option": "1a", "score": 1, "energy_basis": "metered", "factor_type": "supplier_specific",
+         "rule": "the building's actual (metered) energy consumption × emission factors from the energy supplier, specific to each energy source"},
+        {"option": "1b", "score": 2, "energy_basis": "metered", "factor_type": "average",
+         "rule": "the building's actual (metered) energy consumption × average emission factors specific to each energy source"},
+        {"option": "2a", "score": 3, "energy_basis": "energy_label", "factor_type": "average",
+         "rule": "energy consumption per floor area estimated from the official building energy label × the floor area × average emission factors per energy source"},
+        {"option": "2b", "score": 4, "energy_basis": "statistics_per_m2", "factor_type": "average",
+         "rule": "energy consumption per floor area estimated from building-type and location-specific statistics × the floor area × average emission factors per energy source"},
+        {"option": "3", "score": 5, "energy_basis": "statistics_per_building", "factor_type": "average",
+         "rule": "energy consumption per building estimated from building-type and location-specific statistics × the number of buildings × average emission factors per energy source"}
+      ],
+      "_options": "Table 5.5-1 lists no option for a building whose energy sources are read by different options, nor for an estimated energy figure with a supplier-specific factor (p. 85 says supplier-specific factors should be used where available): the platform computes such a building's emissions (each term a stated figure) and names its score as not defined by the table, with the reason.",
+      "factor_types": {
+        "values": ["supplier_specific", "average"],
+        "ref": "§5.5, Data required, footnotes 135, 136 and 138, pp. 85-86",
+        "rule": "Supplier-specific: the emission rate the energy supplier (a utility) gives its customers for the energy it provides — for electricity the market-based factor. Average: the average emissions of the energy source within a defined boundary (national or subnational) — for electricity the location-based factor."
+      },
+      "floor_area": {
+        "ref": "§5.4, footnote 130, p. 81 (commercial real estate, the same floor-area options)",
+        "rule": "An emission or energy figure per floor area should be in the same kind of floor area (net, usable, …) as the area it multiplies."
+      }
+    },
+    "energy_sources": {
+      "ref": "Glossary 'Scope 1 emissions' and 'Scope 2 emissions', p. 181; §6.1 Gases and units, p. 162",
+      "rule": "Scope 1: direct emissions from sources owned or controlled — combustion in owned or controlled boilers and furnaces, i.e. fuel burned in the building. Scope 2: indirect emissions from generating purchased electricity, steam, heating or cooling. Biogenic CO2 is kept out of the scopes and reported separately.",
+      "scope": {"natural_gas": 1, "heating_oil": 1, "lpg": 1, "coal": 1, "electricity": 2, "district_heating": 2, "district_cooling": 2},
+      "not_built": {"biomass": "Burning wood or other biomass emits biogenic CO2, which §6.1 (p. 162) keeps out of the scopes and has reported separately; the platform does not carry a separate biogenic figure yet, so a biomass row is refused with this reason."}
+    },
+    "energy_bases": {
+      "metered": {"value": "annual_kwh", "rule": "actual consumption of the year, read from the meter (options 1a, 1b)"},
+      "energy_label": {"value": "kwh_per_m2", "times": "floor_area_m2", "rule": "energy use per m² from the official energy label (option 2a)"},
+      "statistics_per_m2": {"value": "kwh_per_m2", "times": "floor_area_m2", "rule": "energy use per m² from statistics for the building type and location (option 2b)"},
+      "statistics_per_building": {"value": "annual_kwh", "times": "buildings", "rule": "energy use per building from statistics for the building type and location, × the number of buildings (option 3)"}
+    },
+    "reporting": {
+      "ref": "§6.1, pp. 161-168; Table 10.2-2, p. 199",
+      "rules": [
+        "Absolute emissions of loans and investments are disclosed as scope 1 and 2 combined (shall); scope 1 and scope 2 apart where it serves the institution's goals (should) — p. 162.",
+        "The share of total loans and investments covered, by asset class (shall) — p. 161.",
+        "A data quality score weighted by outstanding amount (should), or why it cannot be given: Σ outstanding × score / Σ outstanding over the borrowers reported — pp. 167-168.",
+        "Table 10.2-2 reports per asset class the outstanding amount covered, scope 1+2, scope 3, the economic intensity and the weighted data quality score."
+      ]
+    }
+  },
+  "pillar3": {
+    "ref": "Annex XL (ITS 2024/3172, EBA IT solutions; the same wording in ITS 2022/2453), Template 1, point 1(a)",
+    "fact": "Template 1 discloses exposures towards non-financial corporates operating in carbon-related sectors: a loan to a household is in no row of it, so no Pillar 3 financed-emissions column (Template 1 columns i-k) reads a mortgage's financed emissions."
+  }
+}

@@ -10,9 +10,16 @@ is merely similar ("Concrete") is never mapped here; the customer maps it, and t
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
+
+# PCAF Part A (3rd ed.): the asset classes, a building's energy sources and the energy bases of the mortgage method — one
+# reference file (data/reference/pcaf/part_a_2025.json), read here so the file's lists are the vocabularies
+_PCAF = json.loads((Path(__file__).resolve().parents[2] / "data" / "reference" / "pcaf" / "part_a_2025.json").read_text())
+_MORTGAGES = _PCAF["mortgages"]
 
 
 def norm_token(v) -> str:
@@ -87,6 +94,15 @@ VOCABS: dict[str, Vocab] = {
     "asset_class": Vocab(("equity", "corporate_bond", "sovereign_bond", "securitized", "etf", "fund", "other"),
                          {"share": "equity", "shares": "equity", "stock": "equity", "corporate_bonds": "corporate_bond",
                           "government_bond": "sovereign_bond", "govt_bond": "sovereign_bond", "abs": "securitized"}),
+    # PCAF Part A, 3rd ed. (data/reference/pcaf/part_a_2025.json): the asset class a loan is in (chapter 5), the energy
+    # sources a building uses (the scoped ones, plus biomass — refused with its reason) and the basis of its energy figure
+    # (§5.5, Table 5.5-1). No synonyms: 'gas' or 'oil' could be more than one source.
+    "pcaf_asset_class": Vocab(tuple(c["key"] for c in _PCAF["asset_classes"]), {"mortgage": "mortgages"}),
+    "energy_source": Vocab((*_MORTGAGES["energy_sources"]["scope"], *_MORTGAGES["energy_sources"]["not_built"]),
+                           {"district_heat": "district_heating", "fernwaerme": "district_heating"}),
+    "energy_basis": Vocab(tuple(_MORTGAGES["energy_bases"])),
+    "emission_factor_type": Vocab(tuple(_MORTGAGES["data_quality"]["factor_types"]["values"]),
+                                  {"market_based": "supplier_specific", "location_based": "average"}),
 }
 
 
@@ -102,10 +118,13 @@ class FieldDef:
     range: Optional[tuple[float, float]] = None
     flow: bool = False               # money over a period (annual income, spend, revenue): converted at the period
                                      # AVERAGE rate; any other money field is a balance, converted at the CLOSING rate
+    header_only: bool = False        # proposed for a column by its name only, never by its values alone: its values are
+                                     # words another field also takes (E346)
 
 
-def _f(name, label, kind, description, example, vocab=None, aliases=(), range=None, flow=False) -> FieldDef:  # noqa: A002
-    return FieldDef(name, label, kind, description, example, vocab, tuple(aliases), range, flow)
+def _f(name, label, kind, description, example, vocab=None, aliases=(), range=None, flow=False,  # noqa: A002
+       header_only=False) -> FieldDef:
+    return FieldDef(name, label, kind, description, example, vocab, tuple(aliases), range, flow, header_only)
 
 
 _REF = "Your own {what} id. When you send the book again, rows with the same ID update that asset instead of adding a new one."
@@ -243,6 +262,24 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        "places each risk in its nat-cat risk zone by it (Del. Reg. 2015/35 Annex IX); without it the region's zones are "
        "grouped at their highest weight.", "10115", aliases=("postcode", "zip", "zip_code", "plz", "cap", "code_postal", "cp")),
     _f("loan_origination_date", "Origination date", "date", "YYYY-MM-DD.", "2022-03-01", aliases=("origination_date", "start_date", "drawdown_date")),
+    # PCAF mortgages (§5.5): the attribution factor is the outstanding balance over the property's value at origination
+    _f("pcaf_asset_class", "PCAF asset class", "vocab", "The loan's asset class in the PCAF financed-emissions standard — it "
+       "sets how the loan's financed emissions are attributed. 'mortgages': a loan to buy or refinance a home lived in "
+       "(not a home equity loan, not a loan to build or renovate).", "mortgages", vocab="pcaf_asset_class",
+       aliases=("pcaf_class", "pcaf_asset_class", "financed_emissions_asset_class"),
+       header_only=True),                    # 'commercial_real_estate' is also an asset type (E346)
+    _f("property_value_at_origination_eur", "Property value at origination", "money", "The property's value when the loan "
+       "was made: a mortgage's building emissions are attributed by the outstanding balance divided by this value (PCAF). "
+       "A loan you refinance is a new loan, with the value of its own origination.", "400000",
+       aliases=("origination_value", "value_at_origination", "original_value", "original_property_value",
+                "initial_valuation", "property_value_origination")),
+    _f("property_value_fixed_eur", "Property value fixed instead", "money", "Only where the value at origination cannot be "
+       "obtained: the latest property value you have, kept fixed for the following years (PCAF) — once stated it stays, "
+       "and a different value is refused. Needs your asset ID.", "420000",
+       aliases=("fixed_property_value", "latest_property_value_fixed", "property_value_fixed")),
+    _f("floor_area_m2", "Floor area (m²)", "fraction", "The financed home's floor area: an energy use per m² (from its energy "
+       "label or from statistics) is multiplied by it. Give the same kind of floor area (net, usable, …) as that figure.",
+       "95", aliases=("floor_area", "living_area", "area_m2", "floor_space", "wohnflaeche")),
     _f("plot_geojson", "Plot boundary (GeoJSON)", "geojson", "EUDR plot boundary as a GeoJSON Polygon — required over 4 ha.",
        '{"type":"Polygon","coordinates":[[[-1.606,6.694],[-1.604,6.694],[-1.604,6.696],[-1.606,6.696],[-1.606,6.694]]]}',
        aliases=("geojson", "geometry", "boundary", "polygon")),
@@ -414,6 +451,35 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        "2025-10-01", aliases=("harvest_from", "production_start", "from")),
     _f("production_to", "Produced until", "date", "Last day of production on the plot for this shipment (Art. 9(1)(d)).",
        "2026-03-31", aliases=("harvest_to", "production_end", "to")),
+    # a mortgaged building's energy use, one row per energy source (PCAF §5.5: Σ energy × emission factor per source)
+    _f("loan_ref", "Your asset ID of the loan", "id", "The loan's own id, as on your loan tape (Your asset ID).", "WH-00001",
+       aliases=("loan_id", "external_ref", "asset_id", "facility_id", "your_asset_id", "loan_reference")),
+    _f("energy_source", "Energy source", "vocab", "One row per source the building uses: electricity, natural_gas, "
+       "heating_oil, lpg, coal, district_heating or district_cooling.", "natural_gas", vocab="energy_source",
+       aliases=("fuel", "energy_carrier", "carrier", "fuel_type", "energietraeger")),
+    _f("energy_basis", "Energy figure from", "vocab", "Where the energy figure comes from — it sets the PCAF data quality "
+       "score: metered (the year's actual consumption), energy_label (kWh per m² from the official energy label), "
+       "statistics_per_m2 (kWh per m² from statistics for the building's type and place) or statistics_per_building "
+       "(kWh per building from such statistics).", "energy_label", vocab="energy_basis",
+       aliases=("energy_data_basis", "basis", "energy_figure_basis")),
+    _f("annual_kwh", "Energy per year (kWh)", "fraction", "Metered: the building's consumption of this source over a year. "
+       "Statistics per building: the energy of this source per building per year.", "4200",
+       aliases=("kwh", "kwh_per_year", "annual_consumption_kwh", "consumption_kwh")),
+    _f("kwh_per_m2", "Energy per m² per year (kWh)", "fraction", "Energy label or statistics per m²: the energy of this "
+       "source per m² of floor area per year — multiplied by the loan's floor area.", "120",
+       aliases=("kwh_m2", "energy_kwh_m2", "kwh_per_sqm", "specific_energy_kwh_m2")),
+    _f("buildings", "Number of buildings", "int", "Statistics per building: how many buildings the loan finances.", "1",
+       aliases=("number_of_buildings", "n_buildings", "building_count")),
+    _f("emission_factor_kg_per_kwh", "Emission factor (kg CO₂e per kWh)", "fraction", "The energy source's greenhouse-gas "
+       "emission factor, in kilograms of CO₂ equivalent per kWh.", "0.201",
+       aliases=("emission_factor", "ef", "kgco2e_per_kwh", "kg_co2e_kwh")),
+    _f("emission_factor_type", "Emission factor type", "vocab", "supplier_specific (the energy supplier's own factor; for "
+       "electricity the market-based one) or average (the average for the area; for electricity the location-based one).",
+       "average", vocab="emission_factor_type", aliases=("factor_type", "ef_type")),
+    _f("emission_factor_source", "Emission factor source", "text", "Where the factor comes from: its publication and year.",
+       "GEG 2024, Anlage 9", aliases=("ef_source", "factor_source")),
+    _f("energy_year", "Year of the energy figure", "int", "The year the energy figure describes.", "2025",
+       aliases=("data_year", "consumption_year"), range=(1990, 2100)),
 )}
 
 # the validator's kind for each catalogue kind (upload_validation understands these)

@@ -24,6 +24,7 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession, own_or_404, tenant_resolver
 from api.services.rbac import write_audit
 from ml.scoring.valuation_discount import value_loss_band
+from services.ingest.fields import FIELDS, VOCABS
 from services.ingest.templates import ASSET_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
@@ -89,6 +90,18 @@ EXT_BANKING_COLUMNS = [
     # counterparty in the issuer reference, and its own KPIs — the latest year stated, per basis:objective — frozen
     # with the filing (services.governance.taxonomy_gar values general-purpose exposures by them)
     "x.csrd_subject", f"{_CP_ISSUER}::text AS counterparty_issuer_id",
+    # PCAF financed emissions (Part A, 3rd ed.; services/scoring/pcaf_mortgages.py): the loan's asset class; for a mortgage
+    # the property value it is attributed by, the floor area, and the building's energy use per source
+    "x.pcaf_asset_class",
+    "CAST(x.property_value_at_origination_eur AS FLOAT) AS property_value_at_origination_eur",
+    "CAST(x.property_value_fixed_eur AS FLOAT) AS property_value_fixed_eur",
+    "CAST(x.floor_area_m2 AS FLOAT) AS floor_area_m2",
+    """(SELECT jsonb_agg(jsonb_build_object(
+            'energy_source', b.energy_source, 'energy_basis', b.energy_basis, 'annual_kwh', b.annual_kwh,
+            'kwh_per_m2', b.kwh_per_m2, 'buildings', b.buildings, 'emission_factor_kg_per_kwh', b.emission_factor_kg_per_kwh,
+            'emission_factor_type', b.emission_factor_type, 'emission_factor_source', b.emission_factor_source,
+            'energy_year', b.energy_year) ORDER BY b.energy_source)
+        FROM bank_building_energy b WHERE b.entity_id = e.entity_id) AS building_energy""",
     # the one store of an issuer's KPIs (services.issuer_taxonomy): the latest year stated; the organisation's own figure
     # over a shared vendor one; 'all' is a total whose split by objective is not stated
     f"""(SELECT jsonb_object_agg(k.basis || ':' || k.objective, jsonb_build_object(
@@ -111,7 +124,10 @@ _P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairm
              "trading_book", "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2",
              "ep_score_estimated",
              # EU Taxonomy Art. 8 (services.governance.taxonomy_gar): CSRD scope and the counterparty's own KPIs
-             "csrd_subject", "counterparty_issuer_id", "counterparty_taxonomy_kpi")
+             "csrd_subject", "counterparty_issuer_id", "counterparty_taxonomy_kpi",
+             # PCAF financed emissions by asset class (services.scoring.pcaf.book_financed_emissions)
+             "pcaf_asset_class", "property_value_at_origination_eur", "property_value_fixed_eur", "floor_area_m2",
+             "building_energy")
 
 
 def _ltv_kwargs(row):
@@ -245,13 +261,13 @@ def _hazard_rollup(assets, method):
         t = a.get("taxonomy_status") or "unknown"
         tax[t]["count"] += 1
         tax[t]["value_eur"] += a["value_eur"] or 0
-    # financed emissions — REAL PCAF attribution (attribution factor = outstanding / counterparty EVIC, capped
-    # at 1.0) for every counterparty that carries EVIC; disclosed separately for the rest, never silently
-    # summed in as if attributed. See services/scoring/pcaf.py (the one formula every vertical shares).
-    from services.scoring.pcaf import attributed_financed_emissions
-    pcaf = attributed_financed_emissions(assets, exposure_key="outstanding_loan_balance_eur", evic_key="evic_eur",
-                                         scope_keys=("ghg1", "ghg2", "ghg3"))
-    ghg = pcaf["attributed"]   # kept as the existing key/shape (scope1/scope2/scope3) so nothing downstream breaks
+    # financed emissions — each loan by its PCAF asset class (services/scoring/pcaf.book_financed_emissions): a company's
+    # loan by its counterparty's EVIC (capped at 1.0), the rest disclosed separately, never summed in as if attributed;
+    # a mortgage by its property value at origination and its building's energy use (services/scoring/pcaf_mortgages.py)
+    from services.scoring.pcaf import book_financed_emissions
+    pcaf = book_financed_emissions(assets, exposure_key="outstanding_loan_balance_eur", evic_key="evic_eur",
+                                   scope_keys=("ghg1", "ghg2", "ghg3"))
+    ghg = pcaf["combined"]     # the existing key/shape (scope1/scope2/scope3/total), now over every asset class built
     return {
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
@@ -498,12 +514,25 @@ ATTR_TEMPLATE_FIELDS = [
      "description": "Specific energy consumption of the immovable-property collateral — Pillar 3 Template 2 columns b-g.", "example": "145"},
     {"name": "ep_score_estimated", "required": False, "label": "EP score estimated", "kind": "boolean",
      "description": "True if the EP score is your estimate rather than from the EPC — Template 2 column p and rows 5 and 10.", "example": "false"},
+    # PCAF financed emissions (Part A, 3rd ed.): the loan's asset class, and for a mortgage what it is attributed by
+    {"name": "pcaf_asset_class", "required": False, "label": "PCAF asset class", "kind": "enum",
+     "allowed": sorted(VOCABS["pcaf_asset_class"].values), "description": FIELDS["pcaf_asset_class"].description,
+     "example": "mortgages"},
+    {"name": "property_value_at_origination_eur", "required": False, "label": "Property value at origination",
+     "kind": "money", "description": FIELDS["property_value_at_origination_eur"].description + " In the currency you "
+     "declare (or the row's currency).", "example": "400000"},
+    {"name": "property_value_fixed_eur", "required": False, "label": "Property value fixed instead", "kind": "money",
+     "description": FIELDS["property_value_fixed_eur"].description + " In the currency you declare (or the row's currency).",
+     "example": "420000"},
+    {"name": "floor_area_m2", "required": False, "label": "Floor area (m²)", "kind": "number", "range": [0, 1000000],
+     "description": FIELDS["floor_area_m2"].description, "example": "95"},
 ]
 _ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
               "counterparty_govt_level", "no_stated_maturity", "counterparty_sector", "immovable_collateral",
               "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable", "emissions_company_reported",
               "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose", "trading_book",
-              "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2", "ep_score_estimated"}
+              "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2", "ep_score_estimated",
+              "pcaf_asset_class", "property_value_at_origination_eur", "property_value_fixed_eur", "floor_area_m2"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -544,12 +573,18 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         raise HTTPException(status_code=400, detail="None of the rows are ready yet — please fix the flagged rows and try again.")
 
     org_id = ctx["org"]["org_id"]
-    by_ref, by_name = {}, {}
-    for nm, ref, eid in session.execute(text(
-            "SELECT entity_name, external_ref, entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) "
-            "AND vertical = 'banking' AND source = 'own'"), {"o": org_id}).fetchall():
+    by_ref, by_name, own_ref, fixed = {}, {}, {}, {}
+    for nm, ref, eid, fx_eur, fx_sent in session.execute(text("""
+            SELECT e.entity_name, e.external_ref, e.entity_id, CAST(x.property_value_fixed_eur AS FLOAT),
+                   COALESCE(e.money_source->'fields'->'property_value_fixed_eur',
+                            x.money_source->'fields'->'property_value_fixed_eur')
+            FROM portfolio_entities e LEFT JOIN ext_banking x ON x.entity_id = e.entity_id
+            WHERE e.org_id = CAST(:o AS uuid) AND e.vertical = 'banking' AND e.source = 'own'"""), {"o": org_id}).fetchall():
         if ref:
             by_ref[str(ref).strip()] = eid
+        own_ref[eid] = ref
+        if fx_eur is not None:
+            fixed[eid] = {"eur": fx_eur, "sent": fx_sent}
         by_name.setdefault((nm or "").strip().lower(), []).append(eid)
 
     from services.intake.money import (
@@ -597,7 +632,9 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         bdate = str(row.get("book_date") or "").strip() or book_date
         money, bad = {}, None
         for fld, label in (("counterparty_evic_eur", "counterparty EVIC"),
-                           ("accumulated_impairment_eur", "accumulated impairment")):
+                           ("accumulated_impairment_eur", "accumulated impairment"),
+                           ("property_value_at_origination_eur", "property value at origination"),
+                           ("property_value_fixed_eur", "property value fixed instead")):
             if row.get(fld) in (None, ""):
                 continue
             try:
@@ -605,6 +642,11 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
             except MoneyError as e:
                 bad = str(e)
                 break
+        bad = bad or _fixed_value_problem(money.get("property_value_fixed_eur"), own_ref.get(eid), fixed.get(eid))
+        if not bad and any(c["eur"] <= 0 for f, c in money.items() if f.startswith("property_value")):
+            bad = "a property value must be greater than zero"
+        if not bad and row.get("floor_area_m2") not in (None, "") and float(str(row["floor_area_m2"]).replace(",", "")) <= 0:
+            bad = "the floor area must be greater than zero"
         if bad:
             refused.append({"asset": ref or name, "reason": bad})
             continue
@@ -633,6 +675,12 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         ep = row.get("ep_score_kwh_m2")
         if ep not in (None, ""):
             sets.append("ep_score_kwh_m2 = :ep"); params["ep"] = float(str(ep).replace(",", ""))
+        pc = row.get("pcaf_asset_class")
+        if pc not in (None, ""):
+            sets.append("pcaf_asset_class = :pc"); params["pc"] = str(pc).strip().lower()
+        fa = row.get("floor_area_m2")
+        if fa not in (None, ""):
+            sets.append("floor_area_m2 = :fa"); params["fa"] = float(str(fa).replace(",", ""))
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
         if sets or cp:
@@ -645,6 +693,21 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
     return {"n_matched": matched, "n_updated": updated, "n_unmatched": len(unmatched), "unmatched": unmatched[:50],
             "n_ambiguous": len(ambiguous), "ambiguous": ambiguous[:50], "n_refused": len(refused), "refused": refused[:50],
             "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+def _fixed_value_problem(sent: Optional[dict], loan_ref: Optional[str], stored: Optional[dict]) -> Optional[str]:
+    """Why a property value fixed instead (PCAF §5.5: the latest value, kept for the following years) cannot be taken
+    for this loan, or None: it is kept by the loan's own id, and once stated a different value is refused (compared in
+    the currency it was sent in, as the loan tape compares it — services.ingest.sector_ingest._same_amount)."""
+    if sent is None:
+        return None
+    if not loan_ref:
+        return "a property value fixed instead needs the loan's asset ID (send it with your loan tape first)"
+    from services.ingest.sector_ingest import _same_amount
+    if stored is not None and not _same_amount(stored, sent["eur"], {"amount": sent["native"], "currency": sent["currency"]}):
+        return (f"the property value fixed instead is fixed for this loan at the value first stated (EUR {stored['eur']:,.2f}) "
+                "and stays for the following years")
+    return None
 
 
 # ── The loan book's counterparties (E119): what is a fact of the counterparty — its total liabilities (accounting

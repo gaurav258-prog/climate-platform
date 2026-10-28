@@ -40,6 +40,8 @@ def _template(*entries: tuple) -> list[dict]:
                 d["value_labels"] = value_labels(f.vocab)
         if f.range:
             d["range"] = list(f.range)
+        if f.header_only:
+            d["header_only"] = True
         if f.kind == "money":
             d["flow"] = f.flow
             d["description"] = f.description + (" A yearly figure: converted at the average rate of the 12 months to the "
@@ -69,6 +71,10 @@ ASSET_TEMPLATE_FIELDS = _template(
                                                   "is reported as missing, with the reason (its appraised value includes the "
                                                   "land)."}),
     ("occupancy", False),
+    # PCAF financed emissions (Part A, 3rd ed.): the loan's asset class; for a mortgage the value its building emissions
+    # are attributed by and the floor area an energy use per m² is multiplied by (§5.5)
+    ("pcaf_asset_class", False), ("property_value_at_origination_eur", False), ("property_value_fixed_eur", False),
+    ("floor_area_m2", False),
     ("external_ref", False, _ref("loan / facility")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
@@ -154,6 +160,14 @@ BANK_COUNTERPARTY_TEMPLATE_FIELDS = _template(
                           "figures are taken from (YYYY-MM-DD) — required with them: the total liabilities are its balance "
                           "sheet on that day (closing rate), the revenue is for the year ending on it (average rate of the "
                           "year)."}),
+)
+
+# a mortgaged building's energy use, one row per energy source (PCAF Part A §5.5, Table 5.5-1): the loan by its asset ID,
+# the source, where the figure comes from (which sets the data quality score), the figure, and the source's emission factor
+BANK_BUILDING_ENERGY_TEMPLATE_FIELDS = _template(
+    ("loan_ref", True), ("energy_source", True), ("energy_basis", True), ("annual_kwh", False), ("kwh_per_m2", False),
+    ("buildings", False), ("emission_factor_kg_per_kwh", False), ("emission_factor_type", False),
+    ("emission_factor_source", False), ("energy_year", True),
 )
 
 FUND_TEMPLATE_FIELDS = _template(

@@ -175,33 +175,40 @@ def submit(session: Session, org_id: str, org_type: str, raw: bytes, filename: O
     return {"filename": filename, "sheets": results}
 
 
-def _fund_names(raw: bytes) -> set[str]:
-    """The funds the file's Funds sheet states (by its hidden map or its title), as the fund books match them."""
-    from services.ingest.fields import norm_token
+def _stated(raw: bytes, book: str, field: str) -> set[str]:
+    """What a column of the file's sheet for `book` states (the sheet by its hidden map or its title), as written."""
+    from services.intake.catalog import TEMPLATES
     wb = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
-    sheet = next((r[0] for r in wb[MAP_SHEET].iter_rows(min_row=2, values_only=True) if r and r[1] == "funds"), None) \
+    sheet = next((r[0] for r in wb[MAP_SHEET].iter_rows(min_row=2, values_only=True) if r and r[1] == book), None) \
         if MAP_SHEET in wb.sheetnames else None
-    sheet = sheet if sheet in wb.sheetnames else ("Funds" if "Funds" in wb.sheetnames else None)
-    names: set[str] = set()
+    title = TEMPLATES[book].sheet_name
+    sheet = sheet if sheet in wb.sheetnames else (title if title in wb.sheetnames else None)
+    out: set[str] = set()
     if sheet:
         rows = wb[sheet].iter_rows(values_only=True)
         head = [str(c or "").removesuffix(" *") for c in next(rows, ())]
-        if "fund_name" in head:
-            i = head.index("fund_name")
-            names = {norm_token(str(r[i])) for r in rows if len(r) > i and r[i] not in (None, "")}
+        if field in head:
+            i = head.index(field)
+            out = {str(r[i]).strip() for r in rows if len(r) > i and r[i] not in (None, "")}
     wb.close()
-    return names
+    return out
+
+
+def _fund_names(raw: bytes) -> set[str]:
+    """The funds the file's Funds sheet states, as the fund books match them."""
+    from services.ingest.fields import norm_token
+    return {norm_token(v) for v in _stated(raw, "funds", "fund_name")}
 
 
 def check(session: Session, org_id: str, org_type: str, raw: bytes, filename: Optional[str], *,
           currency: Optional[str] = None, book_date: Optional[str] = None) -> dict:
     """Every sheet's checks on the file now — nothing stored. A sheet is checked as sending the file would meet it: after
-    the sheets before it, so a book naming what an earlier sheet states (a fund's holdings, its fund) is not refused
-    for it (E323)."""
+    the sheets before it, so a book naming what an earlier sheet states (a fund's holdings, its fund; a building's
+    energy use, its loan) is not refused for it (E323)."""
     from services.intake import pipeline
     results = []
     listed = sheets(raw, org_type)                   # refuses an unreadable file before anything reads it further
-    in_file = {"funds": _fund_names(raw)}
+    in_file = {"funds": _fund_names(raw), "loans": _stated(raw, "bank_assets", "external_ref")}
     for name, key, rows in listed:
         if rows == 0:
             results.append({"sheet": name, "book": key, "state": "empty"})

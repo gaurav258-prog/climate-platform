@@ -51,6 +51,9 @@ MONEY_COLUMNS: dict[str, tuple[bool, bool, tuple[str, ...]]] = {
     "annual_noi_eur": (True, True, ("annual_noi_eur",)),
     "annual_gross_rental_revenue_eur": (True, True, ("annual_gross_rental_revenue_eur",)),
     "counterparty_evic_eur": (False, False, ("counterparty_evic_eur",)),
+    # a mortgage's PCAF denominator: the property's whole value, never scaled by our stake (as EVIC)
+    "property_value_at_origination_eur": (False, False, ("property_value_at_origination_eur",)),
+    "property_value_fixed_eur": (False, False, ("property_value_fixed_eur",)),
     "counterparty_total_liabilities_eur": (False, False, ("counterparty_total_liabilities_eur",)),
     "annual_revenue_eur": (True, False, ("annual_revenue_eur",)),
 }

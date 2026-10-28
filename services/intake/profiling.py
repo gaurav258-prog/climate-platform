@@ -154,7 +154,8 @@ def suggest(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -> 
                 reasons = [f"column named “{c}”", why]
             elif h >= 0.5 and fit >= 0.5:
                 conf, reasons = "medium", [f"column name “{c}” is close", why]
-            elif h == 0 and kind in _VALUE_ONLY_KINDS and (fit >= 0.8 or (kind == "vocab" and fit >= 0.5)):
+            elif h == 0 and kind in _VALUE_ONLY_KINDS and not s.get("header_only") and (
+                    fit >= 0.8 or (kind == "vocab" and fit >= 0.5)):
                 conf, reasons = "medium", [f"recognised from the values in “{c}”", why]
             else:
                 continue
