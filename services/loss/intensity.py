@@ -12,7 +12,10 @@ A projection source (services.loss.projection.SOURCES) is sampled per map — it
 it) and each pathway × period × member — and each sample names its scenario, period and member in climate_model: a
 climate model (river flood, tropical cyclone) or a sea-level-rise percentile (coastal flood: p05, p50, p95). The WRI
 Aqueduct maps (river and coastal) are read as the source reads them: the 30″ pixel holding the location. Today's layers
-carry 'present' / 'present' / '' — the coastal maps' present day too, which serves today's coastal figure."""
+carry 'present' / 'present' / '' — the coastal maps' present day too, which serves today's coastal figure.
+
+The European windstorm gust maps (services.loss.windstorm_events) are read at the 0.25° grid cell whose published bounds
+hold the location; off the grid, 'outside_coverage'."""
 from __future__ import annotations
 
 import logging
@@ -215,7 +218,13 @@ def _storm_rows(lat: float, lon: float, _tiles=None) -> list[dict]:
     return storm_events.rows(lat, lon)
 
 
-_SAMPLERS = {"jrc_river_flood": jrc_flood_rows, "jrc_river_flood_europe": jrc_europe_rows, "storm_v4_wind": _storm_rows}
+def _windstorm_rows(lat: float, lon: float, _tiles=None) -> list[dict]:
+    from services.loss import windstorm_events
+    return windstorm_events.rows(lat, lon)
+
+
+_SAMPLERS = {"jrc_river_flood": jrc_flood_rows, "jrc_river_flood_europe": jrc_europe_rows, "storm_v4_wind": _storm_rows,
+             "primavera_windstorm_gust": _windstorm_rows}
 
 
 def sample(session: Session, layer_key: str, points: Optional[Iterable[tuple[float, float]]] = None,

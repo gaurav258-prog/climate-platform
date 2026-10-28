@@ -910,6 +910,34 @@
           "periods_basis": "the record's period: 'future-climate (2015-2050; RCP8.5/SSP5) conditions'"
         }
       }
+    },
+    "primavera_windstorm_gust": {
+      "name": "PRIMAVERA European windstorm gust maps",
+      "peril": "windstorm",
+      "metric": "max_gust_3s_10m",
+      "unit": "m/s",
+      "version": "v1",
+      "source": "derived from the event set primavera_windstorm: per climate-model run and winter, the highest gust any footprint of the winter holds at the grid cell (a cell no footprint reaches counts as zero); the return level at each return period the empirical (1 − 1/T) quantile of the 1,332 winters — the method of storm_v4_wind (services.loss.windstorm_events)",
+      "derived_from": "primavera_windstorm",
+      "grid": "0.25° latitude × 0.25° longitude (the ERA5 grid, 'approximately 18km grid spacing at 50oN', the documentation); an asset reads the cell whose published bounds hold it",
+      "resolution_m": null,
+      "return_periods": [
+        10,
+        25,
+        50,
+        100,
+        200,
+        250,
+        500,
+        1000
+      ],
+      "coverage": "European winter storms (October–March) over 34.5–71.25°N and 25°W–40.5°E (the footprints' grid); summer storms are not in the set ('These storms tend to be associated with extra-tropical cyclones and are on a large scale compared to smaller, convective storms that occur in summer', the documentation)",
+      "licence": "Open Government Licence v3.0",
+      "licence_status": "the record (Zenodo 6492182, read 2026-10-25) states 'ogl-uk-3.0'; the footprint files carry their source models' CMIP6 licence attributes (the runs of CMCC, EC-Earth-Consortium, MOHC (Met Office) and MPI-M: 'Creative Commons Attribution-ShareAlike 4.0 International License'; the two CNRM-CERFACS runs (CNRM-CM6-1, CNRM-CM6-1-HR; 128 of the 1,332 winters): 'Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License'; each run's recorded with the build, data/reference/supply_datasets.json primavera_windstorm_compact). The product owner's decision of 2026-10-25: built under the record's licence, to be confirmed with the Met Office before any customer use (docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md item 23)",
+      "attribution": "Acknowledgment to the PRIMAVERA partners. The information/material contained has been produced with funding from the European Union’s Horizon 2020 Research & Innovation Programme under grant agreement no. 641727.",
+      "metric_basis": "the documentation: 'a windstorm footprint is defined as the maximum gust associated with the storm over a 72 hour period. However, only two PRIMAVERA models outputted maximum gusts, so instead the footprints are made from daily maximum surface windspeed (sfcWindmax) and converted to gusts during the bias correction', by quantile mapping 'on the ERA5 gust distribution, which is used as the reference'; the files: variable corrected_gust, units 'm s-1', height 10.0 m. ERA5's gust is 'the maximum 3-second wind at 10 m height' (C3S windstorm product user guide, Table 2)",
+      "caveats": "the documentation: 'extreme gust values in the corrected footprints should be considered highly uncertain. In a small number of cases, the bias correction can result in unrealistically high gusts. To correct for this, the bias corrected gusts are capped at 60 ms-1 over land and 70 ms-1 over sea'; Lockwood et al. (2022): 'care should be taken when interpreting the expected damages for very long return periods'; read as published: 2,174 of the 268,653 footprints are centred in September or April (their file names' dates), and count for the winter their file names",
+      "decided": "the product owner's decisions of 2026-10-25: European windstorm is a hazard of its own beside tropical cyclone, never added to it; its gusts are this event set's, return periods read as the cyclone maps read theirs"
     }
   },
   "protection_layers": {

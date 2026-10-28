@@ -53,7 +53,7 @@ const STANDING: Record<Standing, { label: string; tone: 'good' | 'warn' | 'neutr
   held: { label: 'Failed its test', tone: 'warn', what: 'The damage curve was tested on observed losses and failed; the figure is shown for reference, not for use.' },
   untested: { label: 'Untested', tone: 'neutral', what: 'There are no observed losses to test the damage curve against where this asset is.' },
 }
-const PERIL: Record<string, string> = { flood: 'River flood', coastal_flood: 'Coastal flood', storm: 'Tropical cyclone' }
+const PERIL: Record<string, string> = { flood: 'River flood', coastal_flood: 'Coastal flood', storm: 'Tropical cyclone', windstorm: 'European windstorm' }
 const PERILS = Object.keys(PERIL)
 const SCENARIO: Record<string, string> = { baseline: 'Today', disorderly_2c: 'Disorderly 2 °C', hot_house_3_5c: 'Hot house 3.5 °C', orderly_1_5c: 'Orderly 1.5 °C' }
 const HORIZONS = ['2030', '2050', '2100']     // the platform's horizons — one timeline
@@ -66,10 +66,10 @@ function StandingChip({ s }: { s: Standing }) {
 }
 
 const ABOUT = [
-  { heading: HEADING.shows, body: 'Each asset’s expected yearly loss from river flood, coastal flood and tropical cyclone, read off the damage curve your organisation chose at the hazard’s physical strength — water depth in metres, wind speed in metres per second — at each return period.' },
+  { heading: HEADING.shows, body: 'Each asset’s expected yearly loss from river flood, coastal flood, tropical cyclone and European windstorm, read off the damage curve your organisation chose at the hazard’s physical strength — water depth in metres, wind speed or gust in metres per second — at each return period.' },
   { heading: HEADING.read, body: 'Every figure is a range. River flood losses appear twice: undefended, as the flood maps show the hazard, and defended, with losses from floods more frequent than the local protection level set to zero. Coastal flood losses appear undefended and, where the region’s published coastal standard states a level or a range of levels, defended — as a range where a range is stated. Each figure carries the standing its damage curve earned on observed losses: tested, failed its test, or untested.' },
-  { heading: HEADING.sources, body: 'River flood depth: JRC river-flood maps (European maps in Europe, global maps elsewhere). Coastal flood depth: WRI Aqueduct coastal maps. Flood protection: JRC map of estimated river flood-protection standards in Europe; COASTPROS-EU coastal protection standards for Europe’s coastal regions. Cyclone wind: STORM. Projections: WRI Aqueduct river and coastal maps, STORM future tracks. Damage curves: the family your organisation chose. Details under Methods and data sources.' },
-  { heading: HEADING.limits, body: 'A figure that cannot be computed is shown as missing, with its reason — never as zero. River and coastal flood are shown side by side and never added: where both reach a place, adding them could count the same water twice. Surface-water flooding is a separate hazard.' },
+  { heading: HEADING.sources, body: 'River flood depth: JRC river-flood maps (European maps in Europe, global maps elsewhere). Coastal flood depth: WRI Aqueduct coastal maps. Flood protection: JRC map of estimated river flood-protection standards in Europe; COASTPROS-EU coastal protection standards for Europe’s coastal regions. Cyclone wind: STORM. European windstorm gusts: the PRIMAVERA winter windstorm event set (acknowledgment to the PRIMAVERA partners; EU Horizon 2020 grant agreement no. 641727). Projections: WRI Aqueduct river and coastal maps, STORM future tracks. Damage curves: the family your organisation chose. Details under Methods and data sources.' },
+  { heading: HEADING.limits, body: 'A figure that cannot be computed is shown as missing, with its reason — never as zero. River and coastal flood are shown side by side and never added: where both reach a place, adding them could count the same water twice. Tropical cyclone and European windstorm are never added either: no country is served by the curves of both. Surface-water flooding is a separate hazard.' },
 ]
 
 export default function Loss() {

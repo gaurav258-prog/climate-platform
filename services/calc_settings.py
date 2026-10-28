@@ -146,6 +146,11 @@ INTERPRETATION_SCHEMA: dict = {
         "label": "Building share of a stated property value (loss figures)",
         "sectors": ["bank", "reit"],
     },
+    "loss_curve_family_windstorm": {
+        "frameworks": [], "default": None, "kind": "enum", "allowed": _loss_families("windstorm"),
+        "label": "European windstorm damage curves (loss figures)",
+        "sectors": ["bank", "insurer", "asset_manager", "reit", "manufacturer"],
+    },
     "loss_flood_dependence": {
         "frameworks": [], "default": None, "kind": "enum", "allowed": ["comonotonic"],
         "label": "How flood losses across the book combine",

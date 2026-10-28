@@ -9670,6 +9670,14 @@
     "next": "Not set, every cyclone loss is reported as missing."
    }
   },
+  "admin.switch.loss_curve_family_windstorm": {
+   "label": "European windstorm damage curves",
+   "detail": {
+    "what": "The family of damage curves your European windstorm losses are computed with: each asset's use and country select the curve within it.",
+    "why": "Windstorm figures stay untested until the curves are tested on observed storm losses.",
+    "next": "Not set, every windstorm loss is reported as missing."
+   }
+  },
   "admin.switch.loss_flood_dependence": {
    "label": "How flood losses add up across the book",
    "detail": {
@@ -13003,7 +13011,8 @@
    "flood": "river flood",
    "storm": "tropical cyclone",
    "seismic": "earthquake",
-   "coastal_flood": "coastal flood"
+   "coastal_flood": "coastal flood",
+   "windstorm": "European windstorm"
   },
   "scenario": {
    "baseline": "Current policies",
@@ -13015,7 +13024,8 @@
    "jrc_huizinga_2017": "JRC global damage curves (2017)",
    "nfip_measured": "US flood claims curve (NFIP)",
    "eberenz_2021_rmsf": "Published cyclone curves (Eberenz 2021, RMSF)",
-   "eberenz_2021_tdr": "Published cyclone curves (Eberenz 2021, TDR)"
+   "eberenz_2021_tdr": "Published cyclone curves (Eberenz 2021, TDR)",
+   "prahl_2015_h": "Published windstorm curve for German homes (Prahl 2015)"
   },
   "region": {
    "united_states": "United States"
@@ -13538,7 +13548,8 @@
    "closing": "Closing rate",
    "counts_as_value": "Counts as a share of value",
    "not_counted": "Does not count",
-   "official_statistics": "The official statistics"
+   "official_statistics": "The official statistics",
+   "prahl_2015_h": "Windstorm damage curve for German homes (Prahl 2015)"
   },
   "filing.scope_reason": {
    "basis_not_stated": "how the sector-average intensity is used is not stated (Methodology)",

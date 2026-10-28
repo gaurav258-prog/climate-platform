@@ -75,6 +75,13 @@ def event_sets() -> dict[str, dict]:
     return _json("event_sets.json")["event_sets"]
 
 
+def doi_record(doi: Optional[str]) -> str:
+    """The record number a DOI names: the first all-digit part of its suffix — '14237678' of 10.4121/14237678.v1,
+    '6492182' of 10.5281/zenodo.6492182 (E347: the first part, 'zenodo', matched any Zenodo address); '' when none."""
+    parts = str(doi or "").split("/")[-1].split(".")
+    return next((p for p in parts if p.isdigit()), "")
+
+
 def _occupancy() -> dict:
     return _json("occupancy.json")
 
@@ -159,7 +166,7 @@ def check() -> list[str]:
             out.append(f"event set {k}: peril '{E['peril']}' is not a hazard type")
         if not (E.get("licence") and E.get("doi") and E.get("years_simulated", 0) > 0):
             out.append(f"event set {k}: needs a licence, a DOI and the simulated years")
-        record = str(E.get("doi") or "").split("/")[-1].split(".")[0]
+        record = doi_record(E.get("doi"))
         if not record or record not in (E.get("url") or ""):    # the record's own address, never one typed from memory
             out.append(f"event set {k}: its url must be its record's — holding the DOI's record number {record}")
     occ = _occupancy()

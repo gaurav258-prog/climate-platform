@@ -25,7 +25,7 @@ def _family_view(key: str, f: dict) -> dict:
             "damage_basis": f.get("damage_basis"), "source": f.get("source"), "licence": f.get("licence"),
             "curves": [{"key": c["key"], "occupancy": c["occupancy"], "region": c.get("region"),
                         "countries": c["countries"], "points": c["points"], "bands": c.get("bands"),
-                        "sd": c.get("sd"), "spread": c.get("spread"),
+                        "sd": c.get("sd"), "spread": c.get("spread"), "range_points": c.get("range_points"),
                         "test": {k: v for k, v in c["test"].items() if k not in ("events", "set_aside")} if c.get("test") else None}
                        for c in f["curves"]],
             "regions_basis": f.get("regions_basis"), "absent": f.get("absent"), "not_carried": f.get("not_carried"),

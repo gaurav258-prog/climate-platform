@@ -36,6 +36,11 @@ through the adopted depth curves — from the WRI Aqueduct coastal maps' present
 held, so its figure is the undefended one. A curve family's test decides the standing of its own peril only: a coastal
 figure is untested until its curves are tested on observed coastal losses.
 
+European windstorm (the product owner's decisions of 2026-10-25) is a hazard of its own beside tropical cyclone, never
+added to it: each winter storm's highest 3-second gust from the PRIMAVERA event set, read by return period as the cyclone
+maps are (services.loss.windstorm_events), through the adopted gust curves. No country is served by the curves of both
+wind hazards (services.loss.curves.wind_overlap: a family that would do so is refused).
+
 A projected run (services.loss.projection) reads each peril's registered projection source on the platform's one
 timeline, one figure per member of the source (climate model, or sea-level-rise percentile): a central figure, the
 members' range, and the same source's present figure beside it — the only figure a projected loss is compared with. A
@@ -53,7 +58,8 @@ from sqlalchemy.orm import Session
 from services.loss import curves, gaps, protection, registry
 
 ENGINE_VERSION = "loss-v1"
-LAYERS = {"flood": "jrc_river_flood", "coastal_flood": "aqueduct_coastal_flood", "storm": "storm_v4_wind"}
+LAYERS = {"flood": "jrc_river_flood", "coastal_flood": "aqueduct_coastal_flood", "storm": "storm_v4_wind",
+          "windstorm": "primavera_windstorm_gust"}
 BOOKS = ("banking", "insurance", "insurer_investments", "realestate", "assetmgmt", "company_sites", "issuer_sites")
 SHARE_BOOKS = ("issuer_sites",)       # books whose figures are a share of value: no site states a value of its own
 SCENARIOS = ("baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c")
@@ -78,8 +84,11 @@ def _band_at(curve: dict, x: float, central: float) -> tuple[float, float]:
     """(low, high) damage ratio at intensity x:
       measured curve   the band holding x (its claims' 10th–90th percentile)
       published curve  the publisher's standard deviation at x (linear between its points, the last held beyond):
-                       central ± one standard deviation, bounded to [0, 1]
+                       central ± one standard deviation, bounded to [0, 1]; or its published low and high curves at x
       none published   no range of its own: (central, central)"""
+    rng = curve.get("range_points")
+    if rng:
+        return curves.ratio(rng["low"], x), curves.ratio(rng["high"], x)
     for b in curve.get("bands") or []:
         if b["from_m"] < x <= b["to_m"]:
             return b["p10"], b["p90"]
@@ -241,8 +250,10 @@ def _rp_figures(curve: dict, value: float, s: dict[int, dict], layer_key: str,
                 return None, gaps.gap("loss.gap.no_damage_range", depth=f"{depth:.2f}")
             rows[rp] = (value * share * min(lo, central), value * share * central, value * share * max(hi, central))
         else:
-            ratio = curves.ratio(curve["points"], float(r["value"] or 0.0) / per)
-            rows[rp] = (value * ratio, value * ratio, value * ratio)
+            x = float(r["value"] or 0.0) / per
+            central = curves.ratio(curve["points"], x)
+            lo, hi = _band_at(curve, x, central) if (curve.get("range_points") or curve.get("sd")) else (central, central)
+            rows[rp] = (value * min(lo, central), value * central, value * max(hi, central))
     return rows, None
 
 

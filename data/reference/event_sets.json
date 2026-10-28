@@ -92,6 +92,78 @@
       ],
       "time_step_hours": 3,
       "scenario": "'resembles future-climate (2015-2050; RCP8.5/SSP5) conditions' (the record)"
+    },
+    "primavera_windstorm": {
+      "peril": "windstorm",
+      "version": "v1",
+      "source": "Lockwood et al., PRIMAVERA European winter windstorm event set (Met Office Hadley Centre and PRIMAVERA partners)",
+      "doi": "10.5281/zenodo.6492182",
+      "url": "https://zenodo.org/records/6492182",
+      "published": "2022-04-26",
+      "licence": "Open Government Licence v3.0",
+      "licence_basis": "the record states licence 'ogl-uk-3.0'; the documentation: 'Users of the event set must agree to the terms and conditions in the Open Government Licence v3.0'. Each footprint file also carries its source model's CMIP6 'license' attribute (recorded per run with the compact file, data/reference/supply_datasets.json primavera_windstorm_compact) — the runs of CMCC, EC-Earth-Consortium, MOHC (Met Office) and MPI-M: 'Creative Commons Attribution-ShareAlike 4.0 International License'; the two CNRM-CERFACS runs (CNRM-CM6-1, CNRM-CM6-1-HR; 128 of the 1,332 winters): 'Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License' — a discrepancy with the record. The product owner's decision of 2026-10-25: build under the record's licence and confirm it with the Met Office before any customer use (docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md item 23)",
+      "attribution": "Acknowledgment to the PRIMAVERA partners. The information/material contained has been produced with funding from the European Union’s Horizon 2020 Research & Innovation Programme under grant agreement no. 641727.",
+      "attribution_basis": "the documentation: 'Any products or applications which use this dataset must state the following attribution'",
+      "years_simulated": 1332,
+      "years_basis": "the record: 'approximately 1300 years of windstorm data'; the documentation: 21 runs, 'data is provided for winters 1950/51 to 2013/14' (64 winters each), and 12 winters missing ('For some winters it was not possible to generate the footprints due to missing data'): 21 × 64 − 12 = 1,332 winters, checked against the archives when the compact file is built",
+      "season": "the documentation: 'we only attempt to model storms in the extended winter season (October-March)'",
+      "runs": [
+        "CMCC-CM2-HR4_highresSST-present_r1i1p1f1",
+        "CMCC-CM2-VHR4_highresSST-present_r1i1p1f1",
+        "CNRM-CM6-1_highresSST-present_r1i1p1f2",
+        "CNRM-CM6-1-HR_highresSST-present_r1i1p1f2",
+        "EC-Earth3P_highresSST-present_r1i1p1f1",
+        "EC-Earth3P_highresSST-present_r3i1p1f1",
+        "EC-Earth3P-HR_highresSST-present_r1i1p1f1",
+        "EC-Earth3P-HR_highresSST-present_r3i1p1f1",
+        "HadGEM3-GC31-HM_highresSST-present_r1i1p1f1",
+        "HadGEM3-GC31-HM_highresSST-present_r1i2p1f1",
+        "HadGEM3-GC31-HM_highresSST-present_r1i3p1f1",
+        "HadGEM3-GC31-LM_highresSST-present_r1i14p1f1",
+        "HadGEM3-GC31-LM_highresSST-present_r1i15p1f1",
+        "HadGEM3-GC31-LM_highresSST-present_r1i1p1f1",
+        "HadGEM3-GC31-LM_highresSST-present_r1i2p1f1",
+        "HadGEM3-GC31-LM_highresSST-present_r1i3p1f1",
+        "HadGEM3-GC31-MM_highresSST-present_r1i1p1f1",
+        "HadGEM3-GC31-MM_highresSST-present_r1i2p1f1",
+        "HadGEM3-GC31-MM_highresSST-present_r1i3p1f1",
+        "MPI-ESM1-2-HR_highresSST-present_r1i1p1f1",
+        "MPI-ESM1-2-XR_highresSST-present_r1i1p1f1"
+      ],
+      "missing_winters": {
+        "CMCC-CM2-VHR4_highresSST-present_r1i1p1f1": [
+          "1993/1994"
+        ],
+        "EC-Earth3P-HR_highresSST-present_r3i1p1f1": [
+          "1982/1983",
+          "1983/1984",
+          "1966/1967",
+          "1967/1968"
+        ],
+        "EC-Earth3P_highresSST-present_r1i1p1f1": [
+          "1950/1951",
+          "1951/1952"
+        ],
+        "EC-Earth3P_highresSST-present_r3i1p1f1": [
+          "1962/1963",
+          "1963/1964",
+          "1970/1971",
+          "1971/1972"
+        ],
+        "HadGEM3-GC31-HM_highresSST-present_r1i3p1f1": [
+          "2006/2007"
+        ]
+      },
+      "experiment": "the documentation: 'The only experiment provided in this release is highresSST-present, where the climate model is forced by observed sea surface temperatures and historical atmospheric forcings'",
+      "variable": "corrected_gust",
+      "units": "m s-1",
+      "files": {
+        "archives": "data/datasets/primavera_windstorm/raw",
+        "inner": "{run}/{run}.tar.gz",
+        "footprint_pattern": "<run>_winter<YYYY-YYYY>_<SON/DJF/MAM>_<storm_number>_<YYYY-MM-DD>_regrid_corrected.nc (the documentation)",
+        "provenance": "data/datasets/primavera_windstorm/provenance.json",
+        "reference": "ERA5.tar: footprints from the ERA5 reanalysis by the same method, 'provided for reference' (the documentation); not among the 1,332 winters"
+      }
     }
   }
 }
