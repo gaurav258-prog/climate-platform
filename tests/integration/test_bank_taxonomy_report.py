@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from services.governance.bank_taxonomy_report import EARLIER, EARLIER_KEYS, ENGINE_FIELDS
 from tests.integration.conftest import login as _login
+from tests.integration.filers import taxonomy_group
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -29,9 +30,12 @@ _NOT_TAXONOMY = ("TCFD", "PCAF", "expected loss", "Transition risk", "physical c
 def _new_filing(api, maker) -> str:
     api.s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) "
                        "AND framework = 'bank_tcfd' AND status NOT IN ('superseded', 'withdrawn')"), {"o": BANK_ORG})
-    pf = api.get("/v1/filings/preflight?framework=bank_tcfd", headers=maker).json()
+    # the group reports its KPIs for the group (Directive 2013/34/EU Art. 29a): its role for the year, approved (E349)
+    grp = taxonomy_group(api, maker, _login(api, "approver@meridian.demo", "Demo!approve1"), BANK_ORG)
+    pf = api.get(f"/v1/filings/preflight?framework=bank_tcfd&entity_id={grp}", headers=maker).json()
     assert pf["value_at_risk_eur"] is None and pf["coverage"]["label"] == "exposures with a gross carrying amount"
-    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"]})
+    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"],
+                                                     "entity_id": grp})
     assert g.status_code == 201, g.text
     return g.json()["filing_id"]
 
@@ -55,6 +59,8 @@ def test_a_new_filing_carries_only_the_taxonomy_templates(api):
     keys = {d["key"] for g in form["groups"] for d in g["datapoints"]}
     assert keys == {"taxonomy.gar_stock.turnover", "taxonomy.gar_stock.capex", "taxonomy.gar_stock.coverage", "book.n_assets"}
     secs = form["annex"]["sections"]
+    assert secs[0]["key"] == "filer" and secs[0]["rows"][0]["cells"][0]["text"] == "Meridian Financial Group"   # E349
+    secs = secs[1:]
     assert secs and all((x.get("spec") or {}).get("framework") == "bank_taxonomy" for x in secs)
     text_ = json.dumps(form["annex"], ensure_ascii=False)
     assert not any(w in text_ for w in _NOT_TAXONOMY)

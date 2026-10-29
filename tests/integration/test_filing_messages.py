@@ -18,6 +18,7 @@ from sqlalchemy import text
 from core import messages
 from scripts import ui_language as U
 from tests.integration.conftest import login as _login
+from tests.integration.filers import group
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -39,7 +40,7 @@ SAMPLE = dict(report="Pillar 3 ESG", period="FY2025", state="a draft", step="app
               dates="31 Mar", funds="A fund", net="€1", gross="€2", mean="€1", name="An entity", leg="own operations",
               sum=3, var=1.0, tol=0.5, reported="€1", ledger="€1", m=1, figure="Total book value", version=2, other="USD",
               this="EUR", group="A group", undertaking="An undertaking", undertakings="An undertaking",
-              held_through="Another undertaking", count=3, choices="A group, An undertaking")
+              held_through="Another undertaking", count=3, choices="A group, An undertaking", who="an undertaking")
 
 
 def _coded_calls(path: Path):
@@ -152,11 +153,12 @@ def test_the_final_form_names_its_report_and_prints_its_columns_as_printed(sessi
 
 def test_a_refused_step_reaches_the_screen_in_customer_words(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
-    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd"})
+    grp = group(api.s, BANK_ORG)                 # the group's report (its whole organisation is no filer, E349)
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "entity_id": grp})
     body = r.json()["error"]
     assert r.status_code == 409 and body["error"] == "filing.refused.not_confirmed"
     assert body["message"] == "Confirm the data first" and body["detail"]["next"]
-    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": "0" * 32})
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": "0" * 32, "entity_id": grp})
     assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.data_changed"
     r = api.get("/v1/filings/preflight?framework=no_such_report", headers=maker)
     assert r.status_code == 404 and r.json()["error"]["message"] == "This report is not available"

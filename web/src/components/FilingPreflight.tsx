@@ -5,7 +5,8 @@ import { api, apiDetail, apiMessage } from '../lib/api'
 import { balance } from '../lib/money'
 import { horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
 import { Button, StatGrid, type StatItem } from './ui'
-import { HEADING, InfoButton, MessageLine, type Message } from './Details'
+import { HEADING, InfoButton, MessageLine, messageDetails, type Message } from './Details'
+import ReportingRoleForm from './esrs/ReportingRoleForm'
 import { StatusChip } from './StatusChip'
 import { Dialog } from './Dialog'
 
@@ -24,9 +25,12 @@ interface Preflight {
   // a per-product report (SFDR Annexes II–V): the fund it discloses — chosen here when no obligation fixes it
   product_scoped?: boolean; needs_fund?: boolean; funds?: { fund_id: string; name: string; sfdr_classification: string }[]
   fund?: { fund_id: string; name: string; template: string }
-  // a report the organisation as a whole does not file (Solvency II nat-cat with two or more reporting entities): the
-  // group or the undertaking it is prepared for, chosen first
+  // a report the organisation as a whole does not file (services/governance/report_filers.py — an organisation of two or
+  // more reporting entities): the filer it is prepared for, chosen first; who reports it and why; and the undertakings
+  // whose reporting role for the year is still to be stated (an EU Taxonomy report)
   needs_scope?: boolean; scopes?: { entity_id: string; name: string; role: 'solo' | 'consolidated' }[]
+  scope_basis?: { title: string; shows: string; legal: string }
+  undetermined?: { entity_id: string; name: string; msg: Message | null }[]
   // which values of the asset facts to read, and the figures both the customer and the platform produce
   views?: Record<'joint' | 'client' | 'tellumen', { label: string; facts_changed: number }>
   figures?: { datapoint: string; label: string; unit: string | null; client_value: number | string; tellumen_value: number | null; delta_pct: number | null; provider: string | null }[]
@@ -67,6 +71,7 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
   // once the server says who files this report, only they are offered — the whole organisation is not
   const [filers, setFilers] = useState<Preflight['scopes'] | null>(null)
   if (d?.needs_scope && d.scopes && filers === null) setFilers(d.scopes)
+  const [roleFor, setRoleFor] = useState<{ entity_id: string; name: string } | null>(null)
 
   const freeze = async () => {
     if (!d?.confirm_token) return
@@ -128,13 +133,14 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
               {d.needs_fund && (d.funds ?? []).length === 0 && <div className="text-[12.5px] text-[var(--color-warn)] mt-1">No fund is classified Article 8 or 9 yet.</div>}
             </div>)}
 
-          {!obligation && (filers || entities.length > 0) && d.entity_scoped && (
+          {(!obligation || d.needs_scope) && (filers || entities.length > 0) && d.entity_scoped && (
             <div>
-              <Label info={{ title: 'Reporting scope', body: "A group consolidates its whole subtree, weighting each entity's book by its ownership and consolidation method; a legal entity files its own book." }}>Reporting scope</Label>
-              {filers ? (
+              {/* from a calendar card the scope is the card's (above): only why, and the roles still to state */}
+              {!obligation && <Label info={{ title: 'Reporting scope', body: "A group consolidates its whole subtree, weighting each entity's book by its ownership and consolidation method; a legal entity files its own book." }}>Reporting scope</Label>}
+              {obligation ? null : filers ? (
                 // one entity can be offered twice — for its group and for itself — so a choice is the entity and the role
                 <select value={entityId ? `${entityId}|${role}` : ''} onChange={e => { const [id, r] = e.target.value.split('|'); setEntityId(id); setRole(r ?? ''); setConfirmed(false) }} className={select}>
-                  <option value="" disabled>Choose the group or the undertaking…</option>
+                  <option value="" disabled>{filers.length ? 'Choose who reports it…' : 'No filer known yet'}</option>
                   {filers.map(f => <option key={`${f.entity_id}|${f.role}`} value={`${f.entity_id}|${f.role}`}>{f.role === 'consolidated' ? `Group · ${f.name}` : f.name}</option>)}
                 </select>) : (
                 <select value={entityId} onChange={e => { setEntityId(e.target.value); setRole(''); setConfirmed(false) }} className={select}>
@@ -142,11 +148,20 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
                   {entities.filter(e => e.kind === 'group').map(e => <option key={e.entity_id} value={e.entity_id}>Consolidated · {e.name}</option>)}
                   {entities.filter(e => e.kind !== 'group').map(e => <option key={e.entity_id} value={e.entity_id}>{e.name} ({e.n_assets} assets)</option>)}
                 </select>)}
-              {d.needs_scope && (
-                <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)]">Reported by an undertaking or a group
-                  <InfoButton compact details={{ title: 'Who reports natural catastrophe risk', sections: [
-                    { heading: HEADING.shows, body: "Each undertaking reports its own figures; a group reports its consolidated figures. An undertaking at the head of a group reports both. The whole organisation's book counts every entity in full, so it is neither." },
-                    { heading: 'Legal basis', body: 'Implementing Regulation (EU) 2023/894, Art. 19(1)(s)(i) and Art. 34(1)(s); Annex II and Annex III, S.01.02.' }] }} /></div>)}
+              {d.needs_scope && d.scope_basis && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)]">Not reported by the whole organisation
+                  <InfoButton compact details={{ title: d.scope_basis.title, sections: [
+                    { heading: HEADING.shows, body: d.scope_basis.shows }, { heading: 'Legal basis', body: d.scope_basis.legal }] }} /></div>)}
+              {(d.undetermined?.length ?? 0) > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  <div className="text-[12px] text-[var(--color-warn)]">Reporting role not stated for {d.period_label}</div>
+                  {d.undetermined!.map(u => (
+                    <div key={u.entity_id} className="flex items-center gap-2 text-[12.5px]">
+                      <span className="text-[var(--color-ink)]">{u.name}</span>
+                      {u.msg && <InfoButton compact details={messageDetails(u.msg)} />}
+                      <Button variant="ghost" onClick={() => setRoleFor(u)}>State the role</Button>
+                    </div>))}
+                </div>)}
             </div>)}
           {entities.length > 0 && !d.entity_scoped && !d.product_scoped && (
             <Label info={d.framework === 'sfdr_pai' ? { title: 'Whole organisation', body: "Each fund's own statement is prepared in the Funds workspace." } : undefined}>Filed for the whole organisation</Label>)}
@@ -215,6 +230,8 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
           </div>
         </>)}
       </div>
+      {roleFor && d && <ReportingRoleForm periodEnd={d.basis.reporting_period_end.slice(0, 10)} entity={roleFor.entity_id} name={roleFor.name}
+        onClose={() => setRoleFor(null)} onSent={() => { setRoleFor(null); q.refetch() }} />}
     </Dialog>
   )
 }

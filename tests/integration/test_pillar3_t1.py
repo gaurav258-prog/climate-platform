@@ -18,6 +18,7 @@ from sqlalchemy import text
 
 from services.governance import pillar3_t1 as T1
 from tests.integration.conftest import login as _login
+from tests.integration.filers import group
 from tests.integration.money_method import state_method
 from tests.integration.test_intake_pipeline import BANK_ORG
 from tests.integration.test_pillar3_report import _new_filing, _payload
@@ -62,8 +63,10 @@ def _file(api, h) -> str:
     """A new Pillar 3 filing on what is stated now (the method stays as this test stated it)."""
     api.s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) "
                        "AND framework = 'bank_p3esg' AND status NOT IN ('superseded', 'withdrawn')"), {"o": BANK_ORG})
-    pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=h).json()
-    g = api.post("/v1/filings", headers=h, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"]})
+    grp = group(api.s, BANK_ORG)                 # the EU parent discloses on its consolidated situation (CRR Art. 13(1))
+    pf = api.get(f"/v1/filings/preflight?framework=bank_p3esg&entity_id={grp}", headers=h).json()
+    g = api.post("/v1/filings", headers=h, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"],
+                                                 "entity_id": grp})
     assert g.status_code == 201, g.text
     return g.json()["filing_id"]
 
@@ -170,7 +173,8 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
 
     # ── 2 the institution states scopes 1-3 and the attribution, and authors the narrative ──
     _switch(api, h, checker, **{T1.ESTIMATION: "scope_1_2_3", T1.ATTRIBUTION: "exposure_over_total_liabilities"})
-    body = {"values": {n["key"]: f"Our {n['key']}" for n in T1.required_narrative("scope_1_2_3")}}
+    body = {"values": {n["key"]: f"Our {n['key']}" for n in T1.required_narrative("scope_1_2_3")},
+            "undertaking": group(s, BANK_ORG)}           # the filer's own narrative (its group's filing)
     assert api.patch("/v1/filings/qualitative/p3esg", headers=h, json=body).status_code == 200
     fid = _file(api, h)
     p = _payload(s, fid)
@@ -211,9 +215,10 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
     fr, rec = frozen_of(p), p[T1.RECORD]
     assert rec["sector_intensity"]["C24"]["value"] == INTENSITY and rec["sector_intensity"]["C24"]["provider"].startswith("Source X")
     f = _findings(api, h, fid)
-    assert all(f[k]["passed"] for k in ("t1_method_stated", "t1_counterparty_identified", "t1_counterparty_figure_agreed",
-                                        "t1_scope3_basis", "t1_total_liabilities_stated", "t1_exposure_within_liabilities",
-                                        "t1_emissions_source_recorded", "t1_k_reading_stated", "t1_narrative_authored")), f
+    t1 = ("t1_method_stated", "t1_counterparty_identified", "t1_counterparty_figure_agreed", "t1_scope3_basis",
+          "t1_total_liabilities_stated", "t1_exposure_within_liabilities", "t1_emissions_source_recorded",
+          "t1_k_reading_stated", "t1_narrative_authored")
+    assert all(f[k]["passed"] for k in t1), {k: f[k]["message"] for k in t1 if not f[k]["passed"]}
 
     # the figures, by hand from the frozen book: x / L × scopes; e3's scope 3 = intensity × L / 1 000 000
     def x(k):
@@ -273,7 +278,8 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
 
     # ── 5 scopes 1 and 2: j blank; k needs the institution's reading of 'scope 1, 2 and 3' ──
     _switch(api, h, checker, **{T1.ESTIMATION: "scope_1_2"})
-    api.patch("/v1/filings/qualitative/p3esg", headers=h, json={"values": {"t1.plans_scope3": "From 2027"}})
+    api.patch("/v1/filings/qualitative/p3esg", headers=h, json={"values": {"t1.plans_scope3": "From 2027"},
+                                                                "undertaking": group(api.s, BANK_ORG)})
     fid = _file(api, h)
     dps, _ = _form(api, h, fid)
     assert dps["emissions.scope3"]["value"] is None and dps["emissions.company_reported_pct"]["value"] is None
@@ -288,7 +294,8 @@ def test_template_1_end_to_end_one_counterparty_one_figure(api):
 
     # ── 6 not yet estimating: i and j blank, k is 0 % ──
     _switch(api, h, checker, **{T1.ESTIMATION: "not_yet_estimating"})
-    api.patch("/v1/filings/qualitative/p3esg", headers=h, json={"values": {"t1.plans_emissions": "From 2027"}})
+    api.patch("/v1/filings/qualitative/p3esg", headers=h, json={"values": {"t1.plans_emissions": "From 2027"},
+                                                                "undertaking": group(api.s, BANK_ORG)})
     fid = _file(api, h)
     dps, _ = _form(api, h, fid)
     assert (dps["emissions.total"]["value"], dps["emissions.scope3"]["value"], dps["emissions.company_reported_pct"]["value"]) == (None, None, 0.0)

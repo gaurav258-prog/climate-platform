@@ -5674,6 +5674,31 @@
     "next": "Refresh the draft. If the organisation has two or more reporting entities, prepare the report for the group or for each undertaking instead."
    }
   },
+  "filing.refused.whole_org_no_filer": {
+   "status": 409,
+   "label": "Choose who reports it",
+   "detail": {
+    "what": "{report} is reported by {who}, not by the organisation as a whole once it records its undertakings as reporting entities.",
+    "why": "The whole organisation's book counts every entity in full: it is no single filer's own figures and no group's consolidated figures.",
+    "next": "Prepare it for one of: {choices}."
+   }
+  },
+  "filing.refused.whole_org_frozen": {
+   "status": 409,
+   "label": "Not one filer's report",
+   "detail": {
+    "what": "This {report} was frozen for the whole organisation without a record that the organisation is the one reporting it.",
+    "next": "Prepare the report for each of its filers. An organisation with one reporting entity refreshes its draft instead."
+   }
+  },
+  "filing.refused.exempt_subsidiary_taxonomy": {
+   "status": 409,
+   "label": "An exempt subsidiary reports no KPIs",
+   "detail": {
+    "what": "This undertaking is an exempt subsidiary: its EU Taxonomy KPIs are in {parent}'s consolidated report ({report_ref}).",
+    "why": "An undertaking exempt from sustainability reporting is also exempt from the Taxonomy disclosures (Directive 2013/34/EU, Articles 19a(9) and 29a(8); Commission Notice C/2023/305, question 11)."
+   }
+  },
   "filing.refused.xbrlcsv_reference_date": {
    "status": 409,
    "label": "Not available for this reference date",
@@ -8011,6 +8036,13 @@
    "label": "Not an undertaking of this group",
    "detail": {
     "what": "{figure} is stated for an undertaking whose figures the group consolidates."
+   }
+  },
+  "disclose.provided.not_subsidiary": {
+   "status": 400,
+   "label": "Not a subsidiary",
+   "detail": {
+    "what": "{figure} is stated for an entity below a parent in your entity structure."
    }
   },
   "disclose.provided.number": {

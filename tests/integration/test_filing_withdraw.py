@@ -14,17 +14,24 @@ from sqlalchemy.exc import DBAPIError
 
 from services.governance.reporting_settings import upsert_reporting_settings
 from tests.integration.conftest import login as _login
+from tests.integration.filers import group
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
 
-PERIOD = "2093-12-31"          # a period no real filing uses, so the whole-organisation slot starts empty
+PERIOD = "2093-12-31"          # a period no real filing uses, so the group's slot starts empty
+
+
+def _scope(api) -> str:
+    """The group's slot (the whole organisation of four entities is no filer of the report, E349)."""
+    return f"&entity_id={group(api.s, BANK_ORG)}"
 
 
 def _generate(api, maker) -> dict:
-    pf = api.get("/v1/filings/preflight?framework=bank_tcfd", headers=maker).json()
+    pf = api.get(f"/v1/filings/preflight?framework=bank_tcfd{_scope(api)}", headers=maker).json()
     assert pf["can_generate"], pf.get("existing_status")
-    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"]})
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"],
+                                                     "entity_id": group(api.s, BANK_ORG)})
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -40,7 +47,7 @@ def test_withdraw_a_mistaken_draft_frees_its_slot(api):
     fid, snap = draft["filing_id"], s.execute(text("SELECT snapshot_id FROM regulatory_filing WHERE filing_id = :f"),
                                                {"f": draft["filing_id"]}).scalar()
     assert draft["status"] == "draft" and snap is not None
-    assert api.get("/v1/filings/preflight?framework=bank_tcfd", headers=maker).json()["can_generate"] is False
+    assert api.get(f"/v1/filings/preflight?framework=bank_tcfd{_scope(api)}", headers=maker).json()["can_generate"] is False
 
     # 2 · a reason is required — missing, or too short to say anything
     assert api.post(f"/v1/filings/{fid}/withdraw", headers=maker, json={}).status_code == 422

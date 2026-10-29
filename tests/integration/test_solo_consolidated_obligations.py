@@ -80,30 +80,27 @@ def test_filing_role_for_whole_org_leaf_and_group():
 
 @pytest.mark.integration
 def test_ensure_obligations_generates_solo_row_per_entity_requiring_one():
-    """A genuine per-entity solo row for each entity with requires_solo_filing=true, on top of the whole-org row —
-    not just one blanket whole-org obligation."""
+    """The calendar owes what each report's act names (E349, services.governance.report_filers), not one blanket
+    whole-org row plus a solo row per entity: Pillar 3 ESG is disclosed by the group on its consolidated situation and
+    not by a subsidiary on an individual basis (CRR Arts 6(3), 13(1)); the EU Taxonomy KPIs by each undertaking stated
+    to report (none stated yet: none owed). A branch is never a filer. With one entity the organisation is the filer."""
     with get_session() as s:
         parent = E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Parent", kind="group")
-        E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Sub 1", kind="legal_entity",
-                        parent_entity_id=parent["entity_id"])
+
+        def owed(fw: str) -> set:
+            F.ensure_obligations(s, EMPTY_BANK_ORG, "bank")
+            return {(r[0], r[1]) for r in s.execute(text("""
+                SELECT entity_id::text, filing_role FROM regulatory_obligation
+                WHERE org_id = CAST(:o AS uuid) AND framework = :f AND period_end = :pe"""),
+                {"o": EMPTY_BANK_ORG, "f": fw, "pe": F.reporting_period_end(s, EMPTY_BANK_ORG)}).all()}
+
+        # one entity: the organisation is the institution (and the entity, set to file, its own)
+        assert owed("bank_p3esg") == {(None, "whole_org"), (parent["entity_id"], "solo")}
+        E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Sub 1", kind="legal_entity", parent_entity_id=parent["entity_id"])
         E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Branch", kind="branch",
                         parent_entity_id=parent["entity_id"])  # requires_solo_filing=False by default
-
-        F.ensure_obligations(s, EMPTY_BANK_ORG, "bank")
-        rows = s.execute(text("""
-            SELECT entity_id::text AS entity_id, filing_role FROM regulatory_obligation
-            WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd'
-        """), {"o": EMPTY_BANK_ORG}).mappings().all()
-
-        # one whole_org row (entity_id NULL) + one solo row per requires_solo_filing=true entity;
-        # the branch (requires_solo_filing=False) gets none of its own
-        whole_org = [r for r in rows if r["entity_id"] is None]
-        solo = [r for r in rows if r["entity_id"] is not None]
-        assert len(whole_org) == 1 and whole_org[0]["filing_role"] == "whole_org"
-        assert all(r["filing_role"] == "solo" for r in solo)
-        assert {r["entity_id"] for r in solo} == {parent["entity_id"], s.execute(text(
-            "SELECT entity_id::text FROM reporting_entities WHERE org_id=:o AND name='Test OB Sub 1'"),
-            {"o": EMPTY_BANK_ORG}).scalar()}
+        assert owed("bank_p3esg") == {(parent["entity_id"], "consolidated")}
+        assert owed("bank_tcfd") == set()
         s.rollback()
 
 
@@ -146,7 +143,7 @@ def test_list_obligations_matches_filing_status_per_entity_not_globally():
 
         # generate a real filing scoped to the SUBSIDIARY only (needs its own snapshot/portfolio data — use a
         # direct insert against a throwaway period, same pattern as test_filing_lifecycle, to avoid needing a
-        # populated book just to prove the join)
+        # populated book just to prove the join). Supervisor-set rows: the calendar keeps them as set (E349)
         pe = "2099-12-31"
         s.execute(text("""
             INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, entity_id,
@@ -157,13 +154,13 @@ def test_list_obligations_matches_filing_status_per_entity_not_globally():
 
         s.execute(text("""
             INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency,
-                                                entity_id, filing_role)
-            VALUES (:o, 'bank_tcfd', :pe, 'FY2099', :pe, 'annual', CAST(:e AS uuid), 'solo')
+                                                entity_id, filing_role, source, set_by)
+            VALUES (:o, 'bank_tcfd', :pe, 'FY2099', :pe, 'annual', CAST(:e AS uuid), 'solo', 'supervisor', 'Test supervisor')
         """), {"o": EMPTY_BANK_ORG, "pe": pe, "e": sub["entity_id"]})
         s.execute(text("""
             INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency,
-                                                entity_id, filing_role)
-            VALUES (:o, 'bank_tcfd', :pe, 'FY2099', :pe, 'annual', CAST(:e AS uuid), 'solo')
+                                                entity_id, filing_role, source, set_by)
+            VALUES (:o, 'bank_tcfd', :pe, 'FY2099', :pe, 'annual', CAST(:e AS uuid), 'solo', 'supervisor', 'Test supervisor')
         """), {"o": EMPTY_BANK_ORG, "pe": pe, "e": parent["entity_id"]})
 
         obs = F.list_obligations(s, EMPTY_BANK_ORG, "bank")

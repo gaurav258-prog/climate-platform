@@ -260,6 +260,14 @@ def available_frameworks(org_type: str) -> list[dict]:
 _MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
 
+def _values_entity(framework: str, payload: dict | None) -> str | None:
+    from services.governance.datapoint_catalog import PER_ENTITY_REPORTS
+    from services.governance.report_snapshots import _PROVIDED_UNDER
+    if _PROVIDED_UNDER.get(framework, framework) not in PER_ENTITY_REPORTS:
+        return None
+    return ((payload or {}).get("_scope") or {}).get("reporting_entity_id")
+
+
 def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     """The final form for a filing — the frozen snapshot flattened into labelled datapoints (see
     filing_form.build_form), each with a stable key so a manual override can target it."""
@@ -364,6 +372,9 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex,
             "reporting_entity_id": ((r["payload"] or {}).get("_scope") or {}).get("reporting_entity_id"),
             "filing_role": ((r["payload"] or {}).get("_scope") or {}).get("filing_role"),     # which of its reports
+            # whose supplied values the filing reads: the entity's for a report whose figures belong to an undertaking
+            # (datapoint_catalog.PER_ENTITY_REPORTS), else the organisation's (None) — as provided_data.attested_values
+            "values_entity_id": _values_entity(r["framework"], r["payload"]),
             "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx")),
             # a group filing: the rule its entities were weighted on, quoted, as frozen (and any declared reading)
             "consolidation": _consolidation_view(session, (r["payload"] or {}).get("_consolidation")),
@@ -509,14 +520,12 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
     """Make sure an obligation row exists for every framework applicable to this org, for the current
     reference period (last completed year-end). Idempotent — safe to call on every calendar read.
 
-    Fixed 2026-09-23 (the most severe finding in that day's independent consolidation-scope review): this
-    used to insert ONLY one blanket whole-org obligation per framework, full stop — a bank group with
-    unwaived subsidiaries had no way to see that CRR Art 6 requires each of them to ALSO file its own solo
-    return, in parallel with (not instead of) the consolidated one. Now, for every _ENTITY_SCOPED framework,
-    this also inserts one 'solo' obligation per entity in the org's tree whose requires_solo_filing is still
-    true (the CRR-safe default — see entities.create_entity) — so "you owe N solo filings + 1 consolidated
-    filing" is finally a real, visible fact in the calendar, not an implicit consequence of which entity_id
-    someone happened to pick when generating a filing."""
+    Who is owed an entity-scoped report is its act's (E343, E349): each one with a calendar date follows its filer rule
+    (services.governance.report_filers — ensure_filer_obligations), the ESRS statement its undertakings
+    (_ensure_esrs_obligations), a per-product report its funds. The framework-blind default — one whole-organisation row
+    beside a solo row per entity (the 2026-09-23 C1 fix) — is gone: an organisation of several entities is no filer
+    under these acts. Only a report filed for the organisation as a whole gets the single whole-organisation row."""
+    from services.governance.report_filers import governs
     period_end = reporting_period_end(session, org_id)
     for f in available_frameworks(org_type):
         fk = f["framework"]
@@ -526,8 +535,9 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
         if fk == "esrs_pack":
             _ensure_esrs_obligations(session, org_id, period_end)
             continue
-        if fk == "insurer_solvency":
-            ensure_sii_obligations(session, org_id, period_end)
+        if governs(fk):
+            # the report's filers, as its act names them (services.governance.report_filers), not the organisation
+            ensure_filer_obligations(session, org_id, fk, period_end)
             continue
         if _due_date(fk, period_end) is None:
             # runs from an event (an ORSA's conclusion, a recovery plan's update) — no calendar obligation to invent;
@@ -546,24 +556,6 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
             """), {"o": org_id, "fk": fk, "pe": period_end, "pl": _period_label(period_end),
                    "due": _due_date(fk, period_end), "freq": FRAMEWORKS[fk]["frequency"]})
 
-        if fk not in _ENTITY_SCOPED:
-            continue
-        solo_entities = session.execute(text("""
-            SELECT entity_id::text AS entity_id FROM reporting_entities
-            WHERE org_id = :o AND requires_solo_filing = true
-        """), {"o": org_id}).scalars().all()
-        for eid in solo_entities:
-            exists = session.execute(text("""
-                SELECT 1 FROM regulatory_obligation
-                WHERE org_id = :o AND framework = :fk AND period_end = :pe AND entity_id = CAST(:e AS uuid)
-            """), {"o": org_id, "fk": fk, "pe": period_end, "e": eid}).first()
-            if exists:
-                continue
-            session.execute(text("""
-                INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
-                VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), 'solo')
-            """), {"o": org_id, "fk": fk, "pe": period_end, "pl": _period_label(period_end),
-                   "due": _due_date(fk, period_end), "freq": FRAMEWORKS[fk]["frequency"], "e": eid})
 
 
 def _ensure_esrs_obligations(session: Session, org_id: str, period_end: date) -> None:
@@ -572,10 +564,9 @@ def _ensure_esrs_obligations(session: Session, org_id: str, period_end: date) ->
     (due_for_undertaking). The calendar follows the facts: an undertaking's own obligation takes the deadline its facts
     give now, and is removed once it is no longer required (a supervisor-set one is left as the supervisor set it). An
     undertaking whose requirement or deadline fact is not stated has none yet — the mandate names what is missing."""
-    from services.calc_settings import get_calc_settings
-    from services.governance import csrd_scope
+    from services.governance.csrd_filers import undertakings
     owed = {}
-    for u in csrd_scope.undertakings(session, org_id, period_end, get_calc_settings(session, org_id)):
+    for u in undertakings(session, org_id, period_end):            # the undertakings the Taxonomy reports read too
         due, _ = due_for_undertaking(session, org_id, "esrs_pack", u["entity_id"], period_end) if u["required"] else (None, None)
         if due is not None:
             owed[u["entity_id"]] = (due, "whole_org" if u["entity_id"] is None
@@ -601,19 +592,26 @@ def _ensure_esrs_obligations(session: Session, org_id: str, period_end: date) ->
 
 
 def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> None:
-    """The Solvency II nat-cat obligations its filers owe (services.governance.sii_filers.owed), one per (entity, role):
-    once the organisation records an undertaking, one per group and per undertaking — an undertaking at the head of a
-    group owes two, the group's and its own — and none for the whole organisation; while it records none, the
-    organisation's own. The calendar follows the entities: an obligation the calendar made (source 'entity') that is owed
-    no more is removed in every period unless a report was filed for it (submitted or accepted — it stays on record); the
-    current period gains what is missing. A supervisor's date is kept: when the whole organisation is no filer, a
-    supervisor-set whole-organisation deadline is carried onto each filer's obligation for its period (date, note,
-    supervisor and deadline with it), and the whole-organisation row goes unless a report was filed for it.
-    services.supervision.deadlines settles a newly published one the same way."""
-    from services.governance.sii_filers import FRAMEWORK, due, owed
-    if _due_date(FRAMEWORK, period_end) is None:
+    """The Solvency II nat-cat obligations its filers owe (services.governance.sii_filers.owed) — ensure_filer_obligations
+    for insurer_solvency."""
+    ensure_filer_obligations(session, org_id, "insurer_solvency", period_end)
+
+
+def ensure_filer_obligations(session: Session, org_id: str, framework: str, period_end: date) -> None:
+    """The obligations a report's filers owe (services.governance.report_filers.owed), one per (entity, role): once the
+    organisation records an undertaking, one per filer the report's act names — for Solvency II nat-cat an undertaking at
+    the head of a group owes two, the group's and its own — and none for the whole organisation; while it records none,
+    the organisation's own. The calendar follows the entities: an obligation the calendar made (source 'entity') that is
+    owed no more is removed in every period unless a report was filed for it (submitted or accepted — it stays on record);
+    the current period gains what is missing, each due on its role's date (report_filers.due). A supervisor's date is
+    kept: when the whole organisation is no filer, a supervisor-set whole-organisation deadline is carried onto each
+    filer's obligation for its period (date, note, supervisor and deadline with it), and the whole-organisation row goes
+    unless a report was filed for it — it stays while no filer is known yet (an undertaking's role still to be stated,
+    E349). services.supervision.deadlines settles a newly published one the same way."""
+    from services.governance.report_filers import due, owed
+    if _due_date(framework, period_end) is None:
         return
-    now = owed(session, org_id)
+    now = owed(session, org_id, framework, period_end)
 
     def held() -> list:
         rows = session.execute(text(f"""
@@ -623,11 +621,11 @@ def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> N
                             AND {_role_match("rf", "ob.entity_id", "ob.filing_role")}
                             AND rf.status IN ('submitted', 'accepted')) AS filed
             FROM regulatory_obligation ob WHERE ob.org_id = :o AND ob.framework = :fk AND ob.fund_id IS NULL
-        """), {"o": org_id, "fk": FRAMEWORK}).mappings().all()
+        """), {"o": org_id, "fk": framework}).mappings().all()
         # a whole-organisation row is the organisation's one report, whatever role it was recorded with
         return [{**r, "key": (r["entity_id"], r["filing_role"] if r["entity_id"] else "whole_org")} for r in rows]
 
-    if not any(eid is None for eid, _ in now):
+    if now and not any(eid is None for eid, _ in now):
         # a supervisor's date for a period: its whole-organisation row if still there, else one already carried
         dated: dict = {}
         for r in held():
@@ -662,12 +660,13 @@ def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> N
         if free:
             session.execute(text("UPDATE regulatory_obligation SET filing_role = :fr, due_date = COALESCE(:d, due_date) "
                                  "WHERE obligation_id = :i"),
-                            {"fr": free[0], "d": due(_due_date(FRAMEWORK, r["period_end"]), free[0]), "i": r["obligation_id"]})
+                            {"fr": free[0], "d": due(framework, _due_date(framework, r["period_end"]), free[0]),
+                             "i": r["obligation_id"]})
             taken.add(((r["entity_id"], free[0]), r["period_end"]))
         else:
             session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
-    for r in have:      # the calendar's own date follows the rule: a group's report 6 weeks after an undertaking's
-        d = due(_due_date(FRAMEWORK, r["period_end"]), r["key"][1])
+    for r in have:      # the calendar's own date follows the rule (Solvency II: a group's report 6 weeks after an undertaking's)
+        d = due(framework, _due_date(framework, r["period_end"]), r["key"][1])
         if r["source"] == "entity" and r["key"] in now and d is not None and r["due_date"] != d:
             session.execute(text("UPDATE regulatory_obligation SET due_date = :d WHERE obligation_id = :i"),
                             {"d": d, "i": r["obligation_id"]})
@@ -677,8 +676,30 @@ def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> N
         session.execute(text("""
             INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
             VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), :fr)
-        """), {"o": org_id, "fk": FRAMEWORK, "pe": period_end, "pl": _period_label(period_end), "e": eid, "fr": role,
-               "due": due(_due_date(FRAMEWORK, period_end), role), "freq": FRAMEWORKS[FRAMEWORK]["frequency"]})
+        """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end), "e": eid, "fr": role,
+               "due": due(framework, _due_date(framework, period_end), role), "freq": FRAMEWORKS[framework]["frequency"]})
+
+
+def undetermined_filers(session: Session, org_id: str, framework: str, period_end: date) -> list[dict]:
+    """The undertakings whose part in a report is not known yet — an EU Taxonomy report of an organisation that records
+    undertakings whose reporting role for the year is not stated (services.governance.csrd_filers): [{entity_id, name,
+    msg}]; [] for any other report or organisation."""
+    from services.governance import csrd_filers, report_filers
+    if framework not in csrd_filers.FRAMEWORKS or report_filers.is_filer(session, org_id):
+        return []
+    return csrd_filers.undetermined(session, org_id, period_end)
+
+
+def filers_to_state(session: Session, org_id: str, org_type: str) -> list[dict]:
+    """Each report of the organisation whose filers for the current period are not all known (undetermined_filers):
+    [{framework, label, period_end, undertakings}] — the calendar owes them once their roles are stated."""
+    pe = reporting_period_end(session, org_id)
+    out = []
+    for f in available_frameworks(org_type):
+        und = undetermined_filers(session, org_id, f["framework"], pe)
+        if und:
+            out.append({"framework": f["framework"], "label": f["label"], "period_end": pe.isoformat(), "undertakings": und})
+    return out
 
 
 def _ensure_product_obligations(session: Session, org_id: str, fk: str, period_end: date) -> None:
@@ -961,15 +982,16 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
                 "basis": get_settings(session, org_id), "product_scoped": True, "needs_fund": True,
                 "funds": funds_owing(session, org_id), "can_generate": False, "confirm_token": None,
                 "entity_scoped": False, "coverage": None, "gaps": []}
-    from services.governance.sii_filers import choices, whole_org_refusal
-    if whole_org_refusal(session, org_id, framework, entity_id) is not None:
-        # the organisation as a whole is no filer of this report: the preparer chooses the group or the undertaking
-        # first (nothing is computed or confirmed yet)
+    from services.governance import report_filers as RF
+    if RF.whole_org_refusal(session, org_id, framework, entity_id, period_end) is not None:
+        # the organisation as a whole is no filer of this report: the preparer chooses one of its filers first (nothing
+        # is computed or confirmed yet) — with who reports it and why, and any undertaking still to state its role
         from services.governance.reporting_settings import get_settings
         return {"framework": framework, "label": FRAMEWORKS[framework]["label"], "period_label": _period_label(period_end),
                 "basis": get_settings(session, org_id), "product_scoped": False, "needs_scope": True,
-                "scopes": choices(session, org_id), "can_generate": False, "confirm_token": None,
-                "entity_scoped": True, "coverage": None, "gaps": []}
+                "scopes": RF.choices(session, org_id, framework, period_end), "scope_basis": RF.scope_basis(framework),
+                "undetermined": undetermined_filers(session, org_id, framework, period_end),
+                "can_generate": False, "confirm_token": None, "entity_scoped": True, "coverage": None, "gaps": []}
     _check_scope(session, org_id, framework, entity_id, fund_id)
     role = None if framework in _PRODUCT_SCOPED else _scope_role(session, org_id, framework, entity_id, filing_role)
     existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role)
@@ -1218,10 +1240,10 @@ def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | 
                 role: str | None = None) -> tuple:
     """_book_basis for callers that report to a preparer: a book that cannot be presented is a FilingError. The one
     gate of every book a filing freezes (pre-filing check, generate, refresh, restate): a whole-organisation scope that
-    is no filer's is refused here (services.governance.sii_filers), and so is a role the scope cannot take."""
-    from services.governance.sii_filers import whole_org_refusal
+    is no filer's is refused here (services.governance.report_filers), and so is a role the scope cannot take."""
+    from services.governance.report_filers import whole_org_refusal
     from services.governance.translation import TranslationError
-    why = whole_org_refusal(session, org_id, framework, entity_id)
+    why = whole_org_refusal(session, org_id, framework, entity_id, period_end)
     if why is not None:
         raise FilingError(why[0], **why[1])
     role = _scope_role(session, org_id, framework, entity_id, role)
@@ -1250,6 +1272,12 @@ def _check_scope(session: Session, org_id: str, framework: str, entity_id: str |
         from services.governance import entities as _E
         if not _E.get_entity(session, org_id, entity_id):
             raise FilingError("filing.refused.entity_not_found")
+    from services.governance import csrd_filers
+    if framework in csrd_filers.FRAMEWORKS and entity_id is not None:
+        # an exempt subsidiary's EU Taxonomy KPIs are in its parent's report (Commission Notice C/2023/305, FAQ 11)
+        why = csrd_filers.exempt_refusal(session, org_id, framework, entity_id, reporting_period_end(session, org_id))
+        if why is not None:
+            raise FilingError(why[0], **why[1])
     if framework == "esrs_pack":
         # an exempt subsidiary files no sustainability statement: it is included in its parent's consolidated report
         # (Directive 2013/34/EU Art. 19a(9) / 29a(8)) — nothing to confirm or freeze for it (E139)

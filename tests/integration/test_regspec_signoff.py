@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 import services.regspec as R
 from services.regspec import signoff as S
+from tests.integration.filers import group
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -70,8 +71,10 @@ def test_a_pillar3_filing_freezes_its_spec_and_the_run_checks_the_signoff(sessio
     s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg' "
               "AND status NOT IN ('superseded', 'withdrawn')"),
               {"o": BANK_ORG})
-    token = F.preflight(s, BANK_ORG, "bank", "bank_p3esg")["confirm_token"]
-    fid = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", _uid(s, "admin@meridian.demo"), confirm_token=token)["filing_id"]
+    grp = group(s, BANK_ORG)                     # discloses on its consolidated situation (CRR Art. 13(1); E349)
+    token = F.preflight(s, BANK_ORG, "bank", "bank_p3esg", entity_id=grp)["confirm_token"]
+    fid = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", _uid(s, "admin@meridian.demo"), confirm_token=token,
+                            entity_id=grp)["filing_id"]
     row = s.execute(text("""SELECT rs.payload->'_spec' AS spec, er.checks FROM regulatory_filing rf
                             JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
                             JOIN engine_runs er ON er.run_id = rs.run_id WHERE rf.filing_id = CAST(:f AS uuid)"""),

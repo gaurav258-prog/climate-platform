@@ -122,4 +122,4 @@ def test_every_frozen_book_passes_the_filer_gate():
         assert "_freeze" in _calls(fn), fn.__name__
     assert "_summary_for" in _calls(filings.preflight)
     # the calendar's Solvency II obligations come from the filers, not the blanket whole-organisation row
-    assert "ensure_sii_obligations" in _calls(filings.ensure_obligations)
+    assert "ensure_filer_obligations" in _calls(filings.ensure_obligations)

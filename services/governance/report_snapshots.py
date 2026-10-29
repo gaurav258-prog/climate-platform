@@ -343,6 +343,14 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     payload["_scope"] = {"reporting_entity_id": root_of(session, org_id, entity_ids)}   # whose own figures (None = the organisation)
     if payload["_scope"]["reporting_entity_id"]:      # which of its reports: its own book (solo) or its group's (consolidated)
         payload["_scope"]["filing_role"] = book_role(entity_ids, value_weights)
+    from services.governance import report_filers
+    if report_filers.governs(report_type) and "_filer" not in payload:
+        # who reports this book (services.governance.report_filers; Solvency II nat-cat records its own in its builder):
+        # absent for a whole-organisation book that is no filer's
+        filer = report_filers.record(session, org_id, report_type, payload["_scope"]["reporting_entity_id"],
+                                     payload["_scope"].get("filing_role") == "consolidated", period_end)
+        if filer is not None:
+            payload["_filer"] = filer
     payload["_provided_attested"] = attested_values(session, org_id, _PROVIDED_UNDER.get(report_type, report_type), period_end,
                                                     reporting_entity_id=payload["_scope"]["reporting_entity_id"],
                                                     filing_role=payload["_scope"].get("filing_role"))

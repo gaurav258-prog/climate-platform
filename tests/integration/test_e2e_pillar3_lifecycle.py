@@ -19,6 +19,7 @@ import pytest
 from sqlalchemy import text
 
 from tests.integration.conftest import login as _login
+from tests.integration.filers import group, state_role
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -55,11 +56,14 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
 
     # 2 · qualitative authoring: a row the governing tables do not have is refused; a printed sub-row is accepted. The test
     #     starts from no answers (the demo bank may hold demo text: cleared inside this rolled-back transaction)
-    held = api.get("/v1/filings/qualitative/p3esg", headers=maker).json()
-    api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {
+    #     — the group's own text: it discloses on its consolidated situation (CRR Art. 13(1); services.governance.crr_filers)
+    grp = group(s, BANK_ORG)
+    held = api.get(f"/v1/filings/qualitative/p3esg?undertaking={grp}", headers=maker).json()
+    api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"undertaking": grp, "values": {
         r["key"]: "" for t in held["tables"] if t["table"].startswith("TAB") for r in t["rows"]}})
     assert api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {"table9.z": "x"}}).status_code == 422
-    r = api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"values": {"table2.d_i": "Community engagement policy."}})
+    r = api.patch("/v1/filings/qualitative/p3esg", headers=maker, json={"undertaking": grp,
+                                                                       "values": {"table2.d_i": "Community engagement policy."}})
     assert r.status_code == 200
     rows_ = {x["key"]: x["value"] for t in r.json()["tables"] for x in t["rows"]}
     assert rows_["table2.d_i"] == "Community engagement policy."
@@ -68,8 +72,9 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg' "
               "AND status NOT IN ('superseded', 'withdrawn')"),
               {"o": BANK_ORG})
-    pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
-    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"]})
+    pf = api.get(f"/v1/filings/preflight?framework=bank_p3esg&entity_id={grp}", headers=maker).json()
+    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"],
+                                                     "entity_id": grp})
     assert g.status_code == 201, g.text
     fid = g.json()["filing_id"]
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
@@ -87,10 +92,11 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
     q = next(f for f in v["findings"] if f["rule"] == "qualitative_tables_answered")
     assert q["severity"] == "blocking" and not q["passed"]
-    qual = api.get(f"/v1/filings/qualitative/p3esg?period_end={form['period_end']}", headers=maker).json()
+    qual = api.get(f"/v1/filings/qualitative/p3esg?period_end={form['period_end']}&undertaking={grp}", headers=maker).json()
     keys = [x["key"] for t in qual["tables"] if t["table"].startswith("TAB") for x in t["rows"]]
     assert api.patch("/v1/filings/qualitative/p3esg", headers=maker,
-                     json={"values": {k: f"Answer {k}" for k in keys}, "period_end": form["period_end"]}).status_code == 200
+                     json={"values": {k: f"Answer {k}" for k in keys}, "period_end": form["period_end"],
+                           "undertaking": grp}).status_code == 200
     assert api.post(f"/v1/filings/{fid}/refresh", headers=maker).status_code == 200
     v = api.get(f"/v1/filings/{fid}/validation", headers=maker).json()
     assert next(f for f in v["findings"] if f["rule"] == "qualitative_tables_answered")["passed"]
@@ -132,7 +138,18 @@ def test_preparing_an_obligation_files_its_own_entity_and_period(api):
     """Prepare on an obligation's card files that obligation: its legal entity, its period — never the whole
     organisation or a different period (found in the 2026-09-29 walkthrough: the card passed only the framework)."""
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
+    checker = _login(api, "approver@meridian.demo", "Demo!approve1")
     s = api.s
+    # Meridian Bank AG is stated a large institution for the year (four eyes): a large subsidiary discloses its own
+    # (CRR Art. 13(1), second subparagraph) — the calendar owes it beside the group's
+    bank_ag = s.execute(text("SELECT entity_id::text FROM reporting_entities WHERE org_id = CAST(:o AS uuid) AND name = 'Meridian Bank AG'"),
+                        {"o": BANK_ORG}).scalar_one()
+    r = api.post("/v1/provided", headers=maker, json={"framework": "bank_p3esg", "datapoint_key": "large_institution",
+                                                      "value_text": "large", "breakdown_member": bank_ag,
+                                                      "reporting_period_end": "2025-12-31"})
+    assert r.status_code == 201, r.text
+    assert api.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=checker,
+                    json={"decision": "approved"}).status_code == 200
     obs = {(o["entity_name"], o["period_end"]): o for o in
            api.get("/v1/obligations", headers=maker).json()["obligations"] if o["framework"] == "bank_p3esg"}
     solo = obs[("Meridian Bank AG", "2025-12-31")]
@@ -143,20 +160,20 @@ def test_preparing_an_obligation_files_its_own_entity_and_period(api):
         q = f"&entity_id={entity_id}" if entity_id else ""
         return api.get(f"/v1/filings/preflight?framework=bank_p3esg{q}", headers=maker).json()["confirm_token"]
 
-    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(),
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(later["entity_id"]),
                                                      "obligation_id": later["obligation_id"]})
     assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.obligation_other_period"
     assert "Change the reporting period" in r.json()["error"]["detail"]["next"]
-    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(),
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": token(other["entity_id"]),
                                                      "obligation_id": solo["obligation_id"], "entity_id": other["entity_id"]})
     assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.obligation_other_entity"
 
     # the pre-filing check is for the scope being filed: its figures are the entity's own book, and a confirmation
-    # of the whole organisation cannot freeze the entity's filing
-    whole = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
+    # of the group cannot freeze the entity's filing
+    grp = api.get(f"/v1/filings/preflight?framework=bank_p3esg&entity_id={other['entity_id']}", headers=maker).json()
     mine = api.get(f"/v1/filings/preflight?framework=bank_p3esg&entity_id={solo['entity_id']}", headers=maker).json()
-    assert 0 < mine["total_value_eur"] < whole["total_value_eur"]
-    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": whole["confirm_token"],
+    assert 0 < mine["total_value_eur"] < grp["total_value_eur"]
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": grp["confirm_token"],
                                                      "obligation_id": solo["obligation_id"]})
     assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.data_changed"
     r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": mine["confirm_token"],
@@ -183,8 +200,13 @@ def test_bank_taxonomy_filing_is_built_to_the_governing_version_and_takes_entere
     s = api.s
     s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd' "
                    "AND status NOT IN ('superseded', 'withdrawn')"), {"o": BANK_ORG})
-    pf = api.get("/v1/filings/preflight?framework=bank_tcfd", headers=maker).json()
-    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"]})
+    # the group reports its KPIs for the group (Directive 2013/34/EU Art. 29a): its role for the year, approved
+    from services.governance.filings import reporting_period_end
+    grp = group(s, BANK_ORG)
+    state_role(api, maker, checker, grp, reporting_period_end(s, BANK_ORG))
+    pf = api.get(f"/v1/filings/preflight?framework=bank_tcfd&entity_id={grp}", headers=maker).json()
+    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_tcfd", "confirm_token": pf["confirm_token"],
+                                                     "entity_id": grp})
     assert g.status_code == 201, g.text
     fid = g.json()["filing_id"]
     frozen = s.execute(text("""SELECT s.payload -> '_specs' -> 'bank_taxonomy' FROM regulatory_filing f
@@ -224,8 +246,12 @@ def test_reit_taxonomy_filing_builds_annex_ii_from_the_property_book_and_takes_l
     s = api.s
     s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'reit_taxonomy' "
                    "AND status NOT IN ('superseded', 'withdrawn')"), {"o": stellar})
-    pf = api.get("/v1/filings/preflight?framework=reit_taxonomy", headers=maker).json()
-    g = api.post("/v1/filings", headers=maker, json={"framework": "reit_taxonomy", "confirm_token": pf["confirm_token"]})
+    from services.governance.filings import reporting_period_end
+    grp = group(s, stellar)                  # reports for the group (Directive 2013/34/EU Art. 29a): its role, approved
+    state_role(api, maker, checker, grp, reporting_period_end(s, stellar))
+    pf = api.get(f"/v1/filings/preflight?framework=reit_taxonomy&entity_id={grp}", headers=maker).json()
+    g = api.post("/v1/filings", headers=maker, json={"framework": "reit_taxonomy", "confirm_token": pf["confirm_token"],
+                                                     "entity_id": grp})
     assert g.status_code == 201, g.text
     fid = g.json()["filing_id"]
     import services.regspec as R

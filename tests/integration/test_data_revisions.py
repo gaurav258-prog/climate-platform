@@ -14,6 +14,7 @@ from sqlalchemy import text
 from services.governance import data_revisions as D
 from services.governance import filings as F
 from services.intake import observations as O
+from tests.integration.filers import group, state_role_in_session
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -28,9 +29,11 @@ def _filing(s) -> str:
     s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd' "
               "AND status NOT IN ('superseded', 'withdrawn')"),
               {"o": BANK_ORG})
-    token = F.preflight(s, BANK_ORG, "bank", "bank_tcfd")["confirm_token"]
+    grp = group(s, BANK_ORG)                    # reports for the group (Directive 2013/34/EU Art. 29a; E349)
+    state_role_in_session(s, BANK_ORG, grp, F.reporting_period_end(s, BANK_ORG))
+    token = F.preflight(s, BANK_ORG, "bank", "bank_tcfd", entity_id=grp)["confirm_token"]
     user = s.execute(text("SELECT user_id::text FROM users WHERE email = 'admin@meridian.demo'")).scalar()
-    return F.generate_filing(s, BANK_ORG, "bank", "bank_tcfd", user, confirm_token=token)["filing_id"]
+    return F.generate_filing(s, BANK_ORG, "bank", "bank_tcfd", user, confirm_token=token, entity_id=grp)["filing_id"]
 
 
 def _sha(s, fid):

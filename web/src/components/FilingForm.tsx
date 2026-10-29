@@ -18,7 +18,7 @@ import { EARLIER, p3Group, type P3Group } from './filing/words'
 // of a figure (with its reason); a second person approves it before it lands, and the frozen report itself never
 // changes — the change is a separate, audited layer read over it.
 
-interface Form { framework: string; period_end: string | null; status: string; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; filing_role?: string | null; elections?: Election[] | null }
+interface Form { framework: string; period_end: string | null; status: string; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; filing_role?: string | null; values_entity_id?: string | null; elections?: Election[] | null }
 interface Election { key: string; label: string; value: unknown; value_label?: string | null; stated: boolean }
 interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null; filing_role?: string | null; breakdown_member?: string | null }
 const EDITABLE = ['draft', 'returned', 'in_review', 'approved']   // a submitted, accepted or superseded filing never changes
@@ -38,7 +38,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   const supplied: Record<string, Supplied> = {}
   for (const p of suppliedQ.data?.provided ?? []) {
     if (p.reporting_period_end !== d.period_end || !['pending', 'attested'].includes(p.status)) continue
-    if ((p.reporting_entity_id ?? null) !== (d.reporting_entity_id ?? null)) continue   // the filing's own entity's values
+    if ((p.reporting_entity_id ?? null) !== (d.values_entity_id ?? null)) continue   // whose values the filing reads (the entity's, or the organisation's)
     if (p.filing_role && d.filing_role && p.filing_role !== d.filing_role) continue      // ...for this report: its own or its group's
     // a value stated per member (a group's method for each related undertaking) is keyed by its member too
     supplied[suppliedKey(p.datapoint_key, p.breakdown_member)] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
@@ -95,7 +95,9 @@ const qualUrl = (entityId: string | null, periodEnd: string | null) =>
 function P3FormTabs({ annex, entityId, ...common }: { annex: Annex; entityId: string | null; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void; labels: Labels } & EditProps) {
   const [tab, setTab] = useState<P3Group>('qual')
   const qual = useQuery({ queryKey: ['p3-qualitative', entityId, common.periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, common.periodEnd)) })
-  const of = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.spec?.template, s.title) === g) })
+  // who reports it, and a group's statement of its large subsidiaries (services/governance/report_filers.py) — above the tabs
+  const filer = annex.sections.filter(s => s.key === 'filer' || s.key === 'large_institution')
+  const of = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => !filer.includes(s) && p3Group(s.spec?.template, s.title) === g) })
   const tabs = annex.sections.some(s => p3Group(s.spec?.template, s.title) === 'earlier') ? [...P3_TABS, { k: 'earlier' as P3Group, label: EARLIER, holds: 'Figures no template prints' }] : P3_TABS
   const badge = (g: P3Group): { t: string; tone: 'good' | 'warn' | 'neutral' } | null => {
     if (g === 'earlier') return null
@@ -108,6 +110,7 @@ function P3FormTabs({ annex, entityId, ...common }: { annex: Annex; entityId: st
     <div>
       <div className="flex items-center gap-1.5 px-1 pb-2"><FormName annex={annex} />
         <InfoButton compact details={{ title: 'The four groups', sections: P3_TABS.map(t => ({ heading: t.label, body: t.holds })) }} /></div>
+      {filer.length > 0 && <div className="mb-3"><AnnexView annex={{ ...annex, sections: filer }} hideName {...common} /></div>}
       <div className="flex gap-1.5 flex-wrap border-b border-[var(--color-line)] mb-3" role="tablist">
         {tabs.map(t => {
           const b = badge(t.k), on = tab === t.k

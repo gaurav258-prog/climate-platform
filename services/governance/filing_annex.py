@@ -1126,6 +1126,12 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
         sections = _generic_annex(dps, groups)
     if not sections:
         return None
+    # who reports it (services.governance.report_filers) first; a group's Pillar 3 filing then states its large subsidiaries
+    from services.governance import crr_filers, report_filers
+    head = [report_filers.section(framework, payload)]
+    if framework == crr_filers.FRAMEWORK:
+        head.append(crr_filers.statement_section(payload))
+    sections = [x for x in head if x] + sections
     ref = reference(framework) or {}
     frozen = _frozen_spec(framework, payload or {})
     if frozen:                                        # the act the filing was prepared under, from its frozen spec

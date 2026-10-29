@@ -14,6 +14,7 @@ from sqlalchemy import text
 from services.governance import kri_t5
 from services.governance.pillar3_report import EARLIER, EARLIER_KEYS, NOT_FROZEN
 from tests.integration.conftest import login as _login
+from tests.integration.filers import group
 from tests.integration.money_method import state_method
 from tests.integration.test_intake_pipeline import BANK_ORG
 
@@ -26,9 +27,11 @@ def _new_filing(api, maker) -> str:
     state_method(api.s, BANK_ORG, reporting_period_end(api.s, BANK_ORG))
     api.s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) "
                        "AND framework = 'bank_p3esg' AND status NOT IN ('superseded', 'withdrawn')"), {"o": BANK_ORG})
-    pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
+    grp = group(api.s, BANK_ORG)                 # the EU parent discloses on its consolidated situation (CRR Art. 13(1))
+    pf = api.get(f"/v1/filings/preflight?framework=bank_p3esg&entity_id={grp}", headers=maker).json()
     assert pf["value_at_risk_eur"] is None and pf["coverage"]["label"] == "exposures scored"
-    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"]})
+    g = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"],
+                                                     "entity_id": grp})
     assert g.status_code == 201, g.text
     return g.json()["filing_id"]
 
@@ -51,6 +54,8 @@ def test_a_new_pillar3_filing_carries_only_what_the_templates_print(api):
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
     assert [g["group"] for g in form["groups"]] == ["Template 1 · financed emissions (total row)", "Frozen banking book"]
     titles = [x["title"] for x in form["annex"]["sections"]]
+    assert titles[:2] == ["Who reports", "Large subsidiaries"]                        # the group's filer record (E349)
+    titles = titles[2:]
     assert all(t.startswith(("Template", "Table ")) for t in titles), titles          # qualitative Tables 1-3, the templates
     assert [t[:7] for t in titles[:3]] == ["Table 1", "Table 2", "Table 3"]
     assert not any(w in json.dumps(form, ensure_ascii=False) for w in _NOT_PRINTED)
@@ -123,9 +128,15 @@ def test_template5_rows_carry_kris_with_their_filed_history(api):
         for col, _ in kri_t5.COLUMNS:
             v = row["values"][col]
             assert filed[kri_t5.key(row["id"], col)] == (None if v is None else round(v))
-    # the live value is computed the same way: on an unchanged book it equals what was just filed
+    # the live value is computed the same way, on the whole book (the filing is the group's consolidated one, so the two
+    # differ where an entity consolidates below 100 % — KRIs on one filer's scope are a named follow-up, E349)
+    from services.governance.kri import _live_snapshot
+    from services.governance.reporting_settings import get_settings
+    st = get_settings(api.s, BANK_ORG)
+    whole = kri_t5.grid(_live_snapshot(api.s, BANK_ORG, "bank_p3esg", st["scenario"], st["horizon"]), _p3_spec(p))
     live = {k["key"]: k["value"] for k in rows}
-    assert live == filed
+    assert live == {kri_t5.key(row["id"], col): (None if row["values"][col] is None else round(row["values"][col]))
+                    for row in whole["rows"] for col, _ in kri_t5.COLUMNS}
     # a row's KRI opens with its trend across filings
     k = next(k for k in rows if k["value"])
     d = api.get(f"/v1/reg-tasks/kri/detail?framework=bank_p3esg&kri={k['key']}", headers=maker).json()

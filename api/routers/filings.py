@@ -142,7 +142,8 @@ def _audit(session, ctx, action, filing_id, detail=None):
 
 @router.get("/obligations", summary="Regulatory filing calendar — what's due, by when")
 def obligations(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    return {"obligations": F.list_obligations(session, ctx["org"]["org_id"], ctx["org"]["type"])}
+    return {"obligations": F.list_obligations(session, ctx["org"]["org_id"], ctx["org"]["type"]),
+            "filers_to_state": F.filers_to_state(session, ctx["org"]["org_id"], ctx["org"]["type"])}
 
 
 @router.get("/filings/frameworks", summary="Frameworks this organisation can file")

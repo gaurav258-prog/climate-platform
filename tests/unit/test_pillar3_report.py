@@ -67,11 +67,14 @@ _NOT_PRINTED = ("expected loss", "stranding", "Headline exposure", "TCFD", "Valu
 
 
 def test_a_new_filing_prints_only_template_content():
-    p = _new()
+    p = {**_new(), "_filer": {"level": "institution", "entity_id": "e1", "name": "A bank",
+                              "basis": "Regulation (EU) No 575/2013 Art. 6(1)"}}       # who reports it (E349)
     assert not is_earlier_shape(p)
     groups, annex = _render(p)
     assert [g["group"] for g in groups] == ["Financed emissions (PCAF)", "Frozen banking book"]
     titles = [s["title"] for s in annex["sections"]]
+    assert titles[0] == "Who reports" and "note" not in annex["sections"][0]               # the institution, recorded
+    titles = titles[1:]
     assert all(t.startswith(("Template", "Transition risk — financed")) for t in titles), titles
     txt = json.dumps({"g": groups, "a": annex}, ensure_ascii=False)
     assert not any(w in txt for w in _NOT_PRINTED)

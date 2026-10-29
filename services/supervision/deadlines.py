@@ -179,9 +179,10 @@ def _propagate(session, reg_org_id: str, deadline_id: str, by_user_id: str, cfg:
             session.execute(text("""INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, note, source, supervision_deadline_id, set_by)
                                     VALUES (CAST(:o AS uuid), :fw, :pe, :pl, :due, 'annual', :n, 'supervisor', CAST(:d AS uuid), :by)"""),
                             {"o": e["org_id"], "fw": d["framework"], "pe": d["period_end"], "pl": d["period_label"], "due": d["due_date"], "n": d["note"], "d": deadline_id, "by": reg_name})
-        if d["framework"] == "insurer_solvency":     # the date onto the reports the entity's filers owe (sii_filers)
-            from services.governance.filings import ensure_sii_obligations, reporting_period_end
-            ensure_sii_obligations(session, e["org_id"], reporting_period_end(session, e["org_id"]))
+        from services.governance.report_filers import governs
+        if governs(d["framework"]):     # the date onto the reports the entity's filers owe (report_filers)
+            from services.governance.filings import ensure_filer_obligations, reporting_period_end
+            ensure_filer_obligations(session, e["org_id"], d["framework"], reporting_period_end(session, e["org_id"]))
         n_set += 1
         try:
             m = mandate(d["mandate_id"]) or {}

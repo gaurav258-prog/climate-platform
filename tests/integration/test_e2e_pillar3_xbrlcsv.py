@@ -67,7 +67,10 @@ def test_a_2026_pillar3_filing_downloads_as_the_ebas_data_hub_package(api, tmp_p
         res = validate(str(path))
         assert res["filing_rules"] == [] and res["xbrl_errors"] == [], res
 
-    whole = _file(api, maker)
-    r = api.get(f"/v1/filings/{whole}/export?format=xbrlcsv", headers=maker)
-    assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.xbrlcsv_level"
-    assert "individual or consolidated" in r.json()["error"]["detail"]["what"]
+    # the whole organisation of four entities is no filer of Pillar 3 ESG (CRR Arts 6(3), 13(1); E349): it is not offered,
+    # and generating it is refused with the filers to choose from (a whole-organisation package: tests/unit/test_p3esg_xbrlcsv.py)
+    pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
+    assert pf["needs_scope"] and pf["confirm_token"] is None
+    r = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": "x"})
+    assert r.status_code == 409 and r.json()["error"]["error"] == "filing.refused.whole_org_no_filer"
+    assert "Meridian Financial Group" in r.json()["error"]["detail"]["next"]

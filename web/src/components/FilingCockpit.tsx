@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
+import { CheckCircle2, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import { statusLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { pressable } from '../lib/pressable'
 import { Card, SectionHead, HeroBanner } from './ui'
-import { HEADING, InfoButton } from './Details'
+import { HEADING, InfoButton, messageDetails, type Message } from './Details'
+import ReportingRoleForm from './esrs/ReportingRoleForm'
 import { StatusChip } from './StatusChip'
 import FilingBasis from './FilingBasis'
 import FilingPreflight from './FilingPreflight'
@@ -26,6 +27,9 @@ interface Obligation { obligation_id: string; framework: string; label: string; 
 interface Framework { framework: string; label: string; frequency: string; regulator: string; basis: string }
 interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; created_by: string | null; created_at: string; entity_name?: string | null; scope?: string; filing_role?: string | null; fund_name?: string | null }
 interface Validation { blocking: number; warnings: number; checks: number; passed: boolean }
+// a report whose filers for the period are not all known: the undertakings still to state their reporting role
+// (services/governance/filings.py filers_to_state) — the calendar owes their reports once a role is approved
+interface ToState { framework: string; label: string; period_end: string; undertakings: { entity_id: string; name: string; msg: Message | null }[] }
 
 const isFiled = (s: string) => s === 'submitted' || s === 'accepted'
 const dueWords = (o: Obligation) => o.overdue ? `${Math.abs(o.days_to_due)} days overdue` : o.days_to_due === 0 ? 'due today' : `due in ${o.days_to_due} days`
@@ -42,7 +46,7 @@ export default function FilingCockpit() {
   const closeFiling = () => { const p = new URLSearchParams(params); p.delete('filing'); setParams(p, { replace: true }) }
   const canPrepare = (profile?.permissions ?? []).includes('approvals.create')
 
-  const obl = useQuery({ queryKey: ['obligations'], queryFn: () => api.get<{ obligations: Obligation[] }>('/v1/obligations') })
+  const obl = useQuery({ queryKey: ['obligations'], queryFn: () => api.get<{ obligations: Obligation[]; filers_to_state?: ToState[] }>('/v1/obligations') })
   const fils = useQuery({ queryKey: ['filings'], queryFn: () => api.get<{ filings: FilingSummary[] }>('/v1/filings') })
   const fw = useQuery({ queryKey: ['frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/filings/frameworks') })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['obligations'] }); qc.invalidateQueries({ queryKey: ['filings'] }) }
@@ -70,6 +74,8 @@ export default function FilingCockpit() {
 
       {obligations.length > 0 && <DeadlineLine obligations={obligations} onPick={o => o.filing_id ? openFiling(o.filing_id) : canPrepare && setPrepare(o)} />}
 
+      {(obl.data?.filers_to_state ?? []).map(t => <WhoReports key={t.framework} t={t} canState={canPrepare} onSent={refresh} />)}
+
       <div>
         <div className="flex items-center gap-3 mb-3 px-1">
           <SectionHead icon={FileText}>Your filings</SectionHead>
@@ -92,6 +98,34 @@ export default function FilingCockpit() {
       {prepare && <FilingPreflight framework={prepare.framework} obligation={prepare} onClose={() => setPrepare(null)}
         onGenerated={id => { setPrepare(null); refresh(); openFiling(id) }} />}
     </div>
+  )
+}
+
+// A report whose filers are not all known for the period: each undertaking without a stated reporting role, with what is
+// missing and the role to state (a second person approves it). The report is owed for each undertaking that reports.
+function WhoReports({ t, canState, onSent }: { t: ToState; canState: boolean; onSent: () => void }) {
+  const [roleFor, setRoleFor] = useState<{ entity_id: string; name: string } | null>(null)
+  return (
+    <Card className="p-4 space-y-2">
+      <div className="flex items-center gap-2">
+        <Users size={15} className="text-[var(--color-warn)]" />
+        <span className="text-[13px] text-[var(--color-ink)]">{t.label} · who reports it</span>
+        <InfoButton compact details={{ title: 'Who reports it', sections: [
+          { heading: HEADING.shows, body: 'This report is made by each undertaking that reports for itself or for its group under the Accounting Directive, not by the whole organisation. Its reporting role for the year says which.' },
+          { heading: 'Legal basis', body: 'Delegated Regulation (EU) 2021/2178, Art. 1(8) and (9); Directive 2013/34/EU, Arts 19a and 29a.' }] }} />
+        <StatusChip tone="warn" label={`${t.undertakings.length} to state`} />
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {t.undertakings.map(u => (
+          <div key={u.entity_id} className="flex items-center gap-1.5 text-[12.5px]">
+            <span className="text-[var(--color-mute)]">{u.name}</span>
+            {u.msg && <InfoButton compact details={messageDetails(u.msg)} />}
+            {canState && <button type="button" onClick={() => setRoleFor(u)} className="text-[var(--color-sky)] hover:underline">State the role</button>}
+          </div>))}
+      </div>
+      {roleFor && <ReportingRoleForm periodEnd={t.period_end} entity={roleFor.entity_id} name={roleFor.name}
+        onClose={() => setRoleFor(null)} onSent={() => { setRoleFor(null); onSent() }} />}
+    </Card>
   )
 }
 

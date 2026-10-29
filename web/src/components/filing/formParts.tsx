@@ -24,7 +24,7 @@ export interface Group { group: string; datapoints: Dp[] }
 // closed list (a group's method for each related undertaking)
 export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null; filing_role?: string | null; member?: string; choices?: Record<string, string> }; greyed?: boolean; frozen_value?: number | string | null }
 export const suppliedKey = (key: string, member?: string | null) => member ? `${key}@${member}` : key
-export interface AnnexSection { title: string; spec?: { template?: string } | null; note: string | null; columns: string[]; col_sources?: string[]; rows: { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }[]; kind?: 'document'; items?: DocItem[] }
+export interface AnnexSection { title: string; key?: string; spec?: { template?: string } | null; note: string | null; columns: string[]; col_sources?: string[]; rows: { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }[]; kind?: 'document'; items?: DocItem[] }
 export interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
 export interface Supplied { value: string; status: 'pending' | 'attested'; by?: string | null }
 export type EditProps = { filingId: string; canEdit: boolean; edit: string | null; setEdit: (k: string | null) => void; onDone: () => void }

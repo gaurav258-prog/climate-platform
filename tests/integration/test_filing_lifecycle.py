@@ -14,6 +14,7 @@ from core.db.session import get_session
 from services.governance import filings as F
 from services.governance.filings import reporting_period_end
 from services.governance.report_snapshots import create_snapshot
+from tests.integration.filers import group
 from tests.integration.money_method import state_method
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
@@ -23,13 +24,18 @@ FUTURE_PERIOD = "2099-12-31"   # a period no real filing uses, so we never colli
 def _mk_draft(session, actor):
     """Insert a draft filing backed by a real frozen snapshot (so the validation gate has something to check),
     on a throwaway future period so it can't collide with any live filing slot."""
-    state_method(session, BANK_ORG, reporting_period_end(session, BANK_ORG))      # the bank's stated method (E69)
-    snap = create_snapshot(session, BANK_ORG, "bank_tcfd", actor, period_end=reporting_period_end(session, BANK_ORG))   # freezes real Meridian book → passes validation
+    pe = reporting_period_end(session, BANK_ORG)
+    state_method(session, BANK_ORG, pe)      # the bank's stated method (E69)
+    grp = group(session, BANK_ORG)          # the group's report: the whole organisation of four entities is no filer (E349)
+    ids, weights, translation = F._book_scope(session, BANK_ORG, "bank_tcfd", grp, pe)
+    snap = create_snapshot(session, BANK_ORG, "bank_tcfd", actor, entity_ids=ids, value_weights=weights, translation=translation,
+                           period_end=pe)   # freezes real Meridian book → passes validation
     fid = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
-        VALUES (:o, 'bank_tcfd', :pe, 'FY2099', 'draft', :snap, :u)
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by,
+                                       entity_id, filing_role)
+        VALUES (:o, 'bank_tcfd', :pe, 'FY2099', 'draft', :snap, :u, CAST(:e AS uuid), 'consolidated')
         RETURNING filing_id
-    """), {"o": BANK_ORG, "pe": FUTURE_PERIOD, "snap": snap["snapshot_id"], "u": actor}).scalar()
+    """), {"o": BANK_ORG, "pe": FUTURE_PERIOD, "snap": snap["snapshot_id"], "u": actor, "e": grp}).scalar()
     F._log_event(session, str(fid), None, "draft", "generate", actor, {})
     return str(fid)
 
@@ -95,7 +101,7 @@ def test_cannot_restate_a_draft():
 def test_preflight_reports_coverage_headline_and_gaps():
     """The confirm-data preflight returns live coverage, the book headline and honest gaps — no freeze."""
     with get_session() as s:
-        pf = F.preflight(s, BANK_ORG, "bank", "bank_tcfd")
+        pf = F.preflight(s, BANK_ORG, "bank", "bank_tcfd", entity_id=group(s, BANK_ORG))   # the group's (E349)
         assert pf["framework"] == "bank_tcfd"
         assert set(pf["coverage"]) >= {"label", "done", "total", "pct"}
         assert pf["total_value_eur"] is not None and pf["total_value_eur"] > 0
