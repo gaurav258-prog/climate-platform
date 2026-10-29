@@ -1,5 +1,5 @@
 """Who reports the ORSA climate change scenario analysis (insurer_orsa_climate) — the filer rule of
-services.governance.report_filers for an organisation of two or more reporting entities.
+services.governance.report_filers for an organisation that records its undertakings as reporting entities.
 
 The analysis is part of the own-risk and solvency assessment: "every insurance undertaking and reinsurance undertaking
 shall conduct its own risk and solvency assessment" (Directive 2009/138/EC Art. 45(1)), and the participating undertaking
@@ -71,9 +71,13 @@ NO_CHOICE = "a group or an undertaking of the entity structure"
 
 
 def choices(session: Session, org_id: str, framework: str, period_end: date) -> list[dict]:
-    """Each group, then each entity that files its own report — the undertakings and groups of sii_filers."""
+    """Each group, then each entity that files its own report — the undertakings and groups of sii_filers, one scope
+    per entity (the group's for a parent). A parent undertaking's own assessment beside the group's (Directive Art.
+    45(1)) is not offered: an entity's own book beside its group's is a scope of Solvency II nat-cat only
+    (filings._OWN_BOOK) — named, not built."""
     from services.governance import sii_filers
-    return sii_filers.choices(session, org_id)
+    seen: set[str] = set()
+    return [c for c in sii_filers.choices(session, org_id) if not (c["entity_id"] in seen or seen.add(c["entity_id"]))]
 
 
 def owed(session: Session, org_id: str, framework: str, period_end: date) -> dict[str, str]:

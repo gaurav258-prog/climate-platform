@@ -1,5 +1,5 @@
 """Who draws up the pre-emptive recovery plan (insurer_recovery_stress) — the filer rule of
-services.governance.report_filers for an organisation of two or more reporting entities, as Directive (EU) 2025/1 (the
+services.governance.report_filers for an organisation that records its undertakings as reporting entities, as Directive (EU) 2025/1 (the
 IRRD, held in data/sources/legal) says:
 - a group's plan is the ultimate parent's: "the group supervisor has the power to require that the ultimate parent
   undertaking of a group draw up and submit to the group supervisor a group pre-emptive recovery plan", which "shall
@@ -62,9 +62,11 @@ NO_CHOICE = "a group or an undertaking of the entity structure"
 
 
 def choices(session: Session, org_id: str, framework: str, period_end: date) -> list[dict]:
-    """Each group, then each entity that files its own report — the groups and undertakings of sii_filers."""
+    """Each group, then each entity that files its own report — the groups and undertakings of sii_filers, one scope
+    per entity: the ultimate parent's plan is the group's, its own remedial actions in it (Art. 7(1))."""
     from services.governance import sii_filers
-    return sii_filers.choices(session, org_id)
+    seen: set[str] = set()
+    return [c for c in sii_filers.choices(session, org_id) if not (c["entity_id"] in seen or seen.add(c["entity_id"]))]
 
 
 def owed(session: Session, org_id: str, framework: str, period_end: date) -> dict[str, str]:

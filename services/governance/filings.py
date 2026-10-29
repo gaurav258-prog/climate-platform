@@ -523,8 +523,8 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
     Who is owed an entity-scoped report is its act's (E343, E349): each one with a calendar date follows its filer rule
     (services.governance.report_filers — ensure_filer_obligations), the ESRS statement its undertakings
     (_ensure_esrs_obligations), a per-product report its funds. The framework-blind default — one whole-organisation row
-    beside a solo row per entity (the 2026-09-23 C1 fix) — is gone: an organisation of several entities is no filer
-    under these acts. Only a report filed for the organisation as a whole gets the single whole-organisation row."""
+    beside a solo row per entity (the 2026-09-23 C1 fix) — is gone: an organisation that records its undertakings is
+    no filer under these acts. Only a report filed for the organisation as a whole gets the single whole-organisation row."""
     from services.governance.report_filers import governs
     period_end = reporting_period_end(session, org_id)
     for f in available_frameworks(org_type):

@@ -149,3 +149,16 @@ def test_the_insurer_document_specs_quote_their_directives_word_for_word():
         text = L.normalise(L.text(celex))
         wording = [i["label"] for t in d["templates"] for i in t["items"] if i["kind"] != "heading"] + list(quotes(d))
         assert len(wording) >= 9 and [w for w in wording if L.normalise(w) not in text] == [], spec
+
+
+def test_the_insurer_documents_offer_one_scope_per_entity(monkeypatch):
+    """Solvency II nat-cat offers a parent undertaking twice — its group's report and its own (E348, filings._OWN_BOOK);
+    the ORSA and the recovery plan take the same filers one scope per entity, the group's first: an entity's own book
+    beside its group's is nat-cat's scope only, and the ultimate parent's plan is the group's (IRRD Art. 7(1))."""
+    from services.governance import sii_filers
+    twice = [{"entity_id": "p", "name": "Parent", "role": "consolidated"}, {"entity_id": "p", "name": "Parent", "role": "solo"},
+             {"entity_id": "s", "name": "Sub", "role": "solo"}]
+    monkeypatch.setattr(sii_filers, "choices", lambda session, org_id: twice)
+    for mod in (orsa_filers, irrd_filers):
+        assert [(c["entity_id"], c["role"]) for c in mod.choices(None, "o", mod.FRAMEWORK, None)] == [("p", "consolidated"), ("s", "solo")]
+    assert "insurer_orsa_climate" not in filings._OWN_BOOK and "insurer_recovery_stress" not in filings._OWN_BOOK

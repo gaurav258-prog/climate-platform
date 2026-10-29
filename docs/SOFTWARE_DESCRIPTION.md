@@ -216,9 +216,9 @@ its filers has a rule — Solvency II nat-cat an undertaking or a group (`sii_fi
 consolidated situation, an institution on its own and a subsidiary stated a large institution (`crr_filers.py`, CRR
 Arts 6, 13; the statement `large_institution` per subsidiary is made on the group's filing form); the EU Taxonomy Art. 8
 KPIs (bank and REIT) each undertaking stated to report under Art. 19a or 29a of the Accounting Directive (`csrd_filers.py`,
-Delegated Regulation (EU) 2021/2178 Art. 1(8), (9); the ESRS statement's undertakings and CSRD roles). With none or one
-reporting entity the organisation is the filer; with two or more the calendar owes each filer's report and none for the
-whole organisation, the whole-organisation scope is refused naming the filers, every freeze records its filer (`_filer`,
+Delegated Regulation (EU) 2021/2178 Art. 1(8), (9); the ESRS statement's undertakings and CSRD roles). While the
+organisation records no undertaking it is the filer; once it records one the calendar owes each filer's report — one per
+(entity, role) — and none for the whole organisation, the whole-organisation scope is refused naming the filers, every freeze records its filer (`_filer`,
 shown as the official form's 'Who reports' section) and a whole-organisation report frozen without that record exports
 no template. Undertakings whose CSRD role is not stated are listed on the reporting cockpit to state it. The ORSA climate
 analysis has the Solvency II filers (`orsa_filers.py`, Directive 2009/138/EC Arts 45(1), 246(4); Delegated Regulation (EU)

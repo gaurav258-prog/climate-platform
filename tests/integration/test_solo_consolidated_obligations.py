@@ -83,7 +83,8 @@ def test_ensure_obligations_generates_solo_row_per_entity_requiring_one():
     """The calendar owes what each report's act names (E349, services.governance.report_filers), not one blanket
     whole-org row plus a solo row per entity: Pillar 3 ESG is disclosed by the group on its consolidated situation and
     not by a subsidiary on an individual basis (CRR Arts 6(3), 13(1)); the EU Taxonomy KPIs by each undertaking stated
-    to report (none stated yet: none owed). A branch is never a filer. With one entity the organisation is the filer."""
+    to report (none stated yet: none owed). A branch is never a filer. While the organisation records no undertaking (a
+    group node stands for a group) the organisation is the filer (sii_filers.is_filer, E348)."""
     with get_session() as s:
         parent = E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Parent", kind="group")
 
@@ -94,8 +95,8 @@ def test_ensure_obligations_generates_solo_row_per_entity_requiring_one():
                 WHERE org_id = CAST(:o AS uuid) AND framework = :f AND period_end = :pe"""),
                 {"o": EMPTY_BANK_ORG, "f": fw, "pe": F.reporting_period_end(s, EMPTY_BANK_ORG)}).all()}
 
-        # one entity: the organisation is the institution (and the entity, set to file, its own)
-        assert owed("bank_p3esg") == {(None, "whole_org"), (parent["entity_id"], "solo")}
+        # a group node alone records no undertaking: the organisation is the institution
+        assert owed("bank_p3esg") == {(None, "whole_org")}
         E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Sub 1", kind="legal_entity", parent_entity_id=parent["entity_id"])
         E.create_entity(s, EMPTY_BANK_ORG, name="Test OB Branch", kind="branch",
                         parent_entity_id=parent["entity_id"])  # requires_solo_filing=False by default

@@ -2,7 +2,7 @@
 
   Pillar 3 ESG  CRR: Part Eight on an individual basis (Art. 6(1)), but not for a parent or a subsidiary (Art. 6(3)); an
                 EU parent on its consolidated situation (Art. 13(1), first subparagraph); a large subsidiary its own
-                (second subparagraph). calendar: none or one entity — the organisation; two tops side by side — each its
+                (second subparagraph). calendar: no entity — the organisation; one institution — its own; two tops side by side — each its
                 own; a group above them — the group only; a subsidiary stated large (four eyes) — its own too, on its
                 sub-consolidated situation when it has entities below it; a branch never
   Taxonomy      Delegated Regulation (EU) 2021/2178 Art. 1(8), (9): the undertakings of Directive 2013/34/EU Arts 19a, 29a.
@@ -86,8 +86,8 @@ def test_pillar3_is_owed_by_the_eu_parent_a_large_subsidiary_and_an_institution_
     org = _Org(s, "bank_p3esg")
     pe = org.pe
     assert {(e, r) for e, r, _ in org.owed()} == {(None, "whole_org")}                 # no entity: the organisation
-    alpha = org.entity("Alpha Bank")
-    assert {(e, r) for e, r, _ in org.owed()} == {(None, "whole_org"), (alpha, "solo")}
+    alpha = org.entity("Alpha Bank")       # one recorded institution discloses its own; the organisation is no second filer
+    assert {(e, r) for e, r, _ in org.owed()} == {(alpha, "solo")}
 
     # a supervisor's date for the period before, set for the organisation (it was the institution)
     prev = date(pe.year - 1, 12, 31)
@@ -187,7 +187,7 @@ def test_meridian_reports_through_its_filers_never_its_whole_book(api):
     assert pf["scope_basis"]["title"] == "Who discloses ESG risks" and "Art. 13(1)" in pf["scope_basis"]["legal"]
     body = _refused(api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": "x"}),
                     "filing.refused.whole_org_no_filer")
-    assert "Meridian Financial Group" in body["detail"]["next"] and "4 reporting entities" in body["detail"]["what"]
+    assert "Meridian Financial Group" in body["detail"]["next"] and "as a whole" in body["detail"]["what"]
     tx = api.get("/v1/filings/preflight?framework=bank_tcfd", headers=maker).json()
     assert tx["needs_scope"] and tx["scopes"] == [] and len(tx["undetermined"]) == 4
 

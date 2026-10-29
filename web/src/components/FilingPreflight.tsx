@@ -25,8 +25,8 @@ interface Preflight {
   // a per-product report (SFDR Annexes II–V): the fund it discloses — chosen here when no obligation fixes it
   product_scoped?: boolean; needs_fund?: boolean; funds?: { fund_id: string; name: string; sfdr_classification: string }[]
   fund?: { fund_id: string; name: string; template: string }
-  // a report the organisation as a whole does not file (services/governance/report_filers.py — an organisation of two or
-  // more reporting entities): the filer it is prepared for, chosen first; who reports it and why; and the undertakings
+  // a report the organisation as a whole does not file (services/governance/report_filers.py — an organisation that
+  // records its undertakings): the filer it is prepared for, chosen first; who reports it and why; and the undertakings
   // whose reporting role for the year is still to be stated (an EU Taxonomy report)
   needs_scope?: boolean; scopes?: { entity_id: string; name: string; role: 'solo' | 'consolidated' }[]
   scope_basis?: { title: string; shows: string; legal: string }

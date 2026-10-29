@@ -1,5 +1,5 @@
 """Who discloses ESG risks under Pillar 3 (bank_p3esg), as Regulation (EU) No 575/2013 (CRR) says — the filer rule of
-services.governance.report_filers for an organisation of two or more reporting entities.
+services.governance.report_filers for an organisation that records its undertakings as reporting entities.
 
 Part Eight applies to each institution on an individual basis (Art. 6(1)), but "No institution which is either a parent
 undertaking or a subsidiary, and no institution included in the consolidation pursuant to Article 18, shall be required

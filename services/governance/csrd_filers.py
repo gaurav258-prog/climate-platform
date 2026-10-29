@@ -1,5 +1,5 @@
 """Who reports the EU Taxonomy Article 8 KPIs (bank_tcfd, reit_taxonomy) — the filer rule of
-services.governance.report_filers for an organisation of two or more reporting entities.
+services.governance.report_filers for an organisation that records its undertakings as reporting entities.
 
 Delegated Regulation (EU) 2021/2178 names its reporters by the Accounting Directive: a 'financial undertaking' and a
 'non-financial undertaking' are each "an undertaking that is subject to the disclosure obligations laid down in Articles

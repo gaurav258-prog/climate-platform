@@ -1,5 +1,5 @@
-"""The filer a test prepares an entity-scoped report for (services.governance.report_filers, E349). A demo organisation of
-two or more reporting entities never files Pillar 3 ESG or its EU Taxonomy KPIs as a whole: Pillar 3 through its group,
+"""The filer a test prepares an entity-scoped report for (services.governance.report_filers, E349). A demo organisation
+that records its undertakings never files Pillar 3 ESG or its EU Taxonomy KPIs as a whole: Pillar 3 through its group,
 on its consolidated situation (CRR Art. 13(1)); the Taxonomy KPIs through each undertaking stated to report for itself or
 its group (Directive 2013/34/EU Arts 19a, 29a; Delegated Regulation (EU) 2021/2178 Art. 1(8), (9)).
 """

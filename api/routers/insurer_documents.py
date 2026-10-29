@@ -23,7 +23,7 @@ def _period_end(session, org_id: str) -> date:
 
 
 def _filer_or_refuse(session, org_id: str, report_type: str, entity_id: Optional[str]) -> None:
-    """A document is one filer's: the whole organisation of two or more entities is refused with its filers
+    """A document is one filer's: the whole organisation that records its undertakings is refused with its filers
     (services.governance.report_filers), as the filing is."""
     from services.governance.report_filers import whole_org_refusal
     why = whole_org_refusal(session, org_id, report_type, entity_id, _period_end(session, org_id))

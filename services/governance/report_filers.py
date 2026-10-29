@@ -23,7 +23,7 @@ whole-organisation scope is refused with the filers to choose from; every freeze
 whole-organisation report frozen without that record exports no template.
 
 A rule module offers QUOTES (each reading in the act's own words, checked word for word against data/sources/legal),
-choices(), owed() (both for an organisation of two or more entities), record() (an entity scope's filer) and BASIS (the
+choices(), owed() (both for an organisation that records undertakings), record() (an entity scope's filer) and BASIS (the
 scope step's words); this module dispatches on the report and holds what they share.
 """
 from __future__ import annotations
@@ -83,7 +83,7 @@ def is_filer(session: Session, org_id: str) -> bool:
 
 
 def choices(session: Session, org_id: str, framework: str, period_end: date) -> list[dict]:
-    """The filers a preparer chooses from, [{entity_id, name, role}] — for an organisation of two or more entities."""
+    """The filers a preparer chooses from, [{entity_id, name, role}] — for an organisation that records undertakings."""
     if framework == _SII:
         return rule(framework).choices(session, org_id)
     return rule(framework).choices(session, org_id, framework, period_end)
@@ -142,7 +142,7 @@ def unrecorded_whole_org(payload: dict | None) -> bool:
 
 def export_refusal(framework: str, payload: dict | None, role: str | None) -> tuple[str, dict] | None:
     """(catalogue code, params) when a filing's template is not one filer's — a whole-organisation report frozen without
-    its filer record (before it was kept, or for an organisation of two or more entities) — else None."""
+    its filer record (before it was kept, or for an organisation that records its undertakings) — else None."""
     if not governs(framework):
         return None
     if framework == _SII:
