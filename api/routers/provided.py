@@ -2,7 +2,7 @@
 against Tellumen's own number, and attest it through 4-eyes before it lands in a filing."""
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -26,6 +26,7 @@ class SubmitBody(BaseModel):
     period_label:  Optional[str] = Field(None, max_length=40)
     reporting_period_end: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")  # the period the value is for (ISO date)
     reporting_entity_id: Optional[str] = None     # the undertaking it is stated for (Solvency II); None = the organisation
+    filing_role: Optional[Literal["solo", "consolidated"]] = None   # which of its reports: its own, or its group's
     restatement_reason: Optional[str] = Field(None, max_length=2000)   # required once the period is closed
     currency: Optional[str] = Field(None, min_length=3, max_length=3)  # an ESRS amount: the currency it is stated in
     breakdown_member: Optional[str] = Field(None, max_length=120)      # an ESRS breakdown: which member (e.g. Scope 3 category '1')
@@ -92,7 +93,7 @@ def submit(body: SubmitBody, session: DbSession, ctx: dict = Depends(require_per
                         data_vintage=body.data_vintage, period_label=body.period_label,
                         reporting_period_end=body.reporting_period_end, reporting_entity_id=body.reporting_entity_id,
                         restatement_reason=body.restatement_reason, currency=body.currency,
-                        breakdown_member=body.breakdown_member)
+                        breakdown_member=body.breakdown_member, filing_role=body.filing_role)
     except P.ProvidedError as e:
         raise _refusal(e) from e
 

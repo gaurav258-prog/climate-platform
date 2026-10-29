@@ -41,7 +41,7 @@ const TEMPLATE: Record<string, string> = { AII: 'Pre-contractual, Article 8', AI
 const LEGAL: Record<string, string> = { AII: 'Annex II', AIII: 'Annex III', AIV: 'Annex IV', AV: 'Annex V' }
 
 // The obligation a filing is prepared for (from its card): its entity and period are fixed, and the server enforces them.
-export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; period_label: string; fund_id?: string | null; fund_name?: string | null }
+export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; scope_role?: string | null; period_end: string; period_label: string; fund_id?: string | null; fund_name?: string | null }
 
 const Label = ({ children, info }: { children: React.ReactNode; info?: { title: string; body: React.ReactNode } }) => (
   <div className="text-[12px] text-[var(--color-faint)] mb-1 flex items-center gap-1.5">{children}
@@ -51,9 +51,11 @@ const select = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)]
 // disclosureDate: the date the report will be made (an ORSA's conclusion) when it is not today — it chooses the rules
 export default function FilingPreflight({ framework, obligation, fund, entity, disclosureDate, onClose, onGenerated }: { framework: string; obligation?: ForObligation; fund?: { fund_id: string; name: string }; entity?: string; disclosureDate?: string; onClose: () => void; onGenerated: (id: string) => void }) {
   const [entityId, setEntityId] = useState<string>(obligation?.entity_id ?? entity ?? '')   // '' = whole organisation
+  // which of the entity's reports, where it holds two (an undertaking heading a group: its own and the group's)
+  const [role, setRole] = useState<string>(obligation?.scope_role ?? '')
   const [fundId, setFundId] = useState<string>(obligation?.fund_id ?? fund?.fund_id ?? '')
-  const q = useQuery({ queryKey: ['preflight', framework, entityId, fundId], queryFn: () => api.get<Preflight>(
-    `/v1/filings/preflight?framework=${framework}${entityId ? `&entity_id=${entityId}` : ''}${fundId ? `&fund_id=${fundId}` : ''}`) })
+  const q = useQuery({ queryKey: ['preflight', framework, entityId, role, fundId], queryFn: () => api.get<Preflight>(
+    `/v1/filings/preflight?framework=${framework}${entityId ? `&entity_id=${entityId}` : ''}${entityId && role ? `&filing_role=${role}` : ''}${fundId ? `&fund_id=${fundId}` : ''}`) })
   const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/filings/entities') })
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -71,7 +73,7 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
     setBusy(true); setErr(null)
     try {
       const f = await api.post<{ filing_id: string }>('/v1/filings',
-        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs, disclosure_date: disclosureDate || null })
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, filing_role: (entityId && role) || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs, disclosure_date: disclosureDate || null })
       onGenerated(f.filing_id)
     } catch (e) {
       // the book changed since this check loaded, or a rule refused: show why, and re-read so the preparer confirms what is current
@@ -130,11 +132,12 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
             <div>
               <Label info={{ title: 'Reporting scope', body: "A group consolidates its whole subtree, weighting each entity's book by its ownership and consolidation method; a legal entity files its own book." }}>Reporting scope</Label>
               {filers ? (
-                <select value={entityId} onChange={e => { setEntityId(e.target.value); setConfirmed(false) }} className={select}>
+                // one entity can be offered twice — for its group and for itself — so a choice is the entity and the role
+                <select value={entityId ? `${entityId}|${role}` : ''} onChange={e => { const [id, r] = e.target.value.split('|'); setEntityId(id); setRole(r ?? ''); setConfirmed(false) }} className={select}>
                   <option value="" disabled>Choose the group or the undertaking…</option>
-                  {filers.map(f => <option key={f.entity_id} value={f.entity_id}>{f.role === 'consolidated' ? `Group · ${f.name}` : f.name}</option>)}
+                  {filers.map(f => <option key={`${f.entity_id}|${f.role}`} value={`${f.entity_id}|${f.role}`}>{f.role === 'consolidated' ? `Group · ${f.name}` : f.name}</option>)}
                 </select>) : (
-                <select value={entityId} onChange={e => { setEntityId(e.target.value); setConfirmed(false) }} className={select}>
+                <select value={entityId} onChange={e => { setEntityId(e.target.value); setRole(''); setConfirmed(false) }} className={select}>
                   <option value="">Whole organisation</option>
                   {entities.filter(e => e.kind === 'group').map(e => <option key={e.entity_id} value={e.entity_id}>Consolidated · {e.name}</option>)}
                   {entities.filter(e => e.kind !== 'group').map(e => <option key={e.entity_id} value={e.entity_id}>{e.name} ({e.n_assets} assets)</option>)}
@@ -142,7 +145,7 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
               {d.needs_scope && (
                 <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)]">Reported by an undertaking or a group
                   <InfoButton compact details={{ title: 'Who reports natural catastrophe risk', sections: [
-                    { heading: HEADING.shows, body: "Each undertaking reports its own figures; a group reports its consolidated figures. The whole organisation's book counts every entity in full, so it is neither." },
+                    { heading: HEADING.shows, body: "Each undertaking reports its own figures; a group reports its consolidated figures. An undertaking at the head of a group reports both. The whole organisation's book counts every entity in full, so it is neither." },
                     { heading: 'Legal basis', body: 'Implementing Regulation (EU) 2023/894, Art. 19(1)(s)(i) and Art. 34(1)(s); Annex II and Annex III, S.01.02.' }] }} /></div>)}
             </div>)}
           {entities.length > 0 && !d.entity_scoped && !d.product_scoped && (

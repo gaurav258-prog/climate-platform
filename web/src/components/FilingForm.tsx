@@ -18,9 +18,9 @@ import { EARLIER, p3Group, type P3Group } from './filing/words'
 // of a figure (with its reason); a second person approves it before it lands, and the frozen report itself never
 // changes — the change is a separate, audited layer read over it.
 
-interface Form { framework: string; period_end: string | null; status: string; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; elections?: Election[] | null }
+interface Form { framework: string; period_end: string | null; status: string; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null; consolidation?: Consolidation | null; reporting_entity_id?: string | null; filing_role?: string | null; elections?: Election[] | null }
 interface Election { key: string; label: string; value: unknown; value_label?: string | null; stated: boolean }
-interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null; breakdown_member?: string | null }
+interface ProvidedItem { datapoint_key: string; value_num: number | null; value_text: string | null; status: string; submitted_by: string | null; reporting_period_end: string | null; reporting_entity_id?: string | null; filing_role?: string | null; breakdown_member?: string | null }
 const EDITABLE = ['draft', 'returned', 'in_review', 'approved']   // a submitted, accepted or superseded filing never changes
 
 export default function FilingForm({ filingId }: { filingId: string }) {
@@ -39,6 +39,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   for (const p of suppliedQ.data?.provided ?? []) {
     if (p.reporting_period_end !== d.period_end || !['pending', 'attested'].includes(p.status)) continue
     if ((p.reporting_entity_id ?? null) !== (d.reporting_entity_id ?? null)) continue   // the filing's own entity's values
+    if (p.filing_role && d.filing_role && p.filing_role !== d.filing_role) continue      // ...for this report: its own or its group's
     // a value stated per member (a group's method for each related undertaking) is keyed by its member too
     supplied[suppliedKey(p.datapoint_key, p.breakdown_member)] = { value: String(p.value_num ?? p.value_text ?? ''), status: p.status as Supplied['status'], by: p.submitted_by }
   }

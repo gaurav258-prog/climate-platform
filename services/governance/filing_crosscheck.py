@@ -74,16 +74,20 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
         return []
     period_end = filing["period_end"]
 
-    rows = session.execute(text("""
+    from services.governance.filings import _role_match
+    rows = session.execute(text(f"""
         SELECT rf.filing_id::text AS filing_id, rf.period_end, rf.period_label, rf.status,
                rf.snapshot_id::text AS snapshot_id, rs.version
         FROM regulatory_filing rf JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         WHERE rf.org_id = :o AND rf.framework = :fw AND rf.filing_id <> :f AND rf.snapshot_id IS NOT NULL
               AND rf.entity_id IS NOT DISTINCT FROM CAST(:ent AS uuid)
+              AND {_role_match("rf", "CAST(:ent AS uuid)", "CAST(:role AS text)")}
         ORDER BY rf.period_end DESC, rf.seq DESC
-    """), {"o": org_id, "fw": framework, "f": filing["filing_id"], "ent": filing.get("entity_id")}).mappings().all()
+    """), {"o": org_id, "fw": framework, "f": filing["filing_id"], "ent": filing.get("entity_id"),
+           "role": filing.get("filing_role")}).mappings().all()
     # siblings are the same reporting entity's filings (fixed 2026-09-26: a solo filing was reconciled against the
-    # whole organisation's, raising false "unusually large swing" warnings)
+    # whole organisation's, raising false "unusually large swing" warnings) — and of the same of its reports (E348: an
+    # undertaking's own report is not its group's)
 
     same_period = next((r for r in rows if r["period_end"].isoformat() == period_end), None)
     prior_period = next((r for r in rows if r["period_end"].isoformat() < period_end), None)

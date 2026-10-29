@@ -363,6 +363,7 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
             "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex,
             "reporting_entity_id": ((r["payload"] or {}).get("_scope") or {}).get("reporting_entity_id"),
+            "filing_role": ((r["payload"] or {}).get("_scope") or {}).get("filing_role"),     # which of its reports
             "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx")),
             # a group filing: the rule its entities were weighted on, quoted, as frozen (and any declared reading)
             "consolidation": _consolidation_view(session, (r["payload"] or {}).get("_consolidation")),
@@ -600,43 +601,48 @@ def _ensure_esrs_obligations(session: Session, org_id: str, period_end: date) ->
 
 
 def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> None:
-    """The Solvency II nat-cat obligations its filers owe (services.governance.sii_filers.owed): with two or more
-    reporting entities, one per group and per undertaking and none for the whole organisation; with none or one, the
-    organisation's own plus each entity's that files. The calendar follows the entities: an obligation the calendar made
-    (source 'entity') that is owed no more is removed in every period unless a report was filed for it (submitted or
-    accepted — it stays on record), and takes its filer's role; the current period gains what is missing. A supervisor's
-    date is kept: when the whole organisation is no filer, a supervisor-set whole-organisation deadline is carried onto
-    each filer's obligation for its period (date, note, supervisor and deadline with it), and the whole-organisation row
-    goes unless a report was filed for it. services.supervision.deadlines settles a newly published one the same way."""
-    from services.governance.sii_filers import FRAMEWORK, owed
+    """The Solvency II nat-cat obligations its filers owe (services.governance.sii_filers.owed), one per (entity, role):
+    once the organisation records an undertaking, one per group and per undertaking — an undertaking at the head of a
+    group owes two, the group's and its own — and none for the whole organisation; while it records none, the
+    organisation's own. The calendar follows the entities: an obligation the calendar made (source 'entity') that is owed
+    no more is removed in every period unless a report was filed for it (submitted or accepted — it stays on record); the
+    current period gains what is missing. A supervisor's date is kept: when the whole organisation is no filer, a
+    supervisor-set whole-organisation deadline is carried onto each filer's obligation for its period (date, note,
+    supervisor and deadline with it), and the whole-organisation row goes unless a report was filed for it.
+    services.supervision.deadlines settles a newly published one the same way."""
+    from services.governance.sii_filers import FRAMEWORK, due, owed
     if _due_date(FRAMEWORK, period_end) is None:
         return
     now = owed(session, org_id)
 
     def held() -> list:
-        return session.execute(text("""
-            SELECT ob.obligation_id, ob.period_end, ob.entity_id::text AS entity_id, ob.filing_role, ob.source,
+        rows = session.execute(text(f"""
+            SELECT ob.obligation_id, ob.period_end, ob.entity_id::text AS entity_id, ob.filing_role, ob.source, ob.due_date,
                    EXISTS(SELECT 1 FROM regulatory_filing rf WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
                             AND rf.period_end = ob.period_end AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id
+                            AND {_role_match("rf", "ob.entity_id", "ob.filing_role")}
                             AND rf.status IN ('submitted', 'accepted')) AS filed
             FROM regulatory_obligation ob WHERE ob.org_id = :o AND ob.framework = :fk AND ob.fund_id IS NULL
         """), {"o": org_id, "fk": FRAMEWORK}).mappings().all()
+        # a whole-organisation row is the organisation's one report, whatever role it was recorded with
+        return [{**r, "key": (r["entity_id"], r["filing_role"] if r["entity_id"] else "whole_org")} for r in rows]
 
-    if None not in now:
+    if not any(eid is None for eid, _ in now):
         # a supervisor's date for a period: its whole-organisation row if still there, else one already carried
         dated: dict = {}
         for r in held():
             if r["source"] == "supervisor" and (r["period_end"] not in dated or r["entity_id"] is None):
                 dated[r["period_end"]] = r
         for r in dated.values():
-            for eid, role in now.items():
+            for eid, role in sorted(now):
                 p = {"i": r["obligation_id"], "e": eid, "fr": role}
                 if not session.execute(text("""
                         UPDATE regulatory_obligation ob SET due_date = s.due_date, note = s.note, source = s.source,
-                               supervision_deadline_id = s.supervision_deadline_id, set_by = s.set_by, filing_role = :fr
+                               supervision_deadline_id = s.supervision_deadline_id, set_by = s.set_by
                         FROM regulatory_obligation s
                         WHERE s.obligation_id = :i AND ob.org_id = s.org_id AND ob.framework = s.framework
                           AND ob.period_end = s.period_end AND ob.entity_id = CAST(:e AS uuid) AND ob.fund_id IS NULL
+                          AND ob.filing_role = :fr
                         RETURNING ob.obligation_id"""), p).first():
                     session.execute(text("""
                         INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency,
@@ -647,24 +653,32 @@ def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> N
             if r["entity_id"] is None and not r["filed"]:
                 session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
     have = held()
+    taken = {(r["key"], r["period_end"]) for r in have}
     for r in have:
-        if r["source"] != "entity":
+        if r["source"] != "entity" or r["key"] in now or r["filed"]:
             continue
-        if r["entity_id"] not in now:
-            if not r["filed"]:
-                session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
-        elif r["filing_role"] != now[r["entity_id"]]:
-            session.execute(text("UPDATE regulatory_obligation SET filing_role = :fr WHERE obligation_id = :i"),
-                            {"fr": now[r["entity_id"]], "i": r["obligation_id"]})
-    current = {r["entity_id"] for r in have if r["period_end"] == period_end}
-    for eid, role in now.items():
-        if eid in current:
+        # the entity's report under the role it is owed now, where that period has none yet; else owed no more
+        free = sorted(role for eid, role in now if eid == r["entity_id"] and ((eid, role), r["period_end"]) not in taken)
+        if free:
+            session.execute(text("UPDATE regulatory_obligation SET filing_role = :fr, due_date = COALESCE(:d, due_date) "
+                                 "WHERE obligation_id = :i"),
+                            {"fr": free[0], "d": due(_due_date(FRAMEWORK, r["period_end"]), free[0]), "i": r["obligation_id"]})
+            taken.add(((r["entity_id"], free[0]), r["period_end"]))
+        else:
+            session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
+    for r in have:      # the calendar's own date follows the rule: a group's report 6 weeks after an undertaking's
+        d = due(_due_date(FRAMEWORK, r["period_end"]), r["key"][1])
+        if r["source"] == "entity" and r["key"] in now and d is not None and r["due_date"] != d:
+            session.execute(text("UPDATE regulatory_obligation SET due_date = :d WHERE obligation_id = :i"),
+                            {"d": d, "i": r["obligation_id"]})
+    for eid, role in sorted(now, key=lambda k: (k[0] or "", k[1])):
+        if ((eid, role), period_end) in taken:
             continue
         session.execute(text("""
             INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
             VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), :fr)
         """), {"o": org_id, "fk": FRAMEWORK, "pe": period_end, "pl": _period_label(period_end), "e": eid, "fr": role,
-               "due": _due_date(FRAMEWORK, period_end), "freq": FRAMEWORKS[FRAMEWORK]["frequency"]})
+               "due": due(_due_date(FRAMEWORK, period_end), role), "freq": FRAMEWORKS[FRAMEWORK]["frequency"]})
 
 
 def _ensure_product_obligations(session: Session, org_id: str, fk: str, period_end: date) -> None:
@@ -696,7 +710,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
     subsidiary's still-unfiled solo return could show as satisfied by the parent's consolidated filing.
     Now keys on entity_id too (NULL-safe via IS NOT DISTINCT FROM, since entity_id is NULL for whole_org)."""
     ensure_obligations(session, org_id, org_type)
-    rows = session.execute(text("""
+    rows = session.execute(text(f"""
         SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency,
                ob.source, ob.set_by, ob.entity_id, ob.filing_role, re.name AS entity_name,
                ob.fund_id, fu.name AS fund_name, f.filing_id, f.status AS filing_status
@@ -708,6 +722,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
               AND rf.period_end = ob.period_end AND rf.status NOT IN ('superseded', 'withdrawn')
               AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id AND rf.fund_id IS NOT DISTINCT FROM ob.fund_id
+              AND {_role_match("rf", "ob.entity_id", "ob.filing_role")}
             ORDER BY rf.seq DESC LIMIT 1
         ) f ON TRUE
         WHERE ob.org_id = :o
@@ -736,6 +751,8 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             "entity_name": r["entity_name"],
             "fund_id": str(r["fund_id"]) if r["fund_id"] else None, "fund_name": r["fund_name"],
             "filing_role": r["filing_role"] or "whole_org",
+            # the role that tells this obligation's scope apart from the entity's other report (_OWN_BOOK), else None
+            "scope_role": r["filing_role"] if r["framework"] in _OWN_BOOK and r["entity_id"] else None,
         })
     return out
 
@@ -815,6 +832,9 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     _due, _why = (due_for_undertaking(session, org_id, r["framework"], out["entity_id"], r["period_end"])
                   if ((_mandate_of(r["framework"]) or {}).get("deliverable", {}).get("due") or {}).get("fact")
                   else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"]))
+    if r["framework"] == "insurer_solvency" and r["filing_role"] == "consolidated" and _due:   # a group's: 6 weeks later
+        from services.governance.sii_filers import GROUP_DUE_RULE, due
+        _due, _why = due(_due, "consolidated"), GROUP_DUE_RULE
     out["due_date"], out["due_rule"] = (_due.isoformat() if _due else None), _why
 
     events = session.execute(text("""
@@ -892,7 +912,7 @@ def _log_event(session: Session, filing_id: str, from_status: str | None, to_sta
 # ── lifecycle operations ────────────────────────────────────────────────
 
 def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict, entity_id: str | None = None,
-                   fund_id: str | None = None) -> str:
+                   fund_id: str | None = None, role: str | None = None) -> str:
     """Bind a preflight result to a token generate_filing() can re-verify. Fixes a real race an independent
     architecture review found: `confirmed` used to be a bare boolean, completely disconnected from the
     specific preflight state a human actually looked at — a human could confirm a clean preflight, the
@@ -907,12 +927,27 @@ def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict, enti
     scope = {"org_id": org_id, "framework": framework, "entity_id": entity_id, "basis": basis, "summary": summary}
     if fund_id is not None:
         scope["fund_id"] = fund_id
+    if role == "solo" and framework in _OWN_BOOK:        # an entity's own book beside its group's: a scope of its own
+        scope["filing_role"] = role
     payload = json.dumps(scope, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode()).hexdigest()[:32]
 
 
+def _live_filing(session: Session, org_id: str, framework: str, period_end: date, entity_id: str | None,
+                 fund_id: str | None, role: str | None):
+    """The live filing (not superseded or withdrawn) of a report, period and scope — entity, fund and, where one entity
+    holds two reports, role (_role_match) — or None. One live filing per scope."""
+    return session.execute(text(f"""
+        SELECT rf.filing_id, rf.status FROM regulatory_filing rf
+        WHERE rf.org_id = :o AND rf.framework = :fk AND rf.period_end = :pe AND rf.status NOT IN ('superseded', 'withdrawn')
+              AND rf.entity_id IS NOT DISTINCT FROM CAST(:ent AS uuid) AND rf.fund_id IS NOT DISTINCT FROM CAST(:fund AS uuid)
+              AND {_role_match("rf", "CAST(:ent AS uuid)", "CAST(:role AS text)")}
+        ORDER BY rf.seq DESC LIMIT 1
+    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id, "fund": fund_id, "role": role}).mappings().first()
+
+
 def preflight(session: Session, org_id: str, org_type: str, framework: str, entity_id: str | None = None,
-              fund_id: str | None = None) -> dict:
+              fund_id: str | None = None, filing_role: str | None = None) -> dict:
     """The confirm-data step before freezing: shows the basis, the data coverage, the headline figures and
     any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes
     nothing. Returns a confirm_token binding this exact result — see _confirm_token()."""
@@ -936,15 +971,13 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
                 "scopes": choices(session, org_id), "can_generate": False, "confirm_token": None,
                 "entity_scoped": True, "coverage": None, "gaps": []}
     _check_scope(session, org_id, framework, entity_id, fund_id)
-    existing = session.execute(text("""
-        SELECT status FROM regulatory_filing
-        WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status NOT IN ('superseded', 'withdrawn')
-              AND entity_id IS NOT DISTINCT FROM :ent AND fund_id IS NOT DISTINCT FROM CAST(:fund AS uuid)
-    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id, "fund": fund_id}).scalar()
+    role = None if framework in _PRODUCT_SCOPED else _scope_role(session, org_id, framework, entity_id, filing_role)
+    existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role)
+    existing = existing["status"] if existing else None
     from services.governance.reporting_settings import get_settings
     basis = get_settings(session, org_id)
-    summary = _summary_for(session, org_id, framework, basis, entity_id, fund_id, period_end)
-    token = _confirm_token(org_id, framework, basis, summary, entity_id, fund_id)
+    summary = _summary_for(session, org_id, framework, basis, entity_id, fund_id, period_end, role)
+    token = _confirm_token(org_id, framework, basis, summary, entity_id, fund_id, role)
     from services.governance.figure_views import figures_for
     from services.governance.provided_data import attested_values
     from services.intake.views import preview as views_preview
@@ -956,24 +989,25 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
     return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
             "period_label": _period_label(period_end), "basis": basis,
             "can_generate": existing is None, "existing_status": existing,
-            "entity_scoped": framework in _ENTITY_SCOPED, "entity_id": entity_id,
+            "entity_scoped": framework in _ENTITY_SCOPED, "entity_id": entity_id, "filing_role": role,
             "product_scoped": framework in _PRODUCT_SCOPED, "fund_id": fund_id, "confirm_token": token, **summary,
             # which values of the located asset facts to read: a fund's document reads its holdings, not that book
             "views": None if framework in _PRODUCT_SCOPED else views_preview(session, org_id), "figures": figures}
 
 
 def _obligation_scope(session: Session, org_id: str, obligation_id: str, framework: str,
-                      entity_id: str | None, fund_id: str | None = None) -> tuple[str | None, str | None]:
-    """The entity (or, for a per-product report, the fund) a filing prepared for this obligation is scoped to — after
-    checking the obligation is the organisation's, is for this framework, and falls in the configured reporting
-    period."""
+                      entity_id: str | None, fund_id: str | None = None,
+                      role: str | None = None) -> tuple[str | None, str | None, str | None]:
+    """The entity (or, for a per-product report, the fund) a filing prepared for this obligation is scoped to, and its
+    role where one entity holds two reports (_OWN_BOOK; else None — the entity's own role) — after checking the
+    obligation is the organisation's, is for this framework and scope, and falls in the configured reporting period."""
     import uuid
     try:
         uuid.UUID(obligation_id)
     except ValueError:
         raise FilingError("filing.refused.obligation_not_found") from None
     ob = session.execute(text("""SELECT framework, period_end, period_label, entity_id::text AS entity_id,
-                                        fund_id::text AS fund_id
+                                        fund_id::text AS fund_id, filing_role
                                  FROM regulatory_obligation
                                  WHERE obligation_id = CAST(:i AS uuid) AND org_id = CAST(:o AS uuid)"""),
                          {"i": obligation_id, "o": org_id}).mappings().first()
@@ -985,11 +1019,14 @@ def _obligation_scope(session: Session, org_id: str, obligation_id: str, framewo
         raise FilingError("filing.refused.obligation_other_entity")
     if fund_id is not None and fund_id != ob["fund_id"]:
         raise FilingError("filing.refused.obligation_other_fund")
+    ob_role = ob["filing_role"] if framework in _OWN_BOOK and ob["entity_id"] else None
+    if role is not None and ob_role is not None and role != ob_role:
+        raise FilingError("filing.refused.obligation_other_entity")
     period = reporting_period_end(session, org_id)
     if ob["period_end"] != period:
         raise FilingError("filing.refused.obligation_other_period", obligation_period=ob["period_label"],
                           obligation_end=ob["period_end"].isoformat(), period_end=period.isoformat())
-    return ob["entity_id"], ob["fund_id"]
+    return ob["entity_id"], ob["fund_id"], ob_role
 
 
 def reporting_period_end(session: Session, org_id: str) -> date:
@@ -1000,12 +1037,12 @@ def reporting_period_end(session: Session, org_id: str) -> date:
 
 
 def _summary_for(session: Session, org_id: str, framework: str, basis: dict, entity_id: str | None,
-                 fund_id: str | None, period_end: date) -> dict:
+                 fund_id: str | None, period_end: date, role: str | None = None) -> dict:
     """The confirm-data summary of exactly what the filing will freeze: the fund's document, or the entity's book."""
     if framework in _PRODUCT_SCOPED:
         from services.governance.product_filings import preflight_summary
         return preflight_summary(session, org_id, framework, fund_id, period_end)
-    return _preflight_summary(session, org_id, framework, basis, _book_scope(session, org_id, framework, entity_id, period_end))
+    return _preflight_summary(session, org_id, framework, basis, _book_scope(session, org_id, framework, entity_id, period_end, role))
 
 
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict,
@@ -1055,7 +1092,7 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
     if framework in ("insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress"):
         from api.routers.insurance import build_disclosure_snapshot
         from services.governance.entities import root_of
-        from services.insurer_capital import position, programme
+        from services.insurer_capital import book_role, position, programme
         r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"], entity_ids=entity_ids,
                                       value_weights=value_weights, translation=translation)["rollup"]
         n_total, n_done = r.get("n_policies", 0), r.get("n_priced", 0)
@@ -1064,9 +1101,10 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
         # figures stated per undertaking (or group) under Solvency II
         pe = reporting_period_end(session, org_id)
         who = root_of(session, org_id, entity_ids)
-        if not position(session, org_id, pe, who).get("provenance"):
+        role = book_role(entity_ids, value_weights) if who else None
+        if not position(session, org_id, pe, who, role).get("provenance"):
             gaps.append(messages.render("filing.gap.own_funds"))
-        if programme(session, org_id, pe, who)[1] != "attested":
+        if programme(session, org_id, pe, who, role)[1] != "attested":
             gaps.append(messages.render("filing.gap.reinsurance"))
         return {"coverage": {"label": "policies priced", "done": n_done, "total": n_total,
                              "pct": round(100 * n_done / n_total, 1) if n_total else 0},
@@ -1119,11 +1157,44 @@ def _not_retired(framework: str) -> None:
         raise FilingError("filing.refused.prepared_elsewhere", report=FRAMEWORKS[framework]["label"], where=own)
 
 
-def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):
+# The reports for which one entity can hold two scopes, told apart by the filing role: its own book ('solo') and its group's
+# ('consolidated') — Solvency II nat-cat, where an insurance undertaking at the head of a group reports both
+# (services.governance.sii_filers). For every other report an entity has one scope, its role by entities.filing_role_for.
+_OWN_BOOK = frozenset({"insurer_solvency"})
+
+
+def _role_match(filing: str, entity: str, role: str) -> str:
+    """SQL: the filing (alias `filing`) is for the role of a scope (`entity`, `role`: SQL expressions) — only where an entity
+    holds two reports (_OWN_BOOK); a whole-organisation scope, a role not recorded (a filing from before roles were
+    stamped) or any other report is matched by its entity alone."""
+    own = ", ".join(f"'{f}'" for f in sorted(_OWN_BOOK))
+    return (f"({filing}.framework NOT IN ({own}) OR {entity} IS NULL OR {filing}.filing_role IS NULL OR {role} IS NULL "
+            f"OR {filing}.filing_role = {role})")
+
+
+def _scope_role(session: Session, org_id: str, framework: str, entity_id: str | None, role: str | None) -> str:
+    """The role of a filing for this scope: the entity's own (entities.filing_role_for — whole_org, solo, or consolidated
+    for an entity with entities below it), or, for a report of _OWN_BOOK, 'solo' for a parent's own book. A role the
+    scope cannot take is refused."""
+    from services.governance.entities import filing_role_for, get_entity
+    natural = filing_role_for(session, org_id, entity_id)
+    if role is None or role == natural or entity_id is None:      # the whole organisation has the one role
+        return natural
+    name = (get_entity(session, org_id, entity_id) or {}).get("name") or "The entity"
+    if role == "solo" and natural == "consolidated":
+        if framework not in _OWN_BOOK:
+            raise FilingError("filing.refused.own_book_not_offered", name=name, report=FRAMEWORKS[framework]["label"])
+        return "solo"
+    raise FilingError("filing.refused.role_scope", name=name)
+
+
+def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date,
+                role: str | None = None):
     """What a filing's book is: the reporting entities it covers, their consolidation weights, and how its money is
     presented (multi-currency phase 3: solo in the entity's functional currency, consolidated in the group's
     presentation currency, group-internal exposures eliminated). Shared by generate, refresh and restate so a
-    re-freeze can never change the scope or currency of the filing it replaces."""
+    re-freeze can never change the scope or currency of the filing it replaces. role 'solo' for a parent (_scope_role):
+    its own book — itself and its branches, unweighted (entities.own_book_ids)."""
     entity_ids = value_weights = translation = None
     if framework == "esrs_pack":
         # the ESRS statement's scope is the undertaking's own (its sites, and a group's by consolidation and joint
@@ -1131,8 +1202,8 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
         return ([entity_id] if entity_id else None), None, None
     if entity_id is not None:
         from services.governance import entities as _E
-        entity_ids = _E.subtree_ids(session, org_id, entity_id)
-        if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
+        entity_ids = (_E.own_book_ids if role == "solo" else _E.subtree_ids)(session, org_id, entity_id)
+        if role != "solo" and len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
             value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id, regime=_E.regime_for(framework))
             if framework == "insurer_solvency":   # S.27.01.04: the method-1 part of the group only (Annex III S.27.01 (b))
                 from services.governance import group_solvency as _G
@@ -1143,17 +1214,19 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
     return entity_ids, value_weights, translation
 
 
-def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date) -> tuple:
+def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date,
+                role: str | None = None) -> tuple:
     """_book_basis for callers that report to a preparer: a book that cannot be presented is a FilingError. The one
     gate of every book a filing freezes (pre-filing check, generate, refresh, restate): a whole-organisation scope that
-    is no filer's is refused here (services.governance.sii_filers)."""
+    is no filer's is refused here (services.governance.sii_filers), and so is a role the scope cannot take."""
     from services.governance.sii_filers import whole_org_refusal
     from services.governance.translation import TranslationError
     why = whole_org_refusal(session, org_id, framework, entity_id)
     if why is not None:
         raise FilingError(why[0], **why[1])
+    role = _scope_role(session, org_id, framework, entity_id, role)
     try:
-        return _book_basis(session, org_id, framework, entity_id, period_end)
+        return _book_basis(session, org_id, framework, entity_id, period_end, role)
     except TranslationError as e:
         raise _refusal(e) from e
 
@@ -1188,7 +1261,7 @@ def _check_scope(session: Session, org_id: str, framework: str, entity_id: str |
 
 
 def _previous_period_book(session: Session, org_id: str, framework: str, entity_id: str | None,
-                          period_end: date) -> dict | None:
+                          period_end: date, role: str | None = None) -> dict | None:
     """The previous period's frozen book for the same report and scope — embedded in the new filing when its templates
     print the previous disclosure reference date (regspec.embeds_previous_period). From the latest live filing of that
     period (never a superseded or withdrawn one); None when the organisation filed none."""
@@ -1200,12 +1273,13 @@ def _previous_period_book(session: Session, org_id: str, framework: str, entity_
         prev_end = period_end.replace(year=period_end.year - 1)
     except ValueError:                                     # 29 February
         prev_end = date(period_end.year - 1, 2, 28)
-    row = session.execute(text("""
+    row = session.execute(text(f"""
         SELECT f.filing_id::text AS filing_id, f.period_end, s.payload -> :key AS assets
         FROM regulatory_filing f JOIN report_snapshots s ON s.snapshot_id = f.snapshot_id
         WHERE f.org_id = CAST(:o AS uuid) AND f.framework = :fw AND f.period_end = :pe
           AND f.entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND f.status NOT IN ('superseded', 'withdrawn')
-        ORDER BY f.seq DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id,
+          AND {_role_match("f", "CAST(:e AS uuid)", "CAST(:role AS text)")}
+        ORDER BY f.seq DESC LIMIT 1"""), {"o": org_id, "fw": framework, "pe": prev_end, "e": entity_id, "role": role,
                                                  "key": book_key}).mappings().first()
     if not row or not row["assets"]:
         return None
@@ -1215,18 +1289,18 @@ def _previous_period_book(session: Session, org_id: str, framework: str, entity_
 def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
             entity_id: str | None, period_end: date, view: str = "joint",
             figure_sources: dict | None = None, fund_id: str | None = None,
-            disclosure_date: date | None = None) -> tuple[dict, str]:
+            disclosure_date: date | None = None, role: str | None = None) -> tuple[dict, str]:
     from services.governance.engine_runs import RunCheckError
     from services.governance.report_snapshots import StatementRefused
     from services.governance.translation import TranslationError
     from services.intake.views import ViewError
     entity_ids, value_weights, translation = ((None, None, None) if framework in _PRODUCT_SCOPED
-                                              else _book_scope(session, org_id, framework, entity_id, period_end))
+                                              else _book_scope(session, org_id, framework, entity_id, period_end, role))
     try:
         snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
                                value_weights=value_weights, translation=translation, view=view,
                                figure_sources=figure_sources,
-                               previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end),
+                               previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end, role),
                                fund_id=fund_id, disclosure_date=disclosure_date, period_end=period_end)
     except (TranslationError, RunCheckError, ViewError, StatementRefused) as e:
         raise _refusal(e) from e
@@ -1288,11 +1362,12 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
                     actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
                     entity_id: str | None = None, view: str = "joint", figure_sources: dict | None = None,
                     obligation_id: str | None = None, fund_id: str | None = None,
-                    disclosure_date: date | None = None) -> dict:
+                    disclosure_date: date | None = None, filing_role: str | None = None) -> dict:
     """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
-    (framework, period, entity) — regenerating while one is live is refused (supersede it first).
+    (framework, period, scope) — regenerating while one is live is refused (supersede it first).
     entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
-    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership).
+    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership) — or, filing_role 'solo'
+    for a report of _OWN_BOOK, the parent's own book (_scope_role).
 
     confirm_token must be the exact token GET /filings/preflight?framework=... just returned for this same
     (org, framework) — recomputed and compared fresh here, not merely checked for presence. This closes the
@@ -1305,23 +1380,22 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     # prepared for a specific obligation: the filing takes that obligation's scope, and its period must be the one
     # the organisation reports for (the single period source) — never silently a different period or entity
     if obligation_id is not None:
-        entity_id, ob_fund = _obligation_scope(session, org_id, obligation_id, framework, entity_id, fund_id)
+        entity_id, ob_fund, ob_role = _obligation_scope(session, org_id, obligation_id, framework, entity_id, fund_id,
+                                                        filing_role)
         fund_id = ob_fund or fund_id
+        filing_role = ob_role or filing_role
 
     _check_scope(session, org_id, framework, entity_id, fund_id)
+    role = "product" if fund_id else _scope_role(session, org_id, framework, entity_id, filing_role)
 
     period_end = reporting_period_end(session, org_id)
     # the confirmation must be of this scope's book as it is now (see _confirm_token)
     from services.governance.reporting_settings import get_settings
     _basis = get_settings(session, org_id)
-    _summary = _summary_for(session, org_id, framework, _basis, entity_id, fund_id, period_end)
-    if confirm_token != _confirm_token(org_id, framework, _basis, _summary, entity_id, fund_id):
+    _summary = _summary_for(session, org_id, framework, _basis, entity_id, fund_id, period_end, role)
+    if confirm_token != _confirm_token(org_id, framework, _basis, _summary, entity_id, fund_id, role):
         raise FilingError("filing.refused.data_changed")
-    existing = session.execute(text("""
-        SELECT filing_id, status FROM regulatory_filing
-        WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status NOT IN ('superseded', 'withdrawn')
-              AND entity_id IS NOT DISTINCT FROM :ent AND fund_id IS NOT DISTINCT FROM CAST(:fund AS uuid)
-    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id, "fund": fund_id}).mappings().first()
+    existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role)
     if existing:
         raise FilingError("filing.refused.already_live", report=FRAMEWORKS[framework]["label"],
                           period=_period_label(period_end), state=_status_name(existing["status"]))
@@ -1330,9 +1404,7 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         raise FilingError("filing.refused.disclosure_before_period", date=disclosure_date.isoformat(),
                           period_end=period_end.isoformat())
     snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end, view, figure_sources,
-                        fund_id, disclosure_date)
-    from services.governance.entities import filing_role_for
-    role = "product" if fund_id else filing_role_for(session, org_id, entity_id)
+                        fund_id, disclosure_date, role)
     row = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
                                        entity_id, filing_role, presentation_currency, view, figure_sources, fund_id,
@@ -1359,7 +1431,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     filing keeps its frozen snapshot (immutable — restate via a new version instead)."""
     r = session.execute(text("""
         SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end, view,
-               figure_sources, fund_id::text AS fund_id, disclosure_date
+               figure_sources, fund_id::text AS fund_id, disclosure_date, filing_role
         FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
     """), {"f": filing_id, "o": org_id}).mappings().first()
     if not r:
@@ -1369,7 +1441,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     _not_retired(r["framework"])
 
     snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"],
-                        r["view"], r["figure_sources"], r["fund_id"], r["disclosure_date"])
+                        r["view"], r["figure_sources"], r["fund_id"], r["disclosure_date"], r["filing_role"])
     session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap, presentation_currency = :ccy "
                          "WHERE filing_id = :f AND org_id = :o"),
                     {"snap": snap["snapshot_id"], "ccy": ccy, "f": filing_id, "o": org_id})
@@ -1519,7 +1591,7 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     dd = period["disclosure_date"] if period["disclosure_date"] and period["disclosure_date"] > date.today() else None
     snap, ccy = _freeze(session, org_id, cur["framework"], actor_user_id,
                         f"Restatement of {period['period_label']}: {reason}", period["entity_id"], period["period_end"],
-                        period["view"], period["figure_sources"], period["fund_id"], dd)
+                        period["view"], period["figure_sources"], period["fund_id"], dd, period["filing_role"])
     # supersede the old FIRST so the single-live-slot frees up before the restatement is inserted
     _apply_transition(session, org_id, filing_id, "supersede", actor_user_id, detail={"reason": reason})
     new_fid = session.execute(text("""
@@ -1581,12 +1653,14 @@ def prior_filing_id(session: Session, org_id: str, filing_id: str) -> str | None
     # ... for the SAME reporting entity (fixed 2026-09-26: a solo filing used to be compared with whatever filing of the
     # framework came before — often the whole organisation's)
     cur = session.execute(text(
-        "SELECT framework, period_end, entity_id FROM regulatory_filing WHERE filing_id = :f"), {"f": filing_id}).mappings().first()
+        "SELECT framework, period_end, entity_id, filing_role FROM regulatory_filing WHERE filing_id = :f"),
+        {"f": filing_id}).mappings().first()
     if not cur:
         return None
-    return session.execute(text("""
-        SELECT filing_id::text FROM regulatory_filing
-        WHERE org_id = :o AND framework = :fk AND period_end < :pe AND status IN ('submitted','accepted','superseded')
-              AND entity_id IS NOT DISTINCT FROM :ent
-        ORDER BY period_end DESC, seq DESC LIMIT 1
-    """), {"o": org_id, "fk": cur["framework"], "pe": cur["period_end"], "ent": cur["entity_id"]}).scalar()
+    return session.execute(text(f"""
+        SELECT rf.filing_id::text FROM regulatory_filing rf
+        WHERE rf.org_id = :o AND rf.framework = :fk AND rf.period_end < :pe AND rf.status IN ('submitted','accepted','superseded')
+              AND rf.entity_id IS NOT DISTINCT FROM :ent AND {_role_match("rf", "CAST(:ent AS uuid)", "CAST(:role AS text)")}
+        ORDER BY rf.period_end DESC, rf.seq DESC LIMIT 1
+    """), {"o": org_id, "fk": cur["framework"], "pe": cur["period_end"], "ent": cur["entity_id"],
+           "role": cur["filing_role"]}).scalar()

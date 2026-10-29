@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3163 table columns, 362 foreign keys, 98 unique constraints, 332 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 321 migration revisions in `core/db/migrations/versions/`, head `pcaf_mortgages_20261025`. Extensions present: plpgsql.
+The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3164 table columns, 362 foreign keys, 98 unique constraints, 333 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 322 migration revisions in `core/db/migrations/versions/`, head `filing_scope_role_20261029`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -33,7 +33,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 340 | 15 | 7 | 3 | 5 |
-| Regulatory reporting & filings | 26 | 368 | 16 | 19 | 15 | 7 |
+| Regulatory reporting & filings | 26 | 369 | 16 | 19 | 15 | 7 |
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
 | Workflow, decisions & controls | 23 | 278 | 7 | 19 | 26 | 1 |
@@ -5179,12 +5179,14 @@ Foreign keys to other domains:
 | `value_eur` | double precision | yes |  |  |
 | `money_source` | jsonb | yes |  |  |
 | `breakdown_member` | text | yes |  |  |
+| `filing_role` | text | yes |  |  |
 
 - Check `ck_provided_currency`: `CHECK (((value_currency IS NULL) OR (value_num IS NOT NULL)))`
+- Check `ck_provided_filing_role`: `CHECK (((filing_role IS NULL) OR ((filing_role = ANY (ARRAY['solo'::text, 'consolidated'::text])) AND (reporting_entity_id IS NOT NULL))))`
 - Check `provided_datapoint_source_check`: `CHECK ((source = ANY (ARRAY['client'::text, 'vendor'::text])))`
 - Check `provided_datapoint_status_check`: `CHECK ((status = ANY (ARRAY['pending'::text, 'attested'::text, 'rejected'::text, 'superseded'::text])))`
 - Index: `CREATE INDEX ix_provided_datapoint_entity ON public.provided_datapoint USING btree (org_id, framework, reporting_entity_id)`
-- Index: `CREATE UNIQUE INDEX ux_provided_live ON public.provided_datapoint USING btree (org_id, framework, datapoint_key, COALESCE(reporting_period_end, '0001-01-01'::date), COALESCE(reporting_entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(breakdown_member, ''::text)) WHERE (status = ANY (ARRAY['pending'::text, 'attested'::text]))`
+- Index: `CREATE UNIQUE INDEX ux_provided_live ON public.provided_datapoint USING btree (org_id, framework, datapoint_key, COALESCE(reporting_period_end, '0001-01-01'::date), COALESCE(reporting_entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(breakdown_member, ''::text), COALESCE(filing_role, ''::text)) WHERE (status = ANY (ARRAY['pending'::text, 'attested'::text]))`
 - Trigger `trg_provided_closed_period`: BEFORE INSERT for each row → `public.refuse_closed_period_value`
 
 #### `regulatory_audit_log`
@@ -5252,7 +5254,7 @@ END)`
 - Index: `CREATE INDEX ix_reg_filing_role ON public.regulatory_filing USING btree (org_id, framework, filing_role)`
 - Index: `CREATE INDEX ix_regulatory_filing_by_seq ON public.regulatory_filing USING btree (org_id, framework, seq)`
 - Index: `CREATE INDEX ix_regulatory_filing_fund ON public.regulatory_filing USING btree (fund_id) WHERE (fund_id IS NOT NULL)`
-- Index: `CREATE UNIQUE INDEX ux_reg_filing_live ON public.regulatory_filing USING btree (org_id, framework, period_end, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(eudr_movement_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE (status <> ALL (ARRAY['superseded'::text, 'withdrawn'::text]))`
+- Index: `CREATE UNIQUE INDEX ux_reg_filing_live ON public.regulatory_filing USING btree (org_id, framework, period_end, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(eudr_movement_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(filing_role, ''::text)) WHERE (status <> ALL (ARRAY['superseded'::text, 'withdrawn'::text]))`
 - Trigger `trg_filing_transition`: BEFORE UPDATE for each row → `public.guard_filing_transition`
 
 #### `regulatory_filing_event`
@@ -5299,7 +5301,7 @@ END)`
 - Check `regulatory_obligation_frequency_check`: `CHECK ((frequency = ANY (ARRAY['annual'::text, 'semiannual'::text, 'quarterly'::text, 'monthly'::text, 'adhoc'::text])))`
 - Index: `CREATE INDEX ix_reg_obligation_due ON public.regulatory_obligation USING btree (org_id, due_date)`
 - Index: `CREATE INDEX ix_regulatory_obligation_fund ON public.regulatory_obligation USING btree (fund_id) WHERE (fund_id IS NOT NULL)`
-- Index: `CREATE UNIQUE INDEX ux_reg_obligation_key ON public.regulatory_obligation USING btree (org_id, framework, period_end, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid))`
+- Index: `CREATE UNIQUE INDEX ux_reg_obligation_key ON public.regulatory_obligation USING btree (org_id, framework, period_end, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(filing_role, ''::text))`
 
 #### `regulatory_packages`
 

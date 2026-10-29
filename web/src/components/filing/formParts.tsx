@@ -22,7 +22,7 @@ export interface Dp {
 export interface Group { group: string; datapoints: Dp[] }
 // supply: a value the institution enters for the filing's period; `member` and `choices` for a statement per member from a
 // closed list (a group's method for each related undertaking)
-export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null; member?: string; choices?: Record<string, string> }; greyed?: boolean; frozen_value?: number | string | null }
+export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null; filing_role?: string | null; member?: string; choices?: Record<string, string> }; greyed?: boolean; frozen_value?: number | string | null }
 export const suppliedKey = (key: string, member?: string | null) => member ? `${key}@${member}` : key
 export interface AnnexSection { title: string; spec?: { template?: string } | null; note: string | null; columns: string[]; col_sources?: string[]; rows: { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }[]; kind?: 'document'; items?: DocItem[] }
 export interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
@@ -219,6 +219,7 @@ function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }: { cell: Ann
     const n = Number(val.replace(/,/g, ''))
     try {
       await api.post('/v1/provided', { framework: cell.supply.framework, datapoint_key: cell.supply.key, reporting_period_end: periodEnd, reporting_entity_id: cell.supply.reporting_entity_id ?? undefined,
+        ...(cell.supply.filing_role ? { filing_role: cell.supply.filing_role } : {}),   // which of the entity's reports
         ...(cell.supply.member ? { breakdown_member: cell.supply.member } : {}),
         ...(!cell.supply.choices && !Number.isNaN(n) ? { value_num: n } : { value_text: val.trim() }) })
       toast.success('Sent for attestation by a second person.'); setVal(''); onSaved()

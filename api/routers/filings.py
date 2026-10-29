@@ -45,6 +45,8 @@ class GenerateBody(BaseModel):
     entity_id: Optional[str] = None   # scope to one reporting entity; None = whole org (the default)
     obligation_id: Optional[str] = None   # prepared for this obligation: its entity and period are enforced
     fund_id: Optional[str] = None   # a per-product report (SFDR Annexes II–V): the fund it discloses
+    # which of the entity's reports, where it holds two (Solvency II nat-cat): its own book ('solo') or its group's
+    filing_role: Optional[Literal["solo", "consolidated"]] = None
     # the date the report will be made (e.g. an ORSA's conclusion) when it is not today — it chooses the rules in force
     disclosure_date: Optional[date] = None
     # intake phase 5: which values of the asset facts the engine reads, and per reported figure whose number is reported
@@ -322,11 +324,13 @@ def retention_register(session: DbSession, ctx: dict = Depends(require_permissio
 
 @router.get("/filings/preflight", summary="Confirm-data step: coverage, headline & gaps before freezing a filing")
 def preflight(framework: str, session: DbSession, entity_id: Optional[str] = None, fund_id: Optional[str] = None,
+              filing_role: Optional[Literal["solo", "consolidated"]] = None,
               ctx: dict = Depends(require_permission("reports.view"))):
     """entity_id: the scope being filed (a legal entity, or a group consolidated over its subtree); omitted = the
-    whole organisation. fund_id: the financial product a per-product report discloses. The figures and the confirm
-    token are for exactly that book."""
-    return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework, entity_id, fund_id)
+    whole organisation. fund_id: the financial product a per-product report discloses. filing_role: for Solvency II
+    nat-cat, 'solo' for an entity's own book where it heads a group. The figures and the confirm token are for exactly
+    that book."""
+    return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework, entity_id, fund_id, filing_role)
 
 
 @router.get("/filings/{filing_id}", summary="One filing — status, full history, and the frozen report")
@@ -517,8 +521,9 @@ def generate(body: GenerateBody, session: DbSession,
                           body.framework, ctx["user"]["id"], note=body.note,
                           confirm_token=body.confirm_token, entity_id=body.entity_id, view=body.view,
                           figure_sources=body.figure_sources, obligation_id=body.obligation_id,
-                          fund_id=body.fund_id, disclosure_date=body.disclosure_date)
+                          fund_id=body.fund_id, disclosure_date=body.disclosure_date, filing_role=body.filing_role)
     _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id,
+                                                            "filing_role": f.get("filing_role"),
                                                             "view": body.view, "figure_sources": body.figure_sources})
     return f
 

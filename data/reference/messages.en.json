@@ -5343,6 +5343,22 @@
     "what": "The scope chosen is not the legal entity this obligation is for."
    }
   },
+  "filing.refused.own_book_not_offered": {
+   "status": 409,
+   "label": "Own report not offered",
+   "detail": {
+    "what": "A report of {name}'s own book, without the entities below it, is prepared for Solvency II natural catastrophe risk only.",
+    "next": "Prepare the {report} for {name} as a group, or for each entity below it."
+   }
+  },
+  "filing.refused.role_scope": {
+   "status": 409,
+   "label": "Nothing to consolidate",
+   "detail": {
+    "what": "{name} has no entity below it: its report is its own.",
+    "next": "Prepare it as {name}'s own report."
+   }
+  },
   "filing.refused.obligation_other_fund": {
    "status": 409,
    "label": "Fund differs from the obligation",
@@ -5645,8 +5661,8 @@
    "status": 409,
    "label": "Choose the group or the undertaking",
    "detail": {
-    "what": "Natural catastrophe risk is reported by an undertaking for itself or by a group, not by an organisation of {count} reporting entities as a whole.",
-    "why": "The whole organisation's book counts every entity in full: it is neither one undertaking's figures nor the group's consolidated figures.",
+    "what": "Natural catastrophe risk is reported by each undertaking for itself and by a group, not by the organisation as a whole once it records its undertakings as reporting entities.",
+    "why": "The whole organisation's book is neither one undertaking's figures nor the group's consolidated figures.",
     "next": "Prepare it for one of: {choices}."
    }
   },
@@ -8059,6 +8075,14 @@
    "label": "Stated for the organisation",
    "detail": {
     "what": "These values are stated for the organisation as a whole, not for one entity."
+   }
+  },
+  "disclose.provided.role": {
+   "status": 400,
+   "label": "Not a group",
+   "detail": {
+    "what": "A group's value is stated for an entity with entities below it.",
+    "next": "State it as this entity's own value."
    }
   },
   "disclose.provided.future": {

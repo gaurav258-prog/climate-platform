@@ -280,10 +280,12 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
            value_num: float | None = None, value_text: str | None = None, unit: str | None = None,
            source: str = "client", provider_name: str | None = None, data_vintage: str | None = None,
            period_label: str | None = None, reporting_period_end=None, reporting_entity_id: str | None = None,
-           restatement_reason: str | None = None, currency: str | None = None, breakdown_member: str | None = None) -> dict:
+           restatement_reason: str | None = None, currency: str | None = None, breakdown_member: str | None = None,
+           filing_role: str | None = None) -> dict:
     """Record a provided value for a reporting period, reconcile it, and raise a 4-eyes attest request. It supersedes
-    only the earlier value for the same datapoint and period. For a closed period it is a restatement and needs its
-    reason (the database refuses it otherwise — services.governance.period_close)."""
+    only the earlier value for the same datapoint, period and subject (entity, and for a report of ROLE_SCOPED_REPORTS
+    which of its reports — filing_role, _role_scope). For a closed period it is a restatement and needs its reason (the
+    database refuses it otherwise — services.governance.period_close)."""
     from datetime import date
     if not reporting_period_end:
         raise ProvidedError("state the reporting period the value is for — a value without one never reaches a filing",
@@ -334,6 +336,7 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
         _check_unit(dp, value_num)
         _check_choice(dp, value_num, value_text)
     entity = _entity_scope(session, org_id, framework, reporting_entity_id)
+    role = _role_scope(session, org_id, framework, entity, filing_role)
     if dp.get("breakdown") == "related_undertaking":
         _check_related(session, org_id, dp, entity, breakdown_member)
     from services.governance.period_close import is_closed
@@ -359,28 +362,28 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
         WHERE org_id=:o AND framework=:f AND datapoint_key=:k AND status IN ('pending','attested')
           AND reporting_period_end IS NOT DISTINCT FROM CAST(:pe AS date)
           AND reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid)
-          AND breakdown_member IS NOT DISTINCT FROM :bm
-    """), {"o": org_id, "f": framework, "k": datapoint_key, "pe": pe, "e": entity, "bm": breakdown_member or None})
+          AND breakdown_member IS NOT DISTINCT FROM :bm AND filing_role IS NOT DISTINCT FROM :fr
+    """), {"o": org_id, "f": framework, "k": datapoint_key, "pe": pe, "e": entity, "bm": breakdown_member or None, "fr": role})
 
     pid = session.execute(text("""
         INSERT INTO provided_datapoint (org_id, framework, datapoint_key, value_num, value_text, unit, source,
             provider_name, data_vintage, period_label, reporting_period_end, tellumen_value, delta_pct, within_tolerance,
             recon_note, submitted_by, reporting_entity_id, restatement_reason, value_currency, value_eur, money_source,
-            breakdown_member)
+            breakdown_member, filing_role)
         VALUES (:o,:f,:k,:vn,:vt,:u,:src,:pn, CAST(:dv AS date),:pl, CAST(:pe AS date),:tv,:dp,:wt,:rn,:by, CAST(:e AS uuid), :why,
-                :ccy, :veur, CAST(:ms AS jsonb), :bm)
+                :ccy, :veur, CAST(:ms AS jsonb), :bm, :fr)
         RETURNING provided_id
     """), {"o": org_id, "f": framework, "k": datapoint_key, "vn": value_num, "vt": (value_text or None),
            "u": unit, "src": source, "pn": provider_name, "dv": data_vintage or None, "pl": period_label, "pe": pe,
            "tv": base, "dp": delta_pct, "wt": within, "rn": note, "by": actor, "e": entity,
            "why": (restatement_reason or "").strip() or None, "ccy": money and money["currency"],
            "veur": money and money["eur"], "ms": money and json.dumps(money["source"], default=str),
-           "bm": breakdown_member or None}).scalar()
+           "bm": breakdown_member or None, "fr": role}).scalar()
 
     # raise the shared 4-eyes request (checker ≠ maker enforced by the approvals router)
     payload = {"provided_id": str(pid), "framework": framework, "datapoint_key": datapoint_key,
                "value_num": value_num, "value_text": value_text, "source": source,
-               "reporting_period_end": pe.isoformat() if pe else None, "reporting_entity_id": entity}
+               "reporting_period_end": pe.isoformat() if pe else None, "reporting_entity_id": entity, "filing_role": role}
     title = f"Attest provided value · {dp['label'][:60]}"
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
@@ -419,15 +422,34 @@ def _entity_scope(session: Session, org_id: str, framework: str, reporting_entit
     return str(reporting_entity_id)
 
 
+def _role_scope(session: Session, org_id: str, framework: str, entity: str | None, filing_role: str | None) -> str | None:
+    """Which of an entity's reports a value is for (ROLE_SCOPED_REPORTS): the role asked for — 'solo', its own; or
+    'consolidated', its group's, only for an entity with entities below it — else the entity's own role
+    (entities.filing_role_for). None for the organisation as a whole and for any other report type."""
+    from services.governance.datapoint_catalog import ROLE_SCOPED_REPORTS
+    from services.governance.entities import filing_role_for
+    if entity is None or framework not in ROLE_SCOPED_REPORTS:
+        return None
+    natural = filing_role_for(session, org_id, entity)
+    if filing_role is None or filing_role == natural:
+        return natural
+    if filing_role == "solo":                          # an entity's own report beside its group's
+        return "solo"
+    raise ProvidedError("a group's value is stated for an entity with entities below it", "disclose.provided.role")
+
+
 def attested_values(session: Session, org_id: str, framework: str, period_end=None,
-                    reporting_entity_id: str | None = None) -> list[dict]:
+                    reporting_entity_id: str | None = None, filing_role: str | None = None) -> list[dict]:
     """The ATTESTED provided values of one reporting period — the ones that passed 4-eyes and therefore land in that
     period's filing (frozen into its snapshot). A value for another period, or with no period, never does.
     reporting_entity_id: the entity the filing is for — a report type whose figures belong to an undertaking reads
-    exactly that entity's values (None = the organisation's own); any other reads the organisation's.
+    exactly that entity's values (None = the organisation's own); any other reads the organisation's. filing_role: which
+    of the entity's reports (ROLE_SCOPED_REPORTS: its own 'solo' or its group's 'consolidated'; default its own role) —
+    never the other's.
     Returned in a form-datapoint shape so the filing form/annex surfaces them as provided datapoints."""
     from services.governance.datapoint_catalog import PER_ENTITY_REPORTS
     entity = str(reporting_entity_id) if (reporting_entity_id and framework in PER_ENTITY_REPORTS) else None
+    role = _role_scope(session, org_id, framework, entity, filing_role)
     rows = session.execute(text("""
         SELECT p.datapoint_key, p.value_num, p.value_text, p.unit, p.source, p.provider_name, p.reporting_period_end,
                p.tellumen_value, p.delta_pct, p.within_tolerance, p.decided_at, du.email AS attested_by,
@@ -436,9 +458,9 @@ def attested_values(session: Session, org_id: str, framework: str, period_end=No
         LEFT JOIN users du ON du.user_id = p.decided_by
         WHERE p.org_id = :o AND p.framework = :f AND p.status = 'attested'
           AND p.reporting_period_end = CAST(:pe AS date)
-          AND p.reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid)
+          AND p.reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND p.filing_role IS NOT DISTINCT FROM :fr
         ORDER BY p.decided_at DESC
-    """), {"o": org_id, "f": framework, "pe": period_end, "e": entity}).mappings().all()
+    """), {"o": org_id, "f": framework, "pe": period_end, "e": entity, "fr": role}).mappings().all()
     labels = {d["key"]: d["label"] for fw in CATALOG.values() for d in fw}
     units = {d["key"]: d.get("unit") for fw in CATALOG.values() for d in fw}
     if framework == ESRS:
@@ -476,7 +498,7 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
                p.unit, p.source, p.provider_name, p.data_vintage, p.tellumen_value, p.delta_pct,
                p.within_tolerance, p.recon_note, p.status, p.submitted_at, su.email AS submitted_by,
                du.email AS decided_by, p.period_label, p.reporting_period_end, p.reporting_entity_id::text AS reporting_entity_id,
-               p.value_currency, p.breakdown_member
+               p.value_currency, p.breakdown_member, p.filing_role
         FROM provided_datapoint p
         LEFT JOIN users su ON su.user_id = p.submitted_by
         LEFT JOIN users du ON du.user_id = p.decided_by
@@ -500,7 +522,7 @@ def provided_list(session: Session, org_id: str, framework: str | None = None) -
              "data_vintage": r["data_vintage"].isoformat() if r["data_vintage"] else None,
              "tellumen_value": r["tellumen_value"], "delta_pct": r["delta_pct"],
              "within_tolerance": r["within_tolerance"], "recon_note": r["recon_note"], "status": r["status"],
-             "status_label": names["onboarding.provided_status"].get(r["status"]),
+             "filing_role": r["filing_role"], "status_label": names["onboarding.provided_status"].get(r["status"]),
              "source_label": names["admin.approval_value"].get(r["source"]),
              "submitted_by": r["submitted_by"], "decided_by": r["decided_by"],
              "submitted_at": r["submitted_at"].isoformat() if r["submitted_at"] else None,

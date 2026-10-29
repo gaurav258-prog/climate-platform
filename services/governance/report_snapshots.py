@@ -339,9 +339,13 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
 
     from services.governance.entities import root_of
     from services.governance.provided_data import attested_values
+    from services.insurer_capital import book_role
     payload["_scope"] = {"reporting_entity_id": root_of(session, org_id, entity_ids)}   # whose own figures (None = the organisation)
+    if payload["_scope"]["reporting_entity_id"]:      # which of its reports: its own book (solo) or its group's (consolidated)
+        payload["_scope"]["filing_role"] = book_role(entity_ids, value_weights)
     payload["_provided_attested"] = attested_values(session, org_id, _PROVIDED_UNDER.get(report_type, report_type), period_end,
-                                                    reporting_entity_id=payload["_scope"]["reporting_entity_id"])
+                                                    reporting_entity_id=payload["_scope"]["reporting_entity_id"],
+                                                    filing_role=payload["_scope"].get("filing_role"))
     # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
     from services.governance.figure_views import resolve as resolve_figures
     payload["_figures"] = resolve_figures(report_type, payload, figure_sources)

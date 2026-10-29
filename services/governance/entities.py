@@ -52,7 +52,8 @@ def filing_role_for(session: Session, org_id: str, entity_id: str | None) -> str
     """Derive the explicit role a filing at this scope plays, per CRR Art 6 (solo) vs Art 18 (consolidated):
     entity_id None = whole_org (today's default, whole-company scope); a leaf entity (no children) = solo,
     the entity's own individual-reporting duty; an entity WITH children = consolidated, since selecting it
-    rolls up its whole subtree (entities.subtree_ids / ownership_weights)."""
+    rolls up its whole subtree (entities.subtree_ids / ownership_weights). This is the entity's own role; for Solvency II
+    nat-cat a parent also files its own book as 'solo' beside it (filings._scope_role, own_book_ids — E348)."""
     if entity_id is None:
         return "whole_org"
     has_children = session.execute(text(
@@ -118,6 +119,27 @@ def subtree_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
             JOIN sub ON c.parent_entity_id = sub.entity_id
         )
         SELECT entity_id::text FROM sub
+    """), {"o": org_id, "e": entity_id}).all()
+    return [r[0] for r in rows]
+
+
+# a node that stands for a group (or a sub-group) of undertakings, not for one undertaking: it holds no book of its own
+GROUP_KINDS = frozenset({"group", "sub_group"})
+
+
+def own_book_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
+    """The entity's own book: itself and its branches (a branch's branches too), never an undertaking below it — the
+    scope of an undertaking's report for itself. An undertaking reports all its business, a contract "sold through a
+    branch" with the rest (ITS (EU) 2023/894 Annex II S.04.03, services.governance.sii_filers.QUOTES); an undertaking
+    below it is its participation, reported in its group's report. Tenant-scoped."""
+    rows = session.execute(text("""
+        WITH RECURSIVE own AS (
+            SELECT entity_id FROM reporting_entities WHERE org_id = :o AND entity_id = :e
+            UNION ALL
+            SELECT c.entity_id FROM reporting_entities c JOIN own ON c.parent_entity_id = own.entity_id
+            WHERE c.org_id = :o AND lower(trim(c.kind)) = 'branch'
+        )
+        SELECT entity_id::text FROM own
     """), {"o": org_id, "e": entity_id}).all()
     return [r[0] for r in rows]
 

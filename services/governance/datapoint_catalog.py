@@ -43,6 +43,10 @@ def coverage_source(lane: str) -> str:
 # 218 ff.) — a solo filing uses its entity's own figures, a group filing the group's; never borrowed across.
 PER_ENTITY_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress",
                                 "esrs"})   # ESRS figures: per undertaking (Art. 19a) or for the group (Art. 29a, its parent)
+# Report types whose values are stated for one of an entity's two reports (provided_datapoint.filing_role): an insurance
+# undertaking at the head of a group states its own figures ('solo') and, apart, the group's ('consolidated')
+# (services.governance.sii_filers). A value of another report type is its entity's alone.
+ROLE_SCOPED_REPORTS = frozenset({"insurer_solvency"})
 
 CATALOG: dict[str, list[dict]] = {
     # the EU Taxonomy Art. 8 report (E95): what the Annex VI templates read — physical risk, financed emissions and

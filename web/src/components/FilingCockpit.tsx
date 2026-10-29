@@ -22,7 +22,7 @@ import { NEXT_ACTION, STATUS_TONE, fmtDate, sentence, version, type Tone } from 
 // deadlines on a time line), everything else behind four tabs, and a full-window filing that runs the controlled
 // lifecycle — prepare → review (four eyes) → attest → submit → accept — over its frozen, fingerprinted report.
 
-interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number; overdue: boolean; entity_id: string | null; entity_name: string | null; filing_role: string; period_end: string; fund_id?: string | null; fund_name?: string | null }
+interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number; overdue: boolean; entity_id: string | null; entity_name: string | null; filing_role: string; scope_role?: string | null; period_end: string; fund_id?: string | null; fund_name?: string | null }
 interface Framework { framework: string; label: string; frequency: string; regulator: string; basis: string }
 interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; created_by: string | null; created_at: string; entity_name?: string | null; scope?: string; filing_role?: string | null; fund_name?: string | null }
 interface Validation { blocking: number; warnings: number; checks: number; passed: boolean }

@@ -55,7 +55,8 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
                     got = supplied.get(key)
                     cells.append({**_mnum("—" if got is None else _fmt(got), "manual"), "key": key, "frozen_value": got,
                                   "supply": {"framework": report_type, "key": key,
-                                             "reporting_entity_id": ((payload or {}).get("_scope") or {}).get("reporting_entity_id")}})
+                                             "reporting_entity_id": ((payload or {}).get("_scope") or {}).get("reporting_entity_id"),
+                                             "filing_role": ((payload or {}).get("_scope") or {}).get("filing_role")}})
                 else:
                     v = (values.get(r["id"]) or {}).get(c["id"])
                     cells.append(_mnum("—" if v is None else _fmt(v), "computed"))

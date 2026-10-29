@@ -142,18 +142,19 @@ def _policies_with_risk(session, org_id, scenario, horizon, *, method, entity_id
     return [_map_policy_row(r) for r in rows]
 
 
-def standard_formula_inputs(session, org_id: str, translation=None, entity_id: str | None = None) -> dict:
+def standard_formula_inputs(session, org_id: str, translation=None, entity_id: str | None = None, role: str | None = None) -> dict:
     """What the Solvency II nat-cat standard formula takes besides the book, for the organisation's reporting date:
     the date (it selects the version of the Regulation), the ATTESTED reinsurance (the illustrative programme never
     mitigates a regulatory figure), the attested premiums and DIV for risks outside Annex XIII, and the governed UK
     reading. Amounts are stated in EUR and follow the book's presentation currency. entity_id: the undertaking (or the
-    group's top entity) the book is for — its own attested figures; None = the organisation's."""
+    group's top entity) the book is for — its attested figures for that report (role: its own or its group's,
+    services.insurer_capital.book_role); None = the organisation's."""
     from services.governance.reporting_settings import get_settings
     from services.insurer_capital import natcat_other_regions, programme
     pe = get_settings(session, org_id)["reporting_period_end"]
     ref = date.fromisoformat(str(pe)[:10]) if pe else date(date.today().year - 1, 12, 31)
-    treaty, basis = programme(session, org_id, ref, entity_id)
-    other = natcat_other_regions(session, org_id, ref, entity_id)
+    treaty, basis = programme(session, org_id, ref, entity_id, role)
+    other = natcat_other_regions(session, org_id, ref, entity_id, role)
     if translation is not None and translation.presentation != "EUR":
         from services.governance.translation import from_eur
         treaty = {k: from_eur(session, translation, v) if k.endswith("_eur") and v is not None else v for k, v in treaty.items()}
@@ -312,11 +313,12 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     # One cat run (via _rollup, with the attested reinsurance programme) yields the accumulation curve, the 1-in-200
     # and the net-of-reinsurance retention — the three blocks derived from the SAME frozen distribution. The programme
     # is the undertaking's attested treaty for the period (services.insurer_capital); without one the net is a gap.
-    from services.insurer_capital import programme
+    from services.insurer_capital import book_role, programme
     if reporting_entity_id is None and entity_ids:          # the undertaking (or group top) this scoped book is for
         from services.governance.entities import root_of
         reporting_entity_id = root_of(session, org_id, entity_ids)
-    prog, prog_basis = programme(session, org_id, pe, reporting_entity_id)
+    role = book_role(entity_ids, value_weights) if reporting_entity_id else None   # its own report or its group's
+    prog, prog_basis = programme(session, org_id, pe, reporting_entity_id, role)
     if prog is not None and translation is not None and translation.presentation != "EUR":   # treaty layers are in EUR
         from services.governance.translation import from_eur
         prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur") and v is not None}}
@@ -326,7 +328,7 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     return {
         "rollup": rollup, "policies": policies, "by_hazard": hazards,
         "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon,
-                                      standard_formula_inputs(session, org_id, translation, reporting_entity_id)),
+                                      standard_formula_inputs(session, org_id, translation, reporting_entity_id, role)),
         "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": prog_basis},
         "investments": _investments_block(session, org_id, scenario, horizon, _st, method, translation=translation),
         "method": method.record(),

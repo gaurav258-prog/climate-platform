@@ -19,17 +19,27 @@ TREATY = {"ri_quota_share_pct": "quota_share_pct", "ri_xol_attachment_eur": "xol
 REINSTATEMENT = {"ri_xol_reinstatements": "xol_reinstatements", "ri_xol_reinstatement_premium_eur": "xol_reinstatement_premium_eur"}
 
 
-def _attested(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> dict:
-    """The attested values for the period, stated for `entity_id` (a legal entity or the group's top entity) or, with
-    None, for the organisation as a whole — never borrowed from another entity (datapoint_catalog.PER_ENTITY_REPORTS)."""
+def book_role(entity_ids, value_weights) -> str | None:
+    """Which of an entity's reports a book is: a group's (consolidated — weighted), an entity's own (solo — its own book,
+    unweighted, services.governance.entities.own_book_ids), or None for the organisation as a whole."""
+    if not entity_ids:
+        return None
+    return "consolidated" if value_weights is not None else "solo"
+
+
+def _attested(session: Session, org_id: str, period_end: date, entity_id: str | None = None, role: str | None = None) -> dict:
+    """The attested values for the period, stated for `entity_id` (a legal entity or the group's top entity) — for its
+    report of `role` (its own 'solo' or its group's 'consolidated'; default its own role) — or, with None, for the
+    organisation as a whole: never borrowed from another entity or another of its reports
+    (datapoint_catalog.PER_ENTITY_REPORTS, ROLE_SCOPED_REPORTS)."""
     from services.governance.provided_data import attested_values
     return {v["key"].removeprefix("provided."): v
-            for v in attested_values(session, org_id, FRAMEWORK, period_end, reporting_entity_id=entity_id)}
+            for v in attested_values(session, org_id, FRAMEWORK, period_end, reporting_entity_id=entity_id, filing_role=role)}
 
 
-def position(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> dict:
+def position(session: Session, org_id: str, period_end: date, entity_id: str | None = None, role: str | None = None) -> dict:
     """{eligible_own_funds_scr, scr_total, mcr_total, scr_ratio_pct, provenance}: None where not attested."""
-    a = _attested(session, org_id, period_end, entity_id)
+    a = _attested(session, org_id, period_end, entity_id, role)
     vals = {k: (float(a[k]["value"]) if k in a and a[k]["value"] is not None else None) for k in CAPITAL}
     of, scr = vals["eligible_own_funds_scr"], vals["scr_total"]
     return {**vals, "scr_ratio_pct": round(100 * of / scr, 1) if of is not None and scr else None,
@@ -38,11 +48,12 @@ def position(session: Session, org_id: str, period_end: date, entity_id: str | N
                            for k in CAPITAL if k in a}}
 
 
-def programme(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> tuple[dict | None, str]:
+def programme(session: Session, org_id: str, period_end: date, entity_id: str | None = None,
+              role: str | None = None) -> tuple[dict | None, str]:
     """(the reinsurance programme in force, its basis): the attested treaty terms ('attested'), or (None,
     'not_attested') when no term is attested. A partly attested programme uses what is attested and 0 for the rest
     (no quota share / no cat layer) — a term the undertaking states as absent."""
-    a = _attested(session, org_id, period_end, entity_id)
+    a = _attested(session, org_id, period_end, entity_id, role)
     if not any(k in a for k in TREATY):
         return None, "not_attested"
     prog = {name: float(a[k]["value"]) if k in a and a[k]["value"] is not None else 0.0 for k, name in TREATY.items()}
@@ -52,7 +63,8 @@ def programme(session: Session, org_id: str, period_end: date, entity_id: str | 
     return prog, "attested"
 
 
-def natcat_other_regions(session: Session, org_id: str, period_end: date, entity_id: str | None = None) -> dict:
+def natcat_other_regions(session: Session, org_id: str, period_end: date, entity_id: str | None = None,
+                         role: str | None = None) -> dict:
     """{peril: {"by_region": {Annex III region: premium}}} — the premiums to be earned for risks outside Annex XIII, as
     the undertaking states them on S.27.01.01, or a group (an entity with a consolidated book) on S.27.01.04 (supplied
     template cells, attested under four eyes). A region not attested is absent; with none, the standard formula marks
@@ -63,7 +75,7 @@ def natcat_other_regions(session: Session, org_id: str, period_end: date, entity
     spec = R.governing(s2701.FAMILY, period_end=period_end)
     if spec is None:
         return {}
-    tid = s2701.GROUP_TID if filing_role_for(session, org_id, entity_id) == "consolidated" else s2701.TID
-    a = _attested(session, org_id, period_end, entity_id)
+    tid = s2701.GROUP_TID if (role or filing_role_for(session, org_id, entity_id)) == "consolidated" else s2701.TID
+    a = _attested(session, org_id, period_end, entity_id, role)
     supplied = {k: v["value"] for k, v in a.items() if k.startswith(f"{tid}.")}
     return s2701.premiums_from_supplied(spec, supplied, tid)
