@@ -1,6 +1,14 @@
 {
  "_about": "The official EU legal texts the platform quotes, as retrieved: each normalised to plain text (tags removed, whitespace collapsed) and gzipped. sha256 is of the normalised text. A quote in data/reference is valid only if it is found word for word in one of these (tests/unit/test_legal_texts.py and the quote checks that read services.reference.legal_texts).",
  "texts": {
+  "02009L0138-20250117": {
+   "title": "Directive 2009/138/EC of the European Parliament and of the Council of 25 November 2009 on the taking-up and pursuit of the business of Insurance and Reinsurance (Solvency II) (recast) (Text with EEA relevance)",
+   "celex": "02009L0138-20250117",
+   "source": "http://publications.europa.eu/resource/celex/02009L0138-20250117",
+   "retrieved": "2026-10-29",
+   "sha256": "2154ff38f495e8a78968166d8a2588169e982361f1b99cd4c05162168408eeab",
+   "chars": 603273
+  },
   "02013R0575-20250101": {
    "title": "Regulation (EU) No 575/2013 (Capital Requirements Regulation), consolidated text of 1 January 2025",
    "celex": "02013R0575-20250101",
@@ -168,6 +176,22 @@
    "retrieved": "2026-10-01",
    "sha256": "29cabb9ba19d26f95e709b5d5144fbbc18c821ec551d12749dd1865ccd8e00bc",
    "chars": 10075
+  },
+  "32025L0001": {
+   "title": "Directive (EU) 2025/1 of the European Parliament and of the Council of 27 November 2024 establishing a framework for the recovery and resolution of insurance and reinsurance undertakings and amending Directives 2002/47/EC, 2004/25/EC, 2007/36/EC, 2014/59/EU and (EU) 2017/1132 and Regulations (EU) No 1094/2010, (EU) No 648/2012, (EU) No 806/2014 and (EU) 2017/1129 (Text with EEA relevance)",
+   "celex": "32025L0001",
+   "source": "http://publications.europa.eu/resource/celex/32025L0001",
+   "retrieved": "2026-10-29",
+   "sha256": "8bef3a116ec92441c340b6e31a1f9799768b6898f587373c444cf1ab5bd39d8e",
+   "chars": 387673
+  },
+  "32025L0002": {
+   "title": "Directive (EU) 2025/2 of the European Parliament and of the Council of 27 November 2024 amending Directive 2009/138/EC as regards proportionality, quality of supervision, reporting, long-term guarantee measures, macro-prudential tools, sustainability risks and group and cross-border supervision, and amending Directives 2002/87/EC and 2013/34/EU (Text with EEA relevance)",
+   "celex": "32025L0002",
+   "source": "http://publications.europa.eu/resource/celex/32025L0002",
+   "retrieved": "2026-10-29",
+   "sha256": "d1e03c1740e908004abd90889e669cf80a35ad8a6f7e6056014fd945123ef773",
+   "chars": 359391
   },
   "32025L0794": {
    "title": "Directive (EU) 2025/794 (stop-the-clock), as published",

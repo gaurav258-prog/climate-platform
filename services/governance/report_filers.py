@@ -3,8 +3,11 @@ the exports. E343 read it for Solvency II nat-cat (services.governance.sii_filer
 report whose act names its filers, one rule per report family:
 
   insurer_solvency           services.governance.sii_filers   an undertaking, a group (ITS (EU) 2023/894 Arts 19, 34)
-  insurer_orsa_climate       services.governance.orsa_filers  the same filers (Delegated Regulation (EU) 2015/35
-                                                              Arts 304(1)(c), 372(1))
+  insurer_orsa_climate       services.governance.orsa_filers  the same filers (Directive 2009/138/EC Arts 45(1), 246(4);
+                                                              Delegated Regulation (EU) 2015/35 Arts 304(1)(c), 372(1))
+  insurer_recovery_stress    services.governance.irrd_filers  the ultimate parent for its group, an undertaking outside
+                                                              a group plan, a subsidiary where required (Directive (EU)
+                                                              2025/1 Arts 5, 7)
   bank_p3esg                 services.governance.crr_filers   an EU parent institution on its consolidated situation, a
                                                               large subsidiary, an institution on its own (CRR Arts 6, 13)
   bank_tcfd, reit_taxonomy   services.governance.csrd_filers  each undertaking subject to Art. 19a or 29a of Directive
@@ -38,8 +41,8 @@ _SII_BASIS = {"title": "Who reports natural catastrophe risk",
                        "neither.",
               "legal": "Implementing Regulation (EU) 2023/894, Art. 19(1)(s)(i) and Art. 34(1)(s); Annex II and Annex III, "
                        "S.01.02."}
-RULES = {"insurer_solvency": "sii_filers", "insurer_orsa_climate": "orsa_filers", "bank_p3esg": "crr_filers",
-         "bank_tcfd": "csrd_filers", "reit_taxonomy": "csrd_filers"}
+RULES = {"insurer_solvency": "sii_filers", "insurer_orsa_climate": "orsa_filers", "insurer_recovery_stress": "irrd_filers",
+         "bank_p3esg": "crr_filers", "bank_tcfd": "csrd_filers", "reit_taxonomy": "csrd_filers"}
 _SII = "insurer_solvency"
 
 
@@ -190,4 +193,5 @@ def section(framework: str, payload: dict | None) -> dict | None:
 
 LEVELS = {"organisation": "The organisation (its only undertaking)", "group": "A group, on its consolidated figures",
           "undertaking": "An undertaking, for itself", "institution": "An institution, for itself",
-          "large_subsidiary": "A large subsidiary, for itself", "not_owed": "Not owed — prepared by choice"}
+          "large_subsidiary": "A large subsidiary, for itself", "not_owed": "Not owed — prepared by choice",
+          "subsidiary_on_request": "A subsidiary, where its supervisor requires its own"}

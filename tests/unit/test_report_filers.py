@@ -14,6 +14,7 @@ from services.governance import (
     filing_annex,
     filing_export,
     filings,
+    irrd_filers,
     orsa_filers,
     report_filers,
     report_snapshots,
@@ -27,15 +28,15 @@ def test_every_reading_is_the_acts_own_wording():
     for mod in {report_filers.rule(f) for f in report_filers.RULES}:
         missing = [k for k, (celex, q) in mod.QUOTES.items() if L.normalise(q) not in L.normalise(L.text(celex))]
         assert missing == [], mod.__name__
-    assert len(crr_filers.QUOTES) == 7 and len(csrd_filers.QUOTES) == 7 and len(orsa_filers.QUOTES) == 4
+    assert len(crr_filers.QUOTES) == 7 and len(csrd_filers.QUOTES) == 7 and len(orsa_filers.QUOTES) == 8
+    assert len(irrd_filers.QUOTES) == 6
     assert "449a" in crr_filers.QUOTES["CRR Art. 13(1), second subparagraph"][1]      # added by Regulation (EU) 2024/1623
 
 
 def test_every_entity_scoped_report_names_its_filers():
     """No entity-scoped report keeps the framework-blind whole-organisation default: each has a filer rule, except the
-    ESRS statement (its own scope: services.governance.esrs_statement, on the same CSRD roles) and the recovery plan (who
-    files it is the IRRD's, Directive (EU) 2025/1, not yet held — docs/ENGINEERING_PROCESS.md E350)."""
-    own_scope = {"esrs_pack", "insurer_recovery_stress"}
+    ESRS statement (its own scope: services.governance.esrs_statement, on the same CSRD roles)."""
+    own_scope = {"esrs_pack"}
     assert filings._ENTITY_SCOPED - own_scope == set(report_filers.RULES)
     for f in report_filers.RULES:
         if f == "insurer_solvency":
@@ -122,3 +123,29 @@ def test_the_orsa_is_reported_by_the_undertakings_and_groups_of_solvency_ii():
     assert "_filer_or_refuse" in _calls(docs.get_document) and "_filer_or_refuse" in _calls(docs.put_answers)
     assert "whole_org_refusal" in _calls(docs._filer_or_refuse)
     assert report_filers.scope_basis("insurer_orsa_climate")["title"] == "Who reports the ORSA"
+    assert "sii_filers" in inspect.getsource(irrd_filers.choices) and irrd_filers.owed(None, "o", "f", None) == {}
+
+
+def test_the_insurer_document_specs_quote_their_directives_word_for_word():
+    """The ORSA climate analysis and the recovery plan templates (regspec sii_climate / irrd_recovery) were captured from
+    the OJ texts of Directives (EU) 2025/2 and 2025/1; now that both are stored, every item's wording and every quote is
+    found word for word in them (as E342 does for ITS 2023/894)."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "data" / "reference" / "regspec"
+
+    def quotes(o):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k == "quote" and isinstance(v, str):
+                    yield v
+                else:
+                    yield from quotes(v)
+        elif isinstance(o, list):
+            for v in o:
+                yield from quotes(v)
+    for spec, celex in (("sii_climate/dir_2025_2.json", "32025L0002"), ("irrd_recovery/dir_2025_1.json", "32025L0001")):
+        d = json.loads((root / spec).read_text())
+        text = L.normalise(L.text(celex))
+        wording = [i["label"] for t in d["templates"] for i in t["items"] if i["kind"] != "heading"] + list(quotes(d))
+        assert len(wording) >= 9 and [w for w in wording if L.normalise(w) not in text] == [], spec

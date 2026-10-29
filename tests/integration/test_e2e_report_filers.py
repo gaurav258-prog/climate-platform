@@ -256,11 +256,11 @@ def test_an_exempt_subsidiary_reports_no_taxonomy_kpis_of_its_own(api):
     assert "Stellar Group" in body["detail"]["what"] and "C/2023/305" in body["detail"]["why"]
 
 
-def test_iberia_reports_its_orsa_through_an_undertaking_or_the_group(api):
-    """The ORSA's filers are Solvency II's (Delegated Regulation (EU) 2015/35 Arts 304(1)(c), 372(1); E350): Iberia's
-    documents page offers its group and undertakings only, the whole organisation is refused for the document and its
-    filing, and the group's filing would record the group's report. The recovery plan keeps the organisation until the
-    IRRD's text is held."""
+def test_iberia_reports_its_orsa_and_recovery_plan_through_an_undertaking_or_the_group(api):
+    """The ORSA's filers are Solvency II's (Directive 2009/138/EC Arts 45(1), 246(4); Delegated Regulation (EU) 2015/35
+    Arts 304(1)(c), 372(1); E350): Iberia's documents page offers its group and undertakings only, the whole organisation
+    is refused for the document and its filing, and the group's filing would record the group's report. The recovery plan
+    follows the IRRD (Arts 5(1), 7(1), (4)): the group's plan by its ultimate parent, a subsidiary's where required."""
     from tests.integration.test_e2e_s2701 import GROUP, IBERIA, IBERIA_RE, SEGUROS, _users
     maker, _, _ = _users(api)
     who = api.get("/v1/filings/filers?framework=insurer_orsa_climate", headers=maker).json()
@@ -280,5 +280,11 @@ def test_iberia_reports_its_orsa_through_an_undertaking_or_the_group(api):
     assert record(api.s, IBERIA, "insurer_orsa_climate", GROUP, True, pe)["basis"].startswith(
         "Delegated Regulation (EU) 2015/35 Art. 372(1)")
     assert record(api.s, IBERIA, "insurer_orsa_climate", SEGUROS, False, pe)["level"] == "undertaking"
-    assert api.get("/v1/filings/filers?framework=insurer_recovery_stress", headers=maker).json()["organisation"] is True
+    rp = api.get("/v1/filings/filers?framework=insurer_recovery_stress", headers=maker).json()
+    assert not rp["organisation"] and [f["entity_id"] for f in rp["filers"]] == [GROUP, SEGUROS, IBERIA_RE]
+    assert rp["scope_basis"]["title"] == "Who draws up the recovery plan"
+    _refused(api.get("/v1/insurance/documents/insurer_recovery_stress", headers=maker), "filing.refused.whole_org_no_filer")
+    assert record(api.s, IBERIA, "insurer_recovery_stress", GROUP, True, pe)["basis"].startswith("Directive (EU) 2025/1 Art. 7(1)")
+    sub = record(api.s, IBERIA, "insurer_recovery_stress", SEGUROS, False, pe)
+    assert sub["level"] == "subsidiary_on_request" and "Art. 7(4), (5)" in sub["basis"]
     assert api.get("/v1/filings/filers?framework=no_such_report", headers=maker).status_code == 404

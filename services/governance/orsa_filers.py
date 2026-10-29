@@ -1,8 +1,11 @@
 """Who reports the ORSA climate change scenario analysis (insurer_orsa_climate) — the filer rule of
 services.governance.report_filers for an organisation of two or more reporting entities.
 
-The analysis is part of the own-risk and solvency assessment and goes to the supervisor in the ORSA supervisory report.
-Delegated Regulation (EU) 2015/35 names its two filers:
+The analysis is part of the own-risk and solvency assessment: "every insurance undertaking and reinsurance undertaking
+shall conduct its own risk and solvency assessment" (Directive 2009/138/EC Art. 45(1)), and the participating undertaking
+or holding company undertakes it "at the level of the group" (Art. 246(4); Directive (EU) 2025/2 widens what the group
+assessment covers, not who makes it). It goes to the supervisor in the ORSA supervisory report, whose two filers
+Delegated Regulation (EU) 2015/35 names:
 - each insurance or reinsurance undertaking, for itself: "the own-risk and solvency assessment supervisory report (‘ORSA
   supervisory report’) comprising the results of each regular own risk and solvency assessment performed by the insurance
   and reinsurance undertakings" (Art. 304(1)(c));
@@ -13,10 +16,10 @@ Delegated Regulation (EU) 2015/35 names its two filers:
 These are the filers of Solvency II nat-cat (services.governance.sii_filers): each group (a top entity with entities
 below it) and each entity that files its own report; the reading of who is which is shared, not copied.
 
-Not modelled: the single ORSA document — with the group supervisor's agreement, the group's assessment may cover its
-subsidiaries' ("where applicable, information on the subsidiaries included in the own risk and solvency assessment as
-referred to in the third subparagraph of Article 246(4) of Directive 2009/138/EC", Art. 372(2)(b)(ii)); the platform
-records no such agreement, so each undertaking is offered its own. EIOPA Q&A on regulation (checked 2026-10-29: topic ORSA,
+Not modelled: the single ORSA document — "subject to the agreement of the group supervisor" the group may "produce a
+single document covering all the assessments" (Art. 246(4), third subparagraph; Del. Reg. Art. 372(2)(b)(ii)), which
+"shall not exempt the subsidiaries concerned from the obligation to ensure that the requirements of Article 45 are met";
+the platform records no such agreement, so each undertaking is offered its own. EIOPA Q&A on regulation (checked 2026-10-29: topic ORSA,
 6 Q&As; keyword searches): none on who submits the ORSA supervisory report in a group; 1350 (final, submitted 5 Dec 2018)
 on its timing, 3261 (final, 18 Feb 2025) on its content.
 """
@@ -27,8 +30,20 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 FRAMEWORK = "insurer_orsa_climate"
-DR = "02015R0035-20241114"
+DR, SII = "02015R0035-20241114", "02009L0138-20250117"
 QUOTES = {
+    "Directive 2009/138/EC Art. 45(1)": (SII, "As part of its risk-management system every insurance undertaking and "
+                                              "reinsurance undertaking shall conduct its own risk and solvency assessment."),
+    "Directive 2009/138/EC Art. 246(4), first subparagraph": (SII, "Member States shall require the participating insurance "
+                                                                   "undertaking or reinsurance undertaking, the insurance "
+                                                                   "holding company or the mixed financial holding company to "
+                                                                   "undertake at the level of the group the assessment "
+                                                                   "required by Article 45."),
+    "Directive 2009/138/EC Art. 246(4), third subparagraph": (SII, "may produce a single document covering all "
+                                                                               "the assessments"),
+    "Directive 2009/138/EC Art. 246(4), fifth subparagraph": (SII, "The exercise of that option shall not exempt the "
+                                                                   "subsidiaries concerned from the obligation to ensure that "
+                                                                   "the requirements of Article 45 are met."),
     "Del. Reg. 2015/35 Art. 304(1)(c)": (DR, "the own-risk and solvency assessment supervisory report (‘ORSA supervisory "
                                              "report’) comprising the results of each regular own risk and solvency "
                                              "assessment performed by the insurance and reinsurance undertakings"),
@@ -49,7 +64,8 @@ BASIS = {FRAMEWORK: {
     "title": "Who reports the ORSA",
     "shows": "Each undertaking reports its own assessment; a group reports the group's. The whole organisation's book counts "
              "every entity in full, so it is neither.",
-    "legal": "Delegated Regulation (EU) 2015/35, Art. 304(1)(c), Art. 372(1) and Art. 373.",
+    "legal": "Directive 2009/138/EC, Art. 45(1) and Art. 246(4); Delegated Regulation (EU) 2015/35, Art. 304(1)(c), "
+             "Art. 372(1) and Art. 373.",
     "organisation": _BASIS["undertaking"]}}
 NO_CHOICE = "a group or an undertaking of the entity structure"
 
