@@ -3,6 +3,8 @@ the exports. E343 read it for Solvency II nat-cat (services.governance.sii_filer
 report whose act names its filers, one rule per report family:
 
   insurer_solvency           services.governance.sii_filers   an undertaking, a group (ITS (EU) 2023/894 Arts 19, 34)
+  insurer_orsa_climate       services.governance.orsa_filers  the same filers (Delegated Regulation (EU) 2015/35
+                                                              Arts 304(1)(c), 372(1))
   bank_p3esg                 services.governance.crr_filers   an EU parent institution on its consolidated situation, a
                                                               large subsidiary, an institution on its own (CRR Arts 6, 13)
   bank_tcfd, reit_taxonomy   services.governance.csrd_filers  each undertaking subject to Art. 19a or 29a of Directive
@@ -36,8 +38,8 @@ _SII_BASIS = {"title": "Who reports natural catastrophe risk",
                        "neither.",
               "legal": "Implementing Regulation (EU) 2023/894, Art. 19(1)(s)(i) and Art. 34(1)(s); Annex II and Annex III, "
                        "S.01.02."}
-RULES = {"insurer_solvency": "sii_filers", "bank_p3esg": "crr_filers", "bank_tcfd": "csrd_filers",
-         "reit_taxonomy": "csrd_filers"}
+RULES = {"insurer_solvency": "sii_filers", "insurer_orsa_climate": "orsa_filers", "bank_p3esg": "crr_filers",
+         "bank_tcfd": "csrd_filers", "reit_taxonomy": "csrd_filers"}
 _SII = "insurer_solvency"
 
 
@@ -154,6 +156,14 @@ def scope_basis(framework: str) -> dict | None:
         return None
     b = _SII_BASIS if framework == _SII else rule(framework).BASIS[framework]
     return {"title": b["title"], "shows": b["shows"], "legal": b["legal"]}
+
+
+def filers(session: Session, org_id: str, framework: str, period_end: date) -> dict:
+    """Who a screen offers for a ruled report: the organisation itself when it is the filer, else its filers, with the
+    report's words on who reports it."""
+    org = not governs(framework) or is_filer(session, org_id)
+    return {"framework": framework, "organisation": org,
+            "filers": [] if org else choices(session, org_id, framework, period_end), "scope_basis": scope_basis(framework)}
 
 
 def section(framework: str, payload: dict | None) -> dict | None:

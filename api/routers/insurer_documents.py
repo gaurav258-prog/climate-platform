@@ -22,6 +22,15 @@ def _period_end(session, org_id: str) -> date:
     return reporting_period_end(session, org_id)
 
 
+def _filer_or_refuse(session, org_id: str, report_type: str, entity_id: Optional[str]) -> None:
+    """A document is one filer's: the whole organisation of two or more entities is refused with its filers
+    (services.governance.report_filers), as the filing is."""
+    from services.governance.report_filers import whole_org_refusal
+    why = whole_org_refusal(session, org_id, report_type, entity_id, _period_end(session, org_id))
+    if why is not None:
+        raise UserError(why[0], 409, **why[1])
+
+
 @router.get("/{report_type}", summary="The document as it stands now, item by item, for an undertaking or the group")
 def get_document(report_type: str, session: DbSession, entity_id: Optional[str] = Query(None),
                  disclosure_date: Optional[date] = Query(None, description="the date the report will be made (it chooses the rules)"),
@@ -29,6 +38,7 @@ def get_document(report_type: str, session: DbSession, entity_id: Optional[str] 
     org_id = ctx["org"]["org_id"]
     if entity_id:
         own_or_404(session, "reporting_entities", "entity_id", entity_id, org_id, "Reporting entity")
+    _filer_or_refuse(session, org_id, report_type, entity_id)
     try:
         return D.live(session, org_id, report_type, entity_id=entity_id, period_end=_period_end(session, org_id),
                       disclosure_date=disclosure_date)
@@ -48,6 +58,7 @@ def put_answers(report_type: str, body: Answers, session: DbSession,
     org_id = ctx["org"]["org_id"]
     if body.entity_id:
         own_or_404(session, "reporting_entities", "entity_id", body.entity_id, org_id, "Reporting entity")
+    _filer_or_refuse(session, org_id, report_type, body.entity_id)
     try:
         out = D.save(session, org_id, report_type, body.answers, ctx["user"]["id"], entity_id=body.entity_id,
                      period_end=_period_end(session, org_id), disclosure_date=body.disclosure_date)

@@ -14,6 +14,7 @@ from services.governance import (
     filing_annex,
     filing_export,
     filings,
+    orsa_filers,
     report_filers,
     report_snapshots,
 )
@@ -26,15 +27,15 @@ def test_every_reading_is_the_acts_own_wording():
     for mod in {report_filers.rule(f) for f in report_filers.RULES}:
         missing = [k for k, (celex, q) in mod.QUOTES.items() if L.normalise(q) not in L.normalise(L.text(celex))]
         assert missing == [], mod.__name__
-    assert len(crr_filers.QUOTES) == 7 and len(csrd_filers.QUOTES) == 7
+    assert len(crr_filers.QUOTES) == 7 and len(csrd_filers.QUOTES) == 7 and len(orsa_filers.QUOTES) == 4
     assert "449a" in crr_filers.QUOTES["CRR Art. 13(1), second subparagraph"][1]      # added by Regulation (EU) 2024/1623
 
 
 def test_every_entity_scoped_report_names_its_filers():
     """No entity-scoped report keeps the framework-blind whole-organisation default: each has a filer rule, except the
-    ESRS statement (its own scope: services.governance.esrs_statement, on the same CSRD roles) and the insurer documents
-    (who files them waits on the Solvency II Directive and the IRRD, not yet held — docs/ENGINEERING_PROCESS.md E349)."""
-    own_scope = {"esrs_pack", "insurer_orsa_climate", "insurer_recovery_stress"}
+    ESRS statement (its own scope: services.governance.esrs_statement, on the same CSRD roles) and the recovery plan (who
+    files it is the IRRD's, Directive (EU) 2025/1, not yet held — docs/ENGINEERING_PROCESS.md E350)."""
+    own_scope = {"esrs_pack", "insurer_recovery_stress"}
     assert filings._ENTITY_SCOPED - own_scope == set(report_filers.RULES)
     for f in report_filers.RULES:
         if f == "insurer_solvency":
@@ -111,3 +112,13 @@ def test_no_dated_entity_scoped_report_falls_back_to_the_whole_organisation():
             assert report_filers.governs(f), f
     src = inspect.getsource(filings.ensure_obligations)
     assert "requires_solo_filing" not in src and "'solo'" not in src
+
+
+def test_the_orsa_is_reported_by_the_undertakings_and_groups_of_solvency_ii():
+    """The ORSA's filers are nat-cat's — each undertaking (Art. 304(1)(c)) and the group (Art. 372(1)) — read once, in
+    sii_filers; the documents API refuses the whole organisation as the filing does."""
+    import api.routers.insurer_documents as docs
+    assert "choices" in _calls(orsa_filers.choices) and "sii_filers" in inspect.getsource(orsa_filers.choices)
+    assert "_filer_or_refuse" in _calls(docs.get_document) and "_filer_or_refuse" in _calls(docs.put_answers)
+    assert "whole_org_refusal" in _calls(docs._filer_or_refuse)
+    assert report_filers.scope_basis("insurer_orsa_climate")["title"] == "Who reports the ORSA"

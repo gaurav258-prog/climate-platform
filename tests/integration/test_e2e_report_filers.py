@@ -254,3 +254,31 @@ def test_an_exempt_subsidiary_reports_no_taxonomy_kpis_of_its_own(api):
     body = _refused(api.get(f"/v1/filings/preflight?framework=reit_taxonomy&entity_id={fund}", headers=maker),
                     "filing.refused.exempt_subsidiary_taxonomy")
     assert "Stellar Group" in body["detail"]["what"] and "C/2023/305" in body["detail"]["why"]
+
+
+def test_iberia_reports_its_orsa_through_an_undertaking_or_the_group(api):
+    """The ORSA's filers are Solvency II's (Delegated Regulation (EU) 2015/35 Arts 304(1)(c), 372(1); E350): Iberia's
+    documents page offers its group and undertakings only, the whole organisation is refused for the document and its
+    filing, and the group's filing would record the group's report. The recovery plan keeps the organisation until the
+    IRRD's text is held."""
+    from tests.integration.test_e2e_s2701 import GROUP, IBERIA, IBERIA_RE, SEGUROS, _users
+    maker, _, _ = _users(api)
+    who = api.get("/v1/filings/filers?framework=insurer_orsa_climate", headers=maker).json()
+    assert not who["organisation"] and [(f["entity_id"], f["role"]) for f in who["filers"]] == [
+        (GROUP, "consolidated"), (SEGUROS, "solo"), (IBERIA_RE, "solo")]
+    assert who["scope_basis"]["title"] == "Who reports the ORSA" and "Art. 372(1)" in who["scope_basis"]["legal"]
+    body = _refused(api.get("/v1/insurance/documents/insurer_orsa_climate", headers=maker), "filing.refused.whole_org_no_filer")
+    assert "Iberia Mutual Group" in body["detail"]["next"]
+    _refused(api.put("/v1/insurance/documents/insurer_orsa_climate/answers", headers=maker, json={"answers": {}}),
+             "filing.refused.whole_org_no_filer")
+    pf = api.get("/v1/filings/preflight?framework=insurer_orsa_climate", headers=maker).json()
+    assert pf["needs_scope"] and [s["entity_id"] for s in pf["scopes"]] == [GROUP, SEGUROS, IBERIA_RE]
+    assert api.get(f"/v1/insurance/documents/insurer_orsa_climate?entity_id={GROUP}", headers=maker).status_code == 200
+    from services.governance.filings import reporting_period_end
+    from services.governance.report_filers import record
+    pe = reporting_period_end(api.s, IBERIA)
+    assert record(api.s, IBERIA, "insurer_orsa_climate", GROUP, True, pe)["basis"].startswith(
+        "Delegated Regulation (EU) 2015/35 Art. 372(1)")
+    assert record(api.s, IBERIA, "insurer_orsa_climate", SEGUROS, False, pe)["level"] == "undertaking"
+    assert api.get("/v1/filings/filers?framework=insurer_recovery_stress", headers=maker).json()["organisation"] is True
+    assert api.get("/v1/filings/filers?framework=no_such_report", headers=maker).status_code == 404

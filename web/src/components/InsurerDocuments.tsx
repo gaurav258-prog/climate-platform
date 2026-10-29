@@ -5,14 +5,15 @@ import { FileText } from 'lucide-react'
 import { api, apiMessage } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Button, Card, SectionHead } from './ui'
-import { InfoButton } from './Details'
+import { HEADING, InfoButton } from './Details'
 import { StatusChip } from './StatusChip'
 import { DocumentItems, type DocItem } from './SfdrDocumentItems'
 import FilingPreflight from './FilingPreflight'
 
 // An insurer's two document reports as they stand now — the ORSA climate change scenario analysis (Directive
 // 2009/138/EC Art. 45a) and the pre-emptive recovery plan's nat-cat stress and capital indicators (Directive (EU)
-// 2025/1 Art. 5(7)-(8)) — for the whole organisation, one undertaking or the group. Both apply to reports made from
+// 2025/1 Art. 5(7)-(8)) — for one undertaking or the group (the whole organisation only when it is the one filer, as
+// services/governance/report_filers.py says). Both apply to reports made from
 // 30 January 2027: the planned date of the report chooses the rules and is frozen with the filing.
 
 interface Doc {
@@ -20,6 +21,7 @@ interface Doc {
   spec: { framework: string; version: string; applies: { from: string } }; items: DocItem[]
 }
 interface Ent { entity_id: string; name: string; kind: string }
+interface Filers { organisation: boolean; filers: { entity_id: string; name: string; role: 'solo' | 'consolidated' }[]; scope_basis: { title: string; shows: string; legal: string } | null }
 const DOCS = [
   { k: 'insurer_orsa_climate', label: 'ORSA climate analysis' },
   { k: 'insurer_recovery_stress', label: 'Recovery plan stress' },
@@ -34,13 +36,18 @@ export default function InsurerDocuments() {
   const [when, setWhen] = useState('')                    // '' = the platform's default (today, or the day the rules apply)
   const [filing, setFiling] = useState(false)
   const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/filings/entities') })
-  const key = ['insurer-doc', doc, entity, when]
-  const q = useQuery({ queryKey: key, queryFn: () => api.get<Doc>(`/v1/insurance/documents/${doc}?${new URLSearchParams({ ...(entity ? { entity_id: entity } : {}), ...(when ? { disclosure_date: when } : {}) })}`) })
+  // who reports this document (services/governance/report_filers.py): the organisation itself, or only its filers
+  const who = useQuery({ queryKey: ['filers', doc], queryFn: () => api.get<Filers>(`/v1/filings/filers?framework=${doc}`) })
+  const filers = who.data && !who.data.organisation ? who.data.filers : null
+  const scope = filers && !filers.some(f => f.entity_id === entity) ? (filers[0]?.entity_id ?? '') : entity
+  const key = ['insurer-doc', doc, scope, when]
+  const q = useQuery({ queryKey: key, enabled: !!who.data && (!filers || !!scope),
+    queryFn: () => api.get<Doc>(`/v1/insurance/documents/${doc}?${new URLSearchParams({ ...(scope ? { entity_id: scope } : {}), ...(when ? { disclosure_date: when } : {}) })}`) })
   const d = q.data
   const answer = async (id: string, value: any) => {
     try {
       const r = await api.put<{ refused: { item: string; reason: string }[] }>(`/v1/insurance/documents/${doc}/answers`,
-        { answers: { [id]: value }, entity_id: entity || null, disclosure_date: when || null })
+        { answers: { [id]: value }, entity_id: scope || null, disclosure_date: when || null })
       if (r.refused?.length) toast.error(r.refused[0].reason)
       else toast.success('Answer saved')
       qc.invalidateQueries({ queryKey: ['insurer-doc', doc] })
@@ -67,11 +74,14 @@ export default function InsurerDocuments() {
                 className={`text-[12px] px-2.5 py-1 ${doc === x.k ? 'bg-[var(--color-line-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{x.label}</button>
             ))}
           </div>
-          <select aria-label="Undertaking or group" value={entity} onChange={e => setEntity(e.target.value)}
+          <select aria-label="Undertaking or group" value={scope} onChange={e => setEntity(e.target.value)}
             className="text-[12px] bg-transparent border border-[var(--color-line-2)] rounded px-2 py-1">
-            <option value="">Whole organisation</option>
-            {(ents.data?.entities ?? []).map(e => <option key={e.entity_id} value={e.entity_id}>{e.kind === 'group' ? `Group — ${e.name}` : e.name}</option>)}
+            {filers ? filers.map(f => <option key={f.entity_id} value={f.entity_id}>{f.role === 'consolidated' ? `Group — ${f.name}` : f.name}</option>) : <>
+              <option value="">Whole organisation</option>
+              {(ents.data?.entities ?? []).map(e => <option key={e.entity_id} value={e.entity_id}>{e.kind === 'group' ? `Group — ${e.name}` : e.name}</option>)}</>}
           </select>
+          {filers && who.data?.scope_basis && <InfoButton compact details={{ title: who.data.scope_basis.title, sections: [
+            { heading: HEADING.shows, body: who.data.scope_basis.shows }, { heading: 'Legal basis', body: who.data.scope_basis.legal }] }} />}
           <label className="text-[12px] text-[var(--color-mute)] flex items-center gap-1.5">
             {doc === 'insurer_orsa_climate' ? 'Concluded on' : 'Submitted on'}
             <input type="date" value={when} min={d?.spec.applies.from} onChange={e => setWhen(e.target.value)}
@@ -83,7 +93,7 @@ export default function InsurerDocuments() {
       {q.isLoading && <div className="px-5 py-6 text-[12.5px] text-[var(--color-faint)]">Running the scenarios…</div>}
       {q.isError && <div className="px-5 py-6 text-[12.5px] text-[var(--color-mute)]">{apiMessage(q.error, 'This document is not available.')}</div>}
       {d && <DocumentItems items={d.items} onAnswer={answer} />}
-      {filing && <FilingPreflight framework={doc} entity={entity || undefined} disclosureDate={planned || undefined}
+      {filing && <FilingPreflight framework={doc} entity={scope || undefined} disclosureDate={planned || undefined}
         onClose={() => setFiling(false)} onGenerated={id => { setFiling(false); nav(`/filings?filing=${id}`) }} />}
     </Card>
   )

@@ -168,14 +168,14 @@ Scripts: `npm run dev` → `vite`, `npm run build` → `tsc -b && vite build`, `
 
 ### API
 
-FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **664 operations on 587 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
+FastAPI application `api/main.py`. Its OpenAPI schema (`app.openapi()`) lists **665 operations on 588 paths**; routes registered with `include_in_schema=False` (such as `/metrics`) are not counted. Operations per tag:
 
 | Tag | Operations |
 |---|---|
 | Regulator portal | 53 |
 | Agriculture / Supply chain | 43 |
 | Integration | 41 |
-| Reporting cockpit | 39 |
+| Reporting cockpit | 40 |
 | Asset Management — Funds | 33 |
 | EUDR | 32 |
 | Regulatory tasks | 28 |

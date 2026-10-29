@@ -68,9 +68,10 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
   const [figs, setFigs] = useState<Record<string, 'client' | 'tellumen'>>({})
   const d = q.data
   const entities = ents.data?.entities ?? []
-  // once the server says who files this report, only they are offered — the whole organisation is not
-  const [filers, setFilers] = useState<Preflight['scopes'] | null>(null)
-  if (d?.needs_scope && d.scopes && filers === null) setFilers(d.scopes)
+  // who files this report (services/governance/report_filers.py): when the organisation is not the filer, only its
+  // filers are offered — the whole organisation never is
+  const who = useQuery({ queryKey: ['filers', framework], queryFn: () => api.get<{ organisation: boolean; filers: NonNullable<Preflight['scopes']> }>(`/v1/filings/filers?framework=${framework}`) })
+  const filers = d?.needs_scope && d.scopes ? d.scopes : who.data && !who.data.organisation ? who.data.filers : null
   const [roleFor, setRoleFor] = useState<{ entity_id: string; name: string } | null>(null)
 
   const freeze = async () => {

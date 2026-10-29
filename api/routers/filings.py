@@ -146,6 +146,15 @@ def obligations(session: DbSession, ctx: dict = Depends(require_permission("repo
             "filers_to_state": F.filers_to_state(session, ctx["org"]["org_id"], ctx["org"]["type"])}
 
 
+@router.get("/filings/filers", summary="Who files a report: the organisation itself, or the filers its act names")
+def filers(session: DbSession, framework: str = Query(...), ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.report_filers import filers as who
+    if framework not in F.FRAMEWORKS:
+        raise UserError("error.not_found", 404)
+    org_id = ctx["org"]["org_id"]
+    return who(session, org_id, framework, F.reporting_period_end(session, org_id))
+
+
 @router.get("/filings/frameworks", summary="Frameworks this organisation can file")
 def frameworks(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return {"frameworks": F.available_frameworks(ctx["org"]["type"])}
