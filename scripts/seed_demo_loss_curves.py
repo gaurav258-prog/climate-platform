@@ -2,8 +2,10 @@
 decision of 2026-10-21) — the choices the demo insurer Alpenrück made: river flood → the JRC global damage curves
 (jrc_huizinga_2017); tropical cyclone → the Eberenz 2021 curves fitted to each storm's damage (eberenz_2021_rmsf);
 coastal flood → the same JRC curves, which the coastal maps' publisher applies to coastal depths (the product owner's
-decision of 2026-10-25) — every coastal figure untested until the curves are tested on observed coastal losses; and, for
-a bank or a property trust, the building share of a stated value from official statistics (2026-10-25: Spain by province,
+decision of 2026-10-25) — every coastal figure untested until the curves are tested on observed coastal losses;
+European windstorm → the Prahl 2015 curve for German homes (prahl_2015_h; the product owner's decision of 2026-10-29)
+— every windstorm figure untested, no open European storm-loss record being held to test it; and, for a bank or a
+property trust, the building share of a stated value from official statistics (2026-10-25: Spain by province,
 Germany nationally as a lower bound — services/reference/building_share.py). A choice a sector cannot make is not offered.
 
 Each choice goes through the route the Methodology page uses (services.governance.config_governance.
@@ -26,7 +28,8 @@ from core.db.session import get_session
 from services.loss import curves
 
 CHOICES = {"loss_curve_family_flood": "jrc_huizinga_2017", "loss_curve_family_storm": "eberenz_2021_rmsf",
-           "loss_curve_family_coastal_flood": "jrc_huizinga_2017", "loss_building_share": "official_statistics"}
+           "loss_curve_family_coastal_flood": "jrc_huizinga_2017", "loss_curve_family_windstorm": "prahl_2015_h",
+           "loss_building_share": "official_statistics"}
 
 
 def books(s, org_id: str) -> list[str]:
