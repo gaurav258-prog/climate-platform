@@ -13,6 +13,7 @@ from core.db.session import get_session
 from services.governance import model_risk as MR
 from services.governance.kri import kri, kri_detail, kri_frameworks
 from services.intelligence.model_validation import hazard_for_channel
+from tests.integration.filers import taxonomy_filer_in_session
 
 SETS = [("11111111-1111-4111-8111-111111111111", "bank_tcfd"), ("11111111-1111-4111-8111-111111111111", "bank_p3esg"),
         ("22222222-2222-4222-8222-222222222222", "insurer_solvency"), ("33333333-3333-4333-8333-333333333333", "reit_taxonomy"),
@@ -39,6 +40,8 @@ def _words(x, path=""):
 @pytest.mark.parametrize("org,fw", SETS)
 def test_a_kri_set_speaks_in_customer_words(org, fw):
     with get_session() as s:
+        if fw in ("bank_tcfd", "reit_taxonomy"):            # the EU Taxonomy set is its filer's: the group (E351)
+            taxonomy_filer_in_session(s, org)
         d = kri(s, org, fw)
         assert d["supported"] and d["kpis"]
         for k in d["kpis"]:

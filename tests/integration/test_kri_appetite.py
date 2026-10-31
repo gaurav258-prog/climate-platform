@@ -5,6 +5,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.governance import kri_thresholds as KT
 from services.governance.kri import kri
+from tests.integration.filers import taxonomy_filer_in_session
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 
@@ -36,6 +37,7 @@ def test_platform_defaults_grade_live_kpis():
     with get_session() as s:
         s.execute(text("DELETE FROM kri_threshold WHERE org_id = :o AND framework = 'bank_tcfd' "
                        "AND kri_key IN ('pct_at_risk', 'coverage')"), {"o": BANK_ORG})
+        taxonomy_filer_in_session(s, BANK_ORG)               # the EU Taxonomy set is its filer's: the group (E351)
         d = kri(s, BANK_ORG, "bank_tcfd")
         assert d["supported"]
         kb = {k["key"]: k for k in d["kpis"]}
@@ -54,6 +56,7 @@ def test_org_override_beats_default_and_regrades():
         # force an org band that any coverage trips → red, proving the override is applied (coverage is a count on the
         # book, present whatever the bank's stated method; a money KRI is ungraded while its method is a gap)
         KT.set_threshold(s, BANK_ORG, None, "bank_tcfd", "coverage", {"amber": 100.5, "red": 100, "direction": "lower_worse"})
+        taxonomy_filer_in_session(s, BANK_ORG)
         d = kri(s, BANK_ORG, "bank_tcfd")
         p = next(k for k in d["kpis"] if k["key"] == "coverage")
         assert p["amber"] == 100.5 and p["red"] == 100

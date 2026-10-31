@@ -43,15 +43,16 @@ def _anchor(kpis: list[dict], printed: dict[str, str]) -> None:
 def _hist(h: dict, figures: list[dict]) -> dict:
     # the legacy book-value / at-risk slots stay empty: neither report prints them as a figure
     return {"label": h["label"], "filing_id": h["filing_id"], "total_value": None, "value_at_risk": None,
-            "pct_at_risk": None, "figures": figures}
+            "pct_at_risk": None, "figures": figures, "currency": h.get("currency")}
 
 
-def taxonomy_kri(session: Session, org_id: str) -> dict:
+def taxonomy_kri(session: Session, org_id: str, scope=None) -> dict:
+    """scope: the filer the set is on (services.governance.kri_scope; None = the whole book)."""
     from services.governance.bank_taxonomy_report import live_kpis
     from services.governance.kri import _kpi, _snapshot_history, msg
     from services.governance.taxonomy_forms import kpi_summary
-    r = book_kri(session, org_id)
-    sm = live_kpis(session, org_id) or {}
+    r = book_kri(session, org_id, scope)
+    sm = live_kpis(session, org_id, **(scope.book() if scope is not None else {})) or {}
     gar = [_kpi(key, label, sm.get(basis), "pct", tone="#4ade80", about=msg(code)) for key, label, basis, code in _GAR_KPIS]
     r["kpis"] = [k for k in r["kpis"] if k["key"] != "gar"] + gar
     _anchor(r["kpis"], _TAX_PRINTED)
@@ -59,7 +60,7 @@ def taxonomy_kri(session: Session, org_id: str) -> dict:
     def figures(p: dict) -> list[dict]:
         s = kpi_summary(p) or {}
         return [{"key": key, "label": label, "fmt": "pct", "value": s.get(basis)} for key, label, basis, _ in _GAR_KPIS]
-    r["history"] = [_hist(h, figures(h["payload"])) for h in _snapshot_history(session, org_id, TAXONOMY)]
+    r["history"] = [_hist(h, figures(h["payload"])) for h in _snapshot_history(session, org_id, TAXONOMY, scope)]
     r.update(framework=TAXONOMY, label="EU Taxonomy indicators")
     return r
 
@@ -85,19 +86,19 @@ def _p3_live_spec(session: Session, org_id: str) -> dict | None:
     return _p3_spec({"_specs": {PILLAR3: rec}} if rec and rec.get("version") else {})
 
 
-def pillar3_kri(session: Session, org_id: str) -> dict:
+def pillar3_kri(session: Session, org_id: str, scope=None) -> dict:
     """The banking-book core plus the indicators the Pillar 3 templates prescribe beyond it: the IEA-NZE2050 alignment
     distance (Template 3) and the exposure to the top-20 carbon-intensive firms (Template 4)."""
     from services.governance import kri_t5
     from services.governance.filing_annex import _p3_spec
     from services.governance.kri import _kpi, _live_snapshot, _snapshot_history, fact, msg
     from services.governance.reporting_settings import get_settings
-    r = book_kri(session, org_id)
+    r = book_kri(session, org_id, scope)
     live_spec, t5 = _p3_live_spec(session, org_id), []
     try:
         from services.governance.transition_alignment import template3_grid, template4_top20
         s = get_settings(session, org_id)
-        snap = _live_snapshot(session, org_id, PILLAR3, s["scenario"], s["horizon"])
+        snap = _live_snapshot(session, org_id, PILLAR3, s["scenario"], s["horizon"], scope)
         assets = (snap or {}).get("assets") or []
         t5 = kri_t5.kpis(live_spec, kri_t5.grid(snap, live_spec), (snap.get("rollup") or {}).get("gap"))
         total = (snap or {}).get("rollup", {}).get("total_value_eur") or sum(a.get("value_eur") or 0 for a in assets)
@@ -130,14 +131,14 @@ def pillar3_kri(session: Session, org_id: str) -> dict:
                                "value": _t1_emissions(_p3_spec(h["payload"]), h["payload"].get("assets") or [],
                                                       h["payload"].get(T1_RECORD))}]
                           + kri_t5.figures(h["payload"], live_spec))
-                    for h in _snapshot_history(session, org_id, PILLAR3)]
+                    for h in _snapshot_history(session, org_id, PILLAR3, scope)]
     r.update(framework=PILLAR3, label="Pillar 3 ESG indicators")
     return r
 
 
-def book_kri(session: Session, org_id: str) -> dict:
+def book_kri(session: Session, org_id: str, scope=None) -> dict:
     """The banking book's live KRIs (physical risk, financed emissions, Taxonomy eligibility, credit-risk overlays) —
-    shared by both sets; each set anchors what its report prints."""
+    shared by both sets; each set anchors what its report prints. scope: one filer's book (kri_scope), else the whole."""
     from api.routers.bank import build_disclosure_snapshot
     from core import messages
     from services.governance.kri import _amount, _kpi, fact, method_gap, msg
@@ -149,7 +150,7 @@ def book_kri(session: Session, org_id: str) -> dict:
     from services.governance.reporting_settings import get_settings
     from services.scoring.pcaf import financed_total
     s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
+    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"], **(scope.book() if scope is not None else {}))
     r = snap.get("rollup", {})
     em, pcaf, tax = snap.get("financed_emissions_tco2e", {}), snap.get("financed_emissions_pcaf", {}), snap.get("taxonomy", {})
     total = r.get("total_value_eur", 0) or 0
@@ -169,8 +170,9 @@ def book_kri(session: Session, org_id: str) -> dict:
         from services.intelligence.forward_risk import forward_risk
         from services.money.params import for_org
         scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
-        fut = [t for t in (forward_risk(session, org_id, "banking", scen, for_org(session, org_id)).get("trajectory") or [])
-               if t.get("horizon") != "current"]
+        shares = scope.shares(session, org_id) if scope is not None else None      # the filer's book, asset by asset
+        fut = [t for t in (forward_risk(session, org_id, "banking", scen, for_org(session, org_id), shares=shares)
+                           .get("trajectory") or []) if t.get("horizon") != "current"]
         if fut:
             fwd_share = fut[-1].get("at_risk_pct")
             fwd_facts = [fact("scenario", messages.name("scenario", scen), "text"), fact("year", fut[-1].get("horizon"), "text")]
@@ -229,6 +231,9 @@ def book_kri(session: Session, org_id: str) -> dict:
                                 fact("lifetime_share", elb.get("lifetime_el_bps"), "bps"),
                                 *([fact("scenario", messages.name("scenario", elb["scenario"]), "text")]
                                   if elb.get("scenario") in messages.names().get("scenario", {}) else [])]))
+    elif scope is not None:                  # the engine computes it for the whole organisation's book only
+        kpis.append(_kpi("expected_loss", "Climate expected loss (annual)", None, "eur", tone="#fb7185",
+                         about=msg("kri.indicator.expected_loss"), missing=msg("kri.filer.whole_book_only")))
     csr = snap.get("collateral_stranding") or {}
     if csr.get("available"):
         kpis.append(_kpi(
@@ -243,5 +248,5 @@ def book_kri(session: Session, org_id: str) -> dict:
                 fact("assessed", csr.get("epc_coverage_pct"), "pct")]))
     from services.governance.kri import _by_hazard
     from services.governance.kri_loss import tested_loss_kpi
-    kpis.append(tested_loss_kpi(session, org_id))
+    kpis.append(tested_loss_kpi(session, org_id, scope))
     return {"supported": True, "kpis": kpis, "by_hazard": _by_hazard(snap), "history": []}

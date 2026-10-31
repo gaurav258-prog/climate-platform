@@ -21,6 +21,7 @@ from services.governance import filings as F
 from services.governance import provided_data as P
 from services.governance.report_snapshots import _sha256
 from tests.integration.conftest import login as _login
+from tests.integration.filers import taxonomy_filer_in_session
 
 pytestmark = pytest.mark.integration
 
@@ -118,6 +119,8 @@ def test_the_kri_pages_load_on_their_new_anchors(api, sector):
     org, email = {"reit": (REIT, "admin@stellar.demo"), "insurer": (INSURER, "admin@iberia.demo"),
                   "asset_manager": (AM, "admin@nordkap.demo")}[sector]
     h = _login(api, email, "Demo!admin1")
+    if sector == "reit":                                     # the EU Taxonomy set is its filer's: the group (E351)
+        taxonomy_filer_in_session(api.s, org)
     fws = [f["framework"] for f in api.get("/v1/reg-tasks/kri/frameworks", headers=h).json()["frameworks"]]
     assert NEW_ANCHOR[sector] in fws and not set(fws) & set(RETIRED)
     d = api.get(f"/v1/reg-tasks/kri?framework={NEW_ANCHOR[sector]}", headers=h).json()

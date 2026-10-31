@@ -4736,6 +4736,63 @@
     "what": "No version of the ESRS governs the financial year ending {period_end}, so there is no statement to read."
    }
   },
+  "kri.filer.scope.head": {
+   "label": "For {who}",
+   "detail": {
+    "what": "These indicators are for {who}: the book its filing covers, {book}. The filed trend shows its own filings only.",
+    "why": "The board opens on the report at the head of your group. {why}.",
+    "next": "Choose another filer above to see its own indicators."
+   }
+  },
+  "kri.filer.scope.head_alone": {
+   "label": "For {who}",
+   "detail": {
+    "what": "These indicators are for {who}: the book its filing covers, {book}. The filed trend shows its own filings only.",
+    "why": "The board opens on the report at the head of your group. {why}. No other filer reports it for {year}."
+   }
+  },
+  "kri.filer.scope.only": {
+   "label": "For {who}",
+   "detail": {
+    "what": "These indicators are for {who}: the book its filing covers, {book}. The filed trend shows its own filings only.",
+    "why": "It is the only filer of this report for {year}."
+   }
+  },
+  "kri.filer.scope.chosen": {
+   "label": "For {who}",
+   "detail": {
+    "what": "These indicators are for {who}: the book its filing covers, {book}. The filed trend shows its own filings only.",
+    "why": "You chose this filer. The board opens on {default}, and only that one is watched for breaches."
+   }
+  },
+  "kri.filer.none": {
+   "label": "No one files this report yet",
+   "detail": {
+    "what": "Your organisation records its entities, so {report} is filed by each filer the regulation names, not for the whole organisation. None files it for {year} yet.",
+    "why": "{shows}",
+    "next": "Who files follows your entity structure and what is stated for the year: for the EU Taxonomy, each undertaking's reporting role on the ESRS statement page; for Pillar 3, which subsidiaries are large institutions."
+   }
+  },
+  "kri.filer.choose": {
+   "label": "Choose who reports",
+   "detail": {
+    "what": "Several filers report {report} for {year}: {choices}. Each has its own figures and filings.",
+    "next": "Choose one to see its indicators."
+   }
+  },
+  "kri.filer.not_found": {
+   "label": "Not one of this report's filers",
+   "detail": {
+    "what": "The filer you chose does not report {report} for {year}.",
+    "next": "Choose one of the filers shown."
+   }
+  },
+  "kri.filer.whole_book_only": {
+   "label": "Not computed for one filer",
+   "detail": {
+    "what": "This figure is computed for your whole organisation's book only, so it is not shown among one filer's figures."
+   }
+  },
   "kri.esrs.gap": {
    "label": "Some facts are missing for the year",
    "detail": {

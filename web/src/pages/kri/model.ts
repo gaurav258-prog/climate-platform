@@ -20,12 +20,21 @@ export interface Readiness { core: number; covered: number; integrated: string[]
 export interface Haz { hazard: string; value: number; score: number }
 export interface HistFig { key: string; label: string; value: number | null; fmt: string; group?: string }
 export interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null; figures?: HistFig[] }
-export interface Basis { kpis: 'live'; message: Message; last_filed: { period_label: string; filing_id: string | null } | null }
+export interface Basis { kpis: 'live'; message: Message; last_filed: { period_label: string; filing_id: string | null } | null; filer?: Message }
 export interface Undertaking { entity_id: string | null; name: string; role?: string }
+// one filer of a report whose regulation names its filers: the entity, and its report (its own, or its group's)
+export interface Filer { entity_id: string; name: string; role: 'solo' | 'consolidated'; label: string; default: boolean }
 export interface KriSet {
   framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; notice?: Message
   breaches?: number; scope?: Message; regulator?: Regulator; readiness?: Readiness; basis?: Basis
-  undertaking?: Undertaking; undertakings?: Undertaking[]
+  undertaking?: Undertaking; undertakings?: Undertaking[]; filer?: Filer; filers?: Filer[]
+}
+
+// the query naming whose book the set is on: an ESRS set's undertaking, or a report's filer (with its report, where one
+// entity files two) — empty for the board's own choice
+export function scopeQuery(framework: string, entity: string | null, filer: Pick<Filer, 'entity_id' | 'role'> | undefined): string {
+  if (framework === 'esrs_pack') return entity ? `&entity_id=${entity}` : ''
+  return filer ? `&entity_id=${filer.entity_id}&role=${filer.role}` : ''
 }
 export interface Framework { framework: string; label: string }
 

@@ -360,7 +360,7 @@ class KriThresholdPatch(BaseModel):
 @router.get("/kri-appetite", summary="The KRI appetite bands — the RAG thresholds graded on each KRI")
 def get_kri_appetite(session: DbSession, framework: Optional[str] = None,
                      ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
-    from services.governance.kri import kri as build_kri
+    from services.governance.kri import appetite_set as build_kri
     from services.governance.kri import kri_frameworks
     fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: Taxonomy + Pillar 3 ESG)
     if not fws:

@@ -37,6 +37,15 @@ def taxonomy_group(api, maker: dict, checker: dict, org_id: str) -> str:
     return g
 
 
+def taxonomy_filer_in_session(s, org_id: str) -> str:
+    """The group, stated to report its EU Taxonomy KPIs for the group for the reporting period (without HTTP) — the filer
+    the report's KRI set is then on; while no undertaking states its role, no one files the report (E351)."""
+    from services.governance.filings import reporting_period_end
+    g = group(s, org_id)
+    state_role_in_session(s, org_id, g, reporting_period_end(s, org_id))
+    return g
+
+
 def state_role_in_session(s, org_id: str, entity_id: str, period_end: date, role: str = "consolidated") -> None:
     """The same, without the HTTP layer: two users of the organisation as maker and checker."""
     from services.governance.csrd_roles import apply_decision, request_role

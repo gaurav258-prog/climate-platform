@@ -24,8 +24,10 @@ from core import messages
 HORIZONS = ["2030", "2050", "2100"]
 
 
-def forward_risk(session, org_id: str, vertical: str, scenario: str, method) -> dict:
-    """Forward-risk decision brief for one portfolio (org × vertical) under one scenario, on the stated method."""
+def forward_risk(session, org_id: str, vertical: str, scenario: str, method, shares: dict | None = None) -> dict:
+    """Forward-risk decision brief for one portfolio (org × vertical) under one scenario, on the stated method.
+    shares: one filer's book (services.governance.kri_scope.Scope.shares) — each asset at its share of its stored
+    value, an asset outside it left out; None = the whole book."""
     at_risk = method.get("method.at_risk_level")
     if at_risk is None:
         return {"scenario": scenario, "vertical": vertical, "gap": method.gap_text(), "trajectory": [], "movers": [],
@@ -50,7 +52,10 @@ def forward_risk(session, org_id: str, vertical: str, scenario: str, method) -> 
     # pivot to per-entity {horizon: (score, lo, hi)}
     ent: dict = {}
     for r in rows:
-        d = ent.setdefault(r["eid"], {"name": r["entity_name"], "val": r["val"] or 0.0, "h": {}})
+        if shares is not None and r["eid"] not in shares:
+            continue
+        d = ent.setdefault(r["eid"], {"name": r["entity_name"], "h": {},
+                                      "val": (r["val"] or 0.0) * (shares[r["eid"]] if shares is not None else 1.0)})
         d["h"][r["horz"]] = (r["sc"], r["lo"], r["hi"])
 
     book = sum(d["val"] for d in ent.values())       # primary_value_eur is required on every entity

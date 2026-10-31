@@ -5,7 +5,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -82,12 +82,18 @@ def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("r
     return {"frameworks": _kf(ctx["org"].get("type"))}
 
 
+_ROLE = Query(None, pattern="^(solo|consolidated)$", description="the filer's report where one entity holds two "
+                                                                   "(its own, its group's) — with entity_id")
+
+
 @router.get("/kri", summary="Key Regulatory Indicator dashboard for a framework")
-def kri(framework: str, session: DbSession, entity_id: Optional[UUID] = None,
+def kri(framework: str, session: DbSession, entity_id: Optional[UUID] = None, role: Optional[str] = _ROLE,
         ctx: dict = Depends(require_permission("reports.view"))):
+    """entity_id (+ role): the undertaking an ESRS set is for, or the filer whose book a report's set is on (the
+    board's own filer when omitted — services.governance.kri_scope)."""
     from services.governance.kri import kri as _kri
-    data = _kri(session, ctx["org"]["org_id"], framework, str(entity_id) if entity_id else None)
-    if entity_id:                  # another undertaking than the default one: shown, not monitored (episodes are per set)
+    data = _kri(session, ctx["org"]["org_id"], framework, str(entity_id) if entity_id else None, role)
+    if entity_id:                  # another undertaking or filer than the default one: shown, not monitored (per set)
         return data
     # detection lag: record what we observe now so breach onset is a real, persisted timestamp (best-effort)
     try:
@@ -107,25 +113,31 @@ def kri_detection_lag(session: DbSession, framework: Optional[str] = None,
 
 @router.get("/kri/detail", summary="Drill behind one KRI — methodology, trend & composition")
 def kri_detail(framework: str, kri: str, session: DbSession, entity_id: Optional[UUID] = None,
-               ctx: dict = Depends(require_permission("reports.view"))):
+               role: Optional[str] = _ROLE, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_detail as _kd
-    return _kd(session, ctx["org"]["org_id"], framework, kri, str(entity_id) if entity_id else None)
+    return _kd(session, ctx["org"]["org_id"], framework, kri, str(entity_id) if entity_id else None, role)
 
 
 @router.get("/kri/hazard", summary="The entities contributing a hazard's exposure (drill-down)")
 def kri_hazard(framework: str, hazard: str, session: DbSession, entity_id: Optional[UUID] = None,
-               ctx: dict = Depends(require_permission("reports.view"))):
+               role: Optional[str] = _ROLE, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_hazard as _kh
-    return _kh(session, ctx["org"]["org_id"], framework, hazard, str(entity_id) if entity_id else None)
+    return _kh(session, ctx["org"]["org_id"], framework, hazard, str(entity_id) if entity_id else None, role)
 
 
 @router.get("/kri/drivers", summary="Individual exposures behind a KRI, optionally scoped to one segment")
 def kri_drivers(framework: str, kri: str, session: DbSession,
                 seg_type: Optional[str] = None, seg_value: Optional[str] = None,
+                entity_id: Optional[UUID] = None, role: Optional[str] = _ROLE,
                 ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance import kri_scope
     from services.governance.kri import _kri_drivers
-    return _kri_drivers(session, ctx["org"]["org_id"], framework, kri, seg_type, seg_value) \
-        or {"unit": "eur", "total_count": 0, "items": []}
+    empty = {"unit": "eur", "total_count": 0, "items": []}
+    try:                                # the exposures of the book the set is on: one filer's (kri_scope)
+        scope = kri_scope.resolve(session, ctx["org"]["org_id"], framework, str(entity_id) if entity_id else None, role)
+    except kri_scope.NoFiler:
+        return empty
+    return _kri_drivers(session, ctx["org"]["org_id"], framework, kri, seg_type, seg_value, scope=scope) or empty
 
 
 @router.get("/calendar", summary="Regulatory calendar — filing deadlines + task due-dates")

@@ -128,15 +128,10 @@ def test_template5_rows_carry_kris_with_their_filed_history(api):
         for col, _ in kri_t5.COLUMNS:
             v = row["values"][col]
             assert filed[kri_t5.key(row["id"], col)] == (None if v is None else round(v))
-    # the live value is computed the same way, on the whole book (the filing is the group's consolidated one, so the two
-    # differ where an entity consolidates below 100 % — KRIs on one filer's scope are a named follow-up, E349)
-    from services.governance.kri import _live_snapshot
-    from services.governance.reporting_settings import get_settings
-    st = get_settings(api.s, BANK_ORG)
-    whole = kri_t5.grid(_live_snapshot(api.s, BANK_ORG, "bank_p3esg", st["scenario"], st["horizon"]), _p3_spec(p))
+    # the live value is computed the same way, on the same book: the group's consolidated one, the filer the board opens
+    # on (E351) — so it equals the cell the group's filing printed
     live = {k["key"]: k["value"] for k in rows}
-    assert live == {kri_t5.key(row["id"], col): (None if row["values"][col] is None else round(row["values"][col]))
-                    for row in whole["rows"] for col, _ in kri_t5.COLUMNS}
+    assert r["filer"]["role"] == "consolidated" and live == filed
     # a row's KRI opens with its trend across filings
     k = next(k for k in rows if k["value"])
     d = api.get(f"/v1/reg-tasks/kri/detail?framework=bank_p3esg&kri={k['key']}", headers=maker).json()

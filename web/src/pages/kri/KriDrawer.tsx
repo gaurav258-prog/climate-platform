@@ -100,8 +100,8 @@ export function KriDetail({ framework, entityQ, kriKey, onClose }: { framework: 
   const [seg, setSeg] = useState<{ type: string; value: string; label: string } | null>(null)
   const [assetId, setAssetId] = useState<string | null>(null)
   const segQ = useQuery({
-    queryKey: ['kri-drivers-seg', framework, kriKey, seg?.type, seg?.value], enabled: !!seg,
-    queryFn: () => api.get<Drivers>(`/v1/reg-tasks/kri/drivers?framework=${framework}&kri=${encodeURIComponent(kriKey)}&seg_type=${seg!.type}&seg_value=${encodeURIComponent(seg!.value)}`),
+    queryKey: ['kri-drivers-seg', framework, kriKey, seg?.type, seg?.value, entityQ], enabled: !!seg,
+    queryFn: () => api.get<Drivers>(`/v1/reg-tasks/kri/drivers?framework=${framework}&kri=${encodeURIComponent(kriKey)}&seg_type=${seg!.type}&seg_value=${encodeURIComponent(seg!.value)}${entityQ}`),
   })
   const drawerCfg = DRAWER_CFG[framework]
   // Analytics opens scoped to what drives this indicator: its peril group, or the forward pathway

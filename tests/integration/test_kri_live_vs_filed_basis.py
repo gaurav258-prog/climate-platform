@@ -12,6 +12,7 @@ import pytest
 
 from core.db.session import get_session
 from services.governance.kri import kri
+from tests.integration.filers import taxonomy_filer_in_session
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 INSURER_ORG = "22222222-2222-4222-8222-222222222222"
@@ -20,6 +21,7 @@ INSURER_ORG = "22222222-2222-4222-8222-222222222222"
 @pytest.mark.integration
 def test_bank_kri_carries_a_live_basis_disclosure():
     with get_session() as s:
+        taxonomy_filer_in_session(s, BANK_ORG)               # the EU Taxonomy set is its filer's: the group (E351)
         d = kri(s, BANK_ORG, "bank_tcfd")
         assert d["supported"]
         assert d["basis"]["kpis"] == "live"
@@ -32,6 +34,7 @@ def test_last_filed_reflects_the_real_most_recent_filed_snapshot():
     """When real filed history exists, basis.last_filed must name the MOST RECENT one (history is ordered
     ascending by period), not the first or an arbitrary entry."""
     with get_session() as s:
+        taxonomy_filer_in_session(s, BANK_ORG)
         d = kri(s, BANK_ORG, "bank_tcfd")
         hist = d.get("history") or []
         if not hist:

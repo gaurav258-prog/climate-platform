@@ -32,10 +32,11 @@ def anchor(kpis: list[dict], printed: dict[str, str]) -> None:
 def _hist(h: dict, figures: list[dict]) -> dict:
     # the legacy book-value / at-risk slots stay empty: these reports do not print them
     return {"label": h["label"], "filing_id": h["filing_id"], "total_value": None, "value_at_risk": None,
-            "pct_at_risk": None, "figures": figures}
+            "pct_at_risk": None, "figures": figures, "currency": h.get("currency")}
 
 
-def reit_kri(session: Session, org_id: str) -> dict:
+def reit_kri(session: Session, org_id: str, scope=None) -> dict:
+    """scope: the filer the set is on (services.governance.kri_scope; None = the whole book)."""
     from api.routers.realestate import build_disclosure_snapshot
     from services.governance.kri import (
         _amount,
@@ -50,7 +51,7 @@ def reit_kri(session: Session, org_id: str) -> dict:
     from services.governance.reporting_settings import get_settings
     from services.governance.taxonomy_nonfin import summary, summary_of
     s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
+    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"], **(scope.book() if scope is not None else {}))
     r = snap["rollup"]
     cov = round(100 * r.get("n_scored", 0) / r.get("n_properties", 1), 1) if r.get("n_properties") else 0
     at_level = None if stated_level(snap) is not None else method_gap("method.at_risk_level")
@@ -79,16 +80,17 @@ def reit_kri(session: Session, org_id: str) -> dict:
                          facts=[fact("avoided_loss", _amount(rc.get("total_avoided_loss_eur")), "eur"),
                                 fact("benefit_cost", rc.get("portfolio_benefit_cost_ratio"), "x")]))
     from services.governance.kri_loss import tested_loss_kpi
-    kpis.append(tested_loss_kpi(session, org_id))
+    kpis.append(tested_loss_kpi(session, org_id, scope))
     anchor(kpis, _REIT_PRINTED)
     history = [_hist(h, [{"key": "taxonomy", "label": "Taxonomy-eligible turnover", "fmt": "pct",
                           "value": summary_of(h["payload"])["pct"].get("eligible")}])
-               for h in _snapshot_history(session, org_id, REIT)]
+               for h in _snapshot_history(session, org_id, REIT, scope)]
     return {"framework": REIT, "supported": True, "label": "Property physical-risk and Taxonomy indicators",
             "kpis": kpis, "by_hazard": _by_hazard(snap), "history": history}
 
 
-def insurer_kri(session: Session, org_id: str) -> dict:
+def insurer_kri(session: Session, org_id: str, scope=None) -> dict:
+    """scope: the filer the set is on (services.governance.kri_scope; None = the whole book)."""
     from api.routers.insurance import build_disclosure_snapshot
     from services.governance.insurer_solvency import modelled_1_in_200, natcat_block
     from services.governance.kri import (
@@ -103,7 +105,7 @@ def insurer_kri(session: Session, org_id: str) -> dict:
     from services.governance.pillar3_templates import stated_level
     from services.governance.reporting_settings import get_settings
     s = get_settings(session, org_id)
-    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
+    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"], **(scope.book() if scope is not None else {}))
     r = snap["rollup"]
     cov = round(100 * r.get("n_priced", 0) / r.get("n_policies", 1), 1) if r.get("n_policies") else 0
     kpis = [
@@ -133,16 +135,20 @@ def insurer_kri(session: Session, org_id: str) -> dict:
                          facts=[fact("ceded", net.get("cession_ratio_pct"), "pct")]))
     inv = snap.get("investments") or {}
     iv = inv.get("climate_var") or {}
-    if inv.get("available") and iv.get("available"):
+    if scope is not None and inv.get("available") and iv.get("available"):
+        # the investment book is the whole organisation's (it is not assigned to entities): no one filer's figure
+        kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", None, "eur", tone="#fb7185",
+                         about=msg("kri.indicator.investment_var"), missing=msg("kri.filer.whole_book_only")))
+    elif inv.get("available") and iv.get("available"):
         kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", _amount(iv.get("var99_eur")), "eur",
                          tone="#fb7185", about=msg("kri.indicator.investment_var"),
                          facts=[fact("positions_scored", inv.get("coverage_pct"), "pct")]))
     from services.governance.kri_loss import tested_loss_kpi
-    kpis.append(tested_loss_kpi(session, org_id))
+    kpis.append(tested_loss_kpi(session, org_id, scope))
     anchor(kpis, _INSURER_PRINTED)
     history = [_hist(h, [{"key": "natcat_scr", "label": "Modelled 1-in-200 loss, gross", "fmt": "eur",
                           "value": (natcat_block(h["payload"]).get("natcat_scr") or {}).get("gross_1_in_200_eur")}])
-               for h in _snapshot_history(session, org_id, INSURER)]
+               for h in _snapshot_history(session, org_id, INSURER, scope)]
     return {"framework": INSURER, "supported": True, "label": "Nat-cat indicators",
             "kpis": kpis, "by_hazard": _by_hazard(snap), "history": history}
 

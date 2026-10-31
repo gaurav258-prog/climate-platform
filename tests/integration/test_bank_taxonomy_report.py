@@ -20,7 +20,7 @@ from sqlalchemy import text
 
 from services.governance.bank_taxonomy_report import EARLIER, EARLIER_KEYS, ENGINE_FIELDS
 from tests.integration.conftest import login as _login
-from tests.integration.filers import taxonomy_group
+from tests.integration.filers import taxonomy_filer_in_session, taxonomy_group
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -116,6 +116,7 @@ def test_a_filing_of_the_earlier_report_shape_still_renders(api):
 
 def test_the_bank_kri_page_loads_both_sets_with_their_anchors(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
+    taxonomy_filer_in_session(api.s, BANK_ORG)               # the EU Taxonomy set is its filer's: the group (E351)
     fws = api.get("/v1/reg-tasks/kri/frameworks", headers=maker).json()["frameworks"]
     assert {f["framework"]: f["label"] for f in fws} == {"bank_tcfd": "EU Taxonomy", "bank_p3esg": "Pillar 3 ESG"}
 

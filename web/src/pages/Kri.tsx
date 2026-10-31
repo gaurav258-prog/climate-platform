@@ -19,7 +19,7 @@ import { filingLink } from '../lib/links'
 import { balance } from '../lib/money'
 import AppetiteBar from './kri/AppetiteBar'
 import { HazardDrill, KriDetail, Provenance, raiseTask } from './kri/KriDrawer'
-import { RAG, STATUS_WORD, bandWords, kindOf, value, type Framework, type Kpi, type KriSet } from './kri/model'
+import { RAG, STATUS_WORD, bandWords, kindOf, scopeQuery, value, type Filer, type Framework, type Kpi, type KriSet } from './kri/model'
 import { heroTitle } from './kri/words'
 
 // Key risk indicators, to the UI standard (2026-10-16): how each indicator of a report sits against the organisation's
@@ -52,10 +52,13 @@ export default function Kri() {
   const [prov, setProv] = useState<'all' | 'computed' | 'integrated'>('all')
   const [onlyBreaches, setOnlyBreaches] = useState(false)
   const [entity, setEntity] = useState<string | null>(null)          // the undertaking an ESRS set is for
-  const eq = entity && framework === 'esrs_pack' ? `&entity_id=${entity}` : ''
+  const [filerBy, setFilerBy] = useState<Record<string, Filer>>({})   // the filer chosen per report (else the board's own)
+  const eq = scopeQuery(framework, entity, filerBy[framework])
   const q = useQuery({ queryKey: ['kri', framework, eq], queryFn: () => api.get<KriSet>(`/v1/reg-tasks/kri?framework=${framework}${eq}`) })
   const d = q.data
   const undertakings = d?.undertakings ?? []
+  const filers = d?.filers ?? []
+  const shownFiler = d?.filer ?? filerBy[framework]
   const tiles = d?.kpis?.filter(k => !k.group) ?? []          // a grouped set (the sector rows) is picked by row below
   const n = (s: string) => tiles.filter(k => k.status === s).length
   const nRed = n('red'), nAmber = n('amber'), nOk = n('ok')
@@ -72,7 +75,7 @@ export default function Kri() {
         label: k.label, value: value(k), status: k.status ? STATUS_WORD[k.status] : '', band: k.amber != null || k.red != null ? bandWords(k) : '',
         datapoint: k.reg ?? '', source: kindOf(k) === 'integrated' ? 'You provide' : 'Computed by Tellumen',
       })),
-      { title: `Key risk indicators · ${d.label}`, org: profile?.org?.name, basis: { framework: d.label } })
+      { title: `Key risk indicators · ${d.label}`, org: profile?.org?.name, basis: { framework: d.label, filer: d.filer?.label } })
   }
 
   return (
@@ -85,6 +88,14 @@ export default function Kri() {
       {frameworks.length > 1 && (
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Report">
           {frameworks.map(f => <button key={f.framework} onClick={() => setPicked(f.framework)} className={chip(framework === f.framework)}>{f.label}</button>)}
+        </div>
+      )}
+      {framework !== 'esrs_pack' && filers.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Who reports">
+          {filers.map(f => (
+            <button key={`${f.entity_id}:${f.role}`} onClick={() => setFilerBy(m => ({ ...m, [framework]: f }))}
+              className={chip(shownFiler?.entity_id === f.entity_id && shownFiler?.role === f.role)}>{f.label}</button>
+          ))}
         </div>
       )}
       {framework === 'esrs_pack' && undertakings.length > 1 && (
@@ -155,6 +166,7 @@ function Basis({ d }: { d: KriSet }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-[var(--color-mute)]">
       <span className="inline-flex items-center gap-1.5"><Clock size={13} className="text-[var(--color-sky)]" /><MessageLine m={d.basis.message} /></span>
+      {d.basis.filer && <MessageLine m={d.basis.filer} />}
       {last && (last.filing_id
         ? <button onClick={() => nav(filingLink(profile?.org?.type, last.filing_id!))} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Last filed: {last.period_label}<ChevronRight size={12} /></button>
         : <span>Last filed: {last.period_label}</span>)}

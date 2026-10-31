@@ -129,8 +129,9 @@ def preflight(session, org_id, basis: dict, entity_ids=None, value_weights=None,
 
 
 # ── live KPI (the KRI dashboard) ──────────────────────────────────────────────
-def live_kpis(session, org_id) -> dict | None:
-    """Template 0's main KPIs over today's book, on the version governing the organisation's reporting period."""
+def live_kpis(session, org_id, entity_ids=None, value_weights=None, translation=None) -> dict | None:
+    """Template 0's main KPIs over today's book, on the version governing the organisation's reporting period — the
+    whole book, or one filer's (entity_ids / value_weights / translation: services.governance.kri_scope.Scope.book)."""
     from services.calc_settings import get_calc_settings
     from services.governance.filings import reporting_period_end
     from services.governance.report_snapshots import _spec_record
@@ -138,7 +139,7 @@ def live_kpis(session, org_id) -> dict | None:
     from services.governance.taxonomy_forms import FAMILY, kpi_summary
     s = get_settings(session, org_id)
     pe = reporting_period_end(session, org_id)
-    payload = freeze(session, org_id, s["scenario"], s["horizon"], period_end=pe)
+    payload = freeze(session, org_id, s["scenario"], s["horizon"], entity_ids, value_weights, translation, period_end=pe)
     rec = _spec_record(session, FAMILY, pe, get_calc_settings(session, org_id))
     payload["_specs"] = {FAMILY: rec} if rec and rec.get("version") else {}
     payload["_regulation"] = {"period_end": pe.isoformat()}
