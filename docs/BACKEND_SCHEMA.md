@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3164 table columns, 362 foreign keys, 98 unique constraints, 333 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 322 migration revisions in `core/db/migrations/versions/`, head `filing_scope_role_20261029`. Extensions present: plpgsql.
+The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3165 table columns, 362 foreign keys, 98 unique constraints, 335 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 323 migration revisions in `core/db/migrations/versions/`, head `orsa_parent_own_20261031`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -33,7 +33,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 340 | 15 | 7 | 3 | 5 |
-| Regulatory reporting & filings | 26 | 369 | 16 | 19 | 15 | 7 |
+| Regulatory reporting & filings | 26 | 370 | 16 | 19 | 15 | 7 |
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
 | Workflow, decisions & controls | 23 | 278 | 7 | 19 | 26 | 1 |
@@ -5285,7 +5285,7 @@ END)`
 | `framework` | text | no |  |  |
 | `period_end` | date | no |  |  |
 | `period_label` | text | no |  |  |
-| `due_date` | date | no |  |  |
+| `due_date` | date | yes |  |  |
 | `frequency` | text | no | `'annual'::text` |  |
 | `note` | text | yes |  |  |
 | `created_at` | timestamp with time zone | no | `now()` |  |
@@ -5295,6 +5295,7 @@ END)`
 | `filing_role` | text | yes |  |  |
 | `fund_id` | uuid | yes |  | FK → funds.fund_id (on delete restrict) |
 
+- Check `ck_obligation_due_or_conclusion`: `CHECK (((due_date IS NOT NULL) OR (framework = 'insurer_orsa_climate'::text)))`
 - Check `ck_obligation_period_label`: `CHECK ((period_label = ('FY'::text || (EXTRACT(year FROM period_end))::integer)))`
 - Check `ck_reg_obligation_role`: `CHECK (((filing_role IS NULL) OR (filing_role = ANY (ARRAY['solo'::text, 'consolidated'::text, 'whole_org'::text, 'product'::text]))))`
 - Check `ck_regulatory_obligation_product_subject`: `CHECK (((fund_id IS NULL) OR ((entity_id IS NULL) AND (filing_role = 'product'::text))))`
@@ -5467,9 +5468,11 @@ END)`
 | `updated_by` | uuid | yes |  | FK → users.user_id |
 | `updated_at` | timestamp with time zone | no | `now()` |  |
 | `reporting_entity_id` | uuid | yes |  | FK → reporting_entities.entity_id (on delete restrict) |
+| `filing_role` | text | yes |  |  |
 
-- Unique `ux_template_answers`: (org_id, fund_id, reporting_entity_id, family, document, period_end, item_id)
+- Unique `ux_template_answers`: (org_id, fund_id, reporting_entity_id, filing_role, family, document, period_end, item_id)
 - Check `ck_template_answers_one_subject`: `CHECK (((fund_id IS NULL) OR (reporting_entity_id IS NULL)))`
+- Check `ck_template_answers_role`: `CHECK (((filing_role IS NULL) OR ((filing_role = ANY (ARRAY['solo'::text, 'consolidated'::text])) AND (reporting_entity_id IS NOT NULL))))`
 - Check `template_answers_document_check`: `CHECK ((document ~ '^[A-Za-z0-9_]+$'::text))`
 - Check `template_answers_family_check`: `CHECK ((family ~ '^[a-z0-9_]+$'::text))`
 - Check `template_answers_item_id_check`: `CHECK ((item_id ~ '^[A-Za-z0-9_.-]+$'::text))`

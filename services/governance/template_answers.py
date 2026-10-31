@@ -11,8 +11,10 @@ An answer targets one item of the governing specification's template, and only a
   chart              {"values": {<chart_label item id>: number}} — the planned shares the answer commits to
   table              {"rows": [ {<table_column item id>: value, ...}, ... ]}
 
-The subject is the organisation, or one of its funds; a periodic document's answers belong to one reference period.
-Clearing an item is an answer of None. Refused answers are reported back, never dropped silently.
+The subject is the organisation, one of its funds, or a reporting entity — for a report one entity holds twice (the ORSA
+of an undertaking at the head of a group: filings._OWN_BOOK), one of its two reports, told apart by the role ('solo' =
+its own, 'consolidated' = the group's; template_answers.filing_role). A periodic document's answers belong to one
+reference period. Clearing an item is an answer of None. Refused answers are reported back, never dropped silently.
 """
 from __future__ import annotations
 
@@ -81,27 +83,28 @@ def shape(item: dict, children: list[dict], value) -> dict:
 
 _KEY = """org_id = CAST(:o AS uuid) AND fund_id IS NOT DISTINCT FROM CAST(:f AS uuid)
           AND reporting_entity_id IS NOT DISTINCT FROM CAST(:e AS uuid) AND family = :fam
-          AND document = :d AND period_end IS NOT DISTINCT FROM CAST(:pe AS date)"""
+          AND document = :d AND period_end IS NOT DISTINCT FROM CAST(:pe AS date)
+          AND filing_role IS NOT DISTINCT FROM CAST(:r AS text)"""
 
 
 def read(session: Session, org_id: str, family: str, document: str, *, fund_id: str | None = None,
-         period_end: date | None = None, entity_id: str | None = None) -> dict:
+         period_end: date | None = None, entity_id: str | None = None, role: str | None = None) -> dict:
     """{item id: answer} of one subject's document (for one reference period, where the document has one). The subject
-    is a fund, a reporting entity, or (neither) the organisation as a whole."""
+    is a fund, a reporting entity — role: which of its two reports, where it holds two — or (neither) the organisation."""
     return {r[0]: r[1] for r in session.execute(text(f"SELECT item_id, value FROM template_answers WHERE {_KEY}"),
                                                 {"o": org_id, "f": fund_id, "e": entity_id, "fam": family, "d": document,
-                                                 "pe": period_end})}
+                                                 "pe": period_end, "r": role})}
 
 
 def save(session: Session, org_id: str, family: str, document: str, template: dict, bound: dict, answers: dict,
          user_id: str | None, *, fund_id: str | None = None, period_end: date | None = None,
-         entity_id: str | None = None, label: str = "the template", computed_from: str = "the platform",
-         validate=None) -> dict:
+         entity_id: str | None = None, role: str | None = None, label: str = "the template",
+         computed_from: str = "the platform", validate=None) -> dict:
     """Validate every answer against the template and its binding ({item id: 'computed' | 'input'}), store the valid
     ones, report the refused ones. validate(item, value) → the stored answer, or None to use the kind's shape: a
     family whose answers carry more than the kind (ESRS: an omission and its reason) validates them itself."""
     by_id = {i["id"]: i for i in template["items"]}
-    key = {"o": org_id, "f": fund_id, "e": entity_id, "fam": family, "d": document, "pe": period_end}
+    key = {"o": org_id, "f": fund_id, "e": entity_id, "fam": family, "d": document, "pe": period_end, "r": role}
     saved, refused = [], []
     for item_id, value in (answers or {}).items():
         item = by_id.get(item_id)
@@ -121,10 +124,10 @@ def save(session: Session, org_id: str, family: str, document: str, template: di
             refused.append({"item": item_id, "reason": str(e), "msg": e.msg()})
             continue
         session.execute(text("""
-            INSERT INTO template_answers (org_id, fund_id, reporting_entity_id, family, document, period_end, item_id, value,
-                                         updated_by, updated_at)
-            VALUES (CAST(:o AS uuid), CAST(:f AS uuid), CAST(:e AS uuid), :fam, :d, CAST(:pe AS date), :i, CAST(:v AS jsonb),
-                    CAST(:u AS uuid), now())
+            INSERT INTO template_answers (org_id, fund_id, reporting_entity_id, filing_role, family, document, period_end,
+                                         item_id, value, updated_by, updated_at)
+            VALUES (CAST(:o AS uuid), CAST(:f AS uuid), CAST(:e AS uuid), CAST(:r AS text), :fam, :d, CAST(:pe AS date), :i,
+                    CAST(:v AS jsonb), CAST(:u AS uuid), now())
             ON CONFLICT ON CONSTRAINT ux_template_answers DO UPDATE SET value = EXCLUDED.value,
                 updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at"""),
             {**key, "i": item_id, "v": json.dumps(stored), "u": user_id})

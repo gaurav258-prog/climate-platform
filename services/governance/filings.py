@@ -490,19 +490,26 @@ def _due_date(framework: str, period_end: date) -> date | None:
     return due_for(framework, period_end)[0]
 
 
+def runs_from_conclusion(framework: str) -> bool:
+    """Whether a report's deadline runs from its own conclusion, not the calendar (the ORSA supervisory report: 'within
+    2 weeks after concluding the assessment', Art. 312(1)(b) Del. Reg. 2015/35) — the mandate's rule says so."""
+    return ((_mandate_of(framework) or {}).get("deliverable", {}).get("due") or {}).get("rule") == "weeks_after_orsa"
+
+
 def due_for_filing(framework: str, period_end: date, disclosure_date: date | None) -> tuple[date | None, str | None]:
     """A filing's deadline: the calendar one, else — for a report that runs from its own event (the ORSA supervisory
     report: 'within 2 weeks after concluding the assessment', Art. 312(1)(b) Del. Reg. 2015/35) — its disclosure date
-    plus the mandate's weeks."""
+    plus the mandate's weeks; with no disclosure date yet, no date and the rule's words."""
     from datetime import timedelta
     d, why = due_for(framework, period_end)
-    if d is not None or disclosure_date is None:
+    if d is not None:
         return d, why
-    m = _mandate_of(framework)
-    due = (m or {}).get("deliverable", {}).get("due") or {}
-    if due.get("rule") == "weeks_after_orsa" and due.get("weeks_after_period_end"):
-        return disclosure_date + timedelta(weeks=int(due["weeks_after_period_end"])), due.get("label")
-    return None, due.get("label")
+    due = (_mandate_of(framework) or {}).get("deliverable", {}).get("due") or {}
+    if runs_from_conclusion(framework):
+        if disclosure_date is not None and due.get("weeks_after_period_end"):
+            return disclosure_date + timedelta(weeks=int(due["weeks_after_period_end"])), due.get("label")
+        return None, due.get("label")
+    return (None, why) if disclosure_date is None else (None, due.get("label"))
 
 
 def period_label(period_end: date) -> str:
@@ -607,9 +614,10 @@ def ensure_filer_obligations(session: Session, org_id: str, framework: str, peri
     kept: when the whole organisation is no filer, a supervisor-set whole-organisation deadline is carried onto each
     filer's obligation for its period (date, note, supervisor and deadline with it), and the whole-organisation row goes
     unless a report was filed for it — it stays while no filer is known yet (an undertaking's role still to be stated,
-    E349). services.supervision.deadlines settles a newly published one the same way."""
+    E349). services.supervision.deadlines settles a newly published one the same way. A report that runs from its own
+    conclusion (the ORSA: runs_from_conclusion) is owed with no date: its filing's conclusion gives it (list_obligations)."""
     from services.governance.report_filers import due, owed
-    if _due_date(framework, period_end) is None:
+    if _due_date(framework, period_end) is None and not runs_from_conclusion(framework):
         return
     now = owed(session, org_id, framework, period_end)
 
@@ -734,12 +742,12 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
     rows = session.execute(text(f"""
         SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency,
                ob.source, ob.set_by, ob.entity_id, ob.filing_role, re.name AS entity_name,
-               ob.fund_id, fu.name AS fund_name, f.filing_id, f.status AS filing_status
+               ob.fund_id, fu.name AS fund_name, f.filing_id, f.status AS filing_status, f.disclosure_date
         FROM regulatory_obligation ob
         LEFT JOIN reporting_entities re ON re.entity_id = ob.entity_id
         LEFT JOIN funds fu ON fu.fund_id = ob.fund_id
         LEFT JOIN LATERAL (
-            SELECT filing_id, status FROM regulatory_filing rf
+            SELECT filing_id, status, disclosure_date FROM regulatory_filing rf
             WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
               AND rf.period_end = ob.period_end AND rf.status NOT IN ('superseded', 'withdrawn')
               AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id AND rf.fund_id IS NOT DISTINCT FROM ob.fund_id
@@ -757,17 +765,20 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             continue                                   # a retired report is owed no more; one filed stays on record
         status = r["filing_status"] or "not_started"
         done = status in ("submitted", "accepted")
-        days_left = (r["due_date"] - today).days
+        # a report that runs from its own conclusion (the ORSA) has no calendar date: its filing's conclusion gives one
+        due_on, due_rule = ((r["due_date"], None) if r["due_date"] is not None
+                            else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"]))
+        days_left = (due_on - today).days if due_on is not None else None
         out.append({
             "retired": retired,
             "obligation_id": str(r["obligation_id"]), "framework": r["framework"],
             "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_end": r["period_end"].isoformat(), "period_label": r["period_label"],
-            "due_date": r["due_date"].isoformat(), "frequency": r["frequency"],
+            "due_date": due_on.isoformat() if due_on else None, "due_rule": due_rule, "frequency": r["frequency"],
             "filing_id": str(r["filing_id"]) if r["filing_id"] else None,
             "filing_status": status, "days_to_due": days_left,
             "source": r["source"] or "entity", "set_by": r["set_by"],
-            "overdue": (not done and not retired and days_left < 0),
+            "overdue": (not done and not retired and days_left is not None and days_left < 0),
             "entity_id": str(r["entity_id"]) if r["entity_id"] else None,
             "entity_name": r["entity_name"],
             "fund_id": str(r["fund_id"]) if r["fund_id"] else None, "fund_name": r["fund_name"],
@@ -1180,9 +1191,10 @@ def _not_retired(framework: str) -> None:
 
 
 # The reports for which one entity can hold two scopes, told apart by the filing role: its own book ('solo') and its group's
-# ('consolidated') — Solvency II nat-cat, where an insurance undertaking at the head of a group reports both
-# (services.governance.sii_filers). For every other report an entity has one scope, its role by entities.filing_role_for.
-_OWN_BOOK = frozenset({"insurer_solvency"})
+# ('consolidated') — where an insurance undertaking at the head of a group reports both: Solvency II nat-cat
+# (services.governance.sii_filers, E348) and the ORSA (services.governance.orsa_filers: Directive 2009/138/EC Arts 45(1),
+# 246(4)). For every other report an entity has one scope, its role by entities.filing_role_for.
+_OWN_BOOK = frozenset({"insurer_solvency", "insurer_orsa_climate"})
 
 
 def _role_match(filing: str, entity: str, role: str) -> str:

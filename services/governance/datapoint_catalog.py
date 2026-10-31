@@ -44,9 +44,10 @@ def coverage_source(lane: str) -> str:
 PER_ENTITY_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate", "insurer_recovery_stress",
                                 "esrs"})   # ESRS figures: per undertaking (Art. 19a) or for the group (Art. 29a, its parent)
 # Report types whose values are stated for one of an entity's two reports (provided_datapoint.filing_role): an insurance
-# undertaking at the head of a group states its own figures ('solo') and, apart, the group's ('consolidated')
-# (services.governance.sii_filers). A value of another report type is its entity's alone.
-ROLE_SCOPED_REPORTS = frozenset({"insurer_solvency"})
+# undertaking at the head of a group states its own figures ('solo') and, apart, the group's ('consolidated') — for
+# Solvency II nat-cat (services.governance.sii_filers) and its ORSA (orsa_filers). A value of another report type is its
+# entity's alone. Every report of filings._OWN_BOOK is one (tests/unit/test_orsa_parent_own.py).
+ROLE_SCOPED_REPORTS = frozenset({"insurer_solvency", "insurer_orsa_climate"})
 
 CATALOG: dict[str, list[dict]] = {
     # the EU Taxonomy Art. 8 report (E95): what the Annex VI templates read — physical risk, financed emissions and

@@ -28,7 +28,7 @@ def test_every_reading_is_the_acts_own_wording():
     for mod in {report_filers.rule(f) for f in report_filers.RULES}:
         missing = [k for k, (celex, q) in mod.QUOTES.items() if L.normalise(q) not in L.normalise(L.text(celex))]
         assert missing == [], mod.__name__
-    assert len(crr_filers.QUOTES) == 7 and len(csrd_filers.QUOTES) == 7 and len(orsa_filers.QUOTES) == 8
+    assert len(crr_filers.QUOTES) == 7 and len(csrd_filers.QUOTES) == 7 and len(orsa_filers.QUOTES) == 12
     assert len(irrd_filers.QUOTES) == 6
     assert "449a" in crr_filers.QUOTES["CRR Art. 13(1), second subparagraph"][1]      # added by Regulation (EU) 2024/1623
 
@@ -151,14 +151,15 @@ def test_the_insurer_document_specs_quote_their_directives_word_for_word():
         assert len(wording) >= 9 and [w for w in wording if L.normalise(w) not in text] == [], spec
 
 
-def test_the_insurer_documents_offer_one_scope_per_entity(monkeypatch):
-    """Solvency II nat-cat offers a parent undertaking twice — its group's report and its own (E348, filings._OWN_BOOK);
-    the ORSA and the recovery plan take the same filers one scope per entity, the group's first: an entity's own book
-    beside its group's is nat-cat's scope only, and the ultimate parent's plan is the group's (IRRD Art. 7(1))."""
+def test_the_recovery_plan_offers_one_scope_per_entity(monkeypatch):
+    """Solvency II nat-cat and the ORSA offer a parent undertaking twice — its group's report and its own (E348, E353,
+    filings._OWN_BOOK); the recovery plan takes the same filers one scope per entity, the group's first: the ultimate
+    parent's plan is the group's (IRRD Art. 7(1))."""
     from services.governance import sii_filers
     twice = [{"entity_id": "p", "name": "Parent", "role": "consolidated"}, {"entity_id": "p", "name": "Parent", "role": "solo"},
              {"entity_id": "s", "name": "Sub", "role": "solo"}]
     monkeypatch.setattr(sii_filers, "choices", lambda session, org_id: twice)
-    for mod in (orsa_filers, irrd_filers):
-        assert [(c["entity_id"], c["role"]) for c in mod.choices(None, "o", mod.FRAMEWORK, None)] == [("p", "consolidated"), ("s", "solo")]
-    assert "insurer_orsa_climate" not in filings._OWN_BOOK and "insurer_recovery_stress" not in filings._OWN_BOOK
+    assert [(c["entity_id"], c["role"]) for c in irrd_filers.choices(None, "o", irrd_filers.FRAMEWORK, None)] == [
+        ("p", "consolidated"), ("s", "solo")]
+    assert orsa_filers.choices(None, "o", orsa_filers.FRAMEWORK, None) == twice
+    assert "insurer_orsa_climate" in filings._OWN_BOOK and "insurer_recovery_stress" not in filings._OWN_BOOK

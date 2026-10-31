@@ -23,7 +23,8 @@ import { NEXT_ACTION, STATUS_TONE, fmtDate, sentence, version, type Tone } from 
 // deadlines on a time line), everything else behind four tabs, and a full-window filing that runs the controlled
 // lifecycle — prepare → review (four eyes) → attest → submit → accept — over its frozen, fingerprinted report.
 
-interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number; overdue: boolean; entity_id: string | null; entity_name: string | null; filing_role: string; scope_role?: string | null; period_end: string; fund_id?: string | null; fund_name?: string | null }
+// due_date is null for a report that runs from its own conclusion (the ORSA) until a filing gives the day it concludes
+interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string | null; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number | null; overdue: boolean; entity_id: string | null; entity_name: string | null; filing_role: string; scope_role?: string | null; period_end: string; fund_id?: string | null; fund_name?: string | null }
 interface Framework { framework: string; label: string; frequency: string; regulator: string; basis: string }
 interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; created_by: string | null; created_at: string; entity_name?: string | null; scope?: string; filing_role?: string | null; fund_name?: string | null }
 interface Validation { blocking: number; warnings: number; checks: number; passed: boolean }
@@ -32,7 +33,10 @@ interface Validation { blocking: number; warnings: number; checks: number; passe
 interface ToState { framework: string; label: string; period_end: string; undertakings: { entity_id: string; name: string; msg: Message | null }[] }
 
 const isFiled = (s: string) => s === 'submitted' || s === 'accepted'
-const dueWords = (o: Obligation) => o.overdue ? `${Math.abs(o.days_to_due)} days overdue` : o.days_to_due === 0 ? 'due today' : `due in ${o.days_to_due} days`
+const dueWords = (o: Obligation) => o.days_to_due == null ? 'due two weeks after the assessment concludes'
+  : o.overdue ? `${Math.abs(o.days_to_due)} days overdue` : o.days_to_due === 0 ? 'due today' : `due in ${o.days_to_due} days`
+type Dated = Obligation & { due_date: string; days_to_due: number }
+const dated = (o: Obligation): o is Dated => o.due_date != null && o.days_to_due != null
 
 export default function FilingCockpit() {
   const { profile } = useAuth()
@@ -58,7 +62,7 @@ export default function FilingCockpit() {
   const regulator: Record<string, string> = Object.fromEntries(frameworks.map(f => [f.framework, f.regulator]))
   const open = obligations.filter(o => !isFiled(o.filing_status))
   const overdue = open.filter(o => o.overdue).length
-  const nextDue = [...open].sort((a, b) => a.days_to_due - b.days_to_due)[0]
+  const nextDue = open.filter(dated).sort((a, b) => a.days_to_due - b.days_to_due)[0]
 
   return (
     <div className="space-y-6">
@@ -72,7 +76,7 @@ export default function FilingCockpit() {
           { label: 'Filed', value: obligations.length - open.length, tone: 'var(--color-good)', icon: CheckCircle2 },
         ]} />
 
-      {obligations.length > 0 && <DeadlineLine obligations={obligations} onPick={o => o.filing_id ? openFiling(o.filing_id) : canPrepare && setPrepare(o)} />}
+      {obligations.some(dated) && <DeadlineLine obligations={obligations.filter(dated)} onPick={o => o.filing_id ? openFiling(o.filing_id) : canPrepare && setPrepare(o)} />}
 
       {(obl.data?.filers_to_state ?? []).map(t => <WhoReports key={t.framework} t={t} canState={canPrepare} onSent={refresh} />)}
 
@@ -132,17 +136,17 @@ function WhoReports({ t, canState, onSent }: { t: ToState; canState: boolean; on
 // The deadlines on one time line: today, and each due date as a dot coloured by where its reports stand (red if one is
 // overdue, amber if one is open, green when all are filed) and sized by how many fall on it; the next one due is ringed.
 // A dot opens its filing (or prepares it); a date with several reports scrolls to their cards.
-function DeadlineLine({ obligations, onPick }: { obligations: Obligation[]; onPick: (o: Obligation) => void }) {
+function DeadlineLine({ obligations, onPick }: { obligations: Dated[]; onPick: (o: Obligation) => void }) {
   const day = 86_400_000
   const today = new Date(new Date().toDateString()).getTime()
-  const groups = Object.values(obligations.reduce<Record<string, Obligation[]>>((g, o) => ((g[o.due_date] ??= []).push(o), g), {}))
+  const groups = Object.values(obligations.reduce<Record<string, Dated[]>>((g, o) => ((g[o.due_date] ??= []).push(o), g), {}))
   const dues = groups.map(g => new Date(g[0].due_date).getTime())
   const from = Math.min(today, ...dues) - 7 * day, to = Math.max(today, ...dues) + 7 * day
   const x = (t: number) => `${(100 * (t - from)) / (to - from)}%`
-  const tone = (g: Obligation[]) => g.some(o => o.overdue && !isFiled(o.filing_status)) ? 'var(--color-bad)'
+  const tone = (g: Dated[]) => g.some(o => o.overdue && !isFiled(o.filing_status)) ? 'var(--color-bad)'
     : g.some(o => !isFiled(o.filing_status)) ? 'var(--color-warn)' : 'var(--color-good)'
   const next = [...obligations].filter(o => !isFiled(o.filing_status)).sort((a, b) => a.days_to_due - b.days_to_due)[0]
-  const pick = (g: Obligation[]) => g.length === 1 ? onPick(g[0]) : document.getElementById(`ob-${g[0].obligation_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const pick = (g: Dated[]) => g.length === 1 ? onPick(g[0]) : document.getElementById(`ob-${g[0].obligation_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   const months: number[] = []
   for (let d = new Date(new Date(from).getFullYear(), new Date(from).getMonth() + 1, 1); d.getTime() <= to; d.setMonth(d.getMonth() + 1)) months.push(d.getTime())
   const every = Math.max(1, Math.ceil(months.length / 8))
@@ -194,7 +198,7 @@ function FilingCard({ o, regulator, canPrepare, onOpen, onPrepare }:
   const stage = filed ? 4 : Math.max(0, CARD_STEPS.findIndex(s => s.key === (status === 'returned' ? 'draft' : status)))
   const ready = v && v.checks > 0 ? Math.round(100 * (v.checks - v.blocking - v.warnings) / v.checks) : null
   const urgency = filed ? 'var(--color-good)' : o.overdue ? 'var(--color-bad)' : 'var(--color-warn)'
-  const dueTone: Tone = filed ? 'good' : o.overdue ? 'bad' : 'warn'
+  const dueTone: Tone = filed ? 'good' : o.overdue ? 'bad' : o.due_date ? 'warn' : 'neutral'
   return (
     <Card className="group relative p-0 overflow-hidden transition-all duration-300 hover:-translate-y-[2px] hover:border-[var(--color-sky)]">
       <div id={`ob-${o.obligation_id}`} className="relative px-5 py-4 flex items-center gap-4 scroll-mt-24">
@@ -209,7 +213,7 @@ function FilingCard({ o, regulator, canPrepare, onOpen, onPrepare }:
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-2.5 text-[12px] text-[var(--color-mute)]">
             <span>{[regulator, sentence(o.frequency), o.period_label].filter(Boolean).join(' · ')}</span>
-            <StatusChip tone={dueTone} label={filed ? `Filed · was due ${fmtDate(o.due_date)}` : `${sentence(dueWords(o))} · ${fmtDate(o.due_date)}`} />
+            <StatusChip tone={dueTone} label={!o.due_date ? (filed ? 'Filed' : sentence(dueWords(o))) : filed ? `Filed · was due ${fmtDate(o.due_date)}` : `${sentence(dueWords(o))} · ${fmtDate(o.due_date)}`} />
           </div>
           <CardStepper idx={stage} />
           <div className="text-[12px] mt-2.5 flex items-center gap-2">

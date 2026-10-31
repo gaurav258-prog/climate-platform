@@ -135,7 +135,8 @@ def timeliness(session, regulator_org_id: str, entities: list[dict], cfg: dict) 
         WHERE org_id = ANY(CAST(:ids AS uuid[]))"""), {"ids": ids}).mappings().all()
     due_by = {(o["org_id"], o["framework"], o["period_label"]): o for o in obligations}
     filings = session.execute(text("""
-        SELECT DISTINCT ON (org_id, framework, period_label) org_id::text AS org_id, framework, period_label, period_end, status, updated_at, created_at
+        SELECT DISTINCT ON (org_id, framework, period_label) org_id::text AS org_id, framework, period_label, period_end, status, updated_at, created_at,
+               disclosure_date
         FROM regulatory_filing WHERE org_id = ANY(CAST(:ids AS uuid[])) AND status <> 'withdrawn'   -- a discarded draft was never filed
         ORDER BY org_id, framework, period_label, (status = ANY(CAST(:filed AS text[]))) DESC, seq DESC
     """), {"ids": ids, "filed": list(FILED)}).mappings().all()
@@ -153,11 +154,13 @@ def timeliness(session, regulator_org_id: str, entities: list[dict], cfg: dict) 
         for org_id, fw, pl in sorted(keys):
             ob, fl = due_by.get((org_id, fw, pl)), filing_by.get((org_id, fw, pl))
             filed_at = fl["updated_at"].date() if fl and fl["status"] in FILED else None
-            state, days = classify(ob["due_date"] if ob else None, filed_at)
             period_end = (ob or fl or {}).get("period_end")
+            # an obligation without a calendar date (the ORSA) is due from its filing's conclusion (filings.due_for_filing)
+            due = (ob or {}).get("due_date") or (F.due_for_filing(fw, period_end, fl["disclosure_date"])[0] if ob and fl else None)
+            state, days = classify(due, filed_at)
             received = intake_by.get((org_id, pl))
             rows.append({"org_id": org_id, "name": e["name"], "framework": fw, "framework_label": next((x["label"] for x in F.available_frameworks(e["type"]) if x["framework"] == fw), fw),
-                         "period_label": pl, "period_end": period_end.isoformat() if period_end else None, "due_date": ob["due_date"].isoformat() if ob else None,
+                         "period_label": pl, "period_end": period_end.isoformat() if period_end else None, "due_date": due.isoformat() if due else None,
                          "status": fl["status"] if fl else None, "filed_at": filed_at.isoformat() if filed_at else None, "state": state, "days": days,
                          "intake_received_at": received.isoformat() if received else None,
                          "intake_lag_days": ((received.date() - period_end).days if received and period_end else None),

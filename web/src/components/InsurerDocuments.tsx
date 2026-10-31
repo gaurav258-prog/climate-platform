@@ -13,7 +13,8 @@ import FilingPreflight from './FilingPreflight'
 // An insurer's two document reports as they stand now — the ORSA climate change scenario analysis (Directive
 // 2009/138/EC Art. 45a) and the pre-emptive recovery plan's nat-cat stress and capital indicators (Directive (EU)
 // 2025/1 Art. 5(7)-(8)) — for one undertaking or the group (the whole organisation only when it is the one filer, as
-// services/governance/report_filers.py says). Both apply to reports made from
+// services/governance/report_filers.py says). An undertaking at the head of a group is offered twice for the ORSA — the
+// group's and its own — so a choice is the entity and the role. Both apply to reports made from
 // 30 January 2027: the planned date of the report chooses the rules and is frozen with the filing.
 
 interface Doc {
@@ -32,22 +33,25 @@ export default function InsurerDocuments() {
   const qc = useQueryClient()
   const nav = useNavigate()
   const [doc, setDoc] = useState<(typeof DOCS)[number]['k']>('insurer_orsa_climate')
-  const [entity, setEntity] = useState('')
+  const [pick, setPick] = useState('')                    // 'entity|role' — one entity can hold two reports
   const [when, setWhen] = useState('')                    // '' = the platform's default (today, or the day the rules apply)
   const [filing, setFiling] = useState(false)
   const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/filings/entities') })
   // who reports this document (services/governance/report_filers.py): the organisation itself, or only its filers
   const who = useQuery({ queryKey: ['filers', doc], queryFn: () => api.get<Filers>(`/v1/filings/filers?framework=${doc}`) })
   const filers = who.data && !who.data.organisation ? who.data.filers : null
-  const scope = filers && !filers.some(f => f.entity_id === entity) ? (filers[0]?.entity_id ?? '') : entity
-  const key = ['insurer-doc', doc, scope, when]
+  const keyOf = (f: { entity_id: string; role: string }) => `${f.entity_id}|${f.role}`
+  const chosen = filers ? (filers.find(f => keyOf(f) === pick) ?? filers[0]) : null
+  const scope = filers ? (chosen?.entity_id ?? '') : pick.split('|')[0]
+  const role = chosen?.role ?? ''
+  const key = ['insurer-doc', doc, scope, role, when]
   const q = useQuery({ queryKey: key, enabled: !!who.data && (!filers || !!scope),
-    queryFn: () => api.get<Doc>(`/v1/insurance/documents/${doc}?${new URLSearchParams({ ...(scope ? { entity_id: scope } : {}), ...(when ? { disclosure_date: when } : {}) })}`) })
+    queryFn: () => api.get<Doc>(`/v1/insurance/documents/${doc}?${new URLSearchParams({ ...(scope ? { entity_id: scope } : {}), ...(scope && role ? { filing_role: role } : {}), ...(when ? { disclosure_date: when } : {}) })}`) })
   const d = q.data
   const answer = async (id: string, value: any) => {
     try {
       const r = await api.put<{ refused: { item: string; reason: string }[] }>(`/v1/insurance/documents/${doc}/answers`,
-        { answers: { [id]: value }, entity_id: scope || null, disclosure_date: when || null })
+        { answers: { [id]: value }, entity_id: scope || null, filing_role: (scope && role) || null, disclosure_date: when || null })
       if (r.refused?.length) toast.error(r.refused[0].reason)
       else toast.success('Answer saved')
       qc.invalidateQueries({ queryKey: ['insurer-doc', doc] })
@@ -74,9 +78,9 @@ export default function InsurerDocuments() {
                 className={`text-[12px] px-2.5 py-1 ${doc === x.k ? 'bg-[var(--color-line-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{x.label}</button>
             ))}
           </div>
-          <select aria-label="Undertaking or group" value={scope} onChange={e => setEntity(e.target.value)}
+          <select aria-label="Undertaking or group" value={chosen ? keyOf(chosen) : pick} onChange={e => setPick(e.target.value)}
             className="text-[12px] bg-transparent border border-[var(--color-line-2)] rounded px-2 py-1">
-            {filers ? filers.map(f => <option key={f.entity_id} value={f.entity_id}>{f.role === 'consolidated' ? `Group — ${f.name}` : f.name}</option>) : <>
+            {filers ? filers.map(f => <option key={keyOf(f)} value={keyOf(f)}>{f.role === 'consolidated' ? `Group — ${f.name}` : f.name}</option>) : <>
               <option value="">Whole organisation</option>
               {(ents.data?.entities ?? []).map(e => <option key={e.entity_id} value={e.entity_id}>{e.kind === 'group' ? `Group — ${e.name}` : e.name}</option>)}</>}
           </select>
@@ -93,7 +97,7 @@ export default function InsurerDocuments() {
       {q.isLoading && <div className="px-5 py-6 text-[12.5px] text-[var(--color-faint)]">Running the scenarios…</div>}
       {q.isError && <div className="px-5 py-6 text-[12.5px] text-[var(--color-mute)]">{apiMessage(q.error, 'This document is not available.')}</div>}
       {d && <DocumentItems items={d.items} onAnswer={answer} />}
-      {filing && <FilingPreflight framework={doc} entity={scope || undefined} disclosureDate={planned || undefined}
+      {filing && <FilingPreflight framework={doc} entity={scope || undefined} role={role || undefined} disclosureDate={planned || undefined}
         onClose={() => setFiling(false)} onGenerated={id => { setFiling(false); nav(`/filings?filing=${id}`) }} />}
     </Card>
   )

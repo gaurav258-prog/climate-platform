@@ -2,7 +2,8 @@
 and the pre-emptive recovery plan's natural-catastrophe stress and capital indicators (Directive (EU) 2025/1 Art. 5(7),
 (8)) — built item by item from the governing specification: the printed wording as is, the items the platform computes
 (services.governance.orsa_climate / irrd_stress) and the undertaking's own answers (template_answers), for the
-undertaking (reporting entity) or group the report is for, and its reporting period.
+undertaking (reporting entity) or group the report is for, and its reporting period. An undertaking at the head of a group
+holds two ORSAs, its own and the group's (filings._OWN_BOOK): each its own book, figures and answers, told apart by role.
 
 Both apply to reports made from 30 January 2027 (specification basis: the disclosure date). A report is prepared for its
 planned date — an ORSA's conclusion, a plan's submission — which chooses the rules and is frozen with the filing.
@@ -59,15 +60,25 @@ def spec_for(report_type: str, period_end: date, disclosure_date: date | None = 
     return spec
 
 
+def answer_role(report_type: str, entity_id: str | None, role: str | None) -> str | None:
+    """The role an entity's answers are kept under: which of its two reports, for a report one entity holds twice
+    (filings._OWN_BOOK — the ORSA); none for any other report or for the organisation as a whole."""
+    from services.governance.filings import _OWN_BOOK
+    return role if entity_id and report_type in _OWN_BOOK else None
+
+
 def freeze(session, org_id: str, report_type: str, *, entity_ids=None, value_weights=None, translation=None,
            period_end: date) -> dict:
-    """What a filing freezes: the computed part and the undertaking's answers, for its entity (or group) and period."""
+    """What a filing freezes: the computed part and the undertaking's answers, for its entity (or group) and period — of
+    the report its book is (insurer_capital.book_role: an entity's own, or its group's)."""
     from services.governance.entities import root_of
+    from services.insurer_capital import book_role
     mod = _doc(report_type)["module"]
     entity = root_of(session, org_id, entity_ids)
     computed = mod.compute(session, org_id, entity_ids=entity_ids, value_weights=value_weights, translation=translation,
                            reporting_entity_id=entity, period_end=period_end)
-    answers = TA.read(session, org_id, mod.FAMILY, mod.DOCUMENT, period_end=period_end, entity_id=entity)
+    answers = TA.read(session, org_id, mod.FAMILY, mod.DOCUMENT, period_end=period_end, entity_id=entity,
+                      role=answer_role(report_type, entity, book_role(entity_ids, value_weights) if entity else None))
     return {"document": mod.DOCUMENT, "family": mod.FAMILY, "period_end": period_end.isoformat(),
             "reporting_entity_id": entity, "computed": computed, "answers": answers}
 
@@ -105,25 +116,26 @@ def build(spec: dict, report_type: str, payload: dict) -> list[dict]:
 
 
 def live(session, org_id: str, report_type: str, *, entity_id: str | None, period_end: date,
-         disclosure_date: date | None = None) -> dict:
-    """The document as it stands now (not frozen): what a filing would hold, for the entity and period."""
-    from services.governance.entities import subtree_ids
+         disclosure_date: date | None = None, role: str | None = None) -> dict:
+    """The document as it stands now (not frozen): what a filing would hold, for the entity, its report (role: a parent's
+    own 'solo' or its group's) and period — on the book a filing of that scope freezes (filings._book_scope: the one gate,
+    refusing a scope no filer's or a role the scope cannot take)."""
+    from services.governance.filings import _book_scope, _scope_role
     spec = spec_for(report_type, period_end, disclosure_date)
-    ids = subtree_ids(session, org_id, entity_id) if entity_id else None
-    weights = None
-    if ids and len(ids) > 1:
-        from services.governance.entities import ownership_weights, regime_for
-        weights = ownership_weights(session, org_id, root_entity_id=entity_id, regime=regime_for(report_type))
-    payload = freeze(session, org_id, report_type, entity_ids=ids, value_weights=weights, period_end=period_end)
+    role = _scope_role(session, org_id, report_type, entity_id, role)
+    ids, weights, translation = _book_scope(session, org_id, report_type, entity_id, period_end, role)
+    payload = freeze(session, org_id, report_type, entity_ids=ids, value_weights=weights, translation=translation,
+                     period_end=period_end)
     t = spec["templates"][0]
     return {"report_type": report_type, "title": t["title"], "citation": R.citation(spec, t["id"]),
             "spec": {"framework": spec["framework"], "version": spec["version"], "applies": spec["applies"]},
-            "period_end": period_end.isoformat(), "reporting_entity_id": entity_id,
+            "period_end": period_end.isoformat(), "reporting_entity_id": entity_id, "filing_role": role,
             "items": build(spec, report_type, payload), "computed": payload["computed"]}
 
 
 def save(session, org_id: str, report_type: str, answers: dict, user_id: str, *, entity_id: str | None,
-         period_end: date, disclosure_date: date | None = None) -> dict:
+         period_end: date, disclosure_date: date | None = None, role: str | None = None) -> dict:
+    """Store the undertaking's answers for the entity's report (role, resolved by the caller: filings._scope_role)."""
     mod = _doc(report_type)["module"]
     spec = spec_for(report_type, period_end, disclosure_date)
     t = spec["templates"][0]
@@ -132,7 +144,8 @@ def save(session, org_id: str, report_type: str, answers: dict, user_id: str, *,
         raise DocumentError("impact.interval: the interval is a number of years, no longer than three (Art. 45a(3))",
                             "filings.insurer_doc.interval")
     return TA.save(session, org_id, mod.FAMILY, mod.DOCUMENT, t, mod.binding(spec)[t["id"]]["items"], answers, user_id,
-                   period_end=period_end, entity_id=entity_id, label=t["title"], computed_from="the book")
+                   period_end=period_end, entity_id=entity_id, role=answer_role(report_type, entity_id, role),
+                   label=t["title"], computed_from="the book")
 
 
 def _interval_ok(v: dict) -> bool:

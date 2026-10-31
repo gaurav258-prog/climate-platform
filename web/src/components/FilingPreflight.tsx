@@ -45,18 +45,21 @@ const TEMPLATE: Record<string, string> = { AII: 'Pre-contractual, Article 8', AI
 const LEGAL: Record<string, string> = { AII: 'Annex II', AIII: 'Annex III', AIV: 'Annex IV', AV: 'Annex V' }
 
 // The obligation a filing is prepared for (from its card): its entity and period are fixed, and the server enforces them.
-export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; scope_role?: string | null; period_end: string; period_label: string; fund_id?: string | null; fund_name?: string | null }
+export interface ForObligation { obligation_id: string; entity_id: string | null; entity_name: string | null; filing_role: string; scope_role?: string | null; period_end: string; period_label: string; fund_id?: string | null; fund_name?: string | null; due_date?: string | null }
 
 const Label = ({ children, info }: { children: React.ReactNode; info?: { title: string; body: React.ReactNode } }) => (
   <div className="text-[12px] text-[var(--color-faint)] mb-1 flex items-center gap-1.5">{children}
     {info && <InfoButton compact details={{ title: info.title, sections: [{ heading: HEADING.shows, body: info.body }] }} />}</div>)
 const select = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
 
-// disclosureDate: the date the report will be made (an ORSA's conclusion) when it is not today — it chooses the rules
-export default function FilingPreflight({ framework, obligation, fund, entity, disclosureDate, onClose, onGenerated }: { framework: string; obligation?: ForObligation; fund?: { fund_id: string; name: string }; entity?: string; disclosureDate?: string; onClose: () => void; onGenerated: (id: string) => void }) {
+// disclosureDate: the date the report will be made (an ORSA's conclusion) when it is not today — it chooses the rules.
+// role: which of the entity's reports, where it holds two (an undertaking heading a group: its own and the group's).
+export default function FilingPreflight({ framework, obligation, fund, entity, role: entityRole, disclosureDate, onClose, onGenerated }: { framework: string; obligation?: ForObligation; fund?: { fund_id: string; name: string }; entity?: string; role?: string; disclosureDate?: string; onClose: () => void; onGenerated: (id: string) => void }) {
   const [entityId, setEntityId] = useState<string>(obligation?.entity_id ?? entity ?? '')   // '' = whole organisation
-  // which of the entity's reports, where it holds two (an undertaking heading a group: its own and the group's)
-  const [role, setRole] = useState<string>(obligation?.scope_role ?? '')
+  const [role, setRole] = useState<string>(obligation?.scope_role ?? entityRole ?? '')
+  // a calendar obligation with no date runs from the report's own conclusion (the ORSA): the preparer gives the day
+  const asksConclusion = !!obligation && !obligation.due_date && !disclosureDate
+  const [concluded, setConcluded] = useState('')
   const [fundId, setFundId] = useState<string>(obligation?.fund_id ?? fund?.fund_id ?? '')
   const q = useQuery({ queryKey: ['preflight', framework, entityId, role, fundId], queryFn: () => api.get<Preflight>(
     `/v1/filings/preflight?framework=${framework}${entityId ? `&entity_id=${entityId}` : ''}${entityId && role ? `&filing_role=${role}` : ''}${fundId ? `&fund_id=${fundId}` : ''}`) })
@@ -79,7 +82,7 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
     setBusy(true); setErr(null)
     try {
       const f = await api.post<{ filing_id: string }>('/v1/filings',
-        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, filing_role: (entityId && role) || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs, disclosure_date: disclosureDate || null })
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, filing_role: (entityId && role) || null, fund_id: fundId || null, obligation_id: obligation?.obligation_id ?? null, view, figure_sources: figs, disclosure_date: disclosureDate || concluded || null })
       onGenerated(f.filing_id)
     } catch (e) {
       // the book changed since this check loaded, or a rule refused: show why, and re-read so the preparer confirms what is current
@@ -89,7 +92,7 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
   }
   const blockedByExisting = !!d && !d.can_generate && !d.needs_fund && !d.needs_scope   // one live filing per report, period and scope
   const periodMismatch = !!(obligation && d && obligation.period_end !== d.basis.reporting_period_end.slice(0, 10))
-  const blocked = blockedByExisting || periodMismatch || !!d?.needs_fund || !!d?.needs_scope
+  const blocked = blockedByExisting || periodMismatch || !!d?.needs_fund || !!d?.needs_scope || (asksConclusion && !concluded)
 
   const metrics: StatItem[] = d ? [
     d.coverage ? { label: d.coverage.label[0].toUpperCase() + d.coverage.label.slice(1), value: `${d.coverage.pct}%`, sub: `${d.coverage.done} of ${d.coverage.total}` }
@@ -113,6 +116,11 @@ export default function FilingPreflight({ framework, obligation, fund, entity, d
             <div>
               <Label info={{ title: 'Reporting scope', body: 'The obligation sets who this filing is for and its period; the server holds the filing to them.' }}>Reporting scope</Label>
               <div className="text-[13px]">{obligation.fund_name ? `${obligation.fund_name} · fund` : obligation.entity_name ? `${obligation.entity_name} · ${obligation.filing_role === 'consolidated' ? 'consolidated' : 'solo'}` : 'Whole organisation'} · {obligation.period_label}</div>
+            </div>)}
+          {asksConclusion && (
+            <div>
+              <Label info={{ title: 'Concluded on', body: 'The day the assessment concludes. It sets which rules apply and the deadline: the report is due two weeks later.' }}>Concluded on</Label>
+              <input type="date" value={concluded} onChange={e => { setConcluded(e.target.value); setConfirmed(false) }} className={select} />
             </div>)}
           {periodMismatch && obligation && (
             <div className="flex items-center gap-1.5 text-[12.5px] text-[var(--color-warn)]"><AlertTriangle size={14} className="shrink-0" /> This obligation is for another period

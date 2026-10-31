@@ -105,7 +105,7 @@ def compute(session, org_id: str, *, entity_ids=None, value_weights=None, transl
     """The computed part of the ORSA climate analysis for one undertaking (or the group), frozen with the filing."""
     from api.routers.insurance import build_disclosure_snapshot, zones_of
     from services.calc_settings import get_calc_settings
-    from services.insurer_capital import position
+    from services.insurer_capital import book_role, position
     ref = reference()
     pick = chosen(get_calc_settings(session, org_id))
     kw = {"entity_ids": entity_ids, "value_weights": value_weights, "translation": translation,
@@ -113,7 +113,9 @@ def compute(session, org_id: str, *, entity_ids=None, value_weights=None, transl
     today = build_disclosure_snapshot(session, org_id, "baseline", "current", **kw)
     zones = zones_of(today.get("policies") or [])                     # one set of accumulation zones for every run
     base = _figures(today)
-    cap = position(session, org_id, period_end, reporting_entity_id)
+    # the attested capital of the report this book is: an entity's own, or its group's — never the other's (E353)
+    cap = position(session, org_id, period_end, reporting_entity_id,
+                   book_role(entity_ids, value_weights) if reporting_entity_id else None)
     of, scr = cap.get("eligible_own_funds_scr"), cap.get("scr_total")
     runs, peril_eal, zone_loss = [], {"today": _by_peril(today)}, {}
     for which in ("below_2c", "above_2c"):

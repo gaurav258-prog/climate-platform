@@ -3,8 +3,9 @@ the exports. E343 read it for Solvency II nat-cat (services.governance.sii_filer
 report whose act names its filers, one rule per report family:
 
   insurer_solvency           services.governance.sii_filers   an undertaking, a group (ITS (EU) 2023/894 Arts 19, 34)
-  insurer_orsa_climate       services.governance.orsa_filers  the same filers (Directive 2009/138/EC Arts 45(1), 246(4);
-                                                              Delegated Regulation (EU) 2015/35 Arts 304(1)(c), 372(1))
+  insurer_orsa_climate       services.governance.orsa_filers  the same filers, a head undertaking's own beside its group's
+                                                              (Directive 2009/138/EC Arts 45(1), 246(4); Delegated
+                                                              Regulation (EU) 2015/35 Arts 304(1)(c), 372(1))
   insurer_recovery_stress    services.governance.irrd_filers  the ultimate parent for its group, an undertaking outside
                                                               a group plan, a subsidiary where required (Directive (EU)
                                                               2025/1 Arts 5, 7)
@@ -95,7 +96,9 @@ def owed(session: Session, org_id: str, framework: str, period_end: date) -> set
         return rule(framework).owed(session, org_id)
     if is_filer(session, org_id):
         return {(None, "whole_org")}
-    return set(rule(framework).owed(session, org_id, framework, period_end).items())
+    got = rule(framework).owed(session, org_id, framework, period_end)
+    # a rule's {entity: role}, or — where one entity owes two reports (the ORSA: its own and its group's) — its pairs
+    return set(got.items()) if isinstance(got, dict) else set(got)
 
 
 def due(framework: str, undertaking_due, role: str):

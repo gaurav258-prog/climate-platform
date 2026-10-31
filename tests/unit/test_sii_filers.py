@@ -51,7 +51,7 @@ def test_an_entitys_own_book_is_read_from_its_own_book_ids_only():
     src = inspect.getsource(filings._book_basis)
     assert "_E.own_book_ids if role == \"solo\" else _E.subtree_ids" in src and "role != \"solo\" and len(entity_ids) > 1" in src
     assert "_scope_role" in _calls(filings._book_scope)
-    assert filings._OWN_BOOK == {"insurer_solvency"}
+    assert filings._OWN_BOOK == {"insurer_solvency", "insurer_orsa_climate"}          # nat-cat and the ORSA (E353)
 
 
 def _sql_strings(path):
@@ -73,7 +73,7 @@ _ONE_SCOPE_PER_ENTITY = {"services/eudr/declaration_filing.py": "EUDR due-dilige
 
 
 def test_every_filing_found_by_its_entity_is_found_by_its_role_too():
-    """E348's guard: a parent holds two live Solvency II nat-cat filings — its own and its group's — so any query that
+    """E348's guard: a parent holds two live Solvency II nat-cat filings — its own and its group's (and two ORSAs, E353) — so any query that
     finds a filing (or matches one to an obligation) by its entity must match its role too (filings._role_match), or it
     mixes an undertaking's own report with its group's: the calendar, the live-filing rule, the previous period, the
     comparison, the siblings. A new such query without it fails here."""
@@ -93,7 +93,7 @@ def test_every_filing_found_by_its_entity_is_found_by_its_role_too():
     # the rule itself: only a report an entity can hold twice is told apart by role; a whole-organisation scope or a
     # filing from before roles were stamped by its entity alone
     sql = filings._role_match("rf", "ob.entity_id", "ob.filing_role")
-    assert "rf.framework NOT IN ('insurer_solvency')" in sql and "ob.entity_id IS NULL" in sql and "rf.filing_role IS NULL" in sql
+    assert "rf.framework NOT IN ('insurer_orsa_climate', 'insurer_solvency')" in sql and "ob.entity_id IS NULL" in sql and "rf.filing_role IS NULL" in sql
 
 
 def test_a_whole_organisation_book_without_its_filer_exports_no_template():
