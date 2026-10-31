@@ -413,6 +413,20 @@ def consolidation_record(framework: str) -> dict:
             **({"declaration": entry["declaration"]} if entry["basis"] == "declared" else {})}
 
 
+def frozen_entities(session: Session, org_id: str, weights: dict[str, float]) -> list[dict]:
+    """The entities a group filing's book is weighted on, as frozen with it (payload['_consolidation']['entities']): each
+    entity's name, kind, parent, how it is consolidated and its weight in this book — so a figure traces to the
+    undertaking whose book it came from on the record the filing was computed on, not today's tree."""
+    rows = session.execute(text("""
+        SELECT entity_id::text, name, kind, parent_entity_id::text, consolidation_method, ownership_pct
+        FROM reporting_entities WHERE org_id = :o AND entity_id::text = ANY(:ids) ORDER BY name"""),
+        {"o": org_id, "ids": list(weights)}).mappings().all()
+    return [{"entity_id": r["entity_id"], "name": r["name"], "kind": r["kind"], "parent_entity_id": r["parent_entity_id"],
+             "consolidation_method": r["consolidation_method"],
+             "ownership_pct": float(r["ownership_pct"]) if r["ownership_pct"] is not None else None,
+             "weight": round(float(weights[r["entity_id"]]), 6)} for r in rows]
+
+
 def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None, *, regime: str) -> dict[str, float]:
     """entity_id -> the fraction of its book that consolidates into `root_entity_id` (default: the top of the tree), by the
     governing text's rule (`regime`, data/reference/consolidation/regimes.json).

@@ -3,7 +3,8 @@ block by block as Annex I prints it, from the specification the filing was froze
 standard-formula result frozen with it.
 
 A cell is: a computed value; blank ('—': reportable, nothing to report); greyed (no instruction of its template names
-it); or a premium the undertaking or group enters (the other-region rows), offered for entry and shown as frozen.
+it); or a premium the undertaking or group enters (the other-region rows), offered for entry and shown as frozen. Every
+reportable cell carries `trace`, its key for the figure's trace (services.governance.figure_trace).
 """
 from __future__ import annotations
 
@@ -53,13 +54,13 @@ def sections(payload: dict, report_type: str = "insurer_solvency") -> list[dict]
                     cells.append({"text": "", "greyed": True})
                 elif src["columns"][c["id"]].startswith("input") and src["rows"][r["id"]].startswith("input"):
                     got = supplied.get(key)
-                    cells.append({**_mnum("—" if got is None else _fmt(got), "manual"), "key": key, "frozen_value": got,
+                    cells.append({**_mnum("—" if got is None else _fmt(got), "manual"), "key": key, "frozen_value": got, "trace": key,
                                   "supply": {"framework": report_type, "key": key,
                                              "reporting_entity_id": ((payload or {}).get("_scope") or {}).get("reporting_entity_id"),
                                              "filing_role": ((payload or {}).get("_scope") or {}).get("filing_role")}})
                 else:
                     v = (values.get(r["id"]) or {}).get(c["id"])
-                    cells.append(_mnum("—" if v is None else _fmt(v), "computed"))
+                    cells.append({**_mnum("—" if v is None else _fmt(v), "computed"), "trace": key})   # figure_trace
             body.append({"type": "row", "cells": cells})
         if not body:
             continue

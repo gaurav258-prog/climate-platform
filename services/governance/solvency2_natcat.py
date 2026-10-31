@@ -155,44 +155,67 @@ def _subsidence_2019_table(v: dict) -> dict:
             "citation": "Del. Reg. (EU) 2015/35, Art. 125 + Annexes IX, X, XXVI"}
 
 
+def peril_table(v: dict, peril: str) -> dict | None:
+    """The peril's table in version v — for subsidence before 2026/269, France only (Art. 125)."""
+    if peril == "subsidence" and v["subsidence"] == "france_art_125_2019":
+        return _subsidence_2019_table(v)
+    return T.peril_table(v, peril)
+
+
+def placement(pol: dict, peril: str, *, v: dict, table: dict, uk_reading: str = "region_only") -> dict | None:
+    """Where one policy's sum insured falls for a peril — the one rule peril_scr and the figure trace both read: None when
+    the peril does not charge it (no sum insured; subsidence, not residential); else its sum insured ('si', motor
+    included where the Article says so) and one of: 'unlocated' (no country), its specified region and zone ('region',
+    'zone': None when the postal code places it in no zone), the premium-based 'other' regions outside Annex XIII
+    ('other': the United Kingdom under the region-and-premium reading is both), or 'not_charged' (in Annex XIII, in no
+    region of this peril)."""
+    si = _sum_insured(pol, peril, v.get("motor", {}))
+    if si <= 0:
+        return None
+    if peril == "subsidence" and pol.get("residential") is False:
+        return None                                               # Art. 125: residential buildings only
+    iso = to_iso2(pol.get("country"))
+    if not iso:
+        return {"si": si, "unlocated": True}
+    region = table["iso2_to_region"].get(iso)
+    out = {"si": si, "region": region, "zone": T.zone_of(v, peril, region, iso, pol.get("postal_code")) if region else None,
+           "other": False, "not_charged": False}
+    if not T.in_annex_xiii(iso) and (not region or uk_reading == "region_and_premium"):     # only the UK is both
+        out["other"] = not (peril == "subsidence" and v["subsidence"] == "france_art_125_2019")   # France-only: no 'other'
+    elif not region:
+        out["not_charged"] = True
+    return out
+
+
 def peril_scr(policies: list[dict], peril: str, *, v: dict, treaty: dict | None = None,
               other_inputs: dict | None = None, uk_reading: str = "region_only") -> dict:
     """One peril's capital requirement, region by region and in total, before and after risk mitigation."""
-    if peril == "subsidence" and v["subsidence"] == "france_art_125_2019":
-        table = _subsidence_2019_table(v)
-    else:
-        table = T.peril_table(v, peril)
+    table = peril_table(v, peril)
     if not table:
         return {"peril": peril, "available": False, "reason": f"no {peril} table in version {v['id']}"}
-    motor = v.get("motor", {})
     buckets: dict[str, dict] = {}
     other_si = not_charged = unlocated = 0.0
     residential_unknown = 0
     for pol in policies:
-        si = _sum_insured(pol, peril, motor)
-        if si <= 0:
+        at = placement(pol, peril, v=v, table=table, uk_reading=uk_reading)
+        if at is None:
             continue
-        if peril == "subsidence" and pol.get("residential") is False:
-            continue                                              # Art. 125: residential buildings only
-        iso = to_iso2(pol.get("country"))
-        if not iso:
+        si = at["si"]
+        if at.get("unlocated"):
             unlocated += si
             continue
-        region = table["iso2_to_region"].get(iso)
-        outside = not T.in_annex_xiii(iso)
-        if region:
-            b = buckets.setdefault(region, {"zones": {}, "unzoned": 0.0, "n": 0})
+        if at["region"]:
+            b = buckets.setdefault(at["region"], {"zones": {}, "unzoned": 0.0, "n": 0})
             b["n"] += 1
             residential_unknown += peril == "subsidence" and pol.get("residential") is None
-            z = T.zone_of(v, peril, region, iso, pol.get("postal_code"))
+            z = at["zone"]
             if z is None:
                 b["unzoned"] += si
             else:
                 b["zones"][z] = b["zones"].get(z, 0.0) + si
-        if outside and (not region or uk_reading == "region_and_premium"):     # only the UK is both
-            if not (peril == "subsidence" and v["subsidence"] == "france_art_125_2019"):   # France-only: no 'other'
-                other_si += si
-        elif not region:
+        if at["other"]:
+            other_si += si
+        elif at["not_charged"]:
             not_charged += si
 
     rows, before_r, after_r, undiversified = [], {}, {}, {}

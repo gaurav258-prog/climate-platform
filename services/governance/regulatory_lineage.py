@@ -73,11 +73,38 @@ def template_detail(spec: dict, binding: dict | None, tid: str) -> list[dict]:
             for axis in ("rows", "columns") for i in t.get(axis) or []]
 
 
+def family_entry(session: Session, family: str, rec: dict, *, before: bool = False, prints: set | None = None,
+                 template: str | None = None) -> dict:
+    """One specification family as a filing froze it (rec: payload '_specs'[family]): the act and its quoted basis, the
+    version and whether its file has changed since, the sign-off at the freeze and of that exact file today, the
+    templates it prints (prints: the ids the form prints; none — every full or document template) and the readings the
+    specification declares. template: also that template's rows / columns / items."""
+    from services.regspec.bindings import binding_for
+    from services.regspec.signoff import signed_on
+    spec = R.load(family, rec["version"])
+    binding = binding_for(family, spec)
+    frozen_sha = rec.get("sha256")
+    tids = [t["id"] for t in spec["templates"] if t["id"] in (prints or set())] or \
+           [t["id"] for t in spec["templates"] if t["structure"] in ("full", "document")]
+    entry = {
+        "family": family, "version": rec["version"], "act": _act(spec), "frozen_before_specs": before,
+        "spec": {"sha256_frozen": frozen_sha, "sha256_now": spec["_sha256"], "changed_since": None if frozen_sha is None else frozen_sha != spec["_sha256"],
+                 "applies": spec.get("applies"), "signoff_at_freeze": {"approved": rec.get("approved"),
+                                                                        "one_person": rec.get("one_person"),
+                                                                        "needs": rec.get("needs")},
+                 "signoff_of_frozen_file": signed_on(session, family, rec["version"], frozen_sha) if frozen_sha else None},
+        "templates": [_filled(spec, binding, tid) for tid in tids],
+        "interpretations": [{"subject": i.get("subject"), "reading": i.get("reading"), "basis": i.get("basis")}
+                            for i in spec.get("interpretations") or []],
+    }
+    if template and template in tids:
+        entry["template_detail"] = {"id": template, "rows": template_detail(spec, binding, template)}
+    return entry
+
+
 def build(session: Session, org_id: str, filing_id: str, template: str | None = None) -> dict:
     """The regulatory lineage of one filing (template: also the rows / columns / items of that template)."""
     from services.governance.filings import election_view, get_filing
-    from services.regspec.bindings import binding_for
-    from services.regspec.signoff import signed_on
     f = get_filing(session, org_id, filing_id, with_payload=True)
     if not f:
         raise LineageError("filing not found")
@@ -104,26 +131,8 @@ def build(session: Session, org_id: str, filing_id: str, template: str | None = 
         if not (rec or {}).get("version"):
             families.append({"family": family, "version": None, "note": (rec or {}).get("note")})
             continue
-        spec = R.load(family, rec["version"])
-        binding = binding_for(family, spec)
-        frozen_sha = rec.get("sha256")
-        prints = printed.get(family) or printed.get(None) or set()
-        tids = [t["id"] for t in spec["templates"] if t["id"] in prints] or \
-               [t["id"] for t in spec["templates"] if t["structure"] in ("full", "document")]
-        entry = {
-            "family": family, "version": rec["version"], "act": _act(spec), "frozen_before_specs": before,
-            "spec": {"sha256_frozen": frozen_sha, "sha256_now": spec["_sha256"], "changed_since": None if frozen_sha is None else frozen_sha != spec["_sha256"],
-                     "applies": spec.get("applies"), "signoff_at_freeze": {"approved": rec.get("approved"),
-                                                                            "one_person": rec.get("one_person"),
-                                                                            "needs": rec.get("needs")},
-                     "signoff_of_frozen_file": signed_on(session, family, rec["version"], frozen_sha) if frozen_sha else None},
-            "templates": [_filled(spec, binding, tid) for tid in tids],
-            "interpretations": [{"subject": i.get("subject"), "reading": i.get("reading"), "basis": i.get("basis")}
-                                for i in spec.get("interpretations") or []],
-        }
-        if template and template in tids:
-            entry["template_detail"] = {"id": template, "rows": template_detail(spec, binding, template)}
-        families.append(entry)
+        families.append(family_entry(session, family, rec, before=before,
+                                     prints=printed.get(family) or printed.get(None) or set(), template=template))
     return {"filing": {"filing_id": filing_id, "framework": f["framework"], "period_label": f.get("period_label"),
                        "status": f["status"], "payload_sha256": snap.get("payload_sha256"),
                        "hash_verified": snap.get("hash_verified")},

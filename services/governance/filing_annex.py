@@ -802,24 +802,33 @@ def _col_groups(cols: list[dict]) -> str:
 _P3_FMT = {"T1": {"i": "t", "j": "t", "k": "pct", "p": "yrs"}, "T5": {"g": "yrs"}}
 
 
-def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | None = None) -> dict:
+def _t5_key(row: str, column: str, geography: str) -> str:
+    from services.governance.figure_trace_t5 import key
+    return key(row, column, geography)
+
+
+def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | None = None,
+                       geography: str | None = None) -> dict:
+    """A Pillar 3 grid as the spec prints it. Template 5 (geography: 'ALL' or a column-a geography): each row's cells
+    carry `trace`, the key of the figure's trace (services.governance.figure_trace_t5)."""
     import services.regspec as R
     from services.governance.pillar3_grids import BINDING
     t = R.template(spec, tid)
     cols = [c for c in t["columns"] if not BINDING[tid]["columns"][c["id"]].startswith("computed:country")]
     fmt = _P3_FMT.get(tid, {})
 
-    def cell(cid, v):
+    def cell(cid, v, row=None):
         src = "computed" if BINDING[tid]["columns"][cid].startswith("computed") else "integrated"
+        traced = {"trace": _t5_key(row, cid, geography)} if tid == "T5" and row and geography else {}
         if v is None:
-            return _mnum("—", src)
+            return {**_mnum("—", src), **traced}
         kind = fmt.get(cid)
         txt = (f"{v:,.0f}" if kind == "t" else f"{v}%" if kind == "pct" else f"{v}y" if kind == "yrs" else _eur(v))
-        return _mnum(txt, src)
+        return {**_mnum(txt, src), **traced}
 
     rows = []
     for r in grid["rows"]:
-        rows.append({"type": "row", "cells": [_txt(f"{r['id']} · {r['label']}")] + [cell(c["id"], r["values"].get(c["id"])) for c in cols]})
+        rows.append({"type": "row", "cells": [_txt(f"{r['id']} · {r['label']}")] + [cell(c["id"], r["values"].get(c["id"]), r["id"]) for c in cols]})
         for b in r.get("breakdown") or []:            # T5 row 13 by NACE section (pillar3_grids.build)
             rows.append({"type": "row", "cells": [_txt(f"{r['id']} · {b['label']}")] + [cell(c["id"], b["values"].get(c["id"]))
                                                                                           for c in cols]})
@@ -944,9 +953,10 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                                      "in your calculation settings."})
         else:
             g5 = p3_t5(spec, assets, level)
-            sections.append(_spec_grid_section(spec, "T5", g5, key="t5", scope="All geographies"))
+            sections.append(_spec_grid_section(spec, "T5", g5, key="t5", scope="All geographies", geography="ALL"))
             for geo in g5["geographies"]:           # column a — one instance per geography (Annex XL, Template 5, column a)
-                sections.append(_spec_grid_section(spec, "T5", geo, key=f"t5_geo_{geo['geography']}", scope=geo["label"]))
+                sections.append(_spec_grid_section(spec, "T5", geo, key=f"t5_geo_{geo['geography']}", scope=geo["label"],
+                                                   geography=geo["geography"]))
     else:
         # fallback for a snapshot without the per-asset book: the earlier by-hazard summary
         haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))

@@ -328,9 +328,10 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     payload["_period"] = period_view(period_end, period_kind)       # the disclosure reference date and its period
     payload["_view"] = view_record
     payload["_fx"] = _fx_record(session, org_id, translation)
-    if value_weights:                         # a group filing: the consolidation rule it was weighted on, frozen with it
-        from services.governance.entities import consolidation_record
-        payload["_consolidation"] = consolidation_record(report_type)
+    if value_weights:     # a group filing: the consolidation rule it was weighted on and each entity's weight, frozen
+        from services.governance.entities import consolidation_record, frozen_entities
+        payload["_consolidation"] = {**consolidation_record(report_type),
+                                     "entities": frozen_entities(session, org_id, value_weights)}
     basis["presentation_currency"] = payload["_fx"]["presentation_currency"]
     basis["view"] = view
     # Lane 2 (customer/vendor provided values, attested under 4-eyes) is baked into the frozen payload here,

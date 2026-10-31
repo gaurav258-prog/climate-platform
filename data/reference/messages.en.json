@@ -13069,6 +13069,97 @@
    "detail": {
     "what": "Financed emissions of {asset_class} are not computed yet: the standard attributes them by a method of their own."
    }
+  },
+  "trace.unsupported": {
+   "label": "No trace for this figure yet",
+   "detail": {
+    "what": "A trace from the law to the data is available for the cells of the Solvency II natural catastrophe template and of Pillar 3 Template 5."
+   }
+  },
+  "trace.not_frozen": {
+   "status": 409,
+   "label": "This report is not frozen yet",
+   "detail": {
+    "what": "A figure is traced on the record a report freezes. This one has no frozen record.",
+    "next": "Prepare the report; its figures can be traced once it is frozen."
+   }
+  },
+  "trace.cell.unknown": {
+   "status": 404,
+   "label": "This form has no such cell",
+   "detail": {
+    "what": "The cell is not one of the template this report was frozen on."
+   }
+  },
+  "trace.cell.greyed": {
+   "status": 404,
+   "label": "Nothing is reported in this cell",
+   "detail": {
+    "what": "No instruction of the template names this cell, so the form greys it out."
+   }
+  },
+  "trace.gap.no_spec": {
+   "label": "No specification frozen",
+   "detail": {
+    "what": "This report was frozen without a template specification, so the law and the instructions behind its cells are not on its record."
+   }
+  },
+  "trace.gap.no_run": {
+   "label": "No calculation run on record",
+   "detail": {
+    "what": "This report was frozen before the platform recorded the run behind each report, so there is no fingerprint of the book it read.",
+    "next": "Refresh it while it is a draft, or restate it once filed, to pin it to a recorded run."
+   }
+  },
+  "trace.gap.no_batch": {
+   "label": "No data file on record",
+   "detail": {
+    "what": "No imported data file was on record for this organisation when the book was read: the book was taken as it stood in the platform."
+   }
+  },
+  "trace.gap.undertaking_not_recorded": {
+   "label": "Undertakings not recorded",
+   "detail": {
+    "what": "This group report was frozen before the undertaking of each policy, and each undertaking's share, were recorded with it.",
+    "next": "Refresh the draft, or restate the report once filed, to trace the figure to each undertaking."
+   }
+  },
+  "trace.gap.premium_not_stated": {
+   "label": "Premium not stated",
+   "detail": {
+    "what": "No premium to be earned is attested for this region for the reporting period, so the cell is blank."
+   }
+  },
+  "trace.gap.method_not_stated": {
+   "label": "Method not stated",
+   "detail": {
+    "what": "The group has not stated, under four eyes, which method it uses for {name} for this period."
+   }
+  },
+  "trace.book.left_out": {
+   "label": "Left out: method 2",
+   "detail": {
+    "what": "The group states method 2, deduction and aggregation, for this undertaking. Under a combination of methods the template reports only the part of the group calculated with method 1, so this undertaking's book is not in it.",
+    "why": "Implementing Regulation (EU) 2023/894, Annex III, S.27.01, point (b); Delegated Regulation (EU) 2015/35, Article 341."
+   }
+  },
+  "trace.book.premium_stated": {
+   "label": "Stated by you, not computed",
+   "detail": {
+    "what": "This premium is entered by you and attested by a second person. It is not computed from the book."
+   }
+  },
+  "trace.formula.nothing": {
+   "label": "Nothing to report here",
+   "detail": {
+    "what": "The book has no sum insured in this region for this peril, so the cell is blank."
+   }
+  },
+  "trace.formula.no_exposure": {
+   "label": "No exposure in this cell",
+   "detail": {
+    "what": "No exposure of the row meets what the column counts, so the cell is zero or blank."
+   }
   }
  },
  "names": {

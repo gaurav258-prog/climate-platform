@@ -448,6 +448,15 @@ def lineage_t5_cell(filing_id: str, row: str, column: str, session: DbSession, g
         raise UserError("error.not_found") from e
 
 
+@router.get("/filings/{filing_id}/trace",
+            summary="One filed figure as a graph: the law and the specification → the cell → its calculation and the "
+                    "attested statements it rests on → the book → what the calculation read")
+def figure_trace(filing_id: str, cell: str, session: DbSession, expand: list[str] = Query(default=[]),
+                 ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.figure_trace import build, parse_expand
+    return build(session, ctx["org"]["org_id"], filing_id, cell, parse_expand(expand))   # refusals: UserError
+
+
 @router.get("/lineage/cell/{h3_cell}", summary="Reverse trace: a granular cell → every holding & filing that reuses it")
 def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_lineage import cell_upstream

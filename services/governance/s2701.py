@@ -125,6 +125,21 @@ def premium_column(spec: dict, tid: str = TID) -> dict[str, str]:
             if _peril_of(c["section"]) == p and _COL_ROLE.get(c["label"]) == "premium"}
 
 
+def _ref_cells(ref: str, order: list[str]) -> set[tuple[str, str]]:
+    """The (row, column) cells an instruction's ref names: 'Cxxxx/Ryyyy[–Rzzzz]' or, printed row first, 'Ryyyy/Cxxxx'."""
+    ref = ref.strip()
+    m = re.fullmatch(r"(C\d{4})/(R\d{4})(?:\s*[–-]\s*(R\d{4}))?", ref)
+    if m:
+        col, a, b = m.group(1), m.group(2), m.group(3) or m.group(2)
+    elif (m := re.fullmatch(r"(R\d{4})/(C\d{4})", ref)):                  # printed row first
+        col, a, b = m.group(2), m.group(1), m.group(1)
+    else:
+        return set()
+    if a in order and b in order:
+        return {(r, col) for r in order[order.index(a): order.index(b) + 1]}
+    return set()
+
+
 def reportable(spec: dict, tid: str = TID) -> set[tuple[str, str]]:
     """Every (row, column) an instruction of the template names (Annex II for S.27.01.01, Annex III for S.27.01.04);
     the rest of each block is greyed. A ref the act misprints is read as the spec records it ('ref', with the printed
@@ -134,17 +149,47 @@ def reportable(spec: dict, tid: str = TID) -> set[tuple[str, str]]:
     order = [r["id"] for r in t["rows"]]
     cells = set()
     for ins in t.get("instructions") or []:
-        ref = ins["ref"].strip()
-        m = re.fullmatch(r"(C\d{4})/(R\d{4})(?:\s*[–-]\s*(R\d{4}))?", ref)
-        if m:
-            col, a, b = m.group(1), m.group(2), m.group(3) or m.group(2)
-        elif (m := re.fullmatch(r"(R\d{4})/(C\d{4})", ref)):                  # printed row first
-            col, a, b = m.group(2), m.group(1), m.group(1)
-        else:
-            continue
-        if a in order and b in order:
-            cells |= {(r, col) for r in order[order.index(a): order.index(b) + 1]}
+        cells |= _ref_cells(ins["ref"], order)
     return cells
+
+
+def instructions_for(spec: dict, tid: str, row: str, col: str) -> list[dict]:
+    """The instructions of the template that name this cell, as the specification holds them (ref, item, quote)."""
+    from services.regspec import template
+    t = template(spec, tid)
+    order = [r["id"] for r in t["rows"]]
+    return [i for i in t.get("instructions") or [] if (row, col) in _ref_cells(i["ref"], order)]
+
+
+def cell_of(spec: dict, tid: str, row: str, col: str) -> dict:
+    """What one cell of the template is: its row and column as printed, the peril of its block (None: the summary), the
+    row's role (a region, the other regions, a total, the diversification, …) with our region code or the Annex III
+    region number, the column's role (exposure, loss, before, after, premium, …) and how the binding fills each."""
+    from services.regspec import template
+    t = template(spec, tid)
+    r = next((x for x in t["rows"] if x["id"] == row), None)
+    c = next((x for x in t["columns"] if x["id"] == col), None)
+    if r is None or c is None:
+        raise KeyError(f"{tid} prints no cell {row}/{col}")
+    b = binding(spec)[tid]
+    peril = _peril_of(r["section"])
+    region = next((code for code, rid in REGION_ROW.get(peril or "", {}).items() if rid == row), None)
+    annex_iii = next((n for n, rid in other_region_rows(spec, tid).get(peril or "", {}).items() if rid == row), None)
+    if peril is None:
+        row_role = "simplification" if row == "R0002" else "nat_cat" if row == "R0010" else \
+            "diversification" if r["label"].lower().startswith("diversification") else "peril"
+    elif peril == "subsidence" or region is None:
+        row_role = "other_region" if annex_iii is not None else _row_role(r["label"])
+    else:
+        row_role = "region"
+    if peril == "subsidence" and row_role == "total_specified":
+        region = "FR"                                      # one territory: its zones before their diversification
+    summary_peril = next((p for p, s in _SECTION.items() if r["label"] == s), None) if peril is None else None
+    return {"template": tid, "row": row, "column": col, "row_label": r["label"], "column_label": c["label"],
+            "section": r["section"], "peril": peril or summary_peril, "row_role": row_role, "region": region,
+            "annex_iii_region": annex_iii, "column_role": _COL_ROLE.get(c["label"]),
+            "row_source": b["rows"].get(row), "column_source": b["columns"].get(col),
+            "reportable": (row, col) in reportable(spec, tid)}
 
 
 def grid(spec: dict, sf: dict, supplied: dict | None = None, tid: str = TID) -> dict[str, dict[str, object]]:

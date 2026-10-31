@@ -116,6 +116,7 @@ def _map_policy_row(row):
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "pricing": row["pricing"], "trigger": row["trigger"],
+        "reporting_entity_id": row.get("reporting_entity_id"),       # the undertaking whose book it is (a group's trace)
     }
 
 

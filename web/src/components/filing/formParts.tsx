@@ -1,5 +1,5 @@
-import { useState, Fragment, createContext, useContext } from 'react'
-import { Pencil, Check, X, Clock } from 'lucide-react'
+import { useState, Fragment, createContext, useContext, lazy, Suspense } from 'react'
+import { Pencil, Check, X, Clock, Route } from 'lucide-react'
 import { api, apiDetail, apiMessage } from '../../lib/api'
 import { hazardLabel } from '../../lib/hazards'
 import { methodLabel, type Labels } from '../../lib/labels'
@@ -9,8 +9,12 @@ import { Card } from '../ui'
 import { HEADING, InfoButton, MessageLine, type Message, type DetailSection } from '../Details'
 import { DocumentItems, type DocItem } from '../SfdrDocumentItems'
 
+// the figure's trace opens on demand: its graph is loaded only then
+const FigureTrace = lazy(() => import('../trace/FigureTrace'))
+
 // The parts of the final form (FilingForm): the regulator's template layout, the flat list of figures, a value cell with
-// where it comes from, a cell the institution supplies, and the manual change of a figure under four eyes.
+// where it comes from, a cell the institution supplies, and the manual change of a figure under four eyes. A cell with
+// `trace` opens the figure's trace — from the law to what the calculation read (trace/FigureTrace).
 
 export interface Override { reason: string; by: string; at: string; approved_by: string; approved_at: string }
 export interface Dp {
@@ -22,7 +26,7 @@ export interface Dp {
 export interface Group { group: string; datapoints: Dp[] }
 // supply: a value the institution enters for the filing's period; `member` and `choices` for a statement per member from a
 // closed list (a group's method for each related undertaking)
-export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null; filing_role?: string | null; member?: string; choices?: Record<string, string> }; greyed?: boolean; frozen_value?: number | string | null }
+export interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string; supply?: { framework: string; key: string; reporting_entity_id?: string | null; filing_role?: string | null; member?: string; choices?: Record<string, string> }; greyed?: boolean; frozen_value?: number | string | null; trace?: string }
 export const suppliedKey = (key: string, member?: string | null) => member ? `${key}@${member}` : key
 export interface AnnexSection { title: string; key?: string; spec?: { template?: string } | null; note: string | null; columns: string[]; col_sources?: string[]; rows: { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }[]; kind?: 'document'; items?: DocItem[] }
 export interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
@@ -57,8 +61,10 @@ const SrcDot = ({ source }: { source?: string }) => source && SRC[source]
 
 // The regulator's own template layout.
 export function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, labels, ...ep }: { annex: Annex; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void; hideName?: boolean; labels: Labels } & EditProps) {
+  const [trace, setTrace] = useState<string | null>(null)
   return (
     <Card className="p-0 overflow-hidden">
+      {trace && <Suspense fallback={null}><FigureTrace filingId={ep.filingId} cell={trace} onClose={() => setTrace(null)} /></Suspense>}
       {!hideName && <FormName annex={annex} className="px-4 py-3 border-b border-[var(--color-line)]" />}
       {annex.sections.map((s, si) => {
         const srcs = Array.from(new Set((s.col_sources ?? []).filter(x => SRC[x])))
@@ -88,7 +94,9 @@ export function AnnexView({ annex, supplied, periodEnd, onSupplied, hideName, la
                             // a cell the template greys out (no instruction names it): hatched, as printed
                             if (c.greyed) return <td key={ci} aria-label="Not reported" style={{ background: 'repeating-linear-gradient(135deg, transparent 0 5px, var(--color-line) 5px 6px)' }} />
                             // a cell the institution enters itself — never a figure aggregated from loan data
-                            if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[suppliedKey(c.supply.key, c.supply.member)]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} /></td>
+                            if (c.supply) return <td key={ci} className="px-4 py-1.5 align-top text-right"><SupplyCell cell={c} supplied={supplied[suppliedKey(c.supply.key, c.supply.member)]} periodEnd={periodEnd} canEdit={ep.canEdit} onSaved={onSupplied} onTrace={c.trace ? () => setTrace(c.trace!) : undefined} /></td>
+                            // a reported figure the trace covers: select it to see where it comes from
+                            if (c.trace) return <td key={ci} className="px-4 py-1.5 align-top text-right"><button type="button" onClick={() => setTrace(c.trace!)} title="Trace this figure" className="tabular-nums text-[11.5px] text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline decoration-dotted underline-offset-2">{c.text}</button></td>
                             const last = ci === cells.length - 1
                             return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                           })}
@@ -209,7 +217,7 @@ function OverrideEditor({ filingId, dp, onClose, onDone }: { filingId: string; d
 
 // A template cell the institution enters itself, for this filing's reporting period; a second person attests it, and a
 // newer attested value lands in the filing on the draft's next refresh.
-function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }: { cell: AnnexCell; supplied?: Supplied; periodEnd: string | null; canEdit: boolean; onSaved: () => void }) {
+function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved, onTrace }: { cell: AnnexCell; supplied?: Supplied; periodEnd: string | null; canEdit: boolean; onSaved: () => void; onTrace?: () => void }) {
   const frozen = cell.text ?? '—'
   const [val, setVal] = useState('')
   const [busy, setBusy] = useState(false)
@@ -232,7 +240,8 @@ function SupplyCell({ cell, supplied, periodEnd, canEdit, onSaved }: { cell: Ann
   const shown = (v: string) => choices?.[v] ?? v                       // a choice by its words, never its code
   return (
     <div className="inline-flex flex-col items-end gap-1">
-      <span className="inline-flex items-center gap-1">{frozen !== '—' && <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />}{frozen}</span>
+      <span className="inline-flex items-center gap-1">{frozen !== '—' && <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />}{frozen}
+        {onTrace && <button type="button" onClick={onTrace} aria-label="Trace this figure" title="Trace this figure" className="text-[var(--color-faint)] hover:text-[var(--color-sky)]"><Route size={11} /></button>}</span>
       {newer && <span className="text-[10px] inline-flex items-center gap-0.5" style={{ color: newer.status === 'pending' ? 'var(--color-warn)' : 'var(--color-viz,#a78bfa)' }}>
         {newer.status === 'pending' ? <><Clock size={8} />{shown(newer.value)} awaiting attestation</> : <>{shown(newer.value)} attested · refresh the draft</>}</span>}
       {canEdit && choices && (
