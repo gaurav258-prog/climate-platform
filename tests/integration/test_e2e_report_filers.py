@@ -25,7 +25,7 @@ import pytest
 from sqlalchemy import text
 
 from tests.integration.conftest import login as _login
-from tests.integration.filers import group, state_role
+from tests.integration.filers import group, state_role, year_without_roles
 from tests.integration.test_intake_pipeline import BANK_ORG
 
 pytestmark = pytest.mark.integration
@@ -166,9 +166,8 @@ def test_meridian_reports_through_its_filers_never_its_whole_book(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
     checker = _login(api, "approver@meridian.demo", "Demo!approve1")
     s = api.s
-    from services.governance.filings import reporting_period_end
     from tests.integration.money_method import state_method
-    pe = reporting_period_end(s, BANK_ORG)
+    pe = year_without_roles(s, BANK_ORG)
     state_method(s, BANK_ORG, pe)
     grp = group(s, BANK_ORG)
     ents = dict(s.execute(text("SELECT name, entity_id::text FROM reporting_entities WHERE org_id = CAST(:o AS uuid)"),

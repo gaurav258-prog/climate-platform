@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from services.governance import kri_t5
 from tests.integration.conftest import login as _login
-from tests.integration.filers import group, state_role_in_session
+from tests.integration.filers import group, state_role_in_session, year_without_roles
 from tests.integration.money_method import state_method
 from tests.integration.test_e2e_s2701 import IBERIA, IBERIA_RE, _users
 from tests.integration.test_intake_pipeline import BANK_ORG
@@ -110,8 +110,7 @@ def test_the_drill_downs_sum_to_the_figure_they_explain(api):
 def test_a_chosen_filer_has_its_own_figures_and_filings(api):
     maker = _login(api, "admin@meridian.demo", "Demo!admin1")
     s = api.s
-    from services.governance.filings import reporting_period_end
-    pe = reporting_period_end(s, BANK_ORG)
+    pe = year_without_roles(s, BANK_ORG)
     state_method(s, BANK_ORG, pe)
     # no undertaking states its reporting role for the year: no one files the EU Taxonomy KPIs — said, not the whole book
     r = api.get(f"{KRI}?framework=bank_tcfd", headers=maker).json()
@@ -169,8 +168,7 @@ def test_reit_kris_are_the_groups(api):
     maker = _login(api, "admin@stellar.demo", "Demo!admin1")
     s = api.s
     org = s.execute(text("SELECT org_id::text FROM organizations WHERE name = 'Stellar Logistics REIT (demo)'")).scalar_one()
-    from services.governance.filings import reporting_period_end
-    pe = reporting_period_end(s, org)
+    pe = year_without_roles(s, org)
     state_method(s, org, pe)
     assert api.get(f"{KRI}?framework=reit_taxonomy", headers=maker).json()["notice"]["code"] == "kri.filer.none"
     grp = group(s, org)
@@ -203,6 +201,7 @@ def test_appetite_bands_are_set_per_report_even_before_it_has_a_filer(api):
     """Settings → KRI appetite lists a report's indicators while no one files it yet — without a value, since any value
     would be no filer's."""
     admin = _login(api, "admin@meridian.demo", "Demo!admin1")
+    year_without_roles(api.s, BANK_ORG)
     assert api.get(f"{KRI}?framework=bank_tcfd", headers=admin).json()["notice"]["code"] == "kri.filer.none"
     r = api.get("/v1/admin/kri-appetite?framework=bank_tcfd", headers=admin).json()
     assert r["supported"] and r["framework"] == "bank_tcfd" and r["kpis"]

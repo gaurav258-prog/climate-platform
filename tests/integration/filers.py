@@ -46,6 +46,24 @@ def taxonomy_filer_in_session(s, org_id: str) -> str:
     return g
 
 
+def year_without_roles(s, org_id: str) -> date:
+    """A reporting period for which no undertaking of the organisation states its CSRD reporting role, set as the
+    organisation's reporting period inside the test's rolled-back transaction: the configured year-end, or the latest
+    earlier one with no role stated. A test of the 'no one files this report yet' case builds that case itself, whatever
+    roles the demo data states (E352): csrd_reporting_role is append-only, so a stated role is never taken back."""
+    from services.governance.filings import reporting_period_end
+    pe = reporting_period_end(s, org_id)
+    stated = {r[0] for r in s.execute(text("SELECT DISTINCT period_end FROM csrd_reporting_role WHERE org_id = CAST(:o AS uuid)"),
+                                      {"o": org_id})}
+    while pe in stated:
+        pe = pe.replace(year=pe.year - 1)
+    s.execute(text("""INSERT INTO org_reporting_settings (org_id, reporting_period_end) VALUES (CAST(:o AS uuid), :pe)
+                      ON CONFLICT (org_id) DO UPDATE SET reporting_period_end = EXCLUDED.reporting_period_end"""),
+              {"o": org_id, "pe": pe})
+    assert reporting_period_end(s, org_id) == pe
+    return pe
+
+
 def state_role_in_session(s, org_id: str, entity_id: str, period_end: date, role: str = "consolidated") -> None:
     """The same, without the HTTP layer: two users of the organisation as maker and checker."""
     from services.governance.csrd_roles import apply_decision, request_role
