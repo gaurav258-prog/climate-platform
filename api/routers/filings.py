@@ -108,6 +108,7 @@ class BasisPatch(BaseModel):
     scenario: Optional[str] = None
     horizon: Optional[str] = None
     reporting_period_end: Optional[str] = None
+    reporting_period_kind: Optional[Literal["financial_year", "half_year"]] = None    # the first half of one (E354)
 
 
 class AttestBody(BaseModel):
@@ -152,7 +153,8 @@ def filers(session: DbSession, framework: str = Query(...), ctx: dict = Depends(
     if framework not in F.FRAMEWORKS:
         raise UserError("error.not_found", 404)
     org_id = ctx["org"]["org_id"]
-    return who(session, org_id, framework, F.reporting_period_end(session, org_id))
+    pe, kind = F.reporting_period(session, org_id)
+    return who(session, org_id, framework, pe, half_year=kind == "half_year")
 
 
 @router.get("/filings/frameworks", summary="Frameworks this organisation can file")
@@ -312,8 +314,9 @@ def list_filings(session: DbSession, ctx: dict = Depends(require_permission("rep
 
 @router.get("/filings/reporting-basis", summary="The org's reporting basis (scenario / horizon / materiality / period)")
 def get_basis(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.admin_view import basis_options
     from services.governance.reporting_settings import get_settings
-    return get_settings(session, ctx["org"]["org_id"])
+    return {**get_settings(session, ctx["org"]["org_id"]), "period_kinds": basis_options()["period_kind"]}
 
 
 @router.patch("/filings/reporting-basis", summary="Set the reporting basis (audited; 4-eyes if the matrix requires it)")

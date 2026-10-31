@@ -9,6 +9,7 @@ import { pressable } from '../lib/pressable'
 import { Card, SectionHead, HeroBanner } from './ui'
 import { HEADING, InfoButton, messageDetails, type Message } from './Details'
 import ReportingRoleForm from './esrs/ReportingRoleForm'
+import SizeListingForm, { type Statement } from './filing/SizeListingForm'
 import { StatusChip } from './StatusChip'
 import FilingBasis from './FilingBasis'
 import FilingPreflight from './FilingPreflight'
@@ -28,9 +29,12 @@ interface Obligation { obligation_id: string; framework: string; label: string; 
 interface Framework { framework: string; label: string; frequency: string; regulator: string; basis: string }
 interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; created_by: string | null; created_at: string; entity_name?: string | null; scope?: string; filing_role?: string | null; fund_name?: string | null }
 interface Validation { blocking: number; warnings: number; checks: number; passed: boolean }
-// a report whose filers for the period are not all known: the undertakings still to state their reporting role
-// (services/governance/filings.py filers_to_state) — the calendar owes their reports once a role is approved
-interface ToState { framework: string; label: string; period_end: string; undertakings: { entity_id: string; name: string; msg: Message | null }[] }
+// a report whose filers for the period are not all known: the undertakings still to state their reporting role — or,
+// for Pillar 3 ESG, the institutions still to state their size class and listing (`statements`)
+// (services/governance/filings.py filers_to_state) — the calendar owes their reports once a statement is approved
+interface ToStateUnit { entity_id: string | null; member?: string; name: string; msg: Message | null; statements?: Statement[] }
+interface ToState { framework: string; label: string; period_end: string; period_label?: string; undertakings: ToStateUnit[]
+  scope_basis?: { title: string; shows: string; legal: string } | null }
 
 const isFiled = (s: string) => s === 'submitted' || s === 'accepted'
 const dueWords = (o: Obligation) => o.days_to_due == null ? 'due two weeks after the assessment concludes'
@@ -78,7 +82,7 @@ export default function FilingCockpit() {
 
       {obligations.some(dated) && <DeadlineLine obligations={obligations.filter(dated)} onPick={o => o.filing_id ? openFiling(o.filing_id) : canPrepare && setPrepare(o)} />}
 
-      {(obl.data?.filers_to_state ?? []).map(t => <WhoReports key={t.framework} t={t} canState={canPrepare} onSent={refresh} />)}
+      {(obl.data?.filers_to_state ?? []).map(t => <WhoReports key={`${t.framework}-${t.period_end}`} t={t} canState={canPrepare} onSent={refresh} />)}
 
       <div>
         <div className="flex items-center gap-3 mb-3 px-1">
@@ -109,26 +113,31 @@ export default function FilingCockpit() {
 // missing and the role to state (a second person approves it). The report is owed for each undertaking that reports.
 function WhoReports({ t, canState, onSent }: { t: ToState; canState: boolean; onSent: () => void }) {
   const [roleFor, setRoleFor] = useState<{ entity_id: string; name: string } | null>(null)
+  const [sizeFor, setSizeFor] = useState<ToStateUnit | null>(null)
+  const about = t.scope_basis ?? { title: 'Who reports it', shows: 'This report is made by each undertaking that reports for itself or for its group under the Accounting Directive, not by the whole organisation. Its reporting role for the year says which.',
+    legal: 'Delegated Regulation (EU) 2021/2178, Art. 1(8) and (9); Directive 2013/34/EU, Arts 19a and 29a.' }
   return (
     <Card className="p-4 space-y-2">
       <div className="flex items-center gap-2">
         <Users size={15} className="text-[var(--color-warn)]" />
-        <span className="text-[13px] text-[var(--color-ink)]">{t.label} · who reports it</span>
-        <InfoButton compact details={{ title: 'Who reports it', sections: [
-          { heading: HEADING.shows, body: 'This report is made by each undertaking that reports for itself or for its group under the Accounting Directive, not by the whole organisation. Its reporting role for the year says which.' },
-          { heading: 'Legal basis', body: 'Delegated Regulation (EU) 2021/2178, Art. 1(8) and (9); Directive 2013/34/EU, Arts 19a and 29a.' }] }} />
+        <span className="text-[13px] text-[var(--color-ink)]">{t.label}{t.period_label ? ` · ${t.period_label}` : ''} · who reports it</span>
+        <InfoButton compact details={{ title: about.title, sections: [{ heading: HEADING.shows, body: about.shows }, { heading: 'Legal basis', body: about.legal }] }} />
         <StatusChip tone="warn" label={`${t.undertakings.length} to state`} />
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {t.undertakings.map(u => (
-          <div key={u.entity_id} className="flex items-center gap-1.5 text-[12.5px]">
+          <div key={u.member ?? u.entity_id ?? u.name} className="flex items-center gap-1.5 text-[12.5px]">
             <span className="text-[var(--color-mute)]">{u.name}</span>
             {u.msg && <InfoButton compact details={messageDetails(u.msg)} />}
-            {canState && <button type="button" onClick={() => setRoleFor(u)} className="text-[var(--color-sky)] hover:underline">State the role</button>}
+            {canState && (u.statements
+              ? <button type="button" onClick={() => setSizeFor(u)} className="text-[var(--color-sky)] hover:underline">State size class and listing</button>
+              : u.entity_id && <button type="button" onClick={() => setRoleFor({ entity_id: u.entity_id!, name: u.name })} className="text-[var(--color-sky)] hover:underline">State the role</button>)}
           </div>))}
       </div>
       {roleFor && <ReportingRoleForm periodEnd={t.period_end} entity={roleFor.entity_id} name={roleFor.name}
         onClose={() => setRoleFor(null)} onSent={() => { setRoleFor(null); onSent() }} />}
+      {sizeFor && sizeFor.statements && <SizeListingForm periodEnd={t.period_end} member={sizeFor.member!} name={sizeFor.name}
+        statements={sizeFor.statements} onClose={() => setSizeFor(null)} onSent={() => { setSizeFor(null); onSent() }} />}
     </Card>
   )
 }

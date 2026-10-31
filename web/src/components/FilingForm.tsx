@@ -95,8 +95,8 @@ const qualUrl = (entityId: string | null, periodEnd: string | null) =>
 function P3FormTabs({ annex, entityId, ...common }: { annex: Annex; entityId: string | null; supplied: Record<string, Supplied>; periodEnd: string | null; onSupplied: () => void; labels: Labels } & EditProps) {
   const [tab, setTab] = useState<P3Group>('qual')
   const qual = useQuery({ queryKey: ['p3-qualitative', entityId, common.periodEnd], queryFn: () => api.get<QData>(qualUrl(entityId, common.periodEnd)) })
-  // who reports it, and a group's statement of its large subsidiaries (services/governance/report_filers.py) — above the tabs
-  const filer = annex.sections.filter(s => s.key === 'filer' || s.key === 'large_institution')
+  // who reports it, the disclosure period and the institutions' size class and listing (services/governance/crr_filers.py) — above the tabs
+  const filer = annex.sections.filter(s => s.key === 'filer' || s.key === 'period' || s.key === 'large_institution')
   const of = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => !filer.includes(s) && p3Group(s.spec?.template, s.title) === g) })
   const tabs = annex.sections.some(s => p3Group(s.spec?.template, s.title) === 'earlier') ? [...P3_TABS, { k: 'earlier' as P3Group, label: EARLIER, holds: 'Figures no template prints' }] : P3_TABS
   const badge = (g: P3Group): { t: string; tone: 'good' | 'warn' | 'neutral' } | null => {

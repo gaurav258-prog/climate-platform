@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from services.governance.periods import year_before
 from services.governance.pillar3_grids import gross_of
 from services.governance.taxonomy_valuation import facts, total
 
@@ -241,7 +242,9 @@ def _ratios(assets_values: dict, row_map: dict, denom_row: str, total_row: str, 
 def build(spec: dict, assets: list[dict], period_end: date | None = None) -> dict:
     """Every GAR / BTAR / EPC template the spec carries, keyed by template id → {row_id: {col: value}}, plus counts."""
     pe = period_end or date(date.today().year - 1, 12, 31)
-    period = (date(pe.year, 1, 1), pe)
+    # a flow counts the exposures incurred during the year prior to the disclosure reference date (EBA Q&A 2024_7082),
+    # whatever the period's kind — a half-year's too; not from 1 January (E355)
+    period = year_before(pe)
     tagged = [(facts(a, period), gross_of(a)) for a in assets if gross_of(a)]
     new = [(f, x) for f, x in tagged if f["new"]]
     t7 = _assets_grid(spec, "T7", T7_ROWS, T7_GROSS_ONLY_FROM, tagged)

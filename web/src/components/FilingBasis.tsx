@@ -13,7 +13,9 @@ import { Card, Button, SectionHead } from './ui'
 // on the current book; scenario/horizon projections live in Analytics. The stored scenario/horizon are kept
 // as-is on save so the disclosure builder still resolves the current-basis figures.
 
-interface Basis { scenario: string; horizon: string; reporting_period_end: string; is_override: boolean }
+// the period is a financial year or the first half of one (services/governance/periods.py); its words come from the server
+interface Basis { scenario: string; horizon: string; reporting_period_end: string; reporting_period_kind: string
+  reporting_period_label: string; is_override: boolean; period_kinds: { value: string; label: string }[] }
 
 export default function FilingBasis() {
   const { profile } = useAuth()
@@ -35,7 +37,7 @@ export default function FilingBasis() {
       const r = await api.patch<{ status: string; message?: string }>('/v1/filings/reporting-basis', {
         // scenario/horizon are carried through unchanged — they're the analysis basis, not a filing control
         scenario: b.scenario, horizon: b.horizon,
-        reporting_period_end: cur.reporting_period_end,
+        reporting_period_end: cur.reporting_period_end, reporting_period_kind: cur.reporting_period_kind,
       })
       qc.invalidateQueries({ queryKey: ['reporting-basis'] })
       setMsg(r.status === 'pending_approval' ? (r.message ?? 'Sent for approval (4-eyes).') : 'Basis updated. New filings will use it.')
@@ -58,12 +60,19 @@ export default function FilingBasis() {
 
       {!edit ? (
         <div className="px-5 py-3 flex flex-wrap gap-x-8 gap-y-2 text-[13px]">
+          <Fact k="Reporting period" v={`${b.reporting_period_label} · ${b.period_kinds.find(k => k.value === b.reporting_period_kind)?.label ?? ''}`} />
           <Fact k="Reporting period end" v={b.reporting_period_end} />
           <Fact k="Material physical risk" v="your stated at-risk level (Methodology)" />
           {!canEdit && <span className="text-[11px] text-[var(--color-faint)] self-center">set by a reporting admin</span>}
         </div>
       ) : (
         <div className="px-5 py-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="w-32 text-[12px] text-[var(--color-mute)]">Reporting period</span>
+            <select aria-label="Reporting period" value={cur.reporting_period_kind} onChange={e => setForm(f => ({ ...f, reporting_period_kind: e.target.value }))}
+              className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[13px] outline-none focus:border-[var(--color-sky)]">
+              {b.period_kinds.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}</select>
+          </div>
           <div className="flex items-center gap-3">
             <span className="w-32 text-[12px] text-[var(--color-mute)]">Reporting period end</span>
             <input type="date" value={cur.reporting_period_end} onChange={e => setForm(f => ({ ...f, reporting_period_end: e.target.value }))}

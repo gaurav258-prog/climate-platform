@@ -45,6 +45,7 @@ _SII_BASIS = {"title": "Who reports natural catastrophe risk",
 RULES = {"insurer_solvency": "sii_filers", "insurer_orsa_climate": "orsa_filers", "insurer_recovery_stress": "irrd_filers",
          "bank_p3esg": "crr_filers", "bank_tcfd": "csrd_filers", "reit_taxonomy": "csrd_filers"}
 _SII = "insurer_solvency"
+_CSRD = ("bank_tcfd", "reit_taxonomy")       # their undertakings to state: services.governance.filings.undetermined_filers
 
 
 def governs(framework: str) -> bool:
@@ -83,15 +84,31 @@ def is_filer(session: Session, org_id: str) -> bool:
     return records_none(session, org_id)
 
 
-def choices(session: Session, org_id: str, framework: str, period_end: date) -> list[dict]:
-    """The filers a preparer chooses from, [{entity_id, name, role}] — for an organisation that records undertakings."""
+def choices(session: Session, org_id: str, framework: str, period_end: date, half_year: bool = False) -> list[dict]:
+    """The filers a preparer chooses from, [{entity_id, name, role}] — for an organisation that records undertakings; for
+    a half-year, the filers that disclose one (E354: only a report of periods.HALF_YEAR_REPORTS has any)."""
+    if half_year:
+        return rule(framework).choices(session, org_id, framework, period_end, half_year=True) if _halves(framework) else []
     if framework == _SII:
         return rule(framework).choices(session, org_id)
     return rule(framework).choices(session, org_id, framework, period_end)
 
 
-def owed(session: Session, org_id: str, framework: str, period_end: date) -> set[tuple[str | None, str]]:
-    """The reports the calendar owes for a period, as (entity_id — None = the organisation, filing role)."""
+def _halves(framework: str) -> bool:
+    from services.governance.periods import HALF_YEAR_REPORTS
+    return framework in HALF_YEAR_REPORTS
+
+
+def owed(session: Session, org_id: str, framework: str, period_end: date,
+         half_year: bool = False) -> set[tuple[str | None, str]]:
+    """The reports the calendar owes for a period, as (entity_id — None = the organisation, filing role); for a half-year,
+    those of the filers that disclose one."""
+    if half_year:
+        if not _halves(framework):
+            return set()
+        if is_filer(session, org_id):
+            return set() if half_year_refusal(session, org_id, framework, None, period_end) else {(None, "whole_org")}
+        return set(rule(framework).owed(session, org_id, framework, period_end, half_year=True).items())
     if framework == _SII:
         return rule(framework).owed(session, org_id)
     if is_filer(session, org_id):
@@ -99,6 +116,26 @@ def owed(session: Session, org_id: str, framework: str, period_end: date) -> set
     got = rule(framework).owed(session, org_id, framework, period_end)
     # a rule's {entity: role}, or — where one entity owes two reports (the ORSA: its own and its group's) — its pairs
     return set(got.items()) if isinstance(got, dict) else set(got)
+
+
+def half_year_refusal(session: Session, org_id: str, framework: str, entity_id: str | None,
+                      period_end: date) -> tuple[str, dict] | None:
+    """(catalogue code, params) when the scope owes no report for this half-year — a report disclosed only for a
+    financial year, or a filer that discloses once a year (or whose size class and listing are not stated) — else None."""
+    if not _halves(framework):
+        from services.governance.filings import FRAMEWORKS
+        from services.governance.periods import HALF_YEAR, label
+        return "filing.refused.annual_period_only", {"report": FRAMEWORKS[framework]["label"],
+                                                     "period": label(period_end, HALF_YEAR)}
+    return rule(framework).half_year_refusal(session, org_id, entity_id, period_end)
+
+
+def undetermined(session: Session, org_id: str, framework: str, period_end: date,
+                 half_year: bool = False) -> list[dict]:
+    """The institutions whose part in a ruled report for this reference date is not known yet (a statement to make)."""
+    if framework not in RULES or not hasattr(rule(framework), "undetermined") or framework in _CSRD:
+        return []
+    return rule(framework).undetermined(session, org_id, period_end, half_year)
 
 
 def due(framework: str, undertaking_due, role: str):
@@ -110,7 +147,7 @@ def due(framework: str, undertaking_due, role: str):
 
 
 def whole_org_refusal(session: Session, org_id: str, framework: str, entity_id: str | None,
-                      period_end: date) -> tuple[str, dict] | None:
+                      period_end: date, half_year: bool = False) -> tuple[str, dict] | None:
     """(catalogue code, params) when the whole-organisation scope is no filer's for this report, else None."""
     if not governs(framework) or entity_id is not None:
         return None
@@ -119,21 +156,26 @@ def whole_org_refusal(session: Session, org_id: str, framework: str, entity_id: 
     if is_filer(session, org_id):
         return None
     from services.governance.filings import FRAMEWORKS
-    names = ", ".join(c["name"] for c in choices(session, org_id, framework, period_end))
+    names = ", ".join(c["name"] for c in choices(session, org_id, framework, period_end, half_year))
     return "filing.refused.whole_org_no_filer", {"report": FRAMEWORKS[framework]["label"],
                                                  "choices": names or rule(framework).NO_CHOICE,
                                                  "who": rule(framework).BASIS[framework]["who"]}
 
 
 def record(session: Session, org_id: str, framework: str, reporting_entity_id: str | None, group: bool,
-           period_end: date | None) -> dict | None:
-    """The filer a frozen book is for, frozen with it (`_filer`); None for a whole-organisation book that is no filer's."""
+           period_end: date | None, half_year: bool = False) -> dict | None:
+    """The filer a frozen book is for, frozen with it (`_filer`); None for a whole-organisation book that is no filer's.
+    A report of periods.HALF_YEAR_REPORTS records how often its filer discloses (E354)."""
     if framework == _SII:
         return rule(framework).record(session, org_id, reporting_entity_id, group)
     if reporting_entity_id is None:
         if not is_filer(session, org_id):
             return None
+        if _halves(framework):
+            return rule(framework).organisation_record(session, org_id, period_end, half_year)
         return {"level": "organisation", "entity_id": None, "basis": rule(framework).BASIS[framework]["organisation"]}
+    if _halves(framework):
+        return rule(framework).record(session, org_id, framework, reporting_entity_id, group, period_end, half_year)
     return rule(framework).record(session, org_id, framework, reporting_entity_id, group, period_end)
 
 
@@ -164,12 +206,13 @@ def scope_basis(framework: str) -> dict | None:
     return {"title": b["title"], "shows": b["shows"], "legal": b["legal"]}
 
 
-def filers(session: Session, org_id: str, framework: str, period_end: date) -> dict:
+def filers(session: Session, org_id: str, framework: str, period_end: date, half_year: bool = False) -> dict:
     """Who a screen offers for a ruled report: the organisation itself when it is the filer, else its filers, with the
     report's words on who reports it."""
     org = not governs(framework) or is_filer(session, org_id)
     return {"framework": framework, "organisation": org,
-            "filers": [] if org else choices(session, org_id, framework, period_end), "scope_basis": scope_basis(framework)}
+            "filers": [] if org else choices(session, org_id, framework, period_end, half_year),
+            "scope_basis": scope_basis(framework)}
 
 
 def section(framework: str, payload: dict | None) -> dict | None:

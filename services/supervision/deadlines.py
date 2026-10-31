@@ -181,8 +181,10 @@ def _propagate(session, reg_org_id: str, deadline_id: str, by_user_id: str, cfg:
                             {"o": e["org_id"], "fw": d["framework"], "pe": d["period_end"], "pl": d["period_label"], "due": d["due_date"], "n": d["note"], "d": deadline_id, "by": reg_name})
         from services.governance.report_filers import governs
         if governs(d["framework"]):     # the date onto the reports the entity's filers owe (report_filers)
-            from services.governance.filings import ensure_filer_obligations, reporting_period_end
-            ensure_filer_obligations(session, e["org_id"], d["framework"], reporting_period_end(session, e["org_id"]))
+            from services.governance.filings import ensure_filer_obligations, reporting_period
+            from services.governance.periods import financial_year_end
+            # a supervisor's date is for a financial year: while the entity prepares a half-year, its year's (E354)
+            ensure_filer_obligations(session, e["org_id"], d["framework"], financial_year_end(*reporting_period(session, e["org_id"])))
         n_set += 1
         try:
             m = mandate(d["mandate_id"]) or {}

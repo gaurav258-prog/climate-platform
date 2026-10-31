@@ -106,16 +106,25 @@ CATALOG: dict[str, list[dict]] = {
                  "strategy and risk-management processes. There is no figure to compute; you write the narrative directly "
                  "on the filing form, for the filing's institution and reference date; the filing freezes it with its "
                  "figures, prints it, and is blocked while a row is unanswered."),
-        # the organisation's statement, one per subsidiary (services.governance.crr_filers): a large subsidiary discloses its
-        # own ESG risks (CRR Art. 13(1), second subparagraph); stated on the group's filing
-        {**_dp("large_institution", "Large subsidiaries — the size class of each subsidiary", "customer", "provided",
-               provider="Your institution's own classification (CRR Art. 4(1)(146))",
-               note="Stated for each subsidiary for the reference date: a large institution (a G-SII, an O-SII, one of the "
-                    "three largest institutions of its Member State, or total assets of EUR 30 billion or more) or not. A "
-                    "large subsidiary discloses its own ESG risks; the filing calendar owes it once a second person "
-                    "approves the statement."),
-         "unit": "choice", "breakdown": "subsidiary",
-         "choices": {"large": "A large institution (Art. 4(1)(146) CRR)", "not_large": "Not a large institution"}},
+        # the organisation's statements, one each per institution of its structure (services.governance.crr_filers): a
+        # large subsidiary discloses its own ESG risks (CRR Art. 13(1), second subparagraph), and size class and listing
+        # decide how often each filer discloses (services.governance.crr_frequency: Arts 433a-433c)
+        {**_dp("large_institution", "Size class — of each institution", "customer", "provided",
+               provider="Your institution's own classification (CRR Art. 4(1)(133), (146))",
+               note="Stated for each institution for the reference date: a G-SII; a large institution other than a G-SII "
+                    "(an O-SII, one of the three largest institutions of its Member State, or total assets of EUR 30 "
+                    "billion or more); or not large. A large subsidiary discloses its own ESG risks, and a G-SII or a "
+                    "listed large institution discloses them twice a year; the filing calendar follows the statement once "
+                    "a second person approves it."),
+         "unit": "choice", "breakdown": "institution",
+         "choices": {"gsii": "A G-SII", "large": "A large institution, not a G-SII", "not_large": "Not a large institution"}},
+        {**_dp("listed_institution", "Listing — of each institution", "customer", "provided",
+               provider="Your institution's own securities (CRR Art. 4(1)(148))",
+               note="Stated for each institution for the reference date: listed — it has issued securities admitted to "
+                    "trading on a regulated market of a Member State — or not. A large institution other than a G-SII "
+                    "discloses its ESG risks twice a year when it is listed, once a year when it is not."),
+         "unit": "choice", "breakdown": "institution",
+         "choices": {"listed": "Listed", "non_listed": "Not listed"}},
     ],
     # reit_tcfd, insurer_climate: retired (services.governance.filings.FRAMEWORKS) — they take no provided value
     # (provided_data.submit) and no prior-filing upload, so they list no datapoints; csrd_e1 keeps its own for the labels

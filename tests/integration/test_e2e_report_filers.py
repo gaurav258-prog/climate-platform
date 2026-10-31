@@ -115,9 +115,10 @@ def test_pillar3_is_owed_by_the_eu_parent_a_large_subsidiary_and_an_institution_
     assert {(e, r) for e, r, _ in org.owed()} == {(top, "consolidated"), (alpha, "consolidated")}
     from services.governance import crr_filers
     with pytest.raises(ValueError):
-        crr_filers.check_member(s, org.id, branch)                    # a branch is no subsidiary to state
+        crr_filers.check_member(s, org.id, branch)                    # a branch is no institution to state
+    crr_filers.check_member(s, org.id, top)                           # the group's EU parent states its own (E354)
     with pytest.raises(ValueError):
-        crr_filers.check_member(s, org.id, top)                       # nor is the group's top
+        crr_filers.check_member(s, org.id, org.id)                    # the organisation, once it records entities
 
     # the filer records: the group lists its subsidiaries with their stated size class
     from services.governance.report_filers import record
@@ -141,7 +142,7 @@ def test_the_taxonomy_kpis_are_owed_by_each_undertaking_stated_to_report(session
                       VALUES (CAST(:o AS uuid), 'bank_tcfd', :pe, :pl, :due, 'supervisor', 'Test supervisor', 'whole_org')"""),
               {"o": org.id, "pe": org.pe, "pl": f"FY{org.pe.year}", "due": date(org.pe.year + 1, 4, 30)})
     assert org.owed() == {(None, "whole_org", "supervisor")}
-    todo = F.filers_to_state(s, org.id, "bank")
+    todo = [t for t in F.filers_to_state(s, org.id, "bank") if t["framework"] == "bank_tcfd"]
     assert [(t["framework"], sorted(u["name"] for u in t["undertakings"])) for t in todo] == [
         ("bank_tcfd", ["Gamma Bank", "Gamma Group"])]                                     # not the branch
     assert todo[0]["undertakings"][0]["msg"]["code"] == "disclose.esrs.scope.role_needed"
@@ -154,7 +155,7 @@ def test_the_taxonomy_kpis_are_owed_by_each_undertaking_stated_to_report(session
     org.state_role(sub, "exempt_subsidiary", parent_name="Gamma Group", parent_registered_office="Frankfurt",
                    parent_report_ref="https://gamma.example/report")
     assert org.owed() == {(top, "consolidated", "supervisor")}
-    assert F.filers_to_state(s, org.id, "bank") == []
+    assert [t for t in F.filers_to_state(s, org.id, "bank") if t["framework"] == "bank_tcfd"] == []
     with pytest.raises(F.FilingError) as e:
         F.preflight(s, org.id, "bank", "bank_tcfd", entity_id=sub)
     assert e.value.code == "filing.refused.exempt_subsidiary_taxonomy" and e.value.params["parent"] == "Gamma Group"
@@ -177,8 +178,13 @@ def test_meridian_reports_through_its_filers_never_its_whole_book(api):
     cal = api.get("/v1/obligations", headers=maker).json()
     assert {(o["entity_id"], o["filing_role"]) for o in cal["obligations"]
             if o["framework"] == "bank_p3esg" and o["period_end"] == pe.isoformat() and o["entity_id"]} == {(grp, "consolidated")}
-    todo = {t["framework"]: t for t in cal["filers_to_state"]}
-    assert set(todo) == {"bank_tcfd"} and len(todo["bank_tcfd"]["undertakings"]) == 4
+    todo = {(t["framework"], t["period_end"]): t for t in cal["filers_to_state"]}
+    assert len(todo[("bank_tcfd", pe.isoformat())]["undertakings"]) == 4
+    # Pillar 3 (E354): the subsidiaries whose size class is not stated for the year end, and — for the half-year of the
+    # same financial year — every possible filer whose size class or listing is not stated
+    assert {t[0] for t in todo} == {"bank_tcfd", "bank_p3esg"}
+    p3_half = todo[("bank_p3esg", f"{pe.year}-06-30")]
+    assert p3_half["period_label"] == f"FY{pe.year}-H1" and grp in {u["entity_id"] for u in p3_half["undertakings"]}
 
     # 2 · the whole organisation is refused with its filers; the pre-filing check offers them and says why
     pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
@@ -210,9 +216,10 @@ def test_meridian_reports_through_its_filers_never_its_whole_book(api):
                                                       "breakdown_member": cell["supply"]["member"], "value_text": "large",
                                                       "reporting_period_end": pe.isoformat()})
     assert r.status_code == 201, r.text
-    assert api.post("/v1/provided", headers=maker, json={"framework": "bank_p3esg", "datapoint_key": "large_institution",
-                                                         "breakdown_member": grp, "value_text": "large",
-                                                         "reporting_period_end": pe.isoformat()}).status_code == 400   # not a subsidiary
+    nobody = api.post("/v1/provided", headers=maker, json={"framework": "bank_p3esg", "datapoint_key": "large_institution",
+                                                           "breakdown_member": "0bbe0bbe-0000-4000-8000-0000000003ff",
+                                                           "value_text": "large", "reporting_period_end": pe.isoformat()})
+    assert nobody.status_code == 400 and nobody.json()["error"]["error"] == "disclose.provided.not_institution"
     assert api.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=checker,
                     json={"decision": "approved"}).status_code == 200
     cal = api.get("/v1/obligations", headers=maker).json()["obligations"]
@@ -221,7 +228,8 @@ def test_meridian_reports_through_its_filers_never_its_whole_book(api):
     assert api.post(f"/v1/filings/{fid}/refresh", headers=maker).status_code == 200      # the draft freezes the statement
     secs = {x.get("key"): x for x in api.get(f"/v1/filings/{fid}/form", headers=maker).json()["annex"]["sections"]}
     row = next(r for r in secs["large_institution"]["rows"] if r["cells"][0]["text"] == "Meridian Bank AG")
-    assert row["cells"][1]["frozen_value"] == "large" and row["cells"][2]["text"] == "approver@meridian.demo"
+    assert row["cells"][1]["frozen_value"] == "large" and row["cells"][4]["text"] == "approver@meridian.demo"
+    assert row["cells"][3]["text"] == "To state"            # a large institution other than a G-SII: its listing decides
 
     # 5 · a whole-organisation filing frozen before exports no template; its JSON record stays readable
     old = s.execute(text("""SELECT filing_id::text FROM regulatory_filing WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd'

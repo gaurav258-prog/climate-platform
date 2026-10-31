@@ -449,11 +449,15 @@ def _mandate_of(framework: str) -> dict | None:
     return next((m for m in registry()["mandates"] if (m.get("deliverable") or {}).get("framework") == framework), None)
 
 
-def due_for(framework: str, period_end: date) -> tuple[date | None, str | None]:
+def due_for(framework: str, period_end: date, half_year: bool = False) -> tuple[date | None, str | None]:
     """(the deadline for a period, where it comes from): the mandate's cited rule where it fixes a calendar date, else
-    the report type's planning date; (None, None) for a report with no calendar deadline."""
+    the report type's planning date; (None, None) for a report with no calendar deadline. A half-year's is the mandate's
+    half-year rule (E354), or none."""
     from services.supervision.mandates import due_date
     m = _mandate_of(framework)
+    if half_year:
+        d = due_date(m, period_end, half_year=True) if m else None
+        return (d, m["deliverable"]["due"]["half_year"].get("label")) if d is not None else (None, None)
     d = due_date(m, period_end) if m else None
     if d is not None:
         return d, m["deliverable"]["due"].get("label")
@@ -486,8 +490,8 @@ def due_for_undertaking(session: Session, org_id: str, framework: str, entity_id
     return d, branch["ref"]
 
 
-def _due_date(framework: str, period_end: date) -> date | None:
-    return due_for(framework, period_end)[0]
+def _due_date(framework: str, period_end: date, half_year: bool = False) -> date | None:
+    return due_for(framework, period_end, half_year)[0]
 
 
 def runs_from_conclusion(framework: str) -> bool:
@@ -496,12 +500,14 @@ def runs_from_conclusion(framework: str) -> bool:
     return ((_mandate_of(framework) or {}).get("deliverable", {}).get("due") or {}).get("rule") == "weeks_after_orsa"
 
 
-def due_for_filing(framework: str, period_end: date, disclosure_date: date | None) -> tuple[date | None, str | None]:
-    """A filing's deadline: the calendar one, else — for a report that runs from its own event (the ORSA supervisory
-    report: 'within 2 weeks after concluding the assessment', Art. 312(1)(b) Del. Reg. 2015/35) — its disclosure date
-    plus the mandate's weeks; with no disclosure date yet, no date and the rule's words."""
+def due_for_filing(framework: str, period_end: date, disclosure_date: date | None,
+                   half_year: bool = False) -> tuple[date | None, str | None]:
+    """A filing's deadline: the calendar one (a half-year's by its own rule, E354), else — for a report that runs from
+    its own event (the ORSA supervisory report: 'within 2 weeks after concluding the assessment', Art. 312(1)(b) Del.
+    Reg. 2015/35) — its disclosure date plus the mandate's weeks; with no disclosure date yet, no date and the rule's
+    words."""
     from datetime import timedelta
-    d, why = due_for(framework, period_end)
+    d, why = due_for(framework, period_end, half_year)
     if d is not None:
         return d, why
     due = (_mandate_of(framework) or {}).get("deliverable", {}).get("due") or {}
@@ -512,10 +518,12 @@ def due_for_filing(framework: str, period_end: date, disclosure_date: date | Non
     return (None, why) if disclosure_date is None else (None, due.get("label"))
 
 
-def period_label(period_end: date) -> str:
-    """The one label of a reporting period — derived from its end, never typed (every period here is a financial year;
-    the database checks period_label = 'FY' || year(period_end) on filings, obligations and supervisory deadlines)."""
-    return f"FY{period_end.year}"
+def period_label(period_end: date, kind: str = "financial_year") -> str:
+    """The one label of a reporting period — derived from its end and kind, never typed (services.governance.periods:
+    FY2026, or FY2026-H1 for a half-year; the database checks the same rule on filings and obligations, and 'FY' ||
+    year(period_end) on supervisory deadlines, which are set for financial years)."""
+    from services.governance.periods import label
+    return label(period_end, kind)
 
 
 _period_label = period_label
@@ -532,10 +540,16 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
     (_ensure_esrs_obligations), a per-product report its funds. The framework-blind default — one whole-organisation row
     beside a solo row per entity (the 2026-09-23 C1 fix) — is gone: an organisation that records its undertakings is
     no filer under these acts. Only a report filed for the organisation as a whole gets the single whole-organisation row."""
+    from services.governance.periods import HALF_YEAR, HALF_YEAR_REPORTS, half_year_end
     from services.governance.report_filers import governs
-    period_end = reporting_period_end(session, org_id)
+    period_end, kind = reporting_period(session, org_id)
     for f in available_frameworks(org_type):
         fk = f["framework"]
+        if kind == HALF_YEAR:
+            # a half-year owes only the reports an act owes for it, each by its filers that disclose one (E354)
+            if fk in HALF_YEAR_REPORTS and governs(fk):
+                ensure_filer_obligations(session, org_id, fk, period_end, half_year=True)
+            continue
         if fk in _PRODUCT_SCOPED:
             _ensure_product_obligations(session, org_id, fk, period_end)
             continue
@@ -543,8 +557,11 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
             _ensure_esrs_obligations(session, org_id, period_end)
             continue
         if governs(fk):
-            # the report's filers, as its act names them (services.governance.report_filers), not the organisation
+            # the report's filers, as its act names them (services.governance.report_filers), not the organisation —
+            # and, for a report disclosed twice a year by some, the first half of the same financial year (E354)
             ensure_filer_obligations(session, org_id, fk, period_end)
+            if fk in HALF_YEAR_REPORTS:
+                ensure_filer_obligations(session, org_id, fk, half_year_end(period_end), half_year=True)
             continue
         if _due_date(fk, period_end) is None:
             # runs from an event (an ORSA's conclusion, a recovery plan's update) — no calendar obligation to invent;
@@ -604,7 +621,8 @@ def ensure_sii_obligations(session: Session, org_id: str, period_end: date) -> N
     ensure_filer_obligations(session, org_id, "insurer_solvency", period_end)
 
 
-def ensure_filer_obligations(session: Session, org_id: str, framework: str, period_end: date) -> None:
+def ensure_filer_obligations(session: Session, org_id: str, framework: str, period_end: date,
+                             half_year: bool = False) -> None:
     """The obligations a report's filers owe (services.governance.report_filers.owed), one per (entity, role): once the
     organisation records an undertaking, one per filer the report's act names — for Solvency II nat-cat an undertaking at
     the head of a group owes two, the group's and its own — and none for the whole organisation; while it records none,
@@ -615,21 +633,30 @@ def ensure_filer_obligations(session: Session, org_id: str, framework: str, peri
     filer's obligation for its period (date, note, supervisor and deadline with it), and the whole-organisation row goes
     unless a report was filed for it — it stays while no filer is known yet (an undertaking's role still to be stated,
     E349). services.supervision.deadlines settles a newly published one the same way. A report that runs from its own
-    conclusion (the ORSA: runs_from_conclusion) is owed with no date: its filing's conclusion gives it (list_obligations)."""
+    conclusion (the ORSA: runs_from_conclusion) is owed with no date: its filing's conclusion gives it (list_obligations).
+    half_year: the first half of a financial year ending period_end (E354) — owed by the filers that disclose twice a
+    year, due by the mandate's half-year rule; only that half-year's rows are read and changed (a filer's frequency is
+    its statements' at each reference date), and no supervisor's date applies (they are set for financial years)."""
+    from services.governance.periods import FINANCIAL_YEAR, HALF_YEAR
     from services.governance.report_filers import due, owed
-    if _due_date(framework, period_end) is None and not runs_from_conclusion(framework):
+    if _due_date(framework, period_end, half_year) is None and not runs_from_conclusion(framework):
         return
-    now = owed(session, org_id, framework, period_end)
+    now = owed(session, org_id, framework, period_end, half_year=True) if half_year else owed(session, org_id, framework,
+                                                                                               period_end)
+    kind = HALF_YEAR if half_year else FINANCIAL_YEAR
+    freq = "semiannual" if half_year else FRAMEWORKS[framework]["frequency"]
 
     def held() -> list:
         rows = session.execute(text(f"""
             SELECT ob.obligation_id, ob.period_end, ob.entity_id::text AS entity_id, ob.filing_role, ob.source, ob.due_date,
                    EXISTS(SELECT 1 FROM regulatory_filing rf WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
-                            AND rf.period_end = ob.period_end AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id
+                            AND rf.period_end = ob.period_end AND rf.period_kind = ob.period_kind
+                            AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id
                             AND {_role_match("rf", "ob.entity_id", "ob.filing_role")}
                             AND rf.status IN ('submitted', 'accepted')) AS filed
             FROM regulatory_obligation ob WHERE ob.org_id = :o AND ob.framework = :fk AND ob.fund_id IS NULL
-        """), {"o": org_id, "fk": framework}).mappings().all()
+              AND ob.period_kind = :kind AND (:kind = 'financial_year' OR ob.period_end = :pe)
+        """), {"o": org_id, "fk": framework, "kind": kind, "pe": period_end}).mappings().all()
         # a whole-organisation row is the organisation's one report, whatever role it was recorded with
         return [{**r, "key": (r["entity_id"], r["filing_role"] if r["entity_id"] else "whole_org")} for r in rows]
 
@@ -647,8 +674,8 @@ def ensure_filer_obligations(session: Session, org_id: str, framework: str, peri
                                supervision_deadline_id = s.supervision_deadline_id, set_by = s.set_by
                         FROM regulatory_obligation s
                         WHERE s.obligation_id = :i AND ob.org_id = s.org_id AND ob.framework = s.framework
-                          AND ob.period_end = s.period_end AND ob.entity_id = CAST(:e AS uuid) AND ob.fund_id IS NULL
-                          AND ob.filing_role = :fr
+                          AND ob.period_end = s.period_end AND ob.period_kind = s.period_kind
+                          AND ob.entity_id = CAST(:e AS uuid) AND ob.fund_id IS NULL AND ob.filing_role = :fr
                         RETURNING ob.obligation_id"""), p).first():
                     session.execute(text("""
                         INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency,
@@ -668,13 +695,13 @@ def ensure_filer_obligations(session: Session, org_id: str, framework: str, peri
         if free:
             session.execute(text("UPDATE regulatory_obligation SET filing_role = :fr, due_date = COALESCE(:d, due_date) "
                                  "WHERE obligation_id = :i"),
-                            {"fr": free[0], "d": due(framework, _due_date(framework, r["period_end"]), free[0]),
+                            {"fr": free[0], "d": due(framework, _due_date(framework, r["period_end"], half_year), free[0]),
                              "i": r["obligation_id"]})
             taken.add(((r["entity_id"], free[0]), r["period_end"]))
         else:
             session.execute(text("DELETE FROM regulatory_obligation WHERE obligation_id = :i"), {"i": r["obligation_id"]})
     for r in have:      # the calendar's own date follows the rule (Solvency II: a group's report 6 weeks after an undertaking's)
-        d = due(framework, _due_date(framework, r["period_end"]), r["key"][1])
+        d = due(framework, _due_date(framework, r["period_end"], half_year), r["key"][1])
         if r["source"] == "entity" and r["key"] in now and d is not None and r["due_date"] != d:
             session.execute(text("UPDATE regulatory_obligation SET due_date = :d WHERE obligation_id = :i"),
                             {"d": d, "i": r["obligation_id"]})
@@ -682,10 +709,12 @@ def ensure_filer_obligations(session: Session, org_id: str, framework: str, peri
         if ((eid, role), period_end) in taken:
             continue
         session.execute(text("""
-            INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
-            VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), :fr)
-        """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end), "e": eid, "fr": role,
-               "due": due(framework, _due_date(framework, period_end), role), "freq": FRAMEWORKS[framework]["frequency"]})
+            INSERT INTO regulatory_obligation (org_id, framework, period_end, period_kind, period_label, due_date, frequency,
+                                               entity_id, filing_role)
+            VALUES (:o, :fk, :pe, :kind, :pl, :due, :freq, CAST(:e AS uuid), :fr)
+        """), {"o": org_id, "fk": framework, "pe": period_end, "kind": kind, "pl": _period_label(period_end, kind),
+               "e": eid, "fr": role, "due": due(framework, _due_date(framework, period_end, half_year), role),
+               "freq": freq})
 
 
 def undetermined_filers(session: Session, org_id: str, framework: str, period_end: date) -> list[dict]:
@@ -700,13 +729,33 @@ def undetermined_filers(session: Session, org_id: str, framework: str, period_en
 
 def filers_to_state(session: Session, org_id: str, org_type: str) -> list[dict]:
     """Each report of the organisation whose filers for the current period are not all known (undetermined_filers):
-    [{framework, label, period_end, undertakings}] — the calendar owes them once their roles are stated."""
-    pe = reporting_period_end(session, org_id)
+    [{framework, label, period_end, period_label, undertakings}] — the calendar owes them once their roles are stated.
+    Pillar 3 ESG names the institutions whose size class or listing is still to state (services.governance.crr_filers)
+    for the period, and for the half-year of its financial year (E354), each with the statements it needs."""
+    from services.governance.periods import (
+        FINANCIAL_YEAR,
+        HALF_YEAR,
+        HALF_YEAR_REPORTS,
+        half_year_end,
+        label,
+    )
+    from services.governance.report_filers import scope_basis, undetermined
+    pe, kind = reporting_period(session, org_id)
     out = []
     for f in available_frameworks(org_type):
-        und = undetermined_filers(session, org_id, f["framework"], pe)
-        if und:
-            out.append({"framework": f["framework"], "label": f["label"], "period_end": pe.isoformat(), "undertakings": und})
+        fk = f["framework"]
+        dates = [(pe, kind == HALF_YEAR)]
+        if fk in HALF_YEAR_REPORTS and kind == FINANCIAL_YEAR:
+            dates.append((half_year_end(pe), True))
+        for d, half in dates:
+            if half and fk not in HALF_YEAR_REPORTS:
+                continue
+            und = undetermined_filers(session, org_id, fk, d) if not half else []
+            und = und + undetermined(session, org_id, fk, d, half)
+            if und:
+                out.append({"framework": fk, "label": f["label"], "period_end": d.isoformat(),
+                            "period_label": label(d, HALF_YEAR if half else FINANCIAL_YEAR), "undertakings": und,
+                            "scope_basis": scope_basis(fk)})
     return out
 
 
@@ -740,7 +789,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
     Now keys on entity_id too (NULL-safe via IS NOT DISTINCT FROM, since entity_id is NULL for whole_org)."""
     ensure_obligations(session, org_id, org_type)
     rows = session.execute(text(f"""
-        SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency,
+        SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_kind, ob.period_label, ob.due_date, ob.frequency,
                ob.source, ob.set_by, ob.entity_id, ob.filing_role, re.name AS entity_name,
                ob.fund_id, fu.name AS fund_name, f.filing_id, f.status AS filing_status, f.disclosure_date
         FROM regulatory_obligation ob
@@ -749,7 +798,8 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
         LEFT JOIN LATERAL (
             SELECT filing_id, status, disclosure_date FROM regulatory_filing rf
             WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
-              AND rf.period_end = ob.period_end AND rf.status NOT IN ('superseded', 'withdrawn')
+              AND rf.period_end = ob.period_end AND rf.period_kind = ob.period_kind
+              AND rf.status NOT IN ('superseded', 'withdrawn')
               AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id AND rf.fund_id IS NOT DISTINCT FROM ob.fund_id
               AND {_role_match("rf", "ob.entity_id", "ob.filing_role")}
             ORDER BY rf.seq DESC LIMIT 1
@@ -767,13 +817,14 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
         done = status in ("submitted", "accepted")
         # a report that runs from its own conclusion (the ORSA) has no calendar date: its filing's conclusion gives one
         due_on, due_rule = ((r["due_date"], None) if r["due_date"] is not None
-                            else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"]))
+                            else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"],
+                                                r["period_kind"] == "half_year"))
         days_left = (due_on - today).days if due_on is not None else None
         out.append({
             "retired": retired,
             "obligation_id": str(r["obligation_id"]), "framework": r["framework"],
             "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
-            "period_end": r["period_end"].isoformat(), "period_label": r["period_label"],
+            "period_end": r["period_end"].isoformat(), "period_label": r["period_label"], "period_kind": r["period_kind"],
             "due_date": due_on.isoformat() if due_on else None, "due_rule": due_rule, "frequency": r["frequency"],
             "filing_id": str(r["filing_id"]) if r["filing_id"] else None,
             "filing_status": status, "days_to_due": days_left,
@@ -796,6 +847,7 @@ def _row_to_summary(r) -> dict:
         "filing_id": str(r["filing_id"]), "framework": r["framework"],
         "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
         "period_end": r["period_end"].isoformat(), "period_label": r["period_label"],
+        "period_kind": r.get("period_kind") or "financial_year",
         "status": r["status"], "snapshot_id": str(r["snapshot_id"]) if r["snapshot_id"] else None,
         "snapshot_version": r.get("snapshot_version"),
         "submission_ref": r["submission_ref"],
@@ -822,7 +874,7 @@ def _row_to_summary(r) -> dict:
 def list_filings(session: Session, org_id: str) -> list[dict]:
     """Every filing for the org — the register, newest first."""
     rows = session.execute(text("""
-        SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
+        SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_kind, rf.period_label, rf.status, rf.snapshot_id,
                rf.submission_ref, rf.superseded_by, rf.note, rf.created_at, rf.updated_at, rf.filing_role,
                rf.presentation_currency, rf.view, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind, rf.fund_id, fu.name AS fund_name
@@ -840,7 +892,7 @@ def list_filings(session: Session, org_id: str) -> list[dict]:
 def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool = True) -> dict | None:
     """One filing with its full lifecycle history and (optionally) the frozen report payload."""
     r = session.execute(text("""
-        SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
+        SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_kind, rf.period_label, rf.status, rf.snapshot_id,
                rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role, rf.presentation_currency, rf.view,
                rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind, rf.fund_id, fu.name AS fund_name, rf.disclosure_date
@@ -863,7 +915,7 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     out["disclosure_date"] = r["disclosure_date"].isoformat() if r["disclosure_date"] else None   # None: made when frozen
     _due, _why = (due_for_undertaking(session, org_id, r["framework"], out["entity_id"], r["period_end"])
                   if ((_mandate_of(r["framework"]) or {}).get("deliverable", {}).get("due") or {}).get("fact")
-                  else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"]))
+                  else due_for_filing(r["framework"], r["period_end"], r["disclosure_date"], r["period_kind"] == "half_year"))
     if r["framework"] == "insurer_solvency" and r["filing_role"] == "consolidated" and _due:   # a group's: 6 weeks later
         from services.governance.sii_filers import GROUP_DUE_RULE, due
         _due, _why = due(_due, "consolidated"), GROUP_DUE_RULE
@@ -966,16 +1018,18 @@ def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict, enti
 
 
 def _live_filing(session: Session, org_id: str, framework: str, period_end: date, entity_id: str | None,
-                 fund_id: str | None, role: str | None):
-    """The live filing (not superseded or withdrawn) of a report, period and scope — entity, fund and, where one entity
-    holds two reports, role (_role_match) — or None. One live filing per scope."""
+                 fund_id: str | None, role: str | None, kind: str = "financial_year"):
+    """The live filing (not superseded or withdrawn) of a report, period (end and kind) and scope — entity, fund and,
+    where one entity holds two reports, role (_role_match) — or None. One live filing per scope."""
     return session.execute(text(f"""
         SELECT rf.filing_id, rf.status FROM regulatory_filing rf
-        WHERE rf.org_id = :o AND rf.framework = :fk AND rf.period_end = :pe AND rf.status NOT IN ('superseded', 'withdrawn')
+        WHERE rf.org_id = :o AND rf.framework = :fk AND rf.period_end = :pe AND rf.period_kind = :kind
+              AND rf.status NOT IN ('superseded', 'withdrawn')
               AND rf.entity_id IS NOT DISTINCT FROM CAST(:ent AS uuid) AND rf.fund_id IS NOT DISTINCT FROM CAST(:fund AS uuid)
               AND {_role_match("rf", "CAST(:ent AS uuid)", "CAST(:role AS text)")}
         ORDER BY rf.seq DESC LIMIT 1
-    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id, "fund": fund_id, "role": role}).mappings().first()
+    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id, "fund": fund_id, "role": role,
+           "kind": kind}).mappings().first()
 
 
 def preflight(session: Session, org_id: str, org_type: str, framework: str, entity_id: str | None = None,
@@ -984,32 +1038,35 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
     any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes
     nothing. Returns a confirm_token binding this exact result — see _confirm_token()."""
     _open_for_new(framework, org_type)
-    period_end = reporting_period_end(session, org_id)
+    period_end, kind = reporting_period(session, org_id)
+    half = _half_year_gate(session, org_id, framework, kind, period_end)
+    plabel = period_label(period_end, kind)
     if framework in _PRODUCT_SCOPED and fund_id is None and entity_id is None:
         # a per-product report: the preparer chooses which fund first (nothing is computed or confirmed yet)
         from services.governance.product_filings import funds_owing
         from services.governance.reporting_settings import get_settings
-        return {"framework": framework, "label": FRAMEWORKS[framework]["label"], "period_label": _period_label(period_end),
+        return {"framework": framework, "label": FRAMEWORKS[framework]["label"], "period_label": plabel,
                 "basis": get_settings(session, org_id), "product_scoped": True, "needs_fund": True,
                 "funds": funds_owing(session, org_id), "can_generate": False, "confirm_token": None,
                 "entity_scoped": False, "coverage": None, "gaps": []}
     from services.governance import report_filers as RF
-    if RF.whole_org_refusal(session, org_id, framework, entity_id, period_end) is not None:
+    if RF.whole_org_refusal(session, org_id, framework, entity_id, period_end, half) is not None:
         # the organisation as a whole is no filer of this report: the preparer chooses one of its filers first (nothing
         # is computed or confirmed yet) — with who reports it and why, and any undertaking still to state its role
         from services.governance.reporting_settings import get_settings
-        return {"framework": framework, "label": FRAMEWORKS[framework]["label"], "period_label": _period_label(period_end),
+        return {"framework": framework, "label": FRAMEWORKS[framework]["label"], "period_label": plabel,
                 "basis": get_settings(session, org_id), "product_scoped": False, "needs_scope": True,
-                "scopes": RF.choices(session, org_id, framework, period_end), "scope_basis": RF.scope_basis(framework),
-                "undetermined": undetermined_filers(session, org_id, framework, period_end),
+                "scopes": RF.choices(session, org_id, framework, period_end, half), "scope_basis": RF.scope_basis(framework),
+                "undetermined": (undetermined_filers(session, org_id, framework, period_end)
+                                 + RF.undetermined(session, org_id, framework, period_end, half)),
                 "can_generate": False, "confirm_token": None, "entity_scoped": True, "coverage": None, "gaps": []}
     _check_scope(session, org_id, framework, entity_id, fund_id)
     role = None if framework in _PRODUCT_SCOPED else _scope_role(session, org_id, framework, entity_id, filing_role)
-    existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role)
+    existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role, kind)
     existing = existing["status"] if existing else None
     from services.governance.reporting_settings import get_settings
     basis = get_settings(session, org_id)
-    summary = _summary_for(session, org_id, framework, basis, entity_id, fund_id, period_end, role)
+    summary = _summary_for(session, org_id, framework, basis, entity_id, fund_id, period_end, role, half)
     token = _confirm_token(org_id, framework, basis, summary, entity_id, fund_id, role)
     from services.governance.figure_views import figures_for
     from services.governance.provided_data import attested_values
@@ -1020,7 +1077,7 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str, enti
                 "delta_pct": attested[dp].get("delta_pct"), "provider": attested[dp].get("provider")}
                for dp in figures_for(framework) if dp in attested]
     return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
-            "period_label": _period_label(period_end), "basis": basis,
+            "period_label": plabel, "period_kind": kind, "basis": basis,
             "can_generate": existing is None, "existing_status": existing,
             "entity_scoped": framework in _ENTITY_SCOPED, "entity_id": entity_id, "filing_role": role,
             "product_scoped": framework in _PRODUCT_SCOPED, "fund_id": fund_id, "confirm_token": token, **summary,
@@ -1039,7 +1096,7 @@ def _obligation_scope(session: Session, org_id: str, obligation_id: str, framewo
         uuid.UUID(obligation_id)
     except ValueError:
         raise FilingError("filing.refused.obligation_not_found") from None
-    ob = session.execute(text("""SELECT framework, period_end, period_label, entity_id::text AS entity_id,
+    ob = session.execute(text("""SELECT framework, period_end, period_kind, period_label, entity_id::text AS entity_id,
                                         fund_id::text AS fund_id, filing_role
                                  FROM regulatory_obligation
                                  WHERE obligation_id = CAST(:i AS uuid) AND org_id = CAST(:o AS uuid)"""),
@@ -1055,8 +1112,8 @@ def _obligation_scope(session: Session, org_id: str, obligation_id: str, framewo
     ob_role = ob["filing_role"] if framework in _OWN_BOOK and ob["entity_id"] else None
     if role is not None and ob_role is not None and role != ob_role:
         raise FilingError("filing.refused.obligation_other_entity")
-    period = reporting_period_end(session, org_id)
-    if ob["period_end"] != period:
+    period, kind = reporting_period(session, org_id)
+    if (ob["period_end"], ob["period_kind"]) != (period, kind):
         raise FilingError("filing.refused.obligation_other_period", obligation_period=ob["period_label"],
                           obligation_end=ob["period_end"].isoformat(), period_end=period.isoformat())
     return ob["entity_id"], ob["fund_id"], ob_role
@@ -1065,17 +1122,41 @@ def _obligation_scope(session: Session, org_id: str, obligation_id: str, framewo
 def reporting_period_end(session: Session, org_id: str) -> date:
     """The one reporting period end a filing is recorded for, built on and freezes supplied values of: the
     organisation's configured reporting period (reporting_settings; last calendar year-end when not set)."""
+    return reporting_period(session, org_id)[0]
+
+
+def reporting_period(session: Session, org_id: str) -> tuple[date, str]:
+    """The configured reporting period: its end and kind — a financial year, or the first half of one (E354)."""
     from services.governance.reporting_settings import get_settings
-    return date.fromisoformat(str(get_settings(session, org_id)["reporting_period_end"])[:10])
+    st = get_settings(session, org_id)
+    return date.fromisoformat(str(st["reporting_period_end"])[:10]), st["reporting_period_kind"]
+
+
+def _half(session: Session, org_id: str) -> bool:
+    from services.governance.periods import HALF_YEAR
+    return reporting_period(session, org_id)[1] == HALF_YEAR
 
 
 def _summary_for(session: Session, org_id: str, framework: str, basis: dict, entity_id: str | None,
-                 fund_id: str | None, period_end: date, role: str | None = None) -> dict:
+                 fund_id: str | None, period_end: date, role: str | None = None, half_year: bool = False) -> dict:
     """The confirm-data summary of exactly what the filing will freeze: the fund's document, or the entity's book."""
     if framework in _PRODUCT_SCOPED:
         from services.governance.product_filings import preflight_summary
         return preflight_summary(session, org_id, framework, fund_id, period_end)
-    return _preflight_summary(session, org_id, framework, basis, _book_scope(session, org_id, framework, entity_id, period_end, role))
+    return _preflight_summary(session, org_id, framework, basis,
+                              _book_scope(session, org_id, framework, entity_id, period_end, role, half_year))
+
+
+def _half_year_gate(session: Session, org_id: str, framework: str, kind: str, period_end: date) -> bool:
+    """Whether the period is a half-year — refused for a report disclosed only for a financial year (E354)."""
+    from services.governance.periods import HALF_YEAR, HALF_YEAR_REPORTS
+    if kind != HALF_YEAR:
+        return False
+    if framework not in HALF_YEAR_REPORTS:
+        from services.governance.report_filers import half_year_refusal
+        code, params = half_year_refusal(session, org_id, framework, None, period_end)
+        raise FilingError(code, **params)
+    return True
 
 
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict,
@@ -1249,13 +1330,16 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
 
 
 def _book_scope(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date,
-                role: str | None = None) -> tuple:
+                role: str | None = None, half_year: bool = False) -> tuple:
     """_book_basis for callers that report to a preparer: a book that cannot be presented is a FilingError. The one
     gate of every book a filing freezes (pre-filing check, generate, refresh, restate): a whole-organisation scope that
-    is no filer's is refused here (services.governance.report_filers), and so is a role the scope cannot take."""
-    from services.governance.report_filers import whole_org_refusal
+    is no filer's is refused here (services.governance.report_filers), and so is a role the scope cannot take — and, for
+    a half-year, a scope that discloses no half-year report (E354: once a year, or not stated)."""
+    from services.governance.report_filers import half_year_refusal, whole_org_refusal
     from services.governance.translation import TranslationError
-    why = whole_org_refusal(session, org_id, framework, entity_id, period_end)
+    why = whole_org_refusal(session, org_id, framework, entity_id, period_end, half_year)
+    if why is None and half_year:
+        why = half_year_refusal(session, org_id, framework, entity_id, period_end)
     if why is not None:
         raise FilingError(why[0], **why[1])
     role = _scope_role(session, org_id, framework, entity_id, role)
@@ -1329,19 +1413,21 @@ def _previous_period_book(session: Session, org_id: str, framework: str, entity_
 def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
             entity_id: str | None, period_end: date, view: str = "joint",
             figure_sources: dict | None = None, fund_id: str | None = None,
-            disclosure_date: date | None = None, role: str | None = None) -> tuple[dict, str]:
+            disclosure_date: date | None = None, role: str | None = None,
+            kind: str = "financial_year") -> tuple[dict, str]:
     from services.governance.engine_runs import RunCheckError
     from services.governance.report_snapshots import StatementRefused
     from services.governance.translation import TranslationError
     from services.intake.views import ViewError
+    half = kind == "half_year"
     entity_ids, value_weights, translation = ((None, None, None) if framework in _PRODUCT_SCOPED
-                                              else _book_scope(session, org_id, framework, entity_id, period_end, role))
+                                              else _book_scope(session, org_id, framework, entity_id, period_end, role, half))
     try:
         snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
                                value_weights=value_weights, translation=translation, view=view,
                                figure_sources=figure_sources,
                                previous_period=_previous_period_book(session, org_id, framework, entity_id, period_end, role),
-                               fund_id=fund_id, disclosure_date=disclosure_date, period_end=period_end)
+                               fund_id=fund_id, disclosure_date=disclosure_date, period_end=period_end, period_kind=kind)
     except (TranslationError, RunCheckError, ViewError, StatementRefused) as e:
         raise _refusal(e) from e
     return snap, (translation.presentation if translation is not None else "EUR")
@@ -1428,31 +1514,32 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     _check_scope(session, org_id, framework, entity_id, fund_id)
     role = "product" if fund_id else _scope_role(session, org_id, framework, entity_id, filing_role)
 
-    period_end = reporting_period_end(session, org_id)
+    period_end, kind = reporting_period(session, org_id)
+    half = _half_year_gate(session, org_id, framework, kind, period_end)
     # the confirmation must be of this scope's book as it is now (see _confirm_token)
     from services.governance.reporting_settings import get_settings
     _basis = get_settings(session, org_id)
-    _summary = _summary_for(session, org_id, framework, _basis, entity_id, fund_id, period_end, role)
+    _summary = _summary_for(session, org_id, framework, _basis, entity_id, fund_id, period_end, role, half)
     if confirm_token != _confirm_token(org_id, framework, _basis, _summary, entity_id, fund_id, role):
         raise FilingError("filing.refused.data_changed")
-    existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role)
+    existing = _live_filing(session, org_id, framework, period_end, entity_id, fund_id, role, kind)
     if existing:
         raise FilingError("filing.refused.already_live", report=FRAMEWORKS[framework]["label"],
-                          period=_period_label(period_end), state=_status_name(existing["status"]))
+                          period=_period_label(period_end, kind), state=_status_name(existing["status"]))
 
     if disclosure_date is not None and disclosure_date <= period_end:
         raise FilingError("filing.refused.disclosure_before_period", date=disclosure_date.isoformat(),
                           period_end=period_end.isoformat())
     snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end, view, figure_sources,
-                        fund_id, disclosure_date, role)
+                        fund_id, disclosure_date, role, kind)
     row = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
-                                       entity_id, filing_role, presentation_currency, view, figure_sources, fund_id,
-                                       disclosure_date)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb),
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_kind, period_label, status, snapshot_id, note,
+                                       created_by, entity_id, filing_role, presentation_currency, view, figure_sources,
+                                       fund_id, disclosure_date)
+        VALUES (:o, :fk, :pe, :kind, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb),
                 CAST(:fund AS uuid), :dd)
         RETURNING filing_id
-    """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end),
+    """), {"o": org_id, "fk": framework, "pe": period_end, "kind": kind, "pl": _period_label(period_end, kind),
            "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id,
            "role": role, "ccy": ccy, "view": view, "figs": json.dumps(figure_sources or {}),
            "fund": fund_id, "dd": disclosure_date}).mappings().first()
@@ -1470,8 +1557,8 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     EPC / IFRS-9 / maturity attributes) flow into the form. Only drafts can refresh; a submitted or accepted
     filing keeps its frozen snapshot (immutable — restate via a new version instead)."""
     r = session.execute(text("""
-        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end, view,
-               figure_sources, fund_id::text AS fund_id, disclosure_date, filing_role
+        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end, period_kind,
+               view, figure_sources, fund_id::text AS fund_id, disclosure_date, filing_role
         FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
     """), {"f": filing_id, "o": org_id}).mappings().first()
     if not r:
@@ -1481,7 +1568,8 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     _not_retired(r["framework"])
 
     snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"],
-                        r["view"], r["figure_sources"], r["fund_id"], r["disclosure_date"], r["filing_role"])
+                        r["view"], r["figure_sources"], r["fund_id"], r["disclosure_date"], r["filing_role"],
+                        r["period_kind"])
     session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap, presentation_currency = :ccy "
                          "WHERE filing_id = :f AND org_id = :o"),
                     {"snap": snap["snapshot_id"], "ccy": ccy, "f": filing_id, "o": org_id})
@@ -1624,24 +1712,26 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     # without the entity — a restated solo or consolidated filing silently became a whole-org one. It now keeps the
     # filing's entity, role and scope (and presents in the same currency rule) via the same _book_basis as generate.
     period = session.execute(text(
-        "SELECT period_end, period_label, entity_id::text AS entity_id, filing_role, view, figure_sources, fund_id::text AS fund_id, "
-        "disclosure_date FROM regulatory_filing WHERE filing_id = :f"),
+        "SELECT period_end, period_kind, period_label, entity_id::text AS entity_id, filing_role, view, figure_sources, "
+        "fund_id::text AS fund_id, disclosure_date FROM regulatory_filing WHERE filing_id = :f"),
         {"f": filing_id}).mappings().first()
     # a restatement is a new disclosure: made today, unless the original's planned date is still ahead
     dd = period["disclosure_date"] if period["disclosure_date"] and period["disclosure_date"] > date.today() else None
     snap, ccy = _freeze(session, org_id, cur["framework"], actor_user_id,
                         f"Restatement of {period['period_label']}: {reason}", period["entity_id"], period["period_end"],
-                        period["view"], period["figure_sources"], period["fund_id"], dd, period["filing_role"])
+                        period["view"], period["figure_sources"], period["fund_id"], dd, period["filing_role"],
+                        period["period_kind"])
     # supersede the old FIRST so the single-live-slot frees up before the restatement is inserted
     _apply_transition(session, org_id, filing_id, "supersede", actor_user_id, detail={"reason": reason})
     new_fid = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
-                                       entity_id, filing_role, presentation_currency, view, figure_sources, fund_id,
-                                       disclosure_date)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb),
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_kind, period_label, status, snapshot_id, note,
+                                       created_by, entity_id, filing_role, presentation_currency, view, figure_sources,
+                                       fund_id, disclosure_date)
+        VALUES (:o, :fk, :pe, :kind, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb),
                 CAST(:fund AS uuid), :dd)
         RETURNING filing_id
-    """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "pl": period["period_label"], "dd": dd,
+    """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "kind": period["period_kind"],
+           "pl": period["period_label"], "dd": dd,
            "snap": snap["snapshot_id"], "note": f"Restates {period['period_label']}: {reason}",
            "u": actor_user_id, "ent": period["entity_id"], "role": period["filing_role"], "ccy": ccy,
            "view": period["view"], "figs": json.dumps(period["figure_sources"] or {}), "fund": period["fund_id"]}).scalar()

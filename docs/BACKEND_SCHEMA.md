@@ -2,7 +2,7 @@
 
 > **Generated — do not edit by hand.** Written by `scripts/build_project_docs.py` from the PostgreSQL catalogue of a scratch database the migration files build to head (`scripts/project_docs/catalogue.py`). Regenerate with `venv/bin/python -m scripts.build_project_docs --write`; the gate (`scripts/precommit.sh`) fails when this file differs from what the code produces now.
 
-The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3165 table columns, 362 foreign keys, 98 unique constraints, 335 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 323 migration revisions in `core/db/migrations/versions/`, head `orsa_parent_own_20261031`. Extensions present: plpgsql.
+The database as the migrations build it: **263 tables** (1 in `migration_meta`, 262 in `public`), 14 views, 3168 table columns, 362 foreign keys, 98 unique constraints, 339 check constraints, 303 further indexes and 57 triggers (50 of them on a function that raises an exception). Built by 324 migration revisions in `core/db/migrations/versions/`, head `p3_semiannual_20261031`. Extensions present: plpgsql.
 
 It supersedes the earlier hand-drawn map [docs/board/database_blueprint.html](board/database_blueprint.html), which is kept unchanged as a record. Architecture, tenancy enforcement and deployment are described in [SOFTWARE_DESCRIPTION.md](SOFTWARE_DESCRIPTION.md) §5–§7.
 
@@ -33,7 +33,7 @@ A declared grouping (`scripts/project_docs/domains.py`; the database records non
 | Asset management (issuers, securities, funds) | 23 | 271 | 22 | 14 | 2 | 1 |
 | EUDR | 14 | 176 | 7 | 7 | 0 | 13 |
 | Agri-food supply chain & crops | 26 | 340 | 15 | 7 | 3 | 5 |
-| Regulatory reporting & filings | 26 | 370 | 16 | 19 | 15 | 7 |
+| Regulatory reporting & filings | 26 | 373 | 16 | 19 | 15 | 7 |
 | Regulatory change monitoring (CRCS) | 7 | 67 | 0 | 1 | 2 | 1 |
 | Supervision | 18 | 204 | 5 | 21 | 12 | 1 |
 | Workflow, decisions & controls | 23 | 278 | 7 | 19 | 26 | 1 |
@@ -5139,6 +5139,9 @@ Foreign keys to other domains:
 | `updated_at` | timestamp with time zone | no | `now()` |  |
 | `updated_by` | uuid | yes |  | FK → users.user_id |
 | `presentation_currency` | character(3) | yes |  |  |
+| `reporting_period_kind` | text | yes |  |  |
+
+- Check `ck_settings_period_kind`: `CHECK (((reporting_period_kind IS NULL) OR (reporting_period_kind = ANY (ARRAY['financial_year'::text, 'half_year'::text]))))`
 
 #### `org_reporting_settings_retired_20261001`
 
@@ -5236,11 +5239,17 @@ Foreign keys to other domains:
 | `disclosure_date` | date | yes |  |  |
 | `eudr_movement_id` | uuid | yes |  | FK → eudr_movement.movement_id (on delete restrict) |
 | `seq` | bigint | no |  | unique; identity (always) |
+| `period_kind` | text | no | `'financial_year'::text` |  |
 
+- Check `ck_filing_period_kind`: `CHECK (((period_kind = ANY (ARRAY['financial_year'::text, 'half_year'::text])) AND ((period_kind = 'financial_year'::text) OR (framework = 'bank_p3esg'::text))))`
 - Check `ck_filing_period_label`: `CHECK (
 CASE
     WHEN (framework = ANY (ARRAY['eudr_dds'::text, 'eudr_simplified'::text])) THEN (period_label ~~ ('% · '::text || (period_end)::text))
-    ELSE (period_label = ('FY'::text || (EXTRACT(year FROM period_end))::integer))
+    ELSE (period_label =
+    CASE
+        WHEN (period_kind = 'half_year'::text) THEN (('FY'::text || (EXTRACT(year FROM (period_end + '6 mons'::interval)))::integer) || '-H1'::text)
+        ELSE ('FY'::text || (EXTRACT(year FROM period_end))::integer)
+    END)
 END)`
 - Check `ck_filing_view`: `CHECK ((view = ANY (ARRAY['joint'::text, 'client'::text, 'tellumen'::text])))`
 - Check `ck_reg_filing_eudr_movement`: `CHECK (((framework <> 'eudr_dds'::text) OR (eudr_movement_id IS NOT NULL)))`
@@ -5254,7 +5263,7 @@ END)`
 - Index: `CREATE INDEX ix_reg_filing_role ON public.regulatory_filing USING btree (org_id, framework, filing_role)`
 - Index: `CREATE INDEX ix_regulatory_filing_by_seq ON public.regulatory_filing USING btree (org_id, framework, seq)`
 - Index: `CREATE INDEX ix_regulatory_filing_fund ON public.regulatory_filing USING btree (fund_id) WHERE (fund_id IS NOT NULL)`
-- Index: `CREATE UNIQUE INDEX ux_reg_filing_live ON public.regulatory_filing USING btree (org_id, framework, period_end, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(eudr_movement_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(filing_role, ''::text)) WHERE (status <> ALL (ARRAY['superseded'::text, 'withdrawn'::text]))`
+- Index: `CREATE UNIQUE INDEX ux_reg_filing_live ON public.regulatory_filing USING btree (org_id, framework, period_end, period_kind, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(eudr_movement_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(filing_role, ''::text)) WHERE (status <> ALL (ARRAY['superseded'::text, 'withdrawn'::text]))`
 - Trigger `trg_filing_transition`: BEFORE UPDATE for each row → `public.guard_filing_transition`
 
 #### `regulatory_filing_event`
@@ -5294,15 +5303,22 @@ END)`
 | `set_by` | text | yes |  |  |
 | `filing_role` | text | yes |  |  |
 | `fund_id` | uuid | yes |  | FK → funds.fund_id (on delete restrict) |
+| `period_kind` | text | no | `'financial_year'::text` |  |
 
 - Check `ck_obligation_due_or_conclusion`: `CHECK (((due_date IS NOT NULL) OR (framework = 'insurer_orsa_climate'::text)))`
-- Check `ck_obligation_period_label`: `CHECK ((period_label = ('FY'::text || (EXTRACT(year FROM period_end))::integer)))`
+- Check `ck_obligation_half_year_semiannual`: `CHECK (((period_kind = 'financial_year'::text) OR (frequency = 'semiannual'::text)))`
+- Check `ck_obligation_period_kind`: `CHECK (((period_kind = ANY (ARRAY['financial_year'::text, 'half_year'::text])) AND ((period_kind = 'financial_year'::text) OR (framework = 'bank_p3esg'::text))))`
+- Check `ck_obligation_period_label`: `CHECK ((period_label =
+CASE
+    WHEN (period_kind = 'half_year'::text) THEN (('FY'::text || (EXTRACT(year FROM (period_end + '6 mons'::interval)))::integer) || '-H1'::text)
+    ELSE ('FY'::text || (EXTRACT(year FROM period_end))::integer)
+END))`
 - Check `ck_reg_obligation_role`: `CHECK (((filing_role IS NULL) OR (filing_role = ANY (ARRAY['solo'::text, 'consolidated'::text, 'whole_org'::text, 'product'::text]))))`
 - Check `ck_regulatory_obligation_product_subject`: `CHECK (((fund_id IS NULL) OR ((entity_id IS NULL) AND (filing_role = 'product'::text))))`
 - Check `regulatory_obligation_frequency_check`: `CHECK ((frequency = ANY (ARRAY['annual'::text, 'semiannual'::text, 'quarterly'::text, 'monthly'::text, 'adhoc'::text])))`
 - Index: `CREATE INDEX ix_reg_obligation_due ON public.regulatory_obligation USING btree (org_id, due_date)`
 - Index: `CREATE INDEX ix_regulatory_obligation_fund ON public.regulatory_obligation USING btree (fund_id) WHERE (fund_id IS NOT NULL)`
-- Index: `CREATE UNIQUE INDEX ux_reg_obligation_key ON public.regulatory_obligation USING btree (org_id, framework, period_end, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(filing_role, ''::text))`
+- Index: `CREATE UNIQUE INDEX ux_reg_obligation_key ON public.regulatory_obligation USING btree (org_id, framework, period_end, period_kind, COALESCE(entity_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(fund_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(filing_role, ''::text))`
 
 #### `regulatory_packages`
 

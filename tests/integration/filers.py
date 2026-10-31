@@ -72,3 +72,20 @@ def state_role_in_session(s, org_id: str, entity_id: str, period_end: date, role
     req = request_role(s, org_id, users[0], entity_id=entity_id, period_end=period_end, role=role)
     payload = {"entity_id": entity_id, "period_end": period_end.isoformat(), "role": role}
     apply_decision(s, org_id, req["approval_request_id"], payload, "approved", users[1])
+
+
+def half_year_without_statements(s, org_id: str) -> date:
+    """A half-year for which the organisation states no Pillar 3 size class or listing (services.governance.crr_filers),
+    set as its reporting period (the first half of the financial year) inside the test's rolled-back transaction: the
+    first half of FY2026 — the EBA's module ESGDIS 2.1.0 starts on 31 March 2026 — or the first later one with nothing
+    stated. A test of the 'not stated yet' case builds that case itself, whatever the demo data states (E354, as E352's
+    year_without_roles does for CSRD roles)."""
+    from services.governance.reporting_settings import upsert_reporting_settings
+    stated = {r[0] for r in s.execute(text("""SELECT DISTINCT reporting_period_end FROM provided_datapoint
+        WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg'
+          AND datapoint_key IN ('large_institution', 'listed_institution')"""), {"o": org_id})}
+    h = date(2026, 6, 30)
+    while h in stated:
+        h = h.replace(year=h.year + 1)
+    upsert_reporting_settings(s, org_id, {"reporting_period_end": h.isoformat(), "reporting_period_kind": "half_year"}, None)
+    return h

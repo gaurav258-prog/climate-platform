@@ -276,14 +276,14 @@ def _check_related(session: Session, org_id: str, dp: dict, group_id: str | None
                             figure=dp["label"]) from e
 
 
-def _check_subsidiary(session: Session, org_id: str, dp: dict, member: str | None) -> None:
-    """A statement about one of the organisation's subsidiaries (services.governance.crr_filers): it names one."""
+def _check_institution(session: Session, org_id: str, dp: dict, member: str | None) -> None:
+    """A statement about one of the organisation's institutions (services.governance.crr_filers): it names one."""
     from services.governance.crr_filers import check_member
     try:
         check_member(session, org_id, member)
     except ValueError as e:
-        raise ProvidedError(f"'{member}' is not a subsidiary in the entity structure", "disclose.provided.not_subsidiary",
-                            figure=dp["label"]) from e
+        raise ProvidedError(f"'{member}' is not an institution of the entity structure",
+                            "disclose.provided.not_institution", figure=dp["label"]) from e
 
 
 def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoint_key: str,
@@ -349,8 +349,8 @@ def submit(session: Session, org_id: str, actor: str, *, framework: str, datapoi
     role = _role_scope(session, org_id, framework, entity, filing_role)
     if dp.get("breakdown") == "related_undertaking":
         _check_related(session, org_id, dp, entity, breakdown_member)
-    if dp.get("breakdown") == "subsidiary":
-        _check_subsidiary(session, org_id, dp, breakdown_member)
+    if dp.get("breakdown") == "institution":
+        _check_institution(session, org_id, dp, breakdown_member)
     from services.governance.period_close import is_closed
     if is_closed(session, org_id, entity, pe) and len((restatement_reason or "").strip()) < 10:
         raise ProvidedError(f"the period ending {pe} is closed for this undertaking — a new value is a restatement: "

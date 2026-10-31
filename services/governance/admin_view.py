@@ -23,8 +23,10 @@ def basis_options() -> dict:
     names; a screen never types its own list."""
     from core.types import SCENARIO_VALUES, TIME_HORIZON_VALUES
     stops = messages.names().get("horizon.stop", {})
+    from services.governance.periods import KINDS, WORDS
     return {"scenario": [{"value": s, "label": messages.name("scenario", s)} for s in SCENARIO_VALUES],
-            "horizon": [{"value": h, "label": stops.get(h, h)} for h in TIME_HORIZON_VALUES]}
+            "horizon": [{"value": h, "label": stops.get(h, h)} for h in TIME_HORIZON_VALUES],
+            "period_kind": [{"value": k, "label": WORDS[k]} for k in KINDS]}
 
 
 def check_basis(changes: dict) -> None:
@@ -34,6 +36,9 @@ def check_basis(changes: dict) -> None:
         raise UserError("admin.basis.bad_scenario")
     if "horizon" in changes and changes["horizon"] not in TIME_HORIZON_VALUES:
         raise UserError("admin.basis.bad_horizon")
+    from services.governance.periods import KINDS
+    if "reporting_period_kind" in changes and changes["reporting_period_kind"] not in KINDS:
+        raise UserError("admin.basis.bad_period_kind")
 
 
 def lei_refusal(lei: str, error: Exception, cls: type[UserError] = UserError) -> UserError:

@@ -14,7 +14,7 @@ from core import messages
 _HIDDEN = re.compile(r"^_|(^|_)ids?$|^datapoint_key$|^summary$")
 # the values whose words come from a catalogue set rather than as typed
 _CODED = {"scenario", "horizon", "direction", "kind", "path", "role", "source", "size_class", "action", "framework",
-          "template"}
+          "template", "filing_role"}
 _CODE_LIKE = re.compile(r"^[a-z]+(_[a-z0-9]+)+$|^[A-Z]+(_[A-Z0-9]+)+$")
 
 

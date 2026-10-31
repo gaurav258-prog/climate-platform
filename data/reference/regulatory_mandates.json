@@ -199,7 +199,12 @@
         "due": {
           "rule": "with_annual_report",
           "months_after_period_end": 4,
-          "label": "with the annual Pillar 3 report (typically within 4 months of year end)"
+          "label": "with the annual Pillar 3 report (typically within 4 months of year end)",
+          "half_year": {
+            "months_after_period_end": 3,
+            "label": "with the half-yearly financial report (at the latest three months after the half-year)",
+            "ref": "Regulation (EU) No 575/2013 Arts 433, 434(2), 4(1)(149); Directive 2004/109/EC Art. 5(1) as replaced by Directive 2013/50/EU — a planning date until the competent authority's timeframe (Directive 2013/36/EU Art. 106) is set"
+          }
         },
         "frequency": "annual",
         "channel_id": "eba_reporting_portal"

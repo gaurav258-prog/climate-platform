@@ -268,14 +268,15 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                     value_weights: dict | None = None, translation=None, view: str = "joint",
                     figure_sources: dict | None = None, previous_period: dict | None = None,
                     fund_id: str | None = None, disclosure_date=None, *, period_end, movement_id: str | None = None,
-                    declaration_entity: str | None = None) -> dict:
+                    declaration_entity: str | None = None, period_kind: str = "financial_year") -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
     translation (services.governance.translation.plan) presents the money in the filing's currency and eliminates
     group-internal exposures; its record — currency, every rate used, per-entity translation, eliminations — is frozen
     in the payload as `_fx` (hash-verified). Books that don't take one (CSRD/ESRS, SFDR) present in EUR, and say so.
-    fund_id: the financial product a per-product report (sfdr_precontractual / sfdr_periodic) is about."""
+    fund_id: the financial product a per-product report (sfdr_precontractual / sfdr_periodic) is about.
+    period_kind: a financial year, or the first half of one (services.governance.periods, E354) — frozen as `_period`."""
     from services.governance.filings import FilingError, retirement_error
     if report_type not in _BUILDERS:
         raise FilingError("filing.refused.unknown_report")       # a UserError and a ValueError, as before
@@ -322,6 +323,9 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
                 x["site_id"] for x in out["document_report"]["statement"]["sites"]])
         return out, engine_runs.inputs(session, org_id, report_type, entity_ids)
     (payload, observed), view_record = in_view(session, org_id, view, compute)
+    from services.governance.periods import HALF_YEAR
+    from services.governance.periods import view as period_view
+    payload["_period"] = period_view(period_end, period_kind)       # the disclosure reference date and its period
     payload["_view"] = view_record
     payload["_fx"] = _fx_record(session, org_id, translation)
     if value_weights:                         # a group filing: the consolidation rule it was weighted on, frozen with it
@@ -348,7 +352,8 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
         # who reports this book (services.governance.report_filers; Solvency II nat-cat records its own in its builder):
         # absent for a whole-organisation book that is no filer's
         filer = report_filers.record(session, org_id, report_type, payload["_scope"]["reporting_entity_id"],
-                                     payload["_scope"].get("filing_role") == "consolidated", period_end)
+                                     payload["_scope"].get("filing_role") == "consolidated", period_end,
+                                     half_year=period_kind == HALF_YEAR)
         if filer is not None:
             payload["_filer"] = filer
     payload["_provided_attested"] = attested_values(session, org_id, _PROVIDED_UNDER.get(report_type, report_type), period_end,

@@ -80,20 +80,37 @@ def test_every_calendar_book_and_export_passes_the_filer_rule():
     assert "undertakings" in _calls(filings._ensure_esrs_obligations)
 
 
-def test_a_groups_pillar3_form_states_each_subsidiarys_size_class():
-    payload = {"_filer": {"level": "group", "entity_id": "g", "subsidiaries": [
-        {"entity_id": "a", "name": "Alpha Bank", "stated": "large", "attested_by": "checker@x"},
-        {"entity_id": "b", "name": "Beta Leasing", "stated": None, "attested_by": None}]}}
+def test_a_groups_pillar3_form_states_each_institutions_size_class_and_listing():
+    """The 'Size class and listing' section (E354): the filer's own row first, then a group's subsidiaries — each with a
+    size-class and a listing entry for the reference date and how often it discloses."""
+    payload = {"_filer": {"level": "group", "entity_id": "g", "self": {
+        "entity_id": "g", "name": "Alpha Group", "stated": "gsii", "attested_by": "checker@x", "listing": None,
+        "listing_by": None, "frequency": "semiannual"}, "subsidiaries": [
+        {"entity_id": "a", "name": "Alpha Bank", "stated": "large", "attested_by": "checker@x", "listing": "non_listed",
+         "listing_by": "checker@x", "frequency": "annual"},
+        {"entity_id": "b", "name": "Beta Leasing", "stated": None, "attested_by": None, "listing": None,
+         "listing_by": None, "frequency": None}]}}
     sec = crr_filers.statement_section(payload)
-    assert sec["title"] == "Large subsidiaries" and [r["cells"][0]["text"] for r in sec["rows"]] == ["Alpha Bank", "Beta Leasing"]
-    cell = sec["rows"][0]["cells"][1]
-    assert cell["supply"] == {"framework": "bank_p3esg", "key": "large_institution", "member": "a", "choices": crr_filers.CHOICES}
-    assert cell["frozen_value"] == "large" and "Not stated: Beta Leasing" in sec["note"]
-    assert crr_filers.statement_section({"_filer": {"level": "institution"}}) is None
-    # the statement's choices are the catalog's
+    assert sec["title"] == "Size class and listing" and sec["key"] == crr_filers.KEY
+    assert [r["cells"][0]["text"] for r in sec["rows"]] == ["Alpha Group", "Alpha Bank", "Beta Leasing"]
+    size, listing, discloses = sec["rows"][1]["cells"][1:4]
+    assert size["supply"] == {"framework": "bank_p3esg", "key": "large_institution", "member": "a", "choices": crr_filers.CHOICES}
+    assert listing["supply"] == {"framework": "bank_p3esg", "key": "listed_institution", "member": "a",
+                                 "choices": crr_filers.LISTINGS}
+    assert size["frozen_value"] == "large" and listing["frozen_value"] == "non_listed"
+    assert discloses["text"].startswith("Once a year") and sec["rows"][0]["cells"][3]["text"].startswith("Twice a year")
+    assert "Not stated: Beta Leasing" in sec["note"]
+    assert crr_filers.statement_section({"_filer": {"level": "not_owed"}}) is None
+    # a group's record frozen before E354 (no row of its own, no frequency) still prints its subsidiaries as it did
+    old = crr_filers.statement_section({"_filer": {"level": "group", "subsidiaries": [
+        {"entity_id": "a", "name": "Alpha Bank", "stated": "large", "attested_by": "checker@x"}]}})
+    assert [r["cells"][0]["text"] for r in old["rows"]] == ["Alpha Bank"] and old["rows"][0]["cells"][3]["text"] == "—"
+    assert "Not stated" not in old["note"]
+    # the statements' choices are the catalog's, one entry per institution
     from services.governance.datapoint_catalog import CATALOG
-    dp = next(d for d in CATALOG["bank_p3esg"] if d["key"] == crr_filers.KEY)
-    assert dp["choices"] == crr_filers.CHOICES and dp["breakdown"] == "subsidiary" and dp["lane"] == "provided"
+    for key, choices in ((crr_filers.KEY, crr_filers.CHOICES), (crr_filers.LISTED_KEY, crr_filers.LISTINGS)):
+        dp = next(d for d in CATALOG["bank_p3esg"] if d["key"] == key)
+        assert dp["choices"] == choices and dp["breakdown"] == "institution" and dp["lane"] == "provided"
 
 
 def test_the_who_reports_section():

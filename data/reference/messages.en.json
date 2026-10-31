@@ -5431,6 +5431,31 @@
     "next": "Change the reporting period under Basis, then prepare it."
    }
   },
+  "filing.refused.annual_period_only": {
+   "status": 409,
+   "label": "Reported for a financial year",
+   "detail": {
+    "what": "{report} is reported for a financial year. Your reporting period is {period}, the first half of a financial year.",
+    "next": "Set the reporting period to the financial year under Basis, then prepare it."
+   }
+  },
+  "filing.refused.esg_annual_filer": {
+   "status": 409,
+   "label": "Discloses once a year",
+   "detail": {
+    "what": "{name} discloses its ESG risks once a year, at the year end: no report is owed for the half-year.",
+    "why": "Its stated size class and listing: {why}.",
+    "next": "Prepare its report for the financial year."
+   }
+  },
+  "filing.refused.esg_frequency_unstated": {
+   "status": 409,
+   "label": "State its size class and listing",
+   "detail": {
+    "what": "Whether {name} discloses its ESG risks for the half-year ending {date} depends on its size class and listing at that date, which are not both stated.",
+    "next": "State them under Who reports it on the reporting cockpit; once a second person approves, prepare the report."
+   }
+  },
   "filing.refused.whole_org_only": {
    "status": 409,
    "label": "Filed for the whole organisation",
@@ -5738,6 +5763,20 @@
     "what": "{report} is reported by {who}, not by the organisation as a whole once it records its undertakings as reporting entities.",
     "why": "The whole organisation's book counts every entity in full: it is no single filer's own figures and no group's consolidated figures.",
     "next": "Prepare it for one of: {choices}."
+   }
+  },
+  "filing.to_state.esg_half_year": {
+   "label": "Size class or listing not stated",
+   "detail": {
+    "what": "{name} discloses for the half-year ending {date} only as a G-SII or a listed large institution.",
+    "next": "State its size class and listing for that date."
+   }
+  },
+  "filing.to_state.esg_size": {
+   "label": "Size class not stated",
+   "detail": {
+    "what": "{name} discloses its own ESG risks for the period ending {date} only as a large institution.",
+    "next": "State its size class for that date."
    }
   },
   "filing.refused.whole_org_frozen": {
@@ -8095,11 +8134,11 @@
     "what": "{figure} is stated for an undertaking whose figures the group consolidates."
    }
   },
-  "disclose.provided.not_subsidiary": {
+  "disclose.provided.not_institution": {
    "status": 400,
-   "label": "Not a subsidiary",
+   "label": "Not an institution of your structure",
    "detail": {
-    "what": "{figure} is stated for an entity below a parent in your entity structure."
+    "what": "{figure} is stated for an institution of your entity structure; a branch is part of its institution."
    }
   },
   "disclose.provided.number": {
@@ -9518,6 +9557,14 @@
    "detail": {
     "what": "The horizon chosen is not one of the years the platform projects to.",
     "next": "Choose one of the horizons offered."
+   }
+  },
+  "admin.basis.bad_period_kind": {
+   "status": 422,
+   "label": "Not a reporting period the platform keeps",
+   "detail": {
+    "what": "A reporting period is a financial year or the first half of one.",
+    "next": "Choose one of the periods offered."
    }
   },
   "admin.basis.bad_currency": {
@@ -14055,7 +14102,8 @@
    "changes": "Change",
    "reporting_settings": "Reporting basis",
    "presentation_currency": "Presentation currency",
-   "signal": "Raised by"
+   "signal": "Raised by",
+   "filing_role": "Which report"
   },
   "admin.approval_value": {
    "higher_worse": "Higher is worse",
@@ -14081,7 +14129,8 @@
    "accept": "Accept",
    "esrs": "ESRS figures",
    "method": "Your stated method",
-   "TCFD_EU_TAXONOMY": "EU Taxonomy disclosure"
+   "TCFD_EU_TAXONOMY": "EU Taxonomy disclosure",
+   "solo": "The entity's own"
   },
   "admin.task_stage": {
    "icebox": "Icebox",

@@ -15,12 +15,13 @@ import { savedWords } from './words'
 // by the server (services/governance/admin_view.basis_options) — the screen never types its own list.
 
 type Option = { value: string; label: string }
-interface Settings { scenario: string; horizon: string; reporting_period_end: string; presentation_currency: string; is_override: boolean
-  options: { scenario: Option[]; horizon: Option[] } }
+interface Settings { scenario: string; horizon: string; reporting_period_end: string; reporting_period_kind: string; reporting_period_label: string
+  presentation_currency: string; is_override: boolean; options: { scenario: Option[]; horizon: Option[]; period_kind: Option[] } }
 
 const ABOUT = {
   title: 'Reporting basis', sections: [
-    { heading: HEADING.shows, body: 'The basis every report is computed on: the period end, the climate scenario, the time horizon and the currency group figures are presented in.' },
+    { heading: HEADING.shows, body: 'The basis every report is computed on: the period and its end, the climate scenario, the time horizon and the currency group figures are presented in.' },
+    { heading: 'Period', body: 'A financial year, or the first half of one. A half-year is prepared only for the reports disclosed twice a year — Pillar 3 ESG of a G-SII or a listed large institution; the period end is then the end of the first six months of the financial year.' },
     { heading: HEADING.read, body: 'What counts as material physical risk is not set here: it is your stated at-risk threshold for the year, set under Methodology and attested by a second person. The minimum fit a crop model needs before it is published is fixed and cannot be changed.' },
     { heading: HEADING.limits, body: 'Each legal entity files in its own currency, set on the Entities tab. A change may wait for a second person, as set in the approval matrix.' },
   ],
@@ -40,6 +41,7 @@ export function Basis() {
       </div>
       {!d ? <div className="text-[13px] text-[var(--color-faint)] py-2">Loading…</div> : (<>
         <div className="grid grid-cols-2 gap-3">
+          <Value label="Period" value={`${d.reporting_period_label} · ${nameOf(d.options.period_kind, d.reporting_period_kind)}`} />
           <Value label="Period end" value={d.reporting_period_end} />
           <Value label="Presentation currency" value={d.presentation_currency} />
           <Value label="Scenario" value={nameOf(d.options.scenario, d.scenario)} />
@@ -67,7 +69,8 @@ function Value({ label, value }: { label: string; value: string }) {
 }
 
 function BasisDialog({ d, onClose, onSaved }: { d: Settings; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ scenario: d.scenario, horizon: d.horizon, reporting_period_end: d.reporting_period_end, presentation_currency: d.presentation_currency })
+  const [f, setF] = useState({ scenario: d.scenario, horizon: d.horizon, reporting_period_end: d.reporting_period_end,
+    reporting_period_kind: d.reporting_period_kind, presentation_currency: d.presentation_currency })
   const [busy, setBusy] = useState(false)
   const currencies = useCurrencies()
   const save = async () => {
@@ -82,6 +85,9 @@ function BasisDialog({ d, onClose, onSaved }: { d: Settings; onClose: () => void
     <Dialog title="Reporting basis" onClose={onClose}>
       <div className="space-y-4">
         <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="Period">
+            <select className={inp} value={f.reporting_period_kind} onChange={e => setF({ ...f, reporting_period_kind: e.target.value })}>{d.options.period_kind.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+          </Field>
           <Field label="Period end"><input type="date" className={inp} value={f.reporting_period_end} onChange={e => setF({ ...f, reporting_period_end: e.target.value })} /></Field>
           <Field label="Presentation currency">
             <select className={inp} value={f.presentation_currency} onChange={e => setF({ ...f, presentation_currency: e.target.value })}>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select>

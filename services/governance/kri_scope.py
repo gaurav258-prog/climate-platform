@@ -87,6 +87,7 @@ class Scope:
     value_weights: dict | None
     base: object                      # the filing's translation plan, re-presented in EUR (copied fresh per book)
     default: bool
+    period_label: str = ""            # the period's label — FY2026, or FY2026-H1 for a half-year (E354)
 
     def book(self) -> dict:
         """The keyword arguments a sector's build_disclosure_snapshot (and the report freezes) take for this book."""
@@ -150,11 +151,11 @@ def resolve(session: Session, org_id: str, framework: str, entity_id: str | None
         return None
     from services.governance import filings as F
     from services.governance import report_filers as RF
-    pe = F.reporting_period_end(session, org_id)
+    pe, kind = F.reporting_period(session, org_id)
     filers = [{**f, "label": label(f)} for f in RF.choices(session, org_id, framework, pe)]
     d = default(session, org_id, filers)
     filers = [{**f, "default": d is not None and (f["entity_id"], f["role"]) == (d["entity_id"], d["role"])} for f in filers]
-    year, report = f"FY{pe.year}", F.FRAMEWORKS[framework]["label"]
+    year, report = F.period_label(pe, kind), F.FRAMEWORKS[framework]["label"]
     if entity_id is not None:
         filer = next((f for f in filers if f["entity_id"] == str(entity_id) and role in (None, f["role"])), None)
         if filer is None:
@@ -171,7 +172,7 @@ def resolve(session: Session, org_id: str, framework: str, entity_id: str | None
     frole = F._scope_role(session, org_id, framework, filer["entity_id"], filer["role"] if framework in F._OWN_BOOK else None)
     ids, weights, t = F._book_basis(session, org_id, framework, filer["entity_id"], pe, frole)
     base = None if t is None else replace(t, presentation=BOOK_CCY, functional={k: BOOK_CCY for k in t.functional})
-    return Scope(framework, filer, filers, pe, ids, weights, base, filer["default"])
+    return Scope(framework, filer, filers, pe, ids, weights, base, filer["default"], year)
 
 
 def message(scope: Scope) -> dict:
@@ -186,7 +187,8 @@ def message(scope: Scope) -> dict:
         return messages.render("kri.filer.scope.chosen", who=who, book=book, default=d or "—")
     code = ("kri.filer.scope.only" if f["role"] != "consolidated"
             else "kri.filer.scope.head" if len(scope.filers) > 1 else "kri.filer.scope.head_alone")
-    return messages.render(code, who=who, book=book, why=HEAD[scope.framework][0], year=f"FY{scope.period_end.year}")
+    return messages.render(code, who=who, book=book, why=HEAD[scope.framework][0],
+                           year=scope.period_label or f"FY{scope.period_end.year}")
 
 
 def default_name(scope: Scope) -> str | None:

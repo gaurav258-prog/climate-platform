@@ -7,7 +7,8 @@ under every adopted version. Rules (Annex XL + the spec's declared readings):
      alignment of the counterparty for the general purpose lending part only', Annex XL Template 8 para 4 — the one
      valuation in services.governance.taxonomy_valuation); households and specific-purpose lending by their own status
   CCM / CCA columns only where the objective is stated (the counterparty's KPI or the exposure's own objective)
-  T8 = T7 amount ÷ T7 row 45 (covered assets); flows = exposures originated in the reporting year
+  T8 = T7 amount ÷ T7 row 45 (covered assets); flows = exposures originated in the year prior to the reference date
+     (EBA Q&A 2024_7082; E355 — tests/unit/test_periods.py)
   T2 = loans by immovable collateral, EU / non-EU (Eurostat membership), EP-score buckets and EPC labels
 """
 from datetime import date

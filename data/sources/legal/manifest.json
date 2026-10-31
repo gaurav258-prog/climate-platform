@@ -169,6 +169,14 @@
    "sha256": "3436ff2ee6da5ed40e482b8a96fc960161106a2ffc6c0cb2bbeb73a2f8168524",
    "chars": 35959
   },
+  "32024R3172": {
+   "title": "Commission Implementing Regulation (EU) 2024/3172 of 29 November 2024 laying down implementing technical standards for the application of Regulation (EU) No 575/2013 of the European Parliament and of the Council with regard to public disclosures by institutions of the information referred to in Part Eight, Titles II and III, of that Regulation, and repealing Commission Implementing Regulation (EU) 2021/637",
+   "celex": "32024R3172",
+   "source": "http://publications.europa.eu/resource/celex/32024R3172",
+   "retrieved": "2026-10-31",
+   "sha256": "e9b03637bd5c998e1d7d2451b5e59ad30321102c7de6b2896b91f79cc173a804",
+   "chars": 35124
+  },
   "32024R3234": {
    "title": "Regulation (EU) 2024/3234 of the European Parliament and of the Council of 19 December 2024 amending Regulation (EU) 2023/1115 as regards provisions relating to the date of application",
    "celex": "32024R3234",
@@ -232,6 +240,14 @@
    "retrieved": "2026-09-30",
    "sha256": "bdcc1b88bd35f077bdab0aa0c00d864f3b514a59258c2c10a8606377b6eefe3f",
    "chars": 133277
+  },
+  "32026R0722": {
+   "title": "Commission Implementing Regulation (EU) 2026/722 of 26 March 2026 amending the implementing technical standards laid down in Implementing Regulation (EU) 2024/3172 as regards the implementation and use by institutions, other than small and non-complex institutions, of the EBA single access point for their disclosures",
+   "celex": "32026R0722",
+   "source": "http://publications.europa.eu/resource/celex/32026R0722",
+   "retrieved": "2026-10-31",
+   "sha256": "58175ce3c99dbd5834d1b643f4fdd1789695643e58d1b8ee735ab1d9848969f7",
+   "chars": 11975
   },
   "32026R1563": {
    "title": "Commission Delegated Regulation (EU) 2026/1563 amending 2023/2772 (simplified ESRS), as published",

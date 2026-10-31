@@ -25,6 +25,7 @@ from datetime import date
 
 import services.regspec as R
 from services.governance import taxonomy_vocabulary as V
+from services.governance.periods import year_before
 from services.governance.pillar3_grids import gross_of
 from services.governance.taxonomy_valuation import UNDERTAKINGS as _UNDERTAKINGS
 from services.governance.taxonomy_valuation import facts
@@ -171,7 +172,7 @@ def build(spec: dict, assets: list[dict], period_end: date, *, previous_assets: 
     def book(rows: list[dict] | None, pe: date | None) -> list[tuple[dict, float, str | None]]:
         if not rows or pe is None:
             return []
-        period = (date(pe.year, 1, 1), pe)
+        period = year_before(pe)        # the year prior to the reference date (Annex V, 1.1.2(b); E355)
         out = []
         for a in rows:
             x = gross_of(a)

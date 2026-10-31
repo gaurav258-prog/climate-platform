@@ -54,8 +54,9 @@ def test_a_new_pillar3_filing_carries_only_what_the_templates_print(api):
     form = api.get(f"/v1/filings/{fid}/form", headers=maker).json()
     assert [g["group"] for g in form["groups"]] == ["Template 1 · financed emissions (total row)", "Frozen banking book"]
     titles = [x["title"] for x in form["annex"]["sections"]]
-    assert titles[:2] == ["Who reports", "Large subsidiaries"]                        # the group's filer record (E349)
-    titles = titles[2:]
+    # the group's filer record (E349), its disclosure period and its institutions' size class and listing (E354)
+    assert titles[:3] == ["Who reports", "Disclosure period", "Size class and listing"]
+    titles = titles[3:]
     assert all(t.startswith(("Template", "Table ")) for t in titles), titles          # qualitative Tables 1-3, the templates
     assert [t[:7] for t in titles[:3]] == ["Table 1", "Table 2", "Table 3"]
     assert not any(w in json.dumps(form, ensure_ascii=False) for w in _NOT_PRINTED)

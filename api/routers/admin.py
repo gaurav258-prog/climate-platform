@@ -6,7 +6,7 @@ access_audit_log row. All data is scoped to the caller's organization.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -491,6 +491,8 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
 
 class ReportingSettingsPatch(BaseModel):
     reporting_period_end:  Optional[str] = Field(None, description="YYYY-MM-DD")
+    reporting_period_kind: Optional[Literal["financial_year", "half_year"]] = Field(
+        None, description="a financial year, or the first half of one (E354)")
     scenario:              Optional[str] = Field(None, max_length=40)
     horizon:               Optional[str] = Field(None, max_length=40)
     presentation_currency: Optional[str] = Field(None, min_length=3, max_length=3,

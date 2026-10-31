@@ -179,11 +179,15 @@ def _months_after(period_end: date, months: int) -> date:
     return date(yr, mth, last if month_end else min(period_end.day, last))          # 31 Dec + 4 months = 30 April
 
 
-def due_date(m: dict, period_end: date, facts: Optional[dict] = None) -> Optional[date]:
+def due_date(m: dict, period_end: date, facts: Optional[dict] = None, half_year: bool = False) -> Optional[date]:
     """The deadline for a period, where the mandate's rule fixes one by the calendar; None where it runs from an event
     (the ORSA's conclusion, each placing on the market) or depends on a fact about the undertaking not given (`facts`:
-    the undertaking's attested values by concept — the CSRD publication rule reads whether it is an issuer)."""
+    the undertaking's attested values by concept — the CSRD publication rule reads whether it is an issuer). A
+    half-year's deadline is the rule's `half_year` part (Pillar 3 ESG, E354); None for a mandate without one."""
     d = m["deliverable"].get("due") or {}
+    if half_year:
+        h = d.get("half_year") or {}
+        return _months_after(period_end, int(h["months_after_period_end"])) if h.get("months_after_period_end") else None
     rule = d.get("rule")
     if rule in ("with_annual_report",) and d.get("months_after_period_end"):
         return _months_after(period_end, int(d["months_after_period_end"]))

@@ -15,6 +15,9 @@ from pathlib import Path
 INTEGRATION = Path(__file__).resolve().parents[1] / "integration"
 NO_ROLE_MARKERS = ("kri.filer.none", "disclose.esrs.scope.role_needed", "filers_to_state")
 DEMO_MARKERS = ("BANK_ORG", "(demo)", ".demo\"", "IBERIA")
+# what builds the 'nothing stated yet' case: a year with no CSRD role, or (E354) a half-year with no Pillar 3 size class or
+# listing stated (tests.integration.filers)
+BUILDERS = ("year_without_roles(", "half_year_without_statements(")
 
 
 def _offenders() -> list[str]:
@@ -27,7 +30,7 @@ def _offenders() -> list[str]:
             if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
                 body = ast.get_source_segment(src, node) or ""
                 if (any(m in body for m in NO_ROLE_MARKERS) and any(m in body for m in DEMO_MARKERS)
-                        and "year_without_roles(" not in body):
+                        and not any(b in body for b in BUILDERS)):
                     out.append(f"{f.name}::{node.name}")
     return out
 
